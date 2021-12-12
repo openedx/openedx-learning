@@ -1,0 +1,10 @@
+# Core requirements for using this application
+-c constraints.txt
+
+Django<4.0                # Web application framework
+
+## Model utilities...
+django-model-utils        # Provides TimeStampedModel abstract base class
+django-simple-history     # For historical records of our models.
+
+attrs
