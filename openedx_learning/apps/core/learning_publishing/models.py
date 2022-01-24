@@ -33,15 +33,6 @@ certain APIs that they can in turn query. For instance, learning_composition
 requires that learning_partitioning has already run and populated its data
 models.
 
-Data Concepts
-
-1. Learning App: These are applications with a unique identifier. They don't
-   exist as an explicit table. [TODO: explain why] They may come and go, as apps
-   are installed and uninstalled.
-2. Learning Context: This is a published artifact, like a Course or Library.
-   [TODO: expand on what makes an LC special–versioning/publishing, student
-   state, etc.]
-3.
 """
 import uuid
 
@@ -50,22 +41,28 @@ from django.conf import settings
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
-from opaque_keys.edx.django.models import LearningContextKeyField, UsageKeyField
 
+# Note: We probably want to make our own IdentifierField so that we can control
+# how collation happens in a MySQL/Postgres compatible way.
 
-## Base models for the core data model of what it means to be "published"
+class LearningContextType(models.Model):
+    id = models.BigAutoField(primary_key=True)
+
+    # Identifier 
+    identifier = models.CharField(max_length=100, blank=False, null=False)
+    
 
 class LearningContext(TimeStampedModel):
     """
+    Hello world!
 
     .. no_pii:
     """
     id = models.BigAutoField(primary_key=True)
+    identifier = models.CharField(max_length=255, unique=True, blank=False, null=False)
 
-    # TODO: Generic "indentifier" instead of LearningContextKey? Split out into
-    # separate tables for things like Courses? Implies a "type" column as well.
-
-    key = LearningContextKeyField(max_length=255, db_index=True, unique=True, null=False)
+    # Don't allow deletion of LearningContextTypes. 
+    type = models.ForeignKey(LearningContextType, on_delete=models.RESTRICT)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
@@ -120,6 +117,8 @@ class LearningAppVersionReport(TimeStampedModel):
     .. no_pii:
     """
     id = models.BigAutoField(primary_key=True)
+
+    # Put custom collation setting here? utf8mb4_0900_ai_ci
     app_name = models.CharField(max_length=100, blank=False, null=False)
     version = models.ForeignKey(LearningContextVersion, on_delete=models.CASCADE)
 
@@ -163,9 +162,9 @@ class LearningAppContentError(models.Model):
         ],
     )
 
-    # usage_key is intentionally optional, since some errors cannot be tied to a
-    # speicific item (e.g. "too many blocks").
-    usage_key = UsageKeyField(max_length=255, null=True)
+    # identifier is intentionally optional, since some errors cannot be tied to
+    # a speicific item (e.g. "too many blocks").
+    usage_key = models.CharField(max_length=255, null=True)
 
     # Generic JSON field
     data = models.JSONField()

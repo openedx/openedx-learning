@@ -70,7 +70,7 @@ setup(
     description="""An experiment.""",
     long_description=README + '\n\n' + CHANGELOG,
     author='David Ormsbee',
-    author_email='dormsbee@edx.org',
+    author_email='dave@tcril.org',
     url='https://github.com/ormsbee/openedx-learning',
     packages=[
         'openedx_learning'

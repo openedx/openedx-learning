@@ -26,8 +26,12 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.sessions',
     'django.contrib.staticfiles',
-    'django.contrib.admin',
 
+    # Admin
+    'django.contrib.admin',
+    'django.contrib.admindocs',
+
+    # Our own apps
     'openedx_learning.apps.learning_publishing.apps.PublishingConfig',
 )
 
@@ -39,6 +43,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # Admin-specific
+    'django.contrib.admindocs.middleware.XViewMiddleware',
 ]
 
 TEMPLATES = [
