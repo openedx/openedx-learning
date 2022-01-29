@@ -18,130 +18,327 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='LearningContext',
+            name="LearningContext",
             fields=[
-                ('created', model_utils.fields.AutoCreatedField(default=django.utils.timezone.now, editable=False, verbose_name='created')),
-                ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('identifier', models.CharField(max_length=255, unique=True)),
-                ('created_by', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
+                (
+                    "created",
+                    model_utils.fields.AutoCreatedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="created",
+                    ),
+                ),
+                (
+                    "modified",
+                    model_utils.fields.AutoLastModifiedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="modified",
+                    ),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("identifier", models.CharField(max_length=255, unique=True)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='LearningContextType',
+            name="LearningContextType",
             fields=[
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('identifier', models.CharField(max_length=100)),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("identifier", models.CharField(max_length=100)),
             ],
         ),
         migrations.CreateModel(
-            name='LearningContextVersion',
+            name="LearningContextVersion",
             fields=[
-                ('created', model_utils.fields.AutoCreatedField(default=django.utils.timezone.now, editable=False, verbose_name='created')),
-                ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('title', models.CharField(db_index=True, max_length=255)),
-                ('learning_context', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='learning_publishing.learningcontext')),
+                (
+                    "created",
+                    model_utils.fields.AutoCreatedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="created",
+                    ),
+                ),
+                (
+                    "modified",
+                    model_utils.fields.AutoLastModifiedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="modified",
+                    ),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("title", models.CharField(db_index=True, max_length=255)),
+                (
+                    "learning_context",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="learning_publishing.learningcontext",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='LearningContextBranch',
+            name="LearningContextBranch",
             fields=[
-                ('created', model_utils.fields.AutoCreatedField(default=django.utils.timezone.now, editable=False, verbose_name='created')),
-                ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('branch_name', models.CharField(max_length=100)),
-                ('learning_context', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='learning_publishing.learningcontext')),
-                ('version', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, to='learning_publishing.learningcontextversion')),
+                (
+                    "created",
+                    model_utils.fields.AutoCreatedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="created",
+                    ),
+                ),
+                (
+                    "modified",
+                    model_utils.fields.AutoLastModifiedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="modified",
+                    ),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("branch_name", models.CharField(max_length=100)),
+                (
+                    "learning_context",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="learning_publishing.learningcontext",
+                    ),
+                ),
+                (
+                    "version",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.RESTRICT,
+                        to="learning_publishing.learningcontextversion",
+                    ),
+                ),
             ],
         ),
         migrations.AddField(
-            model_name='learningcontext',
-            name='type',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, to='learning_publishing.learningcontexttype'),
+            model_name="learningcontext",
+            name="type",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.RESTRICT,
+                to="learning_publishing.learningcontexttype",
+            ),
         ),
         migrations.CreateModel(
-            name='LearningAppVersionReport',
+            name="LearningAppVersionReport",
             fields=[
-                ('created', model_utils.fields.AutoCreatedField(default=django.utils.timezone.now, editable=False, verbose_name='created')),
-                ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('app_name', models.CharField(max_length=100)),
-                ('num_critical', models.PositiveIntegerField()),
-                ('num_errors', models.PositiveIntegerField()),
-                ('num_warnings', models.PositiveIntegerField()),
-                ('version', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='learning_publishing.learningcontextversion')),
+                (
+                    "created",
+                    model_utils.fields.AutoCreatedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="created",
+                    ),
+                ),
+                (
+                    "modified",
+                    model_utils.fields.AutoLastModifiedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="modified",
+                    ),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("app_name", models.CharField(max_length=100)),
+                ("num_critical", models.PositiveIntegerField()),
+                ("num_errors", models.PositiveIntegerField()),
+                ("num_warnings", models.PositiveIntegerField()),
+                (
+                    "version",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="learning_publishing.learningcontextversion",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='LearningAppContentError',
+            name="LearningAppContentError",
             fields=[
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('error_code', models.CharField(max_length=100)),
-                ('level', models.CharField(choices=[('critical', 'critical'), ('error', 'error'), ('warning', 'warning')], max_length=10)),
-                ('usage_key', models.CharField(max_length=255, null=True)),
-                ('data', models.JSONField()),
-                ('app_version_report', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='learning_publishing.learningappversionreport')),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("error_code", models.CharField(max_length=100)),
+                (
+                    "level",
+                    models.CharField(
+                        choices=[
+                            ("critical", "critical"),
+                            ("error", "error"),
+                            ("warning", "warning"),
+                        ],
+                        max_length=10,
+                    ),
+                ),
+                ("usage_key", models.CharField(max_length=255, null=True)),
+                ("data", models.JSONField()),
+                (
+                    "app_version_report",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="learning_publishing.learningappversionreport",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='HistoricalLearningContextBranch',
+            name="HistoricalLearningContextBranch",
             fields=[
-                ('created', model_utils.fields.AutoCreatedField(default=django.utils.timezone.now, editable=False, verbose_name='created')),
-                ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
-                ('id', models.BigIntegerField(blank=True, db_index=True)),
-                ('branch_name', models.CharField(max_length=100)),
-                ('history_id', models.AutoField(primary_key=True, serialize=False)),
-                ('history_date', models.DateTimeField()),
-                ('history_change_reason', models.CharField(max_length=100, null=True)),
-                ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
-                ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('learning_context', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='learning_publishing.learningcontext')),
-                ('version', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='learning_publishing.learningcontextversion')),
+                (
+                    "created",
+                    model_utils.fields.AutoCreatedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="created",
+                    ),
+                ),
+                (
+                    "modified",
+                    model_utils.fields.AutoLastModifiedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="modified",
+                    ),
+                ),
+                ("id", models.BigIntegerField(blank=True, db_index=True)),
+                ("branch_name", models.CharField(max_length=100)),
+                ("history_id", models.AutoField(primary_key=True, serialize=False)),
+                ("history_date", models.DateTimeField()),
+                ("history_change_reason", models.CharField(max_length=100, null=True)),
+                (
+                    "history_type",
+                    models.CharField(
+                        choices=[("+", "Created"), ("~", "Changed"), ("-", "Deleted")],
+                        max_length=1,
+                    ),
+                ),
+                (
+                    "history_user",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "learning_context",
+                    models.ForeignKey(
+                        blank=True,
+                        db_constraint=False,
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="+",
+                        to="learning_publishing.learningcontext",
+                    ),
+                ),
+                (
+                    "version",
+                    models.ForeignKey(
+                        blank=True,
+                        db_constraint=False,
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="+",
+                        to="learning_publishing.learningcontextversion",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'historical learning context branch',
-                'ordering': ('-history_date', '-history_id'),
-                'get_latest_by': 'history_date',
+                "verbose_name": "historical learning context branch",
+                "ordering": ("-history_date", "-history_id"),
+                "get_latest_by": "history_date",
             },
             bases=(simple_history.models.HistoricalChanges, models.Model),
         ),
         migrations.CreateModel(
-            name='HistoricalLearningAppVersionReport',
+            name="HistoricalLearningAppVersionReport",
             fields=[
-                ('created', model_utils.fields.AutoCreatedField(default=django.utils.timezone.now, editable=False, verbose_name='created')),
-                ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
-                ('id', models.BigIntegerField(blank=True, db_index=True)),
-                ('app_name', models.CharField(max_length=100)),
-                ('num_critical', models.PositiveIntegerField()),
-                ('num_errors', models.PositiveIntegerField()),
-                ('num_warnings', models.PositiveIntegerField()),
-                ('history_id', models.AutoField(primary_key=True, serialize=False)),
-                ('history_date', models.DateTimeField()),
-                ('history_change_reason', models.CharField(max_length=100, null=True)),
-                ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
-                ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('version', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='learning_publishing.learningcontextversion')),
+                (
+                    "created",
+                    model_utils.fields.AutoCreatedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="created",
+                    ),
+                ),
+                (
+                    "modified",
+                    model_utils.fields.AutoLastModifiedField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                        verbose_name="modified",
+                    ),
+                ),
+                ("id", models.BigIntegerField(blank=True, db_index=True)),
+                ("app_name", models.CharField(max_length=100)),
+                ("num_critical", models.PositiveIntegerField()),
+                ("num_errors", models.PositiveIntegerField()),
+                ("num_warnings", models.PositiveIntegerField()),
+                ("history_id", models.AutoField(primary_key=True, serialize=False)),
+                ("history_date", models.DateTimeField()),
+                ("history_change_reason", models.CharField(max_length=100, null=True)),
+                (
+                    "history_type",
+                    models.CharField(
+                        choices=[("+", "Created"), ("~", "Changed"), ("-", "Deleted")],
+                        max_length=1,
+                    ),
+                ),
+                (
+                    "history_user",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "version",
+                    models.ForeignKey(
+                        blank=True,
+                        db_constraint=False,
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="+",
+                        to="learning_publishing.learningcontextversion",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'historical learning app version report',
-                'ordering': ('-history_date', '-history_id'),
-                'get_latest_by': 'history_date',
+                "verbose_name": "historical learning app version report",
+                "ordering": ("-history_date", "-history_id"),
+                "get_latest_by": "history_date",
             },
             bases=(simple_history.models.HistoricalChanges, models.Model),
         ),
         migrations.AddConstraint(
-            model_name='learningcontextbranch',
-            constraint=models.UniqueConstraint(fields=('learning_context_id', 'branch_name'), name='one_branch_per_learning_context'),
+            model_name="learningcontextbranch",
+            constraint=models.UniqueConstraint(
+                fields=("learning_context_id", "branch_name"),
+                name="one_branch_per_learning_context",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='learningappversionreport',
-            constraint=models.UniqueConstraint(fields=('app_name', 'version'), name='one_report_per_app_and_version'),
+            model_name="learningappversionreport",
+            constraint=models.UniqueConstraint(
+                fields=("app_name", "version"), name="one_report_per_app_and_version"
+            ),
         ),
     ]

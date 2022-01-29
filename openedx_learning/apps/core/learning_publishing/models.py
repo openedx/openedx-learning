@@ -45,12 +45,13 @@ from simple_history.models import HistoricalRecords
 # Note: We probably want to make our own IdentifierField so that we can control
 # how collation happens in a MySQL/Postgres compatible way.
 
+
 class LearningContextType(models.Model):
     id = models.BigAutoField(primary_key=True)
 
-    # Identifier 
+    # Identifier
     identifier = models.CharField(max_length=100, blank=False, null=False)
-    
+
 
 class LearningContext(TimeStampedModel):
     """
@@ -58,26 +59,31 @@ class LearningContext(TimeStampedModel):
 
     .. no_pii:
     """
+
     id = models.BigAutoField(primary_key=True)
     identifier = models.CharField(max_length=255, unique=True, blank=False, null=False)
 
-    # Don't allow deletion of LearningContextTypes. 
+    # Don't allow deletion of LearningContextTypes.
     type = models.ForeignKey(LearningContextType, on_delete=models.RESTRICT)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL
+    )
 
     def __str__(self):
         """
         Get a string representation of this model instance.
         """
         # TODO: return a string appropriate for the data fields
-        return '<PublishedLearningContext, ID: {}>'.format(self.id)
+        return "<PublishedLearningContext, ID: {}>".format(self.id)
 
 
 class LearningContextVersion(TimeStampedModel):
     """
+    What's a Context Version?
 
     .. no_pii:
     """
+
     id = models.BigAutoField(primary_key=True)
 
     # TODO: Replace this with something that doesn't require opaque-keys
@@ -87,9 +93,11 @@ class LearningContextVersion(TimeStampedModel):
 
 class LearningContextBranch(TimeStampedModel):
     """
+    What's a Branch?
 
     .. no_pii:
     """
+
     id = models.BigAutoField(primary_key=True)
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
     branch_name = models.CharField(max_length=100)
@@ -106,16 +114,19 @@ class LearningContextBranch(TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['learning_context_id', 'branch_name'],
-                name='one_branch_per_learning_context'
+                fields=["learning_context_id", "branch_name"],
+                name="one_branch_per_learning_context",
             )
         ]
 
+
 class LearningAppVersionReport(TimeStampedModel):
     """
+    Results of creating a version.
 
     .. no_pii:
     """
+
     id = models.BigAutoField(primary_key=True)
 
     # Put custom collation setting here? utf8mb4_0900_ai_ci
@@ -137,19 +148,22 @@ class LearningAppVersionReport(TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['app_name', 'version'],
-                name='one_report_per_app_and_version'
+                fields=["app_name", "version"], name="one_report_per_app_and_version"
             )
         ]
 
-#
+
 class LearningAppContentError(models.Model):
     """
+    Generic Error Container
 
     .. no_pii:
     """
+
     id = models.BigAutoField(primary_key=True)
-    app_version_report = models.ForeignKey(LearningAppVersionReport, on_delete=models.CASCADE)
+    app_version_report = models.ForeignKey(
+        LearningAppVersionReport, on_delete=models.CASCADE
+    )
 
     # Convention for error_code should be {app}.{plugin}.{short_name}?
     error_code = models.CharField(max_length=100, blank=False, null=False)

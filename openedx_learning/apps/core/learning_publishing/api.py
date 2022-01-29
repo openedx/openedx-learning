@@ -10,35 +10,37 @@ What does a publishing call look like, in a pluggable world? And how much data
 are we talking about?
 
 Boundary between "composition" and "navigation" – fuzzy? Navigation has Unit
-metadata, but doesn't know about anything _inside_ the Unit.
+metadata, but doesn't know about anything _inside_ the Unit::
 
-{
-    "type": "update",  // as opposed to "replace"
-    "version": "someversionindicator",
+    {
+        "type": "update",  // as opposed to "replace"
+        "version": "someversionindicator",
 
-    "policy": {
+        "policy": {
 
-    },
+        },
 
-    "partitioning": {
+        "partitioning": {
 
-    },
-    "composition": {
+        },
+        "composition": {
 
-    },
-    "navigation": {
-        "type": "three_level_static", // This is a terrible name, what do we call what we have?,
+        },
+        "navigation": {
+            "type": "three_level_static", // This is a terrible name, what do we call what we have?,
+
+        }
 
     }
-
-}
 
 How to manage plugin cycle life?
 
 """
-def current_version(learning_context_key, ):
+
+
+def current_version(learning_context_key):
     pass
+
 
 def update_published_version(learning_context_key, app_name, published_at=None):
     pass
-

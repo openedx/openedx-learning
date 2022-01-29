@@ -24,8 +24,7 @@ Parts
 ~~~~~
 
 * ``openedx_learning.lib`` is for shared utilities, and may include things like custom field types, plugin registration code, etc.
-* ``openedx_learning.app.core`` contains our Core Django apps. These 
-
+* ``openedx_learning.app.core`` contains our Core Django apps.
 
 App Dependencies
 ~~~~~~~~~~~~~~~~
@@ -37,9 +36,6 @@ Core apps can import from each other, but cannot import from other apps outside 
 * ``learning_publishing`` has no dependencies. All the other apps depend on it.
 * ``learning_composition`` and ``learning_navigation`` both depend on ``learning_partitioning``
 
-
-
-
 See Also
 ~~~~~~~~
 
@@ -48,15 +44,10 @@ The structure of this repo follows [OEP-0049](https://open-edx-proposals.readthe
 * [Scaling Django to 500 apps](https://2021.djangocon.us/talks/scaling-django-to-500-apps/) (Dan Palmer, DjangoCon US 2021)
 * [Django structure for scale and longevity](https://www.youtube.com/watch?v=yG3ZdxBb1oo) (Radoslav Georgiev, EuroPython 2018)
 
-
 Code Overview
 -------------
 
 The ``openedx_learning.apps`` package contains all our Django applications. All apps are named with a ``learning_`` prefix to better avoid name conflicts, because Django's app namespace is flat. Apps will adhere to `OEP-0049: Django App Patterns <https://open-edx-proposals.readthedocs.io/en/latest/architectural-decisions/oep-0049-django-app-patterns.html>`_.
-
-
-
-
 
 Development Workflow
 --------------------

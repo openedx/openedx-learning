@@ -26,11 +26,20 @@ DATABASES = {
     }
 }
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
-    'openedx_learning.apps.learning_publishing.apps.PublishingConfig',
-)
+    'django.contrib.messages',
+    'django.contrib.sessions',
+    'django.contrib.staticfiles',
+
+    # Admin
+    'django.contrib.admin',
+    'django.contrib.admindocs',
+
+    # Our own apps
+    'openedx_learning.apps.core.learning_publishing.apps.PublishingConfig',
+]
 
 LOCALE_PATHS = [
     root('openedx_learning', 'conf', 'locale'),

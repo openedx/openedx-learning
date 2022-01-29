@@ -61,6 +61,7 @@ django_setup()
 extensions = [
     'edx_theme',
     'sphinx.ext.autodoc',
+    'sphinxcontrib_django',
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.ifconfig',
@@ -92,7 +93,7 @@ top_level_doc = 'index'
 project = 'openedx-learning'
 copyright = edx_theme.COPYRIGHT  # pylint: disable=redefined-builtin
 author = edx_theme.AUTHOR
-project_title = 'Open edX Content Core Apps'
+project_title = 'Open edX Learning Core'
 documentation_title = f"{project_title}"
 
 # The version info for the project you're documenting, acts as replacement for
