@@ -9,5 +9,5 @@ class PublishingConfig(AppConfig):
     """
     Configuration for the publishing Django application.
     """
-    name = 'openedx_learning.apps.learning_publishing'
+    name = 'openedx_learning.apps.core.learning_publishing'
     verbose_name = 'Learning Core: Content Publishing'
