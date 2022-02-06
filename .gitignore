@@ -59,3 +59,7 @@ docs/openedx_learning.*.rst
 # Private requirements
 requirements/private.in
 requirements/private.txt
+
+# database file
+dev.db
+s

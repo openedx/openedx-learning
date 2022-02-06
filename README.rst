@@ -36,6 +36,17 @@ Core apps can import from each other, but cannot import from other apps outside 
 * ``learning_publishing`` has no dependencies. All the other apps depend on it.
 * ``learning_composition`` and ``learning_navigation`` both depend on ``learning_partitioning``
 
+Model Conventions
+~~~~~~~~~~~~~~~~~
+
+We have a few different identifier types in the schema, and we try to avoid ``_id`` for this because Django uses that convention to reference IDs in other models/tables. So instead we have:
+
+* ``id`` is the auto-generated, internal row ID and primary key. This never changes. Data models should make foreign keys to this field, as per Django convention.
+* ``uuid`` is a randomly generated UUID4. This is the stable way to refer to a row/resource from an external service. This never changes. This is separate from ``id`` mostly because there are performance penalties when using UUIDs as primary keys with MySQL.
+* ``identifier`` is intended to be a case-sensitive, alphanumeric identifier, which holds some meaning to library clients. This is usually stable, but can be changed, depending on the business logic of the client. The apps in this repo should make no assumptions about it being stable. It can be used as a suffix.
+* ``num`` is like ``identifier``, but for use when it's strictly numeric. It can also be used as a suffix.
+
+
 See Also
 ~~~~~~~~
 
