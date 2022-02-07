@@ -4,6 +4,8 @@ openedx-learning
 |pypi-badge| |ci-badge| |codecov-badge| |doc-badge| |pyversions-badge|
 |license-badge|
 
+This is experimentation/prototyping and not in any way production ready!
+------------------------------------------------------------------------
 
 Overview
 --------
