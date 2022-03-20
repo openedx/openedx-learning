@@ -21,6 +21,7 @@ def immutable_uuid_field():
         blank=False,
         null=False,
         editable=False,
+        unique=True,
     )
 
 def hash_field(*, unique):

@@ -33,7 +33,7 @@ LearningObject
 """
 from django.db import models
 
-from ..learning_publishing.models import LearningObjectVersion
+# from ..learning_publishing.models import LearningObjectVersion
 
 from openedx_learning.lib.fields import hash_field, identifier_field, immutable_uuid_field
 
@@ -62,7 +62,7 @@ class Block(models.Model):
 
     How do we decompose this? Separate tables for different aspects, like grades?
     """
-    learning_object_version = models.ForeignKey(LearningObjectVersion, on_delete=models.CASCADE)
+#    learning_object_version = models.ForeignKey(LearningObjectVersion, on_delete=models.CASCADE)
 
 
 class Unit(models.Model):
