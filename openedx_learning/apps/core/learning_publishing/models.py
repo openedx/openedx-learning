@@ -23,8 +23,6 @@ class LearningContextVersion(models.Model):
     version_num = models.PositiveIntegerField()
 
 
-
-
 class BlockType(models.Model):
     """
     Data we want to track:
@@ -86,7 +84,7 @@ class BlockContent(models.Model):
     ContentPackage. A LearningContext can use multiple ContentPackages, and
     multiple LearningContexts can use the same ContentPackage.
     
-    We don't want this data in BlockVersion for two reasons:
+    We don't want this data in BlockVersion because:
 
       1. If something is deleted and recreated across versions (e.g. accidental
          deletion followed by re-upload), we don't want to have to re-upload
@@ -95,6 +93,8 @@ class BlockContent(models.Model):
          templates that are repeated).
       3. We want to allow BlockVersion queries without fetching a bunch of extra
          content data by accident.
+      4. We need to be able to reuse the same BlockContent in multiple
+         LearningContexts, e.g. the Content Library use case.
     """
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
     hash_digest = hash_field(unique=False)
@@ -127,3 +127,6 @@ class BlockVersion(models.Model):
         return f"{self.uuid}: {self.title}"
 
 
+class ContentPackage(models.Model):
+    uuid = immutable_uuid_field()
+    identifier = identifier_field(unique=True)

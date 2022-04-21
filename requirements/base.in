@@ -4,6 +4,9 @@
 Django<4.0                # Web application framework
 
 ## Model utilities...
+# Note: let's get rid of these to further reduce dependencies.
+# The history requirements for our apps are pretty different anyhow, since
+# versioning information and sharing is a central part of the data model.
 django-model-utils        # Provides TimeStampedModel abstract base class
 django-simple-history     # For historical records of our models.
 
