@@ -9,18 +9,69 @@ from openedx_learning.lib.fields import hash_field, identifier_field, immutable_
 
 class LearningContext(models.Model):
     uuid = immutable_uuid_field()
-    identifier = identifier_field(unique=True)
+    identifier = identifier_field()
 
     def __str__(self):
-        return f"{self.uuid}: {self.identifier}"
+        return f"LearningContext {self.uuid}: {self.identifier}"
+
+    class Meta:
+        constraints = [
+            # LearningContext identifiers must be globally unique. This is
+            # something that might be relaxed in the future if this system were
+            # to be extensible to something like multi-tenancy, in which case
+            # we'd tie it to something like a Site or Org.
+            models.UniqueConstraint(fields=["identifier"], name="learning_publishing_lc_uniq_identifier")
+        ]
 
 class LearningContextVersion(models.Model):
     """
-    We actually rely on 
     """
     uuid = immutable_uuid_field()
-    identifier = identifier_field(unique=False)
+    learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
     version_num = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            # LearningContextVersions are created in a linear history, because
+            # every version is intended as either a published version or a draft
+            # version that is a candidate for publishing. In the event of a race
+            # condition of two processes that are trying to publish the "next"
+            # version, we should only allow one to win, and fail the other one
+            # so that it has to re-read and re-try (instead of silently
+            # overwriting).
+            models.UniqueConstraint(
+                fields=["learning_context_id", "version_num"],
+                name="learning_publishing_lcv_uniq_lc_vn",
+            )
+        ]
+
+
+class ContentPackage(models.Model):
+    """
+    A ContentPackage is an unversioned collection of Content without Policy.
+
+    ContentPackages exist as a mechanism for sharing content between different
+    LearningContexts. A LearningContext may have one or more ContentPackages.
+    For example, a Content Library might have one ContentPackage, while a Course
+    will use the ContentPackages from several different libraries, as well as
+    having one of its own.
+
+    A ContentPackage belongs to one particular LearningContext, but may also be
+    accessed from other LearningContexts. The owning LearningContext sets the
+    default policy settings.
+
+    ContentPackages aren't separately versioned. Or rather, the ContentPackage
+    represents all the content that has ever existed for it at once, and the
+    versioning happens at the LearningContextVersion layer.
+    """
+    uuid = immutable_uuid_field()
+
+    # TODO: Should ContentPackages have identifiers or titles? Are those only
+    #       given by the LearningContext in some third, joining model?
+
+    # TODO: What is the behavior when the LearningContext is deleted, w.r.t.
+    #       other LearningContexts that might use this ContentPackage?
+    learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
 
 
 class BlockType(models.Model):
@@ -50,83 +101,144 @@ class BlockType(models.Model):
         return f"{self.major}:{self.minor}"
 
 
-class LearningContextBlock(models.Model):
+class ContentAtom(models.Model):
     """
-    This represents any Block that has ever existed in a LearningContext.
+    This is the most basic piece of content data, with no metadata.
 
-    Notes:
-    * I think it's feasible 
+    It can encode text, json, or binary data. It has no identity beyond a hash
+    of its payload data (text/json/binary). It is scoped to a ContentPackage,
+    and not shared across ContentPackages. These are not versioned in any way.
+    The concept of versioning exists at a higher level.
+
+    TODO: Maybe this would be better as separate classes for BinaryAtom,
+          TextAtom, and JSONAtom? Would make joins for mixed content awkward,
+          wouldn't it?
     """
-    learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
-    uuid = immutable_uuid_field()
-    identifier = identifier_field(unique=False)
-    block_type = models.ForeignKey(BlockType, on_delete=models.RESTRICT)
+    # We'll scope this ContentAtom to a specific ContentPackage both for
+    # security reasons (e.g. malicious hash collision), and also to make cleanup
+    # simpler when a ContentPackage is deleted.
+    content_package = models.ForeignKey(ContentPackage, on_delete=models.CASCADE)
+
+    # Hash has to mime_type + text_data + json_data + bin_data. We'll need some
+    # kind of prefixing to make sure we don't get hash collisions when something
+    # tries to store binary data that happens to match text data for the same
+    # type of ContentAtom.
+    hash_digest = hash_field()
+
+    # Per RFC 4288, MIME type and sub-type may each be 127 chars. Add one more
+    # char for the '/' in the middle, and we're at 255.
+    mime_type = models.CharField(max_length=255, blank=False, null=False)
+
+    # Typicaly only one of these would be used at a given time. Maybe these
+    # should just be made into separate models?
+    text_data = models.TextField(null=True)
+    json_data = models.JSONField(null=True)
+    bin_data = models.BinaryField(null=True)
+
+
+    size = models.PositiveBigIntegerField()
 
     class Meta:
         constraints = [
+            # Make sure we don't store duplicates of this raw data within the
+            # same ContentPackage.
             models.UniqueConstraint(
-                fields=["learning_context_id", "identifier"],
-                name="learning_publishing_lcb_one_identifier_per_lc",
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.identifier}"
-
-
-class BlockContent(models.Model):
-    """
-    Holds the basic content data.
-
-    A few notes:
-    
-    This shouldn't be connected to LearningContexts directly, but to a
-    ContentPackage. A LearningContext can use multiple ContentPackages, and
-    multiple LearningContexts can use the same ContentPackage.
-    
-    We don't want this data in BlockVersion because:
-
-      1. If something is deleted and recreated across versions (e.g. accidental
-         deletion followed by re-upload), we don't want to have to re-upload
-         everything.
-      2. There are minor savings to be had by redundant content (e.g. some HTML
-         templates that are repeated).
-      3. We want to allow BlockVersion queries without fetching a bunch of extra
-         content data by accident.
-      4. We need to be able to reuse the same BlockContent in multiple
-         LearningContexts, e.g. the Content Library use case.
-    """
-    learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
-    hash_digest = hash_field(unique=False)
-    data = models.TextField()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["learning_context_id", "hash_digest"],
-                name="learning_publishing_bc_unique_content_hash",
+                fields=["content_package_id", "hash_digest"],
+                name="learning_publishing_ca_uniq_cp_hd",
             )
         ]
 
 
-class BlockVersion(models.Model):
+class ContentSegment(models.Model):
     """
-    Maybe this is also associated with the Content
+    A ContentSegment is an ordered list of contiguous ContentObjects.
+
+    This represents a short list of ContentObjects that are so tightly bound to
+    each other, that it does not make sense to display any of them separately.
+    For example, we could have a Video and a Problem that asks specific
+    questions about the video. They may use different rendering systems, but the
+    content in them is strongly connected.
     """
-    LAST_VERSION_NUM = 2147483647
-    block = models.ForeignKey(LearningContextBlock, on_delete=models.RESTRICT)
-    content = models.ForeignKey(BlockContent, on_delete=models.RESTRICT)
-
     uuid = immutable_uuid_field()
-    start_version_num = models.PositiveIntegerField()
-    end_version_num = models.PositiveIntegerField(default=LAST_VERSION_NUM)
-
-    title = models.CharField(max_length=1000, blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.uuid}: {self.title}"
+    identifier = identifier_field()
 
 
-class ContentPackage(models.Model):
+class ContentObject(models.Model):
+    """
+    Represents the combined content for a single renderable piece.
+
+    This does _not_ include things that we consider policy-related metadata.
+
+    An example piece of content could be the entirety of content associated with
+    one particular XBlock block, e.g. a ProblemBlock. This model has almost no
+    data associated with it because that data is mostly encoded in
+    ContentObjectParts.
+
+
+    Does it make sense to get rid of the concept of ContentSegment and instead
+    think of it as two ContentObjectParts with type application/x+xblock ? With
+    ordering done via naming like 0/html_identifier, 1/problem_identifier?
+
+    That would tie the versioned thing to the ContentObjectPart instead of the
+    ContentObject.
+
+
+    """
     uuid = immutable_uuid_field()
-    identifier = identifier_field(unique=True)
+    content_segment = models.ForeignKey(ContentSegment, on_delete=models.CASCADE)
+    segment_order_num = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            # Make sure we don't get ordering conflicts between ContentObjects
+            # in the same ContentSegment.
+            models.UniqueConstraint(
+                fields=["content_segment_id", "segment_order_num"],
+                name="learning_publishing_co_uniq_cs_son",
+            )
+        ]
+
+
+class ContentObjectPart(models.Model):
+    """
+    A single piece of a ContentObject, with an identifier and MIME type.
+
+    Many individual Blocks are logically several assets tied together. For
+    example:
+
+    * ProblemBlocks have an XML definition of the problem, as well as separate
+      entries for an associated static assets. We could also potentially
+      separate grading code into a separate part.
+    * HTMLBlocks have an XML definition, but also an HTML file, and associated
+      assets.
+    * VideoBlocks have an XML definition with attributes, but they can also have
+      text transcript files (.srt or .vtt).
+    
+    Each entry may be treated like a file, but does not have to be.
+    """
+    uuid = immutable_uuid_field()
+    identifier = identifier_field()
+    content_object = models.ForeignKey(ContentObject, on_delete=models.CASCADE)
+    content_atom = models.ForeignKey(ContentAtom, on_delete=models.RESTRICT)
+
+    class Meta:
+        constraints = [
+            # Within the same ContentObject, each ContentObjectPart should have
+            # a unique identifier.
+            models.UniqueConstraint(
+                fields=["content_object_id", "identifier"],
+                name="learning_publishing_cop_uniq_co_identifier",
+            )
+        ]
+
+
+#class BlockVersion(models.Model):
+#    uuid = immutable_uuid_field()
+#    content = models.ForeignKey(ContentObject, on_delete=models.RESTRICT)
+#    identifier = identifier_field(unique=False)
+#
+#    title = models.CharField(max_length=1000, blank=True, null=True)
+#
+#    def __str__(self):
+#        return f"{self.uuid}: {self.title}"
+

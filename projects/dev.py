@@ -33,7 +33,7 @@ INSTALLED_APPS = (
 
     # Our own apps
     'openedx_learning.apps.core.learning_publishing.apps.PublishingConfig',
-    'openedx_learning.apps.core.learning_partitioning.apps.PartitioningConfig',
+    # 'openedx_learning.apps.core.learning_partitioning.apps.PartitioningConfig',
 )
 
 MIDDLEWARE = [
