@@ -5,7 +5,7 @@ experimentation purposes.
 This should live in its own app, since it will likely need to understand
 different apps.
 """
-from collections import defaultdict
+from collections import defaultdict, Counter
 import codecs
 import hashlib
 import json
@@ -80,7 +80,7 @@ class Command(BaseCommand):
 
         static_asset_paths_to_atom_ids = self.import_static_assets(course_data_path)
 
-        print(course_data_path)
+        print(f"Importing course from: {course_data_path}")
         for block_type in SUPPORTED_TYPES:
             self.import_block_type(
                 block_type,
@@ -99,18 +99,20 @@ class Command(BaseCommand):
 
         num_files = 0
         cum_size = 0
-        mime_types_seen = set()
+        mime_types_seen = Counter()
         paths_to_atom_ids = {}
         longest_identifier_len = 0
+        print("")
 
         for file_path in file_paths:
             identifier = str(file_path.relative_to(course_data_path))
             longest_identifier_len = max(longest_identifier_len, len(str(identifier)))
 
             data_bytes = file_path.read_bytes()
-            print(f"{identifier}: {len(data_bytes)}")
+
             num_files += 1
             cum_size += len(data_bytes)
+            print(f"Static file #{num_files}: ({(cum_size / 1_000_000):.2f} MB)", end="\r")
 
             data_hash = hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
             if file_path.suffix == "":
@@ -118,7 +120,7 @@ class Command(BaseCommand):
             else:
                 mime_type, _encoding = mimetypes.guess_type(identifier)
             
-            mime_types_seen.add(mime_type)
+            mime_types_seen[mime_type] += 1
 
             if mime_type is None:
                 print(identifier)
@@ -141,8 +143,8 @@ class Command(BaseCommand):
         print(f"{num_files} assets, totaling {(cum_size / 1_000_000):.2f} MB")
         print(f"Longest identifier length seen: {longest_identifier_len}")
         print("MIME types seen:")
-        for mt in sorted(mime_types_seen):
-            print(f"* {mt}")
+        for mime_type_str, freq in sorted(mime_types_seen.items()):
+            print(f"* {mime_type_str}: {freq}")
 
         #print(list(paths_to_atom_ids.items())[:10])
         #sys.exit()
@@ -197,6 +199,7 @@ class Command(BaseCommand):
                 defaults={
                     'text_data': data_str,
                     'size': len(data_bytes),  # TODO: Should this be the length of the string instead?
+                    'mime_type': 'application/x+xblock',
                 },
             )
             ContentObjectPart.objects.create(content_object=content_obj, content_atom=atom, identifier=identifier)
@@ -204,10 +207,8 @@ class Command(BaseCommand):
                 f"static/{static_reference_path}"
                 for static_reference_path in re.findall(static_files_regex, data_str)    
             )
-            print(f"     {static_file_paths}")
             for static_file_path in static_file_paths:
                 if static_file_path in static_asset_paths_to_atom_ids:
-                    print("               FOUND!")
                     atom_id = static_asset_paths_to_atom_ids[static_file_path]
                     ContentObjectPart.objects.create(content_object=content_obj, content_atom_id=atom_id, identifier=static_file_path)
             """
@@ -239,7 +240,10 @@ def is_json_type(mime_type):
     return mime_type.endswith("json")
 
 def is_text_type(mime_type):
-    return mime_type.startswith("text/") or mime_type == "application/javascript"
+    return (
+        mime_type.startswith("text/") or
+        (mime_type in ["application/javascript", "application/x-subrip"])
+    )
 
 def parse_data(mime_type, data_bytes):
     if is_json_type(mime_type):
