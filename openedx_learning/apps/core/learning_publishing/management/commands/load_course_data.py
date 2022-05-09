@@ -6,6 +6,7 @@ This should live in its own app, since it will likely need to understand
 different apps.
 """
 from collections import defaultdict, Counter
+from datetime import datetime, timezone
 import codecs
 import hashlib
 import json
@@ -19,16 +20,20 @@ import sys
 import xml.etree.ElementTree as ET
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from ...models import (
-    BlockType,
+#    BlockType,
+    BlockContentObject,
+
     ContentAtom,
     ContentObject,
-    ContentObjectPart,
     ContentPackage,
-    ContentSegment,
+#    ContentSegment,
     LearningContext,
-    LearningContextVersion,
+#    LearningContextVersion,
+    SimpleContentObject,
+    StaticAssetContentObject,
 )
 
 SUPPORTED_TYPES = ['lti', 'problem', 'video']
@@ -44,7 +49,7 @@ class Command(BaseCommand):
         self.content_package = None
 
         # Intialize mimetypes with some custom values:
-        mimetypes.add_type("application/x-srt+json", ".sjson")
+        mimetypes.add_type("application/vnd.openedx.srt+json", ".sjson")
         mimetypes.add_type("text/markdown", ".md")
 
     def add_arguments(self, parser):
@@ -57,39 +62,50 @@ class Command(BaseCommand):
 
     def reset_data(self):
         """Big hammer reset for testing purposes."""
-        ContentSegment.objects.all().delete()
-        ContentObjectPart.objects.all().delete()
+        # ContentSegment.objects.all().delete()
+        # ContentObjectPart.objects.all().delete()
         ContentObject.objects.all().delete()
-        ContentAtom.objects.all().delete()
+        # ContentAtom.objects.all().delete()
 
         # Just this should be sufficient to delete most things, right?
-        ContentPackage.objects.all().delete()
+        # ContentPackage.objects.all().delete()
 
-        LearningContextVersion.objects.all().delete()
-        LearningContext.objects.all().delete()
-        BlockType.objects.all().delete()
+        # LearningContextVersion.objects.all().delete()
+        # LearningContext.objects.all().delete()
+        # BlockType.objects.all().delete()
 
     def load_course_data(self, course_data_path):
-        learning_context, _created = LearningContext.objects.get_or_create(identifier="big-sample-course")
-        self.learning_context = learning_context
-        
-        # Interesting, how do we tie it back to an existing content_package without using some kind of ID scheme?
-        # This only works for now because we always reset.
-        content_package = ContentPackage.objects.create(learning_context=learning_context)
-        self.content_package = content_package
-
-        static_asset_paths_to_atom_ids = self.import_static_assets(course_data_path)
-
         print(f"Importing course from: {course_data_path}")
-        for block_type in SUPPORTED_TYPES:
-            self.import_block_type(
-                block_type,
-                course_data_path / block_type,
-                static_asset_paths_to_atom_ids,
-            )
+        now = datetime.now(timezone.utc)
+
+        with transaction.atomic():
+            learning_context, _created = LearningContext.objects.get_or_create(identifier="big-sample-course")
+            self.learning_context = learning_context
+            content_package, _created = ContentPackage.objects.get_or_create(learning_context=learning_context)
+            self.content_package = content_package
+
+            existing_atoms = ContentAtom.objects \
+                                .filter(content_package=content_package) \
+                                .values_list('id', 'mime_type', 'hash_digest')
+            atom_id_cache = {
+                (mime_type, hash_digest): atom_id
+                for atom_id, mime_type, hash_digest in existing_atoms
+            }
+
+            static_asset_paths_to_atom_ids = self.import_static_assets(course_data_path, atom_id_cache, now)
+            # static_asset_paths_to_atom_ids = {}
+            print("\nReading XBlock types...")
+            for block_type in SUPPORTED_TYPES:
+                self.import_block_type(
+                    block_type,
+                    course_data_path / block_type,
+                    static_asset_paths_to_atom_ids,
+                    atom_id_cache,
+                    now,
+                )
 
 
-    def import_static_assets(self, course_data_path):
+    def import_static_assets(self, course_data_path, atom_id_cache, now):
         IGNORED_NAMES = [".DS_Store"]
         static_assets_path = course_data_path / "static"
         file_paths = (
@@ -102,7 +118,7 @@ class Command(BaseCommand):
         mime_types_seen = Counter()
         paths_to_atom_ids = {}
         longest_identifier_len = 0
-        print("")
+        print("Reading static assets...\n")
 
         for file_path in file_paths:
             identifier = str(file_path.relative_to(course_data_path))
@@ -125,20 +141,27 @@ class Command(BaseCommand):
             if mime_type is None:
                 print(identifier)
 
-            text_data, json_data, bin_data = parse_data(mime_type, data_bytes)
+            atom_id = atom_id_cache.get((mime_type, data_hash))
+            if atom_id is None:
+                # print("cache miss!")
+                atom, _created = ContentAtom.objects.get_or_create(
+                    content_package=self.content_package,
+                    mime_type=mime_type,
+                    hash_digest=data_hash,
+                    defaults={
+                        'data': data_bytes,
+                        'size': len(data_bytes),
+                        'created': now,
+                    }
+                )
+                atom_id = atom.id
 
-            atom, _created = ContentAtom.objects.get_or_create(
-                content_package=self.content_package,
-                hash_digest=data_hash,
-                defaults={
-                    'mime_type': mime_type,
-                    'text_data': text_data,
-                    'json_data': json_data,
-                    'bin_data': bin_data,
-                    'size': len(next(data for data in [text_data, json_data, bin_data] if data is not None))
-                }
-            )
-            paths_to_atom_ids[identifier] = atom.id
+            co = ContentObject.objects.create(type='simple')
+            sco = SimpleContentObject.objects.create(content_object=co, content_atom_id=atom_id)
+            saco = StaticAssetContentObject.objects.create(simple_content_object=sco)
+            # We'll add StaticAsset and Block layers later
+
+            paths_to_atom_ids[identifier] = atom_id
 
         print(f"{num_files} assets, totaling {(cum_size / 1_000_000):.2f} MB")
         print(f"Longest identifier length seen: {longest_identifier_len}")
@@ -152,9 +175,9 @@ class Command(BaseCommand):
         return paths_to_atom_ids
 
 
-    def import_block_type(self, block_type, content_path, static_asset_paths_to_atom_ids):
-        block_type, _created = BlockType.objects.get_or_create(major="atom", minor=f"xblock-{block_type}")
-        block_type_id = block_type.id
+    def import_block_type(self, block_type, content_path, static_asset_paths_to_atom_ids, atom_id_cache, now):
+#        block_type, _created = BlockType.objects.get_or_create(major="atom", minor=f"xblock-{block_type}")
+#        block_type_id = block_type.id
         items_found = 0
 
         # Find everything that looks like a reference to a static file appearing
@@ -167,16 +190,16 @@ class Command(BaseCommand):
             items_found += 1
             identifier = xml_file_path.stem
             data_bytes = xml_file_path.read_bytes()
-            data_hash = hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
+            hash_digest = hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
             data_str = codecs.decode(data_bytes, 'utf-8')
-            modified = xml_file_path.stat().st_mtime
+            # modified = xml_file_path.stat().st_mtime
 
-            try:
-                root_el = ET.fromstring(data_str)
-                title = root_el.attrib.get('display_name', '')
-            except ET.ParseError as err:
-                title = ''
-                logger.error(f"Could not parse XML for {xml_file_path}: {err}")
+            #try:
+            #    root_el = ET.fromstring(data_str)
+            #    title = root_el.attrib.get('display_name', '')
+            #except ET.ParseError as err:
+            #    title = ''
+            #    logger.error(f"Could not parse XML for {xml_file_path}: {err}")
 
             # This logic is not really working properly for incremental updates,
             # (BlockVersions aren't properly incremented for one).
@@ -190,19 +213,26 @@ class Command(BaseCommand):
 
             # We're playing fast and loose with identifier scoping here.
             # TODO: Should be unique by type?
-            segment = ContentSegment.objects.create(identifier=identifier)
-            content_obj = ContentObject.objects.create(content_segment=segment, segment_order_num=0)
+            # segment = ContentSegment.objects.create(identifier=identifier)
+            # content_obj = ContentObject.objects.create(content_segment=segment, segment_order_num=0)
 
-            atom, _created = ContentAtom.objects.get_or_create(
+            mime_type = f'application/vnd.openedx.xblock.{block_type}+xml'
+            content_atom, _created = ContentAtom.objects.get_or_create(
                 content_package=self.content_package,
-                hash_digest=data_hash,
-                defaults={
-                    'text_data': data_str,
-                    'size': len(data_bytes),  # TODO: Should this be the length of the string instead?
-                    'mime_type': f'application/vnd.openedx.xblock.{block_type}+xml',
-                },
+                mime_type=mime_type,
+                hash_digest=hash_digest,
+                defaults = dict(
+                    data=data_bytes,
+                    size=len(data_bytes),
+                    created=now,
+                )
             )
-            ContentObjectPart.objects.create(content_object=content_obj, content_atom=atom, identifier=identifier)
+            content_object = ContentObject.objects.create(type="simple")
+            sco = SimpleContentObject.objects.create(content_object=content_object, content_atom=content_atom)
+            bco = BlockContentObject.objects.create(simple_content_object=sco, type='xblock', sub_type=block_type)
+
+            continue
+
             static_file_paths = frozenset(
                 f"static/{static_reference_path}"
                 for static_reference_path in re.findall(static_files_regex, data_str)    
@@ -211,24 +241,6 @@ class Command(BaseCommand):
                 if static_file_path in static_asset_paths_to_atom_ids:
                     atom_id = static_asset_paths_to_atom_ids[static_file_path]
                     ContentObjectPart.objects.create(content_object=content_obj, content_atom_id=atom_id, identifier=static_file_path)
-            """
-            lcb, _created = LearningContextBlock.objects.get_or_create(
-                learning_context_id=learning_context_id,
-                identifier=identifier,
-                defaults={'block_type_id': block_type_id},
-            )
-            bc, _created = BlockContent.objects.get_or_create(
-                learning_context_id=learning_context_id,
-                hash_digest=data_hash.hex(),
-                defaults={'data': data_str}
-            )
-            bv, _created = BlockVersion.objects.get_or_create(
-                block_id=lcb.id,
-                content_id=bc.id,
-                defaults={'start_version_num': 0, 'title': title},
-            )
-            """
-            # print(f"{identifier}\t {title}: {len(data)}")
 
         print(f"{block_type}: {items_found}")
 

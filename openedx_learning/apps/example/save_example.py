@@ -72,3 +72,48 @@ def write_lib_to_lms(library_key):
 def create_partitions():
     pass
 
+
+class ContentObject(models.Model):
+    """
+    This is the long-lived representation of a piece of content.
+
+    Actual metadata lives in versions.
+    """
+    identifier = identifier_field(unique=False)
+    content_package = models.ForeignKey(ContentPackage, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            # Within a ContentPackage, ContentObject identifiers are unique.
+            models.UniqueConstraint(
+                fields=["content_package_id", "identifier"],
+                name="learning_publishing_co_uniq_cp_ident",
+            )
+        ]
+
+
+class ContentObjectVersion(models.Model):
+    uuid = immutable_uuid_field()
+    content_object = models.ForeignKey(ContentObject, on_delete=models.CASCADE)
+    version_num = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            # Within a ContentObject, version numbers are unique.
+            models.UniqueConstraint(
+                fields=["content_object_id", "version_num"],
+                name="learning_publishing_cov_uniq_co_version_num",
+            )
+        ]
+
+
+
+
+
+class ContentObject(models.Model):
+    """
+    This is the long-lived representation of a piece of content.
+
+    Actual metadata lives in versions.
+    """
+    uuid = immutable_uuid_field()

@@ -80,3 +80,5 @@ STATICFILES_DIRS = [
     BASE_DIR / 'projects' / 'static'
 ]
 MEDIA_URL = '/media/'
+
+USE_TZ = True

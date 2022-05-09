@@ -1,3 +1,4 @@
+"""
 from django.contrib import admin
 from .models import (
     LearningContext,
@@ -42,3 +43,4 @@ class BlockContentAdmin(admin.ModelAdmin):
         'hash_digest',
         'data',
     )
+"""
