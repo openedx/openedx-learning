@@ -199,7 +199,7 @@ class Command(BaseCommand):
                 defaults={
                     'text_data': data_str,
                     'size': len(data_bytes),  # TODO: Should this be the length of the string instead?
-                    'mime_type': 'application/x+xblock',
+                    'mime_type': f'application/vnd.openedx.xblock.{block_type}+xml',
                 },
             )
             ContentObjectPart.objects.create(content_object=content_obj, content_atom=atom, identifier=identifier)
