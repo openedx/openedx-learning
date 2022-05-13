@@ -1,39 +1,15 @@
 """
+THIS IS NON-FUNCTIONING scratch code at the moment.
+
 There are broadly three types of UserPartitions:
 
 1. Partitions that are global to a LearningContextType.
 2. Partitions that are specific to a LearningContextVersion.
 
-Everything is harder when it's versioned.
-
-
-
-
-
-
-
-
-
-
-
-
-Content Model Hierarchy:
-
-LearningObject
-
-- Block
-  - XBlock
-
-- Unit
-  has: Blocks
-
-- Sequence
-  has: Units
-
 """
 from django.db import models
 
-from ..learning_publishing.models import LearningObjectVersion
+from ..publish.models import LearningObjectVersion
 
 from openedx_learning.lib.fields import hash_field, identifier_field, immutable_uuid_field
 
@@ -49,11 +25,6 @@ class LearningContextVersionPartitionGroup(models.Model):
     partition_id = models.BigIntegerField(null=False)
     group_id = models.BigIntegerField(null=False)
 """
-
-#####
-
-
-##### THIS IS IN THE WRONG FILE - THIS SHOULD BE PART OF COMPOSITION
 
 
 class Block(models.Model):
