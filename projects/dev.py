@@ -32,8 +32,8 @@ INSTALLED_APPS = (
     'django.contrib.admindocs',
 
     # Our own apps
-    'openedx_learning.apps.core.learning_publishing.apps.PublishingConfig',
-    'openedx_learning.apps.core.learning_partitioning.apps.PartitioningConfig',
+    'openedx_learning.apps.core.publish.apps.PublishConfig',
+    'openedx_learning.apps.core.compose.apps.ComposeConfig',
 )
 
 MIDDLEWARE = [
