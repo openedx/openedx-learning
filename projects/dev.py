@@ -31,9 +31,13 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'django.contrib.admindocs',
 
-    # Our own apps
+    # Learning Core Apps
     'openedx_learning.apps.core.publish.apps.PublishConfig',
     'openedx_learning.apps.core.compose.apps.ComposeConfig',
+
+    # Apps that don't belong in this repo in the long term, but are here to make
+    # testing/iteration easier until the APIs stabilize.
+    'olx_importer.apps.OLXImporterConfig',
 )
 
 MIDDLEWARE = [
@@ -80,3 +84,5 @@ STATICFILES_DIRS = [
     BASE_DIR / 'projects' / 'static'
 ]
 MEDIA_URL = '/media/'
+
+USE_TZ = True

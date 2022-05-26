@@ -48,3 +48,5 @@ LOCALE_PATHS = [
 ROOT_URLCONF = 'projects.urls'
 
 SECRET_KEY = 'insecure-secret-key'
+
+USE_TZ = True
