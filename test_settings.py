@@ -39,6 +39,7 @@ INSTALLED_APPS = [
 
     # Our own apps
     'openedx_learning.apps.core.publish.apps.PublishConfig',
+    'openedx_learning.apps.core.itemstore.apps.ItemStoreConfig',
 ]
 
 LOCALE_PATHS = [

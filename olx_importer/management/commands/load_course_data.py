@@ -21,13 +21,8 @@ import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from openedx_learning.apps.core.publish.models import (
-    ItemInfo,
-    ItemRaw,
-    ItemVersion,
-    LearningContext,
-    LearningContextVersion,
-)
+from openedx_learning.apps.core.publish.models import LearningContext
+from openedx_learning.apps.core.itemstore.models import ItemInfo, ItemRaw
 from openedx_learning.lib.fields import create_hash_digest
 
 SUPPORTED_TYPES = ['lti', 'problem', 'video']
@@ -67,8 +62,6 @@ class Command(BaseCommand):
             # Future Note:
             #   Make the static asset loading happen after XBlock loading
             #   Make the static asset piece grep through created content.
-
-
             existing_item_raws = ItemRaw.objects \
                                      .filter(learning_context=learning_context) \
                                      .values_list('id', 'mime_type', 'hash_digest')
