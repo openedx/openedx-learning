@@ -18,13 +18,13 @@ Decision
 
 The following are foundational, extensible concepts in the Learning Core, which can be combined in different ways:
 
-Block
-  A Block is a small piece of content, like a video, problem, or bit of HTML text. It has an identity, renderer, and potentially student state. It is not a container for other content, and has no child elements.
+Item
+  An Item is a small piece of content, like a video, problem, or bit of HTML text. It has an identity, renderer, and potentially student state. It is not a container for other content, and has no child elements.
   
-  Blocks are analogous to the "Module" portion of the traditional Open edX course.
+  Items are analogous to the "Module" portion of the traditional Open edX course.
 
 Segment
-  A Segment is an ordered list of Blocks that must be presented to the user together. The Blocks inside a Segment may be of different types, but it does not make sense to show one of these Blocks in isolation. An example could be one Block that explains a problem scenario, along with a problem Block that asks a question about it–a common scenario in content libraries. By default, each Block is its own Segment.
+  A Segment is an ordered list of Items that must be presented to the user together. The Items inside a Segment may be of different types, but it does not make sense to show one of these Items in isolation. An example could be one Item that explains a problem scenario, along with a problem Item that asks a question about it–a common scenario in content libraries. By default, each Item is its own Segment.
 
   Open edX currently models these as nested Verticals (a.k.a. Units), but this often causes problems for code that traverses the content without realizing that such a nesting is possible.
 
@@ -37,12 +37,12 @@ Sequence
   A Sequence is analogous to a Subsection in a traditional Open edX course.
 
 Navigation
-  Navigation is the higher-level organization of a course or other learning context. For a traditional course, this would be what determines the Sections and what Sequences are in each.
+  Navigation is the higher-level organization of a course or other learning context. For a traditional course, this would be what determines the Sections and what Sequences are in each. A more advanced Navigation type might dynamically select Sequences that are appropriate for you based on your understanding of the material.
 
 There are two goals:
 
 #. Each of these concepts should be *extensible*, so that new types of Blocks, Units, etc. are created (the specifics of this would be in a follow-on ADR).
-#. We should be able to use these in different combinations. For instance, a short course may have a different Navigation type than traditional courses, but that Navigation would still point to Sequences, which point to Units.
+#. We should be able to use these in different combinations. For instance, a short course may have a different Navigation type than traditional courses (e.g. by removing a level of hierarchy), but that Navigation would then still point to Sequences, which point to Units, etc. The base types described in this document provide a lowest-common denominator interface to decouple the layers from each other, so that an extended Navigation type doesn't have to be aware of the various extended Sequence types, but can just know that is pointing to some sort of Sequence.
 
 Consequences
 ------------
