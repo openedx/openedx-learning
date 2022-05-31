@@ -6,7 +6,7 @@ Context
 
 The code that operates on learning content in Open edX primarily resides in edx-platform, and suffers from a few high-level issues:
 
-* Plugins that want to interact with content effectively edx-platform (a large repo with hundreds of dependencies) as a direct dependency, making development and testing more difficult.
+* Plugins that want to interact with content effectively import  all of edx-platform (a large repo with hundreds of dependencies) as a direct dependency, making development and testing more difficult.
 * The existing code assumes that content will take the form of large courses, hindering efforts to experiment with different instructional formats.
 
 Decision
