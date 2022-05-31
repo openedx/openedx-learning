@@ -41,7 +41,7 @@ Navigation
 
 There are two goals:
 
-#. These concepts should be *extensible*, so that new types of Blocks, Units, etc. are created (the specifics of this would be in a follow-on ADR).
+#. Each of these concepts should be *extensible*, so that new types of Blocks, Units, etc. are created (the specifics of this would be in a follow-on ADR).
 #. We should be able to use these in different combinations. For instance, a short course may have a different Navigation type than traditional courses, but that Navigation would still point to Sequences, which point to Units.
 
 Consequences
