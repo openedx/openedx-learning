@@ -17,7 +17,7 @@ The openedx-learning repository was created to provide a new place for certain c
 This would have two long term goals:
 
 #. Enable learning-related plugins to be built in a simple, maintainable, robust way.
-#. Allow Open edX to support for more flexible and extensible learning experiences at scale.
+#. Allow Open edX to support more flexible and extensible learning experiences at scale.
 
 This repo will first be piloted with the use case of unit composition in service of v2 Content Libraries work. If this is successful, other concepts would follow.
 
