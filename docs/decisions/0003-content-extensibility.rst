@@ -13,7 +13,7 @@ Developer Experience Pain Points
 
 #. Plugin applications cannot make queries about learning content without calling into the edx-platform monolith, which makes testing, development, and long term maintenance more difficult.
 #. Plugins are prone to bugs around the content publishing lifecycle, such as when content that a plugin cares about is changed or deleted while a course is running.
-#. XBlocks data is stored in a way that is opaque at the database layer. Individual fields are collapsed into large key/value documents, making joins and rich database-level querying difficult.
+#. XBlock data is stored in a way that is opaque at the database layer. Individual fields are collapsed into large key/value documents, making joins and rich database-level querying difficult.
 
 Application Lifecycle and Platform Resilience Pain Points
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
