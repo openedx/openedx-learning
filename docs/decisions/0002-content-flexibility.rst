@@ -41,7 +41,7 @@ Navigation
 
 There are two goals:
 
-#. Each of these concepts should be *extensible*, so that new types of Blocks, Units, etc. are created (the specifics of this would be in a follow-on ADR).
+#. Each of these concepts should be *extensible*, so that new types of Items, Units, etc. are created (the specifics of this would be in a follow-on ADR).
 #. We should be able to use these in different combinations. For instance, a short course may have a different Navigation type than traditional courses (e.g. by removing a level of hierarchy), but that Navigation would then still point to Sequences, which point to Units, etc. The base types described in this document provide a lowest-common denominator interface to decouple the layers from each other, so that an extended Navigation type doesn't have to be aware of the various extended Sequence types, but can just know that is pointing to some sort of Sequence.
 
 Consequences
