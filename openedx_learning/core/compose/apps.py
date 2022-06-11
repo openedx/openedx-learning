@@ -9,6 +9,6 @@ class ComposeConfig(AppConfig):
     """
     Configuration for the publishing Django application.
     """
-    name = "openedx_learning.apps.core.compose"
+    name = "openedx_learning.core.compose"
     verbose_name = "Learning Core: Compose"
     default_auto_field = 'django.db.models.BigAutoField'

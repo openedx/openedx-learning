@@ -38,8 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.admindocs',
 
     # Our own apps
-    'openedx_learning.apps.core.publish.apps.PublishConfig',
-    'openedx_learning.apps.core.itemstore.apps.ItemStoreConfig',
+    'openedx_learning.core.publish.apps.PublishConfig',
+    'openedx_learning.core.itemstore.apps.ItemStoreConfig',
 ]
 
 LOCALE_PATHS = [

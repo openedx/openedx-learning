@@ -21,8 +21,8 @@ import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from openedx_learning.apps.core.publish.models import LearningContext
-from openedx_learning.apps.core.itemstore.models import ItemInfo, ItemRaw
+from openedx_learning.core.publish.models import LearningContext
+from openedx_learning.core.itemstore.models import ItemInfo, ItemRaw
 from openedx_learning.lib.fields import create_hash_digest
 
 SUPPORTED_TYPES = ['lti', 'problem', 'video']

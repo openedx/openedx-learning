@@ -32,9 +32,9 @@ INSTALLED_APPS = (
     'django.contrib.admindocs',
 
     # Learning Core Apps
-    'openedx_learning.apps.core.compose.apps.ComposeConfig',
-    'openedx_learning.apps.core.itemstore.apps.ItemStoreConfig',
-    'openedx_learning.apps.core.publish.apps.PublishConfig',
+    'openedx_learning.core.compose.apps.ComposeConfig',
+    'openedx_learning.core.itemstore.apps.ItemStoreConfig',
+    'openedx_learning.core.publish.apps.PublishConfig',
 
     # Apps that don't belong in this repo in the long term, but are here to make
     # testing/iteration easier until the APIs stabilize.
