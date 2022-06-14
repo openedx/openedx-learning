@@ -60,9 +60,11 @@ class ItemVersion(models.Model):
     or a change to the policy around a piece of content (e.g. schedule change).
     """
     uuid = immutable_uuid_field()
-    item_info = models.ForeignKey('ItemInfo', on_delete=models.RESTRICT)
+    item_raw = models.ForeignKey('ItemRaw', on_delete=models.RESTRICT)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     title = models.CharField(max_length=1000, blank=True, null=True)
+
+    created = manual_date_time_field()
 
     def __str__(self):
         return f"{self.uuid}: {self.title}"
@@ -71,21 +73,6 @@ class ItemVersion(models.Model):
 class LearningContextVersionItemVersion(models.Model):
     learning_context_version = models.ForeignKey(LearningContextVersion, on_delete=models.CASCADE)
     item_version = models.ForeignKey(ItemVersion, on_delete=models.RESTRICT)
-
-
-class ItemInfo(models.Model):
-    """
-    Basic metadata about an Item.
-
-    This is mostly here to give supplmentary models to hang off of this and give
-    more interesting models based on the data in ItemRaw.
-    """
-    uuid = immutable_uuid_field()
-    learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
-    type = models.CharField(max_length=100)
-    item_raw = models.ForeignKey('ItemRaw', on_delete=models.RESTRICT)
-
-    created = manual_date_time_field()
 
 
 class ItemRaw(models.Model):
