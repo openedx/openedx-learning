@@ -91,11 +91,15 @@ class Content(models.Model):
     """
     This is the most basic piece of raw content data, with no version metadata.
 
-    Content stores data in a Binary BLOB `data` field. This data is not
+    Content stores data in a Binary BLOB `data` field. This data is not auto-
     normalized in any way, meaning that pieces of content that are semantically
     equivalent (e.g. differently spaced/sorted JSON) will result in new entries.
     This model is intentionally ignorant of what these things mean, because it
     expects supplemental data models to build on top of it.
+
+    Two Content instances _can_ have the same hash_digest if they are of
+    different MIME types. For instance, an empty text file and an empty SRT file
+    with both hash the same way, but be considered different entities.
 
     The other fields on Content are for data that is intrinsic to the file data
     itself (e.g. the size). Any smart parsing of the contents into more
@@ -104,7 +108,11 @@ class Content(models.Model):
     Content models are not versioned in any way. The concept of versioning
     exists at a higher level.
 
-    
+    Since this model uses a BinaryField to hold its data, we have to be careful
+    about scalability issues. For instance, video files should not be stored
+    here directly. There is a 10 MB limit set for the moment, to accomodate
+    things like PDF files and images, but the itention is for the vast majority
+    of rows to be much smaller than that.
     """
     # Cap item size at 10 MB for now.
     MAX_SIZE = 10_000_000
@@ -135,6 +143,16 @@ class Content(models.Model):
         ]
 
 class ItemVersionContent(models.Model):
+    """
+    Determines the Content for a given ItemVersion.
+
+    An ItemVersion may be associated with multiple pieces of binary data. For
+    instance, a Video version might be associated with multiple transcripts in
+    different languages.
+
+    When Content is associated with an ItemVersion, it has some local identifier
+    that is unique within the the context of that ItemVersion. This allows the
+    """
     item_version = models.ForeignKey(ItemVersion, on_delete=models.CASCADE)
     content = models.ForeignKey(ItemVersion, on_delete=models.RESTRICT)
     identifier = identifier_field()
