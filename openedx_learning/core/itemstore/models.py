@@ -28,15 +28,6 @@ class Item(models.Model):
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
     identifier = identifier_field()
 
-    # TODO: These pointers to the latest published version are convenient, but
-    # we don't currently have the data integrity guarantees to make sure that 
-    # multiple versions aren't active at the same time. Maybe add a ref to the
-    # Item model in LearningContextVersionItemVersion, so we can force that
-    # constraint?
-    published_version = models.ForeignKey('ItemVersion', on_delete=models.RESTRICT, null=True, related_name="+")
-    first_published_at = models.DateTimeField(null=True)  # can be null if never published 
-    last_published_at = models.DateTimeField(null=True)   # can be null if never published
-
     created = manual_date_time_field()
     modified = manual_date_time_field()
 
@@ -60,8 +51,12 @@ class ItemVersion(models.Model):
     or a change to the policy around a piece of content (e.g. schedule change).
     """
     uuid = immutable_uuid_field()
-    item_raw = models.ForeignKey('ItemRaw', on_delete=models.RESTRICT)
+
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
+
+    # Question: Title is the only thing here that actually has human-readable
+    # text. Does it make sense to lift it out into a separate metadata model,
+    # possibly even one with language awareness?
     title = models.CharField(max_length=1000, blank=True, null=True)
 
     created = manual_date_time_field()
@@ -91,23 +86,24 @@ class ItemRaw(models.Model):
  
     ItemRaw models are not versioned in any way. The concept of versioning
     exists at a higher level.
-
-    TODO: Size limit thoughts–configurable? Start at 10 MB?
     """
+    # Cap item size at 10 MB for now.
+    MAX_SIZE = 10_000_000
+
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
     hash_digest = hash_field()
 
     # Per RFC 4288, MIME type and sub-type may each be 127 chars. Add one more
     # char for the '/' in the middle, and we're at 255.
     mime_type = models.CharField(max_length=255, blank=False, null=False)
-    size = models.PositiveBigIntegerField()
+    size = models.PositiveBigIntegerField(max=MAX_SIZE)
 
     # This should be manually set so that multiple ItemRaw rows being set in the
     # same transaction are created with the same timestamp. The timestamp should
     # be UTC.
     created = manual_date_time_field()
 
-    data = models.BinaryField(null=False)
+    data = models.BinaryField(null=False, max_length=MAX_SIZE)
 
     class Meta:
         constraints = [
@@ -118,3 +114,21 @@ class ItemRaw(models.Model):
                 name="learning_publishing_item_raw_uniq_lc_hd",
             )
         ]
+
+class ItemVersionItemRaw(models.Model):
+    item_version = models.ForeignKey(ItemVersion, on_delete=models.CASCADE)
+    item_raw = models.ForeignKey(ItemVersion, on_delete=models.RESTRICT)
+    identifier = identifier_field()
+
+    class Meta:
+        constraints = [
+            # Make sure we don't store duplicates of this raw data within the
+            # same LearningContext, unless they're of different mime types.
+            models.UniqueConstraint(
+                fields=["learning_context_id", "mime_type", "hash_digest"],
+                name="learning_publishing_item_raw_uniq_lc_hd",
+            )
+        ]
+
+
+
