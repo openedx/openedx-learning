@@ -7,6 +7,7 @@ given LearningContext, and may include policy changes (like grading). Content
 represents the raw byte data.
 """
 from django.db import models
+from django.core.validators import MaxValueValidator
 
 from openedx_learning.lib.fields import (
     hash_field,
@@ -14,7 +15,7 @@ from openedx_learning.lib.fields import (
     immutable_uuid_field,
     manual_date_time_field,
 )
-from ..publish.models import LearningContext, LearningContextVersion
+from ..publishing.models import LearningContext, LearningContextVersion
 
 
 class Item(models.Model):
@@ -44,7 +45,7 @@ class Item(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["learning_context_id", "identifier"],
-                name="learning_publishing_lcb_one_identifier_per_lc",
+                name="item_uniq_lc_identifier",
             )
         ]
 
@@ -73,6 +74,18 @@ class ItemVersion(models.Model):
 
     created = manual_date_time_field()
 
+    learning_context_versions = models.ManyToManyField(
+        LearningContextVersion,
+        through='LearningContextVersionItemVersion',
+        related_name='item_versions',
+    )
+    
+    contents = models.ManyToManyField(
+        'Content',
+        through='ItemVersionContent',
+        related_name='item_versions',
+    )
+
     def __str__(self):
         return f"{self.uuid}: {self.title}"
 
@@ -86,16 +99,26 @@ class LearningContextVersionItemVersion(models.Model):
     learning_context_version = models.ForeignKey(LearningContextVersion, on_delete=models.CASCADE)
     item_version = models.ForeignKey(ItemVersion, on_delete=models.RESTRICT)
 
+    class Meta:
+        constraints = [
+            # The same ItemVersion should only show up once for a given
+            # LearningContextVersion.
+            models.UniqueConstraint(
+                fields=["learning_context_version_id", "item_version_id"],
+                name="lcviv_uniq_lcv_iv",
+            )
+        ]
+
 
 class Content(models.Model):
     """
     This is the most basic piece of raw content data, with no version metadata.
 
-    Content stores data in a Binary BLOB `data` field. This data is not auto-
-    normalized in any way, meaning that pieces of content that are semantically
-    equivalent (e.g. differently spaced/sorted JSON) will result in new entries.
-    This model is intentionally ignorant of what these things mean, because it
-    expects supplemental data models to build on top of it.
+    Content stores data in an immutable Binary BLOB `data` field. This data is
+    not auto-normalized in any way, meaning that pieces of content that are
+    semantically equivalent (e.g. differently spaced/sorted JSON) will result in
+    new entries. This model is intentionally ignorant of what these things mean,
+    because it expects supplemental data models to build on top of it.
 
     Two Content instances _can_ have the same hash_digest if they are of
     different MIME types. For instance, an empty text file and an empty SRT file
@@ -123,7 +146,9 @@ class Content(models.Model):
     # Per RFC 4288, MIME type and sub-type may each be 127 chars. Add one more
     # char for the '/' in the middle, and we're at 255.
     mime_type = models.CharField(max_length=255, blank=False, null=False)
-    size = models.PositiveBigIntegerField(max=MAX_SIZE)
+    size = models.PositiveBigIntegerField(
+        validators=[MaxValueValidator(MAX_SIZE)],
+    )
 
     # This should be manually set so that multiple Content rows being set in the
     # same transaction are created with the same timestamp. The timestamp should
@@ -138,7 +163,7 @@ class Content(models.Model):
             # same LearningContext, unless they're of different mime types.
             models.UniqueConstraint(
                 fields=["learning_context_id", "mime_type", "hash_digest"],
-                name="learning_publishing_content_uniq_lc_hd",
+                name="content_uniq_lc_hd",
             )
         ]
 
@@ -152,19 +177,34 @@ class ItemVersionContent(models.Model):
 
     When Content is associated with an ItemVersion, it has some local identifier
     that is unique within the the context of that ItemVersion. This allows the
+    ItemVersion to do things like store an image file and reference it by a
+    "path" identifier.
+
+    Content is immutable and sharable across multiple ItemVersions and even
+    across LearningContexts.
     """
     item_version = models.ForeignKey(ItemVersion, on_delete=models.CASCADE)
-    content = models.ForeignKey(ItemVersion, on_delete=models.RESTRICT)
+    content = models.ForeignKey(Content, on_delete=models.RESTRICT)
     identifier = identifier_field()
 
     class Meta:
         constraints = [
-            # 
+            # Uniqueness is only by ItemVersion and identifier. If for some
+            # reason an ItemVersion wants to associate the same piece of content
+            # with two different identifiers, that is permitted.
             models.UniqueConstraint(
                 fields=["item_version_id", "identifier"],
-                name="learning_publishing_item_version_content_iv_id",
-            )
+                name="itemversioncontent_uniq_iv_id",
+            ),
         ]
-
-
+        indexes = [
+            models.Index(
+                fields=['content_id', 'item_version_id'],
+                name="itemversioncontent_c_iv",
+            ),
+            models.Index(
+                fields=['item_version_id', 'content_id'],
+                name="itemversioncontent_iv_d",
+            ),
+        ]
 

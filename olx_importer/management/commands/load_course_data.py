@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from openedx_learning.core.publish.models import LearningContext
+from openedx_learning.core.publishing.models import LearningContext
 from openedx_learning.core.itemstore.models import ItemInfo, ItemRaw
 from openedx_learning.lib.fields import create_hash_digest
 
@@ -168,7 +168,7 @@ class Command(BaseCommand):
             data_bytes = xml_file_path.read_bytes()
             hash_digest = create_hash_digest(data_bytes)
             data_str = codecs.decode(data_bytes, 'utf-8')
-            mime_type = f'application/vnd.openedx.xblock.{block_type}+xml'
+            mime_type = f'application/vnd.openedx.xblock.v1.{block_type}+xml'
             item_raw, _created = ItemRaw.objects.get_or_create(
                 learning_context=self.learning_context,
                 mime_type=mime_type,
@@ -185,16 +185,5 @@ class Command(BaseCommand):
                 item_raw=item_raw,
                 defaults={'created': now},
             )
-            continue
-
-
-            static_file_paths = frozenset(
-                f"static/{static_reference_path}"
-                for static_reference_path in re.findall(static_files_regex, data_str)    
-            )
-            for static_file_path in static_file_paths:
-                if static_file_path in static_asset_paths_to_atom_ids:
-                    atom_id = static_asset_paths_to_atom_ids[static_file_path]
-                    ContentObjectPart.objects.create(content_object=content_obj, content_atom_id=atom_id, identifier=static_file_path)
 
         print(f"{block_type}: {items_found}")

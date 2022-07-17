@@ -33,7 +33,7 @@ class LearningContext(models.Model):
             # something that might be relaxed in the future if this system were
             # to be extensible to something like multi-tenancy, in which case
             # we'd tie it to something like a Site or Org.
-            models.UniqueConstraint(fields=["identifier"], name="learning_publishing_lc_uniq_identifier")
+            models.UniqueConstraint(fields=["identifier"], name="lc_uniq_identifier")
         ]
 
 class LearningContextVersion(models.Model):
