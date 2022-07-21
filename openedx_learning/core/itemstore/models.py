@@ -36,6 +36,10 @@ class Item(models.Model):
     """
     uuid = immutable_uuid_field()
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
+
+    # namespace/identifier work together to give a more humanly readable, local
+    # identifier for an Item.
+    namespace = models.CharField(max_length=100, null=False, blank=False)
     identifier = identifier_field()
 
     created = manual_date_time_field()
@@ -44,8 +48,8 @@ class Item(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["learning_context_id", "identifier"],
-                name="item_uniq_lc_identifier",
+                fields=["learning_context", "namespace", "identifier"],
+                name="item_uniq_lc_ns_identifier",
             )
         ]
 
@@ -62,6 +66,8 @@ class ItemVersion(models.Model):
     change).
     
     Each ItemVersion belongs to one and only one Item.
+
+    TODO: created_by field?
     """
     uuid = immutable_uuid_field()
 
@@ -93,11 +99,14 @@ class ItemVersion(models.Model):
 class LearningContextVersionItemVersion(models.Model):
     """
     Mapping of all ItemVersion in a given LearningContextVersion.
-
-    TODO: Should the publish app have a model to subclass for this?
     """
     learning_context_version = models.ForeignKey(LearningContextVersion, on_delete=models.CASCADE)
     item_version = models.ForeignKey(ItemVersion, on_delete=models.RESTRICT)
+
+    # item should always be derivable from item_version, but it exists in this
+    # model directly because MySQL doesn't support constraint conditions (see
+    # comments in the constraints section below for details).
+    item = models.ForeignKey(Item, on_delete=models.RESTRICT)
 
     class Meta:
         constraints = [
@@ -106,6 +115,22 @@ class LearningContextVersionItemVersion(models.Model):
             models.UniqueConstraint(
                 fields=["learning_context_version_id", "item_version_id"],
                 name="lcviv_uniq_lcv_iv",
+            ),
+
+            # An Item should have at most one version of itself published as
+            # part of any given LearningContextVersion. Having multiple
+            # ItemVersions from the same Item in a given LearningContextVersion
+            # would cause the identifiers to collide, which could cause buggy
+            # behavior without much benefit.
+            # 
+            # Ideally, we could enforce this with a constraint condition that
+            # queried item_version.item, but MySQL does not support this. So we
+            # waste a little extra space to help enforce data integrity by
+            # adding a foreign key to the Item directly in this model, and then
+            # checking the uniqueness of (LearningContextVersion, Item).
+            models.UniqueConstraint(
+                fields=["learning_context_version", "item"],
+                name="lcviv_uniq_lcv_item"
             )
         ]
 
@@ -145,6 +170,9 @@ class Content(models.Model):
 
     # Per RFC 4288, MIME type and sub-type may each be 127 chars. Add one more
     # char for the '/' in the middle, and we're at 255.
+    #
+    # TODO: maybe we should split it up into two fields instead of doing
+    #       substring searches? 
     mime_type = models.CharField(max_length=255, blank=False, null=False)
     size = models.PositiveBigIntegerField(
         validators=[MaxValueValidator(MAX_SIZE)],
@@ -162,7 +190,7 @@ class Content(models.Model):
             # Make sure we don't store duplicates of this raw data within the
             # same LearningContext, unless they're of different mime types.
             models.UniqueConstraint(
-                fields=["learning_context_id", "mime_type", "hash_digest"],
+                fields=["learning_context", "mime_type", "hash_digest"],
                 name="content_uniq_lc_hd",
             )
         ]
@@ -193,17 +221,17 @@ class ItemVersionContent(models.Model):
             # reason an ItemVersion wants to associate the same piece of content
             # with two different identifiers, that is permitted.
             models.UniqueConstraint(
-                fields=["item_version_id", "identifier"],
+                fields=["item_version", "identifier"],
                 name="itemversioncontent_uniq_iv_id",
             ),
         ]
         indexes = [
             models.Index(
-                fields=['content_id', 'item_version_id'],
+                fields=['content', 'item_version'],
                 name="itemversioncontent_c_iv",
             ),
             models.Index(
-                fields=['item_version_id', 'content_id'],
+                fields=['item_version', 'content'],
                 name="itemversioncontent_iv_d",
             ),
         ]

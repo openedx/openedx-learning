@@ -1,6 +1,7 @@
 """
 Quick and hacky management command to dump course data into our model for
 experimentation purposes.
+
 This should live in its own app, since it will likely need to understand
 different apps.
 """
@@ -22,7 +23,9 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from openedx_learning.core.publishing.models import LearningContext
-from openedx_learning.core.itemstore.models import ItemInfo, ItemRaw
+from openedx_learning.core.itemstore.models import (
+    Content, Item, ItemVersion, ItemVersionContent
+)
 from openedx_learning.lib.fields import create_hash_digest
 
 SUPPORTED_TYPES = ['lti', 'problem', 'video']
@@ -62,7 +65,7 @@ class Command(BaseCommand):
             # Future Note:
             #   Make the static asset loading happen after XBlock loading
             #   Make the static asset piece grep through created content.
-            existing_item_raws = ItemRaw.objects \
+            existing_item_raws = Content.objects \
                                      .filter(learning_context=learning_context) \
                                      .values_list('id', 'mime_type', 'hash_digest')
             item_raw_id_cache = {
@@ -124,7 +127,7 @@ class Command(BaseCommand):
 
             item_raw_id = item_raw_id_cache.get((mime_type, data_hash))
             if item_raw_id is None:
-                item_raw, _created = ItemRaw.objects.get_or_create(
+                item_raw, _created = Content.objects.get_or_create(
                     learning_context=self.learning_context,
                     mime_type=mime_type,
                     hash_digest=data_hash,
@@ -169,7 +172,7 @@ class Command(BaseCommand):
             hash_digest = create_hash_digest(data_bytes)
             data_str = codecs.decode(data_bytes, 'utf-8')
             mime_type = f'application/vnd.openedx.xblock.v1.{block_type}+xml'
-            item_raw, _created = ItemRaw.objects.get_or_create(
+            item_raw, _created = Content.objects.get_or_create(
                 learning_context=self.learning_context,
                 mime_type=mime_type,
                 hash_digest=hash_digest,
@@ -179,7 +182,7 @@ class Command(BaseCommand):
                     created=now,
                 )
             )
-            item_info, _created = ItemInfo.objects.get_or_create(
+            item_info, _created = Content.objects.get_or_create(
                 learning_context=self.learning_context,
                 type='xblock',
                 item_raw=item_raw,

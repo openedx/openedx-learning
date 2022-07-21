@@ -32,7 +32,7 @@ def identifier_field():
     semantically meaningful or look more machine-generated.
 
     Other apps should *not* make references to these values directly, since
-    these values may change.
+    these values may in theory change.
     """
     return models.CharField(
         max_length=255,

@@ -7,7 +7,6 @@ associated with a LearningContext. So in that sense:
 * something to mark that an app has created a version for an LC
 * something to handle errors
 * a mixin for doing efficient version tracking
-
 """
 from django.db import models
 from django.conf import settings
