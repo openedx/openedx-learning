@@ -9,7 +9,7 @@ There are broadly three types of UserPartitions:
 """
 from django.db import models
 
-from ..publish.models import LearningObjectVersion
+# from ..publish.models import LearningObjectVersion
 
 from openedx_learning.lib.fields import hash_field, identifier_field, immutable_uuid_field
 
@@ -27,23 +27,23 @@ class LearningContextVersionPartitionGroup(models.Model):
 """
 
 
-class Block(models.Model):
-    """
-    A Block is the simplest possible piece of content. It has no children.
-
-    How do we decompose this? Separate tables for different aspects, like grades?
-    """
-    learning_object_version = models.ForeignKey(LearningObjectVersion, on_delete=models.CASCADE)
+#class Block(models.Model):
+#    """
+#    A Block is the simplest possible piece of content. It has no children.#
+#    How do we decompose this? Separate tables for different aspects, like grades?
+#    """
+#
+#    learning_object_version = models.ForeignKey(LearningObjectVersion, on_delete=models.CASCADE)
 
 
 class Unit(models.Model):
-    identifier = identifier_field(unique=False)
+    identifier = identifier_field()
 
 
 class UnitVersion(models.Model):
     uuid = immutable_uuid_field()
-    identifier = identifier_field(unique=False)
-    hash = hash_field(unique=False)
+    identifier = identifier_field()
+    hash = hash_field()
 
 
 class UnitContentBlock(models.Model):

@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.admindocs',
 
     # Our own apps
-    'openedx_learning.apps.core.publish.apps.PublishConfig',
+    'openedx_learning.core.publishing.apps.PublishingConfig',
+    'openedx_learning.core.itemstore.apps.ItemStoreConfig',
 ]
 
 LOCALE_PATHS = [
@@ -48,3 +49,5 @@ LOCALE_PATHS = [
 ROOT_URLCONF = 'projects.urls'
 
 SECRET_KEY = 'insecure-secret-key'
+
+USE_TZ = True
