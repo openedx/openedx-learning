@@ -6,7 +6,7 @@ Thought: These separate extension models aren't like subclasses, but more like
 aspects. So it's not like an ImageItemVersion is a subclass of DownloadableItem,
 but that some ItemVersions will have a downloadable file aspect, and some will
 have an image aspect, and all those that have the image aspect will also have
-the downloadable piece. But in that case:
+the downloadable piece.
 """
 from django.db import models
 
@@ -15,7 +15,7 @@ from openedx_learning.core.itemstore.models_api import ItemVersionDataMixin
 
 class Asset(models.Model):
     """
-    Any static file asset.
+    An Asset may be more than just a single file.
     """
     pass
 

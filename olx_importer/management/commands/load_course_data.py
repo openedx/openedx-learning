@@ -1,30 +1,39 @@
 """
 Quick and hacky management command to dump course data into our model for
-experimentation purposes.
+experimentation purposes. This lives in its own app because it's not intended to
+be a part of this repo in the longer term. Think of this as just an example app
+to validate the data model can do what we need it to do.
 
-This should live in its own app, since it will likely need to understand
-different apps.
+This script manipulates the data models directly, instead of using stable API
+calls. This is only because those APIs haven't been created yet, and this is
+trying to validate basic questions about the data model. This is not how apps
+are intended to use openedx-learning in the longer term.
+
+Open Question: If the data model is extensible, how do we know whether a change
+has really happened between what's currently stored/published for a particular
+item and the new value we want to set? For Content that's easy, because we have
+actual hashes of the data. But it's not clear how that would work for something
+like an ItemVersion. We'd have to have some kind of mechanism where every app
+that wants to attach data gets to answer the question of "has anything changed?"
+in order to decide if we really make a new ItemVersion or not.
 """
 from collections import defaultdict, Counter
 from datetime import datetime, timezone
 import codecs
-import hashlib
-import json
 import logging
 import mimetypes
 import pathlib
-import random
-import re
-import string
-import sys
 import xml.etree.ElementTree as ET
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from openedx_learning.core.publishing.models import LearningContext
+from openedx_learning.contrib.staticassets.models import Asset, ItemVersionAsset
+from openedx_learning.core.publishing.models import (
+    LearningContext, LearningContextVersion
+)
 from openedx_learning.core.itemstore.models import (
-    Content, Item, ItemVersion, ItemVersionContent
+    Content, Item, ItemVersion, LearningContextVersionItemVersion
 )
 from openedx_learning.lib.fields import create_hash_digest
 
@@ -38,8 +47,10 @@ class Command(BaseCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.learning_context = None
+        self.init_known_types()
 
-        # Intialize mimetypes with some custom values:
+    def init_known_types(self):
+        """Intialize mimetypes with some custom mappings we want to use."""
         mimetypes.add_type("application/vnd.openedx.srt+json", ".sjson")
         mimetypes.add_type("text/markdown", ".md")
 
@@ -61,6 +72,14 @@ class Command(BaseCommand):
                 defaults={'created': now},
             )
             self.learning_context = learning_context
+
+            # For now, create always create a new LearningContextVersion (in the
+            # future, we need to be careful about detecting changes).
+            self.new_lcv = LearningContextVersion.objects.create(
+                learning_context=learning_context,
+                prev_version=None,
+                created=now,
+            )
 
             # Future Note:
             #   Make the static asset loading happen after XBlock loading
@@ -139,12 +158,6 @@ class Command(BaseCommand):
                 )
                 item_raw_id = item_raw.id
 
-            item_info, _created = ItemInfo.objects.get_or_create(
-                learning_context=self.learning_context,
-                type='static_asset',
-                item_raw_id=item_raw_id,
-                defaults={'created': now},
-            )
             paths_to_item_raw_ids[identifier] = item_raw_id
 
         print(f"{num_files} assets, totaling {(cum_size / 1_000_000):.2f} MB")
@@ -168,11 +181,24 @@ class Command(BaseCommand):
         for xml_file_path in content_path.iterdir():
             items_found += 1
             identifier = xml_file_path.stem
+
+            # Find or create the Item itself
+            item, _created = Item.objects.get_or_create(
+                learning_context=self.learning_context,
+                namespace='xblock.v1',
+                identifier=identifier,
+                defaults = {
+                    'created': now,
+                    'modified': now,
+                }
+            )
+
+            # Create the Content entry for the raw data...
             data_bytes = xml_file_path.read_bytes()
             hash_digest = create_hash_digest(data_bytes)
             data_str = codecs.decode(data_bytes, 'utf-8')
             mime_type = f'application/vnd.openedx.xblock.v1.{block_type}+xml'
-            item_raw, _created = Content.objects.get_or_create(
+            content, _created = Content.objects.get_or_create(
                 learning_context=self.learning_context,
                 mime_type=mime_type,
                 hash_digest=hash_digest,
@@ -182,11 +208,27 @@ class Command(BaseCommand):
                     created=now,
                 )
             )
-            item_info, _created = Content.objects.get_or_create(
-                learning_context=self.learning_context,
-                type='xblock',
-                item_raw=item_raw,
-                defaults={'created': now},
+
+            try:
+                block_root = ET.fromstring(data_str)
+            except ET.ParseError as err:
+                logger.error(f"Parse error for {xml_file_path}: {err}")
+                continue
+
+            display_name = block_root.attrib.get('display_name', "")
+
+            # Create the ItemVersion
+            item_version = ItemVersion.objects.create(
+                item=item,
+                title=display_name,
+                created=now,
+            )
+            item_version.contents.add(content)
+
+            LearningContextVersionItemVersion.objects.create(
+                learning_context_version=self.new_lcv,
+                item_version=item_version,
+                item=item,
             )
 
         print(f"{block_type}: {items_found}")
