@@ -4,19 +4,19 @@
 #
 #    make upgrade
 #
-asgiref==3.5.0
+asgiref==3.5.2
     # via django
-attrs==21.4.0
+attrs==22.1.0
     # via -r requirements/base.in
-django==3.2.11
+django==3.2.15
     # via
     #   -r requirements/base.in
     #   django-model-utils
 django-model-utils==4.2.0
     # via -r requirements/base.in
-django-simple-history==3.0.0
+django-simple-history==3.1.1
     # via -r requirements/base.in
-pytz==2021.3
+pytz==2022.1
     # via django
 sqlparse==0.4.2
     # via django
