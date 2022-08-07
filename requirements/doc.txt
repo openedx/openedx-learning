@@ -33,12 +33,6 @@ coverage[toml]==6.4.3
     #   -r requirements/test.txt
     #   pytest-cov
 django==3.2.15
-    # via
-    #   -r requirements/test.txt
-    #   django-model-utils
-django-model-utils==4.2.0
-    # via -r requirements/test.txt
-django-simple-history==3.1.1
     # via -r requirements/test.txt
 doc8==1.0.0
     # via -r requirements/doc.in

@@ -80,12 +80,7 @@ distlib==0.3.5
 django==3.2.15
     # via
     #   -r requirements/quality.txt
-    #   django-model-utils
     #   edx-i18n-tools
-django-model-utils==4.2.0
-    # via -r requirements/quality.txt
-django-simple-history==3.1.1
-    # via -r requirements/quality.txt
 docutils==0.19
     # via
     #   -r requirements/quality.txt
