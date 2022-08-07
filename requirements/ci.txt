@@ -8,9 +8,11 @@ certifi==2022.6.15
     # via requests
 charset-normalizer==2.1.0
     # via requests
+click==8.1.3
+    # via import-linter
 codecov==2.1.12
     # via -r requirements/ci.in
-coverage==6.4.2
+coverage==6.4.3
     # via codecov
 distlib==0.3.5
     # via virtualenv
@@ -18,8 +20,14 @@ filelock==3.7.1
     # via
     #   tox
     #   virtualenv
+grimp==1.2.3
+    # via import-linter
 idna==3.3
     # via requests
+import-linter==1.2.7
+    # via -r requirements/ci.in
+networkx==2.8.5
+    # via grimp
 packaging==21.3
     # via tox
 platformdirs==2.5.2
@@ -40,5 +48,5 @@ tox==3.25.1
     # via -r requirements/ci.in
 urllib3==1.26.11
     # via requests
-virtualenv==20.16.2
+virtualenv==20.16.3
     # via tox

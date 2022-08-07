@@ -1,0 +1,45 @@
+# openedx_learning is intended to be a library of apps used across multiple
+# projects, and we want to ensure certain dependency relationships. Please
+# think through any changes you make to this file carefully, and don't just
+# casually modify these linting rules to "fix the build".
+[importlinter]
+root_package = openedx_learning
+
+# This is the most basic layering for openedx_learning.
+#
+# The "lib" package is meant for low level utilities, field definitions, and the
+# like, so it's at the bottom layer.
+#
+# The "core" apps are meant to be the heart of our system, with foundational
+# data models and plugin interfaces. It can rely on "lib" utilities.
+#
+# The "contrib" apps are meant to be apps that could easily be created outside
+# of openedx_learning in a separate repository, but are bundled here because
+# we think they'll be generally useful. These apps may call into "core" or "lib"
+# apps, but not the other way around. The "core" apps should *never* import from
+# "contrib".
+[importlinter:contract:openedx_learning_layering]
+name = Lib / Core / Contrib Layering
+type = layers
+layers=
+    openedx_learning.contrib
+    openedx_learning.core
+    openedx_learning.lib
+
+# This is layering within our Core apps.
+#
+# The lowest layer is "publishing", which holds the basic primitives needed to
+# create LearningContexts and versioning.
+#
+# One layer above that is "itemstore" which stores single Items (e.g. Problem,
+# Video).
+#
+# Above "itemstore" are apps that can compose those Items into more interesting
+# structures (like Units).
+[importlinter:contract:core_apps_layering]
+name = Core App Dependency Layering
+type = layers
+layers=
+    openedx_learning.core.composition
+    openedx_learning.core.itemstore
+    openedx_learning.core.publishing
