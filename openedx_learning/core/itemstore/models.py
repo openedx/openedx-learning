@@ -70,14 +70,9 @@ class ItemVersion(models.Model):
     TODO: created_by field?
     """
     uuid = immutable_uuid_field()
-
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
 
-    # Question: Title is the only thing here that actually has human-readable
-    # text. Does it make sense to lift it out into a separate metadata model,
-    # possibly even one with language awareness?
     title = models.CharField(max_length=1000, blank=True, null=True)
-
     created = manual_date_time_field()
 
     learning_context_versions = models.ManyToManyField(
@@ -85,7 +80,6 @@ class ItemVersion(models.Model):
         through='LearningContextVersionItemVersion',
         related_name='item_versions',
     )
-    
     contents = models.ManyToManyField(
         'Content',
         through='ItemVersionContent',
@@ -168,12 +162,10 @@ class Content(models.Model):
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
     hash_digest = hash_field()
 
-    # Per RFC 4288, MIME type and sub-type may each be 127 chars. Add one more
-    # char for the '/' in the middle, and we're at 255.
-    #
-    # TODO: maybe we should split it up into two fields instead of doing
-    #       substring searches? 
-    mime_type = models.CharField(max_length=255, blank=False, null=False)
+    # Per RFC 4288, MIME type and sub-type may each be 127 chars.
+    type = models.CharField(max_length=127, blank=False, null=False)
+    sub_type = models.CharField(max_length=127, blank=False, null=False)
+
     size = models.PositiveBigIntegerField(
         validators=[MaxValueValidator(MAX_SIZE)],
     )
@@ -185,12 +177,15 @@ class Content(models.Model):
 
     data = models.BinaryField(null=False, max_length=MAX_SIZE)
 
+    def mime_type(self):
+        return f"{self.type}/{self.sub_type}"
+
     class Meta:
         constraints = [
             # Make sure we don't store duplicates of this raw data within the
             # same LearningContext, unless they're of different mime types.
             models.UniqueConstraint(
-                fields=["learning_context", "mime_type", "hash_digest"],
+                fields=["learning_context", "type", "sub_type", "hash_digest"],
                 name="content_uniq_lc_hd",
             )
         ]

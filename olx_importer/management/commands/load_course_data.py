@@ -86,10 +86,10 @@ class Command(BaseCommand):
             #   Make the static asset piece grep through created content.
             existing_item_raws = Content.objects \
                                      .filter(learning_context=learning_context) \
-                                     .values_list('id', 'mime_type', 'hash_digest')
+                                     .values_list('id', 'type', 'sub_type', 'hash_digest')
             item_raw_id_cache = {
-                (mime_type, hash_digest): item_raw_id
-                for item_raw_id, mime_type, hash_digest in existing_item_raws
+                (f"{type}/{sub_type}", hash_digest): item_raw_id
+                for item_raw_id, type, sub_type, hash_digest in existing_item_raws
             }
 
             static_asset_paths_to_atom_ids = self.import_static_assets(
@@ -146,9 +146,11 @@ class Command(BaseCommand):
 
             item_raw_id = item_raw_id_cache.get((mime_type, data_hash))
             if item_raw_id is None:
+                type, sub_type = mime_type.split('/')
                 item_raw, _created = Content.objects.get_or_create(
                     learning_context=self.learning_context,
-                    mime_type=mime_type,
+                    type=type,
+                    sub_type=sub_type,
                     hash_digest=data_hash,
                     defaults={
                         'data': data_bytes,
