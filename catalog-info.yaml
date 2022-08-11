@@ -2,9 +2,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: openedx-learning
-  annotations:
-    github.com/project-slug: openedx/openedx-learning
 spec:
   type: other
   lifecycle: unknown
-  owner: tcril-staff
+  owner: tcril-engineering
