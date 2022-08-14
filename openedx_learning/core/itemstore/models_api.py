@@ -1,18 +1,18 @@
 from django.db import models
 
-from .models import ItemVersion
+from .models import ComponentVersion
 
 
-class ItemVersionDataMixin(models.Model):
+class ComponentVersionDataMixin(models.Model):
     """
-    Minimal abstract model to let people attach data to ItemVersions.
+    Minimal abstract model to let people attach data to ComponentVersions.
 
     The idea is that if you have a model that is associated with a specific
-    version of an item, the join is going to be 1:1 with an ItemVersion, and
+    version of an item, the join is going to be 1:1 with an ComponentVersion, and
     potentially M:1 with your data model.
     """
-    item_version = models.OneToOneField(
-        ItemVersion,
+    component_version = models.OneToOneField(
+        ComponentVersion,
         on_delete=models.CASCADE,
         primary_key=True,
     )
