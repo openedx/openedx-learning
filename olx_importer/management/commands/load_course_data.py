@@ -13,9 +13,9 @@ Open Question: If the data model is extensible, how do we know whether a change
 has really happened between what's currently stored/published for a particular
 item and the new value we want to set? For Content that's easy, because we have
 actual hashes of the data. But it's not clear how that would work for something
-like an ItemVersion. We'd have to have some kind of mechanism where every app
+like an ComponentVersion. We'd have to have some kind of mechanism where every app
 that wants to attach data gets to answer the question of "has anything changed?"
-in order to decide if we really make a new ItemVersion or not.
+in order to decide if we really make a new ComponentVersion or not.
 """
 from collections import defaultdict, Counter
 from datetime import datetime, timezone
@@ -28,12 +28,12 @@ import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from openedx_learning.contrib.staticassets.models import Asset, ItemVersionAsset
+from openedx_learning.contrib.staticassets.models import Asset, ComponentVersionAsset
 from openedx_learning.core.publishing.models import (
     LearningContext, LearningContextVersion
 )
 from openedx_learning.core.itemstore.models import (
-    Content, Item, ItemVersion, LearningContextVersionItemVersion
+    Content, Component, ComponentVersion, LearningContextVersionComponentVersion
 )
 from openedx_learning.lib.fields import create_hash_digest
 
@@ -172,7 +172,7 @@ class Command(BaseCommand):
 
 
     def import_block_type(self, block_type, content_path, static_asset_paths_to_atom_ids, item_raw_id_cache, now):
-        items_found = 0
+        components_found = 0
 
         # Find everything that looks like a reference to a static file appearing
         # in attribute quotes, stripping off the querystring at the end. This is
@@ -181,14 +181,14 @@ class Command(BaseCommand):
         static_files_regex = r"""['"]\/static\/(.+?)["'\?]"""
 
         for xml_file_path in content_path.iterdir():
-            items_found += 1
+            components_found += 1
             identifier = xml_file_path.stem
 
             # Find or create the Item itself
-            item, _created = Item.objects.get_or_create(
+            component, _created = Component.objects.get_or_create(
                 learning_context=self.learning_context,
                 namespace='xblock.v1',
-                identifier=identifier,
+                identifier=f"{block_type}+{identifier}",
                 defaults = {
                     'created': now,
                     'modified': now,
@@ -199,10 +199,10 @@ class Command(BaseCommand):
             data_bytes = xml_file_path.read_bytes()
             hash_digest = create_hash_digest(data_bytes)
             data_str = codecs.decode(data_bytes, 'utf-8')
-            mime_type = f'application/vnd.openedx.xblock.v1.{block_type}+xml'
             content, _created = Content.objects.get_or_create(
                 learning_context=self.learning_context,
-                mime_type=mime_type,
+                type='application',
+                sub_type='vnd.openedx.xblock.v1.{block_type}+xml',
                 hash_digest=hash_digest,
                 defaults = dict(
                     data=data_bytes,
@@ -219,18 +219,18 @@ class Command(BaseCommand):
 
             display_name = block_root.attrib.get('display_name', "")
 
-            # Create the ItemVersion
-            item_version = ItemVersion.objects.create(
-                item=item,
-                title=display_name,
+            # Create the ComponentVersion
+            component_version = ComponentVersion.objects.create(
+                component=component,
+                # title=display_name,
                 created=now,
             )
-            item_version.contents.add(content)
+            component_version.contents.add(content)
 
-            LearningContextVersionItemVersion.objects.create(
+            LearningContextVersionComponentVersion.objects.create(
                 learning_context_version=self.new_lcv,
-                item_version=item_version,
-                item=item,
+                component_version=component_version,
+                component=component,
             )
 
-        print(f"{block_type}: {items_found}")
+        print(f"{block_type}: {components_found}")
