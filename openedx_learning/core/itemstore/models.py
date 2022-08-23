@@ -87,6 +87,9 @@ class ItemVersion(models.Model):
 
 
 class ItemVersionComponentVersion(models.Model):
+    """
+    TODO: Should this have optional title?
+    """
     item_version = models.ForeignKey(ItemVersion, on_delete=models.CASCADE)
     component_version = models.ForeignKey('ComponentVersion', on_delete=models.RESTRICT)
     order_num = models.PositiveIntegerField()
@@ -150,9 +153,15 @@ class Component(models.Model):
     uuid = immutable_uuid_field()
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
 
-    # namespace/identifier work together to give a more humanly readable, local
-    # identifier for an Component.
+    # namespace and type work together to help figure out what Component needs
+    # to handle this data. A namespace is *required*.
     namespace = models.CharField(max_length=100, null=False, blank=False)
+
+    # type is a way to help sub-divide namespace if that's convenient. This
+    # field cannot be null, but it can be blank if it's not necessary.
+    type = models.CharField(max_length=100, null=False, blank=True)
+    
+    # identifier is local to a learning_context + namespace + type. 
     identifier = identifier_field()
 
     created = manual_date_time_field()
@@ -164,9 +173,10 @@ class Component(models.Model):
                 fields=[
                     "learning_context",
                     "namespace",
+                    "type",
                     "identifier",
                 ],
-                name="component_uniq_lc_ns_identifier",
+                name="component_uniq_lc_ns_type_identifier",
             )
         ]
 

@@ -3,4 +3,8 @@
 
 Django<4.0                # Web application framework
 
+# For the Python API layer (eventually)
 attrs
+
+# Serialization
+pyyaml

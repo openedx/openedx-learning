@@ -1,3 +1,4 @@
+import re
 from django.contrib import admin
 
 from .models import (
@@ -5,12 +6,25 @@ from .models import (
     LearningContextVersion,
 )
 
-# @admin.register(LearningContext)
-# class LearningContextAdmin(admin.ModelAdmin):
-#   pass
+class LearningContextVersionInline(admin.TabularInline):
+    model = LearningContextVersion
+    fk_name = 'learning_context'
+    readonly_fields = ('created', 'uuid')
+    min_num = 1
 
-admin.site.register(LearningContext)
-admin.site.register(LearningContextVersion)
+
+@admin.register(LearningContext)
+class LearningContextAdmin(admin.ModelAdmin):
+    fields = ('identifier', 'uuid', 'created')
+    readonly_fields = ('uuid', 'created')
+    list_display = ('identifier', 'uuid', 'created')
+
+    def get_inlines(self, request, obj):
+        if obj:
+            return [LearningContextVersionInline]
+        return []
+
+# admin.site.register(LearningContextVersion)
 
 """
 admin.site.register(LearningContextBranch)

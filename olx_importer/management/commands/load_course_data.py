@@ -92,11 +92,13 @@ class Command(BaseCommand):
                 for item_raw_id, type, sub_type, hash_digest in existing_item_raws
             }
 
-            static_asset_paths_to_atom_ids = self.import_static_assets(
-                course_data_path,
-                item_raw_id_cache,
-                now,
-            )
+            static_asset_paths_to_atom_ids = {}
+
+#            static_asset_paths_to_atom_ids = self.import_static_assets(
+#                course_data_path,
+#                item_raw_id_cache,
+#                now,
+#            )
 
             for block_type in SUPPORTED_TYPES:
                 self.import_block_type(
@@ -188,7 +190,8 @@ class Command(BaseCommand):
             component, _created = Component.objects.get_or_create(
                 learning_context=self.learning_context,
                 namespace='xblock.v1',
-                identifier=f"{block_type}+{identifier}",
+                type=block_type,
+                identifier=identifier,
                 defaults = {
                     'created': now,
                     'modified': now,
@@ -202,7 +205,7 @@ class Command(BaseCommand):
             content, _created = Content.objects.get_or_create(
                 learning_context=self.learning_context,
                 type='application',
-                sub_type='vnd.openedx.xblock.v1.{block_type}+xml',
+                sub_type=f'vnd.openedx.xblock.v1.{block_type}+xml',
                 hash_digest=hash_digest,
                 defaults = dict(
                     data=data_bytes,
