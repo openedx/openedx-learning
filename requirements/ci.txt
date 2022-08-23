@@ -16,11 +16,11 @@ coverage==6.4.3
     # via codecov
 distlib==0.3.5
     # via virtualenv
-filelock==3.7.1
+filelock==3.8.0
     # via
     #   tox
     #   virtualenv
-grimp==1.2.3
+grimp==1.3
     # via import-linter
 idna==3.3
     # via requests

@@ -54,6 +54,7 @@ def immutable_uuid_field():
         null=False,
         editable=False,
         unique=True,
+        verbose_name="UUID",  # Just makes the Django admin output properly capitalized
     )
 
 def hash_field():

@@ -10,7 +10,9 @@ attrs==22.1.0
     # via -r requirements/base.in
 django==3.2.15
     # via -r requirements/base.in
-pytz==2022.1
+pytz==2022.2.1
     # via django
+pyyaml==6.0
+    # via -r requirements/base.in
 sqlparse==0.4.2
     # via django

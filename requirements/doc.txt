@@ -68,7 +68,7 @@ packaging==21.3
     #   -r requirements/test.txt
     #   pytest
     #   sphinx
-pbr==5.9.0
+pbr==5.10.0
     # via
     #   -r requirements/test.txt
     #   stevedore
@@ -102,7 +102,7 @@ python-slugify==6.1.2
     # via
     #   -r requirements/test.txt
     #   code-annotations
-pytz==2022.1
+pytz==2022.2.1
     # via
     #   -r requirements/test.txt
     #   babel

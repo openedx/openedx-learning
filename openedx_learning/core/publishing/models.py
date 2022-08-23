@@ -24,7 +24,7 @@ class LearningContext(models.Model):
     created = manual_date_time_field()
 
     def __str__(self):
-        return f"LearningContext {self.uuid}: {self.identifier}"
+        return f"{self.identifier} ({self.uuid})"
 
     class Meta:
         constraints = [
@@ -40,7 +40,6 @@ class LearningContextVersion(models.Model):
     """
     uuid = immutable_uuid_field()
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
-    prev_version = models.ForeignKey(LearningContext, on_delete=models.RESTRICT, null=True, related_name='+')
     created = manual_date_time_field()
 
 

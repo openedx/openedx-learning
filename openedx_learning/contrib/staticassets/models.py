@@ -13,6 +13,8 @@ from django.db import models
 from openedx_learning.core.itemstore.models_api import ComponentVersionDataMixin
 
 
+# The following is a placeholder, but there's not point in making models 
+
 class Asset(models.Model):
     """
     An Asset may be more than just a single file.
