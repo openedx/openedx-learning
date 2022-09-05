@@ -21,7 +21,10 @@ from openedx_learning.lib.fields import (
 class LearningContext(models.Model):
     uuid = immutable_uuid_field()
     identifier = identifier_field()
+    title = models.CharField(max_length=1000, null=False, blank=False)
+
     created = manual_date_time_field()
+    updated = manual_date_time_field()
 
     def __str__(self):
         return f"{self.identifier} ({self.uuid})"

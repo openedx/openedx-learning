@@ -43,6 +43,8 @@ INSTALLED_APPS = (
     # testing/iteration easier until the APIs stabilize.
     'olx_importer.apps.OLXImporterConfig',
 
+    # LOR apps
+    'rest_framework',
     'openedx_lor.authoring.apps.AuthoringConfig',
 )
 
@@ -87,7 +89,7 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 STATICFILES_DIRS = [
-    BASE_DIR / 'projects' / 'static'
+#     BASE_DIR / 'projects' / 'static'
 ]
 MEDIA_URL = '/media/'
 

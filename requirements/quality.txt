@@ -8,7 +8,7 @@ asgiref==3.5.2
     # via
     #   -r requirements/test.txt
     #   django
-astroid==2.11.7
+astroid==2.12.5
     # via
     #   pylint
     #   pylint-celery
@@ -47,6 +47,13 @@ coverage[toml]==6.4.4
 dill==0.3.5.1
     # via pylint
 django==4.1
+    # via
+    #   -r requirements/test.txt
+    #   django-filter
+    #   djangorestframework
+django-filter==22.1
+    # via -r requirements/test.txt
+djangorestframework==3.13.1
     # via -r requirements/test.txt
 docutils==0.19
     # via readme-renderer
@@ -56,7 +63,9 @@ idna==3.3
     # via requests
 importlib-metadata==4.12.0
     # via
+    #   -r requirements/test.txt
     #   keyring
+    #   markdown
     #   twine
 iniconfig==1.1.1
     # via
@@ -66,20 +75,26 @@ isort==5.10.1
     # via
     #   -r requirements/quality.in
     #   pylint
+jaraco-classes==3.2.2
+    # via keyring
 jinja2==3.1.2
     # via
     #   -r requirements/test.txt
     #   code-annotations
-keyring==23.8.2
+keyring==23.9.0
     # via twine
 lazy-object-proxy==1.7.1
     # via astroid
+markdown==3.4.1
+    # via -r requirements/test.txt
 markupsafe==2.1.1
     # via
     #   -r requirements/test.txt
     #   jinja2
 mccabe==0.7.0
     # via pylint
+more-itertools==8.14.0
+    # via jaraco-classes
 packaging==21.3
     # via
     #   -r requirements/test.txt
@@ -108,7 +123,7 @@ pygments==2.13.0
     # via
     #   readme-renderer
     #   rich
-pylint==2.14.5
+pylint==2.15.0
     # via
     #   edx-lint
     #   pylint-celery
@@ -126,7 +141,7 @@ pyparsing==3.0.9
     # via
     #   -r requirements/test.txt
     #   packaging
-pytest==7.1.2
+pytest==7.1.3
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -139,6 +154,10 @@ python-slugify==6.1.2
     # via
     #   -r requirements/test.txt
     #   code-annotations
+pytz==2022.2.1
+    # via
+    #   -r requirements/test.txt
+    #   djangorestframework
 pyyaml==6.0
     # via
     #   -r requirements/test.txt
@@ -197,7 +216,6 @@ webencodings==0.5.1
 wrapt==1.14.1
     # via astroid
 zipp==3.8.1
-    # via importlib-metadata
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools
+    # via
+    #   -r requirements/test.txt
+    #   importlib-metadata

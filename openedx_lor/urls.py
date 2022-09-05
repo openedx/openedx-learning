@@ -1,5 +1,5 @@
 from django.urls import include, path
 
 urlpatterns = [
-    path('authoring/', include('openedx_lor.authoring.urls')),
+    path('authoring/v1/', include('openedx_lor.authoring.rest_api.v1.urls')),
 ]
