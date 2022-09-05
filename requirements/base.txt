@@ -11,8 +11,23 @@ attrs==22.1.0
 backports-zoneinfo==0.2.1
     # via django
 django==4.1
+    # via
+    #   -r requirements/base.in
+    #   django-filter
+    #   djangorestframework
+django-filter==22.1
     # via -r requirements/base.in
+djangorestframework==3.13.1
+    # via -r requirements/base.in
+importlib-metadata==4.12.0
+    # via markdown
+markdown==3.4.1
+    # via -r requirements/base.in
+pytz==2022.2.1
+    # via djangorestframework
 pyyaml==6.0
     # via -r requirements/base.in
 sqlparse==0.4.2
     # via django
+zipp==3.8.1
+    # via importlib-metadata

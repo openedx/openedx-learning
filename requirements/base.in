@@ -8,3 +8,8 @@ attrs
 
 # Serialization
 pyyaml
+
+# Django Rest Framework + extras for the openedx_lor project
+djangorestframework
+markdown
+django-filter

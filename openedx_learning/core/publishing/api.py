@@ -36,14 +36,12 @@ metadata, but doesn't know about anything _inside_ the Unit::
 How to manage plugin cycle life?
 
 """
+from datetime import datetime, timezone
+from django.db import transaction
+
+from .models import LearningContext
 
 
-def current_version(learning_context_key):
-    pass
-
-
-def update_published_version(learning_context_key, app_name, published_at=None):
-    pass
-
-
-
+def create_learning_context(identifier, title):
+    with transaction.atomic():
+        LearningContext.objects.create(identifier=identifier, title=title)
