@@ -146,8 +146,8 @@ For more information about these options, see the `Getting Help`_ page.
     :target: https://pypi.python.org/pypi/openedx-learning/
     :alt: PyPI
 
-.. |ci-badge| image:: https://github.com/edx/openedx-learning/workflows/Python%20CI/badge.svg?branch=master
-    :target: https://github.com/edx/openedx-learning/actions
+.. |ci-badge| image:: https://github.com/openedx/openedx-learning/workflows/Python%20CI/badge.svg?branch=master
+    :target: https://github.com/openedx/openedx-learning/actions
     :alt: CI
 
 .. |codecov-badge| image:: https://codecov.io/github/edx/openedx-learning/coverage.svg?branch=master
@@ -163,5 +163,5 @@ For more information about these options, see the `Getting Help`_ page.
     :alt: Supported Python versions
 
 .. |license-badge| image:: https://img.shields.io/github/license/edx/openedx-learning.svg
-    :target: https://github.com/edx/openedx-learning/blob/master/LICENSE.txt
+    :target: https://github.com/openedx/openedx-learning/blob/master/LICENSE.txt
     :alt: License
