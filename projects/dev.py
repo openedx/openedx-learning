@@ -43,9 +43,9 @@ INSTALLED_APPS = (
     # testing/iteration easier until the APIs stabilize.
     'olx_importer.apps.OLXImporterConfig',
 
-    # LOR apps
+    # REST API
     'rest_framework',
-    'openedx_lor.authoring.apps.AuthoringConfig',
+    'openedx_learning.rest_api.apps.RESTAPIConfig',
 )
 
 MIDDLEWARE = [
