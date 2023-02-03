@@ -26,7 +26,7 @@ Parts
 ~~~~~
 
 * ``openedx_learning.lib`` is for shared utilities, and may include things like custom field types, plugin registration code, etc.
-* ``openedx_learning.core`` contains our Core Django apps.
+* ``openedx_learning.core`` contains our Core Django apps, where foundational data structures and APIs will live.
 
 App Dependencies
 ~~~~~~~~~~~~~~~~

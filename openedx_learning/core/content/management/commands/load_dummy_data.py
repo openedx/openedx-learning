@@ -16,7 +16,7 @@ from openedx_learning.contrib.staticassets.models import Asset, ComponentVersion
 from openedx_learning.core.publishing.models import (
     LearningContext, LearningContextVersion
 )
-from openedx_learning.core.itemstore.models import (
+from openedx_learning.core.content.models import (
     Content, Component, ComponentVersion, LearningContextVersionComponentVersion,
     Item, ItemVersion
 )
