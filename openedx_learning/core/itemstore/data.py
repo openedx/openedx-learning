@@ -33,18 +33,19 @@ class ComponentData:
 
 @define
 class ComponentVersionData:
+    uuid: uuid.UUID
     component: ComponentData
     created: datetime
-     
 
 
 @define
 class ItemData:
-    uuid: uuid.UUID
     identifier: str
-
     learning_context: LearningContextData
 
+@define
+class SavedItemData(ItemData):
+    uuid: uuid.UUID
 
 @define
 class ItemVersionData:
@@ -53,3 +54,13 @@ class ItemVersionData:
     title: str
 
     component_versions: List[ComponentVersionData]
+
+
+@define
+class ContentData:
+    learning_context: LearningContextData
+    hash_digest: str  # should this be bytes instead?
+    type: str
+    sub_type: str
+    size: int
+    created: datetime

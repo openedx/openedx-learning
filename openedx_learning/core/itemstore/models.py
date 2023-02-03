@@ -201,11 +201,11 @@ class ComponentVersion(models.Model):
     component = models.ForeignKey(Component, on_delete=models.CASCADE)
     created = manual_date_time_field()
 
-    learning_context_versions = models.ManyToManyField(
-        LearningContextVersion,
-        through="LearningContextVersionComponentVersion",
-        related_name="component_versions",
-    )
+#    learning_context_versions = models.ManyToManyField(
+#        LearningContextVersion,
+#        through="LearningContextVersionComponentVersion",
+#       related_name="component_versions",
+#    )
     contents = models.ManyToManyField(
         "Content",
         through="ComponentVersionContent",

@@ -54,7 +54,7 @@ def load_itemstore_data(itemstore_yaml_file, learning_context, now):
 
 
 def create_or_update_item(learning_context, identifier, item_data, now):
-    item = Item.objects.get_or_create(
+    item, created = Item.objects.get_or_create(
         learning_context=learning_context,
         identifier=identifier,
         defaults={
