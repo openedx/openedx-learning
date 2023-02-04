@@ -62,4 +62,6 @@ requirements/private.txt
 
 # database file
 dev.db
-s
+
+.vscode
+
