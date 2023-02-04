@@ -9,32 +9,71 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='LearningContext',
+            name="LearningContext",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
-                ('identifier', models.CharField(max_length=255)),
-                ('created', models.DateTimeField()),
-                ('updated', models.DateTimeField()),
-                ('title', models.CharField(blank=True, max_length=1000)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "uuid",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        unique=True,
+                        verbose_name="UUID",
+                    ),
+                ),
+                ("identifier", models.CharField(max_length=255)),
+                ("created", models.DateTimeField()),
+                ("updated", models.DateTimeField()),
+                ("title", models.CharField(blank=True, max_length=1000)),
             ],
         ),
         migrations.CreateModel(
-            name='LearningContextVersion',
+            name="LearningContextVersion",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
-                ('created', models.DateTimeField()),
-                ('learning_context', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='publishing.learningcontext')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "uuid",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        unique=True,
+                        verbose_name="UUID",
+                    ),
+                ),
+                ("created", models.DateTimeField()),
+                (
+                    "learning_context",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="publishing.learningcontext",
+                    ),
+                ),
             ],
         ),
         migrations.AddConstraint(
-            model_name='learningcontext',
-            constraint=models.UniqueConstraint(fields=('identifier',), name='lc_uniq_identifier'),
+            model_name="learningcontext",
+            constraint=models.UniqueConstraint(
+                fields=("identifier",), name="lc_uniq_identifier"
+            ),
         ),
     ]

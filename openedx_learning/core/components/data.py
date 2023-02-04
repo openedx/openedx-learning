@@ -33,9 +33,17 @@ class ComponentData:
 
 @define
 class ComponentVersionData:
-    uuid: uuid.UUID
     component: ComponentData
     created: datetime
+
+
+@define
+class SavedComponentVersionData(ComponentVersionData):
+    """
+    This is the data for a Component that has been saved to the database.
+    """
+
+    uuid: uuid.UUID
 
 
 @define
@@ -43,9 +51,11 @@ class ItemData:
     identifier: str
     learning_context: LearningContextData
 
+
 @define
 class SavedItemData(ItemData):
     uuid: uuid.UUID
+
 
 @define
 class ItemVersionData:

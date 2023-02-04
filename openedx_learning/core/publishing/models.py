@@ -38,9 +38,10 @@ class LearningContext(models.Model):
             models.UniqueConstraint(fields=["identifier"], name="lc_uniq_identifier")
         ]
 
+
 class LearningContextVersion(models.Model):
-    """
-    """
+    """ """
+
     uuid = immutable_uuid_field()
     learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
     created = manual_date_time_field()

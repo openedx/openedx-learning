@@ -10,16 +10,19 @@ the downloadable piece.
 """
 from django.db import models
 
-from openedx_learning.core.itemstore.models_api import ComponentVersionDataMixin
+from openedx_learning.core.components.models_api import ComponentVersionMixin
 
 
-# The following is a placeholder, but there's not point in making models 
+# The following is a placeholder, but there's not point in making models
+
 
 class Asset(models.Model):
     """
     An Asset may be more than just a single file.
     """
+
     pass
 
-class ComponentVersionAsset(ComponentVersionDataMixin):
+
+class ComponentVersionAsset(ComponentVersionMixin):
     asset = models.ForeignKey(Asset, on_delete=models.RESTRICT, null=False)

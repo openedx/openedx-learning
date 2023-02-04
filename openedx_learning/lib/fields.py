@@ -40,6 +40,7 @@ def identifier_field():
         null=False,
     )
 
+
 def immutable_uuid_field():
     """
     Stable, randomly-generated UUIDs.
@@ -56,6 +57,7 @@ def immutable_uuid_field():
         unique=True,
         verbose_name="UUID",  # Just makes the Django admin output properly capitalized
     )
+
 
 def hash_field():
     """
@@ -75,8 +77,10 @@ def hash_field():
         editable=False,
     )
 
+
 def create_hash_digest(data_bytes):
     return hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
+
 
 def manual_date_time_field():
     """

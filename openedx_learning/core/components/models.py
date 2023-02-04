@@ -1,5 +1,5 @@
 """
-The model hierarchy is Item -> Component -> Content.
+The model hierarchy is Component -> Content.
 
 Content is a simple model holding unversioned, raw data, along with some simple
 metadata like size and MIME type.
@@ -7,11 +7,6 @@ metadata like size and MIME type.
 Multiple pieces of Content may be associated with a Component. A Component is a
 versioned thing that maps to a single Component Handler. This might be a Video,
 a Problem, or some explanatatory HTML.
-
-An Item is a single, coherent piece of learning material from the student's
-perspective. It has one or more Components, but these Components are tightly
-coupled (e.g. a Video followed by a Problem that asks a question about the
-Video). Items are also versioned.
 """
 from django.db import models
 from django.core.validators import MaxValueValidator
@@ -24,113 +19,7 @@ from openedx_learning.lib.fields import (
 )
 from ..publishing.models import (
     LearningContext,
-    LearningContextVersion,
 )
-
-
-class Item(models.Model):
-    """
-    A single piece of learning material from the student's perspective.
-
-    An Item has an ordered list of one or more Components, but those Components
-    must be tightly coupled to each other. For instance, a Video Component +
-    a Problem Component that references the Video.
-
-    Students may see the identifier of the Item in the address bar of their
-    browser.
-    """
-
-    uuid = immutable_uuid_field()
-    learning_context = models.ForeignKey(LearningContext, on_delete=models.CASCADE)
-
-    # Mutable, app defined identifier.
-    identifier = identifier_field()
-
-    created = manual_date_time_field()
-    modified = manual_date_time_field()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["learning_context", "identifier"],
-                name="item_uniq_lc_identifier",
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.identifier}"
-
-
-class ItemVersion(models.Model):
-    """
-    A particular version of an Item.
-
-    A new version should be created when there is a change to the set of
-    Components in a Item.
-    """
-
-    uuid = immutable_uuid_field()
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    title = models.CharField(max_length=1000, null=False, blank=True)
-
-    component_versions = models.ManyToManyField(
-        "ComponentVersion",
-        through="ItemVersionComponentVersion",
-        related_name="item_versions",
-    )
-
-    learning_context_versions = models.ManyToManyField(
-        LearningContextVersion,
-        through="LearningContextVersionItemVersion",
-        related_name="item_versions",
-    )
-
-
-class ItemVersionComponentVersion(models.Model):
-    """
-    TODO: Should this have optional title?
-    """
-    item_version = models.ForeignKey(ItemVersion, on_delete=models.CASCADE)
-    component_version = models.ForeignKey('ComponentVersion', on_delete=models.RESTRICT)
-    order_num = models.PositiveIntegerField()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["item_version", "order_num"],
-                name="ivcv_uniq_item_component_order",
-            )
-        ]
-
-
-class LearningContextVersionItemVersion(models.Model):
-    """
-    Mapping of all ItemVersions for a given LearningContextVersion.
-
-    This answers, "What version of these items is in this version of a course?"
-    There can be at most one version of a given Item for a given
-    LearningContextVersion.
-    """
-
-    learning_context_version = models.ForeignKey(
-        LearningContextVersion, on_delete=models.CASCADE
-    )
-    item_version = models.ForeignKey(ItemVersion, on_delete=models.RESTRICT)
-    item = models.ForeignKey(Item, on_delete=models.RESTRICT)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["learning_context_version", "item_version"],
-                name="lcvsv_uniq_lcv_item_version",
-            ),
-            # For any given LearningContentVersion, there should be only one
-            # version of an Item.
-            models.UniqueConstraint(
-                fields=["learning_context_version", "item"],
-                name="lcvsv_uniq_lcv_item",
-            ),
-        ]
 
 
 class Component(models.Model):
@@ -160,8 +49,8 @@ class Component(models.Model):
     # type is a way to help sub-divide namespace if that's convenient. This
     # field cannot be null, but it can be blank if it's not necessary.
     type = models.CharField(max_length=100, null=False, blank=True)
-    
-    # identifier is local to a learning_context + namespace + type. 
+
+    # identifier is local to a learning_context + namespace + type.
     identifier = identifier_field()
 
     created = manual_date_time_field()
@@ -201,11 +90,6 @@ class ComponentVersion(models.Model):
     component = models.ForeignKey(Component, on_delete=models.CASCADE)
     created = manual_date_time_field()
 
-#    learning_context_versions = models.ManyToManyField(
-#        LearningContextVersion,
-#        through="LearningContextVersionComponentVersion",
-#       related_name="component_versions",
-#    )
     contents = models.ManyToManyField(
         "Content",
         through="ComponentVersionContent",
@@ -216,49 +100,8 @@ class ComponentVersion(models.Model):
         return f"{self.uuid}: {self.title}"
 
 
-class LearningContextVersionComponentVersion(models.Model):
-    """
-    Mapping of all ComponentVersion in a given LearningContextVersion.
-    """
-
-    learning_context_version = models.ForeignKey(
-        LearningContextVersion, on_delete=models.CASCADE
-    )
-    component_version = models.ForeignKey(ComponentVersion, on_delete=models.RESTRICT)
-
-    # component should always be derivable from component_version, but it exists
-    # in this model directly because MySQL doesn't support constraint conditions
-    # (see comments in the constraints section below for details).
-    component = models.ForeignKey(Component, on_delete=models.RESTRICT)
-
-    class Meta:
-        constraints = [
-            # The same ComponentVersion should only show up once for a given
-            # LearningContextVersion.
-            models.UniqueConstraint(
-                fields=[
-                    "learning_context_version",
-                    "component_version",
-                ],
-                name="lcviv_uniq_lcv_cv",
-            ),
-            # A Component should have at most one version of itself published as
-            # part of any given LearningContextVersion. Having multiple
-            # ComponentVersions from the same Component in a given
-            # LearningContextVersion would cause the identifiers to collide,
-            # which could cause buggy behavior without much benefit.
-            #
-            # Ideally, we could enforce this with a constraint condition that
-            # queried component_version.component, but MySQL does not support
-            # this. So we waste a little extra space to help enforce data
-            # integrity by adding a foreign key to the Component directly in
-            # this model, and then checking the uniqueness of
-            # (LearningContextVersion, Component).
-            models.UniqueConstraint(
-                fields=["learning_context_version", "component"],
-                name="lcviv_uniq_lcv_component",
-            ),
-        ]
+class ComponentDraft(models.Model):
+    pass
 
 
 class Content(models.Model):

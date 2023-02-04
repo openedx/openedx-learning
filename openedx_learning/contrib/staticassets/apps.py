@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class StaticAssetsConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'openedx_learning.contrib.staticassets'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "openedx_learning.contrib.staticassets"

@@ -32,7 +32,7 @@ from openedx_learning.contrib.staticassets.models import Asset, ComponentVersion
 from openedx_learning.core.publishing.models import (
     LearningContext, LearningContextVersion
 )
-from openedx_learning.core.itemstore.models import (
+from openedx_learning.core.components.models import (
     Content, Component, ComponentVersion, LearningContextVersionComponentVersion
 )
 from openedx_learning.lib.fields import create_hash_digest
