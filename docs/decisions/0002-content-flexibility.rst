@@ -18,18 +18,11 @@ Decision
 
 The following are foundational, extensible concepts in the Learning Core, which can be combined in different ways:
 
-Item
-  An Item is a small piece of content, like a video, problem, or bit of HTML text. It has an identity, renderer, and potentially student state. It is not a container for other content, and has no child elements.
-  
-  Items are analogous to the "Module" portion of the traditional Open edX course.
-
-Segment
-  A Segment is an ordered list of Items that must be presented to the user together. The Items inside a Segment may be of different types, but it does not make sense to show one of these Items in isolation. An example could be one Item that explains a problem scenario, along with a problem Item that asks a question about it–a common scenario in content libraries. By default, each Item is its own Segment.
-
-  Open edX currently models these as nested Verticals (a.k.a. Units), but this often causes problems for code that traverses the content without realizing that such a nesting is possible.
+Component
+  A Component is a small piece of content, like a video, problem, or bit of HTML text. It has an identity, renderer, and potentially student state. It is not a container for other content, and has no child elements.
 
 Unit
-  This is a list of one or more Segments that is displayed to the user on one page. A Unit may be stitched together using content that comes from multiple sources, such as content libraries. Units do not have to be strictly instructional content, as things like upgrade offers and error messages may also be injected.
+  A Unit is an ordered list of one or more Components. A Unit is addressable in the browser at some URL, and is displayed together. A common use case might be to display some introductory Text, a Video, and some followup Problem (all separate Components). An individual Component in a Unit may or may not make sense when taken outside of that Unit–e.g. a Video may be reusable elsewhere, but the Problem referencing the video might not be.
 
 Sequence
   A Sequence is a collection of Units that are presented one after the other, either to assess student understanding or to achieve some learning objective. 
@@ -50,3 +43,11 @@ Consequences
 This is aligned with the ADR on the `Role of XBlock <https://github.com/openedx/edx-platform/blob/master/docs/decisions/0006-role-of-xblock.rst>`_, which envisions XBlocks as leaf nodes of instructional content like Videos and Problems, and not as container structures like Units or Sequences.
 
 To realize the benefits of this system would require significant changes to Studio and especially the LMS. In particular, this would involve gradually removing the XBlock runtime from much of the courseware logic. This would allow for substantial simplifications of the LMS XBlock runtime itself, such as removing field inheritance.
+
+Changelog
+---------
+
+2023-02-06:
+
+* Renamed "Item" to "Component" to be consistent with user-facing Studio terminology.
+* Collapsed the role of Segment into Unit simplify the data model.
