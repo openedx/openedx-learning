@@ -23,3 +23,4 @@ class ComponentViewSet(viewsets.ViewSet):
 
     def destroy(self, request, pk=None):
         raise NotImplementedError
+ 

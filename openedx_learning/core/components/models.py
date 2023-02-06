@@ -89,11 +89,13 @@ class ComponentVersion(models.Model):
 
     uuid = immutable_uuid_field()
     component = models.ForeignKey(Component, on_delete=models.CASCADE)
-    created = manual_date_time_field()
+    title = models.CharField(max_length=1000, default="", null=False, blank=True)
     version_num = models.PositiveBigIntegerField(
         null=False,
         validators=[MinValueValidator(1)],  # Versions start with 1
-    )    
+    )
+    created = manual_date_time_field()
+
     # For later consideration:
     # created_by = models.ForeignKey(
     #    settings.AUTH_USER_MODEL,
@@ -138,9 +140,7 @@ class ComponentPublishLogEntry(models.Model):
     This is a historical record of Component publishing.
     """
 
-    publish_log_entry = models.OneToOneField(
-        PublishLogEntry, primary_key=True, on_delete=models.CASCADE
-    )
+    publish_log_entry = models.ForeignKey(PublishLogEntry, on_delete=models.CASCADE)
     component = models.ForeignKey(Component, on_delete=models.RESTRICT)
     component_version = models.ForeignKey(
         ComponentVersion, on_delete=models.RESTRICT, null=True

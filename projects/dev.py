@@ -36,7 +36,6 @@ INSTALLED_APPS = (
     'openedx_learning.core.publishing.apps.PublishingConfig',
 
     # Learning Contrib Apps
-    'openedx_learning.contrib.staticassets.apps.StaticAssetsConfig',
 
     # Apps that don't belong in this repo in the long term, but are here to make
     # testing/iteration easier until the APIs stabilize.

@@ -43,6 +43,7 @@ class PublishLogEntry(models.Model):
 
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+    message = models.CharField(max_length=1000, null=False, blank=True, default="")
     published_at = manual_date_time_field()
     published_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
