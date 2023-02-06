@@ -21,7 +21,7 @@ class LearningPackage(models.Model):
     updated = manual_date_time_field()
 
     def __str__(self):
-        return f"{self.identifier} ({self.uuid})"
+        return f"{self.identifier} ({self.uuid}): {self.title}"
 
     class Meta:
         constraints = [
@@ -31,6 +31,8 @@ class LearningPackage(models.Model):
             # we'd tie it to something like a Site or Org.
             models.UniqueConstraint(fields=["identifier"], name="lp_uniq_identifier")
         ]
+        verbose_name = "Learning Package"
+        verbose_name_plural = "Learning Packages"
 
 
 class PublishLogEntry(models.Model):
@@ -50,3 +52,7 @@ class PublishLogEntry(models.Model):
         on_delete=models.SET_NULL,
         null=True,
     )
+
+    class Meta:
+        verbose_name = "Publish Log Entry"
+        verbose_name_plural = "Publish Log Entries"

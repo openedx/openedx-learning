@@ -71,6 +71,8 @@ class Component(models.Model):
                 name="component_uniq_lc_ns_type_identifier",
             )
         ]
+        verbose_name = "Component"
+        verbose_name_plural = "Components"
 
     def __str__(self):
         return f"{self.identifier}"
@@ -110,7 +112,7 @@ class ComponentVersion(models.Model):
     )
 
     def __str__(self):
-        return f"{self.uuid}: {self.title}"
+        return f"v{self.version_num}: {self.title}"
 
     class Meta:
         constraints = [
@@ -133,6 +135,8 @@ class ComponentVersion(models.Model):
                 name="cv_component_rev_created",
             ),
         ]
+        verbose_name = "Component Version"
+        verbose_name_plural = "Component Versions"
 
 
 class ComponentPublishLogEntry(models.Model):
