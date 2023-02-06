@@ -165,7 +165,5 @@ class Command(BaseCommand):
                 component_version=component_version,
                 component_publish_log_entry=component_publish_log_entry,
             )
-            print("got here")
-
 
         print(f"{block_type}: {components_found}")
