@@ -29,7 +29,7 @@ from django.db import transaction
 
 from openedx_learning.core.publishing.models import LearningPackage, PublishLogEntry
 from openedx_learning.core.components.models import (
-    Content, Component, ComponentVersion,
+    Content, Component, ComponentVersion, ComponentVersionContent,
     ComponentPublishLogEntry, PublishedComponent,
 )
 from openedx_learning.lib.fields import create_hash_digest
@@ -152,7 +152,11 @@ class Command(BaseCommand):
                 version_num=1,  # This only works for initial import
                 title=display_name,
             )
-            component_version.contents.add(content)
+            ComponentVersionContent.objects.create(
+                component_version=component_version,
+                content=content,
+                identifier='source.xml',
+            )
 
             # Mark that Component as Published
             component_publish_log_entry = ComponentPublishLogEntry.objects.create(
