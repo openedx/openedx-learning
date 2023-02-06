@@ -6,7 +6,7 @@ from attrs import define, field
 
 
 @define
-class LearningContextData:
+class LearningPackageData:
     uuid: uuid.UUID
     identifier: str
     title: str
@@ -19,10 +19,10 @@ class LearningContextData:
 class ComponentData:
     uuid: uuid.UUID
 
-    # The combination of (learning_context, namespace, type, identifier) is
+    # The combination of (learning_package, namespace, type, identifier) is
     # unique, but the same namespace+type+identifier can exist in a different
     # Learning Context.
-    learning_context: LearningContextData
+    learning_package: LearningPackageData
     namespace: str
     type: str
     identifier: str
@@ -49,7 +49,7 @@ class SavedComponentVersionData(ComponentVersionData):
 @define
 class ItemData:
     identifier: str
-    learning_context: LearningContextData
+    learning_package: LearningPackageData
 
 
 @define
@@ -68,7 +68,7 @@ class ItemVersionData:
 
 @define
 class ContentData:
-    learning_context: LearningContextData
+    learning_package: LearningPackageData
     hash_digest: str  # should this be bytes instead?
     type: str
     sub_type: str

@@ -4,9 +4,9 @@ Tests for the `openedx-learning` models module.
 """
 
 
-class TestPublishedLearningContext:
+class TestPublishedLearningPackage:
     """
-    Tests of the PublishedLearningContext model.
+    Tests of the PublishedLearningPackage model.
     """
 
     def test_something(self):

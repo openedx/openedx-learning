@@ -7,7 +7,7 @@ class LibrarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Library
         fields = [
-            'learning_context',
+            'learning_package',
         #    'uuid',
         #    'identifier',
         #    'title',
@@ -16,7 +16,7 @@ class LibrarySerializer(serializers.ModelSerializer):
         ]
 
 class LibraryViewSet(viewsets.ModelViewSet):
-    queryset = Library.objects.all().select_related('learning_context')
+    queryset = Library.objects.all().select_related('learning_package')
     serializer_class = LibrarySerializer    
 
 class LibraryViewSet2(viewsets.ViewSet):

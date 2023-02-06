@@ -28,7 +28,7 @@ def identifier_field():
     Externally created Identifier fields.
 
     These will often be local to a particular scope, like within a
-    LearningContext. It's up to the application as to whether they're
+    LearningPackage. It's up to the application as to whether they're
     semantically meaningful or look more machine-generated.
 
     Other apps should *not* make references to these values directly, since

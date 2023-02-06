@@ -30,10 +30,10 @@ from django.db import transaction
 
 from openedx_learning.contrib.staticassets.models import Asset, ComponentVersionAsset
 from openedx_learning.core.publishing.models import (
-    LearningContext, LearningContextVersion
+    LearningPackage, LearningPackageVersion
 )
 from openedx_learning.core.components.models import (
-    Content, Component, ComponentVersion, LearningContextVersionComponentVersion
+    Content, Component, ComponentVersion, LearningPackageVersionComponentVersion
 )
 from openedx_learning.lib.fields import create_hash_digest
 
@@ -46,7 +46,7 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.learning_context = None
+        self.learning_package = None
         self.init_known_types()
 
     def init_known_types(self):
@@ -55,28 +55,28 @@ class Command(BaseCommand):
         mimetypes.add_type("text/markdown", ".md")
 
     def add_arguments(self, parser):
-        parser.add_argument('learning_context_identifier', type=str)
+        parser.add_argument('learning_package_identifier', type=str)
         parser.add_argument('course_data_path', type=pathlib.Path)
 
-    def handle(self, learning_context_identifier, course_data_path, **options):
-        self.learning_context_identifier = learning_context_identifier
-        self.load_course_data(learning_context_identifier, course_data_path)
+    def handle(self, learning_package_identifier, course_data_path, **options):
+        self.learning_package_identifier = learning_package_identifier
+        self.load_course_data(learning_package_identifier, course_data_path)
 
-    def load_course_data(self, learning_context_identifier, course_data_path):
+    def load_course_data(self, learning_package_identifier, course_data_path):
         print(f"Importing course from: {course_data_path}")
         now = datetime.now(timezone.utc)
 
         with transaction.atomic():
-            learning_context, _created = LearningContext.objects.get_or_create(
-                identifier=learning_context_identifier,
+            learning_package, _created = LearningPackage.objects.get_or_create(
+                identifier=learning_package_identifier,
                 defaults={'created': now},
             )
-            self.learning_context = learning_context
+            self.learning_package = learning_package
 
-            # For now, create always create a new LearningContextVersion (in the
+            # For now, create always create a new LearningPackageVersion (in the
             # future, we need to be careful about detecting changes).
-            self.new_lcv = LearningContextVersion.objects.create(
-                learning_context=learning_context,
+            self.new_lcv = LearningPackageVersion.objects.create(
+                learning_package=learning_package,
                 prev_version=None,
                 created=now,
             )
@@ -85,7 +85,7 @@ class Command(BaseCommand):
             #   Make the static asset loading happen after XBlock loading
             #   Make the static asset piece grep through created content.
             existing_item_raws = Content.objects \
-                                     .filter(learning_context=learning_context) \
+                                     .filter(learning_package=learning_package) \
                                      .values_list('id', 'type', 'sub_type', 'hash_digest')
             item_raw_id_cache = {
                 (f"{type}/{sub_type}", hash_digest): item_raw_id
@@ -150,7 +150,7 @@ class Command(BaseCommand):
             if item_raw_id is None:
                 type, sub_type = mime_type.split('/')
                 item_raw, _created = Content.objects.get_or_create(
-                    learning_context=self.learning_context,
+                    learning_package=self.learning_package,
                     type=type,
                     sub_type=sub_type,
                     hash_digest=data_hash,
@@ -188,7 +188,7 @@ class Command(BaseCommand):
 
             # Find or create the Item itself
             component, _created = Component.objects.get_or_create(
-                learning_context=self.learning_context,
+                learning_package=self.learning_package,
                 namespace='xblock.v1',
                 type=block_type,
                 identifier=identifier,
@@ -203,7 +203,7 @@ class Command(BaseCommand):
             hash_digest = create_hash_digest(data_bytes)
             data_str = codecs.decode(data_bytes, 'utf-8')
             content, _created = Content.objects.get_or_create(
-                learning_context=self.learning_context,
+                learning_package=self.learning_package,
                 type='application',
                 sub_type=f'vnd.openedx.xblock.v1.{block_type}+xml',
                 hash_digest=hash_digest,
@@ -230,8 +230,8 @@ class Command(BaseCommand):
             )
             component_version.contents.add(content)
 
-            LearningContextVersionComponentVersion.objects.create(
-                learning_context_version=self.new_lcv,
+            LearningPackageVersionComponentVersion.objects.create(
+                learning_package_version=self.new_lcv,
                 component_version=component_version,
                 component=component,
             )

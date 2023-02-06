@@ -1,12 +1,12 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
 
-from openedx_learning.core.components.models import Unit
+from openedx_learning.core.components.models import Component
 
 
 class ComponentViewSet(viewsets.ViewSet):
     def list(self, request):
-        items = Unit.objects.all()
+        items = Component.objects.all()
         return Response({"hello": "world"})
 
     def retrieve(self, request, pk=None):

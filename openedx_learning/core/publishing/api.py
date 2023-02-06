@@ -39,9 +39,9 @@ How to manage plugin cycle life?
 from datetime import datetime, timezone
 from django.db import transaction
 
-from .models import LearningContext
+from .models import LearningPackage
 
 
-def create_learning_context(identifier, title):
+def create_learning_package(identifier, title):
     with transaction.atomic():
-        LearningContext.objects.create(identifier=identifier, title=title)
+        LearningPackage.objects.create(identifier=identifier, title=title)

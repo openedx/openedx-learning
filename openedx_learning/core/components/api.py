@@ -14,13 +14,13 @@ from .data import (
     ComponentVersionData,
     ItemData,
     ItemVersionData,
-    LearningContextData,
+    LearningPackageData,
     SavedItemData,
 )
 
 
 def create_component(
-    learning_context_uuid: uuid.UUID,
+    learning_package_uuid: uuid.UUID,
     namespace: str,
     type: str,
     identifier: str,
@@ -35,7 +35,7 @@ def create_item(ItemData) -> SavedItemData:
 
 
 def create_item(
-    learning_context_uuid,
+    learning_package_uuid,
     identifier,
 ) -> SavedItemData:
     pass
@@ -65,7 +65,7 @@ def get_item_version(item_version_uuid):
 def fake_item_version(item_version_uuid):
     now = datetime.now(timezone.utc)
 
-    lcd = LearningContextData(
+    lcd = LearningPackageData(
         uuid=uuid.uuid4(),
         identifier="intro_courselet",
         title="Open edX LMS Basics",
@@ -76,7 +76,7 @@ def fake_item_version(item_version_uuid):
     item = ItemData(
         uuid=uuid.uuid4(),
         identifier="what_is_modulestore",
-        learning_context=lcd,
+        learning_package=lcd,
     )
 
     olx_bytes = textwrap.dedent(
@@ -95,11 +95,11 @@ def fake_item_version(item_version_uuid):
             </problem>"""
     ).encode("utf-8")
     mkd_cont = ContentData(
-        learning_context=lcd, hash_digest=create_hash_digest(olx_bytes), type="text"
+        learning_package=lcd, hash_digest=create_hash_digest(olx_bytes), type="text"
     )
     mkd_comp = ComponentData(
         uuid=uuid.uuid4(),
-        learning_context=lcd,
+        learning_package=lcd,
         namespace="xblock.v1",
         type="markdown",
         identifier="what_is_modulestore",

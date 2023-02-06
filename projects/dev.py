@@ -32,8 +32,7 @@ INSTALLED_APPS = (
     'django.contrib.admindocs',
 
     # Learning Core Apps
-    'openedx_learning.core.composition.apps.CompositionConfig',
-    'openedx_learning.core.itemstore.apps.ItemStoreConfig',
+    'openedx_learning.core.components.apps.ComponentsConfig',
     'openedx_learning.core.publishing.apps.PublishingConfig',
 
     # Learning Contrib Apps
