@@ -14,9 +14,10 @@ Publishing should lay a framework for three types of versioned Things:
 
 """
 
+
 class DraftMixin:
     pass
 
+
 class VersionMixin:
     pass
-

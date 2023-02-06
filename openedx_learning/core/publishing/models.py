@@ -45,6 +45,7 @@ class PublishLogEntry(models.Model):
     It is expected that other apps make foreign keys to this table to mark when
     their content gets published.
     """
+
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
     published_at = manual_date_time_field()

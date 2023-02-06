@@ -10,7 +10,7 @@ a Problem, or some explanatatory HTML.
 """
 from django.db import models
 from django.conf import settings
-from django.core.validators import MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from openedx_learning.lib.fields import (
     hash_field,
@@ -90,9 +90,12 @@ class ComponentVersion(models.Model):
     uuid = immutable_uuid_field()
     component = models.ForeignKey(Component, on_delete=models.CASCADE)
     created = manual_date_time_field()
-    
-    # For later consideration: 
-    #created_by = models.ForeignKey(
+    version_num = models.PositiveBigIntegerField(
+        null=False,
+        validators=[MinValueValidator(1)],  # Versions start with 1
+    )    
+    # For later consideration:
+    # created_by = models.ForeignKey(
     #    settings.AUTH_USER_MODEL,
     #    # Don't delete content when the user who created it had their account removed.
     #    on_delete=models.SET_NULL,
@@ -108,6 +111,18 @@ class ComponentVersion(models.Model):
         return f"{self.uuid}: {self.title}"
 
     class Meta:
+        constraints = [
+            # We give every ComponentVersion a sequential version_num, and
+            # constrain it here. This is both a convenience so that people can
+            # refer to 
+            models.UniqueConstraint(
+                fields=[
+                    "component",
+                    "version_num",
+                ],
+                name="cv_uniq_component_version_num",
+            )
+        ]
         indexes = [
             # Make it cheap to find the most recently created ComponentVersion
             # for a given Component.
@@ -117,7 +132,7 @@ class ComponentVersion(models.Model):
             ),
         ]
 
- 
+
 class Content(models.Model):
     """
     This is the most basic piece of raw content data, with no version metadata.
@@ -234,9 +249,14 @@ class ComponentPublishLogEntry(models.Model):
     """
     This is a historical record of Component publishing.
     """
-    publish_log_entry = models.OneToOneField(PublishLogEntry, primary_key=True, on_delete=models.CASCADE)
+
+    publish_log_entry = models.OneToOneField(
+        PublishLogEntry, primary_key=True, on_delete=models.CASCADE
+    )
     component = models.ForeignKey(Component, on_delete=models.RESTRICT)
-    component_version = models.ForeignKey(ComponentVersion, on_delete=models.RESTRICT, null=True)
+    component_version = models.ForeignKey(
+        ComponentVersion, on_delete=models.RESTRICT, null=True
+    )
 
 
 class PublishedComponent(models.Model):
@@ -246,10 +266,9 @@ class PublishedComponent(models.Model):
     It may be possible for a Component to exist only as a Draft (and thus not
     show up in this table).
     """
+
     component = models.OneToOneField(
-        Component,
-        on_delete=models.RESTRICT,
-        primary_key=True
+        Component, on_delete=models.RESTRICT, primary_key=True
     )
     component_version = models.ForeignKey(
         ComponentVersion,
