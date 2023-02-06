@@ -22,6 +22,7 @@ import codecs
 import logging
 import mimetypes
 import pathlib
+import re
 import xml.etree.ElementTree as ET
 
 from django.core.management.base import BaseCommand
@@ -44,6 +45,7 @@ class Command(BaseCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.learning_package = None
+        self.course_data_path = None
         self.init_known_types()
 
     def init_known_types(self):
@@ -52,23 +54,24 @@ class Command(BaseCommand):
         mimetypes.add_type("text/markdown", ".md")
 
     def add_arguments(self, parser):
-        parser.add_argument('learning_package_identifier', type=str)
         parser.add_argument('course_data_path', type=pathlib.Path)
+        parser.add_argument('learning_package_identifier', type=str)
 
-    def handle(self, learning_package_identifier, course_data_path, **options):
+    def handle(self, course_data_path, learning_package_identifier, **options):
+        self.course_data_path = course_data_path
         self.learning_package_identifier = learning_package_identifier
-        self.load_course_data(learning_package_identifier, course_data_path)
+        self.load_course_data(learning_package_identifier)
 
-    def get_course_title(self, course_data_path):
-        course_type_dir = course_data_path / 'course'
+    def get_course_title(self):
+        course_type_dir = self.course_data_path / 'course'
         course_xml_file = next(course_type_dir.glob('*.xml'))
         course_root = ET.parse(course_xml_file).getroot()
         return course_root.attrib.get("display_name", "Unknown Course")
 
-    def load_course_data(self, learning_package_identifier, course_data_path):
-        print(f"Importing course from: {course_data_path}")
+    def load_course_data(self, learning_package_identifier):
+        print(f"Importing course from: {self.course_data_path}")
         now = datetime.now(timezone.utc)
-        title = self.get_course_title(course_data_path)
+        title = self.get_course_title()
 
         with transaction.atomic():
             learning_package, _created = LearningPackage.objects.get_or_create(
@@ -89,23 +92,19 @@ class Command(BaseCommand):
             )
 
             for block_type in SUPPORTED_TYPES:
-                self.import_block_type(
-                    block_type,
-                    course_data_path / block_type,
-                    now,
-                    publish_log_entry,
-                )
+                self.import_block_type(block_type, now, publish_log_entry)
 
-    def import_block_type(self, block_type, content_path, now, publish_log_entry):
+    def import_block_type(self, block_type, now, publish_log_entry):
         components_found = 0
 
         # Find everything that looks like a reference to a static file appearing
         # in attribute quotes, stripping off the querystring at the end. This is
         # not fool-proof as it will match static file references that are
         # outside of tag declarations as well.
-        static_files_regex = r"""['"]\/static\/(.+?)["'\?]"""
+        static_files_regex = re.compile(r"""['"]\/static\/(.+?)["'\?]""")
+        block_data_path = self.course_data_path / block_type
 
-        for xml_file_path in content_path.glob('*.xml'):
+        for xml_file_path in block_data_path.glob('*.xml'):
             components_found += 1
             identifier = xml_file_path.stem
 
@@ -136,6 +135,16 @@ class Command(BaseCommand):
                     created=now,
                 )
             )
+            static_files_found = static_files_regex.findall(data_str)
+            if static_files_found:
+                contents = [
+
+                ]
+                print(list(static_files_found))
+
+            # TODO: Get associated file contents, both with the static regex, as
+            # well as with XBlock-specific code that examines attributes in
+            # video and HTML tag definitions.
 
             try:
                 block_root = ET.fromstring(data_str)
@@ -157,6 +166,7 @@ class Command(BaseCommand):
                 content=content,
                 identifier='source.xml',
             )
+
 
             # Mark that Component as Published
             component_publish_log_entry = ComponentPublishLogEntry.objects.create(
