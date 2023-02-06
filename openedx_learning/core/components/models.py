@@ -118,7 +118,7 @@ class ComponentVersion(models.Model):
         constraints = [
             # We give every ComponentVersion a sequential version_num, and
             # constrain it here. This is both a convenience so that people can
-            # refer to 
+            # refer to
             models.UniqueConstraint(
                 fields=[
                     "component",
