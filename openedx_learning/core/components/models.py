@@ -133,6 +133,52 @@ class ComponentVersion(models.Model):
         ]
 
 
+class ComponentPublishLogEntry(models.Model):
+    """
+    This is a historical record of Component publishing.
+    """
+
+    publish_log_entry = models.OneToOneField(
+        PublishLogEntry, primary_key=True, on_delete=models.CASCADE
+    )
+    component = models.ForeignKey(Component, on_delete=models.RESTRICT)
+    component_version = models.ForeignKey(
+        ComponentVersion, on_delete=models.RESTRICT, null=True
+    )
+
+
+class PublishedComponent(models.Model):
+    """
+    For any given Component, what is the currently published ComponentVersion.
+
+    It may be possible for a Component to exist only as a Draft (and thus not
+    show up in this table).
+    """
+
+    component = models.OneToOneField(
+        Component, on_delete=models.RESTRICT, primary_key=True
+    )
+    component_version = models.ForeignKey(
+        ComponentVersion,
+        on_delete=models.RESTRICT,
+        null=True,
+    )
+    component_publish_log_entry = models.ForeignKey(
+        ComponentPublishLogEntry,
+        on_delete=models.RESTRICT,
+    )
+
+    class Meta:
+        constraints = [
+            # Only one version of a Component is considered "published" at any
+            # given time (though other versions may be available).
+            models.UniqueConstraint(
+                fields=["component", "component_version"],
+                name="pc_uniq_component_component_version",
+            )
+        ]
+
+
 class Content(models.Model):
     """
     This is the most basic piece of raw content data, with no version metadata.
@@ -242,50 +288,4 @@ class ComponentVersionContent(models.Model):
                 fields=["component_version", "content"],
                 name="componentversioncontent_cv_d",
             ),
-        ]
-
-
-class ComponentPublishLogEntry(models.Model):
-    """
-    This is a historical record of Component publishing.
-    """
-
-    publish_log_entry = models.OneToOneField(
-        PublishLogEntry, primary_key=True, on_delete=models.CASCADE
-    )
-    component = models.ForeignKey(Component, on_delete=models.RESTRICT)
-    component_version = models.ForeignKey(
-        ComponentVersion, on_delete=models.RESTRICT, null=True
-    )
-
-
-class PublishedComponent(models.Model):
-    """
-    For any given Component, what is the currently published ComponentVersion.
-
-    It may be possible for a Component to exist only as a Draft (and thus not
-    show up in this table).
-    """
-
-    component = models.OneToOneField(
-        Component, on_delete=models.RESTRICT, primary_key=True
-    )
-    component_version = models.ForeignKey(
-        ComponentVersion,
-        on_delete=models.RESTRICT,
-        null=True,
-    )
-    component_publish_log_entry = models.ForeignKey(
-        ComponentPublishLogEntry,
-        on_delete=models.RESTRICT,
-    )
-
-    class Meta:
-        constraints = [
-            # Only one version of a Component is considered "published" at any
-            # given time (though other versions may be available).
-            models.UniqueConstraint(
-                fields=["component", "component_version"],
-                name="pc_uniq_component_component_version",
-            )
         ]

@@ -1,11 +1,6 @@
 """
 Idea: This app has _only_ things related to Publishing any kind of content
-associated with a LearningPackage. So in that sense:
-
-* LearningPackage (might even go elsewhere)
-* something to mark that an app has created a version for an LP
-* something to handle errors
-* a mixin for doing efficient version tracking
+associated with a LearningPackage.
 """
 from django.db import models
 from django.conf import settings

@@ -13,11 +13,3 @@ Publishing should lay a framework for three types of versioned Things:
 * a ThingDraft
 
 """
-
-
-class DraftMixin:
-    pass
-
-
-class VersionMixin:
-    pass
