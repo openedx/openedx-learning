@@ -52,6 +52,7 @@ class Command(BaseCommand):
         """Intialize mimetypes with some custom mappings we want to use."""
         mimetypes.add_type("application/vnd.openedx.srt+json", ".sjson")
         mimetypes.add_type("text/markdown", ".md")
+        mimetypes.add_type("image/svg+xml", ".svg")
 
     def add_arguments(self, parser):
         parser.add_argument('course_data_path', type=pathlib.Path)
@@ -94,6 +95,41 @@ class Command(BaseCommand):
             for block_type in SUPPORTED_TYPES:
                 self.import_block_type(block_type, now, publish_log_entry)
 
+    def create_content(self, static_local_path, now, component_version):
+        identifier = pathlib.Path('static') / static_local_path
+        real_path = self.course_data_path / identifier
+        mime_type, _encoding = mimetypes.guess_type(identifier)
+        if mime_type is None:
+            logger.error(f"  no mimetype found for {real_path}, defaulting to application/binary")
+            type, sub_type = "application", "binary"
+        else:
+            type, sub_type = mime_type.split('/')
+
+        try:
+            data_bytes = real_path.read_bytes()
+        except FileNotFoundError:
+            logger.warning(f"  Static reference not found: {real_path}")
+            return  # Might as well bail if we can't find the file.
+
+        hash_digest = create_hash_digest(data_bytes)
+
+        content, _created = Content.objects.get_or_create(
+            learning_package=self.learning_package,
+            type=type,
+            sub_type=sub_type,
+            hash_digest=hash_digest,
+            defaults = dict(
+                data=data_bytes,
+                size=len(data_bytes),
+                created=now,
+            )
+        )
+        ComponentVersionContent.objects.get_or_create(
+            component_version=component_version,
+            content=content,
+            identifier=identifier,
+        )
+
     def import_block_type(self, block_type, now, publish_log_entry):
         components_found = 0
 
@@ -135,13 +171,6 @@ class Command(BaseCommand):
                     created=now,
                 )
             )
-            static_files_found = static_files_regex.findall(data_str)
-            if static_files_found:
-                contents = [
-
-                ]
-                print(list(static_files_found))
-
             # TODO: Get associated file contents, both with the static regex, as
             # well as with XBlock-specific code that examines attributes in
             # video and HTML tag definitions.
@@ -166,7 +195,9 @@ class Command(BaseCommand):
                 content=content,
                 identifier='source.xml',
             )
-
+            static_files_found = static_files_regex.findall(data_str)
+            for static_local_path in static_files_found:
+                self.create_content(static_local_path, now, component_version)
 
             # Mark that Component as Published
             component_publish_log_entry = ComponentPublishLogEntry.objects.create(
