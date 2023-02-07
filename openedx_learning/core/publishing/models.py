@@ -21,7 +21,7 @@ class LearningPackage(models.Model):
     updated = manual_date_time_field()
 
     def __str__(self):
-        return f"{self.identifier} ({self.uuid}): {self.title}"
+        return f"{self.identifier}: {self.title}"
 
     class Meta:
         constraints = [
