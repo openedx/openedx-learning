@@ -1,3 +1,6 @@
+"""
+This is just an example REST API endpoint.
+"""
 from rest_framework import viewsets
 from rest_framework.response import Response
 
@@ -7,19 +10,19 @@ from openedx_learning.core.components.models import Component
 class ComponentViewSet(viewsets.ViewSet):
     def list(self, request):
         items = Component.objects.all()
-        return Response({"hello": "world"})
+        raise NotImplementedError
 
     def retrieve(self, request, pk=None):
-        return Response({"hello": "world"})
+        raise NotImplementedError
 
     def create(self, request):
-        return Response({"hello": "world"})
+        raise NotImplementedError
 
     def update(self, request, pk=None):
-        return Response({"hello": "world"})
+        raise NotImplementedError
 
     def partial_update(self, request, pk=None):
-        return Response({"hello": "world"})
+        raise NotImplementedError
 
     def destroy(self, request, pk=None):
         raise NotImplementedError

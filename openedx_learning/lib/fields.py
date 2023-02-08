@@ -4,7 +4,7 @@ Convenience functions to make consistent field conventions easier.
 Field conventions:
 
 * Per OEP-38, we're using the MySQL-friendly convention of BigInt ID as a
-  primary key + separtate UUID column.
+  primary key + separate UUID column.
 https://open-edx-proposals.readthedocs.io/en/latest/best-practices/oep-0038-Data-Modeling.html
 
 TODO:
