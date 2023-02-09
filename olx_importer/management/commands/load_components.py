@@ -101,9 +101,9 @@ class Command(BaseCommand):
         mime_type, _encoding = mimetypes.guess_type(identifier)
         if mime_type is None:
             logger.error(f"  no mimetype found for {real_path}, defaulting to application/binary")
-            type, sub_type = "application", "binary"
+            media_type, media_subtype = "application", "binary"
         else:
-            type, sub_type = mime_type.split('/')
+            media_type, media_subtype = mime_type.split('/')
 
         try:
             data_bytes = real_path.read_bytes()
@@ -115,8 +115,8 @@ class Command(BaseCommand):
 
         content, _created = Content.objects.get_or_create(
             learning_package=self.learning_package,
-            type=type,
-            sub_type=sub_type,
+            media_type=media_type,
+            media_subtype=media_subtype,
             hash_digest=hash_digest,
             defaults = dict(
                 data=data_bytes,
@@ -162,8 +162,8 @@ class Command(BaseCommand):
             data_str = codecs.decode(data_bytes, 'utf-8')
             content, _created = Content.objects.get_or_create(
                 learning_package=self.learning_package,
-                type='application',
-                sub_type=f'vnd.openedx.xblock.v1.{block_type}+xml',
+                media_type='application',
+                media_subtype=f'vnd.openedx.xblock.v1.{block_type}+xml',
                 hash_digest=hash_digest,
                 defaults = dict(
                     data=data_bytes,

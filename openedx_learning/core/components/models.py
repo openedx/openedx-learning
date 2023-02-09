@@ -160,9 +160,11 @@ class PublishedComponent(models.Model):
     """
 
     component = models.OneToOneField(
-        Component, on_delete=models.RESTRICT, primary_key=True
+        Component,
+        on_delete=models.RESTRICT,
+        primary_key=True
     )
-    component_version = models.ForeignKey(
+    component_version = models.OneToOneField(
         ComponentVersion,
         on_delete=models.RESTRICT,
         null=True,
@@ -171,16 +173,6 @@ class PublishedComponent(models.Model):
         ComponentPublishLogEntry,
         on_delete=models.RESTRICT,
     )
-
-    class Meta:
-        constraints = [
-            # Only one version of a Component is considered "published" at any
-            # given time (though other versions may be available).
-            models.UniqueConstraint(
-                fields=["component", "component_version"],
-                name="pc_uniq_component_component_version",
-            )
-        ]
 
 
 class Content(models.Model):
@@ -218,8 +210,8 @@ class Content(models.Model):
     hash_digest = hash_field()
 
     # Per RFC 4288, MIME type and sub-type may each be 127 chars.
-    type = models.CharField(max_length=127, blank=False, null=False)
-    sub_type = models.CharField(max_length=127, blank=False, null=False)
+    media_type = models.CharField(max_length=127, blank=False, null=False)
+    media_subtype = models.CharField(max_length=127, blank=False, null=False)
 
     size = models.PositiveBigIntegerField(
         validators=[MaxValueValidator(MAX_SIZE)],
@@ -234,7 +226,7 @@ class Content(models.Model):
 
     @property
     def mime_type(self):
-        return f"{self.type}/{self.sub_type}"
+        return f"{self.media_type}/{self.media_subtype}"
 
     class Meta:
         constraints = [
@@ -243,8 +235,8 @@ class Content(models.Model):
             models.UniqueConstraint(
                 fields=[
                     "learning_package",
-                    "type",
-                    "sub_type",
+                    "media_type",
+                    "media_subtype",
                     "hash_digest",
                 ],
                 name="content_uniq_lc_hd",

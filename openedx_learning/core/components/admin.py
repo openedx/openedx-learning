@@ -89,16 +89,16 @@ class ContentAdmin(admin.ModelAdmin):
     list_display = [
         "learning_package",
         "hash_digest",
-        "type",
-        "sub_type",
+        "media_type",
+        "media_subtype",
         "size",
         "created",
     ]
     fields = [
         "learning_package",
         "hash_digest",
-        "type",
-        "sub_type",
+        "media_type",
+        "media_subtype",
         "size",
         "created",
         "rendered_data",
@@ -106,29 +106,29 @@ class ContentAdmin(admin.ModelAdmin):
     readonly_fields = [
         "learning_package",
         "hash_digest",
-        "type",
-        "sub_type",
+        "media_type",
+        "media_subtype",
         "size",
         "created",
         "rendered_data",
     ]
-    list_filter = ('type', 'sub_type', 'learning_package')
+    list_filter = ('media_type', 'media_subtype', 'learning_package')
 
     def rendered_data(self, content_obj):
         return content_preview(content_obj, 10_000_000)
 
 
-def is_displayable_text(type, sub_type):
+def is_displayable_text(media_type, media_subtype):
     # Our usual text files, includiing things like text/markdown, text/html
-    if type == "text":
+    if media_type == "text":
         return True
 
     # Our OLX goes here, but so do some other things like
-    if sub_type.endswith("+xml"):
+    if media_subtype.endswith("+xml"):
         return True
 
     # Other application/* types that we know we can display.
-    if sub_type in ["javascript", "json", "x-subrip"]:
+    if media_subtype in ["javascript", "json", "x-subrip"]:
         return True
 
     return False
@@ -140,12 +140,12 @@ def content_preview(content_obj, size_limit):
 
     # image before text check, since SVGs can be either, but we probably want to
     # see the image version in the admin.
-    if content_obj.type == "image":
+    if content_obj.media_type == "image":
         b64_str = base64.b64encode(content_obj.data).decode("ascii")
-        encoded_img_src = f"data:image/{content_obj.sub_type};base64,{b64_str}"
+        encoded_img_src = f"data:image/{content_obj.media_subtype};base64,{b64_str}"
         return format_html('<img src="{}" style="max-width: 100%;" />', encoded_img_src)
 
-    if is_displayable_text(content_obj.type, content_obj.sub_type):
+    if is_displayable_text(content_obj.media_type, content_obj.media_subtype):
         return format_html(
             '<pre style="white-space: pre-wrap;">\n{}\n</pre>',
             content_obj.data.decode("utf-8"),
