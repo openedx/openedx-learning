@@ -1,6 +1,7 @@
 import base64
 
 from django.contrib import admin
+from django.db.models.aggregates import Count, Sum
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -10,6 +11,7 @@ from .models import (
     Content,
     PublishedComponent,
 )
+
 
 class ReadOnlyModelAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
@@ -31,9 +33,10 @@ class ComponentVersionInline(admin.TabularInline):
     def format_uuid(self, cv_obj):
         return format_html(
             '<a href="{}">{}</a>',
-            reverse('admin:components_componentversion_change', args=(cv_obj.id,)),
+            reverse("admin:components_componentversion_change", args=(cv_obj.id,)),
             cv_obj.uuid,
         )
+
     format_uuid.short_description = "UUID"
 
 
@@ -49,7 +52,7 @@ class ComponentAdmin(ReadOnlyModelAdmin):
         "created",
         "modified",
     ]
-    list_filter = ('type', 'learning_package')
+    list_filter = ("type", "learning_package")
     search_fields = ["uuid", "identifier"]
     inlines = [ComponentVersionInline]
 
@@ -57,12 +60,20 @@ class ComponentAdmin(ReadOnlyModelAdmin):
 @admin.register(PublishedComponent)
 class PublishedComponentAdmin(ReadOnlyModelAdmin):
     model = PublishedComponent
-    list_select_related = [
-        "component",
-        "component__learning_package",
-        "component_version",
-        "component_publish_log_entry__publish_log_entry",
-    ]
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return (
+            queryset.select_related(
+                "component",
+                "component__learning_package",
+                "component_version",
+                "component_publish_log_entry__publish_log_entry",
+            )
+            .annotate(size=Sum("component_version__contents__size"))
+            .annotate(content_count=Count("component_version__contents"))
+        )
+
     readonly_fields = ["component", "component_version", "component_publish_log_entry"]
     list_display = [
         "identifier",
@@ -70,14 +81,16 @@ class PublishedComponentAdmin(ReadOnlyModelAdmin):
         "title",
         "published_at",
         "type",
+        "content_count",
+        "size",
         "learning_package",
     ]
-    list_filter = ['component__type', 'component__learning_package']
+    list_filter = ["component__type", "component__learning_package"]
     search_fields = [
-        'component__uuid',
-        'component__identifier',
-        'component_version__uuid',
-        'component_version__title'
+        "component__uuid",
+        "component__identifier",
+        "component_version__uuid",
+        "component_version__title",
     ]
 
     def learning_package(self, pc):
@@ -89,10 +102,17 @@ class PublishedComponentAdmin(ReadOnlyModelAdmin):
     def identifier(self, pc):
         return format_html(
             '<a href="{}">{}</a>',
-            reverse('admin:components_component_change', args=(pc.component_id,)),
+            reverse("admin:components_component_change", args=(pc.component_id,)),
             pc.component.identifier,
         )
-    
+
+    def content_count(self, pc):
+        return pc.content_count
+    content_count.short_description = "#"
+
+    def size(self, pc):
+        return pc.size
+
     def namespace(self, pc):
         return pc.component.namespace
 
@@ -102,7 +122,10 @@ class PublishedComponentAdmin(ReadOnlyModelAdmin):
     def version(self, pc):
         return format_html(
             '<a href="{}">{}</a>',
-            reverse('admin:components_componentversion_change', args=(pc.component_version_id,)),
+            reverse(
+                "admin:components_componentversion_change",
+                args=(pc.component_version_id,),
+            ),
             pc.component_version.version_num,
         )
 
@@ -121,13 +144,14 @@ class ContentInline(admin.TabularInline):
 
     def size(self, cv_obj):
         return cv_obj.content.size
-    
+
     def format_identifier(self, cv_obj):
         return format_html(
             '<a href="{}">{}</a>',
-            reverse('admin:components_content_change', args=(cv_obj.content_id,)),
+            reverse("admin:components_content_change", args=(cv_obj.content_id,)),
             cv_obj.identifier,
         )
+
     format_identifier.short_description = "Identifier"
 
 
@@ -179,8 +203,8 @@ class ContentAdmin(ReadOnlyModelAdmin):
         "created",
         "rendered_data",
     ]
-    list_filter = ('media_type', 'media_subtype', 'learning_package')
-    search_fields = ('hash_digest', 'size')
+    list_filter = ("media_type", "media_subtype", "learning_package")
+    search_fields = ("hash_digest", "size")
 
     def rendered_data(self, content_obj):
         return content_preview(content_obj, 10_000_000)

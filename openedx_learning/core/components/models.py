@@ -160,9 +160,7 @@ class PublishedComponent(models.Model):
     """
 
     component = models.OneToOneField(
-        Component,
-        on_delete=models.RESTRICT,
-        primary_key=True
+        Component, on_delete=models.RESTRICT, primary_key=True
     )
     component_version = models.OneToOneField(
         ComponentVersion,
