@@ -100,9 +100,18 @@ class PublishedComponentAdmin(ReadOnlyModelAdmin):
         return pc.component_publish_log_entry.publish_log_entry.published_at
 
     def identifier(self, pc):
+        """
+        Link to published ComponentVersion with Component identifier as text.
+
+        This is a little weird in that we're showing the Component identifier,
+        but linking to the published ComponentVersion. But this is what you want
+        to link to most of the time, as the link to the Component has almost no
+        information in it (and can be accessed from the ComponentVersion details
+        page anyhow).
+        """
         return format_html(
             '<a href="{}">{}</a>',
-            reverse("admin:components_component_change", args=(pc.component_id,)),
+            reverse("admin:components_componentversion_change", args=(pc.component_version_id,)),
             pc.component.identifier,
         )
 
@@ -120,14 +129,7 @@ class PublishedComponentAdmin(ReadOnlyModelAdmin):
         return pc.component.type
 
     def version(self, pc):
-        return format_html(
-            '<a href="{}">{}</a>',
-            reverse(
-                "admin:components_componentversion_change",
-                args=(pc.component_version_id,),
-            ),
-            pc.component_version.version_num,
-        )
+        return pc.component_version.version_num
 
     def title(self, pc):
         return pc.component_version.title
