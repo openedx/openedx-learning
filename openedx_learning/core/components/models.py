@@ -174,6 +174,10 @@ class PublishedComponent(models.Model):
         on_delete=models.RESTRICT,
     )
 
+    class Meta:
+        verbose_name = "Published Component"
+        verbose_name_plural = "Published Components"
+
 
 class Content(models.Model):
     """

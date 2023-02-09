@@ -8,7 +8,18 @@ from .models import (
     Component,
     ComponentVersion,
     Content,
+    PublishedComponent,
 )
+
+class ReadOnlyModelAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class ComponentVersionInline(admin.TabularInline):
@@ -27,7 +38,7 @@ class ComponentVersionInline(admin.TabularInline):
 
 
 @admin.register(Component)
-class ComponentAdmin(admin.ModelAdmin):
+class ComponentAdmin(ReadOnlyModelAdmin):
     list_display = ("identifier", "uuid", "namespace", "type", "created", "modified")
     readonly_fields = [
         "learning_package",
@@ -41,6 +52,62 @@ class ComponentAdmin(admin.ModelAdmin):
     list_filter = ('type', 'learning_package')
     search_fields = ["uuid", "identifier"]
     inlines = [ComponentVersionInline]
+
+
+@admin.register(PublishedComponent)
+class PublishedComponentAdmin(ReadOnlyModelAdmin):
+    model = PublishedComponent
+    list_select_related = [
+        "component",
+        "component__learning_package",
+        "component_version",
+        "component_publish_log_entry__publish_log_entry",
+    ]
+    readonly_fields = ["component", "component_version", "component_publish_log_entry"]
+    list_display = [
+        "identifier",
+        "version",
+        "title",
+        "published_at",
+        "type",
+        "learning_package",
+    ]
+    list_filter = ['component__type', 'component__learning_package']
+    search_fields = [
+        'component__uuid',
+        'component__identifier',
+        'component_version__uuid',
+        'component_version__title'
+    ]
+
+    def learning_package(self, pc):
+        return pc.component.learning_package.identifier
+
+    def published_at(self, pc):
+        return pc.component_publish_log_entry.publish_log_entry.published_at
+
+    def identifier(self, pc):
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse('admin:components_component_change', args=(pc.component_id,)),
+            pc.component.identifier,
+        )
+    
+    def namespace(self, pc):
+        return pc.component.namespace
+
+    def type(self, pc):
+        return pc.component.type
+
+    def version(self, pc):
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse('admin:components_componentversion_change', args=(pc.component_version_id,)),
+            pc.component_version.version_num,
+        )
+
+    def title(self, pc):
+        return pc.component_version.title
 
 
 class ContentInline(admin.TabularInline):
@@ -65,7 +132,7 @@ class ContentInline(admin.TabularInline):
 
 
 @admin.register(ComponentVersion)
-class ComponentVersionAdmin(admin.ModelAdmin):
+class ComponentVersionAdmin(ReadOnlyModelAdmin):
     readonly_fields = [
         "component",
         "uuid",
@@ -85,10 +152,10 @@ class ComponentVersionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Content)
-class ContentAdmin(admin.ModelAdmin):
+class ContentAdmin(ReadOnlyModelAdmin):
     list_display = [
-        "learning_package",
         "hash_digest",
+        "learning_package",
         "media_type",
         "media_subtype",
         "size",
@@ -113,6 +180,7 @@ class ContentAdmin(admin.ModelAdmin):
         "rendered_data",
     ]
     list_filter = ('media_type', 'media_subtype', 'learning_package')
+    search_fields = ('hash_digest', 'size')
 
     def rendered_data(self, content_obj):
         return content_preview(content_obj, 10_000_000)
