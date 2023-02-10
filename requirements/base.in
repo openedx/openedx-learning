@@ -1,6 +1,15 @@
 # Core requirements for using this application
 -c constraints.txt
 
-Django<4.0                # Web application framework
+Django                # Web application framework
 
+# For the Python API layer (eventually)
 attrs
+
+# Serialization
+pyyaml
+
+# Django Rest Framework + extras for the openedx_lor project
+djangorestframework
+markdown
+django-filter

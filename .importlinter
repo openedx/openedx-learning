@@ -29,7 +29,7 @@ layers=
 # This is layering within our Core apps.
 #
 # The lowest layer is "publishing", which holds the basic primitives needed to
-# create LearningContexts and versioning.
+# create LearningPackages and versioning.
 #
 # One layer above that is "itemstore" which stores single Items (e.g. Problem,
 # Video).
@@ -40,6 +40,5 @@ layers=
 name = Core App Dependency Layering
 type = layers
 layers=
-    openedx_learning.core.composition
-    openedx_learning.core.itemstore
+    openedx_learning.core.components
     openedx_learning.core.publishing

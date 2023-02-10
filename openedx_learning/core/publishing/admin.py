@@ -1,19 +1,29 @@
 from django.contrib import admin
 
-from .models import (
-    LearningContext,
-    LearningContextVersion,
-)
+from .models import LearningPackage, PublishLogEntry
 
-# @admin.register(LearningContext)
-# class LearningContextAdmin(admin.ModelAdmin):
-#   pass
 
-admin.site.register(LearningContext)
-admin.site.register(LearningContextVersion)
+@admin.register(LearningPackage)
+class LearningPackageAdmin(admin.ModelAdmin):
+    fields = ("identifier", "title", "uuid", "created", "updated")
+    readonly_fields = ("identifier", "title", "uuid", "created", "updated")
+    list_display = ("identifier", "title", "uuid", "created", "updated")
 
-"""
-admin.site.register(LearningContextBranch)
-admin.site.register(LearningAppVersionReport)
-admin.site.register(LearningAppContentError)
-"""
+
+@admin.register(PublishLogEntry)
+class PublishLogEntryAdmin(admin.ModelAdmin):
+    fields = ("uuid", "learning_package", "published_at", "published_by", "message")
+    readonly_fields = (
+        "uuid",
+        "learning_package",
+        "published_at",
+        "published_by",
+        "message",
+    )
+    list_display = (
+        "uuid",
+        "learning_package",
+        "published_at",
+        "published_by",
+        "message",
+    )

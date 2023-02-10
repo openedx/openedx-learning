@@ -9,6 +9,7 @@ class PublishingConfig(AppConfig):
     """
     Configuration for the publishing Django application.
     """
+
     name = "openedx_learning.core.publishing"
     verbose_name = "Learning Core: Publishing"
-    default_auto_field = 'django.db.models.BigAutoField'
+    default_auto_field = "django.db.models.BigAutoField"

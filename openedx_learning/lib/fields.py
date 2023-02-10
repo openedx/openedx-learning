@@ -4,7 +4,7 @@ Convenience functions to make consistent field conventions easier.
 Field conventions:
 
 * Per OEP-38, we're using the MySQL-friendly convention of BigInt ID as a
-  primary key + separtate UUID column.
+  primary key + separate UUID column.
 https://open-edx-proposals.readthedocs.io/en/latest/best-practices/oep-0038-Data-Modeling.html
 
 TODO:
@@ -28,7 +28,7 @@ def identifier_field():
     Externally created Identifier fields.
 
     These will often be local to a particular scope, like within a
-    LearningContext. It's up to the application as to whether they're
+    LearningPackage. It's up to the application as to whether they're
     semantically meaningful or look more machine-generated.
 
     Other apps should *not* make references to these values directly, since
@@ -39,6 +39,7 @@ def identifier_field():
         blank=False,
         null=False,
     )
+
 
 def immutable_uuid_field():
     """
@@ -54,7 +55,9 @@ def immutable_uuid_field():
         null=False,
         editable=False,
         unique=True,
+        verbose_name="UUID",  # Just makes the Django admin output properly capitalized
     )
+
 
 def hash_field():
     """
@@ -74,8 +77,10 @@ def hash_field():
         editable=False,
     )
 
+
 def create_hash_digest(data_bytes):
     return hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
+
 
 def manual_date_time_field():
     """
