@@ -22,7 +22,7 @@ Component
   A Component is a small piece of content, like a video, problem, or bit of HTML text. It has an identity, renderer, and potentially student state. It is not a container for other content, and has no child elements.
 
 Unit
-  A Unit is an ordered list of one or more Components. A Unit is addressable in the browser at some URL, and is displayed together. A common use case might be to display some introductory Text, a Video, and some followup Problem (all separate Components). An individual Component in a Unit may or may not make sense when taken outside of that Unit–e.g. a Video may be reusable elsewhere, but the Problem referencing the video might not be.
+  A Unit is an ordered list of one or more Components that is typically displayed together. A common use case might be to display some introductory Text, a Video, and some followup Problem (all separate Components). An individual Component in a Unit may or may not make sense when taken outside of that Unit–e.g. a Video may be reusable elsewhere, but the Problem referencing the video might not be.
 
 Sequence
   A Sequence is a collection of Units that are presented one after the other, either to assess student understanding or to achieve some learning objective. 
