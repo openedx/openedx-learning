@@ -2,6 +2,7 @@ import base64
 
 from django.contrib import admin
 from django.db.models.aggregates import Count, Sum
+from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -119,7 +120,7 @@ class PublishedComponentAdmin(ReadOnlyModelAdmin):
     content_count.short_description = "#"
 
     def size(self, pc):
-        return pc.size
+        return filesizeformat(pc.size)
 
     def namespace(self, pc):
         return pc.component.namespace
@@ -136,15 +137,16 @@ class PublishedComponentAdmin(ReadOnlyModelAdmin):
 
 class ContentInline(admin.TabularInline):
     model = ComponentVersion.contents.through
-    fields = ["format_identifier", "size", "rendered_data"]
-    readonly_fields = ["content", "format_identifier", "size", "rendered_data"]
+    fields = ["format_identifier", "format_size", "rendered_data"]
+    readonly_fields = ["content", "format_identifier", "format_size", "rendered_data"]
     extra = 0
 
     def rendered_data(self, cv_obj):
         return content_preview(cv_obj.content, 100_000)
 
-    def size(self, cv_obj):
-        return cv_obj.content.size
+    def format_size(self, cv_obj):
+        return filesizeformat(cv_obj.content.size)
+    format_size.short_description = "Size"
 
     def format_identifier(self, cv_obj):
         return format_html(
@@ -182,14 +184,14 @@ class ContentAdmin(ReadOnlyModelAdmin):
         "hash_digest",
         "learning_package",
         "mime_type",
-        "size",
+        "format_size",
         "created",
     ]
     fields = [
         "learning_package",
         "hash_digest",
         "mime_type",
-        "size",
+        "format_size",
         "created",
         "rendered_data",
     ]
@@ -197,12 +199,16 @@ class ContentAdmin(ReadOnlyModelAdmin):
         "learning_package",
         "hash_digest",
         "mime_type",
-        "size",
+        "format_size",
         "created",
         "rendered_data",
     ]
     list_filter = ("mime_type", "learning_package")
     search_fields = ("hash_digest", "size")
+
+    def format_size(self, content_obj):
+        return filesizeformat(content_obj.size)
+    format_size.short_description = "Size"
 
     def rendered_data(self, content_obj):
         return content_preview(content_obj, 10_000_000)
