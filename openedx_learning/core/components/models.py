@@ -335,7 +335,7 @@ class Content(models.Model):
             ),
         ]
         indexes = [
-            # Use cases:
+            # LearningPackage MIME type Index:
             #   * Break down Content counts by type/subtype within a 
             #     LearningPackage.
             #   * Find all the Content in a LearningPackage that matches a
@@ -344,14 +344,14 @@ class Content(models.Model):
                 fields=["learning_package", "mime_type"],
                 name="content_idx_lp_mime_type",
             ),
-            # Use cases:
+            # LearningPackage (reverse) Size Index:
             #   * Find largest Content in a LearningPackage.
             #   * Find the sum of Content size for a given LearningPackage.
             models.Index(
                 fields=["learning_package", "-size"],
                 name="content_idx_lp_rsize",
             ),
-            # Use cases:
+            # LearningPackage (reverse) Created Index:
             #   * Find most recently added Content.
             models.Index(
                 fields=["learning_package", "-created"],
