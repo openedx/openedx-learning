@@ -40,7 +40,9 @@ class PublishLogEntry(models.Model):
     This model tracks Publishing activity.
 
     It is expected that other apps make foreign keys to this table to mark when
-    their content gets published.
+    their content gets published. This is to allow us to tie together many
+    different entities (e.g. Components, Units, etc.) that are all published at
+    the same time.
     """
 
     uuid = immutable_uuid_field()

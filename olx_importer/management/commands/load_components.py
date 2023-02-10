@@ -50,9 +50,18 @@ class Command(BaseCommand):
 
     def init_known_types(self):
         """Intialize mimetypes with some custom mappings we want to use."""
+        # This is our own hacky video transcripts related format.
         mimetypes.add_type("application/vnd.openedx.srt+json", ".sjson")
+
+        # Python's stdlib doesn't include these files that are sometimes used.
         mimetypes.add_type("text/markdown", ".md")
         mimetypes.add_type("image/svg+xml", ".svg")
+
+        # Historically, JavaScript was "application/javascript", but it's now
+        # officially "text/javascript"
+        mimetypes.add_type("text/javascript", ".js")
+        mimetypes.add_type("text/javascript", ".mjs")
+        
 
     def add_arguments(self, parser):
         parser.add_argument('course_data_path', type=pathlib.Path)
@@ -101,9 +110,7 @@ class Command(BaseCommand):
         mime_type, _encoding = mimetypes.guess_type(identifier)
         if mime_type is None:
             logger.error(f"  no mimetype found for {real_path}, defaulting to application/binary")
-            media_type, media_subtype = "application", "binary"
-        else:
-            media_type, media_subtype = mime_type.split('/')
+            mime_type = "application/binary"
 
         try:
             data_bytes = real_path.read_bytes()
@@ -115,8 +122,7 @@ class Command(BaseCommand):
 
         content, _created = Content.objects.get_or_create(
             learning_package=self.learning_package,
-            media_type=media_type,
-            media_subtype=media_subtype,
+            mime_type=mime_type,
             hash_digest=hash_digest,
             defaults = dict(
                 data=data_bytes,
@@ -152,7 +158,6 @@ class Command(BaseCommand):
                 identifier=identifier,
                 defaults = {
                     'created': now,
-                    'modified': now,
                 }
             )
 
@@ -162,8 +167,7 @@ class Command(BaseCommand):
             data_str = codecs.decode(data_bytes, 'utf-8')
             content, _created = Content.objects.get_or_create(
                 learning_package=self.learning_package,
-                media_type='application',
-                media_subtype=f'vnd.openedx.xblock.v1.{block_type}+xml',
+                mime_type=f'application/vnd.openedx.xblock.v1.{block_type}+xml',
                 hash_digest=hash_digest,
                 defaults = dict(
                     data=data_bytes,
@@ -186,9 +190,10 @@ class Command(BaseCommand):
             # Create the ComponentVersion
             component_version = ComponentVersion.objects.create(
                 component=component,
-                created=now,
                 version_num=1,  # This only works for initial import
                 title=display_name,
+                created=now,
+                created_by=None,
             )
             ComponentVersionContent.objects.create(
                 component_version=component_version,

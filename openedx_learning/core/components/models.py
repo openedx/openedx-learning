@@ -1,12 +1,23 @@
 """
-The model hierarchy is Component -> Content.
+The model hierarchy is Component -> ComponentVersion -> Content.
+
+A Component is an entity like a Problem or Video. It has enough information to
+identify the Component and determine what the handler should be (e.g. XBlock
+Problem), but little beyond that.
+
+Components have one or more ComponentVersions, which represent saved versions of
+that Component. At any time, there is at most one published ComponentVersion for
+a Component in a LearningPackage (there can be zero if it's unpublished). The
+publish status is tracked in PublishedComponent, with historical publish data in
+ComponentPublishLogEntry.
 
 Content is a simple model holding unversioned, raw data, along with some simple
 metadata like size and MIME type.
 
-Multiple pieces of Content may be associated with a Component. A Component is a
-versioned thing that maps to a single Component Handler. This might be a Video,
-a Problem, or some explanatatory HTML.
+Multiple pieces of Content may be associated with a ComponentVersion, through
+the ComponentVersionContent model. ComponentVersionContent allows to specify a
+Component-local identifier. We're using this like a file path by convention, but
+it's possible we might want to have special identifiers later.
 """
 from django.db import models
 from django.conf import settings
@@ -29,12 +40,19 @@ class Component(models.Model):
     associated with the ComponentVersion model. Make a foreign key to this model
     when you need a stable reference that will exist for as long as the
     LearningPackage itself exists. It is possible for an Component to have no
-    active ComponentVersion (i.e. this content was at some point removed).
+    published ComponentVersion, either because it was never published or because
+    it's been "deleted" (made unavailable).
 
     A Component belongs to one and only one LearningPackage.
 
     The UUID should be treated as immutable. The identifier field *is* mutable,
-    but changing it will affect all ComponentVersions.
+    but changing it will affect all ComponentVersions. If you are referencing
+    this model from within the same process, use a foreign key to the id. If you
+    are referencing this Component from an external system, use the UUID. Do NOT
+    use the identifier if you can help it, since this can be changed.
+
+    Note: When we actually implement the ability to change identifiers, we
+    should make a history table and a modified attribute on this model.
     """
 
     uuid = immutable_uuid_field()
@@ -57,10 +75,15 @@ class Component(models.Model):
     identifier = identifier_field()
 
     created = manual_date_time_field()
-    modified = manual_date_time_field()
 
     class Meta:
         constraints = [
+            # The combination of (namespace, type, identifier) is unique within
+            # a given LearningPackage. Note that this means it is possible to
+            # have two Components that have the exact same identifier. An XBlock
+            # would be modeled as namespace="xblock.v1" with the type as the
+            # block_type, so the identifier would only be the block_id (the 
+            # very last part of the UsageKey).
             models.UniqueConstraint(
                 fields=[
                     "learning_package",
@@ -71,6 +94,34 @@ class Component(models.Model):
                 name="component_uniq_lc_ns_type_identifier",
             )
         ]
+        indexes = [
+            # LearningPackage Identifier Index:
+            #   * Search by identifier (without having to specify namespace and
+            #     type). This kind of freeform search will likely be common.
+            models.Index(
+                fields=["learning_package", "identifier"],
+                name="component_idx_lp_identifier",
+            ),
+
+            # Global Identifier Index:
+            #   * Search by identifier across all Components on the site. This
+            #     would be a support-oriented tool from Django Admin.
+            models.Index(
+                fields=["identifier"],
+                name="component_idx_identifier",
+            ),
+
+            # LearningPackage (reverse) Created Index:
+            #  * Search for most recently *created* Components for a given
+            #    LearningPackage, since they're the most likely to be actively
+            #    worked on.
+            models.Index(
+                fields=["learning_package", "-created"],
+                name="component_idx_lp_rcreated",
+            ),
+        ]
+
+        # These are for the Django Admin UI.
         verbose_name = "Component"
         verbose_name_plural = "Components"
 
@@ -82,29 +133,45 @@ class ComponentVersion(models.Model):
     """
     A particular version of a Component.
 
-    A new ComponentVersion should be created anytime there is either a change to
-    the content or a change to the policy around a piece of content (e.g.
-    schedule change).
+    This holds the title (because that's versioned information) and the contents
+    via a M:M relationship with Content via ComponentVersionContent.
 
-    Each ComponentVersion belongs to one and only one Component.
+    * Each ComponentVersion belongs to one and only one Component.
+    * ComponentVersions have a version_num that should increment by one with
+      each new version. 
     """
 
     uuid = immutable_uuid_field()
     component = models.ForeignKey(Component, on_delete=models.CASCADE)
+
+    # Blank titles are allowed because some Components are built to be used from
+    # a particular Unit, and the title would be redundant in that context (e.g.
+    # a "Welcome" video in a "Welcome" Unit).
     title = models.CharField(max_length=1000, default="", null=False, blank=True)
+
+    # The version_num starts at 1 and increments by 1 with each new version for
+    # a given Component. Doing it this way makes it more convenient for users to
+    # refer to than a hash or UUID value.
     version_num = models.PositiveBigIntegerField(
         null=False,
-        validators=[MinValueValidator(1)],  # Versions start with 1
+        validators=[MinValueValidator(1)],
     )
+
+    # All ComponentVersions created as part of the same publish should have the
+    # exact same created datetime (not off by a handful of microseconds).
     created = manual_date_time_field()
 
-    # For later consideration:
-    # created_by = models.ForeignKey(
-    #    settings.AUTH_USER_MODEL,
-    #    # Don't delete content when the user who created it had their account removed.
-    #    on_delete=models.SET_NULL,
-    #
+    # User who created the ContentVersion. This can be null if the user is later
+    # removed. Open edX in general doesn't let you remove users, but we should
+    # try to model it so that this is possible eventually.
+    created_by = models.ForeignKey(
+       settings.AUTH_USER_MODEL,
+       on_delete=models.SET_NULL,
+       null=True,
+    )
 
+    # The contents hold the actual interesting data associated with this
+    # ComponentVersion.
     contents = models.ManyToManyField(
         "Content",
         through="ComponentVersionContent",
@@ -116,9 +183,11 @@ class ComponentVersion(models.Model):
 
     class Meta:
         constraints = [
-            # We give every ComponentVersion a sequential version_num, and
-            # constrain it here. This is both a convenience so that people can
-            # refer to
+            # Prevent the situation where we have multiple ComponentVersions
+            # claiming to be the same version_num for a given Component. This
+            # can happen if there's a race condition between concurrent editors
+            # in different browsers, working on the same Component. With this
+            # constraint, one of those processes will raise an IntegrityError.
             models.UniqueConstraint(
                 fields=[
                     "component",
@@ -128,13 +197,25 @@ class ComponentVersion(models.Model):
             )
         ]
         indexes = [
-            # Make it cheap to find the most recently created ComponentVersion
-            # for a given Component.
+            # LearningPackage (reverse) Created Index:
+            #   * Make it cheap to find the most recently created
+            #     ComponentVersions for a given LearningPackage. This represents
+            #     the most recently saved work for a LearningPackage and would
+            #     be the most likely areas to get worked on next.
             models.Index(
                 fields=["component", "-created"],
-                name="cv_component_rev_created",
+                name="cv_idx_component_rcreated",
+            ),
+
+            # Title Index:
+            #   * Search by title.
+            models.Index(
+                fields=["title",],
+                name="cv_idx_title",
             ),
         ]
+
+        # These are for the Django Admin UI.
         verbose_name = "Component Version"
         verbose_name_plural = "Component Versions"
 
@@ -142,6 +223,10 @@ class ComponentVersion(models.Model):
 class ComponentPublishLogEntry(models.Model):
     """
     This is a historical record of Component publishing.
+
+    When a ComponentVersion is initially created, it's considered a draft. The
+    act of publishing means we're marking a ContentVersion as the official,
+    ready-for-use version of this Component.
     """
 
     publish_log_entry = models.ForeignKey(PublishLogEntry, on_delete=models.CASCADE)
@@ -156,7 +241,13 @@ class PublishedComponent(models.Model):
     For any given Component, what is the currently published ComponentVersion.
 
     It may be possible for a Component to exist only as a Draft (and thus not
-    show up in this table).
+    show up in this table). There is only ever one published ComponentVersion
+    per Component at any given time.
+
+    TODO: Do we need to create a (redundant) title field in this model so that
+    we can more efficiently search across titles within a LearningPackage?
+    Probably not an immediate concern because the number of rows currently
+    shouldn't be > 10,000 in the more extreme cases.
     """
 
     component = models.OneToOneField(
@@ -211,9 +302,13 @@ class Content(models.Model):
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
     hash_digest = hash_field()
 
-    # Per RFC 4288, MIME type and sub-type may each be 127 chars.
-    media_type = models.CharField(max_length=127, blank=False, null=False)
-    media_subtype = models.CharField(max_length=127, blank=False, null=False)
+    # MIME type, such as "text/html", "image/png", etc. Per RFC 4288, MIME type
+    # and sub-type may each be 127 chars, making a max of 255 (including the "/"
+    # in between).
+    #
+    # DO NOT STORE parameters here, e.g. "charset=". We can make a new field if
+    # that becomes necessary.
+    mime_type = models.CharField(max_length=255, blank=False, null=False)
 
     size = models.PositiveBigIntegerField(
         validators=[MaxValueValidator(MAX_SIZE)],
@@ -226,22 +321,41 @@ class Content(models.Model):
 
     data = models.BinaryField(null=False, max_length=MAX_SIZE)
 
-    @property
-    def mime_type(self):
-        return f"{self.media_type}/{self.media_subtype}"
-
     class Meta:
         constraints = [
             # Make sure we don't store duplicates of this raw data within the
-            # same LearningPackage, unless they're of different mime types.
+            # same LearningPackage, unless they're of different MIME types.
             models.UniqueConstraint(
                 fields=[
                     "learning_package",
-                    "media_type",
-                    "media_subtype",
+                    "mime_type",
                     "hash_digest",
                 ],
-                name="content_uniq_lc_hd",
+                name="content_uniq_lc_mime_type_hash_digest",
+            ),
+        ]
+        indexes = [
+            # Use cases:
+            #   * Break down Content counts by type/subtype within a 
+            #     LearningPackage.
+            #   * Find all the Content in a LearningPackage that matches a
+            #     certain MIME type (e.g. "image/png", "application/pdf".
+            models.Index(
+                fields=["learning_package", "mime_type"],
+                name="content_idx_lp_mime_type",
+            ),
+            # Use cases:
+            #   * Find largest Content in a LearningPackage.
+            #   * Find the sum of Content size for a given LearningPackage.
+            models.Index(
+                fields=["learning_package", "-size"],
+                name="content_idx_lp_rsize",
+            ),
+            # Use cases:
+            #   * Find most recently added Content.
+            models.Index(
+                fields=["learning_package", "-created"],
+                name="content_idx_lp_rcreated",
             )
         ]
 

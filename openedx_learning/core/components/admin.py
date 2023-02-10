@@ -42,7 +42,7 @@ class ComponentVersionInline(admin.TabularInline):
 
 @admin.register(Component)
 class ComponentAdmin(ReadOnlyModelAdmin):
-    list_display = ("identifier", "uuid", "namespace", "type", "created", "modified")
+    list_display = ("identifier", "uuid", "namespace", "type", "created")
     readonly_fields = [
         "learning_package",
         "uuid",
@@ -50,7 +50,6 @@ class ComponentAdmin(ReadOnlyModelAdmin):
         "type",
         "identifier",
         "created",
-        "modified",
     ]
     list_filter = ("type", "learning_package")
     search_fields = ["uuid", "identifier"]
@@ -182,16 +181,14 @@ class ContentAdmin(ReadOnlyModelAdmin):
     list_display = [
         "hash_digest",
         "learning_package",
-        "media_type",
-        "media_subtype",
+        "mime_type",
         "size",
         "created",
     ]
     fields = [
         "learning_package",
         "hash_digest",
-        "media_type",
-        "media_subtype",
+        "mime_type",
         "size",
         "created",
         "rendered_data",
@@ -199,21 +196,22 @@ class ContentAdmin(ReadOnlyModelAdmin):
     readonly_fields = [
         "learning_package",
         "hash_digest",
-        "media_type",
-        "media_subtype",
+        "mime_type",
         "size",
         "created",
         "rendered_data",
     ]
-    list_filter = ("media_type", "media_subtype", "learning_package")
+    list_filter = ("mime_type", "learning_package")
     search_fields = ("hash_digest", "size")
 
     def rendered_data(self, content_obj):
         return content_preview(content_obj, 10_000_000)
 
 
-def is_displayable_text(media_type, media_subtype):
+def is_displayable_text(mime_type):
     # Our usual text files, includiing things like text/markdown, text/html
+    media_type, media_subtype = mime_type.split('/')
+
     if media_type == "text":
         return True
 
@@ -222,7 +220,11 @@ def is_displayable_text(media_type, media_subtype):
         return True
 
     # Other application/* types that we know we can display.
-    if media_subtype in ["javascript", "json", "x-subrip"]:
+    if media_subtype in ["json", "x-subrip"]:
+        return True
+    
+    # Other formats that are really specific types of JSON
+    if media_subtype.endswith("+json"):
         return True
 
     return False
@@ -234,12 +236,12 @@ def content_preview(content_obj, size_limit):
 
     # image before text check, since SVGs can be either, but we probably want to
     # see the image version in the admin.
-    if content_obj.media_type == "image":
+    if content_obj.mime_type.startswith("image/"):
         b64_str = base64.b64encode(content_obj.data).decode("ascii")
-        encoded_img_src = f"data:image/{content_obj.media_subtype};base64,{b64_str}"
+        encoded_img_src = f"data:{content_obj.mime_type};base64,{b64_str}"
         return format_html('<img src="{}" style="max-width: 100%;" />', encoded_img_src)
 
-    if is_displayable_text(content_obj.media_type, content_obj.media_subtype):
+    if is_displayable_text(content_obj.mime_type):
         return format_html(
             '<pre style="white-space: pre-wrap;">\n{}\n</pre>',
             content_obj.data.decode("utf-8"),
