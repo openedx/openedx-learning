@@ -1,6 +1,5 @@
-import base64
-
 from django.contrib import admin
+from django.conf import settings
 from django.db.models.aggregates import Count, Sum
 from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
@@ -9,6 +8,7 @@ from django.utils.html import format_html
 from .models import (
     Component,
     ComponentVersion,
+    ComponentVersionContent,
     Content,
     PublishedComponent,
 )
@@ -135,14 +135,32 @@ class PublishedComponentAdmin(ReadOnlyModelAdmin):
         return pc.component_version.title
 
 
+def content_path(cvc_obj: ComponentVersionContent):
+    """
+    NOTE: This is probably really inefficient with sql lookups at the moment.
+    """
+    learning_package_identifier = cvc_obj.content.learning_package.identifier
+    component_identifier = cvc_obj.component_version.component.identifier
+    version_num = cvc_obj.component_version.version_num
+    asset_path = cvc_obj.identifier
+
+    return "{}/components/{}/{}/{}/{}".format(
+        settings.FILEPONY['HOST'],
+        learning_package_identifier,
+        component_identifier,
+        version_num,
+        asset_path,
+    )
+
+
 class ContentInline(admin.TabularInline):
     model = ComponentVersion.contents.through
     fields = ["format_identifier", "format_size", "rendered_data"]
     readonly_fields = ["content", "format_identifier", "format_size", "rendered_data"]
     extra = 0
 
-    def rendered_data(self, cv_obj):
-        return content_preview(cv_obj.content, 100_000)
+    def rendered_data(self, cvc_obj):
+        return content_preview(cvc_obj, 100_000)
 
     def format_size(self, cv_obj):
         return filesizeformat(cv_obj.content.size)
@@ -238,16 +256,40 @@ def is_displayable_text(mime_type):
     return False
 
 
-def content_preview(content_obj, size_limit):
+def content_preview(cvc_obj, size_limit):
+    content_obj = cvc_obj.content
+
     if content_obj.size > size_limit:
         return f"Too large to preview."
 
     # image before text check, since SVGs can be either, but we probably want to
     # see the image version in the admin.
     if content_obj.mime_type.startswith("image/"):
-        b64_str = base64.b64encode(content_obj.data).decode("ascii")
-        encoded_img_src = f"data:{content_obj.mime_type};base64,{b64_str}"
-        return format_html('<img src="{}" style="max-width: 100%;" />', encoded_img_src)
+        return format_html(
+            '<img src="{}" style="max-width: 100%;" />',
+            content_path(cvc_obj),
+        )
+
+    if is_displayable_text(content_obj.mime_type):
+        return format_html(
+            '<pre style="white-space: pre-wrap;">\n{}\n</pre>',
+            content_obj.data.decode("utf-8"),
+        )
+
+    return format_html("This content type cannot be displayed.")
+
+
+def content_preview_old(content_obj, size_limit):
+    if content_obj.size > size_limit:
+        return f"Too large to preview."
+
+    # image before text check, since SVGs can be either, but we probably want to
+    # see the image version in the admin.
+    #if content_obj.mime_type.startswith("image/"):
+    #    return format_html(
+    #        '<img src="{}" style="max-width: 100%;" />',
+    #        f"{settings.FILEPONY['HOST']}/components/{content_obj.learning_package.identifier}/"
+    #    )
 
     if is_displayable_text(content_obj.mime_type):
         return format_html(

@@ -93,3 +93,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 USE_TZ = True
+
+FILEPONY = {
+    'HOST': 'http://localhost:8001',
+}
