@@ -6,6 +6,11 @@ Field conventions:
 * Per OEP-38, we're using the MySQL-friendly convention of BigInt ID as a
   primary key + separate UUID column.
 https://open-edx-proposals.readthedocs.io/en/latest/best-practices/oep-0038-Data-Modeling.html
+* The UUID fields are intended to be globally unique identifiers that other
+  services can store and rely on staying the same.
+* The "identifier" fields can be more human-friendly strings, but these may only
+  be unique within a given context. These values should be treated as mutable,
+  even if they rarely change in practice.
 
 TODO:
 * Try making a CaseSensitiveCharField and CaseInsensitiveCharField
@@ -21,6 +26,8 @@ import hashlib
 import uuid
 
 from django.db import models
+
+from .validators import validate_utc_datetime
 
 
 def identifier_field():
@@ -86,6 +93,9 @@ def manual_date_time_field():
     """
     DateTimeField that does not auto-generate values.
 
+    The datetimes entered for this field *must be UTC* or it will raise a
+    ValidationError.
+
     The reason for this convention is that we are often creating many rows of
     data in the same transaction. They are semantically being created or
     modified "at the same time", even if each individual row is milliseconds
@@ -103,4 +113,7 @@ def manual_date_time_field():
         auto_now=False,
         auto_now_add=False,
         null=False,
+        validators=[
+            validate_utc_datetime,
+        ],
     )

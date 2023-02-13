@@ -11,9 +11,9 @@ are intended to use openedx-learning in the longer term.
 
 Open Question: If the data model is extensible, how do we know whether a change
 has really happened between what's currently stored/published for a particular
-item and the new value we want to set? For Content that's easy, because we have
-actual hashes of the data. But it's not clear how that would work for something
-like an ComponentVersion. We'd have to have some kind of mechanism where every 
+item and the new value we want to set? For RawContent that's easy, because we
+have actual hashes of the data. But it's not clear how that would work for
+something like an ComponentVersion. We'd have to have some kind of mechanism where every 
 pp that wants to attach data gets to answer the question of "has anything
 changed?" in order to decide if we really make a new ComponentVersion or not.
 """
@@ -25,22 +25,28 @@ import pathlib
 import re
 import xml.etree.ElementTree as ET
 
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from openedx_learning.core.publishing.models import LearningPackage, PublishLogEntry
 from openedx_learning.core.components.models import (
-    Content, Component, ComponentVersion, ComponentVersionContent,
-    ComponentPublishLogEntry, PublishedComponent,
+    Component,
+    ComponentVersion,
+    ComponentVersionRawContent,
+    ComponentPublishLogEntry,
+    PublishedComponent,
+    RawContent,
+    TextContent,
 )
 from openedx_learning.lib.fields import create_hash_digest
 
-SUPPORTED_TYPES = ['problem', 'video', 'html']
+SUPPORTED_TYPES = ["problem", "video", "html"]
 logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = 'Load sample Component data from course export'
+    help = "Load sample Component data from course export"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -61,11 +67,10 @@ class Command(BaseCommand):
         # officially "text/javascript"
         mimetypes.add_type("text/javascript", ".js")
         mimetypes.add_type("text/javascript", ".mjs")
-        
 
     def add_arguments(self, parser):
-        parser.add_argument('course_data_path', type=pathlib.Path)
-        parser.add_argument('learning_package_identifier', type=str)
+        parser.add_argument("course_data_path", type=pathlib.Path)
+        parser.add_argument("learning_package_identifier", type=str)
 
     def handle(self, course_data_path, learning_package_identifier, **options):
         self.course_data_path = course_data_path
@@ -73,8 +78,8 @@ class Command(BaseCommand):
         self.load_course_data(learning_package_identifier)
 
     def get_course_title(self):
-        course_type_dir = self.course_data_path / 'course'
-        course_xml_file = next(course_type_dir.glob('*.xml'))
+        course_type_dir = self.course_data_path / "course"
+        course_xml_file = next(course_type_dir.glob("*.xml"))
         course_root = ET.parse(course_xml_file).getroot()
         return course_root.attrib.get("display_name", "Unknown Course")
 
@@ -87,9 +92,9 @@ class Command(BaseCommand):
             learning_package, _created = LearningPackage.objects.get_or_create(
                 identifier=learning_package_identifier,
                 defaults={
-                    'title': title,
-                    'created': now,
-                    'updated': now,
+                    "title": title,
+                    "created": now,
+                    "updated": now,
                 },
             )
             self.learning_package = learning_package
@@ -105,11 +110,13 @@ class Command(BaseCommand):
                 self.import_block_type(block_type, now, publish_log_entry)
 
     def create_content(self, static_local_path, now, component_version):
-        identifier = pathlib.Path('static') / static_local_path
+        identifier = pathlib.Path("static") / static_local_path
         real_path = self.course_data_path / identifier
         mime_type, _encoding = mimetypes.guess_type(identifier)
         if mime_type is None:
-            logger.error(f"  no mimetype found for {real_path}, defaulting to application/binary")
+            logger.error(
+                f"  no mimetype found for {real_path}, defaulting to application/binary"
+            )
             mime_type = "application/binary"
 
         try:
@@ -120,20 +127,26 @@ class Command(BaseCommand):
 
         hash_digest = create_hash_digest(data_bytes)
 
-        content, _created = Content.objects.get_or_create(
+        raw_content, created = RawContent.objects.get_or_create(
             learning_package=self.learning_package,
             mime_type=mime_type,
             hash_digest=hash_digest,
-            defaults = dict(
-                data=data_bytes,
+            defaults=dict(
                 size=len(data_bytes),
                 created=now,
-            )
+            ),
         )
-        ComponentVersionContent.objects.get_or_create(
+        if created:
+            raw_content.file.save(
+                f"{raw_content.learning_package.uuid}/{hash_digest}",
+                ContentFile(data_bytes),
+            )
+
+        ComponentVersionRawContent.objects.get_or_create(
             component_version=component_version,
-            content=content,
+            raw_content=raw_content,
             identifier=identifier,
+            learner_downloadable=True,
         )
 
     def import_block_type(self, block_type, now, publish_log_entry):
@@ -146,35 +159,49 @@ class Command(BaseCommand):
         static_files_regex = re.compile(r"""['"]\/static\/(.+?)["'\?]""")
         block_data_path = self.course_data_path / block_type
 
-        for xml_file_path in block_data_path.glob('*.xml'):
+        for xml_file_path in block_data_path.glob("*.xml"):
             components_found += 1
             identifier = xml_file_path.stem
 
             # Find or create the Component itself
             component, _created = Component.objects.get_or_create(
                 learning_package=self.learning_package,
-                namespace='xblock.v1',
+                namespace="xblock.v1",
                 type=block_type,
                 identifier=identifier,
-                defaults = {
-                    'created': now,
-                }
+                defaults={
+                    "created": now,
+                },
             )
 
-            # Create the Content entry for the raw data...
+            # Create the RawContent entry for the raw data...
             data_bytes = xml_file_path.read_bytes()
             hash_digest = create_hash_digest(data_bytes)
-            data_str = codecs.decode(data_bytes, 'utf-8')
-            content, _created = Content.objects.get_or_create(
+
+            raw_content, created = RawContent.objects.get_or_create(
                 learning_package=self.learning_package,
-                mime_type=f'application/vnd.openedx.xblock.v1.{block_type}+xml',
+                mime_type=f"application/vnd.openedx.xblock.v1.{block_type}+xml",
                 hash_digest=hash_digest,
-                defaults = dict(
-                    data=data_bytes,
+                defaults=dict(
+                    # text=data_str,
                     size=len(data_bytes),
                     created=now,
-                )
+                ),
             )
+            if created:
+                raw_content.file.save(
+                    f"{raw_content.learning_package.uuid}/{hash_digest}",
+                    ContentFile(data_bytes),
+                )
+
+                # Decode as utf-8-sig in order to strip any BOM from the data.
+                data_str = codecs.decode(data_bytes, "utf-8-sig")
+                TextContent.objects.create(
+                    raw_content=raw_content,
+                    text=data_str,
+                    length=len(data_str),
+                )
+
             # TODO: Get associated file contents, both with the static regex, as
             # well as with XBlock-specific code that examines attributes in
             # video and HTML tag definitions.
@@ -185,7 +212,7 @@ class Command(BaseCommand):
                 logger.error(f"Parse error for {xml_file_path}: {err}")
                 continue
 
-            display_name = block_root.attrib.get('display_name', "")
+            display_name = block_root.attrib.get("display_name", "")
 
             # Create the ComponentVersion
             component_version = ComponentVersion.objects.create(
@@ -195,10 +222,11 @@ class Command(BaseCommand):
                 created=now,
                 created_by=None,
             )
-            ComponentVersionContent.objects.create(
+            ComponentVersionRawContent.objects.create(
                 component_version=component_version,
-                content=content,
-                identifier='source.xml',
+                raw_content=raw_content,
+                identifier="source.xml",
+                learner_downloadable=False,
             )
             static_files_found = static_files_regex.findall(data_str)
             for static_local_path in static_files_found:

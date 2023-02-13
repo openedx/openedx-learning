@@ -9,5 +9,6 @@ class OLXImporterConfig(AppConfig):
     """
     Configuration for the OLX Importer Django application.
     """
+
     name = "olx_importer"
     verbose_name = "OLX Importer"
