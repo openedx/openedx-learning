@@ -4,7 +4,7 @@
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / {dir_name} /
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[1]
 
 
 DEBUG = True
@@ -74,7 +74,7 @@ TEMPLATES = [
 ]
 
 LOCALE_PATHS = [
-    BASE_DIR / 'openedx_learning' / 'conf' / 'locale',
+    BASE_DIR / 'conf' / 'locale',
 ]
 
 ROOT_URLCONF = 'projects.urls'
@@ -90,5 +90,6 @@ STATICFILES_DIRS = [
 #     BASE_DIR / 'projects' / 'static'
 ]
 MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 USE_TZ = True

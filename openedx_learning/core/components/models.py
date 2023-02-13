@@ -297,7 +297,7 @@ class Content(models.Model):
     """
 
     # Cap item size at 10 MB for now.
-    MAX_SIZE = 10_000_000
+    MAX_SIZE = 100_000
 
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
     hash_digest = hash_field()
@@ -319,7 +319,8 @@ class Content(models.Model):
     # be UTC.
     created = manual_date_time_field()
 
-    data = models.BinaryField(null=False, max_length=MAX_SIZE)
+    data = models.BinaryField(null=True, max_length=MAX_SIZE)
+    file = models.FileField(null=True)
 
     class Meta:
         constraints = [

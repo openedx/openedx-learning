@@ -25,6 +25,7 @@ import pathlib
 import re
 import xml.etree.ElementTree as ET
 
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -120,16 +121,21 @@ class Command(BaseCommand):
 
         hash_digest = create_hash_digest(data_bytes)
 
-        content, _created = Content.objects.get_or_create(
+        content, created = Content.objects.get_or_create(
             learning_package=self.learning_package,
             mime_type=mime_type,
             hash_digest=hash_digest,
             defaults = dict(
-                data=data_bytes,
                 size=len(data_bytes),
                 created=now,
             )
         )
+        if created:
+            content.file.save(
+                f"{content.learning_package.uuid}/{hash_digest}",
+                ContentFile(data_bytes),
+            )
+
         ComponentVersionContent.objects.get_or_create(
             component_version=component_version,
             content=content,

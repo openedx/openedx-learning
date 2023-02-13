@@ -193,6 +193,7 @@ class ContentAdmin(ReadOnlyModelAdmin):
         "mime_type",
         "format_size",
         "created",
+        "file",
         "rendered_data",
     ]
     readonly_fields = [
@@ -201,6 +202,7 @@ class ContentAdmin(ReadOnlyModelAdmin):
         "mime_type",
         "format_size",
         "created",
+        "file",
         "rendered_data",
     ]
     list_filter = ("mime_type", "learning_package")
