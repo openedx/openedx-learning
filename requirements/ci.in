@@ -1,6 +1,6 @@
 # Requirements for running tests on CI
 -c constraints.txt
 
-codecov                   # Code coverage reporting
+coverage                  # Code coverage reporting
 tox                       # Virtualenv management for tests
 import-linter             # Track our internal dependencies

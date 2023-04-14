@@ -3,4 +3,4 @@
 
 Django<4.0                # Web application framework
 
-attrs
+djangorestframework<4.0   # REST API
