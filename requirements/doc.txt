@@ -4,6 +4,8 @@
 #
 #    make upgrade
 #
+accessible-pygments==0.0.4
+    # via pydata-sphinx-theme
 alabaster==0.7.12
     # via sphinx
 asgiref==3.5.2
@@ -15,11 +17,15 @@ attrs==22.1.0
     #   -r requirements/test.txt
     #   pytest
 babel==2.10.3
-    # via sphinx
+    # via
+    #   pydata-sphinx-theme
+    #   sphinx
 backports-zoneinfo==0.2.1
     # via
     #   -r requirements/test.txt
     #   django
+beautifulsoup4==4.12.2
+    # via pydata-sphinx-theme
 bleach==5.0.1
     # via readme-renderer
 certifi==2022.6.15
@@ -50,11 +56,10 @@ doc8==1.0.0
 docutils==0.19
     # via
     #   doc8
+    #   pydata-sphinx-theme
     #   readme-renderer
     #   restructuredtext-lint
     #   sphinx
-edx-sphinx-theme==3.0.0
-    # via -r requirements/doc.in
 idna==3.3
     # via requests
 imagesize==1.4.1
@@ -82,6 +87,7 @@ markupsafe==2.1.1
 packaging==21.3
     # via
     #   -r requirements/test.txt
+    #   pydata-sphinx-theme
     #   pytest
     #   sphinx
 pbr==5.10.0
@@ -96,9 +102,13 @@ py==1.11.0
     # via
     #   -r requirements/test.txt
     #   pytest
+pydata-sphinx-theme==0.13.3
+    # via sphinx-book-theme
 pygments==2.13.0
     # via
+    #   accessible-pygments
     #   doc8
+    #   pydata-sphinx-theme
     #   readme-renderer
     #   sphinx
 pyparsing==3.0.9
@@ -134,15 +144,18 @@ requests==2.28.1
 restructuredtext-lint==1.4.0
     # via doc8
 six==1.16.0
-    # via
-    #   bleach
-    #   edx-sphinx-theme
+    # via bleach
 snowballstemmer==2.2.0
     # via sphinx
+soupsieve==2.4.1
+    # via beautifulsoup4
 sphinx==5.1.1
     # via
     #   -r requirements/doc.in
-    #   edx-sphinx-theme
+    #   pydata-sphinx-theme
+    #   sphinx-book-theme
+sphinx-book-theme==1.0.1
+    # via -r requirements/doc.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
@@ -176,6 +189,8 @@ tomli==2.0.1
     #   coverage
     #   doc8
     #   pytest
+typing-extensions==4.5.0
+    # via pydata-sphinx-theme
 urllib3==1.26.12
     # via requests
 webencodings==0.5.1
