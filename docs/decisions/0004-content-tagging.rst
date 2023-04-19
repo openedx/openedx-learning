@@ -28,6 +28,7 @@ Implementing tagging as Discovery service plugin
 Discovery is already used as the source of truth place for course/program/block metadata in the previous implementations, so keeping it here means keeping the platform metadata management "consistent" (specially since it needs to work with all kinds of contents - from atomic learning units all the way up to courses).
 
 Concerns:
+
 #. The course discovery repository is not well documented and has code that is only used by edX/2U.
 #. Some implementations are tied to specific closed-source services (example: `openedx/taxonomy-connector <https://github.com/openedx/taxonomy-connector>`_ uses a 3rd party closed-source service to tag video blocks automatically).
 #. The data flow from the discovery service is confusing, and evolved as the needs for that repo changed. `Reference <https://discuss.openedx.org/t/when-to-make-a-new-backend-service/8267/5>`_.
@@ -40,5 +41,6 @@ A new IDA dedicated for tagging would represent a break from the current codebas
 This option adds extra complexity without a good compelling reason for it.
 
 Concerns:
+
 #. One more app to host: maintenance cost increases over time.
 #. Extra response time between services when handling synchronous operations related to tagging.
