@@ -41,4 +41,5 @@ name = Core App Dependency Layering
 type = layers
 layers=
     openedx_learning.core.components
+    openedx_learning.core.contents
     openedx_learning.core.publishing

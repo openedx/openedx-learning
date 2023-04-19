@@ -31,6 +31,7 @@ INSTALLED_APPS = (
     "django.contrib.admindocs",
     # Learning Core Apps
     "openedx_learning.core.components.apps.ComponentsConfig",
+    "openedx_learning.core.contents.apps.ContentsConfig",
     "openedx_learning.core.publishing.apps.PublishingConfig",
     # Learning Contrib Apps
     "openedx_learning.contrib.media_server.apps.MediaServerConfig",
@@ -40,9 +41,14 @@ INSTALLED_APPS = (
     # REST API
     "rest_framework",
     "openedx_learning.rest_api.apps.RESTAPIConfig",
+
+    # Debugging
+    "debug_toolbar",
 )
 
 MIDDLEWARE = [
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
+
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -95,3 +101,6 @@ OPENEDX_LEARNING = {
     # STORAGES setting in Django >= 4.2
     "STORAGE": None,
 }
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
