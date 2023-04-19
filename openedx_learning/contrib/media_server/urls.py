@@ -6,8 +6,8 @@ urlpatterns = [
     path(
         (
             "component_asset/"
-            "<str:learning_package_identifier>/"
-            "<str:component_identifier>/"
+            "<str:learning_package_key>/"
+            "<str:component_key>/"
             "<int:version_num>/"
             "<path:asset_path>"
         ),

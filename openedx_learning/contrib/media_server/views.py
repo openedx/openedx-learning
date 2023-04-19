@@ -8,7 +8,7 @@ from openedx_learning.core.components.api import get_component_version_content
 
 
 def component_asset(
-    request, learning_package_identifier, component_identifier, version_num, asset_path
+    request, learning_package_key, component_key, version_num, asset_path
 ):
     """
     Serve the ComponentVersion asset data.
@@ -25,7 +25,7 @@ def component_asset(
     """
     try:
         cvc = get_component_version_content(
-            learning_package_identifier, component_identifier, version_num, asset_path
+            learning_package_key, component_key, version_num, asset_path
         )
     except ObjectDoesNotExist:
         raise Http404("File not found")

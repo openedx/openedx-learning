@@ -13,3 +13,4 @@ class PublishingConfig(AppConfig):
     name = "openedx_learning.core.publishing"
     verbose_name = "Learning Core: Publishing"
     default_auto_field = "django.db.models.BigAutoField"
+    label = "oel_publishing"
