@@ -22,7 +22,7 @@ UUID
 
 Key
   The ``key`` field is chosen by apps or users, and is the most likely piece to be human-readable (though it doesn't have to be). These values are only locally unique within a given scope, such as a particular LearningPackage or ComponentVersion.
-  
+
   The correlates most closely to OpaqueKeys, though they are not precisely the same. In particular, we don't want to directly store BlockUsageKeys that have the LearningContextKey baked into them, because that makes it much harder to change the LearningContextKey later, e.g. if we ever want to change a CourseKey for a course. Different models can choose whether the ``key`` value is mutable or not, but outside users should assume that it can change, even if it rarely does in practice.
 
 Implementation Notes

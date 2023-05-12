@@ -13,9 +13,9 @@ Decision
 
 Implement the new tagging service as a pluggable django app, and installed alongside learning-core as a dependency in the edx-platform.
 
-Tagging data models will follow the guidelines for this repository, and focus on extensibility and flexibility. 
+Tagging data models will follow the guidelines for this repository, and focus on extensibility and flexibility.
 
-Since some use cases for content tagging are not considered "kernel" (like providing data for a marketing site), a generic mechanism to differentiate those uses cases will be built, and proper Python and REST APIs will be provided, to different taxonomies/tags for the same content. 
+Since some use cases for content tagging are not considered "kernel" (like providing data for a marketing site), a generic mechanism to differentiate those uses cases will be built, and proper Python and REST APIs will be provided, to different taxonomies/tags for the same content.
 
 
 Rejected Alternatives
