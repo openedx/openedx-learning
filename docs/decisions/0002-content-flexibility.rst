@@ -25,7 +25,7 @@ Unit
   A Unit is an ordered list of one or more Components that is typically displayed together. A common use case might be to display some introductory Text, a Video, and some followup Problem (all separate Components). An individual Component in a Unit may or may not make sense when taken outside of that Unit–e.g. a Video may be reusable elsewhere, but the Problem referencing the video might not be.
 
 Sequence
-  A Sequence is a collection of Units that are presented one after the other, either to assess student understanding or to achieve some learning objective. 
+  A Sequence is a collection of Units that are presented one after the other, either to assess student understanding or to achieve some learning objective.
 
   A Sequence is analogous to a Subsection in a traditional Open edX course.
 
