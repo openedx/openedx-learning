@@ -6,8 +6,9 @@
 #
 asgiref==3.6.0
     # via django
-django==3.2.18
+django==3.2.19
     # via
+    #   -c requirements/constraints.txt
     #   -r requirements/base.in
     #   djangorestframework
 djangorestframework==3.14.0
@@ -16,5 +17,5 @@ pytz==2023.3
     # via
     #   django
     #   djangorestframework
-sqlparse==0.4.3
+sqlparse==0.4.4
     # via django

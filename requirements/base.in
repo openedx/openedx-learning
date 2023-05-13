@@ -1,6 +1,6 @@
 # Core requirements for using this application
 -c constraints.txt
 
-Django<4.0                # Web application framework
+Django<5.0                # Web application framework
 
 djangorestframework<4.0   # REST API
