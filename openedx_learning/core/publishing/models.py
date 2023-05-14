@@ -396,8 +396,6 @@ class PublishLogRecord(models.Model):
                 name="oel_plr_idx_entity_rplr",
             ),
         ]
-
-    class Meta:
         verbose_name = "Publish Log Record"
         verbose_name_plural = "Publish Log Records"
 
