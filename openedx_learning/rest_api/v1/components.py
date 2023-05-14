@@ -2,7 +2,6 @@
 This is just an example REST API endpoint.
 """
 from rest_framework import viewsets
-from rest_framework.response import Response
 
 from openedx_learning.core.components.models import Component
 
