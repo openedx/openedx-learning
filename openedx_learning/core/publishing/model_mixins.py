@@ -133,7 +133,9 @@ class PublishableEntityMixin(models.Model):
             Return the content version object that is the current draft.
             """
             try:
-                draft = Draft.objects.get(entity_id=self.content_obj.publishable_entity_id)
+                draft = Draft.objects.get(
+                    entity_id=self.content_obj.publishable_entity_id
+                )
             except Draft.DoesNotExist:
                 # If no Draft object exists at all, then no
                 # PublishableEntityVersion was ever created (just the
@@ -159,7 +161,9 @@ class PublishableEntityMixin(models.Model):
             Return the content version object that is currently published.
             """
             try:
-                published = Published.objects.get(entity_id=self.content_obj.publishable_entity_id)
+                published = Published.objects.get(
+                    entity_id=self.content_obj.publishable_entity_id
+                )
             except Published.DoesNotExist:
                 # This means it's never been published.
                 return None

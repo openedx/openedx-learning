@@ -17,7 +17,6 @@ by convention, but it's possible we might want to have special identifiers
 later.
 """
 from django.db import models
-from django.db.models import F, Q
 
 from openedx_learning.lib.fields import key_field, immutable_uuid_field
 from ..publishing.models import LearningPackage
