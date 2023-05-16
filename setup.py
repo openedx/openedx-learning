@@ -6,7 +6,7 @@ import os
 import re
 import sys
 
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 def get_version(*file_paths):
@@ -72,10 +72,10 @@ setup(
     author='David Ormsbee',
     author_email='dave@tcril.org',
     url='https://github.com/openedx/openedx-learning',
-    packages=[
-        'openedx_learning',
-        'openedx_tagging',
-    ],
+    packages=find_packages(
+        include=['openedx_learning*', 'openedx_tagging*'],
+        exclude=['*.test', '*.tests']
+    ),
     include_package_data=True,
     install_requires=load_requirements('requirements/base.in'),
     python_requires=">=3.8",

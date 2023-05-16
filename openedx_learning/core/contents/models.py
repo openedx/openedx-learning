@@ -5,9 +5,15 @@ more intelligent data models to be useful.
 """
 from django.db import models
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.core.validators import MaxValueValidator
 
-from openedx_learning.lib.fields import hash_field, manual_date_time_field
+from openedx_learning.lib.fields import (
+    case_insensitive_char_field,
+    hash_field,
+    manual_date_time_field,
+    MultiCollationTextField,
+)
 
 from ..publishing.models import LearningPackage
 
@@ -73,11 +79,13 @@ class RawContent(models.Model):
 
     # MIME type, such as "text/html", "image/png", etc. Per RFC 4288, MIME type
     # and sub-type may each be 127 chars, making a max of 255 (including the "/"
-    # in between).
+    # in between). Also, while MIME types are almost always written in lowercase
+    # as a matter of convention, by spec they are NOT case sensitive.
     #
     # DO NOT STORE parameters here, e.g. "charset=". We can make a new field if
-    # that becomes necessary.
-    mime_type = models.CharField(max_length=255, blank=False, null=False)
+    # that becomes necessary. If we do decide to store parameters and values
+    # later, note that those *may be* case sensitive.
+    mime_type = case_insensitive_char_field(max_length=255, blank=False)
 
     # This is the size of the raw data file in bytes. This can be different than
     # the character length, since UTF-8 encoding can use anywhere between 1-4
@@ -96,10 +104,7 @@ class RawContent(models.Model):
     # models that offer better latency guarantees.
     file = models.FileField(
         null=True,
-        storage=settings.OPENEDX_LEARNING.get(
-            "STORAGE",
-            settings.DEFAULT_FILE_STORAGE,
-        ),
+        storage=settings.OPENEDX_LEARNING.get("STORAGE", default_storage),
     )
 
     class Meta:
@@ -172,5 +177,16 @@ class TextContent(models.Model):
         primary_key=True,
         related_name="text_content",
     )
-    text = models.TextField(null=False, blank=True, max_length=MAX_TEXT_LENGTH)
+    text = MultiCollationTextField(
+        blank=True,
+        max_length=MAX_TEXT_LENGTH,
+        
+        # We don't really expect to ever sort by the text column. This is here
+        # primarily to force the column to be created as utf8mb4 on MySQL. I'm
+        # using the binary collation because it's a little cheaper/faster.
+        db_collations={
+            "sqlite": "BINARY",
+            "mysql": "utf8mb4_bin",
+        }
+    )
     length = models.PositiveIntegerField(null=False)

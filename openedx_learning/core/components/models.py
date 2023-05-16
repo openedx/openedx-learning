@@ -18,7 +18,11 @@ later.
 """
 from django.db import models
 
-from openedx_learning.lib.fields import key_field, immutable_uuid_field
+from openedx_learning.lib.fields import (
+    case_sensitive_char_field,
+    immutable_uuid_field,
+    key_field,
+)
 from ..publishing.models import LearningPackage
 from ..publishing.model_mixins import (
     PublishableEntityMixin,
@@ -77,13 +81,13 @@ class Component(PublishableEntityMixin):
     # namespace and type work together to help figure out what Component needs
     # to handle this data. A namespace is *required*. The namespace for XBlocks
     # is "xblock.v1" (to match the setup.py entrypoint naming scheme).
-    namespace = models.CharField(max_length=100, null=False, blank=False)
+    namespace = case_sensitive_char_field(max_length=100, blank=False)
 
     # type is a way to help sub-divide namespace if that's convenient. This
     # field cannot be null, but it can be blank if it's not necessary. For an
     # XBlock, type corresponds to tag, e.g. "video". It's also the block_type in
     # the UsageKey.
-    type = models.CharField(max_length=100, null=False, blank=True)
+    type = case_sensitive_char_field(max_length=100, blank=True)
 
     # local_key is an identifier that is local to the (namespace, type).  The
     # publishable.key should be calculated as a combination of (namespace, type,
