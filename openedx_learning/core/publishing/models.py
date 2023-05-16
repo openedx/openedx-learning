@@ -17,8 +17,9 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 
 from openedx_learning.lib.fields import (
-    key_field,
+    case_insensitive_char_field,
     immutable_uuid_field,
+    key_field,
     manual_date_time_field,
 )
 
@@ -32,7 +33,7 @@ class LearningPackage(models.Model):
 
     uuid = immutable_uuid_field()
     key = key_field()
-    title = models.CharField(max_length=1000, null=False, blank=False)
+    title = case_insensitive_char_field(max_length=500, blank=False)
     created = manual_date_time_field()
     updated = manual_date_time_field()
 
@@ -213,7 +214,7 @@ class PublishableEntityVersion(models.Model):
 
     # Most publishable things will have some sort of title, but blanks are
     # allowed for those that don't require one.
-    title = models.CharField(max_length=1000, default="", null=False, blank=True)
+    title = case_insensitive_char_field(max_length=500, blank=True, default="")
 
     # The version_num starts at 1 and increments by 1 with each new version for
     # a given PublishableEntity. Doing it this way makes it more convenient for
@@ -339,7 +340,7 @@ class PublishLog(models.Model):
 
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
-    message = models.CharField(max_length=1000, null=False, blank=True, default="")
+    message = case_insensitive_char_field(max_length=500, blank=True, default="")
     published_at = manual_date_time_field()
     published_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
