@@ -17,7 +17,7 @@ it to work independently of the content to which it links to.
 Setup
 ---------
 
-**TODO:** We need to wait the discussion of the [Taxonomy discovery](https://docs.google.com/document/d/13zfsGDfomSTCp_G-_ncevQHAb4Y4UW0d_6N8R2PdHlA/edit#heading=h.o6fm1hktwp7b)
+**TODO:** We need to wait the discussion of the `Taxonomy discovery <https://docs.google.com/document/d/13zfsGDfomSTCp_G-_ncevQHAb4Y4UW0d_6N8R2PdHlA/edit#heading=h.o6fm1hktwp7b>`_.
 to build a proper setup for linking different pieces of content.
 
 The current approach is to save the id of the content through a generic string, 
