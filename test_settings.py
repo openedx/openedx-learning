@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "openedx_learning.core.components.apps.ComponentsConfig",
     "openedx_learning.core.contents.apps.ContentsConfig",
     "openedx_learning.core.publishing.apps.PublishingConfig",
+    "openedx_tagging.core.tagging.apps.TaggingConfig",
 ]
 
 LOCALE_PATHS = [

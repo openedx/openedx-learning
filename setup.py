@@ -71,9 +71,10 @@ setup(
     long_description=README + '\n\n' + CHANGELOG,
     author='David Ormsbee',
     author_email='dave@tcril.org',
-    url='https://github.com/ormsbee/openedx-learning',
+    url='https://github.com/openedx/openedx-learning',
     packages=[
-        'openedx_learning'
+        'openedx_learning',
+        'openedx_tagging',
     ],
     include_package_data=True,
     install_requires=load_requirements('requirements/base.in'),

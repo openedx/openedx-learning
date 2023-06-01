@@ -1,6 +1,7 @@
 """ Tagging app data models """
 from django.db import models
 
+
 class TagContent(models.Model):
     """
     TODO: This is a basic representation of TagContent, it may change
@@ -12,16 +13,16 @@ class TagContent(models.Model):
     Name-Value pair
     -----------------
 
-    We use a Field-Value Pair representation, where `name` functions 
-    as the constant that defines the field data set, and `value` functions 
+    We use a Field-Value Pair representation, where `name` functions
+    as the constant that defines the field data set, and `value` functions
     as the variable tag lineage that belong to the set.
-    
+
     Value lineage
     ---------------
 
-    `value` are stored as null character-delimited strings to preserve the tag's lineage. 
+    `value` are stored as null character-delimited strings to preserve the tag's lineage.
     We use the null character to avoid choosing a character that may exist in a tag's name.
-    We don't use the Taxonomy's user-facing delimiter so that this delimiter can be changed 
+    We don't use the Taxonomy's user-facing delimiter so that this delimiter can be changed
     without disrupting stored tags.
     """
 

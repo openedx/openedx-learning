@@ -35,13 +35,14 @@ INSTALLED_APPS = (
     "openedx_learning.core.publishing.apps.PublishingConfig",
     # Learning Contrib Apps
     "openedx_learning.contrib.media_server.apps.MediaServerConfig",
-    "openedx_learning.contrib.tagging.apps.TaggingConfig",
     # Apps that don't belong in this repo in the long term, but are here to make
     # testing/iteration easier until the APIs stabilize.
     "olx_importer.apps.OLXImporterConfig",
     # REST API
     "rest_framework",
     "openedx_learning.rest_api.apps.RESTAPIConfig",
+    # Tagging Core Apps
+    "openedx_tagging.core.tagging.apps.TaggingConfig",
 
     # Debugging
     "debug_toolbar",
