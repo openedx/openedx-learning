@@ -11,7 +11,7 @@ How should these users be identified and their access granted?
 Decision
 --------
 
-A modified version of "course creator" access will be used to identify Taxonomy Administrators in Studio (ref `get_organizations`_):
+In the Studio context, a modified version of "course creator" access will be used to identify Taxonomy Administrators (ref `get_organizations`_):
 
 #. Global staff and superusers can create/edit/populate/delete Taxonomies for the instance or for any org key.
 
@@ -24,6 +24,7 @@ Permission #1 requires no external access, so can be enforced by the ``openedx_t
 
 But because permissions #2 + #3 require access to the edx-platform CMS model `CourseCreator`_, this access can only be enforced in Studio, and so will live under `cms.djangoapps.tagging` along with the ``ContentTag`` class. Tagging MVP must work for libraries v1, v2 and courses created in Studio, and so tying these permissions to Studio is reasonable for the MVP.
 
+Per `OEP-9`_, ``openedx_tagging`` will allow applications to use the standard Django API to query permissions, for example: ``user.has_perm('openedx_tagging.edit_taxonomy', taxonomy)``, and the appropriate permissions will be applied in that application's context.
 
 Rejected Alternatives
 ---------------------
@@ -34,4 +35,5 @@ Django users & groups
 This is a standard way to grant access in Django apps, but it is not used in Open edX. 
 
 .. _get_organizations: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/cms/djangoapps/contentstore/views/course.py#L1958
-.. CourseCreator: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/cms/djangoapps/course_creators/models.py#L27
+.. _CourseCreator: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/cms/djangoapps/course_creators/models.py#L27
+.. _OEP-9: https://open-edx-proposals.readthedocs.io/en/latest/best-practices/oep-0009-bp-permissions.html
