@@ -33,7 +33,7 @@ When is a taxonomy field shown to course authors in a given course?
 Course
 ~~~~~~
 
-We will add a Course Advanced Settings that allows course authors to enable/disable *all available taxonomies* for a given course.
+We will add a Course `Advanced Settings`_ that allows course authors to enable/disable *all available taxonomies* for a given course.
 
 In order for a given taxonomy to be "available to a course", it must be enabled in the :ref:`Instance` context and the course's :ref:`Organization` context.
 
@@ -69,7 +69,7 @@ Rejected Alternatives
 Course Waffle Flags
 ~~~~~~~~~~~~~~~~~~~
 
-Use Course Waffle Flags to enable/disable all taxonomies for a given course.
+Use `Course Waffle Flags`_ to enable/disable all taxonomies for a given course.
 
 Waffle flags can only be changed by instance superusers, but the MVP specifically requires that content authors have control over this switch.
 
