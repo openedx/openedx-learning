@@ -6,6 +6,8 @@ Context
 
 The MVP specification says that taxonomies need to be able to be enabled/disabled for the following contexts: instance, organization, and course.
 
+Taxonomy Administrators must be able to enable a taxonomy globally for all organizations in an instance, or to set a list of organizations who can use the taxonomy.
+
 Content Authors must be able to turn taxonomies (instance and org-levels) on/off at the course level.
 
 Decision
@@ -54,17 +56,20 @@ If ``enabled = True``, then the :ref:`Organization` and :ref:`Course` contexts d
 Organization
 ~~~~~~~~~~~~
 
-OrgTaxonomy contains a ``org_owner`` field, which is a foreign key to the Organization model.  OrgTaxonomy lives under `cms.djangoapps.tagging` and so has access to the Organization model and logic in Studio.
+OrgTaxonomy has a many-to-many relationship with the Organization model, accessed via the ``org_owners`` field.  OrgTaxonomy lives under `cms.djangoapps.tagging` and so has access to the Organization model and logic in Studio.
 
-An OrgTaxonomy is enabled for all organizations if ``org_owner == None``.
-If ``org_owner`` is set, then the OrgTaxonomy is only enabled for that org, i.e. only courses in that org will see the taxonomy field.
+An OrgTaxonomy is enabled for all organizations if ``org_owners == []``.
+If there are any ``org_owners`` set, then the OrgTaxonomy is only enabled for those orgas, i.e. only courses in these orgs will see the taxonomy field in Studio.
 
-No specific use cases exist yet for marking a single taxonomy for use by multiple organizations.
-
-Multiple taxonomies with the same name may co-exist in an instance, so separate taxonomies fulfilling the same function can be created and maintained for different organizations.
+Allowing multiple orgs to access a taxonomy reduces redundancy in data and maintenance.
 
 Rejected Alternatives
 ---------------------
+
+Single org per taxonomy
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Having a single org on a taxonomy is simpler from an implementation perspective, but the UI/UX frames demonstrated that it is simpler for the user to maintain a single taxonomy for multiple orgs.
 
 Course Waffle Flags
 ~~~~~~~~~~~~~~~~~~~
