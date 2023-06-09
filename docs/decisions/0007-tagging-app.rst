@@ -17,7 +17,7 @@ Classes which require dependencies on other Open edX projects should be defined 
 Taxonomy
 ~~~~~~~~
 
-The ``openedx_tagging`` module defines ``openedx_tagging.core.models.Taxonomy``, whose data and functionality are self-contained to the ``openedx_tagging`` app. However in Studio, we need to be able to limit access to some Taxonomy by organization, using the same "course creator" access which  limits course creation for an organization to a defined set of users.
+The ``openedx_tagging`` module defines ``openedx_tagging.core.models.Taxonomy``, whose data and functionality are self-contained to the ``openedx_tagging`` app. However in Studio, we need to be able to limit access to some Taxonomy by organization, using the same "course creator" access which limits course creation for an organization to a defined set of users.
 
 So in edx-platform, we will create the ``openedx.features.tagging`` app, to contain ``models.OrgTaxonomy``. OrgTaxonomy subclasses ``openedx_tagging.core.models.Taxonomy``, employing Django's `multi-table inheritance`_ feature, which allows the base Tag class to keep foreign keys to the Taxonomy, while allowing OrgTaxonomy to store foreign keys into Studio's Organization table.
 
