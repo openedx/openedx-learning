@@ -27,6 +27,7 @@ Parts
 
 * ``openedx_learning.lib`` is for shared utilities, and may include things like custom field types, plugin registration code, etc.
 * ``openedx_learning.core`` contains our Core Django apps, where foundational data structures and APIs will live.
+* ``openedx_tagging.core`` contains the core Tagging app, which provides data structures and apis for tagging Open edX objects.
 
 App Dependencies
 ~~~~~~~~~~~~~~~~
