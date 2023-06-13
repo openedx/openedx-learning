@@ -41,6 +41,8 @@ INSTALLED_APPS = (
     # REST API
     "rest_framework",
     "openedx_learning.rest_api.apps.RESTAPIConfig",
+    # Tagging Core Apps
+    "openedx_tagging.core.tagging.apps.TaggingConfig",
 
     # Debugging
     "debug_toolbar",

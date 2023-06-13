@@ -64,6 +64,7 @@ requirements/private.txt
 dev.db*
 
 .vscode
+venv/
 
 # Media files (for uploads)
 media/
