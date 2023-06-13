@@ -1,7 +1,9 @@
 [run]
 branch = True
 data_file = .coverage
-source=openedx_learning
+source =
+	openedx_learning
+	openedx_tagging
 omit =
     test_settings
     *migrations*
