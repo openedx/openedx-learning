@@ -35,6 +35,8 @@ coverage[toml]==7.2.7
     # via
     #   -r requirements/test.txt
     #   pytest-cov
+ddt==1.6.0
+    # via -r requirements/test.txt
 django==3.2.19
     # via
     #   -c requirements/constraints.txt

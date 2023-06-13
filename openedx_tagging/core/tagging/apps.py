@@ -12,5 +12,5 @@ class TaggingConfig(AppConfig):
 
     name = "openedx_tagging.core.tagging"
     verbose_name = "Tagging"
-    default_auto_field = 'django.db.models.BigAutoField'
+    default_auto_field = "django.db.models.BigAutoField"
     label = "oel_tagging"
