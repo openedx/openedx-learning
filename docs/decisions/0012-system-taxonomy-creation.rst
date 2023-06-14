@@ -4,7 +4,7 @@
 Context
 --------
 
-The System-defined are closed taxonomies created by the system. Some of this are totally static (e.g Language)
+System-defined taxonomies are closed taxonomies created by the system. Some of these are totally static (e.g Language)
 and some depends on a core data model (e.g. Organizations). It is necessary to define how to create and validate 
 the System-defined taxonomies and their tags.
 
