@@ -41,12 +41,18 @@ INSTALLED_APPS = (
     # REST API
     "rest_framework",
     "openedx_learning.rest_api.apps.RESTAPIConfig",
+    # django-rules based authorization
+    'rules.apps.AutodiscoverRulesConfig',
     # Tagging Core Apps
     "openedx_tagging.core.tagging.apps.TaggingConfig",
 
     # Debugging
     "debug_toolbar",
 )
+
+AUTHENTICATION_BACKENDS = [
+    'rules.permissions.ObjectPermissionBackend',
+]
 
 MIDDLEWARE = [
     "debug_toolbar.middleware.DebugToolbarMiddleware",

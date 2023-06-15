@@ -169,6 +169,8 @@ mdurl==0.1.2
     # via
     #   -r requirements/quality.txt
     #   markdown-it-py
+mock==5.0.2
+    # via -r requirements/quality.txt
 more-itertools==9.1.0
     # via
     #   -r requirements/quality.txt
@@ -296,6 +298,8 @@ rich==13.4.2
     # via
     #   -r requirements/quality.txt
     #   twine
+rules==3.3
+    # via -r requirements/quality.txt
 secretstorage==3.3.3
     # via
     #   -r requirements/quality.txt
