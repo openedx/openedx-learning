@@ -26,6 +26,8 @@ But because permissions #2 + #3 require access to the edx-platform CMS model `Co
 
 Per `OEP-9`_, ``openedx_tagging`` will allow applications to use the standard Django API to query permissions, for example: ``user.has_perm('openedx_tagging.edit_taxonomy', taxonomy)``, and the appropriate permissions will be applied in that application's context.
 
+These rules will be enforced in the tagging `views`_, not the API or models, so that external code using this library need not have a logged-in user in order to call the API. So please use with care.
+
 Rejected Alternatives
 ---------------------
 
@@ -37,3 +39,4 @@ This is a standard way to grant access in Django apps, but it is not used in Ope
 .. _get_organizations: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/cms/djangoapps/contentstore/views/course.py#L1958
 .. _CourseCreator: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/cms/djangoapps/course_creators/models.py#L27
 .. _OEP-9: https://open-edx-proposals.readthedocs.io/en/latest/best-practices/oep-0009-bp-permissions.html
+.. _views: https://github.com/dfunckt/django-rules#permissions-in-views

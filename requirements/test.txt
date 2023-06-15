@@ -38,6 +38,8 @@ jinja2==3.1.2
     # via code-annotations
 markupsafe==2.1.3
     # via jinja2
+mock==5.0.2
+    # via -r requirements/test.in
 mysqlclient==2.1.1
     # via -r requirements/test.in
 packaging==23.1
@@ -64,6 +66,8 @@ pytz==2023.3
     #   djangorestframework
 pyyaml==6.0
     # via code-annotations
+rules==3.3
+    # via -r requirements/base.txt
 sqlparse==0.4.4
     # via
     #   -r requirements/base.txt

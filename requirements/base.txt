@@ -17,6 +17,8 @@ pytz==2023.3
     # via
     #   django
     #   djangorestframework
+rules==3.3
+    # via -r requirements/base.in
 sqlparse==0.4.4
     # via django
 typing-extensions==4.6.3
