@@ -1,7 +1,10 @@
 """ Test the tagging APIs """
 
-from unittest.mock import patch
+from io import BytesIO
+import json
+import ddt
 
+from unittest.mock import patch
 from django.test.testcases import TestCase
 
 import openedx_tagging.core.tagging.api as tagging_api
@@ -9,11 +12,14 @@ from openedx_tagging.core.tagging.models import ObjectTag, Tag
 
 from .test_models import TestTagTaxonomyMixin
 
-
+@ddt.ddt
 class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     """
     Test the Tagging API methods.
     """
+
+    def get_tag(self, tags, tag_value):
+        return next((item for item in tags if item.value == tag_value), None)
 
     def test_create_taxonomy(self):
         params = {
@@ -188,3 +194,171 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
                 assert object_tag.object_type == "course"
+
+    def test_import_tags_csv(self):
+        csv_data = "id,name,parent_id,parent_name\n1,Tag 1,,\n2,Tag 2,1,Tag 1\n"
+        csv_file = BytesIO(csv_data.encode())
+
+        taxonomy = tagging_api.create_taxonomy("CSV_Taxonomy")
+        tagging_api.import_tags(taxonomy, csv_file, tagging_api.TaxonomyDataFormat.CSV)
+        tags = tagging_api.get_tags(taxonomy)
+
+        # Assert that the tags are imported correctly
+        self.assertEqual(len(tags), 2)
+        item = self.get_tag(tags, 'Tag 1')
+        self.assertIsNotNone(item)
+        item = self.get_tag(tags, 'Tag 2')
+        self.assertIsNotNone(item)
+        self.assertEqual(item.parent.value, 'Tag 1')
+
+    def test_import_tags_json(self):
+        json_data = {"tags": [
+            {"id": "1", "name": "Tag 1"},
+            {"id": "2", "name": "Tag 2", "parent_id": "1", "parent_name": "Tag 1"}
+        ]}
+        json_file = BytesIO(json.dumps(json_data).encode())
+
+        taxonomy = tagging_api.create_taxonomy("JSON_Taxonomy")
+        tagging_api.import_tags(taxonomy, json_file, tagging_api.TaxonomyDataFormat.JSON)
+        tags = tagging_api.get_tags(taxonomy)
+
+        # Assert that the tags are imported correctly
+        self.assertEqual(len(tags), 2)
+        item = self.get_tag(tags, 'Tag 1')
+        self.assertIsNotNone(item)
+        item = self.get_tag(tags, 'Tag 2')
+        self.assertIsNotNone(item)
+        self.assertEqual(item.parent.value, 'Tag 1')
+
+    def test_import_tags_replace(self):
+        self.assertEqual(len(tagging_api.get_tags(self.taxonomy)), 20)
+
+        json_data = {"tags": [{'id': "tag_1", "name": "Bacteria"},{'id': "tag_2", "name": "Archaea"}]}
+        json_file = BytesIO(json.dumps(json_data).encode())
+
+        tagging_api.import_tags(self.taxonomy, json_file, tagging_api.TaxonomyDataFormat.JSON, replace=True)
+        tags = tagging_api.get_tags(self.taxonomy)
+        self.assertEqual(len(tags), 2)
+        item = self.get_tag(tags, 'Bacteria')
+        self.assertIsNotNone(item)
+        item = self.get_tag(tags, 'Archaea')
+        self.assertIsNotNone(item)
+
+    def test_import_tags_update(self):
+        self.assertEqual(len(tagging_api.get_tags(self.taxonomy)), 20)
+
+        json_data = {"tags": [
+            # Name update
+            {"id": "tag_1", "name": "Bacteria 2.0"},
+            # Parent update
+            {"id": "tag_4", "name": "Eubacteria 2.0", "parent_id": "tag_2", "parent_name": "Archaea"},
+            # Parent deletion
+            {"id": "tag_5", "name": "Archaebacteria 2.0"},
+            # New Tag
+            {"id": "tag_22", "name": "My new tag 2.0", "parent_id": "tag_1", "parent_name": "Bacteria 2.0"},
+        ]}
+
+        json_file = BytesIO(json.dumps(json_data).encode())
+        tagging_api.import_tags(self.taxonomy, json_file, tagging_api.TaxonomyDataFormat.JSON)
+        tags = tagging_api.get_tags(self.taxonomy)
+        self.assertEqual(len(tags), 21)
+
+        # Check name update
+        item = self.get_tag(tags, 'Bacteria 2.0')
+        self.assertIsNotNone(item)
+
+        # Check parent update
+        item = self.get_tag(tags, 'Eubacteria 2.0')
+        self.assertIsNotNone(item)
+
+        # Check parent deletion
+        self.assertEqual(item.parent.value, 'Archaea')
+        item = self.get_tag(tags, 'Archaebacteria 2.0')
+        self.assertIsNotNone(item)
+        self.assertIsNone(item.parent)
+
+        # Check new tag
+        item = self.get_tag(tags, 'My new tag 2.0')
+        self.assertIsNotNone(item)
+        self.assertEqual(item.parent.value, 'Bacteria 2.0')
+
+        # Check existing tag
+        item = self.get_tag(tags, 'Porifera')
+        self.assertIsNotNone(item)
+
+    def test_import_tags_validations(self):
+        invalid_csv_data = "id,name,tag_parent_id,tag_parent_name\n1,Tag 1,,\n2,Tag 2,1,Tag 1\n"
+        invalid_csv_file = BytesIO(invalid_csv_data.encode())
+        taxonomy = tagging_api.create_taxonomy("Validations_Taxonomy")
+        taxonomy_free_text = tagging_api.create_taxonomy("Free_Taxonomy", allow_free_text=True)
+
+        with self.assertRaises(ValueError):
+            tagging_api.import_tags(taxonomy_free_text, invalid_csv_file, tagging_api.TaxonomyDataFormat.CSV)
+
+        with self.assertRaises(ValueError):
+            tagging_api.import_tags(taxonomy, "", "XML")
+
+        with self.assertRaises(ValueError):
+            tagging_api.import_tags(taxonomy, invalid_csv_file, tagging_api.TaxonomyDataFormat.CSV)
+
+    @ddt.data(
+        # Invalid json format
+        {"taxonomy_tags": [
+            {"id": "1", "name": "Tag 1"},
+            {"id": "2", "name": "Tag 2", "parent_id": "1", "parent_name": "Tag 1"}
+        ]},
+        # Invalid 'id' key
+        {"tags": [
+            {"tag_id": "1", "name": "Tag 1"},
+        ]},
+        # Invalid 'name' key
+        {"tags": [
+            {"id": "1", "tag_name": "Tag 1"},
+        ]}
+    )
+    def test_import_tags_json_validations(self, json_data):
+        json_file = BytesIO(json.dumps(json_data).encode())
+        taxonomy = tagging_api.create_taxonomy("Validations_Taxonomy")
+
+        with self.assertRaises(ValueError):
+            tagging_api.import_tags(taxonomy, json_file, tagging_api.TaxonomyDataFormat.JSON)
+
+    def test_export_tags_json(self):
+        json_data = {
+            "name": "Life on Earth",
+            "description": "This taxonomy contains the Kingdoms of the Earth",
+            "tags": [
+                {'id': "tag_2", "name": "Archaea"},
+                {'id': "tag_1", "name": "Bacteria"},
+                {'id': "tag_4", "name": "Euryarchaeida", "parent_id": "tag_2", "parent_name": "Archaea"},
+                {'id': "tag_3", "name": "Eubacteria", "parent_id": "tag_1", "parent_name": "Bacteria"},
+            ]
+        }
+        json_file = BytesIO(json.dumps(json_data).encode())
+
+        # Import and replace
+        tagging_api.import_tags(self.taxonomy, json_file, tagging_api.TaxonomyDataFormat.JSON, replace=True)
+
+        result = tagging_api.export_tags(self.taxonomy, tagging_api.TaxonomyDataFormat.JSON)
+        self.assertEqual(json.loads(result), json_data)
+
+    def test_export_tags_csv(self):
+        csv_data = "id,name,parent_id,parent_name\r\ntag_2,Archaea,,\r\ntag_1,Bacteria,,\r\n" \
+                   "tag_4,Euryarchaeida,tag_2,Archaea\r\ntag_3,Eubacteria,tag_1,Bacteria\r\n"
+
+        csv_file = BytesIO(csv_data.encode())
+
+        # Import and replace
+        tagging_api.import_tags(self.taxonomy, csv_file, tagging_api.TaxonomyDataFormat.CSV, replace=True)
+        result = tagging_api.export_tags(self.taxonomy, tagging_api.TaxonomyDataFormat.CSV)
+        self.assertEqual(result, csv_data)
+
+    def test_export_tags_validation(self):
+        taxonomy_free_text = tagging_api.create_taxonomy("Free_Taxonomy", allow_free_text=True)
+        taxonomy_xml = tagging_api.create_taxonomy("XML_Taxonomy")
+
+        with self.assertRaises(ValueError):
+            tagging_api.export_tags(taxonomy_free_text, tagging_api.TaxonomyDataFormat.JSON)
+
+        with self.assertRaises(ValueError):
+            tagging_api.export_tags(taxonomy_xml, "XML")
