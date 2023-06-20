@@ -3,6 +3,8 @@
 
 -r base.txt               # Core dependencies for this package
 
+mysqlclient<3.0           # MySQL support
+
 coverage                  # Code coverage reporting
 import-linter             # Track our internal dependencies
 
