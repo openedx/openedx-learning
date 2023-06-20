@@ -460,3 +460,74 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ) == [
             beta,
         ]
+
+    def test_autocomplete_tags_closed_taxonomy(self):
+        object_id = 'course_id_1'
+        prefix = 'a'
+        self._validate_autocomplete_tags(self.taxonomy, prefix, object_id)
+
+    def test_autocomplete_tags_free_text_taxonomy(self):
+        object_id_1 = 'course_id_1'
+        object_id_2 = 'course_id_2'
+        prefix = 'a'
+
+        taxonomy = tagging_api.create_taxonomy("Free_Text_Taxonomy", allow_free_text=True)
+        tags = [
+            'Archaea',
+            'Archaebacteria',
+            'Animalia',
+            'Arthropoda',
+            'Plantae',
+            'Monera',
+            'Gastrotrich',
+            'Placozoa',
+            # For testing repeats
+            'Animalia',
+            'Arthropoda',
+        ]
+        for tag in tags:
+            ObjectTag(
+                object_id=object_id_1,
+                object_type='course',
+                taxonomy=taxonomy,
+                _value=tag,
+            ).save()
+
+        self._validate_autocomplete_tags(taxonomy, prefix, object_id_2, free_text=True)
+
+    def _validate_autocomplete_tags(self, taxonomy, prefix, object_id, free_text=False):
+        """
+        Validate autocomplete tags
+        """
+
+        # Normal search
+        result = tagging_api.autocomplete_tags(taxonomy, prefix)
+        self.assertEqual(len(result), 4)
+        for tag in result:
+            self.assertEqual(tag[0].lower(), prefix)
+
+        # Search with count
+        result = tagging_api.autocomplete_tags(taxonomy, prefix, count=2)
+        self.assertEqual(len(result), 2)
+
+        # Create ObjectTag to simulate the content tagging
+        for tag in result:
+            tag_model = None
+            if not free_text:
+                tag_model = get_tag(tag)
+
+            ObjectTag(
+                object_id=object_id,
+                object_type='course',
+                taxonomy=taxonomy,
+                tag=tag_model,
+                _value=tag,
+            ).save()
+
+        # Search with object
+        result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id)
+        self.assertEqual(len(result), 2)
+
+        # Search with object and count
+        result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id, count=1)
+        self.assertEqual(len(result), 1)

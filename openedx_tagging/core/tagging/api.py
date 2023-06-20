@@ -137,3 +137,37 @@ def tag_object(
     Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
     """
     return taxonomy.cast().tag_object(tags, object_id)
+
+
+def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, count=10) -> List[str]:
+    """
+    Returns the first `count` tag values in the given Taxonomy with names 
+    that begin with the given prefix string. The result is returned in alphabetical
+
+    Closed taxonomies return tag values that exist in the taxonomy. Also excludes all Tags that the
+    `object_id` already has. 
+
+    Free-text taxonomies return only tag values that are currently in use on (another) object. Also excludes
+    the tags used by `object_id`.
+    """
+    result = []
+    excluded_tags = ObjectTag.objects.filter(object_id=object_id, taxonomy=taxonomy)
+    if taxonomy.allow_free_text:
+        # Free-text taxonomy
+        excluded_tags = excluded_tags.values_list('_value', flat=True)
+        result = ObjectTag.objects.filter(taxonomy=taxonomy, _value__startswith=prefix) \
+                                  .exclude(object_id=object_id) \
+                                  .exclude(_value__in=excluded_tags) \
+                                  .order_by('_value') \
+                                  .values_list('_value', flat=True)
+        # Remove repeat tags
+        result = list(set(result))[:count]
+    else:
+        # Closed taxonomy
+        excluded_tags = excluded_tags.filter(tag__isnull=False).values_list('tag__id', flat=True)
+        result = Tag.objects.filter(taxonomy=taxonomy, value__startswith=prefix) \
+                            .exclude(id__in=excluded_tags) \
+                            .order_by('value') \
+                            .values_list('value', flat=True) \
+                            [:count]
+    return result
