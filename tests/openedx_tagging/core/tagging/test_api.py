@@ -213,8 +213,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     def test_import_tags_json(self):
         json_data = {"tags": [
-            {"id": "1", "name": "Tag 1"},
-            {"id": "2", "name": "Tag 2", "parent_id": "1", "parent_name": "Tag 1"}
+            {"id": "tag_1", "name": "Tag 1"},
+            {"id": "tag_2", "name": "Tag 2", "parent_id": "tag_1", "parent_name": "Tag 1"}
         ]}
         json_file = BytesIO(json.dumps(json_data).encode())
 
@@ -288,17 +288,20 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     def test_import_tags_validations(self):
         invalid_csv_data = "id,name,tag_parent_id,tag_parent_name\n1,Tag 1,,\n2,Tag 2,1,Tag 1\n"
-        invalid_csv_file = BytesIO(invalid_csv_data.encode())
         taxonomy = tagging_api.create_taxonomy("Validations_Taxonomy")
         taxonomy_free_text = tagging_api.create_taxonomy("Free_Taxonomy", allow_free_text=True)
 
+        # Open the file in each test since it always closes even if there is an error
         with self.assertRaises(ValueError):
+            invalid_csv_file = BytesIO(invalid_csv_data.encode())
             tagging_api.import_tags(taxonomy_free_text, invalid_csv_file, tagging_api.TaxonomyDataFormat.CSV)
 
         with self.assertRaises(ValueError):
-            tagging_api.import_tags(taxonomy, "", "XML")
+            invalid_csv_file = BytesIO(invalid_csv_data.encode())
+            tagging_api.import_tags(taxonomy, invalid_csv_file, "XML")
 
         with self.assertRaises(ValueError):
+            invalid_csv_file = BytesIO(invalid_csv_data.encode())
             tagging_api.import_tags(taxonomy, invalid_csv_file, tagging_api.TaxonomyDataFormat.CSV)
 
     @ddt.data(

@@ -136,13 +136,7 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
     if taxonomy.allow_free_text:
         raise ValueError(
             _(
-                f"Invalid taxonomy ({taxonomy.id}): You can't import free-from tags taxonomies"
-            )
-        )
-    if format not in TaxonomyDataFormat.__members__.values():
-        raise ValueError(
-            _(
-                f"Invalid format: {format}"
+                f"Invalid taxonomy ({taxonomy.id}): You cannot import into a free-form taxonomy."
             )
         )
 
@@ -161,8 +155,7 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
                     )
                 )
             tags_data = list(csv_reader)
-        else:
-            # TaxonomyDataFormat.JSON
+        elif format == TaxonomyDataFormat.JSON:
             tags_data = json.load(tags)
             if 'tags' not in tags_data:
                 raise ValueError(
@@ -171,6 +164,12 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
                     )
                 )
             tags_data = tags_data.get('tags')
+        else:
+            raise ValueError(
+                _(
+                    f"Invalid format: {format}"
+                )
+            )
     except ValueError as e:
         raise e
     finally:
@@ -201,14 +200,14 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
         if tag_id not in new_tags and tag_id not in updated_tags:
             try:
                 # Update tag
-                tag_instance = Tag.objects.get(external_id=tag_id)
+                tag_instance = taxonomy.tag_set.get(external_id=tag_id)
                 tag_instance.value = tag_name
 
                 if tag_instance.parent and (not tag_parent_id or not tag_parent_name):
                     # if there is no parent in the data import
                     tag_instance.parent = None
                 updated_tags.append(tag_id)
-            except ObjectDoesNotExist:
+            except Tag.DoesNotExist:
                 # Create tag
                 tag_instance = Tag(
                     taxonomy=taxonomy,
@@ -226,7 +225,7 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
             return tag_instance
         else:
             # Returns the created/updated tag from history
-            return Tag.objects.get(external_id=tag_id)
+            return taxonomy.tag_set.get(external_id=tag_id)
 
     # Create and update tags
     with transaction.atomic():
@@ -256,7 +255,7 @@ def export_tags(taxonomy: Taxonomy, format: TaxonomyDataFormat) -> str:
     if taxonomy.allow_free_text:
         raise ValueError(
             _(
-                f"Invalid taxonomy ({taxonomy.id}): You can't export free-from tags taxonomies"
+                f"Invalid taxonomy ({taxonomy.id}): You cannot import into a free-form taxonomy."
             )
         )
     if format not in TaxonomyDataFormat.__members__.values():
@@ -266,7 +265,7 @@ def export_tags(taxonomy: Taxonomy, format: TaxonomyDataFormat) -> str:
             )
         )
 
-    # Build list of tags in a dictionary format
+    # Build tags in a dictionary format
     tags = get_tags(taxonomy)
     result = []
     for tag in tags:
@@ -292,6 +291,7 @@ def export_tags(taxonomy: Taxonomy, format: TaxonomyDataFormat) -> str:
             return csv_string
     else:
         # TaxonomyDataFormat.JSON
+        # Verification is made at the beginning before bringing and assembling tags data.
         json_result = {
             'name': taxonomy.name,
             'description': taxonomy.description,
