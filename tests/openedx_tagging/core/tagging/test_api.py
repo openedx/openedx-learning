@@ -503,6 +503,12 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         self._validate_autocomplete_tags(taxonomy, prefix, object_id_2, free_text=True)
 
+    def _get_tag_result_values(self, tag_results):
+        return [tag_result.value for tag_result in tag_results]
+
+    def _get_tag_result_ids(self, tag_results):
+        return [tag_result.id for tag_result in tag_results]
+
     def _validate_autocomplete_tags(self, taxonomy, prefix, object_id, free_text=False):
         """
         Validate autocomplete tags
@@ -510,16 +516,31 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Normal search
         result = tagging_api.autocomplete_tags(taxonomy, prefix)
-        self.assertEqual(result, ["Animalia", "Archaea", "Archaebacteria", "Arthropoda"])
-        for tag in result:
+        tag_ids = self._get_tag_result_ids(result)
+        tag_values = self._get_tag_result_values(result)
+        self.assertEqual(tag_values, ["Animalia", "Archaea", "Archaebacteria", "Arthropoda"])
+
+        for tag in tag_values:
             self.assertEqual(tag[0].lower(), prefix)
+
+        if free_text:
+            self.assertEqual(tag_ids, [None, None, None, None])
+        else:
+            self.assertEqual(tag_ids, [9,2,5,14])
 
         # Search with count
         result = tagging_api.autocomplete_tags(taxonomy, prefix, count=2)
-        self.assertEqual(result, ["Animalia", "Archaea"])
+        tag_ids = self._get_tag_result_ids(result)
+        tag_values = self._get_tag_result_values(result)
+        self.assertEqual(tag_values, ["Animalia", "Archaea"])
+
+        if free_text:
+            self.assertEqual(tag_ids, [None, None])
+        else:
+            self.assertEqual(tag_ids, [9,2])
 
         # Create ObjectTag to simulate the content tagging
-        for tag in result:
+        for tag in tag_values:
             tag_model = None
             if not free_text:
                 tag_model = get_tag(tag)
@@ -534,8 +555,20 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Search with object
         result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id)
-        self.assertEqual(result, ["Archaebacteria", "Arthropoda"])
+        tag_ids = self._get_tag_result_ids(result)
+        self.assertEqual(self._get_tag_result_values(result), ["Archaebacteria", "Arthropoda"])
 
-        # Search with object and count
+        if free_text:
+            self.assertEqual(tag_ids, [None, None])
+        else:
+            self.assertEqual(tag_ids, [5,14])
+
+        # Search with object and coun
         result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id, count=1)
-        self.assertEqual(result, ["Archaebacteria"])
+        tag_ids = self._get_tag_result_ids(result)
+        self.assertEqual(self._get_tag_result_values(result), ["Archaebacteria"])
+
+        if free_text:
+            self.assertEqual(tag_ids, [None])
+        else:
+            self.assertEqual(tag_ids, [5])

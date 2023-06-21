@@ -668,3 +668,12 @@ class ObjectTag(models.Model):
         self._value = object_tag._value
         self._name = object_tag._name
         return self
+    
+class TagResult:
+    """
+    Lightweight class used to return tags on some API methods
+    """
+
+    def __init__(self, id: Union[str, None], value: str):
+        self.id = id
+        self.value = value

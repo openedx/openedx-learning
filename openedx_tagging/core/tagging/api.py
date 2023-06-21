@@ -15,8 +15,7 @@ from typing import Iterator, List, Type, Union
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
-from .models import ObjectTag, Tag, Taxonomy
-
+from .models import ObjectTag, Tag, Taxonomy, TagResult
 
 def create_taxonomy(
     name: str,
@@ -139,7 +138,7 @@ def tag_object(
     return taxonomy.cast().tag_object(tags, object_id)
 
 
-def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, count=10) -> List[str]:
+def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, count=10) -> List[TagResult]:
     """
     Returns the first `count` tag values in the given Taxonomy with names 
     that begin with the given prefix string. The result is returned in alphabetical
@@ -175,6 +174,8 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
             # get only first `count` values
             [:count]
         )
+        # Build tag results
+        result = [TagResult(id=None, value=value) for value in result]
     else:
         # Closed taxonomy
         
@@ -187,11 +188,21 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
             .exclude(id__in=excluded_tags)
             # alphabetical ordering
             .order_by('value')
-            # obtain the values of the tags
-            .values_list('value', flat=True)
-            # remove repeats
-            .distinct()
+            # obtain only id and values of the tags
+            .values('id', 'value')
             # get only first `count` values
             [:count]
         )
-    return list(result)
+
+        # We need to delete the repeats here because the current database backend 
+        # don't support `distinct()` on fields
+        unique_results = {}
+        for item in result:
+            value = item['value']
+            if value not in unique_results:
+                unique_results[value] = item
+        result = list(unique_results.values())
+
+        # Build tag results
+        result = [TagResult(id=item['id'], value=item['value']) for item in result]
+    return result
