@@ -464,6 +464,14 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_autocomplete_tags_closed_taxonomy(self):
         object_id = 'course_id_1'
         prefix = 'a'
+
+        # Creating a repeated tag to test that case
+        Tag(
+            taxonomy=self.taxonomy,
+            value="Archaebacteria",
+            external_id="tag_30",
+        ).save()
+
         self._validate_autocomplete_tags(self.taxonomy, prefix, object_id)
 
     def test_autocomplete_tags_free_text_taxonomy(self):
@@ -502,13 +510,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Normal search
         result = tagging_api.autocomplete_tags(taxonomy, prefix)
-        self.assertEqual(len(result), 4)
+        self.assertEqual(result, ["Animalia", "Archaea", "Archaebacteria", "Arthropoda"])
         for tag in result:
             self.assertEqual(tag[0].lower(), prefix)
 
         # Search with count
         result = tagging_api.autocomplete_tags(taxonomy, prefix, count=2)
-        self.assertEqual(len(result), 2)
+        self.assertEqual(result, ["Animalia", "Archaea"])
 
         # Create ObjectTag to simulate the content tagging
         for tag in result:
@@ -526,8 +534,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Search with object
         result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id)
-        self.assertEqual(len(result), 2)
+        self.assertEqual(result, ["Archaebacteria", "Arthropoda"])
 
         # Search with object and count
         result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id, count=1)
-        self.assertEqual(len(result), 1)
+        self.assertEqual(result, ["Archaebacteria"])

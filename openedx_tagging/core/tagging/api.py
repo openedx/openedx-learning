@@ -151,23 +151,47 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
     the tags used by `object_id`.
     """
     result = []
+
+    # Fetch tags that the object already has to exclude them from the result
     excluded_tags = ObjectTag.objects.filter(object_id=object_id, taxonomy=taxonomy)
     if taxonomy.allow_free_text:
         # Free-text taxonomy
+
+        # Obtain the value of the excluded tags
         excluded_tags = excluded_tags.values_list('_value', flat=True)
-        result = ObjectTag.objects.filter(taxonomy=taxonomy, _value__startswith=prefix) \
-                                  .exclude(object_id=object_id) \
-                                  .exclude(_value__in=excluded_tags) \
-                                  .order_by('_value') \
-                                  .values_list('_value', flat=True)
-        # Remove repeat tags
-        result = list(set(result))[:count]
+        result = (
+            # Fetch object tags from this taxonomy whose value starts with the given prefix
+            ObjectTag.objects.filter(taxonomy=taxonomy, _value__startswith=prefix)
+            # omit any tags applied to the given object
+            .exclude(object_id=object_id)
+            # omit any free-text tags from other objects whose values match the tags on the given object
+            .exclude(_value__in=excluded_tags)
+            # alphabetical ordering
+            .order_by('_value')
+            # obtain the values of the tags
+            .values_list('_value', flat=True)
+            # remove repeats
+            .distinct()
+            # get only first `count` values
+            [:count]
+        )
     else:
         # Closed taxonomy
+        
+        # Obtain the id of the excluded tags
         excluded_tags = excluded_tags.filter(tag__isnull=False).values_list('tag__id', flat=True)
-        result = Tag.objects.filter(taxonomy=taxonomy, value__startswith=prefix) \
-                            .exclude(id__in=excluded_tags) \
-                            .order_by('value') \
-                            .values_list('value', flat=True) \
-                            [:count]
-    return result
+        result = (
+            # Fetch tags from this taxonomy whose value starts with the given prefix
+            Tag.objects.filter(taxonomy=taxonomy, value__startswith=prefix)
+            # omit any tags applied to the given object
+            .exclude(id__in=excluded_tags)
+            # alphabetical ordering
+            .order_by('value')
+            # obtain the values of the tags
+            .values_list('value', flat=True)
+            # remove repeats
+            .distinct()
+            # get only first `count` values
+            [:count]
+        )
+    return list(result)
