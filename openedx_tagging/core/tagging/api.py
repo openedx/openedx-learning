@@ -160,7 +160,7 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
         excluded_tags = excluded_tags.values_list('_value', flat=True)
         result = (
             # Fetch object tags from this taxonomy whose value starts with the given prefix
-            ObjectTag.objects.filter(taxonomy=taxonomy, _value__startswith=prefix)
+            ObjectTag.objects.filter(taxonomy=taxonomy, _value__istartswith=prefix)
             # omit any tags applied to the given object
             .exclude(object_id=object_id)
             # omit any free-text tags from other objects whose values match the tags on the given object
@@ -183,7 +183,7 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
         excluded_tags = excluded_tags.filter(tag__isnull=False).values_list('tag__id', flat=True)
         result = (
             # Fetch tags from this taxonomy whose value starts with the given prefix
-            Tag.objects.filter(taxonomy=taxonomy, value__startswith=prefix)
+            Tag.objects.filter(taxonomy=taxonomy, value__istartswith=prefix)
             # omit any tags applied to the given object
             .exclude(id__in=excluded_tags)
             # alphabetical ordering
