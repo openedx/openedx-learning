@@ -176,14 +176,13 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
         tags.close()
 
 
-    new_tags = []
     updated_tags = []
 
     def create_update_tag(tag):
         """
         Function to create a new Tag or update an existing one.
 
-        This function keeps a creation/update history with `new_tags` and `updated_tags`,
+        This function keeps a creation/update history with `updated_tags`,
         a same tag can't be created/updated in a same taxonomy import.
         Also, recursively, creates the parents of the `tag`.
 
@@ -197,7 +196,7 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
         tag_parent_name = tag.get('parent_name')
 
         # Check if the tag has not already been created or updated
-        if tag_id not in new_tags and tag_id not in updated_tags:
+        if tag_id not in updated_tags:
             try:
                 # Update tag
                 tag_instance = taxonomy.tag_set.get(external_id=tag_id)
@@ -214,7 +213,7 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
                     value=tag_name,
                     external_id=tag_id,    
                 )
-                new_tags.append(tag_id)
+                updated_tags.append(tag_id)
 
             if tag_parent_id and tag_parent_name:
                 # Parent creation/update
@@ -229,10 +228,6 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
 
     # Create and update tags
     with transaction.atomic():
-        # Delete all old Tags linked to the taxonomy
-        if replace:
-            Tag.objects.filter(taxonomy=taxonomy).delete()
-        
         for tag in tags_data:
             try:
                 create_update_tag(tag)
@@ -243,7 +238,12 @@ def import_tags(taxonomy: Taxonomy, tags: BytesIO, format: TaxonomyDataFormat, r
                         f"Invalid JSON format: Missing '{key}' on a tag ({tag})"
                     )
                 )
-        resync_tags()
+            
+        # If replace, delete all not updated tags (Not present in the file)
+        if replace:
+            taxonomy.tag_set.exclude(external_id__in=updated_tags).delete()
+
+        resync_object_tags(ObjectTag.objects.filter(taxonomy=taxonomy))
 
 def export_tags(taxonomy: Taxonomy, format: TaxonomyDataFormat) -> str: 
     """

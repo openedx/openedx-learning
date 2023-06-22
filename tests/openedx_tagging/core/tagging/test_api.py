@@ -2,9 +2,9 @@
 
 from io import BytesIO
 import json
+from unittest.mock import patch
 import ddt
 
-from unittest.mock import patch
 from django.test.testcases import TestCase
 
 import openedx_tagging.core.tagging.api as tagging_api
@@ -325,6 +325,37 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         with self.assertRaises(ValueError):
             tagging_api.import_tags(taxonomy, json_file, tagging_api.TaxonomyDataFormat.JSON)
+
+    def test_import_tags_resync(self):
+        object_id = 'course_1'
+        object_tag = ObjectTag(
+            object_id=object_id,
+            object_type='course',
+            taxonomy=self.taxonomy,
+            tag=self.bacteria,
+        )
+        tagging_api.resync_object_tags([object_tag])
+        object_tag = ObjectTag.objects.get(object_id=object_id)
+        self.assertEqual(object_tag.tag.value, 'Bacteria')
+        self.assertEqual(object_tag._value, 'Bacteria')
+
+        json_data = {"tags": [{"id": "tag_1", "name": "Bacteria 2.0"}]}
+        json_file = BytesIO(json.dumps(json_data).encode())
+
+        # Import
+        tagging_api.import_tags(self.taxonomy, json_file, tagging_api.TaxonomyDataFormat.JSON)
+        object_tag = ObjectTag.objects.get(object_id=object_id)
+        self.assertEqual(object_tag.tag.value, 'Bacteria 2.0')
+        self.assertEqual(object_tag._value, 'Bacteria 2.0')
+
+        json_data = {"tags": [{"id": "tag_1", "name": "Bacteria 3.0"}]}
+        json_file = BytesIO(json.dumps(json_data).encode())
+
+        # Import and replace
+        tagging_api.import_tags(self.taxonomy, json_file, tagging_api.TaxonomyDataFormat.JSON, replace=True)
+        object_tag = ObjectTag.objects.get(object_id=object_id)
+        self.assertEqual(object_tag.tag.value, 'Bacteria 3.0')
+        self.assertEqual(object_tag._value, 'Bacteria 3.0')
 
     def test_export_tags_json(self):
         json_data = {
