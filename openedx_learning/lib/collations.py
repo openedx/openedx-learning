@@ -32,11 +32,6 @@ class MultiCollationMixin:
         it for Django 3.2 compatibility (see the ``db_collation`` method
         docstring for details).
         """
-        if db_collation is not None:
-            raise ValueError(
-                f"Cannot use db_collation with {self.__class__.__name__}. "
-                + "Please use a db_collations dict instead."
-            )
 
         super().__init__(*args, **kwargs)
         self.db_collations = db_collations or {}
@@ -106,7 +101,7 @@ class MultiCollationMixin:
     def deconstruct(self):
         """
         How to serialize our Field for the migration file.
-        
+
         For our mixin fields, this is just doing what the field's superclass
         would do and then tacking on our custom ``db_collations`` dict data.
         """
