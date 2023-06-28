@@ -3,9 +3,9 @@ from typing import List, Type
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from model_utils.managers import InheritanceManager
 
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
-
 
 # Maximum depth allowed for a hierarchical taxonomy's tree of tags.
 TAXONOMY_MAX_DEPTH = 3
@@ -93,10 +93,18 @@ class Tag(models.Model):
         return lineage
 
 
+class TaxonomyManager(InheritanceManager):
+    """
+    Base Taxonomy class uses InheritanceManager to help instantiate subclasses during queries.
+    """
+
+
 class Taxonomy(models.Model):
     """
     Represents a namespace and rules for a group of tags which can be applied to a particular Open edX object.
     """
+
+    objects = TaxonomyManager()
 
     id = models.BigAutoField(primary_key=True)
     name = case_insensitive_char_field(
@@ -139,6 +147,18 @@ class Taxonomy(models.Model):
 
     class Meta:
         verbose_name_plural = "Taxonomies"
+
+    def __repr__(self):
+        """
+        Developer-facing representation of a Taxonomy.
+        """
+        return str(self)
+
+    def __str__(self):
+        """
+        User-facing string representation of a Taxonomy.
+        """
+        return f"<{self.__class__.__name__}> {self.name}"
 
     @property
     def system_defined(self) -> bool:
@@ -351,6 +371,18 @@ class ObjectTag(models.Model):
             models.Index(fields=["taxonomy", "_value"]),
         ]
 
+    def __repr__(self):
+        """
+        Developer-facing representation of an ObjectTag.
+        """
+        return str(self)
+
+    def __str__(self):
+        """
+        User-facing string representation of an ObjectTag.
+        """
+        return f"{self.object_id} ({self.object_type}): {self.name}={self.value}"
+
     @property
     def name(self) -> str:
         """
@@ -402,7 +434,16 @@ class ObjectTag(models.Model):
 
         A valid ObjectTag must be linked to a Taxonomy, and be a valid tag in that taxonomy.
         """
-        return self.taxonomy_id and self.taxonomy.validate_object_tag(self)
+        if self.taxonomy_id:
+            # self.taxonomy doesn't return the correct subclass, so we must fetch it
+            # FIXME:
+            # * cache to prevent re-fetching the taxonomy
+            # * discourage people from using self.taxonomy
+            taxonomy = (
+                Taxonomy.objects.filter(id=self.taxonomy_id).select_subclasses().first()
+            )
+            return taxonomy.validate_object_tag(self)
+        return False
 
     def get_lineage(self) -> Lineage:
         """
@@ -456,3 +497,17 @@ class ObjectTag(models.Model):
             changed = True
 
         return changed
+
+
+class SystemTaxonomy(Taxonomy):
+    """
+    System-defined taxonomies are not editable by normal users; they're defined by fixtures/migrations, and may have
+    dynamically-determined Tags and ObjectTags.
+    """
+
+    @property
+    def system_defined(self) -> bool:
+        """
+        This is a system-defined taxonomy.
+        """
+        return True

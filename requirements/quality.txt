@@ -47,7 +47,10 @@ django==3.2.19
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
+    #   django-model-utils
     #   djangorestframework
+django-model-utils==4.3.1
+    # via -r requirements/test.txt
 djangorestframework==3.14.0
     # via -r requirements/test.txt
 docutils==0.20.1

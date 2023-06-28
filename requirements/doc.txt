@@ -41,8 +41,11 @@ django==3.2.19
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
+    #   django-model-utils
     #   djangorestframework
     #   sphinxcontrib-django
+django-model-utils==4.3.1
+    # via -r requirements/test.txt
 djangorestframework==3.14.0
     # via -r requirements/test.txt
 doc8==1.1.1

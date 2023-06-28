@@ -3,7 +3,7 @@
 import ddt
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.models import ObjectTag, SystemTaxonomy, Tag, Taxonomy
 
 
 def get_tag(value):
@@ -65,6 +65,8 @@ class TestTagTaxonomyMixin:
             get_tag("Porifera"),
         ]
 
+        self.system_taxonomy = SystemTaxonomy.objects.create(name="System Languages")
+
     def setup_tag_depths(self):
         """
         Annotate our tags with depth so we can compare them.
@@ -85,10 +87,16 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_system_defined(self):
         assert not self.taxonomy.system_defined
+        assert self.system_taxonomy.system_defined
 
     def test_representations(self):
-        assert str(self.bacteria) == "Tag (1) Bacteria"
-        assert repr(self.bacteria) == "Tag (1) Bacteria"
+        assert str(self.taxonomy) == repr(self.taxonomy) == "<Taxonomy> Life on Earth"
+        assert (
+            str(self.system_taxonomy)
+            == repr(self.system_taxonomy)
+            == "<SystemTaxonomy> System Languages"
+        )
+        assert str(self.bacteria) == repr(self.bacteria) == "Tag (1) Bacteria"
 
     @ddt.data(
         # Root tags just return their own value
@@ -136,6 +144,19 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
     def setUp(self):
         super().setUp()
         self.tag = self.bacteria
+        self.object_tag = ObjectTag.objects.create(
+            object_id="object:id:1",
+            object_type="life",
+            taxonomy=self.taxonomy,
+            tag=self.tag,
+        )
+
+    def test_representations(self):
+        assert (
+            str(self.object_tag)
+            == repr(self.object_tag)
+            == "object:id:1 (life): Life on Earth=Bacteria"
+        )
 
     def test_object_tag_name(self):
         # ObjectTag's name defaults to its taxonomy's name
@@ -159,50 +180,38 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
 
     def test_object_tag_value(self):
         # ObjectTag's value defaults to its tag's value
-        object_tag = ObjectTag.objects.create(
-            object_id="object:id",
-            object_type="any_old_object",
-            taxonomy=self.taxonomy,
-            tag=self.tag,
-        )
-        assert object_tag.value == self.tag.value
+        assert self.object_tag.value == self.tag.value
 
         # Even if we overwrite the value, it still uses the tag's value
-        object_tag.value = "Another tag"
-        assert object_tag.value == self.tag.value
-        object_tag.save()
-        assert object_tag.value == self.tag.value
+        self.object_tag.value = "Another tag"
+        assert self.object_tag.value == self.tag.value
+        self.object_tag.save()
+        assert self.object_tag.value == self.tag.value
 
         # But if the tag is deleted, then the object_tag's value reverts to our cached value
         self.tag.delete()
-        object_tag.refresh_from_db()
-        assert object_tag.value == "Another tag"
+        self.object_tag.refresh_from_db()
+        assert self.object_tag.value == "Another tag"
 
     def test_object_tag_lineage(self):
         # ObjectTag's value defaults to its tag's lineage
-        object_tag = ObjectTag.objects.create(
-            object_id="object:id",
-            object_type="any_old_object",
-            taxonomy=self.taxonomy,
-            tag=self.tag,
-        )
-        assert object_tag.get_lineage() == self.tag.get_lineage()
+        assert self.object_tag.get_lineage() == self.tag.get_lineage()
 
         # Even if we overwrite the value, it still uses the tag's lineage
-        object_tag.value = "Another tag"
-        assert object_tag.get_lineage() == self.tag.get_lineage()
-        object_tag.save()
-        assert object_tag.get_lineage() == self.tag.get_lineage()
+        self.object_tag.value = "Another tag"
+        assert self.object_tag.get_lineage() == self.tag.get_lineage()
+        self.object_tag.save()
+        assert self.object_tag.get_lineage() == self.tag.get_lineage()
 
         # But if the tag is deleted, then the object_tag's lineage reverts to our cached value
         self.tag.delete()
-        object_tag.refresh_from_db()
-        assert object_tag.get_lineage() == ["Another tag"]
+        self.object_tag.refresh_from_db()
+        assert self.object_tag.get_lineage() == ["Another tag"]
 
     def test_object_tag_is_valid(self):
         object_tag = ObjectTag(
             object_id="object:id",
-            object_type="any_old_object",
+            object_type="life",
         )
         assert not object_tag.is_valid
 
@@ -215,6 +224,7 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         # or, we can have no tag, and a free-text taxonomy
         object_tag.tag = None
         self.taxonomy.allow_free_text = True
+        self.taxonomy.save()
         assert object_tag.is_valid
 
     def test_validate_object_tag_invalid(self):
@@ -281,6 +291,7 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
 
     def test_tag_object_free_text(self):
         self.taxonomy.allow_free_text = True
+        self.taxonomy.save()
         object_tags = self.taxonomy.tag_object(
             ["Eukaryota Xenomorph"],
             "biology101",
