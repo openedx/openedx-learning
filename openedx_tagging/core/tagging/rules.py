@@ -1,6 +1,12 @@
 """Django rules-based permissions for tagging"""
 
 import rules
+from django.contrib.auth import get_user_model
+
+from .models import ObjectTag, Tag, Taxonomy
+
+User = get_user_model()
+
 
 # Global staff are taxonomy admins.
 # (Superusers can already do anything)
@@ -8,7 +14,7 @@ is_taxonomy_admin = rules.is_staff
 
 
 @rules.predicate
-def can_view_taxonomy(user, taxonomy=None):
+def can_view_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
     """
     Anyone can view an enabled taxonomy,
     but only taxonomy admins can view a disabled taxonomy.
@@ -17,7 +23,7 @@ def can_view_taxonomy(user, taxonomy=None):
 
 
 @rules.predicate
-def can_change_taxonomy(user, taxonomy=None):
+def can_change_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
     """
     Even taxonomy admins cannot change system taxonomies.
     """
@@ -27,7 +33,7 @@ def can_change_taxonomy(user, taxonomy=None):
 
 
 @rules.predicate
-def can_change_taxonomy_tag(user, tag=None):
+def can_change_taxonomy_tag(user: User, tag: Tag = None) -> bool:
     """
     Even taxonomy admins cannot add tags to system taxonomies (their tags are system-defined), or free-text taxonomies
     (these don't have predefined tags).
@@ -44,7 +50,7 @@ def can_change_taxonomy_tag(user, tag=None):
 
 
 @rules.predicate
-def can_change_object_tag(user, object_tag=None):
+def can_change_object_tag(user: User, object_tag: ObjectTag = None) -> bool:
     """
     Taxonomy admins can create or modify object tags on enabled taxonomies.
     """
