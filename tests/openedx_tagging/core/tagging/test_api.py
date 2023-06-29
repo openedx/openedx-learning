@@ -508,7 +508,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
 
         # Normal search
-        result = tagging_api.autocomplete_tags(taxonomy, prefix)
+        result = tagging_api.autocomplete_tags_result(taxonomy, prefix)
         tag_ids = self._get_tag_result_ids(result)
         tag_values = self._get_tag_result_values(result)
         self.assertEqual(tag_values, ["Animalia", "Archaea", "Archaebacteria", "Arthropoda"])
@@ -522,7 +522,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.assertEqual(tag_ids, [9,2,5,14])
 
         # Search with count
-        result = tagging_api.autocomplete_tags(taxonomy, prefix, count=2)
+        result = tagging_api.autocomplete_tags_result(taxonomy, prefix, count=2)
         tag_ids = self._get_tag_result_ids(result)
         tag_values = self._get_tag_result_values(result)
         self.assertEqual(tag_values, ["Animalia", "Archaea"])
@@ -547,7 +547,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             ).save()
 
         # Search with object
-        result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id)
+        result = tagging_api.autocomplete_tags_result(taxonomy, prefix, object_id)
         tag_ids = self._get_tag_result_ids(result)
         self.assertEqual(self._get_tag_result_values(result), ["Archaebacteria", "Arthropoda"])
 
@@ -557,7 +557,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.assertEqual(tag_ids, [5,14])
 
         # Search with object and coun
-        result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id, count=1)
+        result = tagging_api.autocomplete_tags_result(taxonomy, prefix, object_id, count=1)
         tag_ids = self._get_tag_result_ids(result)
         self.assertEqual(self._get_tag_result_values(result), ["Archaebacteria"])
 

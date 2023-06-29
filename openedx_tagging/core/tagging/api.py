@@ -138,7 +138,7 @@ def tag_object(
     return taxonomy.cast().tag_object(tags, object_id)
 
 
-def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, count=10) -> List[TagResult]:
+def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, count=10) -> QuerySet:
     """
     Returns the first `count` tag values in the given Taxonomy with names 
     that begin with the given prefix string. The result is returned in alphabetical
@@ -158,7 +158,7 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
 
         # Obtain the value of the excluded tags
         excluded_tags = excluded_tags.values_list('_value', flat=True)
-        result = (
+        return (
             # Fetch object tags from this taxonomy whose value starts with the given prefix
             ObjectTag.objects.filter(taxonomy=taxonomy, _value__istartswith=prefix)
             # omit any free-text tags whose values match the tags on the given object
@@ -172,14 +172,12 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
             # get only first `count` values
             [:count]
         )
-        # Build tag results
-        result = [TagResult(id=None, value=value) for value in result]
     else:
         # Closed taxonomy
         
         # Obtain the id of the excluded tags
         excluded_tags = excluded_tags.filter(tag__isnull=False).values_list('tag__id', flat=True)
-        result = (
+        return (
             # Fetch tags from this taxonomy whose value starts with the given prefix
             Tag.objects.filter(taxonomy=taxonomy, value__istartswith=prefix)
             # omit any tags applied to the given object
@@ -192,6 +190,14 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
             [:count]
         )
 
-        # Build tag results
+
+def autocomplete_tags_result(taxonomy: Taxonomy, prefix: str, object_id: str= None, count=10) -> List[TagResult]:
+    """
+    Calls `autocomplete_tags` and serialize the results into `TagResult`
+    """
+    result = autocomplete_tags(taxonomy, prefix, object_id=object_id, count=count)
+    if taxonomy.allow_free_text:
+        result = [TagResult(id=None, value=value) for value in result]
+    else:
         result = [TagResult(id=item['id'], value=item['value']) for item in result]
     return result
