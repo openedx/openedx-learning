@@ -496,6 +496,7 @@ class ObjectTag(models.Model):
         indexes = [
             models.Index(fields=["taxonomy", "object_id"]),
             models.Index(fields=["taxonomy", "_value"]),
+            models.Index(fields=["taxonomy", "object_id"]),
         ]
 
     def __repr__(self):
