@@ -194,15 +194,6 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
             [:count]
         )
 
-        # We need to delete the repeats here because the current database backend 
-        # don't support `distinct()` on fields
-        unique_results = {}
-        for item in result:
-            value = item['value']
-            if value not in unique_results:
-                unique_results[value] = item
-        result = list(unique_results.values())
-
         # Build tag results
         result = [TagResult(id=item['id'], value=item['value']) for item in result]
     return result

@@ -669,6 +669,7 @@ class ObjectTag(models.Model):
         self._name = object_tag._name
         return self
     
+
 class TagResult:
     """
     Lightweight class used to return tags on some API methods

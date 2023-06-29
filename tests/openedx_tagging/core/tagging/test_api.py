@@ -465,13 +465,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         object_id = 'course_id_1'
         prefix = 'a'
 
-        # Creating a repeated tag to test that case
-        Tag(
-            taxonomy=self.taxonomy,
-            value="Archaebacteria",
-            external_id="tag_30",
-        ).save()
-
         self._validate_autocomplete_tags(self.taxonomy, prefix, object_id)
 
     def test_autocomplete_tags_free_text_taxonomy(self):
