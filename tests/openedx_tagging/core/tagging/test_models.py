@@ -2,6 +2,7 @@
 import ddt
 from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
+from django.db.utils import IntegrityError
 
 from openedx_tagging.core.tagging.models import (
     ObjectTag,
@@ -236,6 +237,20 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         ]
         with self.assertNumQueries(2):
             assert taxonomy.get_tags() == tags
+
+    def test_unique_tags(self):
+        # Creating new tag
+        Tag(
+            taxonomy=self.taxonomy,
+            value='New value'
+        ).save()
+
+        # Creating repeated tag
+        with self.assertRaises(IntegrityError):
+            Tag(
+                taxonomy=self.taxonomy,
+                value=self.archaea.value,
+            ).save()
 
 
 class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
