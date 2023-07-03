@@ -1,6 +1,7 @@
 """ Tagging app data models """
 import logging
 from typing import List, Type, Union
+from enum import Enum
 
 from django.db import models
 from django.utils.module_loading import import_string
@@ -17,6 +18,13 @@ TAXONOMY_MAX_DEPTH = 3
 # Ancestry of a given tag; the Tag.value fields of a given tag and its parents, starting from the root.
 # Will contain 0...TAXONOMY_MAX_DEPTH elements.
 Lineage = List[str]
+
+class SystemDefinedTaxonomyTagsType(Enum):
+    """
+    Tag types of system-defined taxonomies
+    """
+    closed = 'closed'  # Tags are created by fixtures/migrations
+    free_form = 'free_form'  # Tags are free form
 
 
 class Tag(models.Model):
@@ -627,3 +635,97 @@ class ObjectTag(models.Model):
         self._value = object_tag._value
         self._name = object_tag._name
         return self
+
+    def _check_object(self):
+        """
+        Returns True if this ObjectTag has a valid object.
+
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
+        """
+        # Must have a valid object id/type:
+        return self.object_id and self.object_type
+
+
+class ClosedObjectTag(OpenObjectTag):
+    """
+    Object tags linked to a closed taxonomy, where the available tag value options are known.
+    """
+
+    class Meta:
+        proxy = True
+
+    def _check_taxonomy(self):
+        """
+        Returns True if this ObjectTag is linked to a closed taxonomy.
+
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
+        """
+        # Must be linked to a closed taxonomy
+        return self.taxonomy_id and not self.taxonomy.allow_free_text
+
+    def _check_tag(self):
+        """
+        Returns True if this ObjectTag has a valid tag.
+
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
+        """
+        # Closed taxonomies require a Tag
+        return bool(self.tag_id)
+
+    def is_valid(self, check_taxonomy=True, check_tag=True, check_object=True) -> bool:
+        """
+        Returns True if this ObjectTag is valid for use with a closed taxonomy.
+
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
+
+        If `check_taxonomy` is False, then we skip validating the object tag's taxonomy reference.
+        If `check_tag` is False, then we skip validating the object tag's tag reference.
+        If `check_object` is False, then we skip validating the object ID/type.
+        """
+        if not super().is_valid(
+            check_taxonomy=check_taxonomy,
+            check_tag=check_tag,
+            check_object=check_object,
+        ):
+            return False
+
+        if check_tag and check_taxonomy and (self.tag.taxonomy_id != self.taxonomy_id):
+            return False
+
+        return True
+
+
+# Register the ObjectTag subclasses in reverse order of how we want them considered.
+register_object_tag_class(OpenObjectTag)
+register_object_tag_class(ClosedObjectTag)
+
+class SystemTaxonomy(Taxonomy):
+    """
+    System-defined taxonomies are not editable by normal users; they're defined by fixtures/migrations, and may have
+    dynamically-determined Tags and ObjectTags.
+    """
+
+    @property
+    def system_defined(self) -> bool:
+        """
+        This is a system-defined taxonomy.
+        """
+        return True
+    
+    @property
+    def is_visible(self) -> bool:
+        """
+        Controls the visibility of this taxonomy to content authors.
+
+        This value is static and must be implemented per each system-defined taxonomy.
+        """
+        raise NotImplementedError
+
+    @property
+    def creation_type (self) -> SystemDefinedTaxonomyTagsType:
+        """
+        Controls the behaviour of the tags on this taxonomy
+
+        This value is static and must be implemented per each system-defined taxonomy.
+        """
+        raise NotImplementedError
