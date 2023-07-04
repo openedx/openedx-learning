@@ -1,6 +1,6 @@
 """ Test the tagging APIs """
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.test.testcases import TestCase
 
@@ -29,6 +29,16 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         for param, value in params.items():
             assert getattr(taxonomy, param) == value
 
+    def test_create_taxonomy_bad_object_tag_class(self):
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.create_taxonomy(
+                name="invalid",
+                object_tag_class=str,
+            )
+        assert "object_tag_class <class 'str'> must be class like ObjectTag" in str(
+            exc.exception
+        )
+
     def test_get_taxonomies(self):
         tax1 = tagging_api.create_taxonomy("Enabled")
         tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
@@ -42,6 +52,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         with self.assertNumQueries(1):
             disabled = list(tagging_api.get_taxonomies(enabled=False))
         assert disabled == [tax2]
+        assert str(disabled[0]) == "<Taxonomy> (4) Disabled"
 
         with self.assertNumQueries(1):
             both = list(tagging_api.get_taxonomies(enabled=None))
@@ -66,11 +77,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert object_tag.value == value
 
     def test_resync_object_tags(self):
-        missing_links = ObjectTag(object_id="abc", object_type="alpha")
-        missing_links.name = self.taxonomy.name
-        missing_links.value = self.mammalia.value
-        missing_links.save()
-        changed_links = ObjectTag(
+        missing_links = ObjectTag.objects.create(
+            object_id="abc",
+            object_type="alpha",
+            _name=self.taxonomy.name,
+            _value=self.mammalia.value,
+        )
+        changed_links = ObjectTag.objects.create(
             object_id="def",
             object_type="alpha",
             taxonomy=self.taxonomy,
@@ -79,8 +92,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         changed_links.name = "Life"
         changed_links.value = "Animals"
         changed_links.save()
-
-        no_changes = ObjectTag(
+        no_changes = ObjectTag.objects.create(
             object_id="ghi",
             object_type="beta",
             taxonomy=self.taxonomy,
@@ -118,21 +130,30 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert changed == 0
 
         # Recreate the taxonomy and resync some tags
-        first_taxonomy = tagging_api.create_taxonomy("Life on Earth")
+        first_taxonomy = tagging_api.create_taxonomy(
+            "Life on Earth", allow_free_text=True
+        )
         second_taxonomy = tagging_api.create_taxonomy("Life on Earth")
         new_tag = Tag.objects.create(
             value="Mammalia",
             taxonomy=second_taxonomy,
         )
 
+        # Patch so that open taxonomy object tags won't validate,
+        # demonstrating that the resync logic will move on to the next taxonomy.
         with patch(
-            "openedx_tagging.core.tagging.models.Taxonomy.validate_object_tag",
-            side_effect=[False, True, False, True],
-        ):
+            "openedx_tagging.core.tagging.models.OpenObjectTag",
+        ) as mock_open_object_tag:
+            mock_open_object_tag.return_value = Mock()
+            mock_open_object_tag().copy.return_value = Mock()
+            mock_open_object_tag().copy().is_valid.return_value = False
+
             changed = tagging_api.resync_object_tags(
                 ObjectTag.objects.filter(object_type="alpha")
             )
             assert changed == 2
+            mock_open_object_tag().copy().is_valid.assert_called()
+
         for object_tag in (missing_links, changed_links):
             self.check_object_tag(
                 object_tag, second_taxonomy, new_tag, "Life on Earth", "Mammalia"
@@ -179,10 +200,12 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
             # Ensure the expected number of tags exist in the database
             assert (
-                tagging_api.get_object_tags(
-                    taxonomy=self.taxonomy,
-                    object_id="biology101",
-                    object_type="course",
+                list(
+                    tagging_api.get_object_tags(
+                        taxonomy=self.taxonomy,
+                        object_id="biology101",
+                        object_type="course",
+                    )
                 )
                 == object_tags
             )
@@ -190,8 +213,73 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert len(object_tags) == len(tag_list)
             for index, object_tag in enumerate(object_tags):
                 assert object_tag.tag_id == tag_list[index]
-                assert object_tag.is_valid
+                assert object_tag.is_valid()
                 assert object_tag.taxonomy == self.taxonomy
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
                 assert object_tag.object_type == "course"
+
+    def test_get_object_tags(self):
+        # Alpha tag has no taxonomy
+        alpha = ObjectTag(object_id="abc", object_type="alpha")
+        alpha.name = self.taxonomy.name
+        alpha.value = self.mammalia.value
+        alpha.save()
+        # Beta tag has a closed taxonomy
+        beta = ObjectTag.objects.create(
+            object_id="abc",
+            object_type="beta",
+            taxonomy=self.taxonomy,
+        )
+        beta = tagging_api.cast_object_tag(beta)
+
+        # Fetch all the tags for a given object ID
+        assert list(
+            tagging_api.get_object_tags(
+                object_id="abc",
+                valid_only=False,
+            )
+        ) == [
+            alpha,
+            beta,
+        ]
+
+        # No valid tags for this object yet..
+        assert not list(
+            tagging_api.get_object_tags(
+                object_id="abc",
+                valid_only=True,
+            )
+        )
+        beta.tag = self.mammalia
+        beta.save()
+        assert list(
+            tagging_api.get_object_tags(
+                object_id="abc",
+                valid_only=True,
+            )
+        ) == [
+            beta,
+        ]
+
+        # Fetch all the tags for alpha-type objects
+        assert list(
+            tagging_api.get_object_tags(
+                object_id="abc",
+                object_type="alpha",
+                valid_only=False,
+            )
+        ) == [
+            alpha,
+        ]
+
+        # Fetch all the tags for a given object ID + taxonomy
+        assert list(
+            tagging_api.get_object_tags(
+                object_id="abc",
+                taxonomy=self.taxonomy,
+                valid_only=False,
+            )
+        ) == [
+            beta,
+        ]

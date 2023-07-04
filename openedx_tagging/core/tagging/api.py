@@ -10,27 +10,28 @@ No permissions/rules are enforced by these methods -- these must be enforced in 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
-from typing import List, Type
+from typing import Generator, List, Type
 
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
-from .models import ObjectTag, Tag, Taxonomy
+from .models import ClosedObjectTag, ObjectTag, OpenObjectTag, Tag, Taxonomy
 
 
 def create_taxonomy(
-    name,
-    description=None,
+    name: str,
+    description: str = None,
     enabled=True,
     required=False,
     allow_multiple=False,
     allow_free_text=False,
     system_defined=False,
+    object_tag_class: Type = None,
 ) -> Taxonomy:
     """
     Creates, saves, and returns a new Taxonomy with the given attributes.
     """
-    return Taxonomy.objects.create(
+    taxonomy = Taxonomy(
         name=name,
         description=description,
         enabled=enabled,
@@ -39,6 +40,10 @@ def create_taxonomy(
         allow_free_text=allow_free_text,
         system_defined=system_defined,
     )
+    if object_tag_class:
+        taxonomy.object_tag_class = object_tag_class
+    taxonomy.save()
+    return taxonomy
 
 
 def get_taxonomies(enabled=True) -> QuerySet:
@@ -62,6 +67,22 @@ def get_tags(taxonomy: Taxonomy) -> List[Tag]:
     return taxonomy.get_tags()
 
 
+def cast_object_tag(
+    object_tag: ObjectTag, default_class=OpenObjectTag
+) -> OpenObjectTag:
+    """
+    Casts/copies the given object tag data into the ObjectTag subclass appropriate for this tag.
+
+    E.g. if the tag's taxonomy has a custom ObjectTag class it prefers, use that.
+    Recommends using OpenObjectTag by default, because that is the least restrictive type.
+    """
+    ObjectTagClass = default_class
+    if object_tag.taxonomy_id:
+        ObjectTagClass = object_tag.taxonomy.object_tag_class
+    new_object_tag = ObjectTagClass().copy(object_tag)
+    return new_object_tag
+
+
 def resync_object_tags(object_tags: QuerySet = None) -> int:
     """
     Reconciles ObjectTag entries with any changes made to their associated taxonomies and tags.
@@ -69,7 +90,7 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
     By default, we iterate over all ObjectTags. Pass a filtered ObjectTags queryset to limit which tags are resynced.
     """
     if not object_tags:
-        object_tags = ObjectTag.objects.all()
+        object_tags = ObjectTag.objects.select_related("tag", "taxonomy")
 
     num_changed = 0
     for object_tag in object_tags:
@@ -81,18 +102,33 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
 
 
 def get_object_tags(
-    taxonomy: Taxonomy, object_id: str, object_type: str, valid_only=True
-) -> List[ObjectTag]:
+    object_id: str, object_type: str = None, taxonomy: Taxonomy = None, valid_only=True
+) -> Generator[ObjectTag, None, None]:
     """
-    Returns a list of tags for a given taxonomy + content.
+    Generates a list of object tags for a given object.
+
+    Pass taxonomy to limit the returned object_tags to a specific taxonomy.
 
     Pass valid_only=False when displaying tags to content authors, so they can see invalid tags too.
-    Invalid tags will likely be hidden from learners.
+    Invalid tags will (probably) be hidden from learners.
     """
-    tags = ObjectTag.objects.filter(
-        taxonomy=taxonomy, object_id=object_id, object_type=object_type
-    ).order_by("id")
-    return [tag for tag in tags if not valid_only or taxonomy.validate_object_tag(tag)]
+    tags = (
+        ObjectTag.objects.filter(
+            object_id=object_id,
+        )
+        .select_related("tag", "taxonomy")
+        .order_by("id")
+    )
+    if object_type:
+        tags = tags.filter(object_type=object_type)
+    if taxonomy:
+        tags = tags.filter(taxonomy=taxonomy)
+
+    for tag in tags:
+        # We can only validate tags with taxonomies, because we need the object_tag_class
+        object_tag = cast_object_tag(tag)
+        if not valid_only or object_tag.is_valid():
+            yield object_tag
 
 
 def tag_object(

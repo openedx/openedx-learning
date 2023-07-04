@@ -4,7 +4,7 @@ import ddt
 from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.models import ClosedObjectTag, ObjectTag, Tag, Taxonomy
 
 from .test_models import TestTagTaxonomyMixin
 
@@ -33,8 +33,7 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
             username="learner",
             email="learner@example.com",
         )
-
-        self.object_tag = ObjectTag(
+        self.object_tag = ClosedObjectTag.objects.create(
             taxonomy=self.taxonomy,
             tag=self.bacteria,
         )
