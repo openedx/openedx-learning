@@ -94,8 +94,8 @@ def get_object_tags(
     Pass valid_only=False when displaying tags to content authors, so they can see invalid tags too.
     Invalid tags will likely be hidden from learners.
     """
-    tags = ObjectTag.objects.filter(
-        taxonomy=taxonomy, object_id=object_id, object_type=object_type
+    tags = taxonomy.objecttag_set.filter(
+        object_id=object_id, object_type=object_type
     ).order_by("id")
     return [tag for tag in tags if not valid_only or taxonomy.validate_object_tag(tag)]
 

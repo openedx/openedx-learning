@@ -184,8 +184,8 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
     )
     def test_object_tag_disabled_taxonomy(self, perm):
         """Taxonomy administrators cannot create/edit an ObjectTag with a disabled Taxonomy"""
-        self.taxonomy.enabled = False
-        self.taxonomy.save()
+        self.object_tag.taxonomy.enabled = False
+        self.object_tag.taxonomy.save()
         assert self.superuser.has_perm(perm, self.object_tag)
         assert not self.staff.has_perm(perm, self.object_tag)
         assert not self.learner.has_perm(perm, self.object_tag)

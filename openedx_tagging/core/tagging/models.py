@@ -224,7 +224,7 @@ class Taxonomy(models.Model):
         """
         # Must be linked to this taxonomy
         if check_taxonomy and (
-            not object_tag.taxonomy_id or object_tag.taxonomy_id != self.id
+            not object_tag.taxonomy or object_tag.taxonomy.id != self.id
         ):
             return False
 
@@ -261,8 +261,8 @@ class Taxonomy(models.Model):
 
         current_tags = {
             tag.tag_ref: tag
-            for tag in ObjectTag.objects.filter(
-                taxonomy=self, object_id=object_id, object_type=object_type
+            for tag in self.objecttag_set.filter(
+                object_id=object_id, object_type=object_type
             )
         }
         updated_tags = []
@@ -330,7 +330,7 @@ class ObjectTag(models.Model):
         max_length=255,
         help_text=_("Type of object being tagged"),
     )
-    taxonomy = models.ForeignKey(
+    _taxonomy = models.ForeignKey(
         Taxonomy,
         null=True,
         default=None,
@@ -368,8 +368,15 @@ class ObjectTag(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=["taxonomy", "_value"]),
+            models.Index(fields=["_taxonomy", "_value"]),
         ]
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initializes the cached taxonomy instance.
+        """
+        super().__init__(*args, **kwargs)
+        self._cached_taxonomy = None
 
     def __repr__(self):
         """
@@ -384,6 +391,35 @@ class ObjectTag(models.Model):
         return f"{self.object_id} ({self.object_type}): {self.name}={self.value}"
 
     @property
+    def taxonomy(self) -> str:
+        """
+        Returns this tag's taxonomy object, instantiated as the correct Taxonomy subclass.
+
+        This instance is cached so that subsequent calls to self.taxonomy don't re-fetch the value.
+
+        Returns None if taxonomy_id is not set.
+        """
+        if not self._taxonomy_id:
+            self._cached_taxonomy = None
+
+        elif not self._cached_taxonomy:
+            self._cached_taxonomy = (
+                Taxonomy.objects.filter(id=self._taxonomy_id)
+                .select_subclasses()
+                .first()
+            )
+
+        return self._cached_taxonomy
+
+    @taxonomy.setter
+    def taxonomy(self, taxonomy: Taxonomy):
+        """
+        Stores to the _taxonomy field.
+        """
+        self._taxonomy = taxonomy
+        self._cached_taxonomy = taxonomy
+
+    @property
     def name(self) -> str:
         """
         Returns this tag's name/label.
@@ -391,7 +427,7 @@ class ObjectTag(models.Model):
         If taxonomy is set, then returns its name.
         Otherwise, returns the cached _name field.
         """
-        return self.taxonomy.name if self.taxonomy_id else self._name
+        return self.taxonomy.name if self._taxonomy_id else self._name
 
     @name.setter
     def name(self, name: str):
@@ -434,15 +470,8 @@ class ObjectTag(models.Model):
 
         A valid ObjectTag must be linked to a Taxonomy, and be a valid tag in that taxonomy.
         """
-        if self.taxonomy_id:
-            # self.taxonomy doesn't return the correct subclass, so we must fetch it
-            # FIXME:
-            # * cache to prevent re-fetching the taxonomy
-            # * discourage people from using self.taxonomy
-            taxonomy = (
-                Taxonomy.objects.filter(id=self.taxonomy_id).select_subclasses().first()
-            )
-            return taxonomy.validate_object_tag(self)
+        if self._taxonomy_id:
+            return self.taxonomy.validate_object_tag(self)
         return False
 
     def get_lineage(self) -> Lineage:
@@ -468,8 +497,10 @@ class ObjectTag(models.Model):
         changed = False
 
         # Locate a taxonomy matching _name
-        if not self.taxonomy_id:
-            for taxonomy in Taxonomy.objects.filter(name=self.name, enabled=True):
+        if not self._taxonomy_id:
+            for taxonomy in Taxonomy.objects.filter(
+                name=self.name, enabled=True
+            ).select_subclasses():
                 # Make sure this taxonomy will accept object tags like this.
                 self.taxonomy = taxonomy
                 if taxonomy.validate_object_tag(self, check_tag=False):

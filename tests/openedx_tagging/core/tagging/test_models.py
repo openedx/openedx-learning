@@ -158,6 +158,30 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
             == "object:id:1 (life): Life on Earth=Bacteria"
         )
 
+    def test_change_taxonomy(self):
+        assert self.object_tag.taxonomy == self.taxonomy
+        assert self.object_tag.taxonomy.id == self.taxonomy.id
+
+        # Check that taxonomy can be cleared
+        self.object_tag.taxonomy = None
+        self.object_tag.save()
+        self.object_tag.refresh_from_db()
+        assert self.object_tag.taxonomy is None
+        assert (
+            # pylint: disable=protected-access
+            self.object_tag._taxonomy_id
+            is None
+        )
+
+        # Check that taxonomy can be changed
+        self.object_tag.taxonomy = self.system_taxonomy
+        assert self.object_tag.taxonomy == self.system_taxonomy
+        assert (
+            # pylint: disable=protected-access
+            self.object_tag._taxonomy_id
+            == self.system_taxonomy.id
+        )
+
     def test_object_tag_name(self):
         # ObjectTag's name defaults to its taxonomy's name
         object_tag = ObjectTag.objects.create(
@@ -274,8 +298,7 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
             )
 
             # Ensure the expected number of tags exist in the database
-            assert ObjectTag.objects.filter(
-                taxonomy=self.taxonomy,
+            assert self.taxonomy.objecttag_set.filter(
                 object_id="biology101",
                 object_type="course",
             ).count() == len(tag_list)
