@@ -1,12 +1,3 @@
-- model: oel_tagging.taxonomy
-  pk: 1
-  fields:
-    name: Language
-    description: ISO 639-1 Languages
-    enabled: true
-    required: true
-    allow_multiple: false
-    allow_free_text: false
 - model: oel_tagging.tag
   pk: 1
   fields:

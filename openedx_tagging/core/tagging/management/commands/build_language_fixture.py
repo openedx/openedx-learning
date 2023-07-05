@@ -12,17 +12,6 @@ from django.core.management.base import BaseCommand
 
 endpoint = "https://pkgstore.datahub.io/core/language-codes/language-codes_json/data/97607046542b532c395cf83df5185246/language-codes_json.json"
 output = "./openedx_tagging/core/tagging/system_defined_taxonomies/fixtures/language_taxonomy.yaml"
-taxonomy = """\
-- model: oel_tagging.taxonomy
-  pk: 1
-  fields:
-    name: Language
-    description: ISO 639-1 Languages
-    enabled: true
-    required: true
-    allow_multiple: false
-    allow_free_text: false
-"""
 
 class Command(BaseCommand):        
 
@@ -38,7 +27,6 @@ class Command(BaseCommand):
     def build_fixture(self, json_data):
         tag_pk = 1
         with open(output, 'w') as output_file:
-            output_file.writelines(taxonomy)
             for lang_data in json_data:
                 lang_value = self.get_lang_value(lang_data)
                 lang_code = lang_data["alpha2"]
