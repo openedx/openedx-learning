@@ -3,7 +3,6 @@
 import ddt
 from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
-from mock import Mock
 
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 
@@ -64,12 +63,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
     )
     def test_system_taxonomy(self, perm):
         """Taxonomy administrators cannot edit system taxonomies"""
-        # TODO: use SystemTaxonomy when available
-        system_taxonomy = Mock(spec=Taxonomy)
-        system_taxonomy.system_defined.return_value = True
-        assert self.superuser.has_perm(perm, system_taxonomy)
-        assert not self.staff.has_perm(perm, system_taxonomy)
-        assert not self.learner.has_perm(perm, system_taxonomy)
+        assert self.superuser.has_perm(perm, self.system_taxonomy)
+        assert not self.staff.has_perm(perm, self.system_taxonomy)
+        assert not self.learner.has_perm(perm, self.system_taxonomy)
 
     @ddt.data(
         True,

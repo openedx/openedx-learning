@@ -6,7 +6,6 @@ from django.utils.translation import gettext_lazy as _
 
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
 
-
 # Maximum depth allowed for a hierarchical taxonomy's tree of tags.
 TAXONOMY_MAX_DEPTH = 3
 
@@ -73,7 +72,7 @@ class Tag(models.Model):
         """
         User-facing string representation of a Tag.
         """
-        return f"Tag ({self.id}) {self.value}"
+        return f"<{self.__class__.__name__}> ({self.id}) {self.value}"
 
     def get_lineage(self) -> Lineage:
         """
@@ -136,20 +135,28 @@ class Taxonomy(models.Model):
             "Indicates that tags in this taxonomy need not be predefined; authors may enter their own tag values."
         ),
     )
+    system_defined = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Indicates that tags and metadata for this taxonomy are maintained by the system;"
+            " taxonomy admins will not be permitted to modify them.",
+        ),
+    )
 
     class Meta:
         verbose_name_plural = "Taxonomies"
 
-    @property
-    def system_defined(self) -> bool:
+    def __repr__(self):
         """
-        Base taxonomies are user-defined, not system-defined.
-
-        System-defined taxonomies cannot be edited by ordinary users.
-
-        Subclasses should override this property as required.
+        Developer-facing representation of a Taxonomy.
         """
-        return False
+        return str(self)
+
+    def __str__(self):
+        """
+        User-facing string representation of a Taxonomy.
+        """
+        return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
 
     def get_tags(self) -> List[Tag]:
         """

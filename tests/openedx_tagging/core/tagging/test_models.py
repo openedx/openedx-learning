@@ -23,6 +23,7 @@ class TestTagTaxonomyMixin:
     def setUp(self):
         super().setUp()
         self.taxonomy = Taxonomy.objects.get(name="Life on Earth")
+        self.system_taxonomy = Taxonomy.objects.get(name="System Languages")
         self.archaea = get_tag("Archaea")
         self.archaebacteria = get_tag("Archaebacteria")
         self.bacteria = get_tag("Bacteria")
@@ -85,10 +86,18 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_system_defined(self):
         assert not self.taxonomy.system_defined
+        assert self.system_taxonomy.system_defined
 
     def test_representations(self):
-        assert str(self.bacteria) == "Tag (1) Bacteria"
-        assert repr(self.bacteria) == "Tag (1) Bacteria"
+        assert (
+            str(self.taxonomy) == repr(self.taxonomy) == "<Taxonomy> (1) Life on Earth"
+        )
+        assert (
+            str(self.system_taxonomy)
+            == repr(self.system_taxonomy)
+            == "<Taxonomy> (2) System Languages"
+        )
+        assert str(self.bacteria) == repr(self.bacteria) == "<Tag> (1) Bacteria"
 
     @ddt.data(
         # Root tags just return their own value

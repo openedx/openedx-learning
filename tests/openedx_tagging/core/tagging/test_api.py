@@ -23,6 +23,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "required": True,
             "allow_multiple": True,
             "allow_free_text": True,
+            "system_defined": True,
         }
         taxonomy = tagging_api.create_taxonomy(**params)
         for param, value in params.items():
@@ -31,14 +32,20 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_get_taxonomies(self):
         tax1 = tagging_api.create_taxonomy("Enabled")
         tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
-        enabled = tagging_api.get_taxonomies()
-        assert list(enabled) == [tax1, self.taxonomy]
+        with self.assertNumQueries(1):
+            enabled = list(tagging_api.get_taxonomies())
+        assert enabled == [tax1, self.taxonomy, self.system_taxonomy]
+        assert str(enabled[0]) == "<Taxonomy> (3) Enabled"
+        assert str(enabled[1]) == "<Taxonomy> (1) Life on Earth"
+        assert str(enabled[2]) == "<Taxonomy> (2) System Languages"
 
-        disabled = tagging_api.get_taxonomies(enabled=False)
-        assert list(disabled) == [tax2]
+        with self.assertNumQueries(1):
+            disabled = list(tagging_api.get_taxonomies(enabled=False))
+        assert disabled == [tax2]
 
-        both = tagging_api.get_taxonomies(enabled=None)
-        assert list(both) == [tax2, tax1, self.taxonomy]
+        with self.assertNumQueries(1):
+            both = list(tagging_api.get_taxonomies(enabled=None))
+        assert both == [tax2, tax1, self.taxonomy, self.system_taxonomy]
 
     def test_get_tags(self):
         self.setup_tag_depths()

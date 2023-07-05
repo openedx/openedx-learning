@@ -25,6 +25,7 @@ def create_taxonomy(
     required=False,
     allow_multiple=False,
     allow_free_text=False,
+    system_defined=False,
 ) -> Taxonomy:
     """
     Creates, saves, and returns a new Taxonomy with the given attributes.
@@ -36,6 +37,7 @@ def create_taxonomy(
         required=required,
         allow_multiple=allow_multiple,
         allow_free_text=allow_free_text,
+        system_defined=system_defined,
     )
 
 
