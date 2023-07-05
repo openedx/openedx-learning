@@ -39,20 +39,26 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             exc.exception
         )
 
+    def test_get_taxonomy(self):
+        tax1 = tagging_api.get_taxonomy(1)
+        assert tax1 == self.taxonomy
+        no_tax = tagging_api.get_taxonomy(10)
+        assert no_tax is None
+
     def test_get_taxonomies(self):
         tax1 = tagging_api.create_taxonomy("Enabled")
         tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
         with self.assertNumQueries(1):
             enabled = list(tagging_api.get_taxonomies())
         assert enabled == [tax1, self.taxonomy, self.system_taxonomy]
-        assert str(enabled[0]) == "<Taxonomy> (3) Enabled"
+        assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
         assert str(enabled[1]) == "<Taxonomy> (1) Life on Earth"
         assert str(enabled[2]) == "<Taxonomy> (2) System Languages"
 
         with self.assertNumQueries(1):
             disabled = list(tagging_api.get_taxonomies(enabled=False))
         assert disabled == [tax2]
-        assert str(disabled[0]) == "<Taxonomy> (4) Disabled"
+        assert str(disabled[0]) == f"<Taxonomy> ({tax2.id}) Disabled"
 
         with self.assertNumQueries(1):
             both = list(tagging_api.get_taxonomies(enabled=None))

@@ -10,7 +10,7 @@ No permissions/rules are enforced by these methods -- these must be enforced in 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
-from typing import Generator, List, Type
+from typing import Generator, List, Type, Union
 
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
@@ -45,6 +45,12 @@ def create_taxonomy(
     taxonomy.save()
     return taxonomy
 
+
+def get_taxonomy(id: int) -> Union[Taxonomy, None]:
+    """
+    Returns a Taxonomy of the appropriate subclass which has the given ID.
+    """
+    return Taxonomy.objects.filter(id=id).first()
 
 def get_taxonomies(enabled=True) -> QuerySet:
     """
