@@ -1,7 +1,5 @@
 """ Test the tagging APIs """
 
-from unittest.mock import Mock, patch
-
 from django.test.testcases import TestCase
 
 import openedx_tagging.core.tagging.api as tagging_api
@@ -125,8 +123,19 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.check_object_tag(
                 object_tag, self.taxonomy, None, "Life on Earth", "Mammalia"
             )
+        # Recreating the tag to test resyncing works
+        new_mammalia = Tag.objects.create(
+            value="Mammalia",
+            taxonomy=self.taxonomy,
+        )
+        changed = tagging_api.resync_object_tags()
+        assert changed == 3
+        for object_tag in (missing_links, changed_links, no_changes):
+            self.check_object_tag(
+                object_tag, self.taxonomy, new_mammalia, "Life on Earth", "Mammalia"
+            )
 
-        # ObjectTag name preserved even if linked taxonomy is deleted
+        # ObjectTag name preserved even if linked taxonomy and its tags are deleted
         self.taxonomy.delete()
         for object_tag in (missing_links, changed_links, no_changes):
             self.check_object_tag(object_tag, None, None, "Life on Earth", "Mammalia")
@@ -145,20 +154,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             taxonomy=second_taxonomy,
         )
 
-        # Patch so that open taxonomy object tags won't validate,
-        # demonstrating that the resync logic will move on to the next taxonomy.
-        with patch(
-            "openedx_tagging.core.tagging.models.OpenObjectTag",
-        ) as mock_open_object_tag:
-            mock_open_object_tag.return_value = Mock()
-            mock_open_object_tag().copy.return_value = Mock()
-            mock_open_object_tag().copy().is_valid.return_value = False
-
-            changed = tagging_api.resync_object_tags(
-                ObjectTag.objects.filter(object_type="alpha")
-            )
-            assert changed == 2
-            mock_open_object_tag().copy().is_valid.assert_called()
+        # Ensure the resync prefers the closed taxonomy with the matching tag
+        changed = tagging_api.resync_object_tags(
+            ObjectTag.objects.filter(object_type="alpha")
+        )
+        assert changed == 2
 
         for object_tag in (missing_links, changed_links):
             self.check_object_tag(
@@ -168,17 +168,20 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         # Ensure the omitted tag was not updated
         self.check_object_tag(no_changes, None, None, "Life on Earth", "Mammalia")
 
-        # Update that one too (without the patching)
+        # Update that one too, to demonstrate the free-text tags are ok
+        no_changes.value = "Anamelia"
+        no_changes.save()
         changed = tagging_api.resync_object_tags(
             ObjectTag.objects.filter(object_type="beta")
         )
         assert changed == 1
         self.check_object_tag(
-            no_changes, first_taxonomy, None, "Life on Earth", "Mammalia"
+            no_changes, first_taxonomy, None, "Life on Earth", "Anamelia"
         )
 
     def test_tag_object(self):
         self.taxonomy.allow_multiple = True
+        self.taxonomy.save()
         test_tags = [
             [
                 self.archaea.id,
@@ -224,6 +227,57 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
                 assert object_tag.object_type == "course"
+
+    def test_tag_object_free_text(self):
+        self.taxonomy.allow_free_text = True
+        self.taxonomy.save()
+        object_tags = tagging_api.tag_object(
+            self.taxonomy,
+            ["Eukaryota Xenomorph"],
+            "biology101",
+            "course",
+        )
+        assert len(object_tags) == 1
+        object_tag = object_tags[0]
+        assert object_tag.is_valid()
+        assert object_tag.taxonomy == self.taxonomy
+        assert object_tag.name == self.taxonomy.name
+        assert object_tag.tag_ref == "Eukaryota Xenomorph"
+        assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
+        assert object_tag.object_id == "biology101"
+        assert object_tag.object_type == "course"
+
+    def test_tag_object_no_multiple(self):
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                self.taxonomy,
+                ["A", "B"],
+                "biology101",
+                "course",
+            )
+        assert "only allows one tag per object" in str(exc.exception)
+
+    def test_tag_object_required(self):
+        self.taxonomy.required = True
+        self.taxonomy.save()
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                self.taxonomy,
+                [],
+                "biology101",
+                "course",
+            )
+        assert "requires at least one tag per object" in str(exc.exception)
+
+    def test_tag_object_invalid_tag(self):
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                self.taxonomy,
+                ["Eukaryota Xenomorph"],
+                "biology101",
+                "course",
+            )
+        assert "Invalid object tag for taxonomy" in str(exc.exception)
 
     def test_get_object_tags(self):
         # Alpha tag has no taxonomy
@@ -289,3 +343,41 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ) == [
             beta,
         ]
+
+    def test_object_tag_class(self):
+        # Create a valid ClosedObjectTag
+        assert not self.taxonomy.allow_free_text
+        object_tag = ObjectTag.objects.create(
+            object_id="object:id:1",
+            object_type="life",
+            taxonomy=self.taxonomy,
+            tag=self.bacteria,
+        )
+        object_tag = tagging_api.cast_object_tag(object_tag)
+        assert (
+            str(object_tag)
+            == repr(object_tag)
+            == "<ClosedObjectTag> object:id:1 (life): Life on Earth=Bacteria"
+        )
+
+        # Check that changing the taxonomy to an open taxonomy changes the object tag class
+        open_taxonomy = tagging_api.create_taxonomy(
+            name="Freetext Life",
+            allow_free_text=True,
+        )
+        object_tag.taxonomy = open_taxonomy
+        object_tag = tagging_api.cast_object_tag(object_tag)
+        assert (
+            str(object_tag)
+            == repr(object_tag)
+            == "<OpenObjectTag> object:id:1 (life): Freetext Life=Bacteria"
+        )
+
+        # Check that explicitly changing the object_tag_class also works
+        object_tag.taxonomy.object_tag_class = ObjectTag
+        object_tag = tagging_api.cast_object_tag(object_tag)
+        assert (
+            str(object_tag)
+            == repr(object_tag)
+            == "<ObjectTag> object:id:1 (life): Freetext Life=Bacteria"
+        )

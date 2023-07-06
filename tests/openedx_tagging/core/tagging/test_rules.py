@@ -4,7 +4,7 @@ import ddt
 from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import ClosedObjectTag, ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.models import ClosedObjectTag, ObjectTag, Tag
 
 from .test_models import TestTagTaxonomyMixin
 

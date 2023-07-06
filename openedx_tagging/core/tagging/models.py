@@ -1,4 +1,5 @@
 """ Tagging app data models """
+
 from typing import List, Type
 
 from django.db import models
@@ -6,6 +7,8 @@ from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
+
+from .registry import get_object_tag_class, register_object_tag_class
 
 # Maximum depth allowed for a hierarchical taxonomy's tree of tags.
 TAXONOMY_MAX_DEPTH = 3
@@ -29,14 +32,14 @@ class Tag(models.Model):
         "Taxonomy",
         null=True,
         default=None,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         help_text=_("Namespace and rules for using a given set of tags."),
     )
     parent = models.ForeignKey(
         "self",
         null=True,
         default=None,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         related_name="children",
         help_text=_(
             "Tag that lives one level up from the current tag, forming a hierarchy."
@@ -170,18 +173,13 @@ class Taxonomy(models.Model):
     @property
     def object_tag_class(self) -> Type:
         """
-        Returns the ObjectTag subclass associated with this taxonomy.
+        Returns the ObjectTag subclass associated with this taxonomy, or None if none supplied.
 
         May raise ImportError if a custom object_tag_class cannot be imported.
         """
         if self._object_tag_class:
-            ObjectTagClass = import_string(self._object_tag_class)
-        elif self.allow_free_text:
-            ObjectTagClass = OpenObjectTag
-        else:
-            ObjectTagClass = ClosedObjectTag
-
-        return ObjectTagClass
+            return import_string(self._object_tag_class)
+        return None
 
     @object_tag_class.setter
     def object_tag_class(self, object_tag_class: Type):
@@ -233,71 +231,6 @@ class Taxonomy(models.Model):
             if not parents:
                 break
         return tags
-
-    def tag_object(
-        self, tags: List, object_id: str, object_type: str
-    ) -> List["ObjectTag"]:
-        """
-        Replaces the existing ObjectTag entries for the current taxonomy + object_id with the given list of tags.
-
-        If self.allows_free_text, then the list should be a list of tag values.
-        Otherwise, it should be a list of existing Tag IDs.
-
-        Raised ValueError if the proposed tags are invalid for this taxonomy.
-        Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
-        """
-
-        if not self.allow_multiple and len(tags) > 1:
-            raise ValueError(_(f"Taxonomy ({self.id}) only allows one tag per object."))
-
-        if self.required and len(tags) == 0:
-            raise ValueError(
-                _(f"Taxonomy ({self.id}) requires at least one tag per object.")
-            )
-
-        ObjectTagClass = self.object_tag_class
-        current_tags = {
-            tag.tag_ref: tag
-            for tag in ObjectTag.objects.filter(
-                taxonomy=self, object_id=object_id, object_type=object_type
-            )
-        }
-        updated_tags = []
-        for tag_ref in tags:
-            if tag_ref in current_tags:
-                object_tag = ObjectTagClass().copy(current_tags.pop(tag_ref))
-            else:
-                object_tag = ObjectTagClass(
-                    taxonomy=self,
-                    object_id=object_id,
-                    object_type=object_type,
-                )
-
-            try:
-                object_tag.tag = self.tag_set.get(
-                    id=tag_ref,
-                )
-            except (ValueError, Tag.DoesNotExist):
-                # This might be ok, e.g. if self.allow_free_text.
-                # We'll validate below before saving.
-                object_tag.value = tag_ref
-
-            object_tag.resync()
-            if not object_tag.is_valid():
-                raise ValueError(
-                    _(f"Invalid object tag for taxonomy ({self.id}): {tag_ref}")
-                )
-            updated_tags.append(object_tag)
-
-        # Save all updated tags at once to avoid partial updates
-        for object_tag in updated_tags:
-            object_tag.save()
-
-        # ...and delete any omitted existing tags
-        for old_tag in current_tags.values():
-            old_tag.delete()
-
-        return updated_tags
 
 
 class ObjectTag(models.Model):
@@ -368,6 +301,13 @@ class ObjectTag(models.Model):
             models.Index(fields=["taxonomy", "_value"]),
         ]
 
+    @classmethod
+    def valid_for(cls, **kwargs) -> bool:
+        """
+        This is always a valid ObjectTag class, so we register it first.
+        """
+        return True
+
     def __repr__(self):
         """
         Developer-facing representation of an ObjectTag.
@@ -433,8 +373,8 @@ class ObjectTag(models.Model):
         self.object_type = object_tag.object_type
         self.taxonomy_id = object_tag.taxonomy_id
         self.tag_id = object_tag.tag_id
-        self._name = object_tag.name
-        self._value = object_tag.value
+        self._name = object_tag._name
+        self._value = object_tag._value
         return self
 
     def get_lineage(self) -> Lineage:
@@ -474,16 +414,33 @@ class ObjectTag(models.Model):
         """
         changed = False
 
-        # Locate a taxonomy matching _name
+        # Locate an enabled taxonomy matching _name, and maybe a tag matching _value
         if not self.taxonomy_id:
-            for taxonomy in Taxonomy.objects.filter(name=self.name, enabled=True):
+            for taxonomy in Taxonomy.objects.filter(
+                name=self.name, enabled=True
+            ).order_by("allow_free_text", "id"):
+                # Closed taxonomies require a tag matching _value,
+                # and we'd rather match a closed taxonomy than an open one.
+                # So see if there's a matching tag available in this taxonomy.
+                tag = self.tag or taxonomy.tag_set.filter(value=self.value).first()
+
                 # Make sure this taxonomy will accept object tags like this.
-                object_tag = taxonomy.object_tag_class().copy(self)
+                ObjectTagClass = get_object_tag_class(
+                    taxonomy=taxonomy,
+                    tag=tag,
+                    object_id=self.object_id,
+                    object_type=self.object_type,
+                    name=self.name,
+                    value=self.value,
+                )
+                object_tag = ObjectTagClass().copy(self)
                 object_tag.taxonomy = taxonomy
+                object_tag.tag = tag
                 if object_tag.is_valid(
-                    check_taxonomy=True, check_tag=False, check_object=False
+                    check_taxonomy=True, check_tag=True, check_object=False
                 ):
                     self.taxonomy = taxonomy
+                    self.tag = tag
                     changed = True
                     break
                 # If not, try the next one
@@ -517,6 +474,13 @@ class OpenObjectTag(ObjectTag):
 
     class Meta:
         proxy = True
+
+    @classmethod
+    def valid_for(cls, taxonomy: Taxonomy = None, **kwargs) -> bool:
+        """
+        Returns True if the taxonomy allows free text tags.
+        """
+        return taxonomy and taxonomy.allow_free_text
 
     def _check_object(self):
         """
@@ -561,6 +525,13 @@ class ClosedObjectTag(OpenObjectTag):
     class Meta:
         proxy = True
 
+    @classmethod
+    def valid_for(cls, taxonomy: Taxonomy = None, tag: Tag = None, **kwargs) -> bool:
+        """
+        Returns True if it's a closed taxonomy and there's a tag
+        """
+        return tag and taxonomy and not taxonomy.allow_free_text
+
     def is_valid(self, check_taxonomy=True, check_tag=True, check_object=True) -> bool:
         """
         Returns True if this ObjectTag is valid for use with a closed taxonomy.
@@ -579,7 +550,16 @@ class ClosedObjectTag(OpenObjectTag):
         if check_tag and not self.tag_id:
             return False
 
+        if check_tag and check_taxonomy and (self.tag.taxonomy != self.taxonomy):
+            return False
+
         if check_object and not self._check_object():
             return False
 
         return True
+
+
+# Register the object tag classes in reverse order for how we want them considered
+register_object_tag_class(ObjectTag)
+register_object_tag_class(OpenObjectTag)
+register_object_tag_class(ClosedObjectTag)

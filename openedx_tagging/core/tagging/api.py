@@ -16,6 +16,7 @@ from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from .models import ClosedObjectTag, ObjectTag, OpenObjectTag, Tag, Taxonomy
+from .registry import get_object_tag_class
 
 
 def create_taxonomy(
@@ -52,6 +53,7 @@ def get_taxonomy(id: int) -> Union[Taxonomy, None]:
     """
     return Taxonomy.objects.filter(id=id).first()
 
+
 def get_taxonomies(enabled=True) -> QuerySet:
     """
     Returns a queryset containing the enabled taxonomies, sorted by name.
@@ -73,18 +75,21 @@ def get_tags(taxonomy: Taxonomy) -> List[Tag]:
     return taxonomy.get_tags()
 
 
-def cast_object_tag(
-    object_tag: ObjectTag, default_class=OpenObjectTag
-) -> OpenObjectTag:
+def cast_object_tag(object_tag: ObjectTag) -> ObjectTag:
     """
-    Casts/copies the given object tag data into the ObjectTag subclass appropriate for this tag.
+    Casts/copies the given object tag data into the ObjectTag subclass most appropriate for this tag.
 
     E.g. if the tag's taxonomy has a custom ObjectTag class it prefers, use that.
     Recommends using OpenObjectTag by default, because that is the least restrictive type.
     """
-    ObjectTagClass = default_class
-    if object_tag.taxonomy_id:
-        ObjectTagClass = object_tag.taxonomy.object_tag_class
+    ObjectTagClass = get_object_tag_class(
+        taxonomy=object_tag.taxonomy,
+        object_type=object_tag.object_type,
+        object_id=object_tag.object_id,
+        tag=object_tag.tag,
+        value=object_tag.value,
+        name=object_tag.name,
+    )
     new_object_tag = ObjectTagClass().copy(object_tag)
     return new_object_tag
 
@@ -99,7 +104,8 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
         object_tags = ObjectTag.objects.select_related("tag", "taxonomy")
 
     num_changed = 0
-    for object_tag in object_tags:
+    for tag in object_tags:
+        object_tag = cast_object_tag(tag)
         changed = object_tag.resync()
         if changed:
             object_tag.save()
@@ -150,4 +156,64 @@ def tag_object(
     Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
     """
 
-    return taxonomy.tag_object(tags, object_id, object_type)
+    if not taxonomy.allow_multiple and len(tags) > 1:
+        raise ValueError(_(f"Taxonomy ({taxonomy.id}) only allows one tag per object."))
+
+    if taxonomy.required and len(tags) == 0:
+        raise ValueError(
+            _(f"Taxonomy ({taxonomy.id}) requires at least one tag per object.")
+        )
+
+    current_tags = {
+        tag.tag_ref: tag
+        for tag in ObjectTag.objects.filter(
+            taxonomy=taxonomy, object_id=object_id, object_type=object_type
+        )
+    }
+    updated_tags = []
+    for tag_ref in tags:
+        if tag_ref in current_tags:
+            object_tag = cast_object_tag(current_tags.pop(tag_ref))
+        else:
+            try:
+                tag = taxonomy.tag_set.get(
+                    id=tag_ref,
+                )
+                value = tag.value
+            except (ValueError, Tag.DoesNotExist):
+                # This might be ok, e.g. if taxonomy.allow_free_text.
+                # We'll validate below before saving.
+                tag = None
+                value = tag_ref
+
+            ObjectTagClass = get_object_tag_class(
+                taxonomy=taxonomy,
+                object_id=object_id,
+                object_type=object_type,
+                tag=tag,
+                value=value,
+                name=taxonomy.name,
+            )
+            object_tag = ObjectTagClass()
+            object_tag.taxonomy = taxonomy
+            object_tag.tag = tag
+            object_tag.object_id = object_id
+            object_tag.object_type = object_type
+            object_tag.value = value
+
+        object_tag.resync()
+        if not object_tag.is_valid():
+            raise ValueError(
+                _(f"Invalid object tag for taxonomy ({taxonomy.id}): {object_tag}")
+            )
+        updated_tags.append(object_tag)
+
+    # Save all updated tags at once to avoid partial updates
+    for object_tag in updated_tags:
+        object_tag.save()
+
+    # ...and delete any omitted existing tags
+    for old_tag in current_tags.values():
+        old_tag.delete()
+
+    return updated_tags
