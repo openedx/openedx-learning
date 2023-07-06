@@ -22,7 +22,7 @@ In the Studio context, a modified version of "course creator" access will be use
 
 Permission #1 requires no external access, so can be enforced by the ``openedx_tagging`` app.
 
-But because permissions #2 + #3 require access to the edx-platform CMS model `CourseCreator`_, this access can only be enforced in Studio, and so will live under `cms.djangoapps.tagging` along with the ``ContentTag`` class. Tagging MVP must work for libraries v1, v2 and courses created in Studio, and so tying these permissions to Studio is reasonable for the MVP.
+But because permissions #2 + #3 require access to the edx-platform CMS model `CourseCreator`_, this access can only be enforced in Studio, and so will live under ``cms.djangoapps.content_tagging`` along with the ``ContentTag`` class. Tagging MVP must work for libraries v1, v2 and courses created in Studio, and so tying these permissions to Studio is reasonable for the MVP.
 
 Per `OEP-9`_, ``openedx_tagging`` will allow applications to use the standard Django API to query permissions, for example: ``user.has_perm('openedx_tagging.edit_taxonomy', taxonomy)``, and the appropriate permissions will be applied in that application's context.
 
