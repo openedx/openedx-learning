@@ -19,13 +19,6 @@ TAXONOMY_MAX_DEPTH = 3
 # Will contain 0...TAXONOMY_MAX_DEPTH elements.
 Lineage = List[str]
 
-class SystemDefinedTaxonomyTagsType(Enum):
-    """
-    Tag types of system-defined taxonomies
-    """
-    closed = 'closed'  # Tags are created by fixtures/migrations
-    free_form = 'free_form'  # Tags are free form
-
 
 class Tag(models.Model):
     """
@@ -644,6 +637,9 @@ class ObjectTag(models.Model):
         """
         # Must have a valid object id/type:
         return self.object_id and self.object_type
+    
+    def _check_tag(self):
+        return self.value
 
 
 class ClosedObjectTag(OpenObjectTag):
@@ -699,33 +695,3 @@ class ClosedObjectTag(OpenObjectTag):
 register_object_tag_class(OpenObjectTag)
 register_object_tag_class(ClosedObjectTag)
 
-class SystemTaxonomy(Taxonomy):
-    """
-    System-defined taxonomies are not editable by normal users; they're defined by fixtures/migrations, and may have
-    dynamically-determined Tags and ObjectTags.
-    """
-
-    @property
-    def system_defined(self) -> bool:
-        """
-        This is a system-defined taxonomy.
-        """
-        return True
-    
-    @property
-    def is_visible(self) -> bool:
-        """
-        Controls the visibility of this taxonomy to content authors.
-
-        This value is static and must be implemented per each system-defined taxonomy.
-        """
-        raise NotImplementedError
-
-    @property
-    def creation_type (self) -> SystemDefinedTaxonomyTagsType:
-        """
-        Controls the behaviour of the tags on this taxonomy
-
-        This value is static and must be implemented per each system-defined taxonomy.
-        """
-        raise NotImplementedError

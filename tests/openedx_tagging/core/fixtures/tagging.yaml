@@ -165,3 +165,13 @@
     allow_multiple: false
     allow_free_text: false
     system_defined: true
+- model: oel_tagging.taxonomy
+  pk: 3
+  fields:
+    name: User Authors
+    description: Allows tags for any User on the instance.
+    enabled: true
+    required: false
+    allow_multiple: false
+    allow_free_text: true
+    system_defined: true

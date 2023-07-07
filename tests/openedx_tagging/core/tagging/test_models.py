@@ -24,6 +24,7 @@ class TestTagTaxonomyMixin:
         super().setUp()
         self.taxonomy = Taxonomy.objects.get(name="Life on Earth")
         self.system_taxonomy = Taxonomy.objects.get(name="System Languages")
+        self.user_system_taxonomy = Taxonomy.objects.get(name="User Authors")
         self.archaea = get_tag("Archaea")
         self.archaebacteria = get_tag("Archaebacteria")
         self.bacteria = get_tag("Bacteria")

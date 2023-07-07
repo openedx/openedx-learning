@@ -47,7 +47,12 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
         with self.assertNumQueries(1):
             enabled = list(tagging_api.get_taxonomies())
-        assert enabled == [tax1, self.taxonomy, self.system_taxonomy]
+        assert enabled == [
+            tax1,
+            self.taxonomy,
+            self.system_taxonomy,
+            self.user_system_taxonomy
+        ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
         assert str(enabled[1]) == "<Taxonomy> (1) Life on Earth"
         assert str(enabled[2]) == "<Taxonomy> (2) System Languages"
@@ -59,7 +64,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         with self.assertNumQueries(1):
             both = list(tagging_api.get_taxonomies(enabled=None))
-        assert both == [tax2, tax1, self.taxonomy, self.system_taxonomy]
+        assert both == [
+            tax2,
+            tax1,
+            self.taxonomy,
+            self.system_taxonomy,
+            self.user_system_taxonomy
+        ]
 
     def test_get_tags(self):
         self.setup_tag_depths()
