@@ -125,19 +125,12 @@ class LanguageObjectTag(ClosedSystemObjectTag):
         proxy = True
 
     @classmethod
-    def get_tags(cls, taxonomy: Taxonomy) -> List[Tag]:
+    def get_tags_query_set(cls, taxonomy: Taxonomy) -> models.QuerySet:
         """
-        Returns a list of tags of the available languages.
+        Returns a query set of available languages tags.
         """
-        # TODO we need to overweite this
-        # tags = super().get_tags()
-        tags = taxonomy.tag_set.objects().all()
-        result = []
-        available_langs = cls.get_available_languages()
-        for tag in tags:
-            if tag.external_id in available_langs:
-                result.append(tag)
-        return result
+        available_langs = cls._get_available_languages()
+        return taxonomy.tag_set.filter(external_id__in=available_langs)
     
     @classmethod
     def _get_available_languages(cls) -> List[str]:
@@ -149,7 +142,6 @@ class LanguageObjectTag(ClosedSystemObjectTag):
             # Split to get the language part
             langs.add(django_lang[0].split('-')[0])
         return langs
-
 
     def _check_tag(self):
         """

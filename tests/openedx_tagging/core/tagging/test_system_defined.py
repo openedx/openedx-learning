@@ -184,7 +184,6 @@ class TestLanguageObjectClass(TestCase):
         langs = LanguageObjectTag._get_available_languages()
         self.assertEqual(sorted(langs), self.expected_langs_ids)
 
-
     def test_is_valid(self):
         valid_object_tag = LanguageObjectTag(
             taxonomy=self.taxonomy,
@@ -226,3 +225,8 @@ class TestLanguageObjectClass(TestCase):
             check_object=True,
             check_tag=True,
         )
+
+    def test_get_tags_query_set(self):
+        tags = LanguageObjectTag.get_tags_query_set(self.taxonomy)
+        for tag in tags:
+            self.assertIn(tag.value, self.expected_langs_values)
