@@ -379,8 +379,8 @@ class ObjectTag(models.Model):
         self.id = object_tag.id
         self.object_id = object_tag.object_id
         self.object_type = object_tag.object_type
-        self.taxonomy_id = object_tag.taxonomy_id
-        self.tag_id = object_tag.tag_id
+        self.taxonomy = object_tag.taxonomy
+        self.tag = object_tag.tag
         self._name = object_tag._name
         self._value = object_tag._value
         return self
@@ -490,6 +490,24 @@ class OpenObjectTag(ObjectTag):
         """
         return taxonomy and taxonomy.allow_free_text
 
+    def _check_taxonomy(self):
+        """
+        Returns True if this ObjectTag has a valid taxonomy.
+
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
+        """
+        # Must be linked to a free-text taxonomy
+        return self.taxonomy_id and self.taxonomy.allow_free_text
+
+    def _check_tag(self):
+        """
+        Returns True if this ObjectTag has a valid tag value.
+
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
+        """
+        # Open taxonomies don't need an associated tag, but we need a value.
+        return bool(self._value)
+
     def _check_object(self):
         """
         Returns True if this ObjectTag has a valid object.
@@ -509,14 +527,10 @@ class OpenObjectTag(ObjectTag):
         If `check_tag` is False, then we skip validating the object tag's tag reference.
         If `check_object` is False, then we skip validating the object ID/type.
         """
-        # Must be linked to a free-text taxonomy
-        if check_taxonomy and (
-            not self.taxonomy_id or not self.taxonomy.allow_free_text
-        ):
+        if check_taxonomy and not self._check_taxonomy():
             return False
 
-        # Open taxonomies don't need an associated tag, but we need a value.
-        if check_tag and not self.value:
+        if check_tag and not self._check_tag():
             return False
 
         if check_object and not self._check_object():
@@ -540,6 +554,24 @@ class ClosedObjectTag(OpenObjectTag):
         """
         return tag and taxonomy and not taxonomy.allow_free_text
 
+    def _check_taxonomy(self):
+        """
+        Returns True if this ObjectTag has a valid taxonomy.
+
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
+        """
+        # Must be linked to a closed taxonomy
+        return self.taxonomy_id and not self.taxonomy.allow_free_text
+
+    def _check_tag(self):
+        """
+        Returns True if this ObjectTag has a valid tag value.
+
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
+        """
+        # Closed taxonomies require a Tag
+        return bool(self.tag_id)
+
     def is_valid(self, check_taxonomy=True, check_tag=True, check_object=True) -> bool:
         """
         Returns True if this ObjectTag is valid for use with a closed taxonomy.
@@ -550,18 +582,14 @@ class ClosedObjectTag(OpenObjectTag):
         If `check_tag` is False, then we skip validating the object tag's tag reference.
         If `check_object` is False, then we skip validating the object ID/type.
         """
-        # Must be linked to a closed taxonomy
-        if check_taxonomy and (not self.taxonomy_id or self.taxonomy.allow_free_text):
+        if not super().is_valid(
+            check_taxonomy=check_taxonomy,
+            check_tag=check_tag,
+            check_object=check_object,
+        ):
             return False
 
-        # Closed taxonomies require a Tag
-        if check_tag and not self.tag_id:
-            return False
-
-        if check_tag and check_taxonomy and (self.tag.taxonomy != self.taxonomy):
-            return False
-
-        if check_object and not self._check_object():
+        if check_tag and check_taxonomy and (self.tag.taxonomy_id != self.taxonomy_id):
             return False
 
         return True
