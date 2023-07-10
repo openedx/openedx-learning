@@ -567,7 +567,7 @@ class ClosedObjectTag(OpenObjectTag):
         return True
 
 
-# Register the object tag classes in reverse order for how we want them considered
+# Register the ObjectTag subclasses in reverse order of how we want them considered.
 register_object_tag_class(ObjectTag)
 register_object_tag_class(OpenObjectTag)
 register_object_tag_class(ClosedObjectTag)

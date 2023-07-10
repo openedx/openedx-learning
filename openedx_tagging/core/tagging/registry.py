@@ -10,14 +10,17 @@ log = logging.getLogger(__name__)
 _OBJECT_TAG_CLASS_REGISTRY = []
 
 
-def register_object_tag_class(cls):
+def register_object_tag_class(cls, index=0):
     """
     Register a given class as a candidate object tag class.
+
+    By default, inserts the given class at the beginning of the list, so that it will be considered before all
+    previously-registered classes. Adjust ``index`` to change where the class will be considered.
 
     The class must have a `valid_for` class method.
     """
     assert hasattr(cls, "valid_for")
-    _OBJECT_TAG_CLASS_REGISTRY.append(cls)
+    _OBJECT_TAG_CLASS_REGISTRY.insert(index, cls)
 
 
 def get_object_tag_class(
@@ -42,8 +45,8 @@ def get_object_tag_class(
             # Log error and continue
             log.exception(f"Unable to import custom object_tag_class for {taxonomy}")
 
-    # Return the most recently-registered, appropriate object tag class
-    for ObjectTagClass in reversed(_OBJECT_TAG_CLASS_REGISTRY):
+    # Return the first appropriate object tag class
+    for ObjectTagClass in _OBJECT_TAG_CLASS_REGISTRY:
         if ObjectTagClass.valid_for(
             taxonomy=taxonomy,
             object_type=object_type,
