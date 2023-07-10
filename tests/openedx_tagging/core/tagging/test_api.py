@@ -21,11 +21,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "required": True,
             "allow_multiple": True,
             "allow_free_text": True,
-            "system_defined": True,
         }
         taxonomy = tagging_api.create_taxonomy(**params)
         for param, value in params.items():
             assert getattr(taxonomy, param) == value
+        assert taxonomy.system_defined == False
+        assert taxonomy.visible_to_authors == True
+        assert taxonomy.object_tag_class is None
 
     def test_create_taxonomy_bad_object_tag_class(self):
         with self.assertRaises(ValueError) as exc:

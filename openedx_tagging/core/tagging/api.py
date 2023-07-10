@@ -10,7 +10,7 @@ No permissions/rules are enforced by these methods -- these must be enforced in 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
-from typing import Generator, List, Type, Union
+from typing import Iterator, List, Type, Union
 
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
@@ -26,7 +26,6 @@ def create_taxonomy(
     required=False,
     allow_multiple=False,
     allow_free_text=False,
-    system_defined=False,
     object_tag_class: Type = None,
 ) -> Taxonomy:
     """
@@ -39,7 +38,6 @@ def create_taxonomy(
         required=required,
         allow_multiple=allow_multiple,
         allow_free_text=allow_free_text,
-        system_defined=system_defined,
     )
     if object_tag_class:
         taxonomy.object_tag_class = object_tag_class
@@ -115,7 +113,7 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
 
 def get_object_tags(
     object_id: str, object_type: str = None, taxonomy: Taxonomy = None, valid_only=True
-) -> Generator[ObjectTag, None, None]:
+) -> Iterator[ObjectTag]:
     """
     Generates a list of object tags for a given object.
 

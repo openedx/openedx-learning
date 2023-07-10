@@ -141,9 +141,17 @@ class Taxonomy(models.Model):
     )
     system_defined = models.BooleanField(
         default=False,
+        editable=False,
         help_text=_(
             "Indicates that tags and metadata for this taxonomy are maintained by the system;"
             " taxonomy admins will not be permitted to modify them.",
+        ),
+    )
+    visible_to_authors = models.BooleanField(
+        default=True,
+        editable=False,
+        help_text=_(
+            "Indicates whether this taxonomy should be visible to object authors."
         ),
     )
     _object_tag_class = models.CharField(
