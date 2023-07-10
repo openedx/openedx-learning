@@ -43,8 +43,11 @@ class EmptyTestModel(models.Model):
 
 class EmptyObjectTag(ModelObjectTag):
     """
-    Model Object tag used for testing
+    Model ObjectTag used for testing
     """
+
+    system_defined_taxonomy_name = "User Authors"
+
     class Meta:
         proxy = True
         managed = False
@@ -55,8 +58,11 @@ class EmptyObjectTag(ModelObjectTag):
 
 class EmptyModelObjectTag(ModelObjectTag):
     """
-    Model Object tag used for testing
+    Model ObjectTag used for testing
     """
+
+    system_defined_taxonomy_name = "User Authors"
+
     class Meta:
         proxy = True
         managed = False
@@ -65,29 +71,68 @@ class EmptyModelObjectTag(ModelObjectTag):
     tag_class_model = EmptyTestModel
 
 
+class TestOpenObjectTag(OpenSystemObjectTag):
+    """
+    Open ObjectTag used for testing
+    """
+
+    system_defined_taxonomy_name = "User Authors"
+
+    class Meta:
+        proxy = True
+        managed = False
+        app_label = 'oel_tagging'
+
+
+class TestClosedObjectTag(ClosedSystemObjectTag):
+    """
+    Closed ObjectTag used for testing
+    """
+
+    system_defined_taxonomy_name = "System Languages"
+
+    class Meta:
+        proxy = True
+        managed = False
+        app_label = 'oel_tagging'
+
+
+class TestUserObjectTag(UserObjectTag):
+    """
+    User ObjectTag used for testing
+    """
+
+    system_defined_taxonomy_name = "User Authors"
+
+    class Meta:
+        proxy = True
+        managed = False
+        app_label = 'oel_tagging'
+
+
 class TestSystemDefinedObjectTags(TestTagTaxonomyMixin, TestCase):
     """
     Test for generic system defined object tags
     """
     def test_open_valid_for(self):
         #Valid
-        assert OpenSystemObjectTag.valid_for(taxonomy=self.user_system_taxonomy)
+        assert TestOpenObjectTag.valid_for(taxonomy=self.user_system_taxonomy)
 
         # Not open system taxonomy
-        assert not OpenSystemObjectTag.valid_for(taxonomy=self.system_taxonomy)
+        assert not TestOpenObjectTag.valid_for(taxonomy=self.system_taxonomy)
 
         # Not system taxonomy
-        assert not OpenSystemObjectTag.valid_for(taxonomy=self.taxonomy)
+        assert not TestOpenObjectTag.valid_for(taxonomy=self.taxonomy)
 
     def test_closed_valid_for(self):
         #Valid
-        assert ClosedSystemObjectTag.valid_for(taxonomy=self.system_taxonomy, tag=self.archaea)
+        assert TestClosedObjectTag.valid_for(taxonomy=self.system_taxonomy, tag=self.archaea)
 
         # Not closed system taxonomy
-        assert not ClosedSystemObjectTag.valid_for(taxonomy=self.user_system_taxonomy, tag=self.archaea)
+        assert not TestClosedObjectTag.valid_for(taxonomy=self.user_system_taxonomy, tag=self.archaea)
 
         # Not system taxonomy
-        assert not ClosedSystemObjectTag.valid_for(taxonomy=self.taxonomy, tag=self.archaea)
+        assert not TestClosedObjectTag.valid_for(taxonomy=self.taxonomy, tag=self.archaea)
 
     def test_model_valid_for(self):
         # Without associated model
@@ -100,7 +145,7 @@ class TestSystemDefinedObjectTags(TestTagTaxonomyMixin, TestCase):
         assert not EmptyModelObjectTag.valid_for(self.user_system_taxonomy)
 
         #Valid
-        assert UserObjectTag.valid_for(self.user_system_taxonomy)
+        assert TestUserObjectTag.valid_for(self.user_system_taxonomy)
 
     def test_model_is_valid(self):
         user = get_user_model()(

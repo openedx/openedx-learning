@@ -15,7 +15,41 @@ from openedx_tagging.core.tagging.models import (
 from openedx_tagging.core.tagging.registry import register_object_tag_class
 
 
-class OpenSystemObjectTag(OpenObjectTag):
+class SystemDefinedObjectTagMixin:
+    """
+    Mixing for ObjectTags used on all system defined taxonomies
+
+    `system_defined_taxonomy_name``is used to connect the 
+    ObjectTag with the system defined taxonomy.
+    This is because there can be several ObjectTags
+    for the same Taxonomy, ex:
+    
+    - LanguageCourseObjectTag
+    - LanguageBlockObjectTag
+
+    On the example, there are ObjectTags for the same Language
+    taxonomy but with different objects.
+
+    Using this approach makes the connection between the ObjectTag
+    and system defined taxonomy as hardcoded.
+    """
+
+    system_defined_taxonomy_name = None
+
+    @classmethod
+    def _validate_taxonomy(cls, taxonomy: Taxonomy = None):
+        """
+        Validates if the taxonomy is system-defined and match
+        with the name stored in the object tag
+        """
+        return (
+            bool(taxonomy) and 
+            taxonomy.system_defined and 
+            taxonomy.name == cls.system_defined_taxonomy_name
+        )
+
+
+class OpenSystemObjectTag(OpenObjectTag, SystemDefinedObjectTagMixin):
     """
     Free-text object tag used on system-defined taxonomies
     """
@@ -28,9 +62,10 @@ class OpenSystemObjectTag(OpenObjectTag):
         """
         Returns True if the the taxonomy is system-defined
         """
-        return super().valid_for(taxonomy=taxonomy) and taxonomy.system_defined
+        return super().valid_for(taxonomy=taxonomy) and cls._validate_taxonomy(taxonomy)
+
     
-class ClosedSystemObjectTag(ClosedObjectTag):
+class ClosedSystemObjectTag(ClosedObjectTag, SystemDefinedObjectTagMixin):
     """
     Object tags linked to a closed system-taxonomy
     """
@@ -43,7 +78,7 @@ class ClosedSystemObjectTag(ClosedObjectTag):
         """
         Returns True if the the taxonomy is system-defined
         """
-        return super().valid_for(taxonomy=taxonomy, tag=tag) and taxonomy.system_defined
+        return super().valid_for(taxonomy=taxonomy, tag=tag) and cls._validate_taxonomy(taxonomy)
 
 
 class ModelObjectTag(OpenSystemObjectTag):
@@ -121,6 +156,8 @@ class LanguageObjectTag(ClosedSystemObjectTag):
     languages available in Django LANGUAGES settings var
     """
 
+    system_defined_taxonomy_name = "System Languages"
+
     class Meta:
         proxy = True
 
@@ -161,4 +198,3 @@ class LanguageObjectTag(ClosedSystemObjectTag):
 
 # Register the object tag classes in reverse order for how we want them considered
 register_object_tag_class(LanguageObjectTag)
-register_object_tag_class(UserObjectTag)
