@@ -1,3 +1,7 @@
+"""
+ObjectTags for System-defined Taxonomies
+"""
+from enum import Enum
 from typing import List
 
 from django.conf import settings
@@ -15,11 +19,18 @@ from openedx_tagging.core.tagging.models import (
 from openedx_tagging.core.tagging.registry import register_object_tag_class
 
 
+class SystemDefinedIds(Enum):
+    """
+    System-defined taxonomy IDs
+    """
+    LanguageTaxonomy = 1
+
+
 class SystemDefinedObjectTagMixin:
     """
     Mixing for ObjectTags used on all system defined taxonomies
 
-    `system_defined_taxonomy_name``is used to connect the 
+    `system_defined_taxonomy_id``is used to connect the 
     ObjectTag with the system defined taxonomy.
     This is because there can be several ObjectTags
     for the same Taxonomy, ex:
@@ -34,7 +45,7 @@ class SystemDefinedObjectTagMixin:
     and system defined taxonomy as hardcoded.
     """
 
-    system_defined_taxonomy_name = None
+    system_defined_taxonomy_id = None
 
     @classmethod
     def _validate_taxonomy(cls, taxonomy: Taxonomy = None):
@@ -45,7 +56,7 @@ class SystemDefinedObjectTagMixin:
         return (
             bool(taxonomy) and 
             taxonomy.system_defined and 
-            taxonomy.name == cls.system_defined_taxonomy_name
+            taxonomy.id == cls.system_defined_taxonomy_id
         )
 
 
@@ -156,7 +167,7 @@ class LanguageObjectTag(ClosedSystemObjectTag):
     languages available in Django LANGUAGES settings var
     """
 
-    system_defined_taxonomy_name = "System Languages"
+    system_defined_taxonomy_id = SystemDefinedIds.LanguageTaxonomy
 
     class Meta:
         proxy = True

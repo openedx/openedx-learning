@@ -46,7 +46,7 @@ class EmptyObjectTag(ModelObjectTag):
     Model ObjectTag used for testing
     """
 
-    system_defined_taxonomy_name = "User Authors"
+    system_defined_taxonomy_id = 3
 
     class Meta:
         proxy = True
@@ -61,7 +61,7 @@ class EmptyModelObjectTag(ModelObjectTag):
     Model ObjectTag used for testing
     """
 
-    system_defined_taxonomy_name = "User Authors"
+    system_defined_taxonomy_id = 3
 
     class Meta:
         proxy = True
@@ -76,7 +76,7 @@ class TestOpenObjectTag(OpenSystemObjectTag):
     Open ObjectTag used for testing
     """
 
-    system_defined_taxonomy_name = "User Authors"
+    system_defined_taxonomy_id = 3
 
     class Meta:
         proxy = True
@@ -89,7 +89,7 @@ class TestClosedObjectTag(ClosedSystemObjectTag):
     Closed ObjectTag used for testing
     """
 
-    system_defined_taxonomy_name = "System Languages"
+    system_defined_taxonomy_id = 2
 
     class Meta:
         proxy = True
@@ -102,7 +102,7 @@ class TestUserObjectTag(UserObjectTag):
     User ObjectTag used for testing
     """
 
-    system_defined_taxonomy_name = "User Authors"
+    system_defined_taxonomy_id = 3
 
     class Meta:
         proxy = True
@@ -214,7 +214,7 @@ class TestLanguageObjectClass(TestCase):
 
     fixtures = [
         "tests/openedx_tagging/core/fixtures/system_defined.yaml",
-        "openedx_tagging/core/tagging/system_defined_taxonomies/fixtures/language_taxonomy.yaml"
+        "openedx_tagging/core/tagging/fixtures/language_taxonomy.yaml"
     ]
 
     def setUp(self):
