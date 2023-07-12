@@ -25,8 +25,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         taxonomy = tagging_api.create_taxonomy(**params)
         for param, value in params.items():
             assert getattr(taxonomy, param) == value
-        assert taxonomy.system_defined == False
-        assert taxonomy.visible_to_authors == True
+        assert not taxonomy.system_defined
+        assert taxonomy.visible_to_authors
         assert taxonomy.object_tag_class is None
 
     def test_create_taxonomy_bad_object_tag_class(self):
@@ -272,14 +272,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert "requires at least one tag per object" in str(exc.exception)
 
     def test_tag_object_invalid_tag(self):
-        with self.assertRaises(ValueError) as exc:
-            tagging_api.tag_object(
-                self.taxonomy,
-                ["Eukaryota Xenomorph"],
-                "biology101",
-                "course",
-            )
-        assert "Invalid object tag for taxonomy" in str(exc.exception)
+        object_tag = tagging_api.tag_object(
+            self.taxonomy,
+            ["Eukaryota Xenomorph"],
+            "biology101",
+            "course",
+        )[0]
+        assert type(object_tag) == ObjectTag  # pylint: disable=unidiomatic-typecheck
 
     def test_get_object_tags(self):
         # Alpha tag has no taxonomy
@@ -346,7 +345,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             beta,
         ]
 
-    def test_object_tag_class(self):
+    def test_cast_object_tag(self):
         # Create a valid ClosedObjectTag
         assert not self.taxonomy.allow_free_text
         object_tag = ObjectTag.objects.create(
@@ -368,6 +367,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             allow_free_text=True,
         )
         object_tag.taxonomy = open_taxonomy
+        object_tag.value = "Bacterium"
         object_tag = tagging_api.cast_object_tag(object_tag)
         assert (
             str(object_tag)

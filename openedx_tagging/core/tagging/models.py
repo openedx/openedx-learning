@@ -1,5 +1,4 @@
 """ Tagging app data models """
-
 from typing import List, Type
 
 from django.db import models
@@ -8,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
 
-from .registry import get_object_tag_class, register_object_tag_class
+from .registry import cast_object_tag, register_object_tag_class
 
 # Maximum depth allowed for a hierarchical taxonomy's tree of tags.
 TAXONOMY_MAX_DEPTH = 3
@@ -309,13 +308,6 @@ class ObjectTag(models.Model):
             models.Index(fields=["taxonomy", "_value"]),
         ]
 
-    @classmethod
-    def valid_for(cls, **kwargs) -> bool:
-        """
-        This is always a valid ObjectTag class, so we register it first.
-        """
-        return True
-
     def __repr__(self):
         """
         Developer-facing representation of an ObjectTag.
@@ -394,18 +386,48 @@ class ObjectTag(models.Model):
         """
         return self.tag.get_lineage() if self.tag_id else [self._value]
 
+    def _check_taxonomy(self):
+        """
+        Always returns True.
+
+        Subclasses should override this method to perform validation for the particular type of object tag.
+        """
+        return True
+
+    def _check_tag(self):
+        """
+        Always returns True.
+
+        Subclasses should override this method to perform validation for the particular type of object tag.
+        """
+        return True
+
+    def _check_object(self):
+        """
+        Always returns True.
+
+        Subclasses should override this method to perform validation for the particular type of object tag.
+        """
+        return True
+
     def is_valid(self, check_taxonomy=True, check_tag=True, check_object=True) -> bool:
         """
-        Always returns False -- use subclasses to find out whether this ObjectTag is valid for the linked taxonomy and/or tag.
-
-        Subclasses must override this method to perform the proper validation checks, e.g. closed vs open taxonomies,
-        dynamically generated tag lists or object definitions.
+        Returns True if this ObjectTag is valid.
 
         If `check_taxonomy` is False, then we skip validating the object tag's taxonomy reference.
         If `check_tag` is False, then we skip validating the object tag's tag reference.
         If `check_object` is False, then we skip validating the object ID/type.
         """
-        return False
+        if check_taxonomy and not self._check_taxonomy():
+            return False
+
+        if check_tag and not self._check_tag():
+            return False
+
+        if check_object and not self._check_object():
+            return False
+
+        return True
 
     def resync(self) -> bool:
         """
@@ -433,20 +455,17 @@ class ObjectTag(models.Model):
                 tag = self.tag or taxonomy.tag_set.filter(value=self.value).first()
 
                 # Make sure this taxonomy will accept object tags like this.
-                ObjectTagClass = get_object_tag_class(
-                    taxonomy=taxonomy,
-                    tag=tag,
-                    object_id=self.object_id,
-                    object_type=self.object_type,
-                    name=self.name,
-                    value=self.value,
+                test_object_tag = cast_object_tag(
+                    ObjectTag(
+                        taxonomy=taxonomy,
+                        tag=tag,
+                        object_id=self.object_id,
+                        object_type=self.object_type,
+                        _name=self.name,
+                        _value=self.value,
+                    )
                 )
-                object_tag = ObjectTagClass().copy(self)
-                object_tag.taxonomy = taxonomy
-                object_tag.tag = tag
-                if object_tag.is_valid(
-                    check_taxonomy=True, check_tag=True, check_object=False
-                ):
+                if test_object_tag:
                     self.taxonomy = taxonomy
                     self.tag = tag
                     changed = True
@@ -483,13 +502,6 @@ class OpenObjectTag(ObjectTag):
     class Meta:
         proxy = True
 
-    @classmethod
-    def valid_for(cls, taxonomy: Taxonomy = None, **kwargs) -> bool:
-        """
-        Returns True if the taxonomy allows free text tags.
-        """
-        return taxonomy and taxonomy.allow_free_text
-
     def _check_taxonomy(self):
         """
         Returns True if this ObjectTag has a valid taxonomy.
@@ -517,27 +529,6 @@ class OpenObjectTag(ObjectTag):
         # Must have a valid object id/type:
         return self.object_id and self.object_type
 
-    def is_valid(self, check_taxonomy=True, check_tag=True, check_object=True) -> bool:
-        """
-        Returns True if this ObjectTag is valid for use with a free-text taxonomy.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-
-        If `check_taxonomy` is False, then we skip validating the object tag's taxonomy reference.
-        If `check_tag` is False, then we skip validating the object tag's tag reference.
-        If `check_object` is False, then we skip validating the object ID/type.
-        """
-        if check_taxonomy and not self._check_taxonomy():
-            return False
-
-        if check_tag and not self._check_tag():
-            return False
-
-        if check_object and not self._check_object():
-            return False
-
-        return True
-
 
 class ClosedObjectTag(OpenObjectTag):
     """
@@ -547,16 +538,9 @@ class ClosedObjectTag(OpenObjectTag):
     class Meta:
         proxy = True
 
-    @classmethod
-    def valid_for(cls, taxonomy: Taxonomy = None, tag: Tag = None, **kwargs) -> bool:
-        """
-        Returns True if it's a closed taxonomy and there's a tag
-        """
-        return tag and taxonomy and not taxonomy.allow_free_text
-
     def _check_taxonomy(self):
         """
-        Returns True if this ObjectTag has a valid taxonomy.
+        Returns True if this ObjectTag is linked to a closed taxonomy.
 
         Subclasses should override this method to perform any additional validation for the particular type of object tag.
         """
@@ -565,7 +549,7 @@ class ClosedObjectTag(OpenObjectTag):
 
     def _check_tag(self):
         """
-        Returns True if this ObjectTag has a valid tag value.
+        Returns True if this ObjectTag has a valid tag.
 
         Subclasses should override this method to perform any additional validation for the particular type of object tag.
         """
@@ -596,6 +580,5 @@ class ClosedObjectTag(OpenObjectTag):
 
 
 # Register the ObjectTag subclasses in reverse order of how we want them considered.
-register_object_tag_class(ObjectTag)
 register_object_tag_class(OpenObjectTag)
 register_object_tag_class(ClosedObjectTag)

@@ -16,7 +16,7 @@ from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from .models import ClosedObjectTag, ObjectTag, OpenObjectTag, Tag, Taxonomy
-from .registry import get_object_tag_class
+from .registry import cast_object_tag as _cast_object_tag
 
 
 def create_taxonomy(
@@ -73,22 +73,20 @@ def get_tags(taxonomy: Taxonomy) -> List[Tag]:
     return taxonomy.get_tags()
 
 
-def cast_object_tag(object_tag: ObjectTag) -> ObjectTag:
+def cast_object_tag(
+    object_tag: ObjectTag, return_subclass=False
+) -> Union[ObjectTag, None]:
     """
     Casts/copies the given object tag data into the ObjectTag subclass most appropriate for this tag.
 
-    E.g. if the tag's taxonomy has a custom ObjectTag class it prefers, use that.
-    Recommends using OpenObjectTag by default, because that is the least restrictive type.
+    If ``return_subclass``, this method may return None if it doesn't find a valid subclass of ObjectTag for the
+    given object_tag.
+
+    If not ``return_subclass``, then the base ObjectTag class may be returned.
     """
-    ObjectTagClass = get_object_tag_class(
-        taxonomy=object_tag.taxonomy,
-        object_type=object_tag.object_type,
-        object_id=object_tag.object_id,
-        tag=object_tag.tag,
-        value=object_tag.value,
-        name=object_tag.name,
-    )
-    new_object_tag = ObjectTagClass().copy(object_tag)
+    new_object_tag = _cast_object_tag(object_tag)
+    if not new_object_tag and not return_subclass:
+        new_object_tag = ObjectTag().copy(object_tag)
     return new_object_tag
 
 
@@ -135,9 +133,8 @@ def get_object_tags(
         tags = tags.filter(taxonomy=taxonomy)
 
     for tag in tags:
-        # Cast so the appropriate ObjectTag class can handle validation
-        object_tag = cast_object_tag(tag)
-        if not valid_only or object_tag.is_valid():
+        object_tag = cast_object_tag(tag, return_subclass=valid_only)
+        if object_tag:
             yield object_tag
 
 
@@ -184,26 +181,18 @@ def tag_object(
                 tag = None
                 value = tag_ref
 
-            ObjectTagClass = get_object_tag_class(
-                taxonomy=taxonomy,
-                object_id=object_id,
-                object_type=object_type,
-                tag=tag,
-                value=value,
-                name=taxonomy.name,
+            object_tag = cast_object_tag(
+                ObjectTag(
+                    taxonomy=taxonomy,
+                    object_id=object_id,
+                    object_type=object_type,
+                    tag=tag,
+                    value=value,
+                    name=taxonomy.name,
+                )
             )
-            object_tag = ObjectTagClass()
-            object_tag.taxonomy = taxonomy
-            object_tag.tag = tag
-            object_tag.object_id = object_id
-            object_tag.object_type = object_type
-            object_tag.value = value
 
         object_tag.resync()
-        if not object_tag.is_valid():
-            raise ValueError(
-                _(f"Invalid object tag for taxonomy ({taxonomy.id}): {object_tag}")
-            )
         updated_tags.append(object_tag)
 
     # Save all updated tags at once to avoid partial updates
