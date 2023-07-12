@@ -135,7 +135,7 @@ def get_object_tags(
         tags = tags.filter(taxonomy=taxonomy)
 
     for tag in tags:
-        # We can only validate tags with taxonomies, because we need the object_tag_class
+        # Cast so the appropriate ObjectTag class can handle validation
         object_tag = cast_object_tag(tag)
         if not valid_only or object_tag.is_valid():
             yield object_tag
