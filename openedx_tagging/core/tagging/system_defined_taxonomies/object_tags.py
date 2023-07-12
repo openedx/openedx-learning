@@ -11,7 +11,6 @@ from django.db import models
 
 
 from openedx_tagging.core.tagging.models import (
-    Tag,
     Taxonomy,
     OpenObjectTag,
     ClosedObjectTag,
@@ -42,21 +41,20 @@ class SystemDefinedObjectTagMixin:
     taxonomy but with different objects.
 
     Using this approach makes the connection between the ObjectTag
-    and system defined taxonomy as hardcoded.
+    and system defined taxonomy as hardcoded and can't be changed.
     """
 
     system_defined_taxonomy_id = None
 
-    @classmethod
-    def _validate_taxonomy(cls, taxonomy: Taxonomy = None):
+    def _check_system_taxonomy(self, taxonomy: Taxonomy = None):
         """
         Validates if the taxonomy is system-defined and match
         with the name stored in the object tag
         """
         return (
-            bool(taxonomy) and 
-            taxonomy.system_defined and 
-            taxonomy.id == cls.system_defined_taxonomy_id
+            bool(taxonomy) and
+            taxonomy.system_defined and
+            taxonomy.id == self.system_defined_taxonomy_id
         )
 
 
@@ -68,12 +66,11 @@ class OpenSystemObjectTag(OpenObjectTag, SystemDefinedObjectTagMixin):
     class Meta:
         proxy = True
 
-    @classmethod
-    def valid_for(cls, taxonomy: Taxonomy = None, **kwars):
-        """
-        Returns True if the the taxonomy is system-defined
-        """
-        return super().valid_for(taxonomy=taxonomy) and cls._validate_taxonomy(taxonomy)
+    def _check_taxonomy(self):
+        return (
+            super()._check_taxonomy() and
+            self._check_system_taxonomy(self.taxonomy)
+        )
 
     
 class ClosedSystemObjectTag(ClosedObjectTag, SystemDefinedObjectTagMixin):
@@ -84,12 +81,11 @@ class ClosedSystemObjectTag(ClosedObjectTag, SystemDefinedObjectTagMixin):
     class Meta:
         proxy = True
 
-    @classmethod
-    def valid_for(cls, taxonomy: Taxonomy = None, tag: Tag = None, **kargs):
-        """
-        Returns True if the the taxonomy is system-defined
-        """
-        return super().valid_for(taxonomy=taxonomy, tag=tag) and cls._validate_taxonomy(taxonomy)
+    def _check_taxonomy(self):
+        return (
+            super()._check_taxonomy() and
+            self._check_system_taxonomy(self.taxonomy)
+        )
 
 
 class ModelObjectTag(OpenSystemObjectTag):
@@ -104,21 +100,24 @@ class ModelObjectTag(OpenSystemObjectTag):
 
     tag_class_model = None
 
-    @classmethod
-    def valid_for(cls, taxonomy: Taxonomy = None, **kwars):
+
+    def _check_taxonomy(self):
         """
         Validates if has an associated Django model that has an Id
         """
-        if not super().valid_for(taxonomy=taxonomy) or not cls.tag_class_model:
+        if not super()._check_taxonomy():
             return False
-        
+    
+        if not self.tag_class_model:
+            return False
+
         # Verify that is a Django model
-        if not issubclass(cls.tag_class_model, models.Model):
+        if not issubclass(self.tag_class_model, models.Model):
             return False
 
         # Verify that the model has 'id' field
         try:
-            cls.tag_class_model._meta.get_field('id')
+            self.tag_class_model._meta.get_field('id')
         except FieldDoesNotExist:
             return False
 
@@ -167,7 +166,7 @@ class LanguageObjectTag(ClosedSystemObjectTag):
     languages available in Django LANGUAGES settings var
     """
 
-    system_defined_taxonomy_id = SystemDefinedIds.LanguageTaxonomy
+    system_defined_taxonomy_id = SystemDefinedIds.LanguageTaxonomy.value
 
     class Meta:
         proxy = True

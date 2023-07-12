@@ -1,12 +1,12 @@
 """ Test the System-defined taxonomies and object tags """
 
+import ddt
+
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.test.testcases import TestCase, override_settings
 
 from openedx_tagging.core.tagging.system_defined_taxonomies.object_tags import (
-    OpenSystemObjectTag,
-    ClosedSystemObjectTag,
     ModelObjectTag,
     UserObjectTag,
     LanguageObjectTag,
@@ -41,7 +41,20 @@ class EmptyTestModel(models.Model):
         app_label = 'oel_tagging'
 
 
-class EmptyObjectTag(ModelObjectTag):
+class EmptyModelObjectTag(ModelObjectTag):
+    """
+    Model ObjectTag used for testing
+    """
+
+    system_defined_taxonomy_id = 3
+
+    class Meta:
+        proxy = True
+        managed = False
+        app_label = 'oel_tagging'
+
+
+class NotDjangoModelObjectTag(ModelObjectTag):
     """
     Model ObjectTag used for testing
     """
@@ -56,7 +69,7 @@ class EmptyObjectTag(ModelObjectTag):
     tag_class_model = EmptyTestClass
 
 
-class EmptyModelObjectTag(ModelObjectTag):
+class NotIdModelObjectTag(ModelObjectTag):
     """
     Model ObjectTag used for testing
     """
@@ -69,32 +82,6 @@ class EmptyModelObjectTag(ModelObjectTag):
         app_label = 'oel_tagging'
 
     tag_class_model = EmptyTestModel
-
-
-class TestOpenObjectTag(OpenSystemObjectTag):
-    """
-    Open ObjectTag used for testing
-    """
-
-    system_defined_taxonomy_id = 3
-
-    class Meta:
-        proxy = True
-        managed = False
-        app_label = 'oel_tagging'
-
-
-class TestClosedObjectTag(ClosedSystemObjectTag):
-    """
-    Closed ObjectTag used for testing
-    """
-
-    system_defined_taxonomy_id = 2
-
-    class Meta:
-        proxy = True
-        managed = False
-        app_label = 'oel_tagging'
 
 
 class TestUserObjectTag(UserObjectTag):
@@ -110,100 +97,72 @@ class TestUserObjectTag(UserObjectTag):
         app_label = 'oel_tagging'
 
 
+@ddt.ddt
 class TestSystemDefinedObjectTags(TestTagTaxonomyMixin, TestCase):
     """
     Test for generic system defined object tags
     """
-    def test_open_valid_for(self):
-        #Valid
-        assert TestOpenObjectTag.valid_for(taxonomy=self.user_system_taxonomy)
-
-        # Not open system taxonomy
-        assert not TestOpenObjectTag.valid_for(taxonomy=self.system_taxonomy)
-
-        # Not system taxonomy
-        assert not TestOpenObjectTag.valid_for(taxonomy=self.taxonomy)
-
-    def test_closed_valid_for(self):
-        #Valid
-        assert TestClosedObjectTag.valid_for(taxonomy=self.system_taxonomy, tag=self.archaea)
-
-        # Not closed system taxonomy
-        assert not TestClosedObjectTag.valid_for(taxonomy=self.user_system_taxonomy, tag=self.archaea)
-
-        # Not system taxonomy
-        assert not TestClosedObjectTag.valid_for(taxonomy=self.taxonomy, tag=self.archaea)
-
-    def test_model_valid_for(self):
-        # Without associated model
-        assert not ModelObjectTag.valid_for(self.user_system_taxonomy)
-
-        # Associated class is not a Django model
-        assert not EmptyObjectTag.valid_for(self.user_system_taxonomy)
-
-        # Associated model has not 'id' field
-        assert not EmptyModelObjectTag.valid_for(self.user_system_taxonomy)
-
-        #Valid
-        assert TestUserObjectTag.valid_for(self.user_system_taxonomy)
-
-    def test_model_is_valid(self):
-        user = get_user_model()(
-            username='username',
-            email='email'
-        )
-        user.save()
-        valid_object_tag = UserObjectTag(
-            taxonomy=self.user_system_taxonomy,
-            object_id='id 1',
-            object_type='object',
-            value=user.id,
-        )
-        invalid_object_tag_1 = UserObjectTag(
-            taxonomy=self.user_system_taxonomy,
-            object_id='id 2',
-            object_type='object',
-            value='user_id',
-        )
-        invalid_object_tag_2 = UserObjectTag(
-            taxonomy=self.user_system_taxonomy,
-            object_id='id 2',
-            object_type='object',
-            value='10000',
-        )
-        invalid_object_tag_3 = UserObjectTag(
-            taxonomy=self.user_system_taxonomy,
-            object_id='id 3',
-            object_type='object',
-        )
-
-        # Invalid user id
-        assert not invalid_object_tag_1.is_valid(
-            check_taxonomy=True,
-            check_object=True,
-            check_tag=True,
-        )
-
-        # User don't exits
-        assert not invalid_object_tag_2.is_valid(
-            check_taxonomy=True,
-            check_object=True,
-            check_tag=True,
-        )
-
-        # Testing parent class validations
-        assert not invalid_object_tag_3.is_valid(
-            check_taxonomy=True,
-            check_object=True,
-            check_tag=True,
-        )
-
+    def test_system_defined_is_valid(self):
         # Valid
-        assert valid_object_tag.is_valid(
+        assert TestUserObjectTag()._check_system_taxonomy(taxonomy=self.user_system_taxonomy)
+
+        # Null taxonomy
+        assert not UserObjectTag()._check_system_taxonomy()
+
+        # Not system defined taxonomy
+        assert not UserObjectTag()._check_system_taxonomy(taxonomy=self.taxonomy)
+
+        # Not connected with the taxonomy
+        assert not UserObjectTag()._check_system_taxonomy(taxonomy=self.user_system_taxonomy)
+
+    @ddt.data(
+        (EmptyModelObjectTag, False),  # Without associated model
+        (NotDjangoModelObjectTag, False),  # Associated class is not a Django model
+        (NotIdModelObjectTag, False),  # Associated model has not 'id' field
+        (ModelObjectTag, False), # Testing parent class validations
+        (TestUserObjectTag, True),  #Valid
+    )
+    @ddt.unpack
+    def test_model_object_is_valid(self, object_tag, assert_value):
+        args = {
+            'taxonomy': self.user_system_taxonomy,
+            'object_id': 'id',
+            'object_type': 'object',
+            'value': 'value',
+        }
+        result = object_tag(**args).is_valid(check_object=False, check_tag=False, check_taxonomy=True)
+        self.assertEqual(result, assert_value)
+
+    @ddt.data(
+        (None, True),  # Valid
+        ('user_id', False),  # Invalid user id
+        ('10000', False),  # User don't exits
+        (None, False),  # Testing parent class validations
+    )
+    @ddt.unpack
+    def test_user_object_is_valid(self, value, assert_value):
+        if assert_value:
+            user = get_user_model()(
+                username='username',
+                email='email'
+            )
+            user.save()
+            value = user.id
+
+        object_tag = TestUserObjectTag(
+            taxonomy=self.user_system_taxonomy,
+            object_id='id',
+            object_type='object',
+            value=value,
+        )
+
+        result = object_tag.is_valid(
             check_taxonomy=True,
             check_object=True,
             check_tag=True,
         )
+
+        self.assertEqual(result, assert_value)
 
 
 @override_settings(LANGUAGES=test_languages)

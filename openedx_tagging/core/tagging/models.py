@@ -637,9 +637,6 @@ class ObjectTag(models.Model):
         """
         # Must have a valid object id/type:
         return self.object_id and self.object_type
-    
-    def _check_tag(self):
-        return self.value
 
 
 class ClosedObjectTag(OpenObjectTag):

@@ -7,3 +7,5 @@
     required: true
     allow_multiple: false
     allow_free_text: false
+    system_defined: true
+    visible_to_authors: true
