@@ -109,10 +109,26 @@ class TestJSONParser(TestCase):
 
         # Result tags must be in the same order of the file
         for index in range(0, len(expected_tags)):
-            self.assertEqual(tags[index].id, expected_tags[index].get('id'))
-            self.assertEqual(tags[index].value, expected_tags[index].get('value'))
-            self.assertEqual(tags[index].parent_id, expected_tags[index].get('parent_id'))
-            self.assertEqual(tags[index].action, expected_tags[index].get('action'))
+            self.assertEqual(
+                tags[index].id,
+                expected_tags[index].get('id')
+            )
+            self.assertEqual(
+                tags[index].value,
+                expected_tags[index].get('value')
+            )
+            self.assertEqual(
+                tags[index].parent_id,
+                expected_tags[index].get('parent_id')
+            )
+            self.assertEqual(
+                tags[index].action,
+                expected_tags[index].get('action')
+            )
+            self.assertEqual(
+                tags[index].index,
+                index + JSONParser.inital_row
+            )
 
 @ddt.ddt
 class TestCSVParser(TestCase):
@@ -179,7 +195,10 @@ class TestCSVParser(TestCase):
     def _build_csv(self, tags):
         csv = "id,value,parent_id,action\n"
         for tag in tags:
-            csv += f"{tag.get('id')},{tag.get('value')},{tag.get('parent_id') or ''},{tag.get('action') or ''}\n"
+            csv += (
+                f"{tag.get('id')},{tag.get('value')},"
+                f"{tag.get('parent_id') or ''},{tag.get('action') or ''}\n"
+            )
         return csv
 
     def test_parse_tags(self):
@@ -198,7 +217,23 @@ class TestCSVParser(TestCase):
 
         # Result tags must be in the same order of the file
         for index in range(0, len(expected_tags)):
-            self.assertEqual(tags[index].id, expected_tags[index].get('id'))
-            self.assertEqual(tags[index].value, expected_tags[index].get('value'))
-            self.assertEqual(tags[index].parent_id, expected_tags[index].get('parent_id'))
-            self.assertEqual(tags[index].action, expected_tags[index].get('action'))
+            self.assertEqual(
+                tags[index].id,
+                expected_tags[index].get('id')
+            )
+            self.assertEqual(
+                tags[index].value,
+                expected_tags[index].get('value')
+            )
+            self.assertEqual(
+                tags[index].parent_id,
+                expected_tags[index].get('parent_id')
+            )
+            self.assertEqual(
+                tags[index].action,
+                expected_tags[index].get('action')
+            )
+            self.assertEqual(
+                tags[index].index,
+                index + CSVParser.inital_row
+            )

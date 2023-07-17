@@ -1,8 +1,8 @@
 from django.utils.translation import gettext_lazy as _
 
 class ImportError(Exception):
-    def __init__(self, **kargs):
-        self.message = _(f"Import error")
+    def __init__(self, message:str='', **kargs):
+        self.message = message
 
     def __str__(self):
         return str(self.message)
@@ -11,6 +11,28 @@ class ImportError(Exception):
 class ParserError(ImportError):
     def __init__(self, tag: str, **kargs):
         self.message = _(f"Import error on {tag}")
+
+
+class ActionError(ImportError):
+    def __init__(self, action: str, tag_id: str, message: str, **kargs):
+        self.message = _(
+            f"Action error in '{action.name}' (#{action.index}) in tag ({tag_id}): {message}"
+        )
+
+
+class ActionConflict(ActionError):
+    def __init__(
+        self,
+        action: str,
+        tag_id: str,
+        conflict_action_index: int,
+        message: str,
+        **kargs
+    ):
+        self.message = _(
+            f"Conflict with '{action.name}' (#{action.index}) in tag ({tag_id})"
+            f" and action #{conflict_action_index}: {message}"
+        )
 
 
 class InvalidFormat(ParserError):

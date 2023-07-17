@@ -42,7 +42,7 @@ class Parser:
     missing_field_error = ParserError
     # We can change the error when a required field is empty
     empty_field_error = ParserError
-    # We can change the initial row
+    # We can change the initial row/index
     inital_row = 1
 
     @classmethod
@@ -103,6 +103,7 @@ class Parser:
                     ))
                     has_error = True
             
+            tag["index"] = row
             row += 1
 
             # Skip parse if there is an error
@@ -139,6 +140,7 @@ class JSONParser(Parser):
     format = ParserFormat.JSON
     missing_field_error = FieldJSONError
     empty_field_error = EmptyJSONField
+    inital_row = 0
 
     @classmethod
     def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[ParserError]]:
