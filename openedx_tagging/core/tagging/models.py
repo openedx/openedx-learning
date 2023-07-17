@@ -7,8 +7,6 @@ from django.utils.translation import gettext_lazy as _
 
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
 
-from .registry import cast_object_tag, register_object_tag_class
-
 # Maximum depth allowed for a hierarchical taxonomy's tree of tags.
 TAXONOMY_MAX_DEPTH = 3
 
@@ -153,14 +151,6 @@ class Taxonomy(models.Model):
             "Indicates whether this taxonomy should be visible to object authors."
         ),
     )
-    _object_tag_class = models.CharField(
-        null=True,
-        max_length=255,
-        help_text=_(
-            "Overrides the default ObjectTag subclass associated with this taxonomy."
-            "Must be a fully-qualified module and class name.",
-        ),
-    )
 
     class Meta:
         verbose_name_plural = "Taxonomies"
@@ -176,34 +166,6 @@ class Taxonomy(models.Model):
         User-facing string representation of a Taxonomy.
         """
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
-
-    @property
-    def object_tag_class(self) -> Type:
-        """
-        Returns the ObjectTag subclass associated with this taxonomy, or None if none supplied.
-
-        May raise ImportError if a custom object_tag_class cannot be imported.
-        """
-        if self._object_tag_class:
-            return import_string(self._object_tag_class)
-        return None
-
-    @object_tag_class.setter
-    def object_tag_class(self, object_tag_class: Type):
-        """
-        Assigns the given object_tag_class's module path.class to the field.
-
-        Raises ValueError if the given `object_tag_class` is a built-in class; it should be an ObjectTag-like class.
-        """
-        if object_tag_class.__module__ == "builtins":
-            raise ValueError(
-                f"object_tag_class {object_tag_class} must be class like ObjectTag"
-            )
-
-        # ref: https://stackoverflow.com/a/2020083
-        self._object_tag_class = ".".join(
-            [object_tag_class.__module__, object_tag_class.__qualname__]
-        )
 
     def get_tags(self) -> List[Tag]:
         """
@@ -302,6 +264,14 @@ class ObjectTag(models.Model):
             " If the tag field is set, then tag.value takes precedence over this field."
         ),
     )
+    _object_tag_class = models.CharField(
+        null=True,
+        max_length=255,
+        help_text=_(
+            "Overrides the ObjectTag subclass used to instantiate this ObjectTag."
+            "Must be a fully-qualified module and class name.",
+        ),
+    )
 
     class Meta:
         indexes = [
@@ -364,6 +334,48 @@ class ObjectTag(models.Model):
         """
         return self.tag.id if self.tag_id else self._value
 
+    @property
+    def object_tag_class(self) -> Type:
+        """
+        Returns the ObjectTag subclass associated with this ObjectTag, or None if none supplied.
+
+        May raise ImportError if a custom object_tag_class cannot be imported.
+        """
+        if self._object_tag_class:
+            return import_string(self._object_tag_class)
+        return None
+
+    @object_tag_class.setter
+    def object_tag_class(self, object_tag_class: Type):
+        """
+        Assigns the given object_tag_class's module path.class to the field.
+
+        Raises ValueError if the given `object_tag_class` is a built-in class; it should be an ObjectTag-like class.
+        """
+        if object_tag_class.__module__ == "builtins":
+            raise ValueError(
+                f"object_tag_class {object_tag_class} must be class like ObjectTag"
+            )
+
+        # ref: https://stackoverflow.com/a/2020083
+        self._object_tag_class = ".".join(
+            [object_tag_class.__module__, object_tag_class.__qualname__]
+        )
+
+    def cast_object_tag(self):
+        """
+        Returns the current object tag cast into its object_tag_class.
+        """
+        try:
+            ObjectTagClass = self.object_tag_class
+            if ObjectTagClass:
+                return ObjectTagClass().copy(self)
+        except ImportError:
+            # Log error and continue
+            log.exception(f"Unable to import custom object_tag_class for {taxonomy}")
+
+        return self
+
     def copy(self, object_tag: "ObjectTag") -> "ObjectTag":
         """
         Copy the fields from the given ObjectTag into the current instance.
@@ -388,27 +400,38 @@ class ObjectTag(models.Model):
 
     def _check_taxonomy(self):
         """
-        Always returns True.
+        Returns True if this ObjectTag is linked to a taxonomy.
 
-        Subclasses should override this method to perform validation for the particular type of object tag.
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
         """
-        return True
+        # Must be linked to a free-text taxonomy
+        return self.taxonomy_id
 
     def _check_tag(self):
         """
-        Always returns True.
+        Returns True if this ObjectTag has a valid tag value.
 
-        Subclasses should override this method to perform validation for the particular type of object tag.
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
         """
-        return True
+        return self.taxonomy_id and (
+            # Open taxonomies only need a value.
+            (self.taxonomy.allow_free_text and bool(self._value))
+            or
+            # Closed taxonomies need an associated tag in their taxonomy.
+            (
+                not self.taxonomy.allow_free_text
+                and bool(self.tag_id)
+                and self.taxonomy_id == self.tag.taxonomy_id
+            )
+        )
 
     def _check_object(self):
         """
-        Always returns True.
+        Returns True if this ObjectTag has a valid object.
 
-        Subclasses should override this method to perform validation for the particular type of object tag.
+        Subclasses should override this method to perform any additional validation for the particular type of object tag.
         """
-        return True
+        return self.object_id and self.object_type
 
     def is_valid(self, check_taxonomy=True, check_tag=True, check_object=True) -> bool:
         """
@@ -446,31 +469,29 @@ class ObjectTag(models.Model):
 
         # Locate an enabled taxonomy matching _name, and maybe a tag matching _value
         if not self.taxonomy_id:
-            for taxonomy in Taxonomy.objects.filter(
-                name=self.name, enabled=True
-            ).order_by("allow_free_text", "id"):
-                # Closed taxonomies require a tag matching _value,
-                # and we'd rather match a closed taxonomy than an open one.
-                # So see if there's a matching tag available in this taxonomy.
-                tag = self.tag or taxonomy.tag_set.filter(value=self.value).first()
+            # Use the linked tag's taxonomy if there is one.
+            if self.tag_id:
+                self.taxonomy_id = self.tag.taxonomy_id
+                changed = True
+            else:
+                for taxonomy in Taxonomy.objects.filter(
+                    name=self.name, enabled=True
+                ).order_by("allow_free_text", "id"):
+                    # Closed taxonomies require a tag matching _value,
+                    # and we'd rather match a closed taxonomy than an open one.
+                    # So see if there's a matching tag available in this taxonomy.
+                    tag = taxonomy.tag_set.filter(value=self.value).first()
 
-                # Make sure this taxonomy will accept object tags like this.
-                test_object_tag = cast_object_tag(
-                    ObjectTag(
-                        taxonomy=taxonomy,
-                        tag=tag,
-                        object_id=self.object_id,
-                        object_type=self.object_type,
-                        _name=self.name,
-                        _value=self.value,
-                    )
-                )
-                if test_object_tag:
-                    self.taxonomy = taxonomy
-                    self.tag = tag
-                    changed = True
-                    break
-                # If not, try the next one
+                    # Make sure this taxonomy will accept object tags like this.
+                    object_tag = self.cast_object_tag()
+                    object_tag.taxonomy = taxonomy
+                    object_tag.tag = tag
+                    if object_tag.is_valid():
+                        self.taxonomy = taxonomy
+                        self.tag = tag
+                        changed = True
+                        break
+                    # If not, try the next one
 
         # Sync the stored _name with the taxonomy.name
         if self.taxonomy_id and self._name != self.taxonomy.name:
@@ -490,95 +511,3 @@ class ObjectTag(models.Model):
             changed = True
 
         return changed
-
-
-class OpenObjectTag(ObjectTag):
-    """
-    Free-text object tag.
-
-    Only needs a free-text taxonomy and a value to be valid.
-    """
-
-    class Meta:
-        proxy = True
-
-    def _check_taxonomy(self):
-        """
-        Returns True if this ObjectTag has a valid taxonomy.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-        """
-        # Must be linked to a free-text taxonomy
-        return self.taxonomy_id and self.taxonomy.allow_free_text
-
-    def _check_tag(self):
-        """
-        Returns True if this ObjectTag has a valid tag value.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-        """
-        # Open taxonomies don't need an associated tag, but we need a value.
-        return bool(self._value)
-
-    def _check_object(self):
-        """
-        Returns True if this ObjectTag has a valid object.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-        """
-        # Must have a valid object id/type:
-        return self.object_id and self.object_type
-
-
-class ClosedObjectTag(OpenObjectTag):
-    """
-    Object tags linked to a closed taxonomy, where the available tag value options are known.
-    """
-
-    class Meta:
-        proxy = True
-
-    def _check_taxonomy(self):
-        """
-        Returns True if this ObjectTag is linked to a closed taxonomy.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-        """
-        # Must be linked to a closed taxonomy
-        return self.taxonomy_id and not self.taxonomy.allow_free_text
-
-    def _check_tag(self):
-        """
-        Returns True if this ObjectTag has a valid tag.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-        """
-        # Closed taxonomies require a Tag
-        return bool(self.tag_id)
-
-    def is_valid(self, check_taxonomy=True, check_tag=True, check_object=True) -> bool:
-        """
-        Returns True if this ObjectTag is valid for use with a closed taxonomy.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-
-        If `check_taxonomy` is False, then we skip validating the object tag's taxonomy reference.
-        If `check_tag` is False, then we skip validating the object tag's tag reference.
-        If `check_object` is False, then we skip validating the object ID/type.
-        """
-        if not super().is_valid(
-            check_taxonomy=check_taxonomy,
-            check_tag=check_tag,
-            check_object=check_object,
-        ):
-            return False
-
-        if check_tag and check_taxonomy and (self.tag.taxonomy_id != self.taxonomy_id):
-            return False
-
-        return True
-
-
-# Register the ObjectTag subclasses in reverse order of how we want them considered.
-register_object_tag_class(OpenObjectTag)
-register_object_tag_class(ClosedObjectTag)

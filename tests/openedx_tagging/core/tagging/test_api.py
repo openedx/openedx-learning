@@ -27,17 +27,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert getattr(taxonomy, param) == value
         assert not taxonomy.system_defined
         assert taxonomy.visible_to_authors
-        assert taxonomy.object_tag_class is None
-
-    def test_create_taxonomy_bad_object_tag_class(self):
-        with self.assertRaises(ValueError) as exc:
-            tagging_api.create_taxonomy(
-                name="invalid",
-                object_tag_class=str,
-            )
-        assert "object_tag_class <class 'str'> must be class like ObjectTag" in str(
-            exc.exception
-        )
 
     def test_get_taxonomy(self):
         tax1 = tagging_api.get_taxonomy(1)
@@ -345,8 +334,21 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             beta,
         ]
 
+    def test_bad_object_tag_class(self):
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                taxonomy=self.taxonomy,
+                tags=[self.bacteria.id],
+                object_id="anthropology101",
+                object_type="course",
+                object_tag_class=str,
+            )
+        assert "object_tag_class <class 'str'> must be class like ObjectTag" in str(
+            exc.exception
+        )
+
     def test_cast_object_tag(self):
-        # Create a valid ClosedObjectTag
+        # Create a valid ObjectTag in a closed taxonomy
         assert not self.taxonomy.allow_free_text
         object_tag = ObjectTag.objects.create(
             object_id="object:id:1",
@@ -358,28 +360,5 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert (
             str(object_tag)
             == repr(object_tag)
-            == "<ClosedObjectTag> object:id:1 (life): Life on Earth=Bacteria"
-        )
-
-        # Check that changing the taxonomy to an open taxonomy changes the object tag class
-        open_taxonomy = tagging_api.create_taxonomy(
-            name="Freetext Life",
-            allow_free_text=True,
-        )
-        object_tag.taxonomy = open_taxonomy
-        object_tag.value = "Bacterium"
-        object_tag = tagging_api.cast_object_tag(object_tag)
-        assert (
-            str(object_tag)
-            == repr(object_tag)
-            == "<OpenObjectTag> object:id:1 (life): Freetext Life=Bacteria"
-        )
-
-        # Check that explicitly changing the object_tag_class also works
-        object_tag.taxonomy.object_tag_class = ObjectTag
-        object_tag = tagging_api.cast_object_tag(object_tag)
-        assert (
-            str(object_tag)
-            == repr(object_tag)
-            == "<ObjectTag> object:id:1 (life): Freetext Life=Bacteria"
+            == "<ObjectTag> object:id:1 (life): Life on Earth=Bacteria"
         )

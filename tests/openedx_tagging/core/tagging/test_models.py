@@ -3,14 +3,7 @@
 import ddt
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import (
-    ClosedObjectTag,
-    ObjectTag,
-    OpenObjectTag,
-    Tag,
-    Taxonomy,
-    cast_object_tag,
-)
+from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 
 
 def get_tag(value):
@@ -143,15 +136,6 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         with self.assertNumQueries(2):
             assert taxonomy.get_tags() == tags
 
-    def test_get_object_tag_class_invalid(self):
-        taxonomy = Taxonomy.objects.create(
-            name="invalid",
-            _object_tag_class="not.a.valid.class",
-        )
-        # cast_object_tag will fall back to ObjectTag if invalid.
-        object_tag = cast_object_tag(ObjectTag(taxonomy=taxonomy))
-        assert object_tag is None
-
 
 class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
     """
@@ -226,51 +210,50 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         assert object_tag.get_lineage() == ["Another tag"]
 
     def test_object_tag_is_valid(self):
-        # ObjectTags are always valid
-        object_tag = ObjectTag()
-        assert object_tag.is_valid()
-
         open_taxonomy = Taxonomy.objects.create(
             name="Freetext Life",
             allow_free_text=True,
         )
 
-        # OpenObjectTags are valid with a free-text taxonomy and a value
-        object_tag = OpenObjectTag(
+        # ObjectTags in a free-text taxonomy are valid with a value
+        object_tag = ObjectTag(
             taxonomy=self.taxonomy,
         )
-        assert not object_tag.is_valid(
+        assert object_tag.is_valid(
             check_taxonomy=True, check_tag=False, check_object=False
         )
         assert not object_tag.is_valid(
-            check_taxonomy=False, check_tag=True, check_object=False
+            check_taxonomy=True, check_tag=True, check_object=False
         )
         assert not object_tag.is_valid(
-            check_taxonomy=False, check_tag=False, check_object=True
-        )
-        object_tag.object_id = "object:id"
-        object_tag.object_type = "life"
-        object_tag.value = "Any text we want"
-        object_tag.taxonomy = open_taxonomy
-        assert object_tag.is_valid()
-
-        # ClosedObjectTags require a closed taxonomy and a tag in that taxonomy
-        object_tag = ClosedObjectTag(
-            taxonomy=open_taxonomy,
-        )
-        assert not object_tag.is_valid(
-            check_taxonomy=True, check_tag=False, check_object=False
-        )
-        assert not object_tag.is_valid(
-            check_taxonomy=False, check_tag=True, check_object=False
-        )
-        assert not object_tag.is_valid(
-            check_taxonomy=False, check_tag=False, check_object=True
+            check_taxonomy=True, check_tag=False, check_object=True
         )
         object_tag.object_id = "object:id"
         object_tag.object_type = "life"
         assert object_tag.is_valid(
-            check_taxonomy=False, check_tag=False, check_object=True
+            check_taxonomy=True, check_tag=False, check_object=True
+        )
+        object_tag.value = "Any text we want"
+        object_tag.taxonomy = open_taxonomy
+        assert object_tag.is_valid()
+
+        # ObjectTags in a closed taxonomy require a tag in that taxonomy
+        object_tag = ObjectTag(
+            taxonomy=open_taxonomy,
+        )
+        assert object_tag.is_valid(
+            check_taxonomy=True, check_tag=False, check_object=False
+        )
+        assert not object_tag.is_valid(
+            check_taxonomy=True, check_tag=True, check_object=False
+        )
+        assert not object_tag.is_valid(
+            check_taxonomy=True, check_tag=False, check_object=True
+        )
+        object_tag.object_id = "object:id"
+        object_tag.object_type = "life"
+        assert object_tag.is_valid(
+            check_taxonomy=True, check_tag=False, check_object=True
         )
         object_tag.taxonomy = self.taxonomy
         object_tag.tag = Tag.objects.create(
@@ -279,13 +262,4 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         )
         assert not object_tag.is_valid()
         object_tag.tag = self.tag
-        assert object_tag.is_valid(
-            check_taxonomy=False, check_tag=False, check_object=True
-        )
-        assert object_tag.is_valid(
-            check_taxonomy=False, check_tag=True, check_object=True
-        )
-        assert object_tag.is_valid(
-            check_taxonomy=True, check_tag=False, check_object=True
-        )
         assert object_tag.is_valid()
