@@ -1,3 +1,6 @@
+"""
+Actions for import tags
+"""
 from typing import List
 
 from django.utils.translation import gettext_lazy as _
@@ -11,12 +14,15 @@ class ImportAction:
     Base class to create actions    
     """
 
-    name = ''
+    name = 'import_action'
 
     def __init__(self, taxonomy: Taxonomy, tag, index: int):
         self.taxonomy = taxonomy
         self.tag = tag
         self.index = index
+
+    def __repr__(self):
+        return f"Action {self.name} (index={self.index},id={self.tag.id})"
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -57,11 +63,9 @@ class ImportAction:
         """
         Validates if the parent is created
         """
-
-        # Validates that the parent exists on the taxonomy
         try:
+            # Validates that the parent exists on the taxonomy
             self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
-            return None
         except Tag.DoesNotExist:
             # Or if the parent is created on previous actions
             if not self._search_action(indexed_actions, CreateTag.name, 'id', self.tag.parent_id):
@@ -69,8 +73,8 @@ class ImportAction:
                     action=self,
                     tag_id=self.tag.id,
                     message=_(
-                        f"Unknown parent tag ({self.tag.parent_id})."
-                        "You need to add parent before the child in your file"
+                        f"Unknown parent tag ({self.tag.parent_id}). "
+                        "You need to add parent before the child in your file."
                     )
                 )
 
@@ -85,7 +89,7 @@ class ImportAction:
             return ActionError(
                 action=self,
                 tag_id=self.tag.id,
-                message=_(f"Duplicated tag value with tag ({tag.id})")
+                message=_(f"Duplicated tag value with tag (pk={tag.id}).")
             )
         except Tag.DoesNotExist:
             # Validates value duplication on create actions
@@ -108,9 +112,9 @@ class ImportAction:
             if action:
                 return ActionConflict(
                     action=self,
-                    tag_id=self.tag_id,
+                    tag_id=self.tag.id,
                     conflict_action_index=action.index,
-                    message=_("Duplicated tag value")
+                    message=_("Duplicated tag value.")
                 )
 
 class CreateTag(ImportAction):
@@ -153,9 +157,9 @@ class CreateTag(ImportAction):
         if action:
             return ActionConflict(
                 action=self,
-                tag_id=self.tag_id,
+                tag_id=self.tag.id,
                 conflict_action_index=action.index,
-                message=_("Duplicated id tag")
+                message=_("Duplicated id tag.")
             )
 
     def validate(self, indexed_actions) -> List[ActionError]:
@@ -307,7 +311,7 @@ class DeleteTag(ImportAction):
         No validations necessary
         """
         # TODO: Will it be necessary to check if this tag has children?
-        return True
+        return []
 
     def execute(self):
         pass
@@ -326,21 +330,20 @@ class WithoutChanges(ImportAction):
         """
         No validations necessary
         """
-        return True
+        return False
 
 
     def validate(self, indexed_actions) -> List[ActionError]:
         """
         No validations necessary
         """
-        return True
+        return []
 
     def execute(self):
         pass
 
 
-# Register actions here in the order in which you want to check
-# 'WithoutChanges' action goes last always
+# Register actions here in the order in which you want to check.
 available_actions = [
     UpdateParentTag,
     RenameTag,

@@ -10,12 +10,12 @@ from .dsl import TagImportDSL
 def import_tags(
     taxonomy: Taxonomy,
     file: BytesIO,
-    format: ParserFormat,
+    parser_format: ParserFormat,
     replace=False,
     execute=False,
 ):
     # Get the parser and parse the file
-    parser = get_parser(format)
+    parser = get_parser(parser_format)
     tags, errors = parser.parse_import(file)
 
     # Check if there are errors in the parse
@@ -24,11 +24,7 @@ def import_tags(
     
     # Generate the actions
     dsl = TagImportDSL()
-    errors = dsl.generate_actions(tags, taxonomy, replace)
-
-    # Check if there are inconsistent actions or errors
-    if errors:
-        return errors
+    dsl.generate_actions(tags, taxonomy, replace)
     
     # Execute the plan
     if execute:

@@ -1,9 +1,18 @@
-from typing import List
+"""
+Model and functions to create a plan/execution with DSL actions.
+"""
+from typing import List, Optional
 
 from django.utils.translation import gettext_lazy as _
 
-from ..models import Taxonomy
-from .actions import DeleteTag, ImportAction, UpdateParentTag, available_actions
+from ..models import Taxonomy, Tag
+from .actions import (
+    DeleteTag,
+    ImportAction,
+    UpdateParentTag,
+    WithoutChanges,
+    available_actions,
+)
 
 
 class TagDSL:
@@ -12,15 +21,15 @@ class TagDSL:
     """
     id: str
     value: str
-    parent_id: str
-    action: str
-    index: int
+    index: Optional[int]
+    parent_id: Optional[str]
+    action: Optional[str]
 
     def __init__(
         self,
         id: str,
         value: str,
-        index: str,
+        index: str=0,
         parent_id: str=None,
         action: str=None,
     ):
@@ -32,6 +41,10 @@ class TagDSL:
 
     
 class TagImportDSL:
+    """
+    Class with functions to build an import plan and excute the plan
+    """
+
     actions: List[ImportAction]
     indexed_actions: dict
     actions_dict: dict
@@ -41,8 +54,14 @@ class TagImportDSL:
         self.actions = []
         self.errors = []
         self.taxonomy = taxonomy
-        self.indexed_actions = {}
         self.actions_dict = {}
+        self._init_indexed_actions()
+
+    def _init_indexed_actions(self):
+        """
+        Initialize the `indexed_actions` dict
+        """
+        self.indexed_actions = {}
         for action in available_actions:
             self.indexed_actions[action.name] = []
 
@@ -56,7 +75,7 @@ class TagImportDSL:
         action = action_cls(self.taxonomy, tag, len(self.actions))
 
         # We validate if there are no inconsistencies when executing this action
-        self.errors.append(action.validate(self.indexed_actions))
+        self.errors.extend(action.validate(self.indexed_actions))
 
         # Add action
         self.actions.append(action)
@@ -64,12 +83,12 @@ class TagImportDSL:
         # Index the actions for search
         self.indexed_actions[action.name].append(action)
 
-    def _delete_tags(self, tags: List[str]):
+    def _build_delete_actions(self, tags: dict):
         """
-        Delete `tags`
+        Adds delete actions for `tags`
         """
-        for tag in tags:
-            for child in tag.children:
+        for tag in tags.values():
+            for child in tag.children.all():
                 if child.external_id not in tags:
                     # If the child is not to be removed, 
                     # then update its parent
@@ -87,6 +106,8 @@ class TagImportDSL:
                 DeleteTag,
                 TagDSL(
                     id=tag.external_id,
+                    value=tag.value,
+
                 )
             )
 
@@ -100,29 +121,41 @@ class TagImportDSL:
         
         Validates each action and create respective errors
         If `replace` is True, then deletes the tags that have not been read
+
+        TODO: Missing join/reduce actions. Ex. A tag may have no changes, 
+        but then its parent needs to be updated because its parent is deleted.
+        Those two actions should be merged.
         """
         self.actions.clear()
         self.errors.clear()
+        self._init_indexed_actions()
         tags_for_delete = {}
 
         if replace:
             tags_for_delete = {
                 tag.external_id: tag
-                for tag in self.taxonomy.tag_set
+                for tag in self.taxonomy.tag_set.all()
             }
 
         for tag in tags:
+            has_action = False
+
             # Check all available actions and add which ones should be executed
             for action_cls in available_actions:
                 if action_cls.valid_for(self.taxonomy, tag):
                     self._build_action(action_cls, tag)
+                    has_action = True
+            
+            if not has_action:
+                # If it doesn't find an action, a "without changes" is added
+                self._build_action(WithoutChanges, tag)
 
             if replace:
                 tags_for_delete.pop(tag.id)
 
         if replace:
             # Delete all not readed tags
-            self._delete_tags(tags_for_delete)
+            self._build_delete_actions(tags_for_delete)
 
     def execute(self) -> List[ImportError]:
         pass

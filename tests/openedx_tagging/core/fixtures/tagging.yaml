@@ -173,6 +173,34 @@
     parent: null
     value: System Tag 4
     external_id: 'tag_4'
+- model: oel_tagging.tag
+  pk: 26
+  fields:  
+    taxonomy: 3
+    parent: null
+    value: Tag 1
+    external_id: tag_1
+- model: oel_tagging.tag
+  pk: 27
+  fields:
+    taxonomy: 5
+    parent: 26
+    value: Tag 2
+    external_id: tag_2
+- model: oel_tagging.tag
+  pk: 28
+  fields:
+    taxonomy: 5
+    parent: null
+    value: Tag 3
+    external_id: tag_3
+- model: oel_tagging.tag
+  pk: 29
+  fields:
+    taxonomy: 5
+    parent: 28
+    value: Tag 4
+    external_id: tag_4
 - model: oel_tagging.taxonomy
   pk: 1
   fields:
@@ -202,3 +230,13 @@
     allow_multiple: false
     allow_free_text: false
     _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.SystemDefinedTaxonomy
+- model: oel_tagging.taxonomy
+  pk: 5
+  fields:
+    name: Import Taxonomy Test
+    description: null
+    enabled: true
+    required: false
+    allow_multiple: false
+    allow_free_text: false
+    

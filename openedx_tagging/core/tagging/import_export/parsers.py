@@ -213,18 +213,18 @@ _parsers = [
 ]
 
 
-def get_parser(format: ParserFormat) -> Parser:
+def get_parser(parser_format: ParserFormat) -> Parser:
     """
     Get the parser for the respective `format`
 
     Raise `ValueError` if no parser found
     """
     for parser in _parsers:
-        if format == parser.format:
+        if parser_format == parser.format:
             return parser
 
     raise ValueError(
         _(
-            f"Parser not found for format {format}"
+            f"Parser not found for format {parser_format}"
         )
     )

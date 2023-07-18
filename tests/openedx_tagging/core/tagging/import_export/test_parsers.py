@@ -21,10 +21,10 @@ class TestParser(TestCase):
     """
 
     def test_get_parser(self):
-        for format in ParserFormat:
-            parser = get_parser(format)
-            self.assertEqual(parser.format, format)
-        
+        for parser_format in ParserFormat:
+            parser = get_parser(parser_format)
+            self.assertEqual(parser.format, parser_format)
+
     def test_parser_not_found(self):
         with self.assertRaises(ValueError):
             get_parser(None)
@@ -108,22 +108,22 @@ class TestJSONParser(TestCase):
         self.assertEqual(len(tags), 4)
 
         # Result tags must be in the same order of the file
-        for index in range(0, len(expected_tags)):
+        for index, expected_tag in enumerate(expected_tags):
             self.assertEqual(
                 tags[index].id,
-                expected_tags[index].get('id')
+                expected_tag.get('id')
             )
             self.assertEqual(
                 tags[index].value,
-                expected_tags[index].get('value')
+                expected_tag.get('value')
             )
             self.assertEqual(
                 tags[index].parent_id,
-                expected_tags[index].get('parent_id')
+                expected_tag.get('parent_id')
             )
             self.assertEqual(
                 tags[index].action,
-                expected_tags[index].get('action')
+                expected_tag.get('action')
             )
             self.assertEqual(
                 tags[index].index,
@@ -135,7 +135,7 @@ class TestCSVParser(TestCase):
     """
     Test for .csv parser
     """
-    
+
     @ddt.data(
         (
             "value\n",
@@ -193,6 +193,9 @@ class TestCSVParser(TestCase):
             self.assertIn(str(error), expected_errors)
 
     def _build_csv(self, tags):
+        """
+        Builds a csv from 'tags' dict
+        """
         csv = "id,value,parent_id,action\n"
         for tag in tags:
             csv += (
@@ -211,27 +214,27 @@ class TestCSVParser(TestCase):
         csv_data = self._build_csv(expected_tags)
         csv_file = BytesIO(csv_data.encode())
         tags, errors = CSVParser.parse_import(csv_file)
-        
+
         self.assertEqual(len(errors), 0)
         self.assertEqual(len(tags), 4)
 
         # Result tags must be in the same order of the file
-        for index in range(0, len(expected_tags)):
+        for index, expected_tag in enumerate(expected_tags):
             self.assertEqual(
                 tags[index].id,
-                expected_tags[index].get('id')
+                expected_tag.get('id')
             )
             self.assertEqual(
                 tags[index].value,
-                expected_tags[index].get('value')
+                expected_tag.get('value')
             )
             self.assertEqual(
                 tags[index].parent_id,
-                expected_tags[index].get('parent_id')
+                expected_tag.get('parent_id')
             )
             self.assertEqual(
                 tags[index].action,
-                expected_tags[index].get('action')
+                expected_tag.get('action')
             )
             self.assertEqual(
                 tags[index].index,
