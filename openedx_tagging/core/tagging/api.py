@@ -25,11 +25,12 @@ def create_taxonomy(
     required=False,
     allow_multiple=False,
     allow_free_text=False,
+    taxonomy_class: Type = None,
 ) -> Taxonomy:
     """
     Creates, saves, and returns a new Taxonomy with the given attributes.
     """
-    taxonomy = Taxonomy.objects.create(
+    taxonomy = Taxonomy(
         name=name,
         description=description,
         enabled=enabled,
@@ -37,19 +38,27 @@ def create_taxonomy(
         allow_multiple=allow_multiple,
         allow_free_text=allow_free_text,
     )
-    return taxonomy
+    if taxonomy_class:
+        taxonomy.taxonomy_class = taxonomy_class
+    taxonomy.save()
+    return taxonomy.cast()
 
 
 def get_taxonomy(id: int) -> Union[Taxonomy, None]:
     """
-    Returns a Taxonomy of the appropriate subclass which has the given ID.
+    Returns a Taxonomy cast to the appropriate subclass which has the given ID.
     """
-    return Taxonomy.objects.filter(id=id).first()
+    taxonomy = Taxonomy.objects.filter(id=id).first()
+    return taxonomy.cast() if taxonomy else None
 
 
 def get_taxonomies(enabled=True) -> QuerySet:
     """
     Returns a queryset containing the enabled taxonomies, sorted by name.
+
+    We return a QuerySet here for ease of use with Django Rest Framework and other query-based use cases.
+    So be sure to use `Taxonomy.cast()` to cast these instances to the appropriate subclass before use.
+
     If you want the disabled taxonomies, pass enabled=False.
     If you want all taxonomies (both enabled and disabled), pass enabled=None.
     """
@@ -65,14 +74,7 @@ def get_tags(taxonomy: Taxonomy) -> List[Tag]:
 
     Note that if the taxonomy allows free-text tags, then the returned list will be empty.
     """
-    return taxonomy.get_tags()
-
-
-def cast_object_tag(object_tag: ObjectTag) -> ObjectTag:
-    """
-    Casts/copies the given object tag data into the ObjectTag subclass most appropriate for this tag.
-    """
-    return object_tag.cast_object_tag()
+    return taxonomy.cast().get_tags()
 
 
 def resync_object_tags(object_tags: QuerySet = None) -> int:
@@ -85,8 +87,7 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
         object_tags = ObjectTag.objects.select_related("tag", "taxonomy")
 
     num_changed = 0
-    for tag in object_tags:
-        object_tag = cast_object_tag(tag)
+    for object_tag in object_tags:
         changed = object_tag.resync()
         if changed:
             object_tag.save()
@@ -95,7 +96,7 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
 
 
 def get_object_tags(
-    object_id: str, object_type: str = None, taxonomy: Taxonomy = None, valid_only=True
+    object_id: str, taxonomy: Taxonomy = None, valid_only=True
 ) -> Iterator[ObjectTag]:
     """
     Generates a list of object tags for a given object.
@@ -112,13 +113,10 @@ def get_object_tags(
         .select_related("tag", "taxonomy")
         .order_by("id")
     )
-    if object_type:
-        tags = tags.filter(object_type=object_type)
     if taxonomy:
         tags = tags.filter(taxonomy=taxonomy)
 
-    for tag in tags:
-        object_tag = cast_object_tag(tag)
+    for object_tag in tags:
         if not valid_only or object_tag.is_valid():
             yield object_tag
 
@@ -127,8 +125,6 @@ def tag_object(
     taxonomy: Taxonomy,
     tags: List,
     object_id: str,
-    object_type: str,
-    object_tag_class: Type = None,
 ) -> List[ObjectTag]:
     """
     Replaces the existing ObjectTag entries for the given taxonomy + object_id with the given list of tags.
@@ -139,58 +135,4 @@ def tag_object(
     Raised ValueError if the proposed tags are invalid for this taxonomy.
     Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
     """
-
-    if not taxonomy.allow_multiple and len(tags) > 1:
-        raise ValueError(_(f"Taxonomy ({taxonomy.id}) only allows one tag per object."))
-
-    if taxonomy.required and len(tags) == 0:
-        raise ValueError(
-            _(f"Taxonomy ({taxonomy.id}) requires at least one tag per object.")
-        )
-
-    current_tags = {
-        tag.tag_ref: tag
-        for tag in ObjectTag.objects.filter(
-            taxonomy=taxonomy, object_id=object_id, object_type=object_type
-        )
-    }
-    updated_tags = []
-    for tag_ref in tags:
-        if tag_ref in current_tags:
-            object_tag = cast_object_tag(current_tags.pop(tag_ref))
-        else:
-            try:
-                tag = taxonomy.tag_set.get(
-                    id=tag_ref,
-                )
-                value = tag.value
-            except (ValueError, Tag.DoesNotExist):
-                # This might be ok, e.g. if taxonomy.allow_free_text.
-                # We'll validate below before saving.
-                tag = None
-                value = tag_ref
-
-            object_tag = ObjectTag(
-                taxonomy=taxonomy,
-                object_id=object_id,
-                object_type=object_type,
-                tag=tag,
-                value=value,
-                name=taxonomy.name,
-            )
-            if object_tag_class:
-                object_tag.object_tag_class = object_tag_class
-                object_tag = cast_object_tag(object_tag)
-
-        object_tag.resync()
-        updated_tags.append(object_tag)
-
-    # Save all updated tags at once to avoid partial updates
-    for object_tag in updated_tags:
-        object_tag.save()
-
-    # ...and delete any omitted existing tags
-    for old_tag in current_tags.values():
-        old_tag.delete()
-
-    return updated_tags
+    return taxonomy.cast().tag_object(tags, object_id)

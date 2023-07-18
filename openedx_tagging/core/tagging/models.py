@@ -1,11 +1,15 @@
 """ Tagging app data models """
-from typing import List, Type
+import logging
+from typing import List, Type, Union
 
 from django.db import models
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
+
+log = logging.getLogger(__name__)
+
 
 # Maximum depth allowed for a hierarchical taxonomy's tree of tags.
 TAXONOMY_MAX_DEPTH = 3
@@ -151,6 +155,14 @@ class Taxonomy(models.Model):
             "Indicates whether this taxonomy should be visible to object authors."
         ),
     )
+    _taxonomy_class = models.CharField(
+        null=True,
+        max_length=255,
+        help_text=_(
+            "Taxonomy subclass used to instantiate this instance."
+            "Must be a fully-qualified module and class name.",
+        ),
+    )
 
     class Meta:
         verbose_name_plural = "Taxonomies"
@@ -166,6 +178,71 @@ class Taxonomy(models.Model):
         User-facing string representation of a Taxonomy.
         """
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
+
+    @property
+    def taxonomy_class(self) -> Type:
+        """
+        Returns the Taxonomy subclass associated with this instance, or None if none supplied.
+
+        May raise ImportError if a custom taxonomy_class cannot be imported.
+        """
+        if self._taxonomy_class:
+            return import_string(self._taxonomy_class)
+        return None
+
+    @taxonomy_class.setter
+    def taxonomy_class(self, taxonomy_class: Union[Type, None]):
+        """
+        Assigns the given taxonomy_class's module path.class to the field.
+
+        Raises ValueError if the given `taxonomy_class` is a built-in class; it should be a Taxonomy-like class.
+        """
+        if taxonomy_class:
+            if taxonomy_class.__module__ == "builtins":
+                raise ValueError(
+                    f"Unable to assign taxonomy_class for {self}: {taxonomy_class} must be a class like Taxonomy"
+                )
+
+            # ref: https://stackoverflow.com/a/2020083
+            self._taxonomy_class = ".".join(
+                [taxonomy_class.__module__, taxonomy_class.__qualname__]
+            )
+        else:
+            self._taxonomy_class = None
+
+    def cast(self):
+        """
+        Returns the current Taxonomy instance cast into its taxonomy_class.
+
+        If no taxonomy_class is set, then just returns self.
+        """
+        try:
+            TaxonomyClass = self.taxonomy_class
+            if TaxonomyClass and not isinstance(self, TaxonomyClass):
+                return TaxonomyClass().copy(self)
+        except ImportError:
+            # Log error and continue
+            log.exception(
+                f"Unable to import taxonomy_class for {self}: {self._taxonomy_class}"
+            )
+
+        return self
+
+    def copy(self, taxonomy: "Taxonomy") -> "Taxonomy":
+        """
+        Copy the fields from the given Taxonomy into the current instance.
+        """
+        self.id = taxonomy.id
+        self.name = taxonomy.name
+        self.description = taxonomy.description
+        self.enabled = taxonomy.enabled
+        self.required = taxonomy.required
+        self.allow_multiple = taxonomy.allow_multiple
+        self.allow_free_text = taxonomy.allow_free_text
+        self.system_defined = taxonomy.system_defined
+        self.visible_to_authors = taxonomy.visible_to_authors
+        self._taxonomy_class = taxonomy._taxonomy_class
+        return self
 
     def get_tags(self) -> List[Tag]:
         """
@@ -201,6 +278,137 @@ class Taxonomy(models.Model):
                 break
         return tags
 
+    def validate_object_tag(
+        self,
+        object_tag: "ObjectTag",
+        check_taxonomy=True,
+        check_tag=True,
+        check_object=True,
+    ) -> bool:
+        """
+        Returns True if the given object tag is valid for the current Taxonomy.
+
+        Subclasses should override the internal _validate* methods to perform their own validation checks, e.g. against
+        dynamically generated tag lists.
+
+        If `check_taxonomy` is False, then we skip validating the object tag's taxonomy reference.
+        If `check_tag` is False, then we skip validating the object tag's tag reference.
+        If `check_object` is False, then we skip validating the object ID/type.
+        """
+        if check_taxonomy and not self._check_taxonomy(object_tag):
+            return False
+
+        if check_tag and not self._check_tag(object_tag):
+            return False
+
+        if check_object and not self._check_object(object_tag):
+            return False
+
+        return True
+
+    def _check_taxonomy(
+        self,
+        object_tag: "ObjectTag",
+    ) -> bool:
+        """
+        Returns True if the given object tag is valid for the current Taxonomy.
+
+        Subclasses can override this method to perform their own taxonomy validation checks.
+        """
+        # Must be linked to this taxonomy
+        return object_tag.taxonomy_id and object_tag.taxonomy_id == self.id
+
+    def _check_tag(
+        self,
+        object_tag: "ObjectTag",
+    ) -> bool:
+        """
+        Returns True if the given object tag's value is valid for the current Taxonomy.
+
+        Subclasses can override this method to perform their own taxonomy validation checks.
+        """
+        # Open taxonomies only need a value.
+        if self.allow_free_text:
+            return bool(object_tag.value)
+
+        # Closed taxonomies need an associated tag in this taxonomy
+        return object_tag.tag_id and object_tag.tag.taxonomy_id == self.id
+
+    def _check_object(
+        self,
+        object_tag: "ObjectTag",
+    ) -> bool:
+        """
+        Returns True if the given object tag's object is valid for the current Taxonomy.
+
+        Subclasses can override this method to perform their own taxonomy validation checks.
+        """
+        return bool(object_tag.object_id)
+
+    def tag_object(
+        self,
+        tags: List,
+        object_id: str,
+    ) -> List["ObjectTag"]:
+        """
+        Replaces the existing ObjectTag entries for the current taxonomy + object_id with the given list of tags.
+        If self.allows_free_text, then the list should be a list of tag values.
+        Otherwise, it should be a list of existing Tag IDs.
+        Raised ValueError if the proposed tags are invalid for this taxonomy.
+        Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
+        """
+
+        if not self.allow_multiple and len(tags) > 1:
+            raise ValueError(_(f"Taxonomy ({self.id}) only allows one tag per object."))
+
+        if self.required and len(tags) == 0:
+            raise ValueError(
+                _(f"Taxonomy ({self.id}) requires at least one tag per object.")
+            )
+
+        current_tags = {
+            tag.tag_ref: tag
+            for tag in ObjectTag.objects.filter(
+                taxonomy=self,
+                object_id=object_id,
+            )
+        }
+        updated_tags = []
+        for tag_ref in tags:
+            if tag_ref in current_tags:
+                object_tag = current_tags.pop(tag_ref)
+            else:
+                object_tag = ObjectTag(
+                    taxonomy=self,
+                    object_id=object_id,
+                )
+
+            try:
+                object_tag.tag = self.tag_set.get(
+                    id=tag_ref,
+                )
+            except (ValueError, Tag.DoesNotExist):
+                # This might be ok, e.g. if self.allow_free_text.
+                # We'll validate below before saving.
+                object_tag.value = tag_ref
+
+            object_tag.resync()
+            if not self.validate_object_tag(object_tag):
+                raise ValueError(
+                    _(f"Invalid object tag for taxonomy ({self.id}): {tag_ref}")
+                )
+            updated_tags.append(object_tag)
+
+        # Save all updated tags at once to avoid partial updates
+        for object_tag in updated_tags:
+            object_tag.save()
+
+        # ...and delete any omitted existing tags
+        for old_tag in current_tags.values():
+            old_tag.delete()
+
+        return updated_tags
+
 
 class ObjectTag(models.Model):
     """
@@ -223,11 +431,8 @@ class ObjectTag(models.Model):
     id = models.BigAutoField(primary_key=True)
     object_id = case_insensitive_char_field(
         max_length=255,
+        editable=False,
         help_text=_("Identifier for the object being tagged"),
-    )
-    object_type = case_insensitive_char_field(
-        max_length=255,
-        help_text=_("Type of object being tagged"),
     )
     taxonomy = models.ForeignKey(
         Taxonomy,
@@ -264,14 +469,6 @@ class ObjectTag(models.Model):
             " If the tag field is set, then tag.value takes precedence over this field."
         ),
     )
-    _object_tag_class = models.CharField(
-        null=True,
-        max_length=255,
-        help_text=_(
-            "Overrides the ObjectTag subclass used to instantiate this ObjectTag."
-            "Must be a fully-qualified module and class name.",
-        ),
-    )
 
     class Meta:
         indexes = [
@@ -288,7 +485,7 @@ class ObjectTag(models.Model):
         """
         User-facing string representation of an ObjectTag.
         """
-        return f"<{self.__class__.__name__}> {self.object_id} ({self.object_type}): {self.name}={self.value}"
+        return f"<{self.__class__.__name__}> {self.object_id}: {self.name}={self.value}"
 
     @property
     def name(self) -> str:
@@ -334,60 +531,13 @@ class ObjectTag(models.Model):
         """
         return self.tag.id if self.tag_id else self._value
 
-    @property
-    def object_tag_class(self) -> Type:
+    def is_valid(self) -> bool:
         """
-        Returns the ObjectTag subclass associated with this ObjectTag, or None if none supplied.
+        Returns True if this ObjectTag represents a valid taxonomy tag.
 
-        May raise ImportError if a custom object_tag_class cannot be imported.
+        A valid ObjectTag must be linked to a Taxonomy, and be a valid tag in that taxonomy.
         """
-        if self._object_tag_class:
-            return import_string(self._object_tag_class)
-        return None
-
-    @object_tag_class.setter
-    def object_tag_class(self, object_tag_class: Type):
-        """
-        Assigns the given object_tag_class's module path.class to the field.
-
-        Raises ValueError if the given `object_tag_class` is a built-in class; it should be an ObjectTag-like class.
-        """
-        if object_tag_class.__module__ == "builtins":
-            raise ValueError(
-                f"object_tag_class {object_tag_class} must be class like ObjectTag"
-            )
-
-        # ref: https://stackoverflow.com/a/2020083
-        self._object_tag_class = ".".join(
-            [object_tag_class.__module__, object_tag_class.__qualname__]
-        )
-
-    def cast_object_tag(self):
-        """
-        Returns the current object tag cast into its object_tag_class.
-        """
-        try:
-            ObjectTagClass = self.object_tag_class
-            if ObjectTagClass:
-                return ObjectTagClass().copy(self)
-        except ImportError:
-            # Log error and continue
-            log.exception(f"Unable to import custom object_tag_class for {taxonomy}")
-
-        return self
-
-    def copy(self, object_tag: "ObjectTag") -> "ObjectTag":
-        """
-        Copy the fields from the given ObjectTag into the current instance.
-        """
-        self.id = object_tag.id
-        self.object_id = object_tag.object_id
-        self.object_type = object_tag.object_type
-        self.taxonomy = object_tag.taxonomy
-        self.tag = object_tag.tag
-        self._name = object_tag._name
-        self._value = object_tag._value
-        return self
+        return self.taxonomy_id and self.taxonomy.validate_object_tag(self)
 
     def get_lineage(self) -> Lineage:
         """
@@ -398,60 +548,6 @@ class ObjectTag(models.Model):
         """
         return self.tag.get_lineage() if self.tag_id else [self._value]
 
-    def _check_taxonomy(self):
-        """
-        Returns True if this ObjectTag is linked to a taxonomy.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-        """
-        # Must be linked to a free-text taxonomy
-        return self.taxonomy_id
-
-    def _check_tag(self):
-        """
-        Returns True if this ObjectTag has a valid tag value.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-        """
-        return self.taxonomy_id and (
-            # Open taxonomies only need a value.
-            (self.taxonomy.allow_free_text and bool(self._value))
-            or
-            # Closed taxonomies need an associated tag in their taxonomy.
-            (
-                not self.taxonomy.allow_free_text
-                and bool(self.tag_id)
-                and self.taxonomy_id == self.tag.taxonomy_id
-            )
-        )
-
-    def _check_object(self):
-        """
-        Returns True if this ObjectTag has a valid object.
-
-        Subclasses should override this method to perform any additional validation for the particular type of object tag.
-        """
-        return self.object_id and self.object_type
-
-    def is_valid(self, check_taxonomy=True, check_tag=True, check_object=True) -> bool:
-        """
-        Returns True if this ObjectTag is valid.
-
-        If `check_taxonomy` is False, then we skip validating the object tag's taxonomy reference.
-        If `check_tag` is False, then we skip validating the object tag's tag reference.
-        If `check_object` is False, then we skip validating the object ID/type.
-        """
-        if check_taxonomy and not self._check_taxonomy():
-            return False
-
-        if check_tag and not self._check_tag():
-            return False
-
-        if check_object and not self._check_object():
-            return False
-
-        return True
-
     def resync(self) -> bool:
         """
         Reconciles the stored ObjectTag properties with any changes made to its associated taxonomy or tag.
@@ -460,8 +556,6 @@ class ObjectTag(models.Model):
 
         It's also useful for a set of ObjectTags are imported from an external source prior to when a Taxonomy exists to
         validate or store its available Tags.
-
-        Subclasses may override this method to perform any additional syncing for the particular type of object tag.
 
         Returns True if anything was changed, False otherwise.
         """
@@ -477,21 +571,24 @@ class ObjectTag(models.Model):
                 for taxonomy in Taxonomy.objects.filter(
                     name=self.name, enabled=True
                 ).order_by("allow_free_text", "id"):
+                    # Cast to the subclass to preserve custom validation
+                    taxonomy = taxonomy.cast()
+
                     # Closed taxonomies require a tag matching _value,
                     # and we'd rather match a closed taxonomy than an open one.
                     # So see if there's a matching tag available in this taxonomy.
                     tag = taxonomy.tag_set.filter(value=self.value).first()
 
                     # Make sure this taxonomy will accept object tags like this.
-                    object_tag = self.cast_object_tag()
-                    object_tag.taxonomy = taxonomy
-                    object_tag.tag = tag
-                    if object_tag.is_valid():
-                        self.taxonomy = taxonomy
-                        self.tag = tag
+                    self.taxonomy = taxonomy
+                    self.tag = tag
+                    if taxonomy.validate_object_tag(self):
                         changed = True
                         break
-                    # If not, try the next one
+                    # If not, undo those changes and try the next one
+                    else:
+                        self.taxonomy = None
+                        self.tag = None
 
         # Sync the stored _name with the taxonomy.name
         if self.taxonomy_id and self._name != self.taxonomy.name:
@@ -511,3 +608,22 @@ class ObjectTag(models.Model):
             changed = True
 
         return changed
+
+    @classmethod
+    def cast(cls, object_tag: "ObjectTag") -> "ObjectTag":
+        """
+        Returns a cls instance with the same properties as the given ObjectTag.
+        """
+        return cls().copy(object_tag)
+
+    def copy(self, object_tag: "ObjectTag") -> "ObjectTag":
+        """
+        Copy the fields from the given Taxonomy into the current instance.
+        """
+        self.id = object_tag.id
+        self.tag = object_tag.tag
+        self.taxonomy = object_tag.taxonomy
+        self.object_id = object_tag.object_id
+        self._value = object_tag._value
+        self._name = object_tag._name
+        return self

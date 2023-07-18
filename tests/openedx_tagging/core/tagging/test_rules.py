@@ -37,7 +37,6 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
             taxonomy=self.taxonomy,
             tag=self.bacteria,
         )
-        self.object_tag.resync()
         self.object_tag.save()
 
     # Taxonomy
