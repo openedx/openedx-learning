@@ -111,7 +111,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
             self.assertEqual(
                 str(error),
                 (
-                    "Action error in 'import_action' (#100) in tag (tag_110): "
+                    "Action error in 'import_action' (#100): "
                     "Unknown parent tag (tag_100). "
                     "You need to add parent before the child in your file."
                 )
@@ -121,21 +121,21 @@ class TestImportAction(TestImportActionMixin, TestCase):
         (
             'Tag 1',
             (
-                "Action error in 'import_action' (#100) in tag (tag_110): "
-                "Duplicated tag value with tag (pk=22)."
+                "Action error in 'import_action' (#100): "
+                "Duplicated tag value with tag (id=22)."
             )
         ),
         (
             'Tag 10',
             (
-                "Conflict with 'import_action' (#100) in tag (tag_110) "
+                "Conflict with 'import_action' (#100) "
                 "and action #0: Duplicated tag value."
             )
         ),
         (
             'Tag 11',
             (
-                "Conflict with 'import_action' (#100) in tag (tag_110) "
+                "Conflict with 'import_action' (#100) "
                 "and action #1: Duplicated tag value."
             )
         ),
@@ -203,8 +203,8 @@ class TestCreateTag(TestImportActionMixin, TestCase):
             self.assertEqual(
                 str(error),
                 (
-                    f"Conflict with 'create' (#100) in tag ({tag_id}) "
-                    "and action #0: Duplicated id tag."
+                    "Conflict with 'create' (#100) "
+                    "and action #0: Duplicated external_id tag."
                 )
             )
 

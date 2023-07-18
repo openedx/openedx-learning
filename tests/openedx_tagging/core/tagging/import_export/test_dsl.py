@@ -201,3 +201,110 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
             self.assertEqual(self.dsl.actions[index].name, action['name'])
             self.assertEqual(self.dsl.actions[index].tag.id, action['id'])
             self.assertEqual(self.dsl.actions[index].index, index)
+
+    @ddt.data(
+        ([
+            {
+                'id': 'tag_31',
+                'value': 'Tag 31',
+            },
+            {
+                'id': 'tag_31',
+                'value': 'Tag 32',
+            },
+            {
+                'id': 'tag_1',
+                'value': 'Tag 2',
+            },
+            {
+                'id': 'tag_4',
+                'value': 'Tag 4',
+                'parent_id': 'tag_100',
+            },
+            {
+                'id': 'tag_33',
+                'value': 'Tag 32',
+            },
+            {
+                'id': 'tag_2',
+                'value': 'Tag 31',
+            },
+        ],
+        False,
+        "Plan\n"
+        "--------------------------------\n"
+        "#0: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
+        "#1: Create a new tag with values (external_id=tag_31, value=Tag 32, parent_id=None).\n"
+        "#2: Rename tag value of tag (id=22) from 'Tag 1' to 'Tag 2'\n"
+        "#3: Update the parent of tag (id=25) from parent (external_id=tag_3) to parent (external_id=tag_100).\n"
+        "#4: Create a new tag with values (external_id=tag_33, value=Tag 32, parent_id=None).\n"
+        "#5: Update the parent of tag (id=23) from parent (external_id=tag_1) to parent (external_id=None).\n"
+        "#6: Rename tag value of tag (id=23) from 'Tag 2' to 'Tag 31'\n"
+        "Output errors\n"
+        "--------------------------------\n"
+        "Conflict with 'create' (#1) and action #0: Duplicated external_id tag.\n"
+        "Action error in 'rename' (#2): Duplicated tag value with tag (id=23).\n"
+        "Action error in 'update_parent' (#3): Unknown parent tag (tag_100). "
+        "You need to add parent before the child in your file.\n"
+        "Conflict with 'create' (#4) and action #1: Duplicated tag value.\n"
+        "Conflict with 'rename' (#6) and action #0: Duplicated tag value.\n"
+        ),
+        ([
+            {
+                 'id': 'tag_31',
+                'value': 'Tag 31',
+            },
+            {
+                'id': 'tag_32',
+                'value': 'Tag 32',
+                'parent_id': 'tag_1',
+            },
+            {
+                'id': 'tag_2',
+                'value': 'Tag 2 v2',
+                'parent_id': 'tag_1'
+            },
+            {
+                'id': 'tag_4',
+                'value': 'Tag 4 v2',
+                'parent_id': 'tag_1',
+            },
+            {
+                'id': 'tag_1',
+                'value': 'Tag 1',
+            },
+        ],
+        False,
+        "Plan\n"
+        "--------------------------------\n"
+        "#0: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
+        "#1: Create a new tag with values (external_id=tag_32, value=Tag 32, parent_id=tag_1).\n"
+        "#2: Rename tag value of tag (id=23) from 'Tag 2' to 'Tag 2 v2'\n"
+        "#3: Update the parent of tag (id=25) from parent (external_id=tag_3) to parent (external_id=tag_1).\n"
+        "#4: Rename tag value of tag (id=25) from 'Tag 4' to 'Tag 4 v2'\n"
+        "#5: No changes needed for tag (external_id=tag_1)\n"
+        ),
+        ([
+            {
+                'id': 'tag_4',
+                'value': 'Tag 4',
+                'parent_id': 'tag_3',
+            },
+        ],
+        True,
+        "Plan\n"
+        "--------------------------------\n"
+        "#0: No changes needed for tag (external_id=tag_4)\n"
+        "#1: Delete tag (id=22)\n"
+        "#2: Delete tag (id=23)\n"
+        "#3: Update the parent of tag (id=25) from parent (external_id=tag_3) to parent (external_id=None).\n"
+        "#4: Delete tag (id=24)\n"
+        )
+    )
+    @ddt.unpack
+    def test_plan(self, tags, replace, expected):
+        tags = [TagDSL(**tag) for tag in tags]
+        self.dsl.generate_actions(tags=tags, replace=replace)
+        plan = self.dsl.plan()
+        print(plan)
+        self.assertEqual(plan, expected)

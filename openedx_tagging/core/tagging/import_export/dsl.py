@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from django.utils.translation import gettext_lazy as _
 
-from ..models import Taxonomy, Tag
+from ..models import Taxonomy
 from .actions import (
     DeleteTag,
     ImportAction,
@@ -160,5 +160,23 @@ class TagImportDSL:
     def execute(self) -> List[ImportError]:
         pass
 
-    def plan(self) -> List[str]:
-        pass
+    def plan(self) -> str:
+        """
+        Returns an string with the plan and errors
+        """
+        result = (
+            "Plan\n"
+            "--------------------------------\n"
+        )
+        for action in self.actions:
+            result += f"#{action.index}: {str(action)}\n"
+
+        if self.errors:
+            result += (
+                "Output errors\n"
+                "--------------------------------\n"
+            )
+            for error in self.errors:
+                result += f"{str(error)}\n"
+
+        return result

@@ -22,7 +22,10 @@ class ImportAction:
         self.index = index
 
     def __repr__(self):
-        return f"Action {self.name} (index={self.index},id={self.tag.id})"
+        return _(f"Action {self.name} (index={self.index},id={self.tag.id})")
+    
+    def __str__(self):
+        return str(self.__repr__)
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -89,7 +92,7 @@ class ImportAction:
             return ActionError(
                 action=self,
                 tag_id=self.tag.id,
-                message=_(f"Duplicated tag value with tag (pk={tag.id}).")
+                message=_(f"Duplicated tag value with tag (id={tag.id}).")
             )
         except Tag.DoesNotExist:
             # Validates value duplication on create actions
@@ -133,6 +136,13 @@ class CreateTag(ImportAction):
 
     name = 'create'
 
+    def __str__(self):
+        return str(_(
+            "Create a new tag with values "
+            f"(external_id={self.tag.id}, value={self.tag.value}, "
+            f"parent_id={self.tag.parent_id})."
+        ))
+
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
@@ -159,7 +169,7 @@ class CreateTag(ImportAction):
                 action=self,
                 tag_id=self.tag.id,
                 conflict_action_index=action.index,
-                message=_("Duplicated id tag.")
+                message=_("Duplicated external_id tag.")
             )
 
     def validate(self, indexed_actions) -> List[ActionError]:
@@ -202,6 +212,18 @@ class UpdateParentTag(ImportAction):
     """
 
     name = 'update_parent'
+
+    def __str__(self):
+        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id) 
+        if not taxonomy_tag.parent:
+            from_str = _("from empty parent")
+        else:
+            from_str = _(f"from parent (external_id={taxonomy_tag.parent.external_id})")
+
+        return str(_(
+            f"Update the parent of tag (id={taxonomy_tag.id}) "
+            f"{from_str} to parent (external_id={self.tag.parent_id})."
+        ))
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -254,6 +276,13 @@ class RenameTag(ImportAction):
 
     name = 'rename'
 
+    def __str__(self):
+        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id) 
+        return str(_(
+            f"Rename tag value of tag (id={taxonomy_tag.id}) "
+            f"from '{taxonomy_tag.value}' to '{self.tag.value}'"            
+        ))
+
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
@@ -293,6 +322,12 @@ class DeleteTag(ImportAction):
     Does not require validations
     """
 
+    def __str__(self):
+        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id) 
+        return str(_(
+            f"Delete tag (id={taxonomy_tag.id})"
+        ))
+
     name = 'delete'
 
     @classmethod
@@ -324,6 +359,11 @@ class WithoutChanges(ImportAction):
     """
 
     name = 'without_changes'
+
+    def __str__(self):
+        return str(_(
+            f"No changes needed for tag (external_id={self.tag.id})"
+        ))
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:

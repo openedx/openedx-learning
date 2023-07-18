@@ -19,7 +19,7 @@ class ParserError(ImportError):
 class ActionError(ImportError):
     def __init__(self, action: str, tag_id: str, message: str, **kargs):
         self.message = _(
-            f"Action error in '{action.name}' (#{action.index}) in tag ({tag_id}): {message}"
+            f"Action error in '{action.name}' (#{action.index}): {message}"
         )
 
 
@@ -33,8 +33,8 @@ class ActionConflict(ActionError):
         **kargs
     ):
         self.message = _(
-            f"Conflict with '{action.name}' (#{action.index}) in tag ({tag_id})"
-            f" and action #{conflict_action_index}: {message}"
+            f"Conflict with '{action.name}' (#{action.index}) "
+            f"and action #{conflict_action_index}: {message}"
         )
 
 
