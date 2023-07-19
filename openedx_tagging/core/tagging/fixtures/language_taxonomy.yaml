@@ -1,1286 +1,1286 @@
 - model: oel_tagging.tag
-  pk: 1
+  pk: -1
   fields:
     taxonomy: 1
     parent: null
     value: Afar
     external_id: aa
 - model: oel_tagging.tag
-  pk: 2
+  pk: -2
   fields:
     taxonomy: 1
     parent: null
     value: Abkhazian
     external_id: ab
 - model: oel_tagging.tag
-  pk: 3
+  pk: -3
   fields:
     taxonomy: 1
     parent: null
     value: Avestan
     external_id: ae
 - model: oel_tagging.tag
-  pk: 4
+  pk: -4
   fields:
     taxonomy: 1
     parent: null
     value: Afrikaans
     external_id: af
 - model: oel_tagging.tag
-  pk: 5
+  pk: -5
   fields:
     taxonomy: 1
     parent: null
     value: Akan
     external_id: ak
 - model: oel_tagging.tag
-  pk: 6
+  pk: -6
   fields:
     taxonomy: 1
     parent: null
     value: Amharic
     external_id: am
 - model: oel_tagging.tag
-  pk: 7
+  pk: -7
   fields:
     taxonomy: 1
     parent: null
     value: Aragonese
     external_id: an
 - model: oel_tagging.tag
-  pk: 8
+  pk: -8
   fields:
     taxonomy: 1
     parent: null
     value: Arabic
     external_id: ar
 - model: oel_tagging.tag
-  pk: 9
+  pk: -9
   fields:
     taxonomy: 1
     parent: null
     value: Assamese
     external_id: as
 - model: oel_tagging.tag
-  pk: 10
+  pk: -10
   fields:
     taxonomy: 1
     parent: null
     value: Avaric
     external_id: av
 - model: oel_tagging.tag
-  pk: 11
+  pk: -11
   fields:
     taxonomy: 1
     parent: null
     value: Aymara
     external_id: ay
 - model: oel_tagging.tag
-  pk: 12
+  pk: -12
   fields:
     taxonomy: 1
     parent: null
     value: Azerbaijani
     external_id: az
 - model: oel_tagging.tag
-  pk: 13
+  pk: -13
   fields:
     taxonomy: 1
     parent: null
     value: Bashkir
     external_id: ba
 - model: oel_tagging.tag
-  pk: 14
+  pk: -14
   fields:
     taxonomy: 1
     parent: null
     value: Belarusian
     external_id: be
 - model: oel_tagging.tag
-  pk: 15
+  pk: -15
   fields:
     taxonomy: 1
     parent: null
     value: Bulgarian
     external_id: bg
 - model: oel_tagging.tag
-  pk: 16
+  pk: -16
   fields:
     taxonomy: 1
     parent: null
     value: Bihari languages
     external_id: bh
 - model: oel_tagging.tag
-  pk: 17
+  pk: -17
   fields:
     taxonomy: 1
     parent: null
     value: Bislama
     external_id: bi
 - model: oel_tagging.tag
-  pk: 18
+  pk: -18
   fields:
     taxonomy: 1
     parent: null
     value: Bambara
     external_id: bm
 - model: oel_tagging.tag
-  pk: 19
+  pk: -19
   fields:
     taxonomy: 1
     parent: null
     value: Bengali
     external_id: bn
 - model: oel_tagging.tag
-  pk: 20
+  pk: -20
   fields:
     taxonomy: 1
     parent: null
     value: Tibetan
     external_id: bo
 - model: oel_tagging.tag
-  pk: 21
+  pk: -21
   fields:
     taxonomy: 1
     parent: null
     value: Breton
     external_id: br
 - model: oel_tagging.tag
-  pk: 22
+  pk: -22
   fields:
     taxonomy: 1
     parent: null
     value: Bosnian
     external_id: bs
 - model: oel_tagging.tag
-  pk: 23
+  pk: -23
   fields:
     taxonomy: 1
     parent: null
     value: Catalan
     external_id: ca
 - model: oel_tagging.tag
-  pk: 24
+  pk: -24
   fields:
     taxonomy: 1
     parent: null
     value: Chechen
     external_id: ce
 - model: oel_tagging.tag
-  pk: 25
+  pk: -25
   fields:
     taxonomy: 1
     parent: null
     value: Chamorro
     external_id: ch
 - model: oel_tagging.tag
-  pk: 26
+  pk: -26
   fields:
     taxonomy: 1
     parent: null
     value: Corsican
     external_id: co
 - model: oel_tagging.tag
-  pk: 27
+  pk: -27
   fields:
     taxonomy: 1
     parent: null
     value: Cree
     external_id: cr
 - model: oel_tagging.tag
-  pk: 28
+  pk: -28
   fields:
     taxonomy: 1
     parent: null
     value: Czech
     external_id: cs
 - model: oel_tagging.tag
-  pk: 29
+  pk: -29
   fields:
     taxonomy: 1
     parent: null
     value: Church Slavic
     external_id: cu
 - model: oel_tagging.tag
-  pk: 30
+  pk: -30
   fields:
     taxonomy: 1
     parent: null
     value: Chuvash
     external_id: cv
 - model: oel_tagging.tag
-  pk: 31
+  pk: -31
   fields:
     taxonomy: 1
     parent: null
     value: Welsh
     external_id: cy
 - model: oel_tagging.tag
-  pk: 32
+  pk: -32
   fields:
     taxonomy: 1
     parent: null
     value: Danish
     external_id: da
 - model: oel_tagging.tag
-  pk: 33
+  pk: -33
   fields:
     taxonomy: 1
     parent: null
     value: German
     external_id: de
 - model: oel_tagging.tag
-  pk: 34
+  pk: -34
   fields:
     taxonomy: 1
     parent: null
     value: Divehi
     external_id: dv
 - model: oel_tagging.tag
-  pk: 35
+  pk: -35
   fields:
     taxonomy: 1
     parent: null
     value: Dzongkha
     external_id: dz
 - model: oel_tagging.tag
-  pk: 36
+  pk: -36
   fields:
     taxonomy: 1
     parent: null
     value: Ewe
     external_id: ee
 - model: oel_tagging.tag
-  pk: 37
+  pk: -37
   fields:
     taxonomy: 1
     parent: null
     value: Greek, Modern (1453-)
     external_id: el
 - model: oel_tagging.tag
-  pk: 38
+  pk: -38
   fields:
     taxonomy: 1
     parent: null
     value: English
     external_id: en
 - model: oel_tagging.tag
-  pk: 39
+  pk: -39
   fields:
     taxonomy: 1
     parent: null
     value: Esperanto
     external_id: eo
 - model: oel_tagging.tag
-  pk: 40
+  pk: -40
   fields:
     taxonomy: 1
     parent: null
     value: Spanish
     external_id: es
 - model: oel_tagging.tag
-  pk: 41
+  pk: -41
   fields:
     taxonomy: 1
     parent: null
     value: Estonian
     external_id: et
 - model: oel_tagging.tag
-  pk: 42
+  pk: -42
   fields:
     taxonomy: 1
     parent: null
     value: Basque
     external_id: eu
 - model: oel_tagging.tag
-  pk: 43
+  pk: -43
   fields:
     taxonomy: 1
     parent: null
     value: Persian
     external_id: fa
 - model: oel_tagging.tag
-  pk: 44
+  pk: -44
   fields:
     taxonomy: 1
     parent: null
     value: Fulah
     external_id: ff
 - model: oel_tagging.tag
-  pk: 45
+  pk: -45
   fields:
     taxonomy: 1
     parent: null
     value: Finnish
     external_id: fi
 - model: oel_tagging.tag
-  pk: 46
+  pk: -46
   fields:
     taxonomy: 1
     parent: null
     value: Fijian
     external_id: fj
 - model: oel_tagging.tag
-  pk: 47
+  pk: -47
   fields:
     taxonomy: 1
     parent: null
     value: Faroese
     external_id: fo
 - model: oel_tagging.tag
-  pk: 48
+  pk: -48
   fields:
     taxonomy: 1
     parent: null
     value: French
     external_id: fr
 - model: oel_tagging.tag
-  pk: 49
+  pk: -49
   fields:
     taxonomy: 1
     parent: null
     value: Western Frisian
     external_id: fy
 - model: oel_tagging.tag
-  pk: 50
+  pk: -50
   fields:
     taxonomy: 1
     parent: null
     value: Irish
     external_id: ga
 - model: oel_tagging.tag
-  pk: 51
+  pk: -51
   fields:
     taxonomy: 1
     parent: null
     value: Gaelic
     external_id: gd
 - model: oel_tagging.tag
-  pk: 52
+  pk: -52
   fields:
     taxonomy: 1
     parent: null
     value: Galician
     external_id: gl
 - model: oel_tagging.tag
-  pk: 53
+  pk: -53
   fields:
     taxonomy: 1
     parent: null
     value: Guarani
     external_id: gn
 - model: oel_tagging.tag
-  pk: 54
+  pk: -54
   fields:
     taxonomy: 1
     parent: null
     value: Gujarati
     external_id: gu
 - model: oel_tagging.tag
-  pk: 55
+  pk: -55
   fields:
     taxonomy: 1
     parent: null
     value: Manx
     external_id: gv
 - model: oel_tagging.tag
-  pk: 56
+  pk: -56
   fields:
     taxonomy: 1
     parent: null
     value: Hausa
     external_id: ha
 - model: oel_tagging.tag
-  pk: 57
+  pk: -57
   fields:
     taxonomy: 1
     parent: null
     value: Hebrew
     external_id: he
 - model: oel_tagging.tag
-  pk: 58
+  pk: -58
   fields:
     taxonomy: 1
     parent: null
     value: Hindi
     external_id: hi
 - model: oel_tagging.tag
-  pk: 59
+  pk: -59
   fields:
     taxonomy: 1
     parent: null
     value: Hiri Motu
     external_id: ho
 - model: oel_tagging.tag
-  pk: 60
+  pk: -60
   fields:
     taxonomy: 1
     parent: null
     value: Croatian
     external_id: hr
 - model: oel_tagging.tag
-  pk: 61
+  pk: -61
   fields:
     taxonomy: 1
     parent: null
     value: Haitian
     external_id: ht
 - model: oel_tagging.tag
-  pk: 62
+  pk: -62
   fields:
     taxonomy: 1
     parent: null
     value: Hungarian
     external_id: hu
 - model: oel_tagging.tag
-  pk: 63
+  pk: -63
   fields:
     taxonomy: 1
     parent: null
     value: Armenian
     external_id: hy
 - model: oel_tagging.tag
-  pk: 64
+  pk: -64
   fields:
     taxonomy: 1
     parent: null
     value: Herero
     external_id: hz
 - model: oel_tagging.tag
-  pk: 65
+  pk: -65
   fields:
     taxonomy: 1
     parent: null
     value: Interlingua (International Auxiliary Language Association)
     external_id: ia
 - model: oel_tagging.tag
-  pk: 66
+  pk: -66
   fields:
     taxonomy: 1
     parent: null
     value: Indonesian
     external_id: id
 - model: oel_tagging.tag
-  pk: 67
+  pk: -67
   fields:
     taxonomy: 1
     parent: null
     value: Interlingue
     external_id: ie
 - model: oel_tagging.tag
-  pk: 68
+  pk: -68
   fields:
     taxonomy: 1
     parent: null
     value: Igbo
     external_id: ig
 - model: oel_tagging.tag
-  pk: 69
+  pk: -69
   fields:
     taxonomy: 1
     parent: null
     value: Sichuan Yi
     external_id: ii
 - model: oel_tagging.tag
-  pk: 70
+  pk: -70
   fields:
     taxonomy: 1
     parent: null
     value: Inupiaq
     external_id: ik
 - model: oel_tagging.tag
-  pk: 71
+  pk: -71
   fields:
     taxonomy: 1
     parent: null
     value: Ido
     external_id: io
 - model: oel_tagging.tag
-  pk: 72
+  pk: -72
   fields:
     taxonomy: 1
     parent: null
     value: Icelandic
     external_id: is
 - model: oel_tagging.tag
-  pk: 73
+  pk: -73
   fields:
     taxonomy: 1
     parent: null
     value: Italian
     external_id: it
 - model: oel_tagging.tag
-  pk: 74
+  pk: -74
   fields:
     taxonomy: 1
     parent: null
     value: Inuktitut
     external_id: iu
 - model: oel_tagging.tag
-  pk: 75
+  pk: -75
   fields:
     taxonomy: 1
     parent: null
     value: Japanese
     external_id: ja
 - model: oel_tagging.tag
-  pk: 76
+  pk: -76
   fields:
     taxonomy: 1
     parent: null
     value: Javanese
     external_id: jv
 - model: oel_tagging.tag
-  pk: 77
+  pk: -77
   fields:
     taxonomy: 1
     parent: null
     value: Georgian
     external_id: ka
 - model: oel_tagging.tag
-  pk: 78
+  pk: -78
   fields:
     taxonomy: 1
     parent: null
     value: Kongo
     external_id: kg
 - model: oel_tagging.tag
-  pk: 79
+  pk: -79
   fields:
     taxonomy: 1
     parent: null
     value: Kikuyu
     external_id: ki
 - model: oel_tagging.tag
-  pk: 80
+  pk: -80
   fields:
     taxonomy: 1
     parent: null
     value: Kuanyama
     external_id: kj
 - model: oel_tagging.tag
-  pk: 81
+  pk: -81
   fields:
     taxonomy: 1
     parent: null
     value: Kazakh
     external_id: kk
 - model: oel_tagging.tag
-  pk: 82
+  pk: -82
   fields:
     taxonomy: 1
     parent: null
     value: Kalaallisut
     external_id: kl
 - model: oel_tagging.tag
-  pk: 83
+  pk: -83
   fields:
     taxonomy: 1
     parent: null
     value: Central Khmer
     external_id: km
 - model: oel_tagging.tag
-  pk: 84
+  pk: -84
   fields:
     taxonomy: 1
     parent: null
     value: Kannada
     external_id: kn
 - model: oel_tagging.tag
-  pk: 85
+  pk: -85
   fields:
     taxonomy: 1
     parent: null
     value: Korean
     external_id: ko
 - model: oel_tagging.tag
-  pk: 86
+  pk: -86
   fields:
     taxonomy: 1
     parent: null
     value: Kanuri
     external_id: kr
 - model: oel_tagging.tag
-  pk: 87
+  pk: -87
   fields:
     taxonomy: 1
     parent: null
     value: Kashmiri
     external_id: ks
 - model: oel_tagging.tag
-  pk: 88
+  pk: -88
   fields:
     taxonomy: 1
     parent: null
     value: Kurdish
     external_id: ku
 - model: oel_tagging.tag
-  pk: 89
+  pk: -89
   fields:
     taxonomy: 1
     parent: null
     value: Komi
     external_id: kv
 - model: oel_tagging.tag
-  pk: 90
+  pk: -90
   fields:
     taxonomy: 1
     parent: null
     value: Cornish
     external_id: kw
 - model: oel_tagging.tag
-  pk: 91
+  pk: -91
   fields:
     taxonomy: 1
     parent: null
     value: Kirghiz
     external_id: ky
 - model: oel_tagging.tag
-  pk: 92
+  pk: -92
   fields:
     taxonomy: 1
     parent: null
     value: Latin
     external_id: la
 - model: oel_tagging.tag
-  pk: 93
+  pk: -93
   fields:
     taxonomy: 1
     parent: null
     value: Luxembourgish
     external_id: lb
 - model: oel_tagging.tag
-  pk: 94
+  pk: -94
   fields:
     taxonomy: 1
     parent: null
     value: Ganda
     external_id: lg
 - model: oel_tagging.tag
-  pk: 95
+  pk: -95
   fields:
     taxonomy: 1
     parent: null
     value: Limburgan
     external_id: li
 - model: oel_tagging.tag
-  pk: 96
+  pk: -96
   fields:
     taxonomy: 1
     parent: null
     value: Lingala
     external_id: ln
 - model: oel_tagging.tag
-  pk: 97
+  pk: -97
   fields:
     taxonomy: 1
     parent: null
     value: Lao
     external_id: lo
 - model: oel_tagging.tag
-  pk: 98
+  pk: -98
   fields:
     taxonomy: 1
     parent: null
     value: Lithuanian
     external_id: lt
 - model: oel_tagging.tag
-  pk: 99
+  pk: -99
   fields:
     taxonomy: 1
     parent: null
     value: Luba-Katanga
     external_id: lu
 - model: oel_tagging.tag
-  pk: 100
+  pk: -100
   fields:
     taxonomy: 1
     parent: null
     value: Latvian
     external_id: lv
 - model: oel_tagging.tag
-  pk: 101
+  pk: -101
   fields:
     taxonomy: 1
     parent: null
     value: Malagasy
     external_id: mg
 - model: oel_tagging.tag
-  pk: 102
+  pk: -102
   fields:
     taxonomy: 1
     parent: null
     value: Marshallese
     external_id: mh
 - model: oel_tagging.tag
-  pk: 103
+  pk: -103
   fields:
     taxonomy: 1
     parent: null
     value: Maori
     external_id: mi
 - model: oel_tagging.tag
-  pk: 104
+  pk: -104
   fields:
     taxonomy: 1
     parent: null
     value: Macedonian
     external_id: mk
 - model: oel_tagging.tag
-  pk: 105
+  pk: -105
   fields:
     taxonomy: 1
     parent: null
     value: Malayalam
     external_id: ml
 - model: oel_tagging.tag
-  pk: 106
+  pk: -106
   fields:
     taxonomy: 1
     parent: null
     value: Mongolian
     external_id: mn
 - model: oel_tagging.tag
-  pk: 107
+  pk: -107
   fields:
     taxonomy: 1
     parent: null
     value: Marathi
     external_id: mr
 - model: oel_tagging.tag
-  pk: 108
+  pk: -108
   fields:
     taxonomy: 1
     parent: null
     value: Malay
     external_id: ms
 - model: oel_tagging.tag
-  pk: 109
+  pk: -109
   fields:
     taxonomy: 1
     parent: null
     value: Maltese
     external_id: mt
 - model: oel_tagging.tag
-  pk: 110
+  pk: -110
   fields:
     taxonomy: 1
     parent: null
     value: Burmese
     external_id: my
 - model: oel_tagging.tag
-  pk: 111
+  pk: -111
   fields:
     taxonomy: 1
     parent: null
     value: Nauru
     external_id: na
 - model: oel_tagging.tag
-  pk: 112
+  pk: -112
   fields:
     taxonomy: 1
     parent: null
     value: Bokmål, Norwegian
     external_id: nb
 - model: oel_tagging.tag
-  pk: 113
+  pk: -113
   fields:
     taxonomy: 1
     parent: null
     value: Ndebele, North
     external_id: nd
 - model: oel_tagging.tag
-  pk: 114
+  pk: -114
   fields:
     taxonomy: 1
     parent: null
     value: Nepali
     external_id: ne
 - model: oel_tagging.tag
-  pk: 115
+  pk: -115
   fields:
     taxonomy: 1
     parent: null
     value: Ndonga
     external_id: ng
 - model: oel_tagging.tag
-  pk: 116
+  pk: -116
   fields:
     taxonomy: 1
     parent: null
     value: Dutch
     external_id: nl
 - model: oel_tagging.tag
-  pk: 117
+  pk: -117
   fields:
     taxonomy: 1
     parent: null
     value: Norwegian Nynorsk
     external_id: nn
 - model: oel_tagging.tag
-  pk: 118
+  pk: -118
   fields:
     taxonomy: 1
     parent: null
     value: Norwegian
     external_id: no
 - model: oel_tagging.tag
-  pk: 119
+  pk: -119
   fields:
     taxonomy: 1
     parent: null
     value: Ndebele, South
     external_id: nr
 - model: oel_tagging.tag
-  pk: 120
+  pk: -120
   fields:
     taxonomy: 1
     parent: null
     value: Navajo
     external_id: nv
 - model: oel_tagging.tag
-  pk: 121
+  pk: -121
   fields:
     taxonomy: 1
     parent: null
     value: Chichewa
     external_id: ny
 - model: oel_tagging.tag
-  pk: 122
+  pk: -122
   fields:
     taxonomy: 1
     parent: null
     value: Occitan (post 1500)
     external_id: oc
 - model: oel_tagging.tag
-  pk: 123
+  pk: -123
   fields:
     taxonomy: 1
     parent: null
     value: Ojibwa
     external_id: oj
 - model: oel_tagging.tag
-  pk: 124
+  pk: -124
   fields:
     taxonomy: 1
     parent: null
     value: Oromo
     external_id: om
 - model: oel_tagging.tag
-  pk: 125
+  pk: -125
   fields:
     taxonomy: 1
     parent: null
     value: Oriya
     external_id: or
 - model: oel_tagging.tag
-  pk: 126
+  pk: -126
   fields:
     taxonomy: 1
     parent: null
     value: Ossetian
     external_id: os
 - model: oel_tagging.tag
-  pk: 127
+  pk: -127
   fields:
     taxonomy: 1
     parent: null
     value: Panjabi
     external_id: pa
 - model: oel_tagging.tag
-  pk: 128
+  pk: -128
   fields:
     taxonomy: 1
     parent: null
     value: Pali
     external_id: pi
 - model: oel_tagging.tag
-  pk: 129
+  pk: -129
   fields:
     taxonomy: 1
     parent: null
     value: Polish
     external_id: pl
 - model: oel_tagging.tag
-  pk: 130
+  pk: -130
   fields:
     taxonomy: 1
     parent: null
     value: Pushto
     external_id: ps
 - model: oel_tagging.tag
-  pk: 131
+  pk: -131
   fields:
     taxonomy: 1
     parent: null
     value: Portuguese
     external_id: pt
 - model: oel_tagging.tag
-  pk: 132
+  pk: -132
   fields:
     taxonomy: 1
     parent: null
     value: Quechua
     external_id: qu
 - model: oel_tagging.tag
-  pk: 133
+  pk: -133
   fields:
     taxonomy: 1
     parent: null
     value: Romansh
     external_id: rm
 - model: oel_tagging.tag
-  pk: 134
+  pk: -134
   fields:
     taxonomy: 1
     parent: null
     value: Rundi
     external_id: rn
 - model: oel_tagging.tag
-  pk: 135
+  pk: -135
   fields:
     taxonomy: 1
     parent: null
     value: Romanian
     external_id: ro
 - model: oel_tagging.tag
-  pk: 136
+  pk: -136
   fields:
     taxonomy: 1
     parent: null
     value: Russian
     external_id: ru
 - model: oel_tagging.tag
-  pk: 137
+  pk: -137
   fields:
     taxonomy: 1
     parent: null
     value: Kinyarwanda
     external_id: rw
 - model: oel_tagging.tag
-  pk: 138
+  pk: -138
   fields:
     taxonomy: 1
     parent: null
     value: Sanskrit
     external_id: sa
 - model: oel_tagging.tag
-  pk: 139
+  pk: -139
   fields:
     taxonomy: 1
     parent: null
     value: Sardinian
     external_id: sc
 - model: oel_tagging.tag
-  pk: 140
+  pk: -140
   fields:
     taxonomy: 1
     parent: null
     value: Sindhi
     external_id: sd
 - model: oel_tagging.tag
-  pk: 141
+  pk: -141
   fields:
     taxonomy: 1
     parent: null
     value: Northern Sami
     external_id: se
 - model: oel_tagging.tag
-  pk: 142
+  pk: -142
   fields:
     taxonomy: 1
     parent: null
     value: Sango
     external_id: sg
 - model: oel_tagging.tag
-  pk: 143
+  pk: -143
   fields:
     taxonomy: 1
     parent: null
     value: Sinhala
     external_id: si
 - model: oel_tagging.tag
-  pk: 144
+  pk: -144
   fields:
     taxonomy: 1
     parent: null
     value: Slovak
     external_id: sk
 - model: oel_tagging.tag
-  pk: 145
+  pk: -145
   fields:
     taxonomy: 1
     parent: null
     value: Slovenian
     external_id: sl
 - model: oel_tagging.tag
-  pk: 146
+  pk: -146
   fields:
     taxonomy: 1
     parent: null
     value: Samoan
     external_id: sm
 - model: oel_tagging.tag
-  pk: 147
+  pk: -147
   fields:
     taxonomy: 1
     parent: null
     value: Shona
     external_id: sn
 - model: oel_tagging.tag
-  pk: 148
+  pk: -148
   fields:
     taxonomy: 1
     parent: null
     value: Somali
     external_id: so
 - model: oel_tagging.tag
-  pk: 149
+  pk: -149
   fields:
     taxonomy: 1
     parent: null
     value: Albanian
     external_id: sq
 - model: oel_tagging.tag
-  pk: 150
+  pk: -150
   fields:
     taxonomy: 1
     parent: null
     value: Serbian
     external_id: sr
 - model: oel_tagging.tag
-  pk: 151
+  pk: -151
   fields:
     taxonomy: 1
     parent: null
     value: Swati
     external_id: ss
 - model: oel_tagging.tag
-  pk: 152
+  pk: -152
   fields:
     taxonomy: 1
     parent: null
     value: Sotho, Southern
     external_id: st
 - model: oel_tagging.tag
-  pk: 153
+  pk: -153
   fields:
     taxonomy: 1
     parent: null
     value: Sundanese
     external_id: su
 - model: oel_tagging.tag
-  pk: 154
+  pk: -154
   fields:
     taxonomy: 1
     parent: null
     value: Swedish
     external_id: sv
 - model: oel_tagging.tag
-  pk: 155
+  pk: -155
   fields:
     taxonomy: 1
     parent: null
     value: Swahili
     external_id: sw
 - model: oel_tagging.tag
-  pk: 156
+  pk: -156
   fields:
     taxonomy: 1
     parent: null
     value: Tamil
     external_id: ta
 - model: oel_tagging.tag
-  pk: 157
+  pk: -157
   fields:
     taxonomy: 1
     parent: null
     value: Telugu
     external_id: te
 - model: oel_tagging.tag
-  pk: 158
+  pk: -158
   fields:
     taxonomy: 1
     parent: null
     value: Tajik
     external_id: tg
 - model: oel_tagging.tag
-  pk: 159
+  pk: -159
   fields:
     taxonomy: 1
     parent: null
     value: Thai
     external_id: th
 - model: oel_tagging.tag
-  pk: 160
+  pk: -160
   fields:
     taxonomy: 1
     parent: null
     value: Tigrinya
     external_id: ti
 - model: oel_tagging.tag
-  pk: 161
+  pk: -161
   fields:
     taxonomy: 1
     parent: null
     value: Turkmen
     external_id: tk
 - model: oel_tagging.tag
-  pk: 162
+  pk: -162
   fields:
     taxonomy: 1
     parent: null
     value: Tagalog
     external_id: tl
 - model: oel_tagging.tag
-  pk: 163
+  pk: -163
   fields:
     taxonomy: 1
     parent: null
     value: Tswana
     external_id: tn
 - model: oel_tagging.tag
-  pk: 164
+  pk: -164
   fields:
     taxonomy: 1
     parent: null
     value: Tonga (Tonga Islands)
     external_id: to
 - model: oel_tagging.tag
-  pk: 165
+  pk: -165
   fields:
     taxonomy: 1
     parent: null
     value: Turkish
     external_id: tr
 - model: oel_tagging.tag
-  pk: 166
+  pk: -166
   fields:
     taxonomy: 1
     parent: null
     value: Tsonga
     external_id: ts
 - model: oel_tagging.tag
-  pk: 167
+  pk: -167
   fields:
     taxonomy: 1
     parent: null
     value: Tatar
     external_id: tt
 - model: oel_tagging.tag
-  pk: 168
+  pk: -168
   fields:
     taxonomy: 1
     parent: null
     value: Twi
     external_id: tw
 - model: oel_tagging.tag
-  pk: 169
+  pk: -169
   fields:
     taxonomy: 1
     parent: null
     value: Tahitian
     external_id: ty
 - model: oel_tagging.tag
-  pk: 170
+  pk: -170
   fields:
     taxonomy: 1
     parent: null
     value: Uighur
     external_id: ug
 - model: oel_tagging.tag
-  pk: 171
+  pk: -171
   fields:
     taxonomy: 1
     parent: null
     value: Ukrainian
     external_id: uk
 - model: oel_tagging.tag
-  pk: 172
+  pk: -172
   fields:
     taxonomy: 1
     parent: null
     value: Urdu
     external_id: ur
 - model: oel_tagging.tag
-  pk: 173
+  pk: -173
   fields:
     taxonomy: 1
     parent: null
     value: Uzbek
     external_id: uz
 - model: oel_tagging.tag
-  pk: 174
+  pk: -174
   fields:
     taxonomy: 1
     parent: null
     value: Venda
     external_id: ve
 - model: oel_tagging.tag
-  pk: 175
+  pk: -175
   fields:
     taxonomy: 1
     parent: null
     value: Vietnamese
     external_id: vi
 - model: oel_tagging.tag
-  pk: 176
+  pk: -176
   fields:
     taxonomy: 1
     parent: null
     value: Volapük
     external_id: vo
 - model: oel_tagging.tag
-  pk: 177
+  pk: -177
   fields:
     taxonomy: 1
     parent: null
     value: Walloon
     external_id: wa
 - model: oel_tagging.tag
-  pk: 178
+  pk: -178
   fields:
     taxonomy: 1
     parent: null
     value: Wolof
     external_id: wo
 - model: oel_tagging.tag
-  pk: 179
+  pk: -179
   fields:
     taxonomy: 1
     parent: null
     value: Xhosa
     external_id: xh
 - model: oel_tagging.tag
-  pk: 180
+  pk: -180
   fields:
     taxonomy: 1
     parent: null
     value: Yiddish
     external_id: yi
 - model: oel_tagging.tag
-  pk: 181
+  pk: -181
   fields:
     taxonomy: 1
     parent: null
     value: Yoruba
     external_id: yo
 - model: oel_tagging.tag
-  pk: 182
+  pk: -182
   fields:
     taxonomy: 1
     parent: null
     value: Zhuang
     external_id: za
 - model: oel_tagging.tag
-  pk: 183
+  pk: -183
   fields:
     taxonomy: 1
     parent: null
     value: Chinese
     external_id: zh
 - model: oel_tagging.tag
-  pk: 184
+  pk: -184
   fields:
     taxonomy: 1
     parent: null

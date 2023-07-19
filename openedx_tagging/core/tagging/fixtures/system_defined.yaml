@@ -1,5 +1,5 @@
 - model: oel_tagging.taxonomy
-  pk: 1
+  pk: -1
   fields:
     name: Languages
     description: ISO 639-1 Languages. Allows tags for any language configured for use on the instance

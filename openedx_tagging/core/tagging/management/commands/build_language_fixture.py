@@ -25,7 +25,7 @@ class Command(BaseCommand):
             return json.loads(json_data)
 
     def build_fixture(self, json_data):
-        tag_pk = 1
+        tag_pk = -1
         with open(output, "w") as output_file:
             for lang_data in json_data:
                 lang_value = self.get_lang_value(lang_data)
@@ -37,7 +37,8 @@ class Command(BaseCommand):
                 output_file.write("    parent: null\n")
                 output_file.write(f"    value: {lang_value}\n")
                 output_file.write(f"    external_id: {lang_code}\n")
-                tag_pk += 1
+                # System tags are identified with negative numbers to avoid clashing with user-created tags.
+                tag_pk -= 1
 
     def get_lang_value(self, lang_data):
         """
