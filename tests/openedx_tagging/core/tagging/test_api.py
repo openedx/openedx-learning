@@ -52,7 +52,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             tax1,
             self.taxonomy,
             self.system_taxonomy,
-            self.language_taxonomy,    
+            self.language_taxonomy,
             self.user_taxonomy,
         ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"

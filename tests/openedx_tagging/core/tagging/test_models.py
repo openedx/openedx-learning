@@ -1,25 +1,24 @@
 """ Test the tagging models """
 
 import ddt
-
 from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase, override_settings
 
 from openedx_tagging.core.tagging.models import (
+    ModelSystemDefinedTaxonomy,
     ObjectTag,
+    SystemDefinedTaxonomy,
     Tag,
     Taxonomy,
-    SystemDefinedTaxonomy,
-    ModelSystemDefinedTaxonomy,
     UserSystemDefinedTaxonomy,
 )
 
 test_languages = [
-    ('en', 'English'),
-    ('az', 'Azerbaijani'),
-    ('id', 'Indonesian'),
-    ('qu', 'Quechua'),
-    ('zu', 'Zulu'),
+    ("en", "English"),
+    ("az", "Azerbaijani"),
+    ("id", "Indonesian"),
+    ("qu", "Quechua"),
+    ("zu", "Zulu"),
 ]
 
 
@@ -33,6 +32,7 @@ class InvalidModelTaxonomy(ModelSystemDefinedTaxonomy):
     """
     Model used for testing
     """
+
     @property
     def tag_class_model(self):
         return EmptyTestClass
@@ -40,13 +40,14 @@ class InvalidModelTaxonomy(ModelSystemDefinedTaxonomy):
     class Meta:
         proxy = True
         managed = False
-        app_label = 'oel_tagging'
+        app_label = "oel_tagging"
 
 
 class TestModelTaxonomy(ModelSystemDefinedTaxonomy):
     """
     Model used for testing
     """
+
     @property
     def tag_class_model(self):
         return get_user_model()
@@ -54,7 +55,7 @@ class TestModelTaxonomy(ModelSystemDefinedTaxonomy):
     class Meta:
         proxy = True
         managed = False
-        app_label = 'oel_tagging'
+        app_label = "oel_tagging"
 
 
 def get_tag(value):
@@ -74,7 +75,9 @@ class TestTagTaxonomyMixin:
     def setUp(self):
         super().setUp()
         self.taxonomy = Taxonomy.objects.get(name="Life on Earth")
-        self.system_taxonomy = Taxonomy.objects.get(name="System defined taxonomy").cast()
+        self.system_taxonomy = Taxonomy.objects.get(
+            name="System defined taxonomy"
+        ).cast()
         self.language_taxonomy = Taxonomy.objects.get(name="System Languages").cast()
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
         self.archaea = get_tag("Archaea")
@@ -86,12 +89,12 @@ class TestTagTaxonomyMixin:
         self.system_taxonomy_tag = get_tag("System Tag 1")
         self.user_1 = get_user_model()(
             id=1,
-            username='test_user_1',
+            username="test_user_1",
         )
         self.user_1.save()
         self.user_2 = get_user_model()(
             id=2,
-            username='test_user_2',
+            username="test_user_2",
         )
         self.user_2.save()
 
@@ -487,15 +490,15 @@ class TestSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
 
         second_taxonomy = getattr(self, second_taxonomy)
 
-        assert taxonomy.validate_object_tag(
-            object_tag=ObjectTag(
-                object_id='id',
-                taxonomy=second_taxonomy
-            ),
-            check_taxonomy=True,
-            check_tag=False,
-            check_object=False,
-        ) == expected
+        assert (
+            taxonomy.validate_object_tag(
+                object_tag=ObjectTag(object_id="id", taxonomy=second_taxonomy),
+                check_taxonomy=True,
+                check_tag=False,
+                check_object=False,
+            )
+            == expected
+        )
 
 
 @ddt.ddt
@@ -520,18 +523,18 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
     @ddt.data(
         (1, "tag_id"),  # Valid
         (0, "tag_id"),  # Invalid user
-        (1, None)  # Testing parent validations
+        (1, None),  # Testing parent validations
     )
     @ddt.unpack
     def test_validations(self, tag_external_id, tag_id):
         tag = Tag(
             id=tag_id,
             taxonomy=self.user_taxonomy,
-            value='_val',
+            value="_val",
             external_id=tag_external_id,
         )
         object_tag = ObjectTag(
-            object_id='id',
+            object_id="id",
             tag=tag,
         )
 
@@ -539,21 +542,17 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
             object_tag=object_tag,
             check_object=False,
             check_taxonomy=False,
-            check_tag=True
+            check_tag=True,
         )
 
     def test_tag_object_invalid_user(self):
         # Test user that doesn't exist
         with self.assertRaises(ValueError):
-            self.user_taxonomy.tag_object(
-                tags=[4],
-                object_id='object_id'
-            )
+            self.user_taxonomy.tag_object(tags=[4], object_id="object_id")
 
     def _tag_object(self):
         return self.user_taxonomy.tag_object(
-            tags=[self.user_1.id],
-            object_id='object_id'
+            tags=[self.user_1.id], object_id="object_id"
         )
 
     def test_tag_object_tag_creation(self):
@@ -567,22 +566,18 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
 
         # Test parent functions
         taxonomy = TestModelTaxonomy(
-            name='Test',
-            description='Test',
+            name="Test",
+            description="Test",
             system_defined=True,
         )
         taxonomy.save()
         assert taxonomy.tag_set.count() == 0
-        updated_tags = taxonomy.tag_object(
-            tags=[self.user_1.id],
-            object_id='object_id'
-        )
+        updated_tags = taxonomy.tag_object(tags=[self.user_1.id], object_id="object_id")
         assert taxonomy.tag_set.count() == 1
         assert taxonomy.tag_set.count() == 1
         assert len(updated_tags) == 1
         assert updated_tags[0].tag.external_id == str(self.user_1.id)
         assert updated_tags[0].tag.value == str(self.user_1.id)
-
 
     def test_tag_object_existing_tag(self):
         # Test add an existing Tag
@@ -613,8 +608,9 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         with self.assertRaises(ValueError):
             self.user_taxonomy.tag_object(
                 tags=[user_1_id],
-                object_id='object_id',
+                object_id="object_id",
             )
+
 
 @ddt.ddt
 @override_settings(LANGUAGES=test_languages)
@@ -624,20 +620,20 @@ class TestLanguageTaxonomy(TestTagTaxonomyMixin, TestCase):
     """
 
     @ddt.data(
-        ('en', 'tag_id'),  # Valid
-        ('es', 'tag_id'),  # Not available lang
-        ('en', None),  # Test parent validations
+        ("en", "tag_id"),  # Valid
+        ("es", "tag_id"),  # Not available lang
+        ("en", None),  # Test parent validations
     )
     @ddt.unpack
     def test_validations(self, lang, tag_id):
         tag = Tag(
             id=tag_id,
             taxonomy=self.language_taxonomy,
-            value='_val',
+            value="_val",
             external_id=lang,
         )
         object_tag = ObjectTag(
-            object_id='id',
+            object_id="id",
             tag=tag,
         )
         self.language_taxonomy.validate_object_tag(

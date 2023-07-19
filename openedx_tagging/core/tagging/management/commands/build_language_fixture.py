@@ -5,16 +5,16 @@ to write the fixture for the Language system-defined taxonomy.
 This function is intended to be used only once,
 but can be edited in the future if more data needs to be added to the fixture.
 """
-import urllib.request
 import json
+import urllib.request
 
 from django.core.management.base import BaseCommand
 
 endpoint = "https://pkgstore.datahub.io/core/language-codes/language-codes_json/data/97607046542b532c395cf83df5185246/language-codes_json.json"
 output = "./openedx_tagging/core/tagging/fixtures/language_taxonomy.yaml"
 
-class Command(BaseCommand):        
 
+class Command(BaseCommand):
     def handle(self, **options):
         json_data = self.download_json()
         self.build_fixture(json_data)
@@ -26,7 +26,7 @@ class Command(BaseCommand):
 
     def build_fixture(self, json_data):
         tag_pk = 1
-        with open(output, 'w') as output_file:
+        with open(output, "w") as output_file:
             for lang_data in json_data:
                 lang_value = self.get_lang_value(lang_data)
                 lang_code = lang_data["alpha2"]
@@ -43,6 +43,5 @@ class Command(BaseCommand):
         """
         Gets the lang value. Some languages has many values.
         """
-        lang_list = lang_data["English"].split(';')
+        lang_list = lang_data["English"].split(";")
         return lang_list[0]
-        

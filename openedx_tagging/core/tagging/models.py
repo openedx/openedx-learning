@@ -245,7 +245,7 @@ class Taxonomy(models.Model):
         self.visible_to_authors = taxonomy.visible_to_authors
         self._taxonomy_class = taxonomy._taxonomy_class
         return self
-    
+
     def _get_tags_query_set(self) -> models.QuerySet:
         """
         Base query set for used on `get_tags()`
@@ -414,7 +414,7 @@ class Taxonomy(models.Model):
                 )
 
             object_tag = self._set_tag(tag_ref, object_tag)
-            
+
             if not object_tag or not self.validate_object_tag(object_tag):
                 raise ValueError(
                     _(f"Invalid object tag for taxonomy ({self.id}): {tag_ref}")
@@ -652,48 +652,37 @@ class ObjectTag(models.Model):
 
 
 class SystemDefinedTaxonomy(Taxonomy):
-
     class Meta:
         proxy = True
 
-    def _check_taxonomy(
-        self,
-        object_tag: ObjectTag
-    ) -> bool:
+    def _check_taxonomy(self, object_tag: ObjectTag) -> bool:
         """
         Returns True if this is a system defined taxonomy
         """
-        return (
-            super()._check_taxonomy(object_tag)
-            and self.system_defined
-        )
+        return super()._check_taxonomy(object_tag) and self.system_defined
 
 
 class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
     """
     Model based system taxonomy abstract class.
-    
+
     This type of taxonomies has an associated Django model in `tag_class_model()`.
-    Are designed to create a Tag when an ObjectTags with a new Tag. 
+    Are designed to create a Tag when an ObjectTags with a new Tag.
     The Tags are representations of the instances of the associated model.
 
     On Tag.external_id stores an identifier from the instance (`pk` as default)
     and on Tag.value stores an human readable representation of the instance
-    (e.g. `username`). 
+    (e.g. `username`).
     The subclasses can override this behavior, to choose the right field.
 
-    When an ObjectTag is created with an existing Tag, 
+    When an ObjectTag is created with an existing Tag,
     the Tag is re-synchronized with its instance.
     """
 
     class Meta:
         proxy = True
 
-    def __init__(
-        self,
-        *args: Any,
-        **kwargs: Any
-    ) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         Checks if the `tag_class_model` is correct
         """
@@ -707,11 +696,8 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         class referenced by these object tags.
         """
         raise NotImplementedError
-    
-    def _check_instance(
-        self,
-        object_tag: ObjectTag
-    ) -> bool:
+
+    def _check_instance(self, object_tag: ObjectTag) -> bool:
         """
         Returns True if the instance exists
 
@@ -720,22 +706,13 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         intance_id = object_tag.tag.external_id
         return self.tag_class_model.objects.filter(pk=intance_id).exists()
 
-    def _check_tag(
-        self,
-        object_tag: ObjectTag
-    ) -> bool:
+    def _check_tag(self, object_tag: ObjectTag) -> bool:
         """
         Returns True if pass the instance validation checks
         """
-        return (
-            super()._check_tag(object_tag)
-            and self._check_instance(object_tag)
-        )
-    
-    def _get_external_id_from_instance(
-        self,
-        instance
-    ) -> str:
+        return super()._check_tag(object_tag) and self._check_instance(object_tag)
+
+    def _get_external_id_from_instance(self, instance) -> str:
         """
         Returns the tag external id from the instance
 
@@ -743,17 +720,14 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         """
         return str(instance.pk)
 
-    def _get_value_from_instance(
-        self,
-        instance
-    ) -> str:
+    def _get_value_from_instance(self, instance) -> str:
         """
         Returns the tag value from the instance
 
         Subclasses can override this method to get the value from their own models.
         """
         return str(instance.pk)
-    
+
     def _get_instance(self, pk):
         """
         Gets the instance from `pk`
@@ -762,7 +736,7 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
             return self.tag_class_model.objects.get(pk=pk)
         except self.tag_class_model.DoesNotExist:
             return None
-    
+
     def _resync_tag(self, tag: Tag) -> Tag:
         """
         Resync the tag value with the value from the instance
@@ -775,16 +749,12 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
                 tag.save()
         return tag
 
-    def _set_tag(
-        self,
-        tag_ref,
-        object_tag: ObjectTag
-    ) -> ObjectTag:
+    def _set_tag(self, tag_ref, object_tag: ObjectTag) -> ObjectTag:
         """
         Set or create the respective Tag on `object_tag`
 
         This function is used on `tag_object`.
-        For this to work it is necessary that `tag_ref` 
+        For this to work it is necessary that `tag_ref`
         is always the `pk` of the model to which you want
         to associate it.
         """
@@ -810,6 +780,7 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
 
         return object_tag
 
+
 class UserSystemDefinedTaxonomy(ModelSystemDefinedTaxonomy):
     """
     User based system taxonomy class.
@@ -825,10 +796,7 @@ class UserSystemDefinedTaxonomy(ModelSystemDefinedTaxonomy):
         """
         return get_user_model()
 
-    def _get_value_from_instance(
-        self,
-        instance
-    ) -> str:
+    def _get_value_from_instance(self, instance) -> str:
         """
         Returns the username as tag value
         """
@@ -839,7 +807,7 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
     """
     Language System-defined taxonomy
 
-    The tags are filtered and validated taking into account the 
+    The tags are filtered and validated taking into account the
     languages available in Django LANGUAGES settings var
     """
 
@@ -860,29 +828,18 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
         langs = set()
         for django_lang in settings.LANGUAGES:
             # Split to get the language part
-            langs.add(django_lang[0].split('-')[0])
+            langs.add(django_lang[0].split("-")[0])
         return langs
-    
-    def _check_valid_language(
-        self,
-        object_tag: ObjectTag
-    ) -> bool:
+
+    def _check_valid_language(self, object_tag: ObjectTag) -> bool:
         """
         Returns True if the tag is on the available languages
         """
         available_langs = self._get_available_languages()
-        return (
-            object_tag.tag.external_id in available_langs
-        )
+        return object_tag.tag.external_id in available_langs
 
-    def _check_tag(
-        self,
-        object_tag: ObjectTag
-    ) -> bool:
+    def _check_tag(self, object_tag: ObjectTag) -> bool:
         """
         Returns True if the tag is on the available languages
         """
-        return (
-            super()._check_tag(object_tag)
-            and self._check_valid_language(object_tag)
-        )
+        return super()._check_tag(object_tag) and self._check_valid_language(object_tag)
