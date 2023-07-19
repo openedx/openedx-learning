@@ -145,6 +145,13 @@
     parent: 15
     value: Mammalia
     external_id: null
+- model: oel_tagging.tag
+  pk: 22
+  fields:
+    taxonomy: 4
+    parent: null
+    value: System Tag 1
+    external_id: 'tag_1'
 - model: oel_tagging.taxonomy
   pk: 1
   fields:
@@ -165,6 +172,7 @@
     allow_multiple: false
     allow_free_text: false
     system_defined: true
+    _taxonomy_class: openedx_tagging.core.tagging.models.LanguageTaxonomy
 - model: oel_tagging.taxonomy
   pk: 3
   fields:
@@ -173,5 +181,17 @@
     enabled: true
     required: false
     allow_multiple: false
-    allow_free_text: true
+    allow_free_text: false
     system_defined: true
+    _taxonomy_class: openedx_tagging.core.tagging.models.UserSystemDefinedTaxonomy
+- model: oel_tagging.taxonomy
+  pk: 4
+  fields:
+    name: System defined taxonomy
+    description: Generic System defined taxonomy
+    enabled: true
+    required: false
+    allow_multiple: false
+    allow_free_text: false
+    system_defined: true
+    _taxonomy_class: openedx_tagging.core.tagging.models.SystemDefinedTaxonomy
