@@ -255,13 +255,7 @@ class Taxonomy(models.Model):
         self._taxonomy_class = taxonomy._taxonomy_class
         return self
 
-    def _get_tags_query_set(self) -> models.QuerySet:
-        """
-        Base query set for used on `get_tags()`
-        """
-        return self.tag_set
-
-    def get_tags(self) -> List[Tag]:
+    def get_tags(self, tag_set: models.QuerySet = None) -> List[Tag]:
         """
         Returns a list of all Tags in the current taxonomy, from the root(s) down to TAXONOMY_MAX_DEPTH tags, in tree order.
 
@@ -273,9 +267,12 @@ class Taxonomy(models.Model):
         if self.allow_free_text:
             return tags
 
+        if tag_set is None:
+            tag_set = self.tag_set
+
         parents = None
         for depth in range(TAXONOMY_MAX_DEPTH):
-            filtered_tags = self._get_tags_query_set().prefetch_related("parent")
+            filtered_tags = tag_set.prefetch_related("parent")
             if parents is None:
                 filtered_tags = filtered_tags.filter(parent=None)
             else:
@@ -862,12 +859,13 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
     class Meta:
         proxy = True
 
-    def _get_tags_query_set(self) -> models.QuerySet:
+    def get_tags(self, tag_set: models.QuerySet = None) -> List[Tag]:
         """
-        Returns a query set of available languages tags.
+        Returns a list of all the available Language Tags, annotated with ``depth`` = 0.
         """
         available_langs = self._get_available_languages()
-        return self.tag_set.filter(external_id__in=available_langs)
+        tag_set = self.tag_set.filter(external_id__in=available_langs)
+        return super().get_tags(tag_set=tag_set)
 
     def _get_available_languages(cls) -> List[str]:
         """
