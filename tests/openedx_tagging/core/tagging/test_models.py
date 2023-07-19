@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase, override_settings
 
 from openedx_tagging.core.tagging.models import (
+    ModelObjectTag,
     ModelSystemDefinedTaxonomy,
     ObjectTag,
     SystemDefinedTaxonomy,
@@ -34,8 +35,23 @@ class InvalidModelTaxonomy(ModelSystemDefinedTaxonomy):
     """
 
     @property
-    def tag_class_model(self):
+    def object_tag_class(self):
         return EmptyTestClass
+
+    class Meta:
+        proxy = True
+        managed = False
+        app_label = "oel_tagging"
+
+
+class TestModelTag(ModelObjectTag):
+    """
+    Model used for testing
+    """
+
+    @property
+    def tag_class_model(self):
+        return get_user_model()
 
     class Meta:
         proxy = True
@@ -49,8 +65,8 @@ class TestModelTaxonomy(ModelSystemDefinedTaxonomy):
     """
 
     @property
-    def tag_class_model(self):
-        return get_user_model()
+    def object_tag_class(self):
+        return TestModelTag
 
     class Meta:
         proxy = True
@@ -360,6 +376,13 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         object_tag.refresh_from_db()
         assert object_tag.get_lineage() == ["Another tag"]
 
+    def test_tag_ref(self):
+        object_tag = ObjectTag()
+        object_tag.tag_ref = 1
+        object_tag.save()
+        assert object_tag.tag is None
+        assert object_tag.value == 1
+
     def test_object_tag_is_valid(self):
         open_taxonomy = Taxonomy.objects.create(
             name="Freetext Life",
@@ -509,6 +532,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     @ddt.data(
         (ModelSystemDefinedTaxonomy, NotImplementedError),
+        (ModelObjectTag, NotImplementedError),
         (InvalidModelTaxonomy, AssertionError),
         (UserSystemDefinedTaxonomy, None),
     )
@@ -610,6 +634,17 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 tags=[user_1_id],
                 object_id="object_id",
             )
+
+    def test_tag_ref(self):
+        object_tag = TestModelTag()
+        object_tag.tag_ref = 1
+        object_tag.save()
+        assert object_tag.tag is None
+        assert object_tag.value == 1
+
+    def test_get_instance(self):
+        object_tag = TestModelTag()
+        assert object_tag.get_instance() is None
 
 
 @ddt.ddt

@@ -182,6 +182,15 @@ class Taxonomy(models.Model):
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
 
     @property
+    def object_tag_class(self) -> Type:
+        """
+        Returns the ObjectTag subclass associated with this taxonomy, which is ObjectTag by default.
+
+        Taxonomy subclasses may override this method to use different subclasses of ObjectTag.
+        """
+        return ObjectTag
+
+    @property
     def taxonomy_class(self) -> Type:
         """
         Returns the Taxonomy subclass associated with this instance, or None if none supplied.
@@ -353,28 +362,6 @@ class Taxonomy(models.Model):
         """
         return bool(object_tag.object_id)
 
-    def _set_tag(
-        self,
-        tag_ref,
-        object_tag: "ObjectTag",
-    ) -> "ObjectTag":
-        """
-        Set a tag on `object_tag` and run a resync
-
-        Subclasses can override this method to perform their own set tag process.
-        """
-        try:
-            object_tag.tag = self.tag_set.get(
-                id=tag_ref,
-            )
-        except (ValueError, Tag.DoesNotExist):
-            # This might be ok, e.g. if self.allow_free_text.
-            # We'll validate below before saving.
-            object_tag.value = tag_ref
-
-        object_tag.resync()
-        return object_tag
-
     def tag_object(
         self,
         tags: List,
@@ -396,9 +383,10 @@ class Taxonomy(models.Model):
                 _(f"Taxonomy ({self.id}) requires at least one tag per object.")
             )
 
+        ObjectTagClass = self.object_tag_class
         current_tags = {
             tag.tag_ref: tag
-            for tag in ObjectTag.objects.filter(
+            for tag in ObjectTagClass.objects.filter(
                 taxonomy=self,
                 object_id=object_id,
             )
@@ -408,14 +396,14 @@ class Taxonomy(models.Model):
             if tag_ref in current_tags:
                 object_tag = current_tags.pop(tag_ref)
             else:
-                object_tag = ObjectTag(
+                object_tag = ObjectTagClass(
                     taxonomy=self,
                     object_id=object_id,
                 )
 
-            object_tag = self._set_tag(tag_ref, object_tag)
-
-            if not object_tag or not self.validate_object_tag(object_tag):
+            object_tag.tag_ref = tag_ref
+            object_tag.resync()
+            if not self.validate_object_tag(object_tag):
                 raise ValueError(
                     _(f"Invalid object tag for taxonomy ({self.id}): {tag_ref}")
                 )
@@ -553,6 +541,25 @@ class ObjectTag(models.Model):
         """
         return self.tag.id if self.tag_id else self._value
 
+    @tag_ref.setter
+    def tag_ref(self, tag_ref: str):
+        """
+        Sets the ObjectTag's Tag and/or value, depending on whether a valid Tag is found.
+
+        Subclasses may override this method to dynamically create Tags.
+        """
+        self.value = tag_ref
+
+        if self.taxonomy_id:
+            try:
+                self.tag = self.taxonomy.tag_set.get(pk=tag_ref)
+                self.value = self.tag.value
+                return
+            except (ValueError, Tag.DoesNotExist):
+                # This might be ok, e.g. if our taxonomy.allow_free_text, so we just pass through here.
+                # We rely on the caller to validate before saving.
+                pass
+
     def is_valid(self) -> bool:
         """
         Returns True if this ObjectTag represents a valid taxonomy tag.
@@ -652,6 +659,10 @@ class ObjectTag(models.Model):
 
 
 class SystemDefinedTaxonomy(Taxonomy):
+    """
+    Simple subclass of Taxonomy which requires the system_defined flag to be set.
+    """
+
     class Meta:
         proxy = True
 
@@ -660,6 +671,104 @@ class SystemDefinedTaxonomy(Taxonomy):
         Returns True if this is a system defined taxonomy
         """
         return super()._check_taxonomy(object_tag) and self.system_defined
+
+
+class ModelObjectTag(ObjectTag):
+    """
+    Model-based ObjectTag, abstract class.
+
+    Used by ModelSystemDefinedTaxonomy to maintain dynamic Tags which are associated with a configured Model instance.
+    """
+
+    class Meta:
+        proxy = True
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Checks if the `tag_class_model` is correct
+        """
+        assert issubclass(self.tag_class_model, models.Model)
+        super().__init__(*args, **kwargs)
+
+    @property
+    def tag_class_model(self) -> Type:
+        """
+        Subclasses must implement this method to return the Django.model
+        class referenced by these object tags.
+        """
+        raise NotImplementedError
+
+    @property
+    def tag_class_value(self) -> str:
+        """
+        Returns the name of the tag_class_model field to use as the Tag.value when creating Tags for this taxonomy.
+
+        Subclasses may override this method to use different fields.
+        """
+        return "pk"
+
+    def get_instance(self) -> Union[models.Model, None]:
+        """
+        Returns the instance of tag_class_model associated with this object tag, or None if not found.
+        """
+        instance_id = self.tag.external_id if self.tag else None
+        if instance_id:
+            try:
+                return self.tag_class_model.objects.get(pk=instance_id)
+            except self.tag_class_model.DoesNotExist:
+                log.exception(
+                    f"{self}: {self.tag_class_model.__name__} pk={instance_id} does not exist."
+                )
+
+        return None
+
+    def _resync_tag(self) -> bool:
+        """
+        Resync our tag's value with the value from the instance.
+
+        If the instance associated with the tag no longer exists, we unset our tag, because it's no longer valid.
+
+        Returns True if the given tag was changed, False otherwise.
+        """
+        instance = self.get_instance()
+        if instance:
+            value = getattr(instance, self.tag_class_value)
+            self.value = value
+            if self.tag and self.tag.value != value:
+                self.tag.value = value
+                self.tag.save()
+                return True
+        else:
+            self.tag = None
+
+        return False
+
+    @property
+    def tag_ref(self) -> str:
+        return (self.tag.external_id or self.tag.id) if self.tag_id else self._value
+
+    @tag_ref.setter
+    def tag_ref(self, tag_ref: str):
+        """
+        Sets the ObjectTag's Tag and/or value, depending on whether a valid Tag is found, or can be created.
+
+        Creates a Tag for the given tag_ref value, if one containing that external_id not already exist.
+        """
+        self.value = tag_ref
+
+        if self.taxonomy_id:
+            try:
+                self.tag = self.taxonomy.tag_set.get(
+                    external_id=tag_ref,
+                )
+            except (ValueError, Tag.DoesNotExist):
+                # Creates a new Tag for this instance
+                self.tag = Tag(
+                    taxonomy=self.taxonomy,
+                    external_id=tag_ref,
+                )
+
+            self._resync_tag()
 
 
 class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
@@ -684,106 +793,24 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
-        Checks if the `tag_class_model` is correct
+        Checks if the `object_tag_class` is a subclass of ModelObjectTag.
         """
-        assert issubclass(self.tag_class_model, models.Model)
+        assert issubclass(self.object_tag_class, ModelObjectTag)
         super().__init__(*args, **kwargs)
 
     @property
-    def tag_class_model(self) -> Type:
+    def object_tag_class(self) -> Type:
         """
-        Subclasses must implement this method to return the Django.model
-        class referenced by these object tags.
+        Returns the ObjectTag subclass associated with this taxonomy.
+
+        Model Taxonomy subclasses must implement this to provide a ModelObjectTag subclass.
         """
         raise NotImplementedError
 
-    def _check_instance(self, object_tag: ObjectTag) -> bool:
-        """
-        Returns True if the instance exists
 
-        Subclasses can override this method to perform their own instance validation checks.
-        """
-        intance_id = object_tag.tag.external_id
-        return self.tag_class_model.objects.filter(pk=intance_id).exists()
-
-    def _check_tag(self, object_tag: ObjectTag) -> bool:
-        """
-        Returns True if pass the instance validation checks
-        """
-        return super()._check_tag(object_tag) and self._check_instance(object_tag)
-
-    def _get_external_id_from_instance(self, instance) -> str:
-        """
-        Returns the tag external id from the instance
-
-        Subclasses can override this method to get the external id from their own models.
-        """
-        return str(instance.pk)
-
-    def _get_value_from_instance(self, instance) -> str:
-        """
-        Returns the tag value from the instance
-
-        Subclasses can override this method to get the value from their own models.
-        """
-        return str(instance.pk)
-
-    def _get_instance(self, pk):
-        """
-        Gets the instance from `pk`
-        """
-        try:
-            return self.tag_class_model.objects.get(pk=pk)
-        except self.tag_class_model.DoesNotExist:
-            return None
-
-    def _resync_tag(self, tag: Tag) -> Tag:
-        """
-        Resync the tag value with the value from the instance
-        """
-        instance = self._get_instance(tag.external_id)
-        if instance:
-            value = self._get_value_from_instance(instance)
-            if tag.value != value:
-                tag.value = value
-                tag.save()
-        return tag
-
-    def _set_tag(self, tag_ref, object_tag: ObjectTag) -> ObjectTag:
-        """
-        Set or create the respective Tag on `object_tag`
-
-        This function is used on `tag_object`.
-        For this to work it is necessary that `tag_ref`
-        is always the `pk` of the model to which you want
-        to associate it.
-        """
-        try:
-            tag = self.tag_set.get(
-                external_id=tag_ref,
-            )
-            # Run a resync of the tag
-            tag = self._resync_tag(tag)
-            object_tag.tag = tag
-        except (ValueError, Tag.DoesNotExist):
-            # Creates a new tag with the instance
-            instance = self._get_instance(tag_ref)
-            if not instance:
-                return None
-            new_tag = Tag(
-                taxonomy=self,
-                value=self._get_value_from_instance(instance),
-                external_id=self._get_external_id_from_instance(instance),
-            )
-            new_tag.save()
-            object_tag.tag = new_tag
-
-        return object_tag
-
-
-class UserSystemDefinedTaxonomy(ModelSystemDefinedTaxonomy):
+class UserModelObjectTag(ModelObjectTag):
     """
-    User based system taxonomy class.
+    ObjectTags for the UserSystemDefinedTaxonomy.
     """
 
     class Meta:
@@ -796,11 +823,32 @@ class UserSystemDefinedTaxonomy(ModelSystemDefinedTaxonomy):
         """
         return get_user_model()
 
-    def _get_value_from_instance(self, instance) -> str:
+    @property
+    def tag_class_value(self) -> str:
         """
-        Returns the username as tag value
+        Returns the name of the tag_class_model field to use as the Tag.value when creating Tags for this taxonomy.
+
+        Subclasses may override this method to use different fields.
         """
-        return instance.get_username()
+        return "username"
+
+
+class UserSystemDefinedTaxonomy(ModelSystemDefinedTaxonomy):
+    """
+    User based system taxonomy class.
+    """
+
+    class Meta:
+        proxy = True
+
+    @property
+    def object_tag_class(self) -> Type:
+        """
+        Returns the ObjectTag subclass associated with this taxonomy, which is ModelObjectTag by default.
+
+        Model Taxonomy subclasses must implement this to provide a ModelObjectTag subclass.
+        """
+        return UserModelObjectTag
 
 
 class LanguageTaxonomy(SystemDefinedTaxonomy):
