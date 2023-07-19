@@ -27,7 +27,7 @@ ObjectTag
 Similarly, the ``openedx_tagging`` module defined ``openedx_tagging.core.models.ObjectTag``, also self-contained to the
 ``openedx_tagging`` app.
 
-But to tag content in the LMS/Studio, we need to enforce ``object_id`` as a CourseKey or UsageKey type. So to do this, we subclass ``ObjectTag``, and use this class when creating object tags for the content taxonomies. Once the ``object_id`` is set, it is not editable, and so this key validation need not happen again.
+But to tag content in the LMS/Studio, we need to enforce ``object_id`` as a CourseKey or UsageKey type. So to do this, we subclass ``ObjectTag``, and use this class when creating content object tags. Once the ``object_id`` is set, it is not editable, and so this key validation need not happen again.
 
 Rejected Alternatives
 ---------------------

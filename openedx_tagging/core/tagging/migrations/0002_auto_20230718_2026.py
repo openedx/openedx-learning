@@ -61,7 +61,7 @@ class Migration(migrations.Migration):
             model_name="taxonomy",
             name="_taxonomy_class",
             field=models.CharField(
-                help_text="Taxonomy subclass used to instantiate this instance.Must be a fully-qualified module and class name.",
+                help_text="Taxonomy subclass used to instantiate this instance; must be a fully-qualified module and class name. If the module/class cannot be imported, an error is logged and the base Taxonomy class is used instead.",
                 max_length=255,
                 null=True,
             ),

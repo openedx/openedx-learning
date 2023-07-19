@@ -169,7 +169,7 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
     def test_taxonomy_cast_bad_value(self):
         with self.assertRaises(ValueError) as exc:
             self.taxonomy.taxonomy_class = str
-        assert "<class 'str'> must be a class like Taxonomy" in str(exc.exception)
+        assert "<class 'str'> must be a subclass of Taxonomy" in str(exc.exception)
 
     @ddt.data(
         # Root tags just return their own value
@@ -368,7 +368,7 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         object_tags = self.taxonomy.tag_object(
             ["Eukaryota Xenomorph"],
             "biology101",
-         )
+        )
         assert len(object_tags) == 1
         object_tag = object_tags[0]
         assert object_tag.is_valid

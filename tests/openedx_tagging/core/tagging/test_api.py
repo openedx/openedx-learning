@@ -34,7 +34,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 name="Bad class",
                 taxonomy_class=str,
             )
-        assert "<class 'str'> must be a class like Taxonomy" in str(exc.exception)
+        assert "<class 'str'> must be a subclass of Taxonomy" in str(exc.exception)
 
     def test_get_taxonomy(self):
         tax1 = tagging_api.get_taxonomy(1)

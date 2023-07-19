@@ -159,8 +159,8 @@ class Taxonomy(models.Model):
         null=True,
         max_length=255,
         help_text=_(
-            "Taxonomy subclass used to instantiate this instance."
-            "Must be a fully-qualified module and class name.",
+            "Taxonomy subclass used to instantiate this instance; must be a fully-qualified module and class name."
+            " If the module/class cannot be imported, an error is logged and the base Taxonomy class is used instead."
         ),
     )
 
@@ -195,12 +195,12 @@ class Taxonomy(models.Model):
         """
         Assigns the given taxonomy_class's module path.class to the field.
 
-        Raises ValueError if the given `taxonomy_class` is a built-in class; it should be a Taxonomy-like class.
+        Must be a subclass of Taxonomy, or raises a ValueError.
         """
         if taxonomy_class:
-            if taxonomy_class.__module__ == "builtins":
+            if not issubclass(taxonomy_class, Taxonomy):
                 raise ValueError(
-                    f"Unable to assign taxonomy_class for {self}: {taxonomy_class} must be a class like Taxonomy"
+                    f"Unable to assign taxonomy_class for {self}: {taxonomy_class} must be a subclass of Taxonomy"
                 )
 
             # ref: https://stackoverflow.com/a/2020083
@@ -214,7 +214,7 @@ class Taxonomy(models.Model):
         """
         Returns the current Taxonomy instance cast into its taxonomy_class.
 
-        If no taxonomy_class is set, then just returns self.
+        If no taxonomy_class is set, or if we're unable to import it, then just returns self.
         """
         try:
             TaxonomyClass = self.taxonomy_class
@@ -618,7 +618,7 @@ class ObjectTag(models.Model):
 
     def copy(self, object_tag: "ObjectTag") -> "ObjectTag":
         """
-        Copy the fields from the given Taxonomy into the current instance.
+        Copy the fields from the given ObjectTag into the current instance.
         """
         self.id = object_tag.id
         self.tag = object_tag.tag
