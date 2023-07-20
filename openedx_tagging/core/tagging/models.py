@@ -772,12 +772,13 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
     """
     Model based system taxonomy abstract class.
 
-    This type of taxonomies has an associated Django model in `tag_class_model()`.
-    Are designed to create a Tag when an ObjectTags with a new Tag.
+    This type of taxonomy has an associated Django model in `tag_class_model()`.
+    They are designed to create Tags when required for new ObjectTags, to maintain
+    their status as "closed" taxonomies.
     The Tags are representations of the instances of the associated model.
 
-    On Tag.external_id stores an identifier from the instance (`pk` as default)
-    and on Tag.value stores an human readable representation of the instance
+    Tag.external_id stores an identifier from the instance (`pk` as default)
+    and Tag.value stores a human readable representation of the instance
     (e.g. `username`).
     The subclasses can override this behavior, to choose the right field.
 
