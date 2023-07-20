@@ -7,20 +7,6 @@ import openedx_learning.lib.fields
 import openedx_learning.lib.validators
 
 
-def use_compressed_table_format(apps, schema_editor):
-    """
-    Use the COMPRESSED row format for TextContent if we're using MySQL.
-
-    This table will hold a lot of OLX, which compresses very well using MySQL's
-    built-in zlib compression. This is especially important because we're
-    keeping so much version history.
-    """
-    if schema_editor.connection.vendor == 'mysql':
-        table_name = apps.get_model("oel_contents", "TextContent")._meta.db_table
-        sql = f"ALTER TABLE {table_name} ROW_FORMAT=COMPRESSED;"
-        schema_editor.execute(sql)
-
-
 class Migration(migrations.Migration):
 
     initial = True
@@ -55,7 +41,6 @@ class Migration(migrations.Migration):
             ],
         ),
         # Call out to custom code here to change row format for TextContent
-        migrations.RunPython(use_compressed_table_format, reverse_code=migrations.RunPython.noop, atomic=False),
         migrations.AddIndex(
             model_name='rawcontent',
             index=models.Index(fields=['learning_package', 'mime_type'], name='oel_content_idx_lp_mime_type'),
