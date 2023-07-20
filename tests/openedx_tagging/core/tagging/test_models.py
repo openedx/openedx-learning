@@ -23,6 +23,7 @@ class TestTagTaxonomyMixin:
     def setUp(self):
         super().setUp()
         self.taxonomy = Taxonomy.objects.get(name="Life on Earth")
+        self.system_taxonomy = Taxonomy.objects.get(name="System Languages")
         self.archaea = get_tag("Archaea")
         self.archaebacteria = get_tag("Archaebacteria")
         self.bacteria = get_tag("Bacteria")
@@ -77,6 +78,39 @@ class TestTagTaxonomyMixin:
             tag.depth = 2
 
 
+class TestTaxonomySubclassA(Taxonomy):
+    """
+    Model A for testing the taxonomy subclass casting.
+    """
+
+    class Meta:
+        managed = False
+        proxy = True
+        app_label = "oel_tagging"
+
+
+class TestTaxonomySubclassB(TestTaxonomySubclassA):
+    """
+    Model B for testing the taxonomy subclass casting.
+    """
+
+    class Meta:
+        managed = False
+        proxy = True
+        app_label = "oel_tagging"
+
+
+class TestObjectTagSubclass(ObjectTag):
+    """
+    Model for testing the ObjectTag copy.
+    """
+
+    class Meta:
+        managed = False
+        proxy = True
+        app_label = "oel_tagging"
+
+
 @ddt.ddt
 class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
     """
@@ -85,10 +119,57 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_system_defined(self):
         assert not self.taxonomy.system_defined
+        assert self.system_taxonomy.system_defined
 
     def test_representations(self):
-        assert str(self.bacteria) == "Tag (1) Bacteria"
-        assert repr(self.bacteria) == "Tag (1) Bacteria"
+        assert (
+            str(self.taxonomy) == repr(self.taxonomy) == "<Taxonomy> (1) Life on Earth"
+        )
+        assert (
+            str(self.system_taxonomy)
+            == repr(self.system_taxonomy)
+            == "<Taxonomy> (2) System Languages"
+        )
+        assert str(self.bacteria) == repr(self.bacteria) == "<Tag> (1) Bacteria"
+
+    def test_taxonomy_cast(self):
+        for subclass in (
+            TestTaxonomySubclassA,
+            # Ensure that casting to a sub-subclass works as expected
+            TestTaxonomySubclassB,
+            # and that we can un-set the subclass
+            None,
+        ):
+            self.taxonomy.taxonomy_class = subclass
+            cast_taxonomy = self.taxonomy.cast()
+            if subclass:
+                expected_class = subclass.__name__
+            else:
+                expected_class = "Taxonomy"
+                assert self.taxonomy == cast_taxonomy
+            assert (
+                str(cast_taxonomy)
+                == repr(cast_taxonomy)
+                == f"<{expected_class}> (1) Life on Earth"
+            )
+
+    def test_taxonomy_cast_import_error(self):
+        taxonomy = Taxonomy.objects.create(
+            name="Invalid cast", _taxonomy_class="not.a.class"
+        )
+        # Error is logged, but ignored.
+        cast_taxonomy = taxonomy.cast()
+        assert cast_taxonomy == taxonomy
+        assert (
+            str(cast_taxonomy)
+            == repr(cast_taxonomy)
+            == f"<Taxonomy> ({taxonomy.id}) Invalid cast"
+        )
+
+    def test_taxonomy_cast_bad_value(self):
+        with self.assertRaises(ValueError) as exc:
+            self.taxonomy.taxonomy_class = str
+        assert "<class 'str'> must be a subclass of Taxonomy" in str(exc.exception)
 
     @ddt.data(
         # Root tags just return their own value
@@ -136,32 +217,46 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
     def setUp(self):
         super().setUp()
         self.tag = self.bacteria
+        self.object_tag = ObjectTag.objects.create(
+            object_id="object:id:1",
+            taxonomy=self.taxonomy,
+            tag=self.tag,
+        )
+
+    def test_representations(self):
+        assert (
+            str(self.object_tag)
+            == repr(self.object_tag)
+            == "<ObjectTag> object:id:1: Life on Earth=Bacteria"
+        )
+
+    def test_cast(self):
+        copy_tag = TestObjectTagSubclass.cast(self.object_tag)
+        assert (
+            str(copy_tag)
+            == repr(copy_tag)
+            == "<TestObjectTagSubclass> object:id:1: Life on Earth=Bacteria"
+        )
 
     def test_object_tag_name(self):
         # ObjectTag's name defaults to its taxonomy's name
-        object_tag = ObjectTag.objects.create(
-            object_id="object:id",
-            object_type="any_old_object",
-            taxonomy=self.taxonomy,
-        )
-        assert object_tag.name == self.taxonomy.name
+        assert self.object_tag.name == self.taxonomy.name
 
         # Even if we overwrite the name, it still uses the taxonomy's name
-        object_tag.name = "Another tag"
-        assert object_tag.name == self.taxonomy.name
-        object_tag.save()
-        assert object_tag.name == self.taxonomy.name
+        self.object_tag.name = "Another tag"
+        assert self.object_tag.name == self.taxonomy.name
+        self.object_tag.save()
+        assert self.object_tag.name == self.taxonomy.name
 
         # But if the taxonomy is deleted, then the object_tag's name reverts to our cached name
         self.taxonomy.delete()
-        object_tag.refresh_from_db()
-        assert object_tag.name == "Another tag"
+        self.object_tag.refresh_from_db()
+        assert self.object_tag.name == "Another tag"
 
     def test_object_tag_value(self):
         # ObjectTag's value defaults to its tag's value
         object_tag = ObjectTag.objects.create(
             object_id="object:id",
-            object_type="any_old_object",
             taxonomy=self.taxonomy,
             tag=self.tag,
         )
@@ -182,7 +277,6 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         # ObjectTag's value defaults to its tag's lineage
         object_tag = ObjectTag.objects.create(
             object_id="object:id",
-            object_type="any_old_object",
             taxonomy=self.taxonomy,
             tag=self.tag,
         )
@@ -200,41 +294,34 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         assert object_tag.get_lineage() == ["Another tag"]
 
     def test_object_tag_is_valid(self):
-        object_tag = ObjectTag(
-            object_id="object:id",
-            object_type="any_old_object",
+        open_taxonomy = Taxonomy.objects.create(
+            name="Freetext Life",
+            allow_free_text=True,
         )
-        assert not object_tag.is_valid
 
-        object_tag.taxonomy = self.taxonomy
-        assert not object_tag.is_valid
-
-        object_tag.tag = self.tag
-        assert object_tag.is_valid
-
-        # or, we can have no tag, and a free-text taxonomy
-        object_tag.tag = None
-        self.taxonomy.allow_free_text = True
-        assert object_tag.is_valid
-
-    def test_validate_object_tag_invalid(self):
-        taxonomy = Taxonomy.objects.create(
-            name="Another taxonomy",
-        )
         object_tag = ObjectTag(
             taxonomy=self.taxonomy,
         )
-        assert not taxonomy.validate_object_tag(object_tag)
+        # ObjectTag will only be valid for its taxonomy
+        assert not open_taxonomy.validate_object_tag(object_tag)
 
-        object_tag.taxonomy = taxonomy
-        assert not taxonomy.validate_object_tag(object_tag)
-
-        taxonomy.allow_free_text = True
-        assert not taxonomy.validate_object_tag(object_tag)
-
+        # ObjectTags in a free-text taxonomy are valid with a value
+        assert not object_tag.is_valid()
+        object_tag.value = "Any text we want"
+        object_tag.taxonomy = open_taxonomy
+        assert not object_tag.is_valid()
         object_tag.object_id = "object:id"
-        object_tag.object_type = "object:type"
-        assert taxonomy.validate_object_tag(object_tag)
+        assert object_tag.is_valid()
+
+        # ObjectTags in a closed taxonomy require a tag in that taxonomy
+        object_tag.taxonomy = self.taxonomy
+        object_tag.tag = Tag.objects.create(
+            taxonomy=self.system_taxonomy,
+            value="PT",
+        )
+        assert not object_tag.is_valid()
+        object_tag.tag = self.tag
+        assert object_tag.is_valid()
 
     def test_tag_object(self):
         self.taxonomy.allow_multiple = True
@@ -260,14 +347,12 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
             object_tags = self.taxonomy.tag_object(
                 tag_list,
                 "biology101",
-                "course",
             )
 
             # Ensure the expected number of tags exist in the database
             assert ObjectTag.objects.filter(
                 taxonomy=self.taxonomy,
                 object_id="biology101",
-                object_type="course",
             ).count() == len(tag_list)
             # And the expected number of tags were returned
             assert len(object_tags) == len(tag_list)
@@ -277,14 +362,12 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.taxonomy == self.taxonomy
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
-                assert object_tag.object_type == "course"
 
     def test_tag_object_free_text(self):
         self.taxonomy.allow_free_text = True
         object_tags = self.taxonomy.tag_object(
             ["Eukaryota Xenomorph"],
             "biology101",
-            "course",
         )
         assert len(object_tags) == 1
         object_tag = object_tags[0]
@@ -294,14 +377,12 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         assert object_tag.tag_ref == "Eukaryota Xenomorph"
         assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
         assert object_tag.object_id == "biology101"
-        assert object_tag.object_type == "course"
 
     def test_tag_object_no_multiple(self):
         with self.assertRaises(ValueError) as exc:
             self.taxonomy.tag_object(
                 ["A", "B"],
                 "biology101",
-                "course",
             )
         assert "only allows one tag per object" in str(exc.exception)
 
@@ -311,7 +392,6 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
             self.taxonomy.tag_object(
                 [],
                 "biology101",
-                "course",
             )
         assert "requires at least one tag per object" in str(exc.exception)
 
@@ -320,6 +400,5 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
             self.taxonomy.tag_object(
                 ["Eukaryota Xenomorph"],
                 "biology101",
-                "course",
             )
         assert "Invalid object tag for taxonomy" in str(exc.exception)

@@ -10,7 +10,7 @@ No permissions/rules are enforced by these methods -- these must be enforced in 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
-from typing import List, Type
+from typing import Iterator, List, Type, Union
 
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
@@ -19,17 +19,18 @@ from .models import ObjectTag, Tag, Taxonomy
 
 
 def create_taxonomy(
-    name,
-    description=None,
+    name: str,
+    description: str = None,
     enabled=True,
     required=False,
     allow_multiple=False,
     allow_free_text=False,
+    taxonomy_class: Type = None,
 ) -> Taxonomy:
     """
     Creates, saves, and returns a new Taxonomy with the given attributes.
     """
-    return Taxonomy.objects.create(
+    taxonomy = Taxonomy(
         name=name,
         description=description,
         enabled=enabled,
@@ -37,11 +38,27 @@ def create_taxonomy(
         allow_multiple=allow_multiple,
         allow_free_text=allow_free_text,
     )
+    if taxonomy_class:
+        taxonomy.taxonomy_class = taxonomy_class
+    taxonomy.save()
+    return taxonomy.cast()
+
+
+def get_taxonomy(id: int) -> Union[Taxonomy, None]:
+    """
+    Returns a Taxonomy cast to the appropriate subclass which has the given ID.
+    """
+    taxonomy = Taxonomy.objects.filter(id=id).first()
+    return taxonomy.cast() if taxonomy else None
 
 
 def get_taxonomies(enabled=True) -> QuerySet:
     """
     Returns a queryset containing the enabled taxonomies, sorted by name.
+
+    We return a QuerySet here for ease of use with Django Rest Framework and other query-based use cases.
+    So be sure to use `Taxonomy.cast()` to cast these instances to the appropriate subclass before use.
+
     If you want the disabled taxonomies, pass enabled=False.
     If you want all taxonomies (both enabled and disabled), pass enabled=None.
     """
@@ -57,7 +74,7 @@ def get_tags(taxonomy: Taxonomy) -> List[Tag]:
 
     Note that if the taxonomy allows free-text tags, then the returned list will be empty.
     """
-    return taxonomy.get_tags()
+    return taxonomy.cast().get_tags()
 
 
 def resync_object_tags(object_tags: QuerySet = None) -> int:
@@ -67,7 +84,7 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
     By default, we iterate over all ObjectTags. Pass a filtered ObjectTags queryset to limit which tags are resynced.
     """
     if not object_tags:
-        object_tags = ObjectTag.objects.all()
+        object_tags = ObjectTag.objects.select_related("tag", "taxonomy")
 
     num_changed = 0
     for object_tag in object_tags:
@@ -79,22 +96,35 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
 
 
 def get_object_tags(
-    taxonomy: Taxonomy, object_id: str, object_type: str, valid_only=True
-) -> List[ObjectTag]:
+    object_id: str, taxonomy: Taxonomy = None, valid_only=True
+) -> Iterator[ObjectTag]:
     """
-    Returns a list of tags for a given taxonomy + content.
+    Generates a list of object tags for a given object.
+
+    Pass taxonomy to limit the returned object_tags to a specific taxonomy.
 
     Pass valid_only=False when displaying tags to content authors, so they can see invalid tags too.
-    Invalid tags will likely be hidden from learners.
+    Invalid tags will (probably) be hidden from learners.
     """
-    tags = ObjectTag.objects.filter(
-        taxonomy=taxonomy, object_id=object_id, object_type=object_type
-    ).order_by("id")
-    return [tag for tag in tags if not valid_only or taxonomy.validate_object_tag(tag)]
+    tags = (
+        ObjectTag.objects.filter(
+            object_id=object_id,
+        )
+        .select_related("tag", "taxonomy")
+        .order_by("id")
+    )
+    if taxonomy:
+        tags = tags.filter(taxonomy=taxonomy)
+
+    for object_tag in tags:
+        if not valid_only or object_tag.is_valid():
+            yield object_tag
 
 
 def tag_object(
-    taxonomy: Taxonomy, tags: List, object_id: str, object_type: str
+    taxonomy: Taxonomy,
+    tags: List,
+    object_id: str,
 ) -> List[ObjectTag]:
     """
     Replaces the existing ObjectTag entries for the given taxonomy + object_id with the given list of tags.
@@ -105,5 +135,4 @@ def tag_object(
     Raised ValueError if the proposed tags are invalid for this taxonomy.
     Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
     """
-
-    return taxonomy.tag_object(tags, object_id, object_type)
+    return taxonomy.cast().tag_object(tags, object_id)
