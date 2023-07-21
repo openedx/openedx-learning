@@ -57,7 +57,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
         assert str(enabled[1]) == "<Taxonomy> (1) Life on Earth"
-        assert str(enabled[2]) == "<Taxonomy> (4) System defined taxonomy"
+        assert str(enabled[2]) == "<SystemDefinedTaxonomy> (4) System defined taxonomy"
 
         with self.assertNumQueries(1):
             disabled = list(tagging_api.get_taxonomies(enabled=False))

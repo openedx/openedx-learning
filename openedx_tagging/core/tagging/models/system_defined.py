@@ -19,11 +19,13 @@ class SystemDefinedTaxonomy(Taxonomy):
     class Meta:
         proxy = True
 
-    def _check_taxonomy(self, object_tag: ObjectTag) -> bool:
+    @property
+    def system_defined(self) -> bool:
         """
-        Returns True if this is a system defined taxonomy
+        Indicates that tags and metadata for this taxonomy are maintained by the system;
+        taxonomy admins will not be permitted to modify them.
         """
-        return super()._check_taxonomy(object_tag) and self.system_defined
+        return True
 
 
 class ModelObjectTag(ObjectTag):

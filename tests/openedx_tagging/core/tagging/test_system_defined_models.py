@@ -11,7 +11,6 @@ from openedx_tagging.core.tagging.models import (
 from openedx_tagging.core.tagging.models.system_defined import (
     ModelObjectTag,
     ModelSystemDefinedTaxonomy,
-    SystemDefinedTaxonomy,
     UserSystemDefinedTaxonomy,
 )
 
@@ -76,35 +75,6 @@ class TestModelTaxonomy(ModelSystemDefinedTaxonomy):
         proxy = True
         managed = False
         app_label = "oel_tagging"
-
-@ddt.ddt
-class TestSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
-    """
-    Test for System defined Taxonomy
-    """
-
-    @ddt.data(
-        ("system_taxonomy", "system_taxonomy", True),  # Valid
-        ("taxonomy", "taxonomy", False),  # Not a system defined
-        ("system_taxonomy", "taxonomy", False),  # Testing parent validations
-    )
-    @ddt.unpack
-    def test_validations(self, taxonomy, second_taxonomy, expected):
-        taxonomy = getattr(self, taxonomy)
-        taxonomy.taxonomy_class = SystemDefinedTaxonomy
-        taxonomy = taxonomy.cast()
-
-        second_taxonomy = getattr(self, second_taxonomy)
-
-        assert (
-            taxonomy.validate_object_tag(
-                object_tag=ObjectTag(object_id="id", taxonomy=second_taxonomy),
-                check_taxonomy=True,
-                check_tag=False,
-                check_object=False,
-            )
-            == expected
-        )
 
 
 @ddt.ddt
@@ -175,7 +145,6 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         taxonomy = TestModelTaxonomy(
             name="Test",
             description="Test",
-            system_defined=True,
         )
         taxonomy.save()
         assert taxonomy.tag_set.count() == 0

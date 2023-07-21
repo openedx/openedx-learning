@@ -161,7 +161,6 @@
     required: false
     allow_multiple: false
     allow_free_text: false
-    system_defined: false
 - model: oel_tagging.taxonomy
   pk: 2
   fields:
@@ -171,8 +170,7 @@
     required: false
     allow_multiple: false
     allow_free_text: false
-    system_defined: true
-    _taxonomy_class: openedx_tagging.core.tagging.models.LanguageTaxonomy
+    _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.LanguageTaxonomy
 - model: oel_tagging.taxonomy
   pk: 3
   fields:
@@ -182,8 +180,7 @@
     required: false
     allow_multiple: false
     allow_free_text: false
-    system_defined: true
-    _taxonomy_class: openedx_tagging.core.tagging.models.UserSystemDefinedTaxonomy
+    _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.UserSystemDefinedTaxonomy
 - model: oel_tagging.taxonomy
   pk: 4
   fields:
@@ -193,5 +190,4 @@
     required: false
     allow_multiple: false
     allow_free_text: false
-    system_defined: true
-    _taxonomy_class: openedx_tagging.core.tagging.models.SystemDefinedTaxonomy
+    _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.SystemDefinedTaxonomy

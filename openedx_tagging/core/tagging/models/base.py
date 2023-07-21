@@ -140,14 +140,6 @@ class Taxonomy(models.Model):
             "Indicates that tags in this taxonomy need not be predefined; authors may enter their own tag values."
         ),
     )
-    system_defined = models.BooleanField(
-        default=False,
-        editable=False,
-        help_text=_(
-            "Indicates that tags and metadata for this taxonomy are maintained by the system;"
-            " taxonomy admins will not be permitted to modify them.",
-        ),
-    )
     visible_to_authors = models.BooleanField(
         default=True,
         editable=False,
@@ -177,6 +169,14 @@ class Taxonomy(models.Model):
         """
         User-facing string representation of a Taxonomy.
         """
+        try:
+            if self._taxonomy_class:
+                return f"<{self.taxonomy_class.__name__}> ({self.id}) {self.name}"
+        except ImportError:
+            # Log error and continue
+            log.exception(
+                f"Unable to import taxonomy_class for {self.id}: {self._taxonomy_class}"
+            )
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
 
     @property
@@ -198,6 +198,14 @@ class Taxonomy(models.Model):
         if self._taxonomy_class:
             return import_string(self._taxonomy_class)
         return None
+    
+    @property
+    def system_defined(self) -> bool:
+        """
+        Indicates that tags and metadata for this taxonomy are maintained by the system;
+        taxonomy admins will not be permitted to modify them.
+        """
+        return False
 
     @taxonomy_class.setter
     def taxonomy_class(self, taxonomy_class: Union[Type, None]):
@@ -248,7 +256,6 @@ class Taxonomy(models.Model):
         self.required = taxonomy.required
         self.allow_multiple = taxonomy.allow_multiple
         self.allow_free_text = taxonomy.allow_free_text
-        self.system_defined = taxonomy.system_defined
         self.visible_to_authors = taxonomy.visible_to_authors
         self._taxonomy_class = taxonomy._taxonomy_class
         return self
