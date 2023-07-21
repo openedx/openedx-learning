@@ -98,12 +98,12 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 taxonomy_cls()
 
     @ddt.data(
-        (1, "tag_id"),  # Valid
-        (0, "tag_id"),  # Invalid user
-        (1, None),  # Testing parent validations
+        (1, "tag_id", True),  # Valid
+        (0, "tag_id", False),  # Invalid user
+        (1, None, False),  # Testing parent validations
     )
     @ddt.unpack
-    def test_validations(self, tag_external_id, tag_id):
+    def test_validations(self, tag_external_id, tag_id, expected):
         tag = Tag(
             id=tag_id,
             taxonomy=self.user_taxonomy,
@@ -115,12 +115,12 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
             tag=tag,
         )
 
-        self.user_taxonomy.validate_object_tag(
+        assert self.user_taxonomy.validate_object_tag(
             object_tag=object_tag,
             check_object=False,
             check_taxonomy=False,
             check_tag=True,
-        )
+        ) == expected
 
     def test_tag_object_invalid_user(self):
         # Test user that doesn't exist

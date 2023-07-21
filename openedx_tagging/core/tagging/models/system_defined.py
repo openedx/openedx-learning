@@ -6,6 +6,8 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 
+from openedx_tagging.core.tagging.models.base import ObjectTag
+
 from .base import Tag, Taxonomy, ObjectTag
 
 log = logging.getLogger(__name__)
@@ -130,7 +132,7 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
     """
     Model based system taxonomy abstract class.
 
-    This type of taxonomy has an associated Django model in `tag_class_model()`.
+    This type of taxonomy has an associated Django model in ModelObjectTag.tag_class_model().
     They are designed to create Tags when required for new ObjectTags, to maintain
     their status as "closed" taxonomies.
     The Tags are representations of the instances of the associated model.
@@ -162,6 +164,21 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         Model Taxonomy subclasses must implement this to provide a ModelObjectTag subclass.
         """
         raise NotImplementedError
+    
+    def _check_instance(self, object_tag: ObjectTag) -> bool:
+        """
+        Returns True if the instance exists
+
+        Subclasses can override this method to perform their own instance validation checks.
+        """
+        object_tag = self.object_tag_class.cast(object_tag)
+        return bool(object_tag.get_instance())        
+
+    def _check_tag(self, object_tag: ObjectTag) -> bool:
+        """
+        Returns True if the instance is valid
+        """
+        return super()._check_tag(object_tag) and self._check_instance(object_tag)
 
 
 class UserModelObjectTag(ModelObjectTag):
