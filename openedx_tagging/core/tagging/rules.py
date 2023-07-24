@@ -16,10 +16,10 @@ is_taxonomy_admin = rules.is_staff
 @rules.predicate
 def can_view_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
     """
-    Anyone can view an enabled taxonomy,
+    Anyone can view an enabled taxonomy or list all taxonomies,
     but only taxonomy admins can view a disabled taxonomy.
     """
-    return (taxonomy and taxonomy.enabled) or is_taxonomy_admin(user)
+    return not taxonomy or taxonomy.enabled or is_taxonomy_admin(user)
 
 
 @rules.predicate
@@ -28,7 +28,7 @@ def can_change_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
     Even taxonomy admins cannot change system taxonomies.
     """
     return is_taxonomy_admin(user) and (
-        not taxonomy or not taxonomy or (taxonomy and not taxonomy.system_defined)
+        not taxonomy or (taxonomy and not taxonomy.system_defined)
     )
 
 
