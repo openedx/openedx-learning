@@ -19,7 +19,7 @@ def can_view_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
     Anyone can view an enabled taxonomy,
     but only taxonomy admins can view a disabled taxonomy.
     """
-    return (taxonomy and taxonomy.enabled) or is_taxonomy_admin(user)
+    return (taxonomy and taxonomy.cast().enabled) or is_taxonomy_admin(user)
 
 
 @rules.predicate
@@ -28,23 +28,24 @@ def can_change_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
     Even taxonomy admins cannot change system taxonomies.
     """
     return is_taxonomy_admin(user) and (
-        not taxonomy or not taxonomy or (taxonomy and not taxonomy.system_defined)
+        not taxonomy or (taxonomy and not taxonomy.cast().system_defined)
     )
 
 
 @rules.predicate
-def can_change_taxonomy_tag(user: User, tag: Tag = None) -> bool:
+def can_change_tag(user: User, tag: Tag = None) -> bool:
     """
     Even taxonomy admins cannot add tags to system taxonomies (their tags are system-defined), or free-text taxonomies
     (these don't have predefined tags).
     """
+    taxonomy = tag.taxonomy.cast() if (tag and tag.taxonomy_id) else None
     return is_taxonomy_admin(user) and (
         not tag
-        or not tag.taxonomy
+        or not taxonomy
         or (
-            tag.taxonomy
-            and not tag.taxonomy.allow_free_text
-            and not tag.taxonomy.system_defined
+            taxonomy
+            and not taxonomy.allow_free_text
+            and not taxonomy.system_defined
         )
     )
 
@@ -54,10 +55,12 @@ def can_change_object_tag(user: User, object_tag: ObjectTag = None) -> bool:
     """
     Taxonomy admins can create or modify object tags on enabled taxonomies.
     """
+    taxonomy = object_tag.taxonomy.cast() if (object_tag and object_tag.taxonomy_id) else None
+    object_tag = taxonomy.object_tag_class.cast(object_tag) if taxonomy else object_tag
     return is_taxonomy_admin(user) and (
         not object_tag
-        or not object_tag.taxonomy
-        or (object_tag.taxonomy and object_tag.taxonomy.enabled)
+        or not taxonomy
+        or (taxonomy and taxonomy.enabled)
     )
 
 
@@ -68,8 +71,8 @@ rules.add_perm("oel_tagging.delete_taxonomy", can_change_taxonomy)
 rules.add_perm("oel_tagging.view_taxonomy", can_view_taxonomy)
 
 # Tag
-rules.add_perm("oel_tagging.add_tag", can_change_taxonomy_tag)
-rules.add_perm("oel_tagging.change_tag", can_change_taxonomy_tag)
+rules.add_perm("oel_tagging.add_tag", can_change_tag)
+rules.add_perm("oel_tagging.change_tag", can_change_tag)
 rules.add_perm("oel_tagging.delete_tag", is_taxonomy_admin)
 rules.add_perm("oel_tagging.view_tag", rules.always_allow)
 

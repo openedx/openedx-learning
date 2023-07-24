@@ -29,7 +29,7 @@ class TestTagTaxonomyMixin:
         self.taxonomy = Taxonomy.objects.get(name="Life on Earth")
         self.system_taxonomy = Taxonomy.objects.get(
             name="System defined taxonomy"
-        ).cast()
+        )
         self.language_taxonomy = Taxonomy.objects.get(name="System Languages").cast()
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
         self.archaea = get_tag("Archaea")
@@ -138,7 +138,7 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_system_defined(self):
         assert not self.taxonomy.system_defined
-        assert self.system_taxonomy.system_defined
+        assert self.system_taxonomy.cast().system_defined
 
     def test_representations(self):
         assert (
