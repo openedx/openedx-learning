@@ -62,9 +62,9 @@ class Tag(models.Model):
     )
 
     class Meta:
-        indexes = [
-            models.Index(fields=["taxonomy", "value"]),
-            models.Index(fields=["taxonomy", "external_id"]),
+        unique_together = [
+            ["taxonomy", "external_id"],
+            ["taxonomy", "value"],
         ]
 
     def __repr__(self):
@@ -443,6 +443,7 @@ class ObjectTag(models.Model):
     id = models.BigAutoField(primary_key=True)
     object_id = case_insensitive_char_field(
         max_length=255,
+        db_index=True,
         editable=False,
         help_text=_("Identifier for the object being tagged"),
     )
@@ -484,6 +485,7 @@ class ObjectTag(models.Model):
 
     class Meta:
         indexes = [
+            models.Index(fields=["taxonomy", "object_id"]),
             models.Index(fields=["taxonomy", "_value"]),
         ]
 
@@ -556,7 +558,6 @@ class ObjectTag(models.Model):
             try:
                 self.tag = self.taxonomy.tag_set.get(pk=tag_ref)
                 self.value = self.tag.value
-                return
             except (ValueError, Tag.DoesNotExist):
                 # This might be ok, e.g. if our taxonomy.allow_free_text, so we just pass through here.
                 # We rely on the caller to validate before saving.
