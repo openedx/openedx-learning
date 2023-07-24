@@ -62,6 +62,10 @@ class Tag(models.Model):
     )
 
     class Meta:
+        indexes = [
+            models.Index(fields=["taxonomy", "value"]),
+            models.Index(fields=["taxonomy", "external_id"]),
+        ]
         unique_together = [
             ["taxonomy", "external_id"],
             ["taxonomy", "value"],
