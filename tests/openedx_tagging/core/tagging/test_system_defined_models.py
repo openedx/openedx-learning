@@ -100,6 +100,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
     @ddt.data(
         (1, "tag_id", True),  # Valid
         (0, "tag_id", False),  # Invalid user
+        ("test_id", "tag_id", False),  # Invalid user id
         (1, None, False),  # Testing parent validations
     )
     @ddt.unpack

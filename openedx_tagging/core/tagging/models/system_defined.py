@@ -72,6 +72,10 @@ class ModelObjectTag(ObjectTag):
         if instance_id:
             try:
                 return self.tag_class_model.objects.get(pk=instance_id)
+            except ValueError as e:
+                log.exception(
+                    f"{self}: {str(e)}"
+                )
             except self.tag_class_model.DoesNotExist:
                 log.exception(
                     f"{self}: {self.tag_class_model.__name__} pk={instance_id} does not exist."
