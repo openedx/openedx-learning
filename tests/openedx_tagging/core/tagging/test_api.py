@@ -486,10 +486,9 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             'Animalia',
             'Arthropoda',
         ]
-        for tag in tags:
+        for index, tag in enumerate(tags):
             ObjectTag(
-                object_id=object_id_1,
-                object_type='course',
+                object_id=f"{object_id_1}_{index}",
                 taxonomy=taxonomy,
                 _value=tag,
             ).save()
@@ -511,26 +510,26 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         result = tagging_api.autocomplete_tags_result(taxonomy, prefix)
         tag_ids = self._get_tag_result_ids(result)
         tag_values = self._get_tag_result_values(result)
-        self.assertEqual(tag_values, ["Animalia", "Archaea", "Archaebacteria", "Arthropoda"])
+        assert tag_values == ["Animalia", "Archaea", "Archaebacteria", "Arthropoda"]
 
         for tag in tag_values:
-            self.assertEqual(tag[0].lower(), prefix)
+            assert tag[0].lower() == prefix
 
         if free_text:
-            self.assertEqual(tag_ids, [None, None, None, None])
+            assert tag_ids == [None, None, None, None]
         else:
-            self.assertEqual(tag_ids, [9,2,5,14])
+            assert tag_ids == [9,2,5,14]
 
         # Search with count
         result = tagging_api.autocomplete_tags_result(taxonomy, prefix, count=2)
         tag_ids = self._get_tag_result_ids(result)
         tag_values = self._get_tag_result_values(result)
-        self.assertEqual(tag_values, ["Animalia", "Archaea"])
+        assert tag_values == ["Animalia", "Archaea"]
 
         if free_text:
-            self.assertEqual(tag_ids, [None, None])
+            assert tag_ids == [None, None]
         else:
-            self.assertEqual(tag_ids, [9,2])
+            assert tag_ids == [9,2]
 
         # Create ObjectTag to simulate the content tagging
         for tag in tag_values:
@@ -540,7 +539,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
             ObjectTag(
                 object_id=object_id,
-                object_type='course',
                 taxonomy=taxonomy,
                 tag=tag_model,
                 _value=tag,
@@ -549,19 +547,19 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         # Search with object
         result = tagging_api.autocomplete_tags_result(taxonomy, prefix, object_id)
         tag_ids = self._get_tag_result_ids(result)
-        self.assertEqual(self._get_tag_result_values(result), ["Archaebacteria", "Arthropoda"])
+        assert self._get_tag_result_values(result) == ["Archaebacteria", "Arthropoda"]
 
         if free_text:
-            self.assertEqual(tag_ids, [None, None])
+            assert tag_ids == [None, None]
         else:
-            self.assertEqual(tag_ids, [5,14])
+            assert tag_ids == [5,14]
 
-        # Search with object and coun
+        # Search with object and count
         result = tagging_api.autocomplete_tags_result(taxonomy, prefix, object_id, count=1)
         tag_ids = self._get_tag_result_ids(result)
-        self.assertEqual(self._get_tag_result_values(result), ["Archaebacteria"])
+        assert self._get_tag_result_values(result) == ["Archaebacteria"]
 
         if free_text:
-            self.assertEqual(tag_ids, [None])
+            assert tag_ids == [None]
         else:
-            self.assertEqual(tag_ids, [5])
+            assert tag_ids == [5]

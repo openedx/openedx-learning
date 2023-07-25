@@ -498,6 +498,7 @@ class ObjectTag(models.Model):
             models.Index(fields=["taxonomy", "_value"]),
             models.Index(fields=["taxonomy", "object_id"]),
         ]
+        unique_together = ("taxonomy", "_value", "object_id")
 
     def __repr__(self):
         """
@@ -669,7 +670,7 @@ class ObjectTag(models.Model):
         self._value = object_tag._value
         self._name = object_tag._name
         return self
-    
+
 
 class TagResult:
     """

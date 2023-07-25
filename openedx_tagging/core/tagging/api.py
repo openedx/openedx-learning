@@ -17,6 +17,7 @@ from django.utils.translation import gettext_lazy as _
 
 from .models import ObjectTag, Tag, Taxonomy, TagResult
 
+
 def create_taxonomy(
     name: str,
     description: str = None,
@@ -138,13 +139,15 @@ def tag_object(
     return taxonomy.cast().tag_object(tags, object_id)
 
 
-def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, count=10) -> QuerySet:
+def autocomplete_tags(
+    taxonomy: Taxonomy, prefix: str, object_id: str = None, count=10
+) -> QuerySet:
     """
-    Returns the first `count` tag values in the given Taxonomy with names 
+    Returns the first `count` tag values in the given Taxonomy with names
     that begin with the given prefix string. The result is returned in alphabetical
 
     Closed taxonomies return tag values that exist in the taxonomy. Also excludes all Tags that the
-    `object_id` already has. 
+    `object_id` already has.
 
     Free-text taxonomies return only tag values that are currently in use on (another) object. Also excludes
     the tags used by `object_id`.
@@ -157,16 +160,16 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
         # Free-text taxonomy
 
         # Obtain the value of the excluded tags
-        excluded_tags = excluded_tags.values_list('_value', flat=True)
+        excluded_tags = excluded_tags.values_list("_value", flat=True)
         return (
             # Fetch object tags from this taxonomy whose value starts with the given prefix
             ObjectTag.objects.filter(taxonomy=taxonomy, _value__istartswith=prefix)
             # omit any free-text tags whose values match the tags on the given object
             .exclude(_value__in=excluded_tags)
             # alphabetical ordering
-            .order_by('_value')
+            .order_by("_value")
             # obtain the values of the tags
-            .values_list('_value', flat=True)
+            .values_list("_value", flat=True)
             # remove repeats
             .distinct()
             # get only first `count` values
@@ -174,24 +177,28 @@ def autocomplete_tags(taxonomy: Taxonomy, prefix: str, object_id: str= None, cou
         )
     else:
         # Closed taxonomy
-        
+
         # Obtain the id of the excluded tags
-        excluded_tags = excluded_tags.filter(tag__isnull=False).values_list('tag__id', flat=True)
+        excluded_tags = excluded_tags.filter(tag__isnull=False).values_list(
+            "tag__id", flat=True
+        )
         return (
             # Fetch tags from this taxonomy whose value starts with the given prefix
             Tag.objects.filter(taxonomy=taxonomy, value__istartswith=prefix)
             # omit any tags applied to the given object
             .exclude(id__in=excluded_tags)
             # alphabetical ordering
-            .order_by('value')
+            .order_by("value")
             # obtain only id and values of the tags
-            .values('id', 'value')
+            .values("id", "value")
             # get only first `count` values
             [:count]
         )
 
 
-def autocomplete_tags_result(taxonomy: Taxonomy, prefix: str, object_id: str= None, count=10) -> List[TagResult]:
+def autocomplete_tags_result(
+    taxonomy: Taxonomy, prefix: str, object_id: str = None, count=10
+) -> List[TagResult]:
     """
     Calls `autocomplete_tags` and serialize the results into `TagResult`
     """
@@ -199,5 +206,5 @@ def autocomplete_tags_result(taxonomy: Taxonomy, prefix: str, object_id: str= No
     if taxonomy.allow_free_text:
         result = [TagResult(id=None, value=value) for value in result]
     else:
-        result = [TagResult(id=item['id'], value=item['value']) for item in result]
+        result = [TagResult(id=item["id"], value=item["value"]) for item in result]
     return result
