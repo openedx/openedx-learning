@@ -2,7 +2,6 @@
 API Serializers for taxonomies
 """
 
-from django.utils.module_loading import import_string
 from rest_framework import serializers
 
 from openedx_tagging.core.tagging.models import Taxonomy
