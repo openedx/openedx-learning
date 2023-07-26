@@ -430,61 +430,31 @@ class Taxonomy(models.Model):
 
         return updated_tags
 
-    def autocomplete_tags(
-        self, prefix: str, object_id: str = None, count=10
-    ) -> models.QuerySet:
+    def autocomplete_tags(self, search: str, object_id: str = None) -> models.QuerySet:
         """
-        Returns the first `count` tag values in the given Taxonomy with names
-        that begin with the given prefix string. The result is returned in alphabetical
+        Returns tag values that contains the given search string.
+        The result is returned in alphabetical order.
 
-        Closed taxonomies return tag values that exist in the taxonomy. Also excludes all Tags that the
-        `object_id` already has.
-
-        Free-text taxonomies return only tag values that are currently in use on (another) object. Also excludes
-        the tags used by `object_id`.
+        The output is a QuerySet of dictionaries in with `_value` and `tag`.
 
         Subclasses can override this method to perform their own autocomplete process.
         """
         # Fetch tags that the object already has to exclude them from the result
-        excluded_tags = self.objecttag_set.filter(object_id=object_id)
-        if self.allow_free_text:
-            # Free-text taxonomy
-
-            # Obtain the value of the excluded tags
-            excluded_tags = excluded_tags.values_list("_value", flat=True)
-            return (
-                # Fetch object tags from this taxonomy whose value starts with the given prefix
-                self.objecttag_set.filter(_value__istartswith=prefix)
-                # omit any free-text tags whose values match the tags on the given object
-                .exclude(_value__in=excluded_tags)
-                # alphabetical ordering
-                .order_by("_value")
-                # obtain the values of the tags
-                .values_list("_value", flat=True)
-                # remove repeats
-                .distinct()
-                # get only first `count` values
-                [:count]
-            )
-        else:
-            # Closed taxonomy
-
-            # Obtain the id of the excluded tags
-            excluded_tags = excluded_tags.filter(tag__isnull=False).values_list(
-                "tag__id", flat=True
-            )
-            return (
-                # Fetch tags from this taxonomy whose value starts with the given prefix
-                self.tag_set.filter(value__istartswith=prefix)
-                # omit any tags applied to the given object
-                .exclude(id__in=excluded_tags)
-                # alphabetical ordering
-                .order_by("value")
-                # obtain only id and values of the tags
-                .values("id", "value")
-                # get only first `count` values
-                [:count]
-            )
+        excluded_tags = self.objecttag_set.filter(object_id=object_id).values_list(
+            "_value", flat=True
+        )
+        return (
+            # Fetch object tags from this taxonomy whose value contains the search
+            self.objecttag_set.filter(_value__icontains=search)
+            # omit any tags whose values match the tags on the given object
+            .exclude(_value__in=excluded_tags)
+            # alphabetical ordering
+            .order_by("_value")
+            # obtain tag values
+            .values("_value", "tag")
+            # remove repeats
+            .distinct()
+        )
 
 
 class ObjectTag(models.Model):

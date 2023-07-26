@@ -141,18 +141,15 @@ def tag_object(
 
 def autocomplete_tags(
     taxonomy: Taxonomy,
-    prefix: str,
+    search: str,
     object_id: str = None,
-    count=10,
 ) -> QuerySet:
     """
-    Returns the first `count` tag values in the given Taxonomy with names
-    that begin with the given prefix string. The result is returned in alphabetical
+    Returns tag values that contains the given search string.
+    The result is returned in alphabetical order.
 
-    Closed taxonomies return tag values that exist in the taxonomy. Also excludes all Tags that the
-    `object_id` already has.
+    The output is a QuerySet of dictionaries in with `_value` and `tag`.
 
-    Free-text taxonomies return only tag values that are currently in use on (another) object. Also excludes
-    the tags used by `object_id`.
+    Subclasses can override this method to perform their own autocomplete process.
     """
-    return taxonomy.cast().autocomplete_tags(prefix, object_id, count)
+    return taxonomy.cast().autocomplete_tags(search, object_id)

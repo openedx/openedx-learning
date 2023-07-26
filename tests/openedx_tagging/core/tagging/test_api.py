@@ -1,4 +1,5 @@
 """ Test the tagging APIs """
+import ddt
 
 from django.test.testcases import TestCase, override_settings
 
@@ -16,6 +17,7 @@ test_languages = [
 ]
 
 
+@ddt.ddt
 class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     """
     Test the Tagging API methods.
@@ -461,18 +463,27 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             beta,
         ]
 
-    def test_autocomplete_tags_closed_taxonomy(self):
-        object_id = 'course_id_1'
-        prefix = 'a'
-
-        self._validate_autocomplete_tags(self.taxonomy, prefix, object_id)
-
-    def test_autocomplete_tags_free_text_taxonomy(self):
-        object_id_1 = 'course_id_1'
-        object_id_2 = 'course_id_2'
-        prefix = 'a'
-
-        taxonomy = tagging_api.create_taxonomy("Free_Text_Taxonomy", allow_free_text=True)
+    @ddt.data(
+        ("ChA", ["Archaea", "Archaebacteria"], [2,5]),
+        ("ar", ['Archaea', 'Archaebacteria', 'Arthropoda'], [2,5,14]),
+        ("aE", ['Archaea', 'Archaebacteria', 'Plantae'], [2,5,10]),
+        (
+            "a", 
+            [
+                'Animalia',
+                'Archaea',
+                'Archaebacteria',
+                'Arthropoda',
+                'Gastrotrich',
+                'Monera',
+                'Placozoa',
+                'Plantae',
+            ],
+            [9,2,5,14,16,13,19,10],
+        ),
+    )
+    @ddt.unpack
+    def test_autocomplete_tags(self, search, expected_values, expected_ids):
         tags = [
             'Archaea',
             'Archaebacteria',
@@ -482,99 +493,95 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             'Monera',
             'Gastrotrich',
             'Placozoa',
-            # For testing repeats
-            'Animalia',
-            'Arthropoda',
-        ]
-        for index, tag in enumerate(tags):
+        ] + expected_values  # To create repeats
+        open_taxonomy = self.taxonomy
+        closed_taxonomy = tagging_api.create_taxonomy(
+            "Free_Text_Taxonomy",
+            allow_free_text=True,
+        )
+
+        for index, value in enumerate(tags):
+            # Creating ObjectTags for open taxonomy
             ObjectTag(
-                object_id=f"{object_id_1}_{index}",
-                taxonomy=taxonomy,
-                _value=tag,
+                object_id=f"object_id_{index}",
+                taxonomy=open_taxonomy,
+                _value=value,
+            ).save()
+            
+            # Creating ObjectTags for closed taxonomy
+            tag = get_tag(value)
+            ObjectTag(
+                object_id=f"object_id_{index}",
+                taxonomy=closed_taxonomy,
+                tag=tag,
+                _value=value,
             ).save()
 
-        self._validate_autocomplete_tags(taxonomy, prefix, object_id_2, free_text=True)
+        # Test for open taxonomy
+        self._validate_autocomplete_tags(
+            open_taxonomy,
+            search,
+            expected_values,
+            [None] * len(expected_ids),
+        )
+
+        # Test for closed taxonomy
+        self._validate_autocomplete_tags(
+            closed_taxonomy,
+            search,
+            expected_values,
+            expected_ids,
+        )
+
 
     def _get_tag_values(self, tags):
         """
         Get tag values from tagging_api.autocomplete_tags() result
-        """
-        result = []
-        for tag in tags:
-            if isinstance(tag, str) :
-                result.append(tag)
-            elif tag.get("value"):
-                result.append(tag.get("value"))
-        return result
+        """        
+        return [tag.get("_value") for tag in tags]
 
     def _get_tag_ids(self, tags):
         """
         Get tag ids from tagging_api.autocomplete_tags() result
         """
-        return [
-            tag.get('id') for tag in tags
-            if not isinstance(tag, str) and tag.get('id')
-        ]
+        return [tag.get("tag") for tag in tags]
+        
 
-    def _validate_autocomplete_tags(self, taxonomy, prefix, object_id, free_text=False):
+    def _validate_autocomplete_tags(
+        self,
+        taxonomy,
+        search,
+        expected_values,
+        expected_ids,
+    ):
         """
         Validate autocomplete tags
         """
 
         # Normal search
-        result = tagging_api.autocomplete_tags(taxonomy, prefix)
-        tag_ids = self._get_tag_ids(result)
+        result = tagging_api.autocomplete_tags(taxonomy, search)
         tag_values = self._get_tag_values(result)
-        assert tag_values == ["Animalia", "Archaea", "Archaebacteria", "Arthropoda"]
+        for value in tag_values:
+            assert search.lower() in value.lower()
 
-        for tag in tag_values:
-            assert tag[0].lower() == prefix
-
-        if free_text:
-            assert tag_ids == []
-        else:
-            assert tag_ids == [9,2,5,14]
-
-        # Search with count
-        result = tagging_api.autocomplete_tags(taxonomy, prefix, count=2)
-        tag_ids = self._get_tag_ids(result)
-        tag_values = self._get_tag_values(result)
-        assert tag_values == ["Animalia", "Archaea"]
-
-        if free_text:
-            assert tag_ids == []
-        else:
-            assert tag_ids == [9,2]
-
+        print(tag_values)
+        assert tag_values == expected_values
+        assert self._get_tag_ids(result) == expected_ids
+        
         # Create ObjectTag to simulate the content tagging
-        for tag in tag_values:
-            tag_model = None
-            if not free_text:
-                tag_model = get_tag(tag)
+        tag_model = None
+        if not taxonomy.allow_free_text:
+            tag_model = get_tag(tag_values[0])
 
-            ObjectTag(
-                object_id=object_id,
-                taxonomy=taxonomy,
-                tag=tag_model,
-                _value=tag,
-            ).save()
+        object_id = 'new_object_id'
+        ObjectTag(
+            object_id=object_id,
+            taxonomy=taxonomy,
+            tag=tag_model,
+            _value=tag_values[0],
+        ).save()
 
         # Search with object
-        result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id)
-        tag_ids = self._get_tag_ids(result)
-        assert self._get_tag_values(result) == ["Archaebacteria", "Arthropoda"]
-
-        if free_text:
-            assert tag_ids == []
-        else:
-            assert tag_ids == [5,14]
-
-        # Search with object and count
-        result = tagging_api.autocomplete_tags(taxonomy, prefix, object_id, count=1)
-        tag_ids = self._get_tag_ids(result)
-        assert self._get_tag_values(result) == ["Archaebacteria"]
-
-        if free_text:
-            assert tag_ids == []
-        else:
-            assert tag_ids == [5]
+        result = tagging_api.autocomplete_tags(taxonomy, search, object_id)
+        assert self._get_tag_values(result) == expected_values[1:]
+        assert self._get_tag_ids(result) == expected_ids[1:]
