@@ -6,6 +6,7 @@ from typing import List, Optional
 from django.utils.translation import gettext_lazy as _
 
 from ..models import Taxonomy
+from .exceptions import TagImportError
 from .actions import (
     DeleteTag,
     ImportAction,
@@ -19,6 +20,7 @@ class TagDSL:
     """
     Tag representation on the import DSL
     """
+
     id: str
     value: str
     index: Optional[int]
@@ -29,9 +31,9 @@ class TagDSL:
         self,
         id: str,
         value: str,
-        index: str=0,
-        parent_id: str=None,
-        action: str=None,
+        index: str = 0,
+        parent_id: str = None,
+        action: str = None,
     ):
         self.id = id
         self.value = value
@@ -39,7 +41,7 @@ class TagDSL:
         self.parent_id = parent_id
         self.action = action
 
-    
+
 class TagImportDSL:
     """
     Class with functions to build an import plan and excute the plan
@@ -90,7 +92,7 @@ class TagImportDSL:
         for tag in tags.values():
             for child in tag.children.all():
                 if child.external_id not in tags:
-                    # If the child is not to be removed, 
+                    # If the child is not to be removed,
                     # then update its parent
                     self._build_action(
                         UpdateParentTag,
@@ -98,7 +100,7 @@ class TagImportDSL:
                             id=child.external_id,
                             value=child.value,
                             parent_id=None,
-                        )
+                        ),
                     )
 
             # Delete action
@@ -107,8 +109,7 @@ class TagImportDSL:
                 TagDSL(
                     id=tag.external_id,
                     value=tag.value,
-
-                )
+                ),
             )
 
     def generate_actions(
@@ -118,11 +119,11 @@ class TagImportDSL:
     ):
         """
         Generates actions from `tags`.
-        
+
         Validates each action and create respective errors
         If `replace` is True, then deletes the tags that have not been read
 
-        TODO: Missing join/reduce actions. Ex. A tag may have no changes, 
+        TODO: Missing join/reduce actions. Ex. A tag may have no changes,
         but then its parent needs to be updated because its parent is deleted.
         Those two actions should be merged.
         """
@@ -133,8 +134,7 @@ class TagImportDSL:
 
         if replace:
             tags_for_delete = {
-                tag.external_id: tag
-                for tag in self.taxonomy.tag_set.all()
+                tag.external_id: tag for tag in self.taxonomy.tag_set.all()
             }
 
         for tag in tags:
@@ -145,7 +145,7 @@ class TagImportDSL:
                 if action_cls.valid_for(self.taxonomy, tag):
                     self._build_action(action_cls, tag)
                     has_action = True
-            
+
             if not has_action:
                 # If it doesn't find an action, a "without changes" is added
                 self._build_action(WithoutChanges, tag)
@@ -157,25 +157,19 @@ class TagImportDSL:
             # Delete all not readed tags
             self._build_delete_actions(tags_for_delete)
 
-    def execute(self) -> List[ImportError]:
+    def execute(self) -> List[TagImportError]:
         pass
 
     def plan(self) -> str:
         """
         Returns an string with the plan and errors
         """
-        result = (
-            "Plan\n"
-            "--------------------------------\n"
-        )
+        result = "Plan\n" "--------------------------------\n"
         for action in self.actions:
             result += f"#{action.index}: {str(action)}\n"
 
         if self.errors:
-            result += (
-                "Output errors\n"
-                "--------------------------------\n"
-            )
+            result += "Output errors\n" "--------------------------------\n"
             for error in self.errors:
                 result += f"{str(error)}\n"
 

@@ -6,15 +6,15 @@ from typing import List
 from django.utils.translation import gettext_lazy as _
 
 from ..models import Taxonomy, Tag
-from .exceptions import ActionError, ActionConflict
+from .exceptions import ImportActionError, ImportActionConflict
 
 
 class ImportAction:
     """
-    Base class to create actions    
+    Base class to create actions
     """
 
-    name = 'import_action'
+    name = "import_action"
 
     def __init__(self, taxonomy: Taxonomy, tag, index: int):
         self.taxonomy = taxonomy
@@ -23,7 +23,7 @@ class ImportAction:
 
     def __repr__(self):
         return _(f"Action {self.name} (index={self.index},id={self.tag.id})")
-    
+
     def __str__(self):
         return str(self.__repr__)
 
@@ -36,7 +36,7 @@ class ImportAction:
         """
         raise NotImplementedError
 
-    def validate(self, indexed_actions) -> List[ActionError]:
+    def validate(self, indexed_actions) -> List[ImportActionError]:
         """
         Implement this to find inconsistencies with tags in the
         database or with previous actions.
@@ -59,10 +59,10 @@ class ImportAction:
         for action in indexed_actions[action_name]:
             if search_value == getattr(action.tag, attr):
                 return action
-        
+
         return None
 
-    def _validate_parent(self, indexed_actions) -> ActionError:
+    def _validate_parent(self, indexed_actions) -> ImportActionError:
         """
         Validates if the parent is created
         """
@@ -71,14 +71,16 @@ class ImportAction:
             self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
         except Tag.DoesNotExist:
             # Or if the parent is created on previous actions
-            if not self._search_action(indexed_actions, CreateTag.name, 'id', self.tag.parent_id):
-                return ActionError(
+            if not self._search_action(
+                indexed_actions, CreateTag.name, "id", self.tag.parent_id
+            ):
+                return ImportActionError(
                     action=self,
                     tag_id=self.tag.id,
                     message=_(
                         f"Unknown parent tag ({self.tag.parent_id}). "
                         "You need to add parent before the child in your file."
-                    )
+                    ),
                 )
 
     def _validate_value(self, indexed_actions):
@@ -89,36 +91,37 @@ class ImportAction:
         try:
             # Validates if exists a tag with the same value on the Taxonomy
             tag = self.taxonomy.tag_set.get(value=self.tag.value)
-            return ActionError(
+            return ImportActionError(
                 action=self,
                 tag_id=self.tag.id,
-                message=_(f"Duplicated tag value with tag (id={tag.id}).")
+                message=_(f"Duplicated tag value with tag (id={tag.id})."),
             )
         except Tag.DoesNotExist:
             # Validates value duplication on create actions
             action = self._search_action(
                 indexed_actions,
                 CreateTag.name,
-                'value',
+                "value",
                 self.tag.value,
             )
-            
+
             if not action:
                 # Validates value duplication on rename actions
                 action = self._search_action(
                     indexed_actions,
                     RenameTag.name,
-                    'value',
+                    "value",
                     self.tag.value,
                 )
-            
+
             if action:
-                return ActionConflict(
+                return ImportActionConflict(
                     action=self,
                     tag_id=self.tag.id,
                     conflict_action_index=action.index,
-                    message=_("Duplicated tag value.")
+                    message=_("Duplicated tag value."),
                 )
+
 
 class CreateTag(ImportAction):
     """
@@ -130,18 +133,20 @@ class CreateTag(ImportAction):
     - Id duplicates with previous create actions.
     - Value duplicates with tags on the database.
     - Value duplicates with previous create and rename actions.
-    - Parent validation. If the parent is in the database or created 
+    - Parent validation. If the parent is in the database or created
       in previous actions.
     """
 
-    name = 'create'
+    name = "create"
 
     def __str__(self):
-        return str(_(
-            "Create a new tag with values "
-            f"(external_id={self.tag.id}, value={self.tag.value}, "
-            f"parent_id={self.tag.parent_id})."
-        ))
+        return str(
+            _(
+                "Create a new tag with values "
+                f"(external_id={self.tag.id}, value={self.tag.value}, "
+                f"parent_id={self.tag.parent_id})."
+            )
+        )
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -158,21 +163,16 @@ class CreateTag(ImportAction):
         """
         Check for id duplicates in previous create actions
         """
-        action = self._search_action(
-            indexed_actions,
-            self.name,
-            'id',
-            self.tag.id
-        )
+        action = self._search_action(indexed_actions, self.name, "id", self.tag.id)
         if action:
-            return ActionConflict(
+            return ImportActionConflict(
                 action=self,
                 tag_id=self.tag.id,
                 conflict_action_index=action.index,
-                message=_("Duplicated external_id tag.")
+                message=_("Duplicated external_id tag."),
             )
 
-    def validate(self, indexed_actions) -> List[ActionError]:
+    def validate(self, indexed_actions) -> List[ImportActionError]:
         """
         Validates the creation action
         """
@@ -182,7 +182,7 @@ class CreateTag(ImportAction):
         error = self._validate_id(indexed_actions)
         if error:
             errors.append(error)
-        
+
         # Duplicate value validation
         error = self._validate_value(indexed_actions)
         if error:
@@ -193,7 +193,7 @@ class CreateTag(ImportAction):
             error = self._validate_parent(indexed_actions)
             if error:
                 errors.append(error)
-        
+
         return errors
 
     def execute(self):
@@ -207,23 +207,25 @@ class UpdateParentTag(ImportAction):
     Action created if there is a change on the parent
 
     Validations:
-    - Parent validation. If the parent is in the database 
+    - Parent validation. If the parent is in the database
       or created in previous actions.
     """
 
-    name = 'update_parent'
+    name = "update_parent"
 
     def __str__(self):
-        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id) 
+        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id)
         if not taxonomy_tag.parent:
             from_str = _("from empty parent")
         else:
             from_str = _(f"from parent (external_id={taxonomy_tag.parent.external_id})")
 
-        return str(_(
-            f"Update the parent of tag (id={taxonomy_tag.id}) "
-            f"{from_str} to parent (external_id={self.tag.parent_id})."
-        ))
+        return str(
+            _(
+                f"Update the parent of tag (id={taxonomy_tag.id}) "
+                f"{from_str} to parent (external_id={self.tag.parent_id})."
+            )
+        )
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -233,19 +235,13 @@ class UpdateParentTag(ImportAction):
         try:
             taxonomy_tag = taxonomy.tag_set.get(external_id=tag.id)
             return (
-                (
-                    taxonomy_tag.parent is not None
-                    and taxonomy_tag.parent.external_id != tag.parent_id
-                )
-                or
-                (
-                    taxonomy_tag.parent is None and tag.parent_id is not None
-                )
-            )
+                taxonomy_tag.parent is not None
+                and taxonomy_tag.parent.external_id != tag.parent_id
+            ) or (taxonomy_tag.parent is None and tag.parent_id is not None)
         except Tag.DoesNotExist:
             return False
 
-    def validate(self, indexed_actions) -> List[ActionError]:
+    def validate(self, indexed_actions) -> List[ImportActionError]:
         """
         Validates the update parent action
         """
@@ -274,14 +270,16 @@ class RenameTag(ImportAction):
     - Value duplicates with previous create and rename actions.
     """
 
-    name = 'rename'
+    name = "rename"
 
     def __str__(self):
-        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id) 
-        return str(_(
-            f"Rename tag value of tag (id={taxonomy_tag.id}) "
-            f"from '{taxonomy_tag.value}' to '{self.tag.value}'"            
-        ))
+        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id)
+        return str(
+            _(
+                f"Rename tag value of tag (id={taxonomy_tag.id}) "
+                f"from '{taxonomy_tag.value}' to '{self.tag.value}'"
+            )
+        )
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -290,13 +288,11 @@ class RenameTag(ImportAction):
         """
         try:
             taxonomy_tag = taxonomy.tag_set.get(external_id=tag.id)
-            return (
-                taxonomy_tag.value != tag.value
-            )
+            return taxonomy_tag.value != tag.value
         except Tag.DoesNotExist:
             return False
 
-    def validate(self, indexed_actions) -> List[ActionError]:
+    def validate(self, indexed_actions) -> List[ImportActionError]:
         """
         Validates the rename action
         """
@@ -323,12 +319,10 @@ class DeleteTag(ImportAction):
     """
 
     def __str__(self):
-        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id) 
-        return str(_(
-            f"Delete tag (id={taxonomy_tag.id})"
-        ))
+        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id)
+        return str(_(f"Delete tag (id={taxonomy_tag.id})"))
 
-    name = 'delete'
+    name = "delete"
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -341,7 +335,7 @@ class DeleteTag(ImportAction):
         except Tag.DoesNotExist:
             return False
 
-    def validate(self, indexed_actions) -> List[ActionError]:
+    def validate(self, indexed_actions) -> List[ImportActionError]:
         """
         No validations necessary
         """
@@ -351,6 +345,7 @@ class DeleteTag(ImportAction):
     def execute(self):
         pass
 
+
 class WithoutChanges(ImportAction):
     """
     Action when there is no change on the Tag
@@ -358,12 +353,10 @@ class WithoutChanges(ImportAction):
     Does not require validations
     """
 
-    name = 'without_changes'
+    name = "without_changes"
 
     def __str__(self):
-        return str(_(
-            f"No changes needed for tag (external_id={self.tag.id})"
-        ))
+        return str(_(f"No changes needed for tag (external_id={self.tag.id})"))
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -372,8 +365,7 @@ class WithoutChanges(ImportAction):
         """
         return False
 
-
-    def validate(self, indexed_actions) -> List[ActionError]:
+    def validate(self, indexed_actions) -> List[ImportActionError]:
         """
         No validations necessary
         """

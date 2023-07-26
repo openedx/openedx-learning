@@ -11,17 +11,19 @@ from django.utils.translation import gettext_lazy as _
 
 from .dsl import TagDSL
 from .exceptions import (
-    ParserError,
+    TagParserError,
     InvalidFormat,
     FieldJSONError,
     EmptyJSONField,
     EmptyCSVField,
 )
 
+
 class ParserFormat(Enum):
     """
     Format of import tags to taxonomies
     """
+
     JSON = ".json"
     CSV = ".csv"
 
@@ -33,20 +35,21 @@ class Parser:
     This contains the base functions to load data,
     validate required fields and convert tags to DLS format
     """
-    required_fields = ['id', 'value']
-    optional_fields = ['parent_id', 'action']
+
+    required_fields = ["id", "value"]
+    optional_fields = ["parent_id", "action"]
 
     # Set the format associated to the parser
     format = None
     # We can change the error when is missing a required field
-    missing_field_error = ParserError
+    missing_field_error = TagParserError
     # We can change the error when a required field is empty
-    empty_field_error = ParserError
+    empty_field_error = TagParserError
     # We can change the initial row/index
     inital_row = 1
 
     @classmethod
-    def parse_import(cls, file: BytesIO) -> Tuple[List[TagDSL], List[ParserError]]:
+    def parse_import(cls, file: BytesIO) -> Tuple[List[TagDSL], List[TagParserError]]:
         """
         Top function that calls `_load_data` and `_parse_tags`.
         Handle the errors returned both functions
@@ -59,8 +62,8 @@ class Parser:
             file.close()
 
         return cls._parse_tags(tags_data)
-    
-    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[ParserError]]:
+
+    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[TagParserError]]:
         """
         Each parser implements this function according to its format.
         This function reads the file and returns a list with the values of each tag.
@@ -71,7 +74,7 @@ class Parser:
         raise NotImplementedError
 
     @classmethod
-    def _parse_tags(cls, tags_data: dict) -> Tuple[List[TagDSL], List[ParserError]]:
+    def _parse_tags(cls, tags_data: dict) -> Tuple[List[TagDSL], List[TagParserError]]:
         """
         Validate the required fields of each tag.
 
@@ -88,21 +91,25 @@ class Parser:
             for req_field in cls.required_fields:
                 if req_field not in tag:
                     # Verify if the field exists
-                    errors.append(cls.missing_field_error(
-                        tag, 
-                        field=req_field,
-                        row=row,
-                    ))
+                    errors.append(
+                        cls.missing_field_error(
+                            tag,
+                            field=req_field,
+                            row=row,
+                        )
+                    )
                     has_error = True
                 elif not tag.get(req_field):
                     # Verify if the value of the field is not empty
-                    errors.append(cls.empty_field_error(
-                        tag,
-                        field=req_field,
-                        row=row,
-                    ))
+                    errors.append(
+                        cls.empty_field_error(
+                            tag,
+                            field=req_field,
+                            row=row,
+                        )
+                    )
                     has_error = True
-            
+
             tag["index"] = row
             row += 1
 
@@ -116,7 +123,7 @@ class Parser:
                     tag[opt_field] = None
 
             tags.append(TagDSL(**tag))
-        
+
         return tags, errors
 
 
@@ -137,26 +144,29 @@ class JSONParser(Parser):
       }
     ```
     """
+
     format = ParserFormat.JSON
     missing_field_error = FieldJSONError
     empty_field_error = EmptyJSONField
     inital_row = 0
 
     @classmethod
-    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[ParserError]]:
+    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[TagParserError]]:
         """
         Read a .json file and validates the root structure of the json
         """
         file.seek(0)
         tags_data = json.load(file)
-        if 'tags' not in tags_data:
-            return None, [InvalidFormat(
-                tag=None,
-                format=cls.format.value,
-                message=_("Missing 'tags' field on the .json file")
-            )]
-         
-        tags_data = tags_data.get('tags')
+        if "tags" not in tags_data:
+            return None, [
+                InvalidFormat(
+                    tag=None,
+                    format=cls.format.value,
+                    message=_("Missing 'tags' field on the .json file"),
+                )
+            ]
+
+        tags_data = tags_data.get("tags")
         return tags_data, []
 
 
@@ -171,17 +181,18 @@ class CSVParser(Parser):
     tag_2,tag 2,tag_1
     ```
     """
+
     format = ParserFormat.CSV
     empty_field_error = EmptyCSVField
     inital_row = 2
 
     @classmethod
-    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[ParserError]]:
+    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[TagParserError]]:
         """
         Read a .csv file and validates the header fields
         """
         file.seek(0)
-        text_tags = TextIOWrapper(file, encoding='utf-8')
+        text_tags = TextIOWrapper(file, encoding="utf-8")
         csv_reader = csv.DictReader(text_tags)
         header_fields = csv_reader.fieldnames
         errors = cls._veify_header(header_fields)
@@ -190,7 +201,7 @@ class CSVParser(Parser):
         return list(csv_reader), []
 
     @classmethod
-    def _veify_header(cls, header_fields: List[str]) -> List[ParserError]:
+    def _veify_header(cls, header_fields: List[str]) -> List[TagParserError]:
         """
         Verify that the header contains the required fields
         """
@@ -198,19 +209,18 @@ class CSVParser(Parser):
         print(header_fields)
         for req_field in cls.required_fields:
             if req_field not in header_fields:
-                errors.append(InvalidFormat(
-                    tag=None,
-                    format=cls.format.value,
-                    message=_(f"Missing '{req_field}' field on CSV headers")
-                ))
+                errors.append(
+                    InvalidFormat(
+                        tag=None,
+                        format=cls.format.value,
+                        message=_(f"Missing '{req_field}' field on CSV headers"),
+                    )
+                )
         return errors
-            
+
 
 # Add parsers here
-_parsers = [
-    JSONParser,
-    CSVParser
-]
+_parsers = [JSONParser, CSVParser]
 
 
 def get_parser(parser_format: ParserFormat) -> Parser:
@@ -223,8 +233,4 @@ def get_parser(parser_format: ParserFormat) -> Parser:
         if parser_format == parser.format:
             return parser
 
-    raise ValueError(
-        _(
-            f"Parser not found for format {parser_format}"
-        )
-    )
+    raise ValueError(_(f"Parser not found for format {parser_format}"))
