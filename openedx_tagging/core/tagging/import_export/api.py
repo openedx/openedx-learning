@@ -27,7 +27,10 @@ def import_tags(
 
     # Execute the plan
     if execute:
-        return dsl.execute()
+        try:
+            return dsl.execute()
+        except Exception as error:
+            return str(error)
 
     # Or return the plan
     return dsl.plan()

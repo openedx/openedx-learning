@@ -15,6 +15,7 @@ class ImportAction:
     """
 
     name = "import_action"
+    success = False
 
     def __init__(self, taxonomy: Taxonomy, tag, index: int):
         self.taxonomy = taxonomy
@@ -22,10 +23,10 @@ class ImportAction:
         self.index = index
 
     def __repr__(self):
-        return _(f"Action {self.name} (index={self.index},id={self.tag.id})")
+        return str(_(f"Action {self.name} (index={self.index},id={self.tag.id})"))
 
     def __str__(self):
-        return str(self.__repr__)
+        return self.__repr__()
 
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -44,7 +45,16 @@ class ImportAction:
         raise NotImplementedError
 
     def execute(self):
+        """
+        Implement this to execute the action.
+        """
         raise NotImplementedError
+
+    def _get_tag(self):
+        """
+        Returns the respective tag of this actions
+        """
+        return self.taxonomy.tag_set.get(external_id=self.tag.id)
 
     def _search_action(
         self,
@@ -197,7 +207,19 @@ class CreateTag(ImportAction):
         return errors
 
     def execute(self):
-        pass
+        """
+        Creates a Tag
+        """
+        parent = None
+        if self.tag.parent_id:
+            parent = self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
+        tag = Tag(
+            taxonomy=self.taxonomy,
+            parent=parent,
+            value=self.tag.value,
+            external_id=self.tag.id,
+        )
+        tag.save()
 
 
 class UpdateParentTag(ImportAction):
@@ -214,7 +236,7 @@ class UpdateParentTag(ImportAction):
     name = "update_parent"
 
     def __str__(self):
-        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id)
+        taxonomy_tag = self._get_tag()
         if not taxonomy_tag.parent:
             from_str = _("from empty parent")
         else:
@@ -256,7 +278,15 @@ class UpdateParentTag(ImportAction):
         return errors
 
     def execute(self):
-        pass
+        """
+        Updates the parent of a tag
+        """
+        tag = self._get_tag()
+        parent = None
+        if self.tag.parent_id:
+            parent = self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
+        tag.parent = parent
+        tag.save()
 
 
 class RenameTag(ImportAction):
@@ -273,7 +303,7 @@ class RenameTag(ImportAction):
     name = "rename"
 
     def __str__(self):
-        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id)
+        taxonomy_tag = self._get_tag()
         return str(
             _(
                 f"Rename tag value of tag (id={taxonomy_tag.id}) "
@@ -306,7 +336,12 @@ class RenameTag(ImportAction):
         return errors
 
     def execute(self):
-        pass
+        """
+        Rename a tag
+        """
+        tag = self._get_tag()
+        tag.value = self.tag.value
+        tag.save()
 
 
 class DeleteTag(ImportAction):
@@ -319,7 +354,7 @@ class DeleteTag(ImportAction):
     """
 
     def __str__(self):
-        taxonomy_tag = self.taxonomy.tag_set.get(external_id=self.tag.id)
+        taxonomy_tag = self._get_tag()
         return str(_(f"Delete tag (id={taxonomy_tag.id})"))
 
     name = "delete"
@@ -343,7 +378,11 @@ class DeleteTag(ImportAction):
         return []
 
     def execute(self):
-        pass
+        """
+        Delete a tag
+        """
+        tag = self._get_tag()
+        tag.delete()
 
 
 class WithoutChanges(ImportAction):
@@ -372,7 +411,9 @@ class WithoutChanges(ImportAction):
         return []
 
     def execute(self):
-        pass
+        """
+        Do nothing
+        """
 
 
 # Register actions here in the order in which you want to check.

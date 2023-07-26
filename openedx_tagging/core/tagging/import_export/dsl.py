@@ -3,10 +3,10 @@ Model and functions to create a plan/execution with DSL actions.
 """
 from typing import List, Optional
 
+from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from ..models import Taxonomy
-from .exceptions import TagImportError
 from .actions import (
     DeleteTag,
     ImportAction,
@@ -123,7 +123,7 @@ class TagImportDSL:
         Validates each action and create respective errors
         If `replace` is True, then deletes the tags that have not been read
 
-        TODO: Missing join/reduce actions. Ex. A tag may have no changes,
+        TODO: Missing join/reduce actions. Eg. A tag may have no changes,
         but then its parent needs to be updated because its parent is deleted.
         Those two actions should be merged.
         """
@@ -157,8 +157,11 @@ class TagImportDSL:
             # Delete all not readed tags
             self._build_delete_actions(tags_for_delete)
 
-    def execute(self) -> List[TagImportError]:
-        pass
+    @transaction.atomic()
+    def execute(self):
+        for action in self.actions:
+            action.execute()
+            action.success = True
 
     def plan(self) -> str:
         """

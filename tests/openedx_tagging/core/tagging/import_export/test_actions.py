@@ -5,7 +5,7 @@ import ddt
 
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import Taxonomy
+from openedx_tagging.core.tagging.models import Taxonomy, Tag
 from openedx_tagging.core.tagging.import_export.dsl import TagDSL
 from openedx_tagging.core.tagging.import_export.actions import (
     ImportAction,
@@ -66,6 +66,18 @@ class TestImportAction(TestImportActionMixin, TestCase):
             action.validate(None)
         with self.assertRaises(NotImplementedError):
             action.execute()
+
+    def test_str(self):
+        expected = "Action import_action (index=100,id=tag_1)"
+        action = ImportAction(
+            taxonomy=self.taxonomy,
+            tag=TagDSL(
+                id='tag_1',
+                value='value',
+            ),
+            index=100,
+        )
+        assert str(action) == expected
 
     @ddt.data(
         ('create', 'id', 'tag_10', True),
@@ -231,12 +243,70 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         errors = action.validate(self.indexed_actions)
         self.assertEqual(len(errors), expected)
 
+    @ddt.data(
+    ('tag_30', 'Tag 30', None),  # No parent
+    ('tag_31', 'Tag 31', 'tag_3'),  # With parent
+    )
+    @ddt.unpack
+    def test_execute(self, tag_id, value, parent_id):
+        tag = TagDSL(
+            id=tag_id,
+            value=value,
+            parent_id=parent_id,
+        )
+        action = CreateTag(
+            self.taxonomy,
+            tag,
+            index=100,
+        )
+        with self.assertRaises(Tag.DoesNotExist):
+            self.taxonomy.tag_set.get(external_id=tag_id)
+        action.execute()
+        tag = self.taxonomy.tag_set.get(external_id=tag_id)
+        assert tag.value == value
+        if parent_id:
+            assert tag.parent.external_id == parent_id
+        else:
+            assert tag.parent is None
+
 
 @ddt.ddt
 class TestUpdateParentTag(TestImportActionMixin, TestCase):
     """
     Test for 'update_parent' action
     """
+
+    @ddt.data(
+        (
+            "tag_4",
+            "tag_3",
+            (
+                "Update the parent of tag (id=25) from parent "
+                "(external_id=tag_3) to parent (external_id=tag_3)."
+            )
+        ),
+        (
+            "tag_3",
+            "tag_2",
+            (
+                "Update the parent of tag (id=24) from empty parent "
+                "to parent (external_id=tag_2)."
+            )
+        ),
+    )
+    @ddt.unpack
+    def test_str(self, tag_id, parent_id, expected):
+        tag_dsl = TagDSL(
+            id=tag_id,
+            value='_',
+            parent_id=parent_id,
+        )
+        action = UpdateParentTag(
+            taxonomy=self.taxonomy,
+            tag=tag_dsl,
+            index=100,
+        )
+        assert str(action) == expected
 
     @ddt.data(
         ('tag_100', None, False),  # Tag doesn't exist on database
@@ -271,12 +341,39 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
                 id=tag_id,
                 value='_',
                 parent_id=parent_id,
-                index=100,
             ),
             index=100
         )
         errors = action.validate(self.indexed_actions)
         self.assertEqual(len(errors), expected)
+
+    @ddt.data(
+        ('tag_4', 'tag_2'),  # Change parent
+        ('tag_4', None),  # Set parent as None
+        ('tag_3', 'tag_1'),  # Add parent
+    )
+    @ddt.unpack
+    def test_execute(self, tag_id, parent_id):
+        tag_dsl = TagDSL(
+            id=tag_id,
+            value='_',
+            parent_id=parent_id,
+        )
+        action = UpdateParentTag(
+            taxonomy=self.taxonomy,
+            tag=tag_dsl,
+            index=100,
+        )
+        tag = self.taxonomy.tag_set.get(external_id=tag_id)
+        if tag.parent:
+            assert tag.parent.external_id != parent_id
+        action.execute()
+        tag = self.taxonomy.tag_set.get(external_id=tag_id)
+        if not parent_id:
+            assert tag.parent is None
+        else:
+            assert tag.parent.external_id == parent_id
+
 
 @ddt.ddt
 class TestRenameTag(TestImportActionMixin, TestCase):
@@ -321,6 +418,24 @@ class TestRenameTag(TestImportActionMixin, TestCase):
         errors = action.validate(self.indexed_actions)
         self.assertEqual(len(errors), expected)
 
+    def test_execute(self):
+        tag_id = 'tag_1'
+        value = 'Tag 1 V2'
+        tag_dsl = TagDSL(
+            id=tag_id,
+            value=value,
+        )
+        action = RenameTag(
+            taxonomy=self.taxonomy,
+            tag=tag_dsl,
+            index=100,
+        )
+        tag = self.taxonomy.tag_set.get(external_id=tag_id)
+        assert tag.value != value
+        action.execute()
+        tag = self.taxonomy.tag_set.get(external_id=tag_id)
+        assert tag.value == value
+
 
 @ddt.ddt
 class TestDeleteTag(TestImportActionMixin, TestCase):
@@ -358,6 +473,21 @@ class TestDeleteTag(TestImportActionMixin, TestCase):
         )
         result = action.validate(self.indexed_actions)
         self.assertEqual(result, [])
+
+    def test_execute(self):
+        tag_id = 'tag_3'
+        tag_dsl = TagDSL(
+            id=tag_id,
+            value='_',
+        )
+        action = DeleteTag(
+            taxonomy=self.taxonomy,
+            tag=tag_dsl,
+            index=100,
+        )
+        assert self.taxonomy.tag_set.filter(external_id=tag_id).exists()
+        action.execute()
+        assert not self.taxonomy.tag_set.filter(external_id=tag_id).exists()
 
 
 class TestWithoutChanges(TestImportActionMixin, TestCase):
