@@ -42,11 +42,7 @@ def can_change_tag(user: User, tag: Tag = None) -> bool:
     return is_taxonomy_admin(user) and (
         not tag
         or not taxonomy
-        or (
-            taxonomy
-            and not taxonomy.allow_free_text
-            and not taxonomy.system_defined
-        )
+        or (taxonomy and not taxonomy.allow_free_text and not taxonomy.system_defined)
     )
 
 
@@ -55,12 +51,12 @@ def can_change_object_tag(user: User, object_tag: ObjectTag = None) -> bool:
     """
     Taxonomy admins can create or modify object tags on enabled taxonomies.
     """
-    taxonomy = object_tag.taxonomy.cast() if (object_tag and object_tag.taxonomy_id) else None
+    taxonomy = (
+        object_tag.taxonomy.cast() if (object_tag and object_tag.taxonomy_id) else None
+    )
     object_tag = taxonomy.object_tag_class.cast(object_tag) if taxonomy else object_tag
     return is_taxonomy_admin(user) and (
-        not object_tag
-        or not taxonomy
-        or (taxonomy and taxonomy.enabled)
+        not object_tag or not taxonomy or (taxonomy and taxonomy.enabled)
     )
 
 

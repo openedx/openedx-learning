@@ -4,80 +4,73 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('oel_tagging', '0002_auto_20230718_2026'),
+        ("oel_tagging", "0002_auto_20230718_2026"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='ModelObjectTag',
-            fields=[
-            ],
+            name="ModelObjectTag",
+            fields=[],
             options={
-                'proxy': True,
-                'indexes': [],
-                'constraints': [],
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
             },
-            bases=('oel_tagging.objecttag',),
+            bases=("oel_tagging.objecttag",),
         ),
         migrations.CreateModel(
-            name='SystemDefinedTaxonomy',
-            fields=[
-            ],
+            name="SystemDefinedTaxonomy",
+            fields=[],
             options={
-                'proxy': True,
-                'indexes': [],
-                'constraints': [],
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
             },
-            bases=('oel_tagging.taxonomy',),
+            bases=("oel_tagging.taxonomy",),
         ),
         migrations.RemoveField(
-            model_name='taxonomy',
-            name='system_defined',
+            model_name="taxonomy",
+            name="system_defined",
         ),
         migrations.CreateModel(
-            name='LanguageTaxonomy',
-            fields=[
-            ],
+            name="LanguageTaxonomy",
+            fields=[],
             options={
-                'proxy': True,
-                'indexes': [],
-                'constraints': [],
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
             },
-            bases=('oel_tagging.systemdefinedtaxonomy',),
+            bases=("oel_tagging.systemdefinedtaxonomy",),
         ),
         migrations.CreateModel(
-            name='ModelSystemDefinedTaxonomy',
-            fields=[
-            ],
+            name="ModelSystemDefinedTaxonomy",
+            fields=[],
             options={
-                'proxy': True,
-                'indexes': [],
-                'constraints': [],
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
             },
-            bases=('oel_tagging.systemdefinedtaxonomy',),
+            bases=("oel_tagging.systemdefinedtaxonomy",),
         ),
         migrations.CreateModel(
-            name='UserModelObjectTag',
-            fields=[
-            ],
+            name="UserModelObjectTag",
+            fields=[],
             options={
-                'proxy': True,
-                'indexes': [],
-                'constraints': [],
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
             },
-            bases=('oel_tagging.modelobjecttag',),
+            bases=("oel_tagging.modelobjecttag",),
         ),
         migrations.CreateModel(
-            name='UserSystemDefinedTaxonomy',
-            fields=[
-            ],
+            name="UserSystemDefinedTaxonomy",
+            fields=[],
             options={
-                'proxy': True,
-                'indexes': [],
-                'constraints': [],
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
             },
-            bases=('oel_tagging.modelsystemdefinedtaxonomy',),
+            bases=("oel_tagging.modelsystemdefinedtaxonomy",),
         ),
     ]

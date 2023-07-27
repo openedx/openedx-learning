@@ -6,7 +6,10 @@ from django.db import models
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 
-from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
+from openedx_learning.lib.fields import (
+    MultiCollationTextField,
+    case_insensitive_char_field,
+)
 
 log = logging.getLogger(__name__)
 
@@ -202,7 +205,7 @@ class Taxonomy(models.Model):
         if self._taxonomy_class:
             return import_string(self._taxonomy_class)
         return None
-    
+
     @property
     def system_defined(self) -> bool:
         """
@@ -267,6 +270,8 @@ class Taxonomy(models.Model):
     def get_tags(self, tag_set: models.QuerySet = None) -> List[Tag]:
         """
         Returns a list of all Tags in the current taxonomy, from the root(s) down to TAXONOMY_MAX_DEPTH tags, in tree order.
+
+        Use `tag_set` to do an initial filtering of the tags.
 
         Annotates each returned Tag with its ``depth`` in the tree (starting at 0).
 

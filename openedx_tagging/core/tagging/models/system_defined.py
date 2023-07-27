@@ -73,9 +73,7 @@ class ModelObjectTag(ObjectTag):
             try:
                 return self.tag_class_model.objects.get(pk=instance_id)
             except ValueError as e:
-                log.exception(
-                    f"{self}: {str(e)}"
-                )
+                log.exception(f"{self}: {str(e)}")
             except self.tag_class_model.DoesNotExist:
                 log.exception(
                     f"{self}: {self.tag_class_model.__name__} pk={instance_id} does not exist."
@@ -168,7 +166,7 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         Model Taxonomy subclasses must implement this to provide a ModelObjectTag subclass.
         """
         raise NotImplementedError
-    
+
     def _check_instance(self, object_tag: ObjectTag) -> bool:
         """
         Returns True if the instance exists
@@ -176,7 +174,7 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         Subclasses can override this method to perform their own instance validation checks.
         """
         object_tag = self.object_tag_class.cast(object_tag)
-        return bool(object_tag.get_instance())        
+        return bool(object_tag.get_instance())
 
     def _check_tag(self, object_tag: ObjectTag) -> bool:
         """

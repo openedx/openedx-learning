@@ -39,7 +39,6 @@ class Command(BaseCommand):
                 output_file.write(f"    external_id: {lang_code}\n")
                 # System tags are identified with negative numbers to avoid clashing with user-created tags.
                 tag_pk -= 1
-                
 
     def get_lang_value(self, lang_data):
         """
