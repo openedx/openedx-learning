@@ -494,8 +494,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             'Gastrotrich',
             'Placozoa',
         ] + expected_values  # To create repeats
-        open_taxonomy = self.taxonomy
-        closed_taxonomy = tagging_api.create_taxonomy(
+        closed_taxonomy = self.taxonomy
+        open_taxonomy = tagging_api.create_taxonomy(
             "Free_Text_Taxonomy",
             allow_free_text=True,
         )
@@ -507,7 +507,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 taxonomy=open_taxonomy,
                 _value=value,
             ).save()
-            
+
             # Creating ObjectTags for closed taxonomy
             tag = get_tag(value)
             ObjectTag(
@@ -533,19 +533,17 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             expected_ids,
         )
 
-
     def _get_tag_values(self, tags):
         """
         Get tag values from tagging_api.autocomplete_tags() result
-        """        
-        return [tag.get("_value") for tag in tags]
+        """
+        return [tag.get("value") for tag in tags]
 
     def _get_tag_ids(self, tags):
         """
         Get tag ids from tagging_api.autocomplete_tags() result
         """
         return [tag.get("tag") for tag in tags]
-        
 
     def _validate_autocomplete_tags(
         self,
@@ -564,10 +562,9 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         for value in tag_values:
             assert search.lower() in value.lower()
 
-        print(tag_values)
         assert tag_values == expected_values
         assert self._get_tag_ids(result) == expected_ids
-        
+
         # Create ObjectTag to simulate the content tagging
         tag_model = None
         if not taxonomy.allow_free_text:

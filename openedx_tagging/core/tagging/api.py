@@ -145,11 +145,29 @@ def autocomplete_tags(
     object_id: str = None,
 ) -> QuerySet:
     """
-    Returns tag values that contains the given search string.
-    The result is returned in alphabetical order.
+    Provides auto-complete suggestions by matching the `search` string against existing
+    ObjectTags linked to the given taxonomy. A case-insensitive search is used in order
+    to return the highest number of relevant tags.
 
-    The output is a QuerySet of dictionaries in with `_value` and `tag`.
+    If `object_id` is provided, then object tag values already linked to this object
+    are omitted from the returned suggestions. (ObjectTag values must be unique for a
+    given object + taxonomy, and so omitting these suggestions helps users avoid
+    duplication errors.).
 
-    Subclasses can override this method to perform their own autocomplete process.
+    Returns a QuerySet of dictionaries containing distinct `value` (string) and
+    `tag` (numeric ID) values, sorted alphabetically by `value`.
+    The `value` is what should be shown as a suggestion to users,
+    and if it's a free-text taxonomy, `tag` will be `None`:  we include the `tag` ID
+    in anticipation of the second use case listed below.
+
+    Use cases:
+    * This method is useful for reducing tag variation in free-text taxonomies by showing
+      users tags that are similar to what they're typing. E.g., if the `search` string "dn"
+      shows that other objects have been tagged with "DNA", "DNA electrophoresis", and "DNA fingerprinting",
+      this encourages users to use those existing tags if relevant, instead of creating new ones that
+      look similar (e.g. "dna finger-printing").
+    * It could also be used to assist tagging for closed taxonomies with a list of possible tags which is too
+      large to return all at once, e.g. a user model taxonomy that dynamically creates tags on request for any
+      registered user in the database. (Note that this is not implemented yet, but may be as part of a future change.)
     """
     return taxonomy.cast().autocomplete_tags(search, object_id)
