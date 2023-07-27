@@ -241,6 +241,9 @@ class TestTaxonomyViewSet(APITestCase):
     def test_update_taxonomy_system_defined(
         self, create_value, update_value, expected_status
     ):
+        '''
+        Test that we can't update system_defined field
+        '''
         taxonomy = Taxonomy.objects.create(
             name="test system taxonomy", system_defined=create_value
         )
@@ -253,9 +256,9 @@ class TestTaxonomyViewSet(APITestCase):
         )
         assert response.status_code == expected_status
 
-        if status.is_success(expected_status):
-            response = self.client.get(url)
-            assert response.data["system_defined"] == False
+        # Verify that system_defined has not changed
+        response = self.client.get(url)
+        assert response.data["system_defined"] == create_value
 
     def test_update_taxonomy_404(self):
         url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": 123123})
@@ -310,6 +313,9 @@ class TestTaxonomyViewSet(APITestCase):
     def test_patch_taxonomy_system_defined(
         self, create_value, update_value, expected_status
     ):
+        '''
+        Test that we can't patch system_defined field
+        '''
         taxonomy = Taxonomy.objects.create(
             name="test system taxonomy", system_defined=create_value
         )
@@ -322,9 +328,9 @@ class TestTaxonomyViewSet(APITestCase):
         )
         assert response.status_code == expected_status
 
-        if status.is_success(expected_status):
-            response = self.client.get(url)
-            assert response.data["system_defined"] == False
+        # Verify that system_defined has not changed
+        response = self.client.get(url)
+        assert response.data["system_defined"] == create_value
 
     def test_patch_taxonomy_404(self):
         url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": 123123})
