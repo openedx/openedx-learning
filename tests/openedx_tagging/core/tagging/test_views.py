@@ -12,6 +12,8 @@ from openedx_tagging.core.tagging.models import Taxonomy
 
 User = get_user_model()
 
+TAXONOMY_LIST_URL = '/tagging/rest_api/v1/taxonomies/'
+TAXONOMY_DETAIL_URL = '/tagging/rest_api/v1/taxonomies/{pk}/'
 
 def check_taxonomy(
     data,
@@ -71,7 +73,7 @@ class TestTaxonomyViewSet(APITestCase):
         Taxonomy.objects.create(name="Taxonomy enabled 2", enabled=True).save()
         Taxonomy.objects.create(name="Taxonomy disabled", enabled=False).save()
 
-        url = reverse("oel_tagging:taxonomy-list")
+        url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.staff)
         if enabled is not None:
@@ -91,7 +93,7 @@ class TestTaxonomyViewSet(APITestCase):
     )
     @ddt.unpack
     def test_list_taxonomy(self, user_attr, expected_status):
-        url = reverse("oel_tagging:taxonomy-list")
+        url = TAXONOMY_LIST_URL
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -116,7 +118,7 @@ class TestTaxonomyViewSet(APITestCase):
     def test_detail_taxonomy(self, user_attr, taxonomy_data, expected_status):
         create_data = {**{"name": "taxonomy detail test"}, **taxonomy_data}
         taxonomy = Taxonomy.objects.create(**create_data)
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": taxonomy.pk})
+        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -130,7 +132,7 @@ class TestTaxonomyViewSet(APITestCase):
             self.assertGreaterEqual(response.data.items(), create_data.items())
 
     def test_detail_taxonomy_404(self):
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": 123123})
+        url = TAXONOMY_DETAIL_URL.format(pk=123123)
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.get(url)
@@ -143,7 +145,7 @@ class TestTaxonomyViewSet(APITestCase):
     )
     @ddt.unpack
     def test_create_taxonomy(self, user_attr, expected_status):
-        url = reverse("oel_tagging:taxonomy-list")
+        url = TAXONOMY_LIST_URL
 
         create_data = {
             "name": "taxonomy_data_2",
@@ -175,7 +177,7 @@ class TestTaxonomyViewSet(APITestCase):
         {"name": "Error taxonomy 3", "enabled": "Invalid value"},
     )
     def test_create_taxonomy_error(self, create_data):
-        url = reverse("oel_tagging:taxonomy-list")
+        url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.post(url, create_data, format="json")
@@ -186,7 +188,7 @@ class TestTaxonomyViewSet(APITestCase):
         """
         Cannont create a taxonomy with system_defined=true
         """
-        url = reverse("oel_tagging:taxonomy-list")
+        url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.post(url, create_data, format="json")
@@ -208,7 +210,7 @@ class TestTaxonomyViewSet(APITestCase):
         )
         taxonomy.save()
 
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": taxonomy.pk})
+        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -248,7 +250,7 @@ class TestTaxonomyViewSet(APITestCase):
             name="test system taxonomy", system_defined=create_value
         )
         taxonomy.save()
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": taxonomy.pk})
+        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.put(
@@ -261,7 +263,7 @@ class TestTaxonomyViewSet(APITestCase):
         assert response.data["system_defined"] == create_value
 
     def test_update_taxonomy_404(self):
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": 123123})
+        url = TAXONOMY_DETAIL_URL.format(pk=123123)
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.put(url, {"name": "new name"}, format="json")
@@ -279,7 +281,7 @@ class TestTaxonomyViewSet(APITestCase):
         )
         taxonomy.save()
 
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": taxonomy.pk})
+        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -320,7 +322,7 @@ class TestTaxonomyViewSet(APITestCase):
             name="test system taxonomy", system_defined=create_value
         )
         taxonomy.save()
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": taxonomy.pk})
+        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.patch(
@@ -333,7 +335,7 @@ class TestTaxonomyViewSet(APITestCase):
         assert response.data["system_defined"] == create_value
 
     def test_patch_taxonomy_404(self):
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": 123123})
+        url = TAXONOMY_DETAIL_URL.format(pk=123123)
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.patch(url, {"name": "new name"}, format="json")
@@ -349,7 +351,7 @@ class TestTaxonomyViewSet(APITestCase):
         taxonomy = Taxonomy.objects.create(name="test delete taxonomy")
         taxonomy.save()
 
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": taxonomy.pk})
+        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -364,7 +366,7 @@ class TestTaxonomyViewSet(APITestCase):
             assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_taxonomy_404(self):
-        url = reverse("oel_tagging:taxonomy-detail", kwargs={"pk": 123123})
+        url = TAXONOMY_DETAIL_URL.format(pk=123123)
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.delete(url)
