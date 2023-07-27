@@ -58,11 +58,14 @@ class Parser:
             tags_data, load_errors = cls._load_data(file)
             if load_errors:
                 return [], load_errors
+        except Exception as error:
+            raise error
         finally:
             file.close()
 
         return cls._parse_tags(tags_data)
 
+    @classmethod
     def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[TagParserError]]:
         """
         Each parser implements this function according to its format.

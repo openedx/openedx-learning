@@ -8,10 +8,14 @@ import ddt
 from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging.import_export.parsers import (
+    Parser,
     get_parser,
     JSONParser,
     CSVParser,
     ParserFormat,
+)
+from openedx_tagging.core.tagging.import_export.exceptions import (
+    TagParserError,
 )
 
 
@@ -28,6 +32,19 @@ class TestParser(TestCase):
     def test_parser_not_found(self):
         with self.assertRaises(ValueError):
             get_parser(None)
+
+    def test_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            Parser.parse_import(BytesIO())
+
+    def test_tag_parser_error(self):
+        tag = {"id": 'tag_id', "value": "tag_value"}
+        expected_str = f"Import parser error on {tag}"
+        expected_repr = f"TagParserError(Import parser error on {tag})"
+        error = TagParserError(tag)
+        assert str(error) == expected_str
+        assert repr(error) == expected_repr
+
 
 @ddt.ddt
 class TestJSONParser(TestCase):

@@ -74,7 +74,7 @@ class TagImportDSL:
         Run action validation and adds the errors to the errors lists
         Add to the action list and the indexed actions
         """
-        action = action_cls(self.taxonomy, tag, len(self.actions))
+        action = action_cls(self.taxonomy, tag, len(self.actions) + 1)
 
         # We validate if there are no inconsistencies when executing this action
         self.errors.extend(action.validate(self.indexed_actions))
@@ -91,17 +91,15 @@ class TagImportDSL:
         """
         for tag in tags.values():
             for child in tag.children.all():
-                if child.external_id not in tags:
-                    # If the child is not to be removed,
-                    # then update its parent
-                    self._build_action(
-                        UpdateParentTag,
-                        TagDSL(
-                            id=child.external_id,
-                            value=child.value,
-                            parent_id=None,
-                        ),
-                    )
+                # child parent to avoid delete childs
+                self._build_action(
+                    UpdateParentTag,
+                    TagDSL(
+                        id=child.external_id,
+                        value=child.value,
+                        parent_id=None,
+                    ),
+                )
 
             # Delete action
             self._build_action(
@@ -157,12 +155,6 @@ class TagImportDSL:
             # Delete all not readed tags
             self._build_delete_actions(tags_for_delete)
 
-    @transaction.atomic()
-    def execute(self):
-        for action in self.actions:
-            action.execute()
-            action.success = True
-
     def plan(self) -> str:
         """
         Returns an string with the plan and errors
@@ -177,3 +169,12 @@ class TagImportDSL:
                 result += f"{str(error)}\n"
 
         return result
+
+    @transaction.atomic()
+    def execute(self):
+        if self.errors:
+            return False
+        for action in self.actions:
+            action.execute()
+            action.success = True
+        return True

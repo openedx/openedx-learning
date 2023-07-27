@@ -13,8 +13,8 @@ class TagImportError(Exception):
 
 
 class TagParserError(TagImportError):
-    def __init__(self, tag: str, **kargs):
-        self.message = _(f"Import error on {tag}")
+    def __init__(self, tag, **kargs):
+        self.message = _(f"Import parser error on {tag}")
 
 
 class ImportActionError(TagImportError):
