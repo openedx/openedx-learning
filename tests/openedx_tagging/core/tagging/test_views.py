@@ -129,7 +129,6 @@ class TestTaxonomyViewSet(APITestCase):
 
         if status.is_success(expected_status):
             check_taxonomy(response.data, taxonomy.pk, **create_data)
-            self.assertGreaterEqual(response.data.items(), create_data.items())
 
     def test_detail_taxonomy_404(self):
         url = TAXONOMY_DETAIL_URL.format(pk=123123)
