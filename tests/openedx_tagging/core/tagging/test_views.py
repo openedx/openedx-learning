@@ -4,7 +4,6 @@ Tests tagging rest api views
 
 import ddt
 from django.contrib.auth import get_user_model
-from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -164,9 +163,8 @@ class TestTaxonomyViewSet(APITestCase):
         # If we were able to create the taxonomy, check if it was created
         if status.is_success(expected_status):
             check_taxonomy(response.data, response.data["id"], **create_data)
-            url = reverse(
-                "oel_tagging:taxonomy-detail", kwargs={"pk": response.data["id"]}
-            )
+            url = TAXONOMY_DETAIL_URL.format(pk=response.data["id"])
+
             response = self.client.get(url)
             check_taxonomy(response.data, response.data["id"], **create_data)
 
