@@ -16,7 +16,7 @@ is_taxonomy_admin = rules.is_staff
 @rules.predicate
 def can_view_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
     """
-    Anyone can view an enabled taxonomy,
+    Anyone can view an enabled taxonomy or list all taxonomies,
     but only taxonomy admins can view a disabled taxonomy.
     """
     return (taxonomy and taxonomy.cast().enabled) or is_taxonomy_admin(user)

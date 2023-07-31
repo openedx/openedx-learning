@@ -81,7 +81,9 @@ django==3.2.19
     #   djangorestframework
     #   edx-i18n-tools
 django-debug-toolbar==4.1.0
-    # via -r requirements/dev.in
+    # via
+    #   -r requirements/dev.in
+    #   -r requirements/quality.txt
 djangorestframework==3.14.0
     # via -r requirements/quality.txt
 docutils==0.20.1

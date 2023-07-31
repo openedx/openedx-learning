@@ -47,7 +47,10 @@ django==3.2.19
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
+    #   django-debug-toolbar
     #   djangorestframework
+django-debug-toolbar==4.1.0
+    # via -r requirements/test.txt
 djangorestframework==3.14.0
     # via -r requirements/test.txt
 docutils==0.20.1
@@ -198,6 +201,7 @@ sqlparse==0.4.4
     # via
     #   -r requirements/test.txt
     #   django
+    #   django-debug-toolbar
 stevedore==5.1.0
     # via
     #   -r requirements/test.txt
