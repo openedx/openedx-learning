@@ -88,6 +88,13 @@ class TestTagTaxonomyMixin:
             get_tag("Porifera"),
         ]
 
+        self.system_tags = [
+            get_tag("System Tag 1"),
+            get_tag("System Tag 2"),
+            get_tag("System Tag 3"),
+            get_tag("System Tag 4"),
+        ]
+
     def setup_tag_depths(self):
         """
         Annotate our tags with depth so we can compare them.

@@ -152,6 +152,27 @@
     parent: null
     value: System Tag 1
     external_id: 'tag_1'
+- model: oel_tagging.tag
+  pk: 23
+  fields:
+    taxonomy: 4
+    parent: null
+    value: System Tag 2
+    external_id: 'tag_2'
+- model: oel_tagging.tag
+  pk: 24
+  fields:
+    taxonomy: 4
+    parent: null
+    value: System Tag 3
+    external_id: 'tag_3'
+- model: oel_tagging.tag
+  pk: 25
+  fields:
+    taxonomy: 4
+    parent: null
+    value: System Tag 4
+    external_id: 'tag_4'
 - model: oel_tagging.taxonomy
   pk: 1
   fields:
