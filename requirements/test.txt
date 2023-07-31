@@ -23,7 +23,10 @@ ddt==1.6.0
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/base.txt
+    #   django-debug-toolbar
     #   djangorestframework
+django-debug-toolbar==4.1.0
+    # via -r requirements/test.in
 djangorestframework==3.14.0
     # via -r requirements/base.txt
 exceptiongroup==1.1.1
@@ -72,6 +75,7 @@ sqlparse==0.4.4
     # via
     #   -r requirements/base.txt
     #   django
+    #   django-debug-toolbar
 stevedore==5.1.0
     # via code-annotations
 text-unidecode==1.3
