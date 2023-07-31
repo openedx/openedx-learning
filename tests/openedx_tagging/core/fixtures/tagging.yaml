@@ -162,16 +162,6 @@
     allow_multiple: false
     allow_free_text: false
 - model: oel_tagging.taxonomy
-  pk: 2
-  fields:
-    name: System Languages
-    description: Allows tags for any language configured for use on the instance.
-    enabled: true
-    required: false
-    allow_multiple: false
-    allow_free_text: false
-    _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.LanguageTaxonomy
-- model: oel_tagging.taxonomy
   pk: 3
   fields:
     name: User Authors

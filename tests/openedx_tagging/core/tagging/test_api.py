@@ -50,14 +50,15 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         assert enabled == [
             tax1,
+            self.language_taxonomy,
             self.taxonomy,
             self.system_taxonomy,
-            self.language_taxonomy,
             self.user_taxonomy,
         ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
-        assert str(enabled[1]) == "<Taxonomy> (1) Life on Earth"
-        assert str(enabled[2]) == "<SystemDefinedTaxonomy> (4) System defined taxonomy"
+        assert str(enabled[1]) == "<Taxonomy> (-1) Languages"
+        assert str(enabled[2]) == "<Taxonomy> (1) Life on Earth"
+        assert str(enabled[3]) == "<SystemDefinedTaxonomy> (4) System defined taxonomy"
 
         with self.assertNumQueries(1):
             disabled = list(tagging_api.get_taxonomies(enabled=False))
@@ -69,9 +70,9 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert both == [
             tax2,
             tax1,
+            self.language_taxonomy,
             self.taxonomy,
             self.system_taxonomy,
-            self.language_taxonomy,
             self.user_taxonomy,
         ]
 

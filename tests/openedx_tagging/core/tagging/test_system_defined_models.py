@@ -233,6 +233,7 @@ class TestLanguageTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_get_tags(self):
         tags = self.language_taxonomy.get_tags()
+        expected_langs = [lang[0] for lang in test_languages]
         for tag in tags:
-            assert tag.external_id in test_languages
+            assert tag.external_id in expected_langs
             assert tag.annotated_field == 0

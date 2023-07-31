@@ -7,6 +7,7 @@ from openedx_tagging.core.tagging.models import (
     ObjectTag,
     Tag,
     Taxonomy,
+    LanguageTaxonomy,
 )
 
 
@@ -30,7 +31,9 @@ class TestTagTaxonomyMixin:
         self.system_taxonomy = Taxonomy.objects.get(
             name="System defined taxonomy"
         )
-        self.language_taxonomy = Taxonomy.objects.get(name="System Languages").cast()
+        self.language_taxonomy = Taxonomy.objects.get(name="Languages")
+        self.language_taxonomy.taxonomy_class = LanguageTaxonomy
+        self.language_taxonomy = self.language_taxonomy.cast()
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
         self.archaea = get_tag("Archaea")
         self.archaebacteria = get_tag("Archaebacteria")
@@ -147,7 +150,7 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         assert (
             str(self.language_taxonomy)
             == repr(self.language_taxonomy)
-            == "<LanguageTaxonomy> (2) System Languages"
+            == "<LanguageTaxonomy> (-1) Languages"
         )
         assert str(self.bacteria) == repr(self.bacteria) == "<Tag> (1) Bacteria"
 
