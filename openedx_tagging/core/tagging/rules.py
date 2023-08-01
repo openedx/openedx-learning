@@ -19,7 +19,7 @@ def can_view_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
     Anyone can view an enabled taxonomy or list all taxonomies,
     but only taxonomy admins can view a disabled taxonomy.
     """
-    return (taxonomy and taxonomy.cast().enabled) or is_taxonomy_admin(user)
+    return not taxonomy or taxonomy.cast().enabled or is_taxonomy_admin(user)
 
 
 @rules.predicate

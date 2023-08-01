@@ -11,6 +11,4 @@ from . import views
 router = DefaultRouter()
 router.register("taxonomies", views.TaxonomyView, basename="taxonomy")
 
-urlpatterns = [
-    path('', include(router.urls))
-]
+urlpatterns = [path("", include(router.urls))]
