@@ -430,7 +430,11 @@ class Taxonomy(models.Model):
 
         return updated_tags
 
-    def autocomplete_tags(self, search: str, object_id: str = None) -> models.QuerySet:
+    def autocomplete_tags(
+        self,
+        search: str,
+        object_id: str = None,
+    ) -> models.QuerySet:
         """
         Provides auto-complete suggestions by matching the `search` string against existing
         ObjectTags linked to the given taxonomy. A case-insensitive search is used in order
@@ -467,7 +471,7 @@ class Taxonomy(models.Model):
             # Alias the `_value` field to `value` to make it nicer for users
             .annotate(value=models.F("_value"))
             # obtain tag values
-            .values("value", "tag")
+            .values("value", "tag_id")
             # remove repeats
             .distinct()
         )

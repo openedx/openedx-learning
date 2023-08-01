@@ -143,6 +143,7 @@ def autocomplete_tags(
     taxonomy: Taxonomy,
     search: str,
     object_id: str = None,
+    object_tags_only=True,
 ) -> QuerySet:
     """
     Provides auto-complete suggestions by matching the `search` string against existing
@@ -170,4 +171,12 @@ def autocomplete_tags(
       large to return all at once, e.g. a user model taxonomy that dynamically creates tags on request for any
       registered user in the database. (Note that this is not implemented yet, but may be as part of a future change.)
     """
+    if not object_tags_only:
+        raise NotImplementedError(
+            _(
+                "Using this would return a query set of tags instead of object tags."
+                "For now we recommend fetching all of the taxonomy's tags "
+                "using get_tags() and filtering them on the frontend."
+            )
+        )
     return taxonomy.cast().autocomplete_tags(search, object_id)

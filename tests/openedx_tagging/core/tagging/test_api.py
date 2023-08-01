@@ -533,6 +533,10 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             expected_ids,
         )
 
+    def test_autocompleate_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            tagging_api.autocomplete_tags(self.taxonomy, 'test', None, object_tags_only=False)
+
     def _get_tag_values(self, tags):
         """
         Get tag values from tagging_api.autocomplete_tags() result
@@ -543,7 +547,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
         Get tag ids from tagging_api.autocomplete_tags() result
         """
-        return [tag.get("tag") for tag in tags]
+        return [tag.get("tag_id") for tag in tags]
 
     def _validate_autocomplete_tags(
         self,
