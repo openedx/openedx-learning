@@ -6,7 +6,7 @@ import ddt
 from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging.models import Taxonomy, Tag
-from openedx_tagging.core.tagging.import_export.dsl import TagDSL
+from openedx_tagging.core.tagging.import_export.models import TagDSL
 from openedx_tagging.core.tagging.import_export.actions import (
     ImportAction,
     CreateTag,

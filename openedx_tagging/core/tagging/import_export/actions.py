@@ -15,7 +15,6 @@ class ImportAction:
     """
 
     name = "import_action"
-    success = False
 
     def __init__(self, taxonomy: Taxonomy, tag, index: int):
         self.taxonomy = taxonomy

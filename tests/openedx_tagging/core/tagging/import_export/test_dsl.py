@@ -5,7 +5,7 @@ import ddt
 
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.import_export.dsl import TagDSL, TagImportDSL
+from openedx_tagging.core.tagging.import_export.models import TagDSL, TagImportDSL
 from openedx_tagging.core.tagging.import_export.actions import CreateTag
 from openedx_tagging.core.tagging.import_export.exceptions import TagImportError
 from .test_actions import TestImportActionMixin

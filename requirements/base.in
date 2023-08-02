@@ -1,6 +1,8 @@
 # Core requirements for using this application
 -c constraints.txt
 
+celery                    # Asynchronous task execution library
+
 Django<5.0                # Web application framework
 
 djangorestframework<4.0   # REST API
