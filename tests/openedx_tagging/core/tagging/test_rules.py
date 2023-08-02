@@ -161,8 +161,8 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
     # ObjectTag
 
     @ddt.data(
-        "oel_tagging.add_object_tag",
-        "oel_tagging.change_object_tag",
+        "oel_tagging.add_objecttag",
+        "oel_tagging.change_objecttag",
     )
     def test_add_change_object_tag(self, perm):
         """Taxonomy administrators can create/edit an ObjectTag with an enabled Taxonomy"""
@@ -174,8 +174,8 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         assert not self.learner.has_perm(perm, self.object_tag)
 
     @ddt.data(
-        "oel_tagging.add_object_tag",
-        "oel_tagging.change_object_tag",
+        "oel_tagging.add_objecttag",
+        "oel_tagging.change_objecttag",
     )
     def test_object_tag_disabled_taxonomy(self, perm):
         """Taxonomy administrators cannot create/edit an ObjectTag with a disabled Taxonomy"""
@@ -189,23 +189,23 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         True,
         False,
     )
-    def test_delete_object_tag(self, enabled):
+    def test_delete_objecttag(self, enabled):
         """Taxonomy administrators can delete any ObjectTag, even those associated with a disabled Taxonomy."""
         self.taxonomy.enabled = enabled
         self.taxonomy.save()
-        assert self.superuser.has_perm("oel_tagging.delete_object_tag")
-        assert self.superuser.has_perm("oel_tagging.delete_object_tag", self.object_tag)
-        assert self.staff.has_perm("oel_tagging.delete_object_tag")
-        assert self.staff.has_perm("oel_tagging.delete_object_tag", self.object_tag)
-        assert not self.learner.has_perm("oel_tagging.delete_object_tag")
+        assert self.superuser.has_perm("oel_tagging.delete_objecttag")
+        assert self.superuser.has_perm("oel_tagging.delete_objecttag", self.object_tag)
+        assert self.staff.has_perm("oel_tagging.delete_objecttag")
+        assert self.staff.has_perm("oel_tagging.delete_objecttag", self.object_tag)
+        assert not self.learner.has_perm("oel_tagging.delete_objecttag")
         assert not self.learner.has_perm(
-            "oel_tagging.delete_object_tag", self.object_tag
+            "oel_tagging.delete_objecttag", self.object_tag
         )
 
     @ddt.data(
-        "oel_tagging.add_object_tag",
-        "oel_tagging.change_object_tag",
-        "oel_tagging.delete_object_tag",
+        "oel_tagging.add_objecttag",
+        "oel_tagging.change_objecttag",
+        "oel_tagging.delete_objecttag",
     )
     def test_object_tag_no_taxonomy(self, perm):
         """Taxonomy administrators can modify an ObjectTag with no Taxonomy"""
@@ -216,9 +216,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
 
     def test_view_object_tag(self):
         """Anyone can view any ObjectTag"""
-        assert self.superuser.has_perm("oel_tagging.view_object_tag")
-        assert self.superuser.has_perm("oel_tagging.view_object_tag", self.object_tag)
-        assert self.staff.has_perm("oel_tagging.view_object_tag")
-        assert self.staff.has_perm("oel_tagging.view_object_tag", self.object_tag)
-        assert self.learner.has_perm("oel_tagging.view_object_tag")
-        assert self.learner.has_perm("oel_tagging.view_object_tag", self.object_tag)
+        assert self.superuser.has_perm("oel_tagging.view_objecttag")
+        assert self.superuser.has_perm("oel_tagging.view_objecttag", self.object_tag)
+        assert self.staff.has_perm("oel_tagging.view_objecttag")
+        assert self.staff.has_perm("oel_tagging.view_objecttag", self.object_tag)
+        assert self.learner.has_perm("oel_tagging.view_objecttag")
+        assert self.learner.has_perm("oel_tagging.view_objecttag", self.object_tag)
