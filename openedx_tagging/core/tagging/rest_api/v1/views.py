@@ -107,7 +107,6 @@ class TaxonomyView(ModelViewSet):
 
     """
 
-
     serializer_class = TaxonomySerializer
     permission_classes = [TaxonomyObjectPermissions]
 

@@ -1,4 +1,4 @@
-""" Tagging app data models """
+""" Tagging app base data models """
 import logging
 from typing import List, Type, Union
 
@@ -6,7 +6,10 @@ from django.db import models
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 
-from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
+from openedx_learning.lib.fields import (
+    MultiCollationTextField,
+    case_insensitive_char_field,
+)
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +68,10 @@ class Tag(models.Model):
         indexes = [
             models.Index(fields=["taxonomy", "value"]),
             models.Index(fields=["taxonomy", "external_id"]),
+        ]
+        unique_together = [
+            ["taxonomy", "external_id"],
+            ["taxonomy", "value"],
         ]
 
     def __repr__(self):
@@ -140,14 +147,6 @@ class Taxonomy(models.Model):
             "Indicates that tags in this taxonomy need not be predefined; authors may enter their own tag values."
         ),
     )
-    system_defined = models.BooleanField(
-        default=False,
-        editable=False,
-        help_text=_(
-            "Indicates that tags and metadata for this taxonomy are maintained by the system;"
-            " taxonomy admins will not be permitted to modify them.",
-        ),
-    )
     visible_to_authors = models.BooleanField(
         default=True,
         editable=False,
@@ -177,7 +176,24 @@ class Taxonomy(models.Model):
         """
         User-facing string representation of a Taxonomy.
         """
+        try:
+            if self._taxonomy_class:
+                return f"<{self.taxonomy_class.__name__}> ({self.id}) {self.name}"
+        except ImportError:
+            # Log error and continue
+            log.exception(
+                f"Unable to import taxonomy_class for {self.id}: {self._taxonomy_class}"
+            )
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
+
+    @property
+    def object_tag_class(self) -> Type:
+        """
+        Returns the ObjectTag subclass associated with this taxonomy, which is ObjectTag by default.
+
+        Taxonomy subclasses may override this method to use different subclasses of ObjectTag.
+        """
+        return ObjectTag
 
     @property
     def taxonomy_class(self) -> Type:
@@ -189,6 +205,14 @@ class Taxonomy(models.Model):
         if self._taxonomy_class:
             return import_string(self._taxonomy_class)
         return None
+
+    @property
+    def system_defined(self) -> bool:
+        """
+        Indicates that tags and metadata for this taxonomy are maintained by the system;
+        taxonomy admins will not be permitted to modify them.
+        """
+        return False
 
     @taxonomy_class.setter
     def taxonomy_class(self, taxonomy_class: Union[Type, None]):
@@ -239,14 +263,15 @@ class Taxonomy(models.Model):
         self.required = taxonomy.required
         self.allow_multiple = taxonomy.allow_multiple
         self.allow_free_text = taxonomy.allow_free_text
-        self.system_defined = taxonomy.system_defined
         self.visible_to_authors = taxonomy.visible_to_authors
         self._taxonomy_class = taxonomy._taxonomy_class
         return self
 
-    def get_tags(self) -> List[Tag]:
+    def get_tags(self, tag_set: models.QuerySet = None) -> List[Tag]:
         """
         Returns a list of all Tags in the current taxonomy, from the root(s) down to TAXONOMY_MAX_DEPTH tags, in tree order.
+
+        Use `tag_set` to do an initial filtering of the tags.
 
         Annotates each returned Tag with its ``depth`` in the tree (starting at 0).
 
@@ -256,9 +281,12 @@ class Taxonomy(models.Model):
         if self.allow_free_text:
             return tags
 
+        if tag_set is None:
+            tag_set = self.tag_set
+
         parents = None
         for depth in range(TAXONOMY_MAX_DEPTH):
-            filtered_tags = self.tag_set.prefetch_related("parent")
+            filtered_tags = tag_set.prefetch_related("parent")
             if parents is None:
                 filtered_tags = filtered_tags.filter(parent=None)
             else:
@@ -366,9 +394,10 @@ class Taxonomy(models.Model):
                 _(f"Taxonomy ({self.id}) requires at least one tag per object.")
             )
 
+        ObjectTagClass = self.object_tag_class
         current_tags = {
             tag.tag_ref: tag
-            for tag in ObjectTag.objects.filter(
+            for tag in ObjectTagClass.objects.filter(
                 taxonomy=self,
                 object_id=object_id,
             )
@@ -378,20 +407,12 @@ class Taxonomy(models.Model):
             if tag_ref in current_tags:
                 object_tag = current_tags.pop(tag_ref)
             else:
-                object_tag = ObjectTag(
+                object_tag = ObjectTagClass(
                     taxonomy=self,
                     object_id=object_id,
                 )
 
-            try:
-                object_tag.tag = self.tag_set.get(
-                    id=tag_ref,
-                )
-            except (ValueError, Tag.DoesNotExist):
-                # This might be ok, e.g. if self.allow_free_text.
-                # We'll validate below before saving.
-                object_tag.value = tag_ref
-
+            object_tag.tag_ref = tag_ref
             object_tag.resync()
             if not self.validate_object_tag(object_tag):
                 raise ValueError(
@@ -431,6 +452,7 @@ class ObjectTag(models.Model):
     id = models.BigAutoField(primary_key=True)
     object_id = case_insensitive_char_field(
         max_length=255,
+        db_index=True,
         editable=False,
         help_text=_("Identifier for the object being tagged"),
     )
@@ -472,6 +494,7 @@ class ObjectTag(models.Model):
 
     class Meta:
         indexes = [
+            models.Index(fields=["taxonomy", "object_id"]),
             models.Index(fields=["taxonomy", "_value"]),
         ]
 
@@ -530,6 +553,24 @@ class ObjectTag(models.Model):
         Otherwise, returns the cached _value field.
         """
         return self.tag.id if self.tag_id else self._value
+
+    @tag_ref.setter
+    def tag_ref(self, tag_ref: str):
+        """
+        Sets the ObjectTag's Tag and/or value, depending on whether a valid Tag is found.
+
+        Subclasses may override this method to dynamically create Tags.
+        """
+        self.value = tag_ref
+
+        if self.taxonomy_id:
+            try:
+                self.tag = self.taxonomy.tag_set.get(pk=tag_ref)
+                self.value = self.tag.value
+            except (ValueError, Tag.DoesNotExist):
+                # This might be ok, e.g. if our taxonomy.allow_free_text, so we just pass through here.
+                # We rely on the caller to validate before saving.
+                pass
 
     def is_valid(self) -> bool:
         """

@@ -145,6 +145,34 @@
     parent: 15
     value: Mammalia
     external_id: null
+- model: oel_tagging.tag
+  pk: 22
+  fields:
+    taxonomy: 4
+    parent: null
+    value: System Tag 1
+    external_id: 'tag_1'
+- model: oel_tagging.tag
+  pk: 23
+  fields:
+    taxonomy: 4
+    parent: null
+    value: System Tag 2
+    external_id: 'tag_2'
+- model: oel_tagging.tag
+  pk: 24
+  fields:
+    taxonomy: 4
+    parent: null
+    value: System Tag 3
+    external_id: 'tag_3'
+- model: oel_tagging.tag
+  pk: 25
+  fields:
+    taxonomy: 4
+    parent: null
+    value: System Tag 4
+    external_id: 'tag_4'
 - model: oel_tagging.taxonomy
   pk: 1
   fields:
@@ -154,14 +182,23 @@
     required: false
     allow_multiple: false
     allow_free_text: false
-    system_defined: false
 - model: oel_tagging.taxonomy
-  pk: 2
+  pk: 3
   fields:
-    name: System Languages
-    description: Allows tags for any language configured for use on the instance.
+    name: User Authors
+    description: Allows tags for any User on the instance.
     enabled: true
     required: false
     allow_multiple: false
     allow_free_text: false
-    system_defined: true
+    _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.UserSystemDefinedTaxonomy
+- model: oel_tagging.taxonomy
+  pk: 4
+  fields:
+    name: System defined taxonomy
+    description: Generic System defined taxonomy
+    enabled: true
+    required: false
+    allow_multiple: false
+    allow_free_text: false
+    _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.SystemDefinedTaxonomy

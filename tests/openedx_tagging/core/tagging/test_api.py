@@ -1,11 +1,19 @@
 """ Test the tagging APIs """
 
-from django.test.testcases import TestCase
+from django.test.testcases import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api
 from openedx_tagging.core.tagging.models import ObjectTag, Tag
 
-from .test_models import TestTagTaxonomyMixin
+from .test_models import TestTagTaxonomyMixin, get_tag
+
+test_languages = [
+    ("az", "Azerbaijani"),
+    ("en", "English"),
+    ("id", "Indonesian"),
+    ("qu", "Quechua"),
+    ("zu", "Zulu"),
+]
 
 
 class TestApiTagging(TestTagTaxonomyMixin, TestCase):
@@ -47,10 +55,18 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
         with self.assertNumQueries(1):
             enabled = list(tagging_api.get_taxonomies())
-        assert enabled == [tax1, self.taxonomy, self.system_taxonomy]
+
+        assert enabled == [
+            tax1,
+            self.language_taxonomy,
+            self.taxonomy,
+            self.system_taxonomy,
+            self.user_taxonomy,
+        ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
-        assert str(enabled[1]) == "<Taxonomy> (1) Life on Earth"
-        assert str(enabled[2]) == "<Taxonomy> (2) System Languages"
+        assert str(enabled[1]) == "<Taxonomy> (-1) Languages"
+        assert str(enabled[2]) == "<Taxonomy> (1) Life on Earth"
+        assert str(enabled[3]) == "<SystemDefinedTaxonomy> (4) System defined taxonomy"
 
         with self.assertNumQueries(1):
             disabled = list(tagging_api.get_taxonomies(enabled=False))
@@ -59,8 +75,16 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         with self.assertNumQueries(1):
             both = list(tagging_api.get_taxonomies(enabled=None))
-        assert both == [tax2, tax1, self.taxonomy, self.system_taxonomy]
+        assert both == [
+            tax2,
+            tax1,
+            self.language_taxonomy,
+            self.taxonomy,
+            self.system_taxonomy,
+            self.user_taxonomy,
+        ]
 
+    @override_settings(LANGUAGES=test_languages)
     def test_get_tags(self):
         self.setup_tag_depths()
         assert tagging_api.get_tags(self.taxonomy) == [
@@ -68,6 +92,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             *self.kingdom_tags,
             *self.phylum_tags,
         ]
+        assert tagging_api.get_tags(self.system_taxonomy) == self.system_tags
+        tags = tagging_api.get_tags(self.language_taxonomy)
+        langs = [tag.external_id for tag in tags]
+        expected_langs = [lang[0] for lang in test_languages]
+        assert langs == expected_langs
 
     def check_object_tag(self, object_tag, taxonomy, tag, name, value):
         """
@@ -285,6 +314,98 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 "biology101",
             )
         assert "Invalid object tag for taxonomy (1): Eukaryota Xenomorph" in str(
+            exc.exception
+        )
+
+    @override_settings(LANGUAGES=test_languages)
+    def test_tag_object_language_taxonomy(self):
+        tags_list = [
+            [get_tag("Azerbaijani").id],
+            [get_tag("English").id],
+        ]
+
+        for tags in tags_list:
+            object_tags = tagging_api.tag_object(
+                self.language_taxonomy,
+                tags,
+                "biology101",
+            )
+
+            # Ensure the expected number of tags exist in the database
+            assert (
+                list(
+                    tagging_api.get_object_tags(
+                        taxonomy=self.language_taxonomy,
+                        object_id="biology101",
+                    )
+                )
+                == object_tags
+            )
+            # And the expected number of tags were returned
+            assert len(object_tags) == len(tags)
+            for index, object_tag in enumerate(object_tags):
+                assert object_tag.tag_id == tags[index]
+                assert object_tag.is_valid()
+                assert object_tag.taxonomy == self.language_taxonomy
+                assert object_tag.name == self.language_taxonomy.name
+                assert object_tag.object_id == "biology101"
+
+    @override_settings(LANGUAGES=test_languages)
+    def test_tag_object_language_taxonomy_ivalid(self):
+        tags = [get_tag("Spanish").id]
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                self.language_taxonomy,
+                tags,
+                "biology101",
+            )
+        assert "Invalid object tag for taxonomy (-1): -40" in str(
+            exc.exception
+        )
+
+    def test_tag_object_model_system_taxonomy(self):
+        users = [
+            self.user_1,
+            self.user_2,
+        ]
+
+        for user in users:
+            tags = [user.id]
+            object_tags = tagging_api.tag_object(
+                self.user_taxonomy,
+                tags,
+                "biology101",
+            )
+
+            # Ensure the expected number of tags exist in the database
+            assert (
+                list(
+                    tagging_api.get_object_tags(
+                        taxonomy=self.user_taxonomy,
+                        object_id="biology101",
+                    )
+                )
+                == object_tags
+            )
+            # And the expected number of tags were returned
+            assert len(object_tags) == len(tags)
+            for object_tag in object_tags:
+                assert object_tag.tag.external_id == str(user.id)
+                assert object_tag.tag.value == user.username
+                assert object_tag.is_valid()
+                assert object_tag.taxonomy == self.user_taxonomy
+                assert object_tag.name == self.user_taxonomy.name
+                assert object_tag.object_id == "biology101"
+
+    def test_tag_object_model_system_taxonomy_invalid(self):
+        tags = ["Invalid id"]
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                self.user_taxonomy,
+                tags,
+                "biology101",
+            )
+        assert "Invalid object tag for taxonomy (3): Invalid id" in str(
             exc.exception
         )
 

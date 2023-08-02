@@ -1,9 +1,14 @@
-""" Test the tagging models """
-
+""" Test the tagging base models """
 import ddt
+from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.models import (
+    ObjectTag,
+    Tag,
+    Taxonomy,
+    LanguageTaxonomy,
+)
 
 
 def get_tag(value):
@@ -23,13 +28,30 @@ class TestTagTaxonomyMixin:
     def setUp(self):
         super().setUp()
         self.taxonomy = Taxonomy.objects.get(name="Life on Earth")
-        self.system_taxonomy = Taxonomy.objects.get(name="System Languages")
+        self.system_taxonomy = Taxonomy.objects.get(
+            name="System defined taxonomy"
+        )
+        self.language_taxonomy = Taxonomy.objects.get(name="Languages")
+        self.language_taxonomy.taxonomy_class = LanguageTaxonomy
+        self.language_taxonomy = self.language_taxonomy.cast()
+        self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
         self.archaea = get_tag("Archaea")
         self.archaebacteria = get_tag("Archaebacteria")
         self.bacteria = get_tag("Bacteria")
         self.eubacteria = get_tag("Eubacteria")
         self.chordata = get_tag("Chordata")
         self.mammalia = get_tag("Mammalia")
+        self.system_taxonomy_tag = get_tag("System Tag 1")
+        self.user_1 = get_user_model()(
+            id=1,
+            username="test_user_1",
+        )
+        self.user_1.save()
+        self.user_2 = get_user_model()(
+            id=2,
+            username="test_user_2",
+        )
+        self.user_2.save()
 
         # Domain tags (depth=0)
         # https://en.wikipedia.org/wiki/Domain_(biology)
@@ -64,6 +86,13 @@ class TestTagTaxonomyMixin:
             get_tag("Gastrotrich"),
             get_tag("Placozoa"),
             get_tag("Porifera"),
+        ]
+
+        self.system_tags = [
+            get_tag("System Tag 1"),
+            get_tag("System Tag 2"),
+            get_tag("System Tag 3"),
+            get_tag("System Tag 4"),
         ]
 
     def setup_tag_depths(self):
@@ -119,16 +148,16 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_system_defined(self):
         assert not self.taxonomy.system_defined
-        assert self.system_taxonomy.system_defined
+        assert self.system_taxonomy.cast().system_defined
 
     def test_representations(self):
         assert (
             str(self.taxonomy) == repr(self.taxonomy) == "<Taxonomy> (1) Life on Earth"
         )
         assert (
-            str(self.system_taxonomy)
-            == repr(self.system_taxonomy)
-            == "<Taxonomy> (2) System Languages"
+            str(self.language_taxonomy)
+            == repr(self.language_taxonomy)
+            == "<LanguageTaxonomy> (-1) Languages"
         )
         assert str(self.bacteria) == repr(self.bacteria) == "<Tag> (1) Bacteria"
 
@@ -292,6 +321,13 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         self.tag.delete()
         object_tag.refresh_from_db()
         assert object_tag.get_lineage() == ["Another tag"]
+
+    def test_tag_ref(self):
+        object_tag = ObjectTag()
+        object_tag.tag_ref = 1
+        object_tag.save()
+        assert object_tag.tag is None
+        assert object_tag.value == 1
 
     def test_object_tag_is_valid(self):
         open_taxonomy = Taxonomy.objects.create(
