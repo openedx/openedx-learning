@@ -8,13 +8,16 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from urllib.parse import urlparse, parse_qs
 
-from openedx_tagging.core.tagging.models import Taxonomy
+from openedx_tagging.core.tagging.models import Taxonomy, ObjectTag, Tag
 from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
 
 User = get_user_model()
 
 TAXONOMY_LIST_URL = "/tagging/rest_api/v1/taxonomies/"
 TAXONOMY_DETAIL_URL = "/tagging/rest_api/v1/taxonomies/{pk}/"
+
+
+OBJECT_TAGS_RETRIEVE_URL = '/tagging/rest_api/v1/object_tags/{object_id}/'
 
 
 def check_taxonomy(
@@ -376,3 +379,271 @@ class TestTaxonomyViewSet(APITestCase):
         self.client.force_authenticate(user=self.staff)
         response = self.client.delete(url)
         assert response.status_code, status.HTTP_404_NOT_FOUND
+
+
+@ddt.ddt
+class TestObjectTagViewSet(APITestCase):
+    """
+    Testing various cases for the ObjectTagView.
+    """
+
+    def setUp(self):
+        super().setUp()
+
+        self.user = User.objects.create(
+            username="user",
+            email="user@example.com",
+        )
+
+        self.staff = User.objects.create(
+            username="staff",
+            email="staff@example.com",
+            is_staff=True,
+        )
+
+        # System-defined language taxonomy with valid ObjectTag
+        self.system_taxonomy = SystemDefinedTaxonomy.objects.create(
+            name="System Taxonomy"
+        )
+        self.tag1 = Tag.objects.create(
+            taxonomy=self.system_taxonomy, value="Tag 1"
+        )
+        ObjectTag.objects.create(
+            object_id="abc",
+            taxonomy=self.system_taxonomy,
+            tag=self.tag1
+        )
+
+        # Closed Taxonomies created by taxonomy admins, each with 20 ObjectTags
+        self.enabled_taxonomy = Taxonomy.objects.create(name="Enabled Taxonomy")
+        for i in range(20):
+            # Valid ObjectTags
+            tag = Tag.objects.create(
+                taxonomy=self.enabled_taxonomy, value=f"Tag {i}"
+            )
+            ObjectTag.objects.create(
+                object_id="abc", taxonomy=self.enabled_taxonomy,
+                tag=tag, _value=tag.value
+            )
+
+        # Taxonomy with invalid ObjectTag
+        self.taxonomy_with_invalid_object_tag = Taxonomy.objects.create()
+        self.to_be_deleted_tag = Tag.objects.create(
+            taxonomy=self.enabled_taxonomy, value="Deleted Tag"
+        )
+        ObjectTag.objects.create(
+            object_id="abc", taxonomy=self.taxonomy_with_invalid_object_tag,
+            tag=self.to_be_deleted_tag, _value=self.to_be_deleted_tag.value
+        )
+        self.to_be_deleted_tag.delete()  # Delete tag so ObjectTag is invalid
+
+        # Free-Text Taxonomies created by taxonomy admins, each linked
+        # to 200 ObjectTags
+        self.open_taxonomy_enabled = Taxonomy.objects.create(
+            name="Enabled Free-Text Taxonomy", allow_free_text=True
+        )
+        self.open_taxonomy_disabled = Taxonomy.objects.create(
+            name="Disabled Free-Text Taxonomy", enabled=False, allow_free_text=True
+        )
+        for i in range(200):
+            ObjectTag.objects.create(
+                object_id="abc", taxonomy=self.open_taxonomy_enabled, _value=f"Free Text {i}"
+            )
+            ObjectTag.objects.create(
+                object_id="abc", taxonomy=self.open_taxonomy_disabled, _value=f"Free Text {i}"
+            )
+
+    @ddt.data(
+        (None, "abc", status.HTTP_403_FORBIDDEN, None, None),
+        ("user", "abc", status.HTTP_200_OK, 422, 10),
+        ("staff", "abc", status.HTTP_200_OK, 422, 10),
+        (None, "non-existing-id", status.HTTP_403_FORBIDDEN, None, None),
+        ("user", "non-existing-id", status.HTTP_200_OK, 0, 0),
+        ("staff", "non-existing-id", status.HTTP_200_OK, 0, 0),
+    )
+    @ddt.unpack
+    def test_retrieve_object_tags(
+        self, user_attr, object_id, expected_status, expected_count, expected_results
+
+    ):
+        """
+        Test retrieving object tags
+        """
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+
+        if user_attr:
+            user = getattr(self, user_attr)
+            self.client.force_authenticate(user=user)
+
+        response = self.client.get(url)
+        assert response.status_code == expected_status
+
+        if status.is_success(expected_status):
+            assert response.data.get("count") == expected_count
+            assert response.data.get("results") is not None
+            assert len(response.data.get("results")) == expected_results
+
+    @ddt.data(
+        (None, "abc", status.HTTP_403_FORBIDDEN, None, None, None, None),
+        ("user", "abc", status.HTTP_200_OK, 20, 10, 1, 1),
+        ("staff", "abc", status.HTTP_200_OK, 20, 10, 1, 1),
+    )
+    @ddt.unpack
+    def test_retrieve_object_tags_taxonomy_queryparam(
+        self, user_attr, object_id, expected_status,
+        expected_count, expected_results,
+        expected_invalid_count, expected_invalid_results
+    ):
+        """
+        Test retrieving object tags for specific taxonomies provided
+        """
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+
+        if user_attr:
+            user = getattr(self, user_attr)
+            self.client.force_authenticate(user=user)
+
+        # Check valid object tags
+        response = self.client.get(url, {"taxonomy": self.enabled_taxonomy.pk})
+        assert response.status_code == expected_status
+        if status.is_success(expected_status):
+            assert response.data.get("count") == expected_count
+            assert response.data.get("results") is not None
+            assert len(response.data.get("results")) == expected_results
+            object_tags = response.data.get("results")
+            for object_tag in object_tags:
+                assert object_tag.get("is_valid") is True
+                assert object_tag.get("taxonomy_id") == self.enabled_taxonomy.pk
+
+        # Check invalid object tags
+        response = self.client.get(
+            url, {"taxonomy": self.taxonomy_with_invalid_object_tag.pk}
+        )
+        assert response.status_code == expected_status
+        if status.is_success(expected_status):
+            assert response.data.get("count") == expected_invalid_count
+            assert response.data.get("results") is not None
+            assert len(response.data.get("results")) == expected_invalid_results
+            object_tags = response.data.get("results")
+            for object_tag in object_tags:
+                assert object_tag.get("is_valid") is False
+                assert object_tag.get("taxonomy_id") == \
+                    self.taxonomy_with_invalid_object_tag.pk
+
+    @ddt.data(
+        (None, "abc", status.HTTP_403_FORBIDDEN),
+        ("user", "abc", status.HTTP_400_BAD_REQUEST),
+        ("staff", "abc", status.HTTP_400_BAD_REQUEST),
+    )
+    @ddt.unpack
+    def test_retrieve_object_tags_invalid_taxonomy_queryparam(
+        self, user_attr, object_id, expected_status
+    ):
+        """
+        Test retrieving object tags for invalid taxonomy
+        """
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+
+        if user_attr:
+            user = getattr(self, user_attr)
+            self.client.force_authenticate(user=user)
+
+        # Invalid Taxonomy
+        response = self.client.get(url, {"taxonomy": 123123})
+        assert response.status_code == expected_status
+
+    @ddt.data(
+        # Page 1, default page size 10, total count 200, returns 10 results
+        (None, 1, None, status.HTTP_403_FORBIDDEN, None, None),
+        ("user", 1, None, status.HTTP_200_OK, 200, 10),
+        ("staff", 1, None, status.HTTP_200_OK, 200, 10),
+        # Page 2, default page size 10, total count 200, returns 10 results
+        (None, 2, None, status.HTTP_403_FORBIDDEN, None, None),
+        ("user", 2, None, status.HTTP_200_OK, 200, 10),
+        ("staff", 2, None, status.HTTP_200_OK, 200, 10),
+        # Page 21, default page size 10, total count 200, no more results
+        (None, 21, None, status.HTTP_403_FORBIDDEN, None, None),
+        ("user", 21, None, status.HTTP_404_NOT_FOUND, None, None),
+        ("staff", 21, None, status.HTTP_404_NOT_FOUND, None, None),
+        # Page 3, page size 2, total count 200, returns 2 results
+        (None, 3, 2, status.HTTP_403_FORBIDDEN, 200, 2),
+        ("user", 3, 2, status.HTTP_200_OK, 200, 2),
+        ("staff", 3, 2, status.HTTP_200_OK, 200, 2),
+    )
+    @ddt.unpack
+    def test_retrieve_object_tags_pagination(
+        self, user_attr, page, page_size, expected_status, expected_count, expected_results
+    ):
+        """
+        Test pagination for retrieve object tags
+        """
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id="abc")
+
+        if user_attr:
+            user = getattr(self, user_attr)
+            self.client.force_authenticate(user=user)
+
+        query_params = {
+            "taxonomy": self.open_taxonomy_enabled.pk,
+            "page": page
+        }
+        if page_size:
+            query_params["page_size"] = page_size
+
+        response = self.client.get(url, query_params)
+        assert response.status_code == expected_status
+        if status.is_success(expected_status):
+            assert response.data.get("count") == expected_count
+            assert response.data.get("results") is not None
+            assert len(response.data.get("results")) == expected_results
+            object_tags = response.data.get("results")
+            for object_tag in object_tags:
+                assert object_tag.get("taxonomy_id") == self.open_taxonomy_enabled.pk
+
+    @ddt.data(
+        (None, "POST", status.HTTP_403_FORBIDDEN),
+        (None, "PUT", status.HTTP_403_FORBIDDEN),
+        (None, "PATCH", status.HTTP_403_FORBIDDEN),
+        (None, "DELETE", status.HTTP_403_FORBIDDEN),
+        ("user", "POST", status.HTTP_403_FORBIDDEN),
+        ("user", "PUT", status.HTTP_403_FORBIDDEN),
+        ("user", "PATCH", status.HTTP_403_FORBIDDEN),
+        ("user", "DELETE", status.HTTP_403_FORBIDDEN),
+        ("staff", "POST", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("staff", "PUT", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("staff", "PATCH", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("staff", "DELETE", status.HTTP_405_METHOD_NOT_ALLOWED),
+    )
+    @ddt.unpack
+    def test_object_tags_remaining_http_methods(
+        self, user_attr, http_method, expected_status,
+
+    ):
+        """
+        Test POST/PUT/PATCH/DELETE method for ObjectTagView
+
+        Only staff users should have permissions to perform the actions,
+        however the methods are currently not allowed.
+        """
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id="abc")
+
+        if user_attr:
+            user = getattr(self, user_attr)
+            self.client.force_authenticate(user=user)
+
+        if http_method == "POST":
+            response = self.client.post(
+                url, {"test": "payload"}, format="json"
+            )
+        elif http_method == "PUT":
+            response = self.client.put(
+                url, {"test": "payload"}, format="json"
+            )
+        elif http_method == "PATCH":
+            response = self.client.patch(
+                url, {"test": "payload"}, format="json"
+            )
+        elif http_method == "DELETE":
+            response = self.client.delete(url)
+
+        assert response.status_code == expected_status

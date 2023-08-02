@@ -259,7 +259,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert (
                 list(
                     tagging_api.get_object_tags(
-                        taxonomy=self.taxonomy,
+                        taxonomy_id=self.taxonomy.pk,
                         object_id="biology101",
                     )
                 )
@@ -340,7 +340,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert (
                 list(
                     tagging_api.get_object_tags(
-                        taxonomy=self.language_taxonomy,
+                        taxonomy_id=self.language_taxonomy.pk,
                         object_id="biology101",
                     )
                 )
@@ -386,7 +386,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert (
                 list(
                     tagging_api.get_object_tags(
-                        taxonomy=self.user_taxonomy,
+                        taxonomy_id=self.user_taxonomy.pk,
                         object_id="biology101",
                     )
                 )
@@ -440,7 +440,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert list(
             tagging_api.get_object_tags(
                 object_id="abc",
-                taxonomy=self.taxonomy,
+                taxonomy_id=self.taxonomy.pk,
             )
         ) == [
             beta,

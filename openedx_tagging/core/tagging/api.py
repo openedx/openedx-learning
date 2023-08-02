@@ -96,13 +96,14 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
 
 
 def get_object_tags(
-    object_id: str, taxonomy: Taxonomy = None
+    object_id: str, taxonomy_id: str = None
 ) -> QuerySet:
     """
     Returns a Queryset of object tags for a given object.
 
     Pass taxonomy to limit the returned object_tags to a specific taxonomy.
     """
+    taxonomy = get_taxonomy(taxonomy_id)
     ObjectTagClass = taxonomy.object_tag_class if taxonomy else ObjectTag
     tags = (
         ObjectTagClass.objects.filter(
