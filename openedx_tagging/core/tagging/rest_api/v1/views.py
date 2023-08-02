@@ -9,8 +9,9 @@ from ...api import (
     get_taxonomy,
     get_taxonomies,
 )
-from .serializers import TaxonomyListQueryParamsSerializer, TaxonomySerializer
+from .pagination import TaggingPagination
 from .permissions import TaxonomyObjectPermissions
+from .serializers import TaxonomyListQueryParamsSerializer, TaxonomySerializer
 
 
 class TaxonomyView(ModelViewSet):
@@ -59,7 +60,6 @@ class TaxonomyView(ModelViewSet):
             "allow_free_text": True,
         }
 
-
     **Create Query Returns**
         * 201 - Success
         * 403 - Permission denied
@@ -107,6 +107,7 @@ class TaxonomyView(ModelViewSet):
 
     """
 
+    pagination_class = TaggingPagination
     serializer_class = TaxonomySerializer
     permission_classes = [TaxonomyObjectPermissions]
 

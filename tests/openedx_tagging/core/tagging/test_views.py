@@ -6,6 +6,7 @@ import ddt
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
+from urllib.parse import urlparse, parse_qs
 
 from openedx_tagging.core.tagging.models import Taxonomy
 from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
@@ -85,7 +86,7 @@ class TestTaxonomyViewSet(APITestCase):
         # If we were able to list the taxonomies, check that we got the expected number back
         # We take into account the Language Taxonomy that is created by the system in a migration
         if status.is_success(expected_status):
-            assert len(response.data) == expected_count
+            assert len(response.data["results"]) == expected_count
 
     @ddt.data(
         (None, status.HTTP_403_FORBIDDEN),
@@ -102,6 +103,39 @@ class TestTaxonomyViewSet(APITestCase):
 
         response = self.client.get(url)
         assert response.status_code == expected_status
+
+    def test_list_taxonomy_pagination(self):
+        url = TAXONOMY_LIST_URL
+        Taxonomy.objects.create(name="T1", enabled=True).save()
+        Taxonomy.objects.create(name="T2", enabled=True).save()
+        Taxonomy.objects.create(name="T3", enabled=False).save()
+        Taxonomy.objects.create(name="T4", enabled=False).save()
+        Taxonomy.objects.create(name="T5", enabled=False).save()
+
+        self.client.force_authenticate(user=self.staff)
+
+        query_params = {"page_size": 2, "page": 2}
+        response = self.client.get(url, query_params, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+
+        self.assertEqual(set(t["name"] for t in response.data["results"]), set(("T2", "T3")))
+        parsed_url = urlparse(response.data["next"])
+
+        next_page = parse_qs(parsed_url.query).get("page", [None])[0]
+        assert next_page == '3'
+
+    def test_list_invalid_page(self):
+        url = TAXONOMY_LIST_URL
+
+        self.client.force_authenticate(user=self.user)
+
+        query_params = {"page": 123123}
+
+        response = self.client.get(url, query_params, format="json")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
 
     @ddt.data(
         (None, {"enabled": True}, status.HTTP_403_FORBIDDEN),
