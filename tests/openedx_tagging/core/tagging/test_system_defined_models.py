@@ -1,6 +1,7 @@
 """ Test the tagging system-defined taxonomy models """
 import ddt
 
+from django.db.utils import IntegrityError
 from django.test.testcases import TestCase, override_settings
 from django.contrib.auth import get_user_model
 
@@ -160,11 +161,8 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         # Test add an existing Tag
         self._tag_object()
         assert self.user_taxonomy.tag_set.count() == 1
-        updated_tags = self._tag_object()
-        assert self.user_taxonomy.tag_set.count() == 1
-        assert len(updated_tags) == 1
-        assert updated_tags[0].tag.external_id == str(self.user_1.id)
-        assert updated_tags[0].tag.value == self.user_1.get_username()
+        with self.assertRaises(IntegrityError):
+            self._tag_object()
 
     def test_tag_object_resync(self):
         self._tag_object()
