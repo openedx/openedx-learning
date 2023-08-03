@@ -13,8 +13,9 @@ from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxo
 
 User = get_user_model()
 
-TAXONOMY_LIST_URL = '/tagging/rest_api/v1/taxonomies/'
-TAXONOMY_DETAIL_URL = '/tagging/rest_api/v1/taxonomies/{pk}/'
+TAXONOMY_LIST_URL = "/tagging/rest_api/v1/taxonomies/"
+TAXONOMY_DETAIL_URL = "/tagging/rest_api/v1/taxonomies/{pk}/"
+
 
 def check_taxonomy(
     data,
@@ -123,7 +124,7 @@ class TestTaxonomyViewSet(APITestCase):
         parsed_url = urlparse(response.data["next"])
 
         next_page = parse_qs(parsed_url.query).get("page", [None])[0]
-        assert next_page == '3'
+        assert next_page == "3"
 
     def test_list_invalid_page(self):
         url = TAXONOMY_LIST_URL
@@ -136,15 +137,10 @@ class TestTaxonomyViewSet(APITestCase):
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-
     @ddt.data(
         (None, {"enabled": True}, status.HTTP_403_FORBIDDEN),
         (None, {"enabled": False}, status.HTTP_403_FORBIDDEN),
-        (
-            "user",
-            {"enabled": True},
-            status.HTTP_200_OK,
-        ),
+        ("user", {"enabled": True}, status.HTTP_200_OK),
         ("user", {"enabled": False}, status.HTTP_404_NOT_FOUND),
         ("staff", {"enabled": True}, status.HTTP_200_OK),
         ("staff", {"enabled": False}, status.HTTP_200_OK),
@@ -271,12 +267,10 @@ class TestTaxonomyViewSet(APITestCase):
         (True, status.HTTP_403_FORBIDDEN),
     )
     @ddt.unpack
-    def test_update_taxonomy_system_defined(
-        self, system_defined, expected_status
-    ):
-        '''
+    def test_update_taxonomy_system_defined(self, system_defined, expected_status):
+        """
         Test that we can't update system_defined field
-        '''
+        """
         taxonomy = Taxonomy.objects.create(name="test system taxonomy")
         if system_defined:
             taxonomy.taxonomy_class = SystemDefinedTaxonomy
@@ -284,9 +278,7 @@ class TestTaxonomyViewSet(APITestCase):
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         self.client.force_authenticate(user=self.staff)
-        response = self.client.put(
-            url, {"name": "new name"}, format="json"
-        )
+        response = self.client.put(url, {"name": "new name"}, format="json")
         assert response.status_code == expected_status
 
     def test_update_taxonomy_404(self):
@@ -303,9 +295,7 @@ class TestTaxonomyViewSet(APITestCase):
     )
     @ddt.unpack
     def test_patch_taxonomy(self, user_attr, expected_status):
-        taxonomy = Taxonomy.objects.create(
-            name="test patch taxonomy", enabled=False, required=True
-        )
+        taxonomy = Taxonomy.objects.create(name="test patch taxonomy", enabled=False, required=True)
         taxonomy.save()
 
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
@@ -314,9 +304,7 @@ class TestTaxonomyViewSet(APITestCase):
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        response = self.client.patch(
-            url, {"name": "new name", "required": False}, format="json"
-        )
+        response = self.client.patch(url, {"name": "new name", "required": False}, format="json")
         assert response.status_code == expected_status
 
         # If we were able to update the taxonomy, check if the name changed
@@ -337,24 +325,18 @@ class TestTaxonomyViewSet(APITestCase):
         (True, status.HTTP_403_FORBIDDEN),
     )
     @ddt.unpack
-    def test_patch_taxonomy_system_defined(
-        self, system_defined, expected_status
-    ):
-        '''
+    def test_patch_taxonomy_system_defined(self, system_defined, expected_status):
+        """
         Test that we can't patch system_defined field
-        '''
-        taxonomy = Taxonomy.objects.create(
-            name="test system taxonomy"
-        )
+        """
+        taxonomy = Taxonomy.objects.create(name="test system taxonomy")
         if system_defined:
             taxonomy.taxonomy_class = SystemDefinedTaxonomy
         taxonomy.save()
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         self.client.force_authenticate(user=self.staff)
-        response = self.client.patch(
-            url, {"name": "New name"}, format="json"
-        )
+        response = self.client.patch(url, {"name": "New name"}, format="json")
         assert response.status_code == expected_status
 
     def test_patch_taxonomy_404(self):
