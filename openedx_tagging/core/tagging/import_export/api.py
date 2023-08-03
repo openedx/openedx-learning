@@ -2,9 +2,9 @@ from io import BytesIO
 
 from django.utils.translation import gettext_lazy as _
 
-from ..models import Taxonomy
+from ..models import Taxonomy, TagImportTask, TagImportTaskState
 from .parsers import get_parser, ParserFormat
-from .import_plan import TagImportDSL, TagImportTask, TagImportTaskState
+from .import_plan import TagImportDSL, TagImportTask
 
 
 def import_tags(
@@ -15,11 +15,13 @@ def import_tags(
 ) -> bool:
     # Checks that exists only one tag
     if not _check_unique_import_task(taxonomy):
-        raise ValueError(_(
-            "There is an import task running. "
-            "Only one task per taxonomy can be created at a time."
-        ))
-    
+        raise ValueError(
+            _(
+                "There is an import task running. "
+                "Only one task per taxonomy can be created at a time."
+            )
+        )
+
     # Creating import task
     task = TagImportTask.create(taxonomy)
 
@@ -28,42 +30,57 @@ def import_tags(
         task.log_parser_start()
         parser = get_parser(parser_format)
         tags, errors = parser.parse_import(file)
-        task.log_parser_end()
 
         # Check if there are errors in the parse
         if errors:
             task.handle_parser_errors(errors)
             return False
 
+        task.log_parser_end()
+
         # Generate actions
         task.log_start_planning()
-        dsl = TagImportDSL()
-        dsl.generate_actions(tags, taxonomy, replace)
-        task.log_end_planning(dsl)
+        dsl = TagImportDSL(taxonomy)
+        dsl.generate_actions(tags, replace)
+        task.log_plan(dsl)
 
         if dsl.errors:
             task.handle_plan_errors()
             return False
 
-        return dsl.execute()
+        task.log_start_execute()
+        dsl.execute(task)
+        task.end_success()
+        return True
     except Exception as exception:
         # Log any exception
         task.log_exception(exception)
         return False
 
 
+def get_last_import_status(taxonomy: Taxonomy) -> TagImportTaskState:
+    task = _get_last_tags(taxonomy)
+    return task.status
+
+
+def get_last_import_log(taxonomy: Taxonomy) -> str:
+    task = _get_last_tags(taxonomy)
+    return task.log
+
+
 def _check_unique_import_task(taxonomy: Taxonomy) -> bool:
-    last_task = (
-        TagImportTask.objects
-            .filter(taxonomy=taxonomy)
-            .order_by('-creation_date')
-            .first()
-    )
+    last_task = _get_last_tags(taxonomy)
     if not last_task:
-        return False
-    return (last_task.status != TagImportTaskState.SUCCESS
-            and last_task.status != TagImportTaskState.ERROR)
+        return True
+    return (
+        last_task.status == TagImportTaskState.SUCCESS.value
+        or last_task.status == TagImportTaskState.ERROR.value
+    )
 
 
-def check_import_staus():
-    pass
+def _get_last_tags(taxonomy: Taxonomy) -> TagImportTask:
+    return (
+        TagImportTask.objects.filter(taxonomy=taxonomy)
+        .order_by("-creation_date")
+        .first()
+    )

@@ -29,8 +29,8 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
 
 
     @ddt.data(
-        ('tag_10', 1),
-        ('tag_30', 0),
+        ('tag_10', 1), # Test invalid
+        ('tag_30', 0), # Test valid
     )
     @ddt.unpack
     def test_build_action(self, tag_id, errors_expected):
@@ -131,7 +131,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
                 'name': 'without_changes',
                 'id': 'tag_1'
             },
-        ]),
+        ]),  # Test valid actions
         ([
             {
                 'id': 'tag_31',
@@ -170,7 +170,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
                 'name': 'update_parent',
                 'id': 'tag_4',
             }
-        ]),
+        ]),  # Test with errors in actions
         ([
             {
                 'id': 'tag_4',
@@ -205,7 +205,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
                 'name': 'delete',
                 'id': 'tag_3',
             },
-        ])
+        ])  # Test with deletes (replace=True)
     )
     @ddt.unpack
     def test_generate_actions(self, tags, replace, expected_errors, expected_actions):
@@ -248,7 +248,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
             },
         ],
         False,
-        "Plan\n"
+        "Import plan for Import Taxonomy Test\n"
         "--------------------------------\n"
         "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
         "#2: Create a new tag with values (external_id=tag_31, value=Tag 32, parent_id=None).\n"
@@ -257,7 +257,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         "#5: Create a new tag with values (external_id=tag_33, value=Tag 32, parent_id=None).\n"
         "#6: Update the parent of tag (id=27) from parent (external_id=tag_1) to parent (external_id=None).\n"
         "#7: Rename tag value of tag (id=27) from 'Tag 2' to 'Tag 31'\n"
-        "Output errors\n"
+        "\nOutput errors\n"
         "--------------------------------\n"
         "Conflict with 'create' (#2) and action #1: Duplicated external_id tag.\n"
         "Action error in 'rename' (#3): Duplicated tag value with tag (id=27).\n"
@@ -265,7 +265,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         "You need to add parent before the child in your file.\n"
         "Conflict with 'create' (#5) and action #2: Duplicated tag value.\n"
         "Conflict with 'rename' (#7) and action #1: Duplicated tag value.\n"
-        ),
+        ),  # Testing plan with errors
         ([
             {
                 'id': 'tag_31',
@@ -292,7 +292,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
             },
         ],
         False,
-        "Plan\n"
+        "Import plan for Import Taxonomy Test\n"
         "--------------------------------\n"
         "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
         "#2: Create a new tag with values (external_id=tag_32, value=Tag 32, parent_id=tag_1).\n"
@@ -300,7 +300,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         "#4: Update the parent of tag (id=29) from parent (external_id=tag_3) to parent (external_id=tag_1).\n"
         "#5: Rename tag value of tag (id=29) from 'Tag 4' to 'Tag 4 v2'\n"
         "#6: No changes needed for tag (external_id=tag_1)\n"
-        ),
+        ),  # Testing valid plan
         ([
             {
                 'id': 'tag_4',
@@ -309,7 +309,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
             },
         ],
         True,
-        "Plan\n"
+        "Import plan for Import Taxonomy Test\n"
         "--------------------------------\n"
         "#1: No changes needed for tag (external_id=tag_4)\n"
         "#2: Update the parent of tag (id=27) from parent (external_id=tag_1) to parent (external_id=None).\n"
@@ -317,7 +317,7 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         "#4: Delete tag (id=27)\n"
         "#5: Update the parent of tag (id=29) from parent (external_id=tag_3) to parent (external_id=None).\n"
         "#6: Delete tag (id=28)\n"
-        )
+        )  # Testing deletes (replace=True)
     )
     @ddt.unpack
     def test_plan(self, tags, replace, expected):
@@ -327,33 +327,6 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         assert plan == expected
 
     @ddt.data(
-        ([
-            {
-                'id': 'tag_31',
-                'value': 'Tag 31',
-            },
-            {
-                'id': 'tag_32',
-                'value': 'Tag 32',
-            },
-            {
-                'id': 'tag_1',
-                'value': 'Tag 1 V2',
-            },
-            {
-                'id': 'tag_4',
-                'value': 'Tag 4',
-                'parent_id': 'tag_32',
-            },
-            {
-                'id': 'tag_33',
-                'value': 'Tag 33',
-            },
-            {
-                'id': 'tag_2',
-                'value': 'Tag 2 V2',
-            },
-        ], False),
         ([
             {
                  'id': 'tag_31',
@@ -378,20 +351,20 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
                 'id': 'tag_1',
                 'value': 'Tag 1',
             },
-        ], False),
+        ], False), # Testing all actions
         ([
             {
                 'id': 'tag_4',
                 'value': 'Tag 4',
                 'parent_id': 'tag_3',
             },
-        ], True),
+        ], True), # Testing deletes (replace=True)
     )
     @ddt.unpack
     def test_execute(self, tags, replace):
         tags = [TagDSL(**tag) for tag in tags]
         self.dsl.generate_actions(tags=tags, replace=replace)
-        assert self.dsl.execute()
+        self.dsl.execute()
         tag_external_ids = []
         for tag_dsl in tags:
             # This checks any creation

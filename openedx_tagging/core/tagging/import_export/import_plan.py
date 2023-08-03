@@ -16,7 +16,6 @@ from .actions import (
 from .exceptions import ImportActionError
 
 
-
 class TagDSL:
     """
     Tag representation on the import DSL
@@ -87,21 +86,40 @@ class TagImportDSL:
         # Index the actions for search
         self.indexed_actions[action.name].append(action)
 
+    def _search_parent_update(
+        self,
+        child_external_id,
+        parent_external_id,
+    ):
+        """
+        Checks if there is a parent update in a child
+        """
+        for action in self.indexed_actions["update_parent"]:
+            if (
+                child_external_id == action.tag.id
+                and parent_external_id != action.tag.parent_id
+            ):
+                return True
+
+        return False
+
     def _build_delete_actions(self, tags: dict):
         """
         Adds delete actions for `tags`
         """
         for tag in tags.values():
             for child in tag.children.all():
-                # child parent to avoid delete childs
-                self._build_action(
-                    UpdateParentTag,
-                    TagDSL(
-                        id=child.external_id,
-                        value=child.value,
-                        parent_id=None,
-                    ),
-                )
+                # Verify if there is not a parent update before
+                if not self._search_parent_update(child.external_id, tag.external_id):
+                    # Change parent to avoid delete childs
+                    self._build_action(
+                        UpdateParentTag,
+                        TagDSL(
+                            id=child.external_id,
+                            value=child.value,
+                            parent_id=None,
+                        ),
+                    )
 
             # Delete action
             self._build_action(
@@ -150,7 +168,7 @@ class TagImportDSL:
                 # If it doesn't find an action, a "without changes" is added
                 self._build_action(WithoutChanges, tag)
 
-            if replace:
+            if replace and tag.id in tags_for_delete:
                 tags_for_delete.pop(tag.id)
 
         if replace:
@@ -161,12 +179,15 @@ class TagImportDSL:
         """
         Returns an string with the plan and errors
         """
-        result = "Plan\n" "--------------------------------\n"
+        result = (
+            f"Import plan for {self.taxonomy.name}\n"
+            "--------------------------------\n"
+        )
         for action in self.actions:
             result += f"#{action.index}: {str(action)}\n"
 
         if self.errors:
-            result += "Output errors\n" "--------------------------------\n"
+            result += "\nOutput errors\n" "--------------------------------\n"
             for error in self.errors:
                 result += f"{str(error)}\n"
 
@@ -175,11 +196,10 @@ class TagImportDSL:
     @transaction.atomic()
     def execute(self, task: TagImportTask = None):
         if self.errors:
-            return False
+            return
         for action in self.actions:
             if task:
-                task.add_log(f"{str(action)} [Started]")
+                task.add_log(f"#{action.index}: {str(action)} [Started]")
             action.execute()
             if task:
-                task.add_log(f"{str(action)} [Success]")
-        return True
+                task.add_log("Success")

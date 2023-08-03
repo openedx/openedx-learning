@@ -6,24 +6,76 @@ import openedx_tagging.core.tagging.models.import_export
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('oel_tagging', '0005_language_taxonomy'),
+        ("oel_tagging", "0005_language_taxonomy"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='TagImportTask',
+            name="TagImportTask",
             fields=[
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('log', models.TextField(default=None, help_text='Action execution logs', null=True)),
-                ('status', models.CharField(choices=[(openedx_tagging.core.tagging.models.import_export.TagImportTaskState['LOADING_DATA'], 'loading_data'), (openedx_tagging.core.tagging.models.import_export.TagImportTaskState['PLANNING'], 'planning'), (openedx_tagging.core.tagging.models.import_export.TagImportTaskState['EXECUTING'], 'executing'), (openedx_tagging.core.tagging.models.import_export.TagImportTaskState['SUCCESS'], 'success'), (openedx_tagging.core.tagging.models.import_export.TagImportTaskState['ERROR'], 'error')], help_text='Task status', max_length=20)),
-                ('creation_date', models.DateTimeField(auto_now_add=True)),
-                ('taxonomy', models.ForeignKey(help_text='Taxonomy associated with this import', on_delete=django.db.models.deletion.CASCADE, to='oel_tagging.taxonomy')),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "log",
+                    models.TextField(
+                        default=None, help_text="Action execution logs", null=True
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            (
+                                openedx_tagging.core.tagging.models.import_export.TagImportTaskState[
+                                    "LOADING_DATA"
+                                ],
+                                "loading_data",
+                            ),
+                            (
+                                openedx_tagging.core.tagging.models.import_export.TagImportTaskState[
+                                    "PLANNING"
+                                ],
+                                "planning",
+                            ),
+                            (
+                                openedx_tagging.core.tagging.models.import_export.TagImportTaskState[
+                                    "EXECUTING"
+                                ],
+                                "executing",
+                            ),
+                            (
+                                openedx_tagging.core.tagging.models.import_export.TagImportTaskState[
+                                    "SUCCESS"
+                                ],
+                                "success",
+                            ),
+                            (
+                                openedx_tagging.core.tagging.models.import_export.TagImportTaskState[
+                                    "ERROR"
+                                ],
+                                "error",
+                            ),
+                        ],
+                        help_text="Task status",
+                        max_length=20,
+                    ),
+                ),
+                ("creation_date", models.DateTimeField(auto_now_add=True)),
+                (
+                    "taxonomy",
+                    models.ForeignKey(
+                        help_text="Taxonomy associated with this import",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="oel_tagging.taxonomy",
+                    ),
+                ),
             ],
         ),
         migrations.AddIndex(
-            model_name='tagimporttask',
-            index=models.Index(fields=['taxonomy', '-creation_date'], name='oel_tagging_taxonom_5e948c_idx'),
+            model_name="tagimporttask",
+            index=models.Index(
+                fields=["taxonomy", "-creation_date"],
+                name="oel_tagging_taxonom_5e948c_idx",
+            ),
         ),
     ]

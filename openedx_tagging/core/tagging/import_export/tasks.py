@@ -7,7 +7,7 @@ from .parsers import ParserFormat
 
 
 @shared_task
-def import_tags_async(
+def import_tags_task(
     taxonomy: Taxonomy,
     file: BytesIO,
     parser_format: ParserFormat,
