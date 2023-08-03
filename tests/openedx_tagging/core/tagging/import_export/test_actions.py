@@ -6,7 +6,7 @@ import ddt
 from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging.models import Taxonomy, Tag
-from openedx_tagging.core.tagging.import_export.models import TagDSL
+from openedx_tagging.core.tagging.import_export.import_plan import TagDSL
 from openedx_tagging.core.tagging.import_export.actions import (
     ImportAction,
     CreateTag,
@@ -134,7 +134,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
             'Tag 1',
             (
                 "Action error in 'import_action' (#100): "
-                "Duplicated tag value with tag (id=22)."
+                "Duplicated tag value with tag (id=26)."
             )
         ),
         (
@@ -281,7 +281,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             "tag_4",
             "tag_3",
             (
-                "Update the parent of tag (id=25) from parent "
+                "Update the parent of tag (id=29) from parent "
                 "(external_id=tag_3) to parent (external_id=tag_3)."
             )
         ),
@@ -289,7 +289,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             "tag_3",
             "tag_2",
             (
-                "Update the parent of tag (id=24) from empty parent "
+                "Update the parent of tag (id=28) from empty parent "
                 "to parent (external_id=tag_2)."
             )
         ),

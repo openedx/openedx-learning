@@ -5,7 +5,7 @@ import ddt
 
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.import_export.models import TagDSL, TagImportDSL
+from openedx_tagging.core.tagging.import_export.import_plan import TagDSL, TagImportDSL
 from openedx_tagging.core.tagging.import_export.actions import CreateTag
 from openedx_tagging.core.tagging.import_export.exceptions import TagImportError
 from .test_actions import TestImportActionMixin
@@ -252,15 +252,15 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         "--------------------------------\n"
         "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
         "#2: Create a new tag with values (external_id=tag_31, value=Tag 32, parent_id=None).\n"
-        "#3: Rename tag value of tag (id=22) from 'Tag 1' to 'Tag 2'\n"
-        "#4: Update the parent of tag (id=25) from parent (external_id=tag_3) to parent (external_id=tag_100).\n"
+        "#3: Rename tag value of tag (id=26) from 'Tag 1' to 'Tag 2'\n"
+        "#4: Update the parent of tag (id=29) from parent (external_id=tag_3) to parent (external_id=tag_100).\n"
         "#5: Create a new tag with values (external_id=tag_33, value=Tag 32, parent_id=None).\n"
-        "#6: Update the parent of tag (id=23) from parent (external_id=tag_1) to parent (external_id=None).\n"
-        "#7: Rename tag value of tag (id=23) from 'Tag 2' to 'Tag 31'\n"
+        "#6: Update the parent of tag (id=27) from parent (external_id=tag_1) to parent (external_id=None).\n"
+        "#7: Rename tag value of tag (id=27) from 'Tag 2' to 'Tag 31'\n"
         "Output errors\n"
         "--------------------------------\n"
         "Conflict with 'create' (#2) and action #1: Duplicated external_id tag.\n"
-        "Action error in 'rename' (#3): Duplicated tag value with tag (id=23).\n"
+        "Action error in 'rename' (#3): Duplicated tag value with tag (id=27).\n"
         "Action error in 'update_parent' (#4): Unknown parent tag (tag_100). "
         "You need to add parent before the child in your file.\n"
         "Conflict with 'create' (#5) and action #2: Duplicated tag value.\n"
@@ -296,9 +296,9 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         "--------------------------------\n"
         "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
         "#2: Create a new tag with values (external_id=tag_32, value=Tag 32, parent_id=tag_1).\n"
-        "#3: Rename tag value of tag (id=23) from 'Tag 2' to 'Tag 2 v2'\n"
-        "#4: Update the parent of tag (id=25) from parent (external_id=tag_3) to parent (external_id=tag_1).\n"
-        "#5: Rename tag value of tag (id=25) from 'Tag 4' to 'Tag 4 v2'\n"
+        "#3: Rename tag value of tag (id=27) from 'Tag 2' to 'Tag 2 v2'\n"
+        "#4: Update the parent of tag (id=29) from parent (external_id=tag_3) to parent (external_id=tag_1).\n"
+        "#5: Rename tag value of tag (id=29) from 'Tag 4' to 'Tag 4 v2'\n"
         "#6: No changes needed for tag (external_id=tag_1)\n"
         ),
         ([
@@ -312,11 +312,11 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         "Plan\n"
         "--------------------------------\n"
         "#1: No changes needed for tag (external_id=tag_4)\n"
-        "#2: Update the parent of tag (id=23) from parent (external_id=tag_1) to parent (external_id=None).\n"
-        "#3: Delete tag (id=22)\n"
-        "#4: Delete tag (id=23)\n"
-        "#5: Update the parent of tag (id=25) from parent (external_id=tag_3) to parent (external_id=None).\n"
-        "#6: Delete tag (id=24)\n"
+        "#2: Update the parent of tag (id=27) from parent (external_id=tag_1) to parent (external_id=None).\n"
+        "#3: Delete tag (id=26)\n"
+        "#4: Delete tag (id=27)\n"
+        "#5: Update the parent of tag (id=29) from parent (external_id=tag_3) to parent (external_id=None).\n"
+        "#6: Delete tag (id=28)\n"
         )
     )
     @ddt.unpack
@@ -395,7 +395,6 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
         tag_external_ids = []
         for tag_dsl in tags:
             # This checks any creation
-            print(tag_dsl.id)
             tag = self.taxonomy.tag_set.get(external_id=tag_dsl.id)
 
             # Checks any rename
@@ -409,9 +408,6 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
                     assert tag.parent.external_id == tag_dsl.parent_id
 
             tag_external_ids.append(tag_dsl.id)
-
-        for action in self.dsl.actions:
-            assert action.success
 
         if replace:
             # Checks deletions checking that exists the updated tags

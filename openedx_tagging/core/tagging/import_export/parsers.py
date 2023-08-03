@@ -9,7 +9,7 @@ from typing import List, Tuple
 
 from django.utils.translation import gettext_lazy as _
 
-from .models import TagDSL
+from .import_plan import TagDSL
 from .exceptions import (
     TagParserError,
     InvalidFormat,

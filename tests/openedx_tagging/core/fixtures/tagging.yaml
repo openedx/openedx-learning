@@ -176,7 +176,7 @@
 - model: oel_tagging.tag
   pk: 26
   fields:  
-    taxonomy: 3
+    taxonomy: 5
     parent: null
     value: Tag 1
     external_id: tag_1

@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 
 from ..models import Taxonomy
 from .parsers import get_parser, ParserFormat
-from .models import TagImportDSL, TagImportTask, TagImportTaskState
+from .import_plan import TagImportDSL, TagImportTask, TagImportTaskState
 
 
 def import_tags(
