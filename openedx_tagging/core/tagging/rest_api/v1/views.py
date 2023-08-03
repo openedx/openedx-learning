@@ -20,6 +20,8 @@ class TaxonomyView(ModelViewSet):
 
     **List Query Parameters**
         * enabled (optional) - Filter by enabled status. Valid values: true, false, 1, 0, "true", "false", "1"
+        * page (optional) - Page number (default: 1)
+        * page_size (optional) - Number of items per page (default: 100)
 
     **List Example Requests**
         GET api/tagging/v1/taxonomy                                                 - Get all taxonomies
