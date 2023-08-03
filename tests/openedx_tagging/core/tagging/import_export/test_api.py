@@ -6,16 +6,21 @@ from io import BytesIO
 
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import TagImportTask, TagImportTaskState
+from openedx_tagging.core.tagging.models import (
+    TagImportTask,
+    TagImportTaskState,
+    Taxonomy,
+    LanguageTaxonomy,
+)
 from openedx_tagging.core.tagging.import_export import ParserFormat
 import openedx_tagging.core.tagging.import_export.api as import_export_api
 
-from .test_actions import TestImportActionMixin
+from .mixins import TestImportExportMixin
 
 
-class TestImportApi(TestImportActionMixin, TestCase):
+class TestImportExportApi(TestImportExportMixin, TestCase):
     """
-    Test import API functions
+    Test import/export API functions
     """
 
     def setUp(self):
@@ -40,6 +45,16 @@ class TestImportApi(TestImportActionMixin, TestCase):
         self.invalid_plan_file = BytesIO(json.dumps(json_data).encode())
 
         self.parser_format = ParserFormat.JSON
+
+        self.open_taxonomy = Taxonomy(
+            name="Open taxonomy",
+            allow_free_text=True
+        )
+        self.system_taxonomy = Taxonomy(
+            name="System taxonomy",
+        )
+        self.system_taxonomy.taxonomy_class = LanguageTaxonomy
+        self.system_taxonomy = self.system_taxonomy.cast()
         return super().setUp()
 
     def test_check_status(self):
@@ -58,6 +73,23 @@ class TestImportApi(TestImportActionMixin, TestCase):
             # Raise error if there is a current in progress task
             import_export_api.import_tags(
                 self.taxonomy,
+                self.file,
+                self.parser_format,
+            )
+
+    def test_import_export_validations(self):
+        # Check that import is invalid with open taxonomy
+        with self.assertRaises(ValueError):
+            import_export_api.import_tags(
+                self.open_taxonomy,
+                self.file,
+                self.parser_format,
+            )
+
+        # Check that import is invalid with system taxonomy
+        with self.assertRaises(ValueError):
+            import_export_api.import_tags(
+                self.system_taxonomy,
                 self.file,
                 self.parser_format,
             )
@@ -146,3 +178,42 @@ class TestImportApi(TestImportActionMixin, TestCase):
             self.file,
             self.parser_format,
         )
+
+    def test_export_validations(self):
+        # Check that import is invalid with open taxonomy
+        with self.assertRaises(ValueError):
+            import_export_api.export_tags(
+                self.open_taxonomy,
+                self.parser_format,
+            )
+
+        # Check that import is invalid with system taxonomy
+        with self.assertRaises(ValueError):
+            import_export_api.export_tags(
+                self.system_taxonomy,
+                self.parser_format,
+            )
+
+    def test_import_with_export_output(self):
+        for parser_format in ParserFormat:
+            output = import_export_api.export_tags(
+                self.taxonomy,
+                parser_format,
+            )
+            file = BytesIO(output.encode())
+            new_taxonomy = Taxonomy(name="New taxonomy")
+            new_taxonomy.save()
+            assert import_export_api.import_tags(
+                new_taxonomy,
+                file,
+                parser_format,
+            )
+            old_tags = self.taxonomy.tag_set.all()
+            assert len(old_tags) == new_taxonomy.tag_set.count()
+
+            for tag in old_tags:
+                new_tag = new_taxonomy.tag_set.get(external_id=tag.external_id)
+                assert new_tag.value == tag.value
+                if tag.parent:
+                    assert tag.parent.external_id == new_tag.parent.external_id
+        

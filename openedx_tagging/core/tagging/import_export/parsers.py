@@ -4,7 +4,7 @@ Parsers to import and export tags
 import csv
 import json
 from enum import Enum
-from io import BytesIO, TextIOWrapper
+from io import BytesIO, TextIOWrapper, StringIO
 from typing import List, Tuple
 
 from django.utils.translation import gettext_lazy as _
@@ -17,6 +17,8 @@ from .exceptions import (
     EmptyJSONField,
     EmptyCSVField,
 )
+from ..models import Taxonomy
+from ..api import get_tags
 
 
 class ParserFormat(Enum):
@@ -51,8 +53,10 @@ class Parser:
     @classmethod
     def parse_import(cls, file: BytesIO) -> Tuple[List[TagDSL], List[TagParserError]]:
         """
+        Parse tags in file an returns tags ready for use in TagImportPlan
+
         Top function that calls `_load_data` and `_parse_tags`.
-        Handle the errors returned both functions
+        Handle errors returned by both functions.
         """
         try:
             tags_data, load_errors = cls._load_data(file)
@@ -66,6 +70,15 @@ class Parser:
         return cls._parse_tags(tags_data)
 
     @classmethod
+    def export(cls, taxonomy: Taxonomy) -> str:
+        """
+        Returns all tags in taxonomy.
+        The output file can be used to recreate the taxonomy with `parse_import`
+        """
+        tags = cls._load_tags_for_export(taxonomy)
+        return cls._export_data(tags, taxonomy)
+
+    @classmethod
     def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[TagParserError]]:
         """
         Each parser implements this function according to its format.
@@ -73,6 +86,18 @@ class Parser:
 
         This function does not do field validations, it only does validations of the
         file structure in the parser format. Field validations are done in `_parse_tags`
+        """
+        raise NotImplementedError
+
+    @classmethod
+    def _export_data(cls, tags: List[dict], taxonomy: Taxonomy) -> str:
+        """
+        Each parser implements this function according to its format.
+        Returns a string with tags data in the parser format.
+        Can use `taxonomy` to export taxonomy metadata.
+
+        It must be implemented in such a way that the output of
+        this function works with _load_data
         """
         raise NotImplementedError
 
@@ -129,6 +154,30 @@ class Parser:
 
         return tags, errors
 
+    @classmethod
+    def _load_tags_for_export(cls, taxonomy: Taxonomy) -> List[dict]:
+        """
+        Returns a list of taxonomy's tags in the form of a dictionary
+        with required and optional fields
+
+        The 'action' field is not added to the result because the output
+        is seen as a creation of all the tags.
+
+        The tags are ordered by hierarchy, first, parents and then children.
+        `get_tags` is in charge of returning this in a hierarchical way.
+        """
+        tags = get_tags(taxonomy)
+        result = []
+        for tag in tags:
+            result_tag = {
+                "id": tag.external_id or tag.id,
+                "value": tag.value,
+            }
+            if tag.parent:
+                result_tag["parent_id"] = tag.parent.external_id or tag.parent.id
+            result.append(result_tag)
+        return result
+
 
 class JSONParser(Parser):
     """
@@ -172,6 +221,18 @@ class JSONParser(Parser):
         tags_data = tags_data.get("tags")
         return tags_data, []
 
+    @classmethod
+    def _export_data(cls, tags: List[dict], taxonomy: Taxonomy) -> str:
+        """
+        Export tags and taxonomy metadata in JSON format
+        """
+        json_result = {
+            "name": taxonomy.name,
+            "description": taxonomy.description,
+            "tags": tags,
+        }
+        return json.dumps(json_result)
+
 
 class CSVParser(Parser):
     """
@@ -202,6 +263,28 @@ class CSVParser(Parser):
         if errors:
             return None, errors
         return list(csv_reader), []
+
+    @classmethod
+    def _export_data(cls, tags: List[dict], taxonomy: Taxonomy) -> str:
+        """
+        Export tags in CSV format
+
+        The 'action' field is not added to the result because the output
+        is seen as a creation of all the tags.
+        """
+        fields = cls.required_fields + cls.optional_fields
+        if "action" in fields:  # pragma: no cover
+            fields.remove("action")
+
+        with StringIO() as csv_buffer:
+            csv_writer = csv.DictWriter(csv_buffer, fieldnames=fields)
+            csv_writer.writeheader()
+
+            for tag in tags:
+                csv_writer.writerow(tag)
+
+            csv_string = csv_buffer.getvalue()
+            return csv_string
 
     @classmethod
     def _veify_header(cls, header_fields: List[str]) -> List[TagParserError]:

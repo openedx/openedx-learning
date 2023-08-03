@@ -5,7 +5,7 @@ import ddt
 
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import Taxonomy, Tag
+from openedx_tagging.core.tagging.models import Tag
 from openedx_tagging.core.tagging.import_export.import_plan import TagDSL
 from openedx_tagging.core.tagging.import_export.actions import (
     ImportAction,
@@ -15,17 +15,15 @@ from openedx_tagging.core.tagging.import_export.actions import (
     DeleteTag,
     WithoutChanges,
 )
+from .mixins import TestImportExportMixin
 
 
-class TestImportActionMixin:
+class TestImportActionMixin(TestImportExportMixin):
     """
     Mixin for import action tests
     """
-
-    fixtures = ["tests/openedx_tagging/core/fixtures/tagging.yaml"]
-
     def setUp(self):
-        self.taxonomy = Taxonomy.objects.get(name="Import Taxonomy Test")
+        super().setUp()
         self.indexed_actions = {
             'create': [
                 CreateTag(

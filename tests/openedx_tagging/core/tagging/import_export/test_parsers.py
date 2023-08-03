@@ -17,6 +17,8 @@ from openedx_tagging.core.tagging.import_export.parsers import (
 from openedx_tagging.core.tagging.import_export.exceptions import (
     TagParserError,
 )
+from openedx_tagging.core.tagging.models import Taxonomy
+from .mixins import TestImportExportMixin
 
 
 class TestParser(TestCase):
@@ -34,8 +36,11 @@ class TestParser(TestCase):
             get_parser(None)
 
     def test_not_implemented(self):
+        taxonomy = Taxonomy(name="Test taxonomy")
         with self.assertRaises(NotImplementedError):
             Parser.parse_import(BytesIO())
+        with self.assertRaises(NotImplementedError):
+            Parser.export(taxonomy)
 
     def test_tag_parser_error(self):
         tag = {"id": 'tag_id', "value": "tag_value"}
@@ -47,7 +52,7 @@ class TestParser(TestCase):
 
 
 @ddt.ddt
-class TestJSONParser(TestCase):
+class TestJSONParser(TestImportExportMixin, TestCase):
     """
     Test for .json parser
     """
@@ -147,8 +152,40 @@ class TestJSONParser(TestCase):
                 index + JSONParser.inital_row
             )
 
+    def test_export_data(self):
+        result = JSONParser.export(self.taxonomy)
+        tags = json.loads(result).get("tags")
+        assert len(tags) == self.taxonomy.tag_set.count()
+        for tag in tags:
+            taxonomy_tag = self.taxonomy.tag_set.get(external_id=tag.get("id"))
+            assert tag.get("value") == taxonomy_tag.value
+            if tag.get("parent_id"):
+                assert tag.get("parent_id") == taxonomy_tag.parent.external_id
+
+    def test_import_with_export_output(self):
+        output = JSONParser.export(self.taxonomy)
+        json_file = BytesIO(output.encode())
+        tags, errors = JSONParser.parse_import(json_file)
+        output_tags = json.loads(output).get("tags")
+
+        self.assertEqual(len(errors), 0)
+        self.assertEqual(len(tags), len(output_tags))
+
+
+        for tag in tags:
+            output_tag = None
+            for out_tag in output_tags:
+                if out_tag.get("id") == tag.id:
+                    output_tag = out_tag
+                    # Don't break because test coverage
+            assert output_tag
+            assert output_tag.get("value") == tag.value
+            if output_tag.get("parent_id"):
+                assert output_tag.get("parent_id") == tag.parent_id
+
+
 @ddt.ddt
-class TestCSVParser(TestCase):
+class TestCSVParser(TestImportExportMixin, TestCase):
     """
     Test for .csv parser
     """
@@ -257,3 +294,16 @@ class TestCSVParser(TestCase):
                 tags[index].index,
                 index + CSVParser.inital_row
             )
+
+    def test_import_with_export_output(self):
+        output = CSVParser.export(self.taxonomy)
+        csv_file = BytesIO(output.encode())
+        tags, errors = CSVParser.parse_import(csv_file)
+        self.assertEqual(len(errors), 0)
+        assert len(tags) == self.taxonomy.tag_set.count()
+
+        for tag in tags:
+            taxonomy_tag = self.taxonomy.tag_set.get(external_id=tag.id)
+            assert tag.value == taxonomy_tag.value
+            if tag.parent_id:
+                assert tag.parent_id == taxonomy_tag.parent.external_id

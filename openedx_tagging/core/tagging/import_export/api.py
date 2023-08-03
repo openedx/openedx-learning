@@ -1,3 +1,5 @@
+"""
+"""
 from io import BytesIO
 
 from django.utils.translation import gettext_lazy as _
@@ -13,6 +15,8 @@ def import_tags(
     parser_format: ParserFormat,
     replace=False,
 ) -> bool:
+    _import_export_validations(taxonomy)
+
     # Checks that exists only one tag
     if not _check_unique_import_task(taxonomy):
         raise ValueError(
@@ -68,6 +72,12 @@ def get_last_import_log(taxonomy: Taxonomy) -> str:
     return task.log
 
 
+def export_tags(taxonomy: Taxonomy, output_format: ParserFormat) -> str:
+    _import_export_validations(taxonomy)
+    parser = get_parser(output_format)
+    return parser.export(taxonomy)
+
+
 def _check_unique_import_task(taxonomy: Taxonomy) -> bool:
     last_task = _get_last_tags(taxonomy)
     if not last_task:
@@ -84,3 +94,19 @@ def _get_last_tags(taxonomy: Taxonomy) -> TagImportTask:
         .order_by("-creation_date")
         .first()
     )
+
+
+def _import_export_validations(taxonomy: Taxonomy):
+    taxonomy = taxonomy.cast()
+    if taxonomy.allow_free_text:
+        raise ValueError(
+            _(
+                f"Invalid taxonomy ({taxonomy.id}): You cannot import/export a free-form taxonomy."
+            )
+        )
+    if taxonomy.system_defined:
+        raise ValueError(
+            _(
+                f"Invalid taxonomy ({taxonomy.id}): You cannot import/export a system-defined taxonomy."
+            )
+        )
