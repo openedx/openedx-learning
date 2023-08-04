@@ -37,6 +37,7 @@ class TestParser(TestCase):
 
     def test_not_implemented(self):
         taxonomy = Taxonomy(name="Test taxonomy")
+        taxonomy.save()
         with self.assertRaises(NotImplementedError):
             Parser.parse_import(BytesIO())
         with self.assertRaises(NotImplementedError):

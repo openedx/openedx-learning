@@ -1,24 +1,24 @@
 """
-Test for DSL functions
+Test for import_plan functions
 """
 import ddt
 
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.import_export.import_plan import TagDSL, TagImportDSL
+from openedx_tagging.core.tagging.import_export.import_plan import TagItem, TagImportPlan
 from openedx_tagging.core.tagging.import_export.actions import CreateTag
 from openedx_tagging.core.tagging.import_export.exceptions import TagImportError
 from .test_actions import TestImportActionMixin
 
 @ddt.ddt
-class TestTagImportDSL(TestImportActionMixin, TestCase):
+class TestTagImportPlan(TestImportActionMixin, TestCase):
     """
-    Test for DSL functions
+    Test for import plan functions
     """
 
     def setUp(self):
         super().setUp()
-        self.dsl = TagImportDSL(self.taxonomy)
+        self.import_plan = TagImportPlan(self.taxonomy)
 
     def test_tag_import_error(self):
         message = "Error message"
@@ -34,19 +34,19 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
     )
     @ddt.unpack
     def test_build_action(self, tag_id, errors_expected):
-        self.dsl.indexed_actions = self.indexed_actions
-        self.dsl._build_action(  # pylint: disable=protected-access
+        self.import_plan.indexed_actions = self.indexed_actions
+        self.import_plan._build_action(  # pylint: disable=protected-access
             CreateTag,
-            TagDSL(
+            TagItem(
                 id=tag_id,
                 value='_',
                 index=100
             )
         )
-        assert len(self.dsl.errors) == errors_expected
-        assert len(self.dsl.actions) == 1
-        assert self.dsl.actions[0].name == 'create'
-        assert self.dsl.indexed_actions['create'][1].tag.id == tag_id
+        assert len(self.import_plan.errors) == errors_expected
+        assert len(self.import_plan.actions) == 1
+        assert self.import_plan.actions[0].name == 'create'
+        assert self.import_plan.indexed_actions['create'][1].tag.id == tag_id
 
     def test_build_delete_actions(self):
         tags = {
@@ -54,29 +54,29 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
             for tag in self.taxonomy.tag_set.exclude(pk=25)
         }
         # Clear other actions to only have the delete ones
-        self.dsl.actions.clear()
+        self.import_plan.actions.clear()
 
-        self.dsl._build_delete_actions(tags)  # pylint: disable=protected-access
-        assert len(self.dsl.errors) == 0
+        self.import_plan._build_delete_actions(tags)  # pylint: disable=protected-access
+        assert len(self.import_plan.errors) == 0
 
         # Check actions in order
         # #1 Update parent of 'tag_2'
-        assert self.dsl.actions[0].name == 'update_parent'
-        assert self.dsl.actions[0].tag.id == 'tag_2'
-        assert self.dsl.actions[0].tag.parent_id is None
+        assert self.import_plan.actions[0].name == 'update_parent'
+        assert self.import_plan.actions[0].tag.id == 'tag_2'
+        assert self.import_plan.actions[0].tag.parent_id is None
         # #2 Delete 'tag_1'
-        assert self.dsl.actions[1].name == 'delete'
-        assert self.dsl.actions[1].tag.id == 'tag_1'
+        assert self.import_plan.actions[1].name == 'delete'
+        assert self.import_plan.actions[1].tag.id == 'tag_1'
         # #3 Delete 'tag_2'
-        assert self.dsl.actions[2].name == 'delete'
-        assert self.dsl.actions[2].tag.id == 'tag_2'
+        assert self.import_plan.actions[2].name == 'delete'
+        assert self.import_plan.actions[2].tag.id == 'tag_2'
         # #4 Update parent of 'tag_4'
-        assert self.dsl.actions[3].name == 'update_parent'
-        assert self.dsl.actions[3].tag.id == 'tag_4'
-        assert self.dsl.actions[3].tag.parent_id is None
+        assert self.import_plan.actions[3].name == 'update_parent'
+        assert self.import_plan.actions[3].tag.id == 'tag_4'
+        assert self.import_plan.actions[3].tag.parent_id is None
         # #5 Delete 'tag_3'
-        assert self.dsl.actions[4].name == 'delete'
-        assert self.dsl.actions[4].tag.id == 'tag_3'
+        assert self.import_plan.actions[4].name == 'delete'
+        assert self.import_plan.actions[4].tag.id == 'tag_3'
 
     @ddt.data(
         ([
@@ -209,15 +209,15 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
     )
     @ddt.unpack
     def test_generate_actions(self, tags, replace, expected_errors, expected_actions):
-        tags = [TagDSL(**tag) for tag in tags]
-        self.dsl.generate_actions(tags=tags, replace=replace)
-        assert len(self.dsl.errors) == expected_errors
-        assert len(self.dsl.actions) == len(expected_actions)
+        tags = [TagItem(**tag) for tag in tags]
+        self.import_plan.generate_actions(tags=tags, replace=replace)
+        assert len(self.import_plan.errors) == expected_errors
+        assert len(self.import_plan.actions) == len(expected_actions)
 
         for index, action in enumerate(expected_actions):
-            assert self.dsl.actions[index].name == action['name']
-            assert self.dsl.actions[index].tag.id == action['id']
-            assert self.dsl.actions[index].index == index + 1
+            assert self.import_plan.actions[index].name == action['name']
+            assert self.import_plan.actions[index].tag.id == action['id']
+            assert self.import_plan.actions[index].index == index + 1
 
     @ddt.data(
         ([
@@ -321,9 +321,9 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
     )
     @ddt.unpack
     def test_plan(self, tags, replace, expected):
-        tags = [TagDSL(**tag) for tag in tags]
-        self.dsl.generate_actions(tags=tags, replace=replace)
-        plan = self.dsl.plan()
+        tags = [TagItem(**tag) for tag in tags]
+        self.import_plan.generate_actions(tags=tags, replace=replace)
+        plan = self.import_plan.plan()
         assert plan == expected
 
     @ddt.data(
@@ -362,25 +362,25 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
     )
     @ddt.unpack
     def test_execute(self, tags, replace):
-        tags = [TagDSL(**tag) for tag in tags]
-        self.dsl.generate_actions(tags=tags, replace=replace)
-        self.dsl.execute()
+        tags = [TagItem(**tag) for tag in tags]
+        self.import_plan.generate_actions(tags=tags, replace=replace)
+        self.import_plan.execute()
         tag_external_ids = []
-        for tag_dsl in tags:
+        for tag_item in tags:
             # This checks any creation
-            tag = self.taxonomy.tag_set.get(external_id=tag_dsl.id)
+            tag = self.taxonomy.tag_set.get(external_id=tag_item.id)
 
             # Checks any rename
-            assert tag.value == tag_dsl.value
+            assert tag.value == tag_item.value
 
             # Checks any parent update
             if not replace:
-                if not tag_dsl.parent_id:
+                if not tag_item.parent_id:
                     assert tag.parent is None
                 else:
-                    assert tag.parent.external_id == tag_dsl.parent_id
+                    assert tag.parent.external_id == tag_item.parent_id
 
-            tag_external_ids.append(tag_dsl.id)
+            tag_external_ids.append(tag_item.id)
 
         if replace:
             # Checks deletions checking that exists the updated tags
@@ -390,17 +390,17 @@ class TestTagImportDSL(TestImportActionMixin, TestCase):
     def test_error_in_execute(self):
         created_tag = 'tag_31'
         tags = [
-            TagDSL(
+            TagItem(
                 id=created_tag,
                 value='Tag 31'
             ),  # Valid tag (creation)
-            TagDSL(
+            TagItem(
                 id='tag_32',
                 value='Tag 31'
             ),  # Invalid
         ]
-        self.dsl.generate_actions(tags=tags)
+        self.import_plan.generate_actions(tags=tags)
         assert not self.taxonomy.tag_set.filter(external_id=created_tag).exists()
-        assert not self.dsl.execute()
+        assert not self.import_plan.execute()
         assert not self.taxonomy.tag_set.filter(external_id=created_tag).exists()
         

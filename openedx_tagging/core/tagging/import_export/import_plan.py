@@ -1,5 +1,5 @@
 """
-Model and functions to create a plan/execution with DSL actions.
+Classes and functions to create an import plan and execution.
 """
 from typing import List, Optional
 
@@ -16,9 +16,9 @@ from .actions import (
 from .exceptions import ImportActionError
 
 
-class TagDSL:
+class TagItem:
     """
-    Tag representation on the import DSL
+    Tag representation on the tag import plan
     """
 
     id: str
@@ -42,7 +42,7 @@ class TagDSL:
         self.action = action
 
 
-class TagImportDSL:
+class TagImportPlan:
     """
     Class with functions to build an import plan and excute the plan
     """
@@ -68,7 +68,7 @@ class TagImportDSL:
         for action in available_actions:
             self.indexed_actions[action.name] = []
 
-    def _build_action(self, action_cls, tag: TagDSL):
+    def _build_action(self, action_cls, tag: TagItem):
         """
         Build an action with `tag`.
 
@@ -114,7 +114,7 @@ class TagImportDSL:
                     # Change parent to avoid delete childs
                     self._build_action(
                         UpdateParentTag,
-                        TagDSL(
+                        TagItem(
                             id=child.external_id,
                             value=child.value,
                             parent_id=None,
@@ -124,7 +124,7 @@ class TagImportDSL:
             # Delete action
             self._build_action(
                 DeleteTag,
-                TagDSL(
+                TagItem(
                     id=tag.external_id,
                     value=tag.value,
                 ),
@@ -132,16 +132,17 @@ class TagImportDSL:
 
     def generate_actions(
         self,
-        tags: List[TagDSL],
+        tags: List[TagItem],
         replace=False,
     ):
         """
-        Generates actions from `tags`.
+        Reads each tag and generates the corresponding actions.
 
         Validates each action and create respective errors
-        If `replace` is True, then deletes the tags that have not been read
+        If `replace` is True, then creates the delete action for tags
+        that has not been readed.
 
-        TODO: Missing join/reduce actions. Eg. A tag may have no changes,
+        TODO: Join/reduce actions. Ex. A tag may have no changes,
         but then its parent needs to be updated because its parent is deleted.
         Those two actions should be merged.
         """
@@ -195,6 +196,11 @@ class TagImportDSL:
 
     @transaction.atomic()
     def execute(self, task: TagImportTask = None):
+        """
+        Executes each action
+
+        If task is set, creates logs for each action
+        """
         if self.errors:
             return
         for action in self.actions:

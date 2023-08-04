@@ -9,7 +9,7 @@ from typing import List, Tuple
 
 from django.utils.translation import gettext_lazy as _
 
-from .import_plan import TagDSL
+from .import_plan import TagItem
 from .exceptions import (
     TagParserError,
     InvalidFormat,
@@ -36,6 +36,11 @@ class Parser:
 
     This contains the base functions to load data,
     validate required fields and convert tags to DLS format
+
+    If you want to add a new field, you can add it to
+    `required_fields` or `optional_fields` depending on the field type
+
+    To create a new Parser you need to implement `_load_data` and `_export_data`
     """
 
     required_fields = ["id", "value"]
@@ -51,7 +56,7 @@ class Parser:
     inital_row = 1
 
     @classmethod
-    def parse_import(cls, file: BytesIO) -> Tuple[List[TagDSL], List[TagParserError]]:
+    def parse_import(cls, file: BytesIO) -> Tuple[List[TagItem], List[TagParserError]]:
         """
         Parse tags in file an returns tags ready for use in TagImportPlan
 
@@ -102,11 +107,11 @@ class Parser:
         raise NotImplementedError
 
     @classmethod
-    def _parse_tags(cls, tags_data: dict) -> Tuple[List[TagDSL], List[TagParserError]]:
+    def _parse_tags(cls, tags_data: dict) -> Tuple[List[TagItem], List[TagParserError]]:
         """
         Validate the required fields of each tag.
 
-        Return a list of tags in the DSL format
+        Return a list of TagItems
         and a list of validation errors.
         """
         tags = []
@@ -150,7 +155,7 @@ class Parser:
                 if opt_field in tag and not tag.get(opt_field):
                     tag[opt_field] = None
 
-            tags.append(TagDSL(**tag))
+            tags.append(TagItem(**tag))
 
         return tags, errors
 

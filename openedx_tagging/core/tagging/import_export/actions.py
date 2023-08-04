@@ -12,6 +12,25 @@ from .exceptions import ImportActionError, ImportActionConflict
 class ImportAction:
     """
     Base class to create actions
+
+    Each action is a simple operation to be performed on the database.
+    There are no compound actions or actions that have to do with each other.
+
+    To create an Action you need to implement the following:
+
+    Given a TagItem, the actions to be performed must be deduced
+    by comparing with the tag on the database.
+    Ex. The create action is inferred if the tag does not exist in the database.
+    This check is done in `valid_for`
+
+    Then each action validates if the change is consistent with the database
+    or with previous actions.
+    Ex. Verify that when creating a tag, there is not a previous creation action
+    that has the same tag_id.
+    This checks is done in `validate`
+
+    Then the actions are executed. Ex. Create the tag on the database
+    This is done in `execute`
     """
 
     name = "import_action"
@@ -30,7 +49,7 @@ class ImportAction:
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
-        Implement this to meet the conditions that a `TagDSL` needs
+        Implement this to meet the conditions that a `TagItem` needs
         to have for this action. All actions that are valid with
         this function are created.
         """
@@ -63,7 +82,7 @@ class ImportAction:
         search_value: str,
     ):
         """
-        Use this function to find and action using an `attr` of `TagDSL`
+        Use this function to find and action using an `attr` of `TagItem`
         """
         for action in indexed_actions[action_name]:
             if search_value == getattr(action.tag, attr):
@@ -251,7 +270,7 @@ class UpdateParentTag(ImportAction):
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
-        Validates there is a change on the parent
+        Validates if there is a change on the parent
         """
         try:
             taxonomy_tag = taxonomy.tag_set.get(external_id=tag.id)
@@ -313,7 +332,7 @@ class RenameTag(ImportAction):
     @classmethod
     def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
-        Validates there is a change on the tag value
+        Validates if there is a change on the tag value
         """
         try:
             taxonomy_tag = taxonomy.tag_set.get(external_id=tag.id)

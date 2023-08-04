@@ -6,7 +6,7 @@ import ddt
 from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging.models import Tag
-from openedx_tagging.core.tagging.import_export.import_plan import TagDSL
+from openedx_tagging.core.tagging.import_export.import_plan import TagItem
 from openedx_tagging.core.tagging.import_export.actions import (
     ImportAction,
     CreateTag,
@@ -28,7 +28,7 @@ class TestImportActionMixin(TestImportExportMixin):
             'create': [
                 CreateTag(
                     taxonomy=self.taxonomy,
-                    tag=TagDSL(
+                    tag=TagItem(
                         id='tag_10',
                         value='Tag 10',
                         index=0
@@ -39,7 +39,7 @@ class TestImportActionMixin(TestImportExportMixin):
             'rename': [
                 RenameTag(
                     taxonomy=self.taxonomy,
-                    tag=TagDSL(
+                    tag=TagItem(
                         id='tag_11',
                         value='Tag 11',
                         index=1
@@ -69,7 +69,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
         expected = "Action import_action (index=100,id=tag_1)"
         action = ImportAction(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id='tag_1',
                 value='value',
             ),
@@ -106,7 +106,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
     def test_validate_parent(self, parent_id, expected):
         action = ImportAction(
             self.taxonomy,
-            TagDSL(
+            TagItem(
                 id='tag_110',
                 value='_',
                 parent_id=parent_id,
@@ -155,7 +155,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
     def test_validate_value(self, value, expected):
         action = ImportAction(
             self.taxonomy,
-            TagDSL(
+            TagItem(
                 id='tag_110',
                 value=value,
                 index=100
@@ -183,7 +183,7 @@ class TestCreateTag(TestImportActionMixin, TestCase):
     def test_valid_for(self, tag_id, expected):
         result = CreateTag.valid_for(
             self.taxonomy,
-            TagDSL(
+            TagItem(
                 id=tag_id,
                 value='_',
                 index=100,
@@ -199,7 +199,7 @@ class TestCreateTag(TestImportActionMixin, TestCase):
     def test_validate_id(self, tag_id, expected):
         action = CreateTag(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id=tag_id,
                 value='_',
                 index=100,
@@ -230,7 +230,7 @@ class TestCreateTag(TestImportActionMixin, TestCase):
     def test_validate(self, tag_id, tag_value, parent_id, expected):
         action = CreateTag(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id=tag_id,
                 value=tag_value,
                 index=100,
@@ -247,7 +247,7 @@ class TestCreateTag(TestImportActionMixin, TestCase):
     )
     @ddt.unpack
     def test_execute(self, tag_id, value, parent_id):
-        tag = TagDSL(
+        tag = TagItem(
             id=tag_id,
             value=value,
             parent_id=parent_id,
@@ -294,14 +294,14 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
     )
     @ddt.unpack
     def test_str(self, tag_id, parent_id, expected):
-        tag_dsl = TagDSL(
+        tag_item = TagItem(
             id=tag_id,
             value='_',
             parent_id=parent_id,
         )
         action = UpdateParentTag(
             taxonomy=self.taxonomy,
-            tag=tag_dsl,
+            tag=tag_item,
             index=100,
         )
         assert str(action) == expected
@@ -317,7 +317,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
     def test_valid_for(self, tag_id, parent_id, expected):
         result = UpdateParentTag.valid_for(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id=tag_id,
                 value='_',
                 parent_id=parent_id,
@@ -335,7 +335,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
     def test_validate(self, tag_id, parent_id, expected):
         action = UpdateParentTag(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id=tag_id,
                 value='_',
                 parent_id=parent_id,
@@ -352,14 +352,14 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
     )
     @ddt.unpack
     def test_execute(self, tag_id, parent_id):
-        tag_dsl = TagDSL(
+        tag_item = TagItem(
             id=tag_id,
             value='_',
             parent_id=parent_id,
         )
         action = UpdateParentTag(
             taxonomy=self.taxonomy,
-            tag=tag_dsl,
+            tag=tag_item,
             index=100,
         )
         tag = self.taxonomy.tag_set.get(external_id=tag_id)
@@ -388,7 +388,7 @@ class TestRenameTag(TestImportActionMixin, TestCase):
     def test_valid_for(self, tag_id, value, expected):
         result = RenameTag.valid_for(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id=tag_id,
                 value=value,
                 index=100,
@@ -406,7 +406,7 @@ class TestRenameTag(TestImportActionMixin, TestCase):
     def test_validate(self, value, expected):
         action = RenameTag(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id='tag_1',
                 value=value,
                 index=100,
@@ -419,13 +419,13 @@ class TestRenameTag(TestImportActionMixin, TestCase):
     def test_execute(self):
         tag_id = 'tag_1'
         value = 'Tag 1 V2'
-        tag_dsl = TagDSL(
+        tag_item = TagItem(
             id=tag_id,
             value=value,
         )
         action = RenameTag(
             taxonomy=self.taxonomy,
-            tag=tag_dsl,
+            tag=tag_item,
             index=100,
         )
         tag = self.taxonomy.tag_set.get(external_id=tag_id)
@@ -450,7 +450,7 @@ class TestDeleteTag(TestImportActionMixin, TestCase):
     def test_valid_for(self, tag_id, action, expected):
         result = DeleteTag.valid_for(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id=tag_id,
                 value='_',
                 action=action,
@@ -462,7 +462,7 @@ class TestDeleteTag(TestImportActionMixin, TestCase):
     def test_validate(self):
         action = DeleteTag(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id='_',
                 value='_',
                 index=100,
@@ -474,13 +474,13 @@ class TestDeleteTag(TestImportActionMixin, TestCase):
 
     def test_execute(self):
         tag_id = 'tag_3'
-        tag_dsl = TagDSL(
+        tag_item = TagItem(
             id=tag_id,
             value='_',
         )
         action = DeleteTag(
             taxonomy=self.taxonomy,
-            tag=tag_dsl,
+            tag=tag_item,
             index=100,
         )
         assert self.taxonomy.tag_set.filter(external_id=tag_id).exists()
@@ -495,7 +495,7 @@ class TestWithoutChanges(TestImportActionMixin, TestCase):
     def test_valid_for(self):
         result = WithoutChanges.valid_for(
             self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id='_',
                 value='_',
                 index=100,
@@ -506,7 +506,7 @@ class TestWithoutChanges(TestImportActionMixin, TestCase):
     def test_validate(self):
         action = WithoutChanges(
             taxonomy=self.taxonomy,
-            tag=TagDSL(
+            tag=TagItem(
                 id='_',
                 value='_',
                 index=100,
