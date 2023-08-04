@@ -16,6 +16,8 @@ asgiref==3.7.2
     # via
     #   -r requirements/test.txt
     #   django
+attrs==23.1.0
+    # via -r requirements/test.txt
 babel==2.12.1
     # via
     #   pydata-sphinx-theme

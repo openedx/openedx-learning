@@ -1,6 +1,7 @@
 """
 Classes and functions to create an import plan and execution.
 """
+from attrs import define
 from typing import List, Optional
 
 from django.db import transaction
@@ -16,6 +17,7 @@ from .actions import (
 from .exceptions import ImportActionError
 
 
+@define
 class TagItem:
     """
     Tag representation on the tag import plan
@@ -23,23 +25,9 @@ class TagItem:
 
     id: str
     value: str
-    index: Optional[int]
-    parent_id: Optional[str]
-    action: Optional[str]
-
-    def __init__(
-        self,
-        id: str,
-        value: str,
-        index: str = 0,
-        parent_id: str = None,
-        action: str = None,
-    ):
-        self.id = id
-        self.value = value
-        self.index = index
-        self.parent_id = parent_id
-        self.action = action
+    index: Optional[int] = 0
+    parent_id: Optional[str] = None
+    action: Optional[str] = None
 
 
 class TagImportPlan:

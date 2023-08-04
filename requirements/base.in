@@ -1,6 +1,8 @@
 # Core requirements for using this application
 -c constraints.txt
 
+attrs                     # Reduces boilerplate code involving class attributes
+
 celery                    # Asynchronous task execution library
 
 Django<5.0                # Web application framework

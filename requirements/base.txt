@@ -8,6 +8,8 @@ amqp==5.1.1
     # via kombu
 asgiref==3.7.2
     # via django
+attrs==23.1.0
+    # via -r requirements/base.in
 billiard==3.6.4.0
     # via celery
 celery==5.2.0

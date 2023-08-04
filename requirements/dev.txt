@@ -17,6 +17,8 @@ astroid==2.15.5
     #   -r requirements/quality.txt
     #   pylint
     #   pylint-celery
+attrs==23.1.0
+    # via -r requirements/quality.txt
 billiard==3.6.4.0
     # via
     #   -r requirements/quality.txt

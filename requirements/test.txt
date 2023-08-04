@@ -12,6 +12,8 @@ asgiref==3.7.2
     # via
     #   -r requirements/base.txt
     #   django
+attrs==23.1.0
+    # via -r requirements/base.txt
 billiard==3.6.4.0
     # via
     #   -r requirements/base.txt
