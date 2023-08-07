@@ -33,6 +33,14 @@ Export
 
 The export only uses Parsers. Calls the respective function and
 returns a string with the data.
+
+
+TODO for next versions
+---------
+- Function to force clean the status of an import task, or a way to avoid
+  a lock: a task not in SUCCESS or ERROR due to something unexpected
+  (ex. server crash)
+- Join/reduce actions on TagImportPlan. See `generate_actions()`
 """
 from io import BytesIO
 
@@ -55,14 +63,14 @@ def import_tags(
     You can read the docstring of the top for more info about the
     modular architecture.
 
-    It creates an TagImporTask to keep logs of the execution
+    It creates an TagImportTask to keep logs of the execution
     of each import step and the current status.
     There can only be one task in progress at a time per taxonomy
     """
 
     _import_export_validations(taxonomy)
 
-    # Checks that exists only one tag
+    # Checks that exists only one task import in progress at a time per taxonomy
     if not _check_unique_import_task(taxonomy):
         raise ValueError(
             _(

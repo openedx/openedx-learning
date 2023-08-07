@@ -58,6 +58,14 @@ class TestJSONParser(TestImportExportMixin, TestCase):
     Test for .json parser
     """
 
+    def test_invalid_json(self):
+        json_data = "{This is an invalid json}"
+        json_file = BytesIO(json_data.encode())
+        tags, errors = JSONParser.parse_import(json_file)
+        assert len(tags) == 0
+        assert len(errors) == 1
+        assert "Expecting property name enclosed in double quotes" in str(errors[0])
+
     def test_load_data_errors(self):
         json_data = {"invalid": [
             {"id": "tag_1", "name": "Tag 1"},

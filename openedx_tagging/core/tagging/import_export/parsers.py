@@ -213,7 +213,12 @@ class JSONParser(Parser):
         Read a .json file and validates the root structure of the json
         """
         file.seek(0)
-        tags_data = json.load(file)
+        try:
+            tags_data = json.load(file)
+        except json.JSONDecodeError as error:
+            return None, [
+                InvalidFormat(tag=None, format=cls.format.value, message=str(error))
+            ]
         if "tags" not in tags_data:
             return None, [
                 InvalidFormat(
@@ -264,7 +269,7 @@ class CSVParser(Parser):
         text_tags = TextIOWrapper(file, encoding="utf-8")
         csv_reader = csv.DictReader(text_tags)
         header_fields = csv_reader.fieldnames
-        errors = cls._veify_header(header_fields)
+        errors = cls._verify_header(header_fields)
         if errors:
             return None, errors
         return list(csv_reader), []
@@ -292,12 +297,11 @@ class CSVParser(Parser):
             return csv_string
 
     @classmethod
-    def _veify_header(cls, header_fields: List[str]) -> List[TagParserError]:
+    def _verify_header(cls, header_fields: List[str]) -> List[TagParserError]:
         """
         Verify that the header contains the required fields
         """
         errors = []
-        print(header_fields)
         for req_field in cls.required_fields:
             if req_field not in header_fields:
                 errors.append(
