@@ -21,7 +21,7 @@ class ImportAction:
     Given a TagItem, the actions to be performed must be deduced
     by comparing with the tag on the database.
     Ex. The create action is inferred if the tag does not exist in the database.
-    This check is done in `valid_for`
+    This check is done in `applies_for`
 
     Then each action validates if the change is consistent with the database
     or with previous actions.
@@ -47,11 +47,11 @@ class ImportAction:
         return self.__repr__()
 
     @classmethod
-    def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
+    def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
         Implement this to meet the conditions that a `TagItem` needs
-        to have for this action. All actions that are valid with
-        this function are created.
+        to have for this action. If this function returns `True` for `tag`
+        then the action is created.
         """
         raise NotImplementedError
 
@@ -177,7 +177,7 @@ class CreateTag(ImportAction):
         )
 
     @classmethod
-    def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
+    def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
         Validates if the tag does not exist
         """
@@ -268,7 +268,7 @@ class UpdateParentTag(ImportAction):
         )
 
     @classmethod
-    def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
+    def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
         Validates if there is a change on the parent
         """
@@ -330,7 +330,7 @@ class RenameTag(ImportAction):
         )
 
     @classmethod
-    def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
+    def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
         Validates if there is a change on the tag value
         """
@@ -378,7 +378,7 @@ class DeleteTag(ImportAction):
     name = "delete"
 
     @classmethod
-    def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
+    def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
         Validates if the action is delete and the tag exists
         """
@@ -416,7 +416,7 @@ class WithoutChanges(ImportAction):
         return str(_(f"No changes needed for tag (external_id={self.tag.id})"))
 
     @classmethod
-    def valid_for(cls, taxonomy: Taxonomy, tag) -> bool:
+    def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
         No validations necessary
         """

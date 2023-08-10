@@ -149,7 +149,7 @@ class TagImportPlan:
 
             # Check all available actions and add which ones should be executed
             for action_cls in available_actions:
-                if action_cls.valid_for(self.taxonomy, tag):
+                if action_cls.applies_for(self.taxonomy, tag):
                     self._build_action(action_cls, tag)
                     has_action = True
 

@@ -58,7 +58,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
 
     def test_not_implemented_functions(self):
         with self.assertRaises(NotImplementedError):
-            ImportAction.valid_for(None, None)
+            ImportAction.applies_for(None, None)
         action = ImportAction(None, None, None)
         with self.assertRaises(NotImplementedError):
             action.validate(None)
@@ -180,8 +180,8 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         ('tag_100', True),
     )
     @ddt.unpack
-    def test_valid_for(self, tag_id, expected):
-        result = CreateTag.valid_for(
+    def test_applies_for(self, tag_id, expected):
+        result = CreateTag.applies_for(
             self.taxonomy,
             TagItem(
                 id=tag_id,
@@ -314,8 +314,8 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
         ('tag_1', 'tag_3', True), # Valid
     )
     @ddt.unpack
-    def test_valid_for(self, tag_id, parent_id, expected):
-        result = UpdateParentTag.valid_for(
+    def test_applies_for(self, tag_id, parent_id, expected):
+        result = UpdateParentTag.applies_for(
             taxonomy=self.taxonomy,
             tag=TagItem(
                 id=tag_id,
@@ -385,8 +385,8 @@ class TestRenameTag(TestImportActionMixin, TestCase):
         ('tag_1', 'Tag 1 v2', True),  # Valid
     )
     @ddt.unpack
-    def test_valid_for(self, tag_id, value, expected):
-        result = RenameTag.valid_for(
+    def test_applies_for(self, tag_id, value, expected):
+        result = RenameTag.applies_for(
             taxonomy=self.taxonomy,
             tag=TagItem(
                 id=tag_id,
@@ -447,8 +447,8 @@ class TestDeleteTag(TestImportActionMixin, TestCase):
         ('tag_1', 'delete', True),  # Valid
     )
     @ddt.unpack
-    def test_valid_for(self, tag_id, action, expected):
-        result = DeleteTag.valid_for(
+    def test_applies_for(self, tag_id, action, expected):
+        result = DeleteTag.applies_for(
             taxonomy=self.taxonomy,
             tag=TagItem(
                 id=tag_id,
@@ -492,8 +492,8 @@ class TestWithoutChanges(TestImportActionMixin, TestCase):
     """
     Test for 'without_changes' action
     """
-    def test_valid_for(self):
-        result = WithoutChanges.valid_for(
+    def test_applies_for(self):
+        result = WithoutChanges.applies_for(
             self.taxonomy,
             tag=TagItem(
                 id='_',
