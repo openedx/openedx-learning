@@ -77,7 +77,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         with self.assertNumQueries(1):
             both = list(tagging_api.get_taxonomies(enabled=None))
-        print(both)
         assert both == [
             tax2,
             tax1,
@@ -85,7 +84,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.language_taxonomy,
             self.taxonomy,
             self.system_taxonomy,
-            self.user_taxonomy
+            self.user_taxonomy,
         ]
 
     @override_settings(LANGUAGES=test_languages)

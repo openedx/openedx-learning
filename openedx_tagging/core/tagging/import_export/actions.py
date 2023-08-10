@@ -118,12 +118,12 @@ class ImportAction:
         """
         try:
             # Validates if exists a tag with the same value on the Taxonomy
-            tag = self.taxonomy.tag_set.get(value=self.tag.value)
+            taxonomy_tag = self.taxonomy.tag_set.get(value=self.tag.value)
             return ImportActionError(
                 action=self,
                 tag_id=self.tag.id,
                 message=_(
-                    f"Duplicated tag value with tag in database (external_id={tag.external_id})."
+                    f"Duplicated tag value with tag in database (external_id={taxonomy_tag.external_id})."
                 ),
             )
         except Tag.DoesNotExist:
@@ -233,13 +233,13 @@ class CreateTag(ImportAction):
         parent = None
         if self.tag.parent_id:
             parent = self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
-        tag = Tag(
+        taxonomy_tag = Tag(
             taxonomy=self.taxonomy,
             parent=parent,
             value=self.tag.value,
             external_id=self.tag.id,
         )
-        tag.save()
+        taxonomy_tag.save()
 
 
 class UpdateParentTag(ImportAction):
@@ -301,12 +301,12 @@ class UpdateParentTag(ImportAction):
         """
         Updates the parent of a tag
         """
-        tag = self._get_tag()
+        taxonomy_tag = self._get_tag()
         parent = None
         if self.tag.parent_id:
             parent = self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
-        tag.parent = parent
-        tag.save()
+        taxonomy_tag.parent = parent
+        taxonomy_tag.save()
 
 
 class RenameTag(ImportAction):
@@ -359,9 +359,9 @@ class RenameTag(ImportAction):
         """
         Rename a tag
         """
-        tag = self._get_tag()
-        tag.value = self.tag.value
-        tag.save()
+        taxonomy_tag = self._get_tag()
+        taxonomy_tag.value = self.tag.value
+        taxonomy_tag.save()
 
 
 class DeleteTag(ImportAction):
@@ -401,8 +401,8 @@ class DeleteTag(ImportAction):
         """
         Delete a tag
         """
-        tag = self._get_tag()
-        tag.delete()
+        taxonomy_tag = self._get_tag()
+        taxonomy_tag.delete()
 
 
 class WithoutChanges(ImportAction):

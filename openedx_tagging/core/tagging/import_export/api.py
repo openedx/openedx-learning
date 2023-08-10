@@ -66,8 +66,12 @@ def import_tags(
     It creates an TagImportTask to keep logs of the execution
     of each import step and the current status.
     There can only be one task in progress at a time per taxonomy
-    """
 
+    Set `replace` to True to delete all not readed Tag of the given taxonomy.
+    Ex. Given a taxonomy with `tag_1`, `tag_2` and `tag_3`. If there is only `tag_1`
+    in the file (regardless of action), then `tag_2` and `tag_3` will be deleted
+    if `replace=True`
+    """
     _import_export_validations(taxonomy)
 
     # Checks that exists only one task import in progress at a time per taxonomy
@@ -171,9 +175,9 @@ def _import_export_validations(taxonomy: Taxonomy):
     """
     taxonomy = taxonomy.cast()
     if taxonomy.allow_free_text:
-        raise ValueError(
+        raise NotImplementedError(
             _(
-                f"Invalid taxonomy ({taxonomy.id}): You cannot import/export a free-form taxonomy."
+                f"Import/export for free-form taxonomies will be implemented in the future."
             )
         )
     if taxonomy.system_defined:

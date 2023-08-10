@@ -128,7 +128,7 @@ class TagImportPlan:
 
         Validates each action and create respective errors
         If `replace` is True, then creates the delete action for tags
-        that has not been readed.
+        that are in the existing taxonomy but not the new tags list.
 
         TODO: Join/reduce actions. Ex. A tag may have no changes,
         but then its parent needs to be updated because its parent is deleted.

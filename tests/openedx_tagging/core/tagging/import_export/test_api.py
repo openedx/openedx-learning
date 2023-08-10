@@ -79,7 +79,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_import_export_validations(self):
         # Check that import is invalid with open taxonomy
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NotImplementedError):
             import_export_api.import_tags(
                 self.open_taxonomy,
                 self.file,
@@ -181,7 +181,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_export_validations(self):
         # Check that import is invalid with open taxonomy
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NotImplementedError):
             import_export_api.export_tags(
                 self.open_taxonomy,
                 self.parser_format,

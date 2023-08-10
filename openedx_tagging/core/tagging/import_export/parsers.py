@@ -34,8 +34,9 @@ class Parser:
     """
     Base class to create a parser
 
-    This contains the base functions to load data,
-    validate required fields and convert tags to DLS format
+    This contains the base functions to convert between
+    a simple file format like CSV/JSON and a list of TagItems.
+    It can convert in both directions, for use during import or export.
 
     If you want to add a new field, you can add it to
     `required_fields` or `optional_fields` depending on the field type
