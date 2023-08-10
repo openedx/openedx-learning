@@ -1,4 +1,5 @@
 """ Test the tagging APIs """
+import ddt
 
 from django.test.testcases import TestCase, override_settings
 
@@ -16,6 +17,7 @@ test_languages = [
 ]
 
 
+@ddt.ddt
 class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     """
     Test the Tagging API methods.
@@ -463,3 +465,127 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ) == [
             beta,
         ]
+
+    @ddt.data(
+        ("ChA", ["Archaea", "Archaebacteria"], [2,5]),
+        ("ar", ['Archaea', 'Archaebacteria', 'Arthropoda'], [2,5,14]),
+        ("aE", ['Archaea', 'Archaebacteria', 'Plantae'], [2,5,10]),
+        (
+            "a", 
+            [
+                'Animalia',
+                'Archaea',
+                'Archaebacteria',
+                'Arthropoda',
+                'Gastrotrich',
+                'Monera',
+                'Placozoa',
+                'Plantae',
+            ],
+            [9,2,5,14,16,13,19,10],
+        ),
+    )
+    @ddt.unpack
+    def test_autocomplete_tags(self, search, expected_values, expected_ids):
+        tags = [
+            'Archaea',
+            'Archaebacteria',
+            'Animalia',
+            'Arthropoda',
+            'Plantae',
+            'Monera',
+            'Gastrotrich',
+            'Placozoa',
+        ] + expected_values  # To create repeats
+        closed_taxonomy = self.taxonomy
+        open_taxonomy = tagging_api.create_taxonomy(
+            "Free_Text_Taxonomy",
+            allow_free_text=True,
+        )
+
+        for index, value in enumerate(tags):
+            # Creating ObjectTags for open taxonomy
+            ObjectTag(
+                object_id=f"object_id_{index}",
+                taxonomy=open_taxonomy,
+                _value=value,
+            ).save()
+
+            # Creating ObjectTags for closed taxonomy
+            tag = get_tag(value)
+            ObjectTag(
+                object_id=f"object_id_{index}",
+                taxonomy=closed_taxonomy,
+                tag=tag,
+                _value=value,
+            ).save()
+
+        # Test for open taxonomy
+        self._validate_autocomplete_tags(
+            open_taxonomy,
+            search,
+            expected_values,
+            [None] * len(expected_ids),
+        )
+
+        # Test for closed taxonomy
+        self._validate_autocomplete_tags(
+            closed_taxonomy,
+            search,
+            expected_values,
+            expected_ids,
+        )
+
+    def test_autocompleate_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            tagging_api.autocomplete_tags(self.taxonomy, 'test', None, object_tags_only=False)
+
+    def _get_tag_values(self, tags):
+        """
+        Get tag values from tagging_api.autocomplete_tags() result
+        """
+        return [tag.get("value") for tag in tags]
+
+    def _get_tag_ids(self, tags):
+        """
+        Get tag ids from tagging_api.autocomplete_tags() result
+        """
+        return [tag.get("tag_id") for tag in tags]
+
+    def _validate_autocomplete_tags(
+        self,
+        taxonomy,
+        search,
+        expected_values,
+        expected_ids,
+    ):
+        """
+        Validate autocomplete tags
+        """
+
+        # Normal search
+        result = tagging_api.autocomplete_tags(taxonomy, search)
+        tag_values = self._get_tag_values(result)
+        for value in tag_values:
+            assert search.lower() in value.lower()
+
+        assert tag_values == expected_values
+        assert self._get_tag_ids(result) == expected_ids
+
+        # Create ObjectTag to simulate the content tagging
+        tag_model = None
+        if not taxonomy.allow_free_text:
+            tag_model = get_tag(tag_values[0])
+
+        object_id = 'new_object_id'
+        ObjectTag(
+            object_id=object_id,
+            taxonomy=taxonomy,
+            tag=tag_model,
+            _value=tag_values[0],
+        ).save()
+
+        # Search with object
+        result = tagging_api.autocomplete_tags(taxonomy, search, object_id)
+        assert self._get_tag_values(result) == expected_values[1:]
+        assert self._get_tag_ids(result) == expected_ids[1:]

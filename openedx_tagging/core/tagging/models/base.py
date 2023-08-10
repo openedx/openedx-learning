@@ -430,6 +430,52 @@ class Taxonomy(models.Model):
 
         return updated_tags
 
+    def autocomplete_tags(
+        self,
+        search: str,
+        object_id: str = None,
+    ) -> models.QuerySet:
+        """
+        Provides auto-complete suggestions by matching the `search` string against existing
+        ObjectTags linked to the given taxonomy. A case-insensitive search is used in order
+        to return the highest number of relevant tags.
+
+        If `object_id` is provided, then object tag values already linked to this object
+        are omitted from the returned suggestions. (ObjectTag values must be unique for a
+        given object + taxonomy, and so omitting these suggestions helps users avoid
+        duplication errors.).
+
+        Returns a QuerySet of dictionaries containing distinct `value` (string) and `tag`
+        (numeric ID) values, sorted alphabetically by `value`.
+
+        Subclasses can override this method to perform their own autocomplete process.
+        Subclass use cases:
+        * Large taxonomy associated with a model. It can be overridden to get
+          the suggestions directly from the model by doing own filtering.
+        * Taxonomy with a list of available tags: It can be overridden to only
+          search the suggestions on a list of available tags.
+        """
+        # Fetch tags that the object already has to exclude them from the result
+        excluded_tags = []
+        if object_id:
+            excluded_tags = self.objecttag_set.filter(object_id=object_id).values_list(
+                "_value", flat=True
+            )
+        return (
+            # Fetch object tags from this taxonomy whose value contains the search
+            self.objecttag_set.filter(_value__icontains=search)
+            # omit any tags whose values match the tags on the given object
+            .exclude(_value__in=excluded_tags)
+            # alphabetical ordering
+            .order_by("_value")
+            # Alias the `_value` field to `value` to make it nicer for users
+            .annotate(value=models.F("_value"))
+            # obtain tag values
+            .values("value", "tag_id")
+            # remove repeats
+            .distinct()
+        )
+
 
 class ObjectTag(models.Model):
     """
@@ -497,6 +543,7 @@ class ObjectTag(models.Model):
             models.Index(fields=["taxonomy", "object_id"]),
             models.Index(fields=["taxonomy", "_value"]),
         ]
+        unique_together = ("taxonomy", "_value", "object_id")
 
     def __repr__(self):
         """
