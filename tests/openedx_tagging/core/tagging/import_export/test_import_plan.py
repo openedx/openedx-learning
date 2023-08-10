@@ -252,15 +252,17 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         "--------------------------------\n"
         "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
         "#2: Create a new tag with values (external_id=tag_31, value=Tag 32, parent_id=None).\n"
-        "#3: Rename tag value of tag (id=26) from 'Tag 1' to 'Tag 2'\n"
-        "#4: Update the parent of tag (id=29) from parent (external_id=tag_3) to parent (external_id=tag_100).\n"
+        "#3: Rename tag value of tag (external_id=tag_1) from 'Tag 1' to 'Tag 2'\n"
+        "#4: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
+        "to parent (external_id=tag_100).\n"
         "#5: Create a new tag with values (external_id=tag_33, value=Tag 32, parent_id=None).\n"
-        "#6: Update the parent of tag (id=27) from parent (external_id=tag_1) to parent (external_id=None).\n"
-        "#7: Rename tag value of tag (id=27) from 'Tag 2' to 'Tag 31'\n"
+        "#6: Update the parent of tag (external_id=tag_2) from parent (external_id=tag_1) "
+        "to parent (external_id=None).\n"
+        "#7: Rename tag value of tag (external_id=tag_2) from 'Tag 2' to 'Tag 31'\n"
         "\nOutput errors\n"
         "--------------------------------\n"
         "Conflict with 'create' (#2) and action #1: Duplicated external_id tag.\n"
-        "Action error in 'rename' (#3): Duplicated tag value with tag (id=27).\n"
+        "Action error in 'rename' (#3): Duplicated tag value with tag in database (external_id=tag_2).\n"
         "Action error in 'update_parent' (#4): Unknown parent tag (tag_100). "
         "You need to add parent before the child in your file.\n"
         "Conflict with 'create' (#5) and action #2: Duplicated tag value.\n"
@@ -296,9 +298,10 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         "--------------------------------\n"
         "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
         "#2: Create a new tag with values (external_id=tag_32, value=Tag 32, parent_id=tag_1).\n"
-        "#3: Rename tag value of tag (id=27) from 'Tag 2' to 'Tag 2 v2'\n"
-        "#4: Update the parent of tag (id=29) from parent (external_id=tag_3) to parent (external_id=tag_1).\n"
-        "#5: Rename tag value of tag (id=29) from 'Tag 4' to 'Tag 4 v2'\n"
+        "#3: Rename tag value of tag (external_id=tag_2) from 'Tag 2' to 'Tag 2 v2'\n"
+        "#4: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
+        "to parent (external_id=tag_1).\n"
+        "#5: Rename tag value of tag (external_id=tag_4) from 'Tag 4' to 'Tag 4 v2'\n"
         "#6: No changes needed for tag (external_id=tag_1)\n"
         ),  # Testing valid plan
         ([
@@ -312,18 +315,27 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         "Import plan for Import Taxonomy Test\n"
         "--------------------------------\n"
         "#1: No changes needed for tag (external_id=tag_4)\n"
-        "#2: Update the parent of tag (id=27) from parent (external_id=tag_1) to parent (external_id=None).\n"
-        "#3: Delete tag (id=26)\n"
-        "#4: Delete tag (id=27)\n"
-        "#5: Update the parent of tag (id=29) from parent (external_id=tag_3) to parent (external_id=None).\n"
-        "#6: Delete tag (id=28)\n"
+        "#2: Update the parent of tag (external_id=tag_2) from parent (external_id=tag_1) "
+        "to parent (external_id=None).\n"
+        "#3: Delete tag (external_id=tag_1)\n"
+        "#4: Delete tag (external_id=tag_2)\n"
+        "#5: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
+        "to parent (external_id=None).\n"
+        "#6: Delete tag (external_id=tag_3)\n"
         )  # Testing deletes (replace=True)
     )
     @ddt.unpack
     def test_plan(self, tags, replace, expected):
+        """
+        Test the output of plan() function
+
+        It has been decided to verify the output exactly to detect
+        any error when printing this information that the user is going to read.
+        """
         tags = [TagItem(**tag) for tag in tags]
         self.import_plan.generate_actions(tags=tags, replace=replace)
         plan = self.import_plan.plan()
+        print(plan)
         assert plan == expected
 
     @ddt.data(

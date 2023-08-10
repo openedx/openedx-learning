@@ -132,7 +132,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
             'Tag 1',
             (
                 "Action error in 'import_action' (#100): "
-                "Duplicated tag value with tag (id=26)."
+                "Duplicated tag value with tag in database (external_id=tag_1)."
             )
         ),
         (
@@ -279,7 +279,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             "tag_4",
             "tag_3",
             (
-                "Update the parent of tag (id=29) from parent "
+                "Update the parent of tag (external_id=tag_4) from parent "
                 "(external_id=tag_3) to parent (external_id=tag_3)."
             )
         ),
@@ -287,7 +287,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             "tag_3",
             "tag_2",
             (
-                "Update the parent of tag (id=28) from empty parent "
+                "Update the parent of tag (external_id=tag_3) from empty parent "
                 "to parent (external_id=tag_2)."
             )
         ),

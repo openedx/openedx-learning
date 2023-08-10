@@ -92,7 +92,7 @@ class ImportAction:
 
     def _validate_parent(self, indexed_actions) -> ImportActionError:
         """
-        Validates if the parent is created
+        Helper method to validate that the parent tag has already been defined.
         """
         try:
             # Validates that the parent exists on the taxonomy
@@ -122,7 +122,9 @@ class ImportAction:
             return ImportActionError(
                 action=self,
                 tag_id=self.tag.id,
-                message=_(f"Duplicated tag value with tag (id={tag.id})."),
+                message=_(
+                    f"Duplicated tag value with tag in database (external_id={tag.external_id})."
+                ),
             )
         except Tag.DoesNotExist:
             # Validates value duplication on create actions
@@ -179,7 +181,7 @@ class CreateTag(ImportAction):
     @classmethod
     def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
-        Validates if the tag does not exist
+        This action applies whenever the tag does not exist
         """
         try:
             taxonomy.tag_set.get(external_id=tag.id)
@@ -262,7 +264,7 @@ class UpdateParentTag(ImportAction):
 
         return str(
             _(
-                f"Update the parent of tag (id={taxonomy_tag.id}) "
+                f"Update the parent of tag (external_id={taxonomy_tag.external_id}) "
                 f"{from_str} to parent (external_id={self.tag.parent_id})."
             )
         )
@@ -270,7 +272,7 @@ class UpdateParentTag(ImportAction):
     @classmethod
     def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
-        Validates if there is a change on the parent
+        This action applies whenever there is a change on the parent
         """
         try:
             taxonomy_tag = taxonomy.tag_set.get(external_id=tag.id)
@@ -324,7 +326,7 @@ class RenameTag(ImportAction):
         taxonomy_tag = self._get_tag()
         return str(
             _(
-                f"Rename tag value of tag (id={taxonomy_tag.id}) "
+                f"Rename tag value of tag (external_id={taxonomy_tag.external_id}) "
                 f"from '{taxonomy_tag.value}' to '{self.tag.value}'"
             )
         )
@@ -332,7 +334,7 @@ class RenameTag(ImportAction):
     @classmethod
     def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
-        Validates if there is a change on the tag value
+        This action applies whenever there is a change on the tag value
         """
         try:
             taxonomy_tag = taxonomy.tag_set.get(external_id=tag.id)
@@ -373,14 +375,14 @@ class DeleteTag(ImportAction):
 
     def __str__(self):
         taxonomy_tag = self._get_tag()
-        return str(_(f"Delete tag (id={taxonomy_tag.id})"))
+        return str(_(f"Delete tag (external_id={taxonomy_tag.external_id})"))
 
     name = "delete"
 
     @classmethod
     def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
-        Validates if the action is delete and the tag exists
+        This action applies whenever the action is delete and the tag exists
         """
         try:
             taxonomy.tag_set.get(external_id=tag.id)
