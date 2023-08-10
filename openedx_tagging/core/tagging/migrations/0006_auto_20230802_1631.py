@@ -7,7 +7,7 @@ import openedx_tagging.core.tagging.models.import_export
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("oel_tagging", "0005_language_taxonomy"),
+        ("oel_tagging", "0006_alter_objecttag_unique_together"),
     ]
 
     operations = [
