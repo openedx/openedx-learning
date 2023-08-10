@@ -128,7 +128,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
             {"id": "tag_1", "value": "tag 1"},
             {"id": "tag_2", "value": "tag 2"},
             {"id": "tag_3", "value": "tag 3", "parent_id": "tag_1"},
-            {"id": "tag_4", "value": "tag 4", "action": "delete"},
+            {"id": "tag_4", "value": "tag 4"},
         ]
         json_data = {"tags": expected_tags}
 
@@ -151,10 +151,6 @@ class TestJSONParser(TestImportExportMixin, TestCase):
             self.assertEqual(
                 tags[index].parent_id,
                 expected_tag.get('parent_id')
-            )
-            self.assertEqual(
-                tags[index].action,
-                expected_tag.get('action')
             )
             self.assertEqual(
                 tags[index].index,
@@ -259,11 +255,11 @@ class TestCSVParser(TestImportExportMixin, TestCase):
         """
         Builds a csv from 'tags' dict
         """
-        csv = "id,value,parent_id,action\n"
+        csv = "id,value,parent_id\n"
         for tag in tags:
             csv += (
                 f"{tag.get('id')},{tag.get('value')},"
-                f"{tag.get('parent_id') or ''},{tag.get('action') or ''}\n"
+                f"{tag.get('parent_id') or ''}\n"
             )
         return csv
 
@@ -272,7 +268,7 @@ class TestCSVParser(TestImportExportMixin, TestCase):
             {"id": "tag_1", "value": "tag 1"},
             {"id": "tag_2", "value": "tag 2"},
             {"id": "tag_3", "value": "tag 3", "parent_id": "tag_1"},
-            {"id": "tag_4", "value": "tag 4", "action": "delete"},
+            {"id": "tag_4", "value": "tag 4"},
         ]
         csv_data = self._build_csv(expected_tags)
         csv_file = BytesIO(csv_data.encode())
@@ -294,10 +290,6 @@ class TestCSVParser(TestImportExportMixin, TestCase):
             self.assertEqual(
                 tags[index].parent_id,
                 expected_tag.get('parent_id')
-            )
-            self.assertEqual(
-                tags[index].action,
-                expected_tag.get('action')
             )
             self.assertEqual(
                 tags[index].index,

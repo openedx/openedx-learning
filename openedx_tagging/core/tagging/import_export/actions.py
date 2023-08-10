@@ -382,13 +382,10 @@ class DeleteTag(ImportAction):
     @classmethod
     def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
         """
-        This action applies whenever the action is delete and the tag exists
+        This action is an exception.
+        These actions are created in `TagImportPlan.generate_actions` if `replace=True`
         """
-        try:
-            taxonomy.tag_set.get(external_id=tag.id)
-            return tag.action == cls.name
-        except Tag.DoesNotExist:
-            return False
+        return False
 
     def validate(self, indexed_actions) -> List[ImportActionError]:
         """

@@ -27,7 +27,6 @@ class TagItem:
     value: str
     index: Optional[int] = 0
     parent_id: Optional[str] = None
-    action: Optional[str] = None
 
 
 class TagImportPlan:

@@ -435,29 +435,13 @@ class TestRenameTag(TestImportActionMixin, TestCase):
         assert tag.value == value
 
 
-@ddt.ddt
 class TestDeleteTag(TestImportActionMixin, TestCase):
     """
     Test for 'delete' action
     """
 
-    @ddt.data(
-        ('tag_10', None, False),  # Tag doesn't exist on database
-        ('tag_1', 'rename', False),  # Invalid action
-        ('tag_1', 'delete', True),  # Valid
-    )
-    @ddt.unpack
-    def test_applies_for(self, tag_id, action, expected):
-        result = DeleteTag.applies_for(
-            taxonomy=self.taxonomy,
-            tag=TagItem(
-                id=tag_id,
-                value='_',
-                action=action,
-                index=100,
-            ),
-        )
-        self.assertEqual(result, expected)
+    def test_applies_for(self):
+        assert not DeleteTag.applies_for(self.taxonomy, None)
 
     def test_validate(self):
         action = DeleteTag(
@@ -469,8 +453,7 @@ class TestDeleteTag(TestImportActionMixin, TestCase):
             ),
             index=100,
         )
-        result = action.validate(self.indexed_actions)
-        self.assertEqual(result, [])
+        assert not action.validate(self.indexed_actions)
 
     def test_execute(self):
         tag_id = 'tag_3'

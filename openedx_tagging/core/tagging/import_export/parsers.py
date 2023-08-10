@@ -45,7 +45,7 @@ class Parser:
     """
 
     required_fields = ["id", "value"]
-    optional_fields = ["parent_id", "action"]
+    optional_fields = ["parent_id"]
 
     # Set the format associated to the parser
     format = None
@@ -166,9 +166,6 @@ class Parser:
         Returns a list of taxonomy's tags in the form of a dictionary
         with required and optional fields
 
-        The 'action' field is not added to the result because the output
-        is seen as a creation of all the tags.
-
         The tags are ordered by hierarchy, first, parents and then children.
         `get_tags` is in charge of returning this in a hierarchical way.
         """
@@ -280,12 +277,8 @@ class CSVParser(Parser):
         """
         Export tags in CSV format
 
-        The 'action' field is not added to the result because the output
-        is seen as a creation of all the tags.
         """
         fields = cls.required_fields + cls.optional_fields
-        if "action" in fields:  # pragma: no cover
-            fields.remove("action")
 
         with StringIO() as csv_buffer:
             csv_writer = csv.DictWriter(csv_buffer, fieldnames=fields)
