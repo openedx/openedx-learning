@@ -14,4 +14,4 @@ pytest-django             # pytest extension for better Django support
 code-annotations          # provides commands used by the pii_check make target.
 ddt                       # supports data driven tests
 mock                      # supports overriding classes and methods in tests
-django-debug-toolbar     # provides a debug toolbar for Django
+django-debug-toolbar      # provides a debug toolbar for Django

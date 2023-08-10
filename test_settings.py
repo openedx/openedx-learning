@@ -66,3 +66,10 @@ OPENEDX_LEARNING = {
     # STORAGES setting in Django >= 4.2
     "STORAGE": None,
 }
+
+######################### Django Rest Framework ########################
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'edx_rest_framework_extensions.paginators.DefaultPagination',
+    'PAGE_SIZE': 10,
+}

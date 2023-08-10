@@ -9,7 +9,6 @@ from ...api import (
     get_taxonomy,
     get_taxonomies,
 )
-from .pagination import TaggingPagination
 from .permissions import TaxonomyObjectPermissions
 from .serializers import TaxonomyListQueryParamsSerializer, TaxonomySerializer
 
@@ -21,7 +20,7 @@ class TaxonomyView(ModelViewSet):
     **List Query Parameters**
         * enabled (optional) - Filter by enabled status. Valid values: true, false, 1, 0, "true", "false", "1"
         * page (optional) - Page number (default: 1)
-        * page_size (optional) - Number of items per page (default: 100)
+        * page_size (optional) - Number of items per page (default: 10)
 
     **List Example Requests**
         GET api/tagging/v1/taxonomy                                                 - Get all taxonomies
@@ -109,7 +108,6 @@ class TaxonomyView(ModelViewSet):
 
     """
 
-    pagination_class = TaggingPagination
     serializer_class = TaxonomySerializer
     permission_classes = [TaxonomyObjectPermissions]
 
