@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('oel_tagging', '0006_auto_20230802_1631'),
+        ("oel_tagging", "0006_auto_20230802_1631"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='tagimporttask',
-            name='log',
-            field=models.TextField(blank=True, default=None, help_text='Action execution logs'),
+            model_name="tagimporttask",
+            name="log",
+            field=models.TextField(
+                blank=True, default=None, help_text="Action execution logs"
+            ),
         ),
     ]

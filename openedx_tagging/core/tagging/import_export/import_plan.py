@@ -16,6 +16,7 @@ class TagItem:
     """
     Tag representation on the tag import plan
     """
+
     id: str
     value: str
     index: int | None = 0

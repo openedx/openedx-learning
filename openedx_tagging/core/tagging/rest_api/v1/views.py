@@ -1,21 +1,39 @@
 """
 Tagging API Views
 """
+from __future__ import annotations
+
 from django.db import models
 from django.http import Http404
 from rest_framework import mixins
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
+from rest_framework.generics import ListAPIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
-from ...api import create_taxonomy, get_object_tags, get_taxonomies, get_taxonomy, tag_object
+from openedx_tagging.core.tagging.models.base import Tag
+
+from ...api import (
+    create_taxonomy,
+    get_children_tags,
+    get_object_tags,
+    get_root_tags,
+    get_taxonomies,
+    get_taxonomy,
+    search_tags,
+    tag_object,
+)
 from ...models import Taxonomy
 from ...rules import ChangeObjectTagPermissionItem
-from .permissions import ObjectTagObjectPermissions, TaxonomyObjectPermissions
+from ..paginators import SEARCH_TAGS_THRESHOLD, TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
+from .permissions import ObjectTagObjectPermissions, TagListPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
     ObjectTagSerializer,
     ObjectTagUpdateBodySerializer,
     ObjectTagUpdateQueryParamsSerializer,
+    TagsForSearchSerializer,
+    TagsSerializer,
+    TagsWithSubTagsSerializer,
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
 )
@@ -169,7 +187,12 @@ class TaxonomyView(ModelViewSet):
         serializer.instance = create_taxonomy(**serializer.validated_data)
 
 
-class ObjectTagView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.ListModelMixin, GenericViewSet):
+class ObjectTagView(
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.ListModelMixin,
+    GenericViewSet,
+):
     """
     View to retrieve paginated ObjectTags for a provided Object ID (object_id).
 
@@ -276,7 +299,9 @@ class ObjectTagView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.L
         if partial:
             raise MethodNotAllowed("PATCH", detail="PATCH not allowed")
 
-        query_params = ObjectTagUpdateQueryParamsSerializer(data=request.query_params.dict())
+        query_params = ObjectTagUpdateQueryParamsSerializer(
+            data=request.query_params.dict()
+        )
         query_params.is_valid(raise_exception=True)
         taxonomy = query_params.validated_data.get("taxonomy", None)
         taxonomy = taxonomy.cast()
@@ -289,7 +314,9 @@ class ObjectTagView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.L
         )
 
         if not request.user.has_perm(perm, perm_obj):
-            raise PermissionDenied("You do not have permission to change object tags for this taxonomy or object_id.")
+            raise PermissionDenied(
+                "You do not have permission to change object tags for this taxonomy or object_id."
+            )
 
         body = ObjectTagUpdateBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
@@ -301,3 +328,181 @@ class ObjectTagView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.L
             raise ValidationError(e)
 
         return self.retrieve(request, object_id)
+
+
+class TaxonomyTagsView(ListAPIView):
+    """
+    View to list tags of a taxonomy.
+
+    **List Query Parameters**
+        * pk (required) - The pk of the taxonomy to retrieve tags.
+        * parent_tag_id (optional) - Id of the tag to retrieve children tags.
+        * page (optional) - Page number (default: 1)
+        * page_size (optional) - Number of items per page (default: 10)
+
+    **List Example Requests**
+        GET api/tagging/v1/taxonomy/:pk/tags                                        - Get tags of taxonomy
+        GET api/tagging/v1/taxonomy/:pk/tags?parent_tag_id=30                       - Get children tags of tag
+
+    **List Query Returns**
+        * 200 - Success
+        * 400 - Invalid query parameter
+        * 403 - Permission denied
+        * 404 - Taxonomy not found
+    """
+
+    permission_classes = [TagListPermissions]
+    pagination_enabled = True
+
+    def __init__(self):
+        # Initialized here to avoid errors on type hints
+        self.serializer_class = TagsSerializer
+
+    def get_pagination_class(self):
+        """
+        Get the corresponding class depending if the pagination is enabled.
+
+        It is necessary to call this function before returning the data.
+        """
+        if self.pagination_enabled:
+            return TagsPagination
+        else:
+            return DisabledTagsPagination
+
+    def get_taxonomy(self, pk: int) -> Taxonomy:
+        """
+        Get the taxonomy from `pk` or raise 404.
+        """
+        taxonomy = get_taxonomy(pk)
+        if not taxonomy:
+            raise Http404("Taxonomy not found")
+        self.check_object_permissions(self.request, taxonomy)
+        return taxonomy
+
+    def _build_search_tree(self, tags: list[Tag]) -> list[Tag]:
+        """
+        Builds a tree with the result tags for a search.
+
+        The retult is a pruned tree that contains
+        the path from root tags to tags that match the search.
+        """
+        tag_ids = [tag.id for tag in tags]
+
+        # Get missing parents.
+        # Not all parents are in the search result.
+        # This occurs when a child tag is on the search result, but its parent not,
+        # we need to add the parent to show the tree from the root to the child.
+        for tag in tags:
+            if tag.parent and tag.parent_id and tag.parent_id not in tag_ids:
+                tag_ids.append(tag.parent_id)
+                tags.append(tag.parent)  # Our loop will iterate over this new parent tag too.
+
+        groups: dict[int, list[Tag]] = {}
+        roots: list[Tag] = []
+
+        # Group tags by parent
+        for tag in tags:
+            if tag.parent_id is not None:
+                if tag.parent_id not in groups:
+                    groups[tag.parent_id] = []
+                groups[tag.parent_id].append(tag)
+            else:
+                roots.append(tag)
+
+        for tag in tags:
+            # Used to serialize searched childrens
+            tag.sub_tags = groups.get(tag.id, [])  # type: ignore[attr-defined]
+
+        return roots
+
+    def get_matching_tags(
+        self,
+        taxonomy_id: int,
+        parent_tag_id: str | None = None,
+        search_term: str | None = None,
+    ) -> list[Tag]:
+        """
+        Returns a list of tags for the given taxonomy.
+
+        The pagination can be enabled or disabled depending of the taxonomy size.
+        You can read the desicion '0014_*' to more info about this logic.
+        Also, determines the serializer to be used.
+
+        Use `parent_tag_id` to get the children of the given tag.
+
+        Use `search_term` to filter tags values that contains the given term.
+        """
+        taxonomy = self.get_taxonomy(taxonomy_id)
+        if parent_tag_id:
+            # Get children of a tag.
+
+            # If you need to get the children, then the roots are
+            # paginated, so we need to paginate the childrens too.
+            self.pagination_enabled = True
+
+            # Normal serializer, with children link.
+            self.serializer_class = TagsSerializer
+            return get_children_tags(
+                taxonomy,
+                int(parent_tag_id),
+                search_term=search_term,
+            )
+        else:
+            if search_term:
+                # Search tags
+                result = search_tags(
+                    taxonomy,
+                    search_term,
+                )
+                # Checks the result size to determine whether
+                # to turn pagination on or off.
+                self.pagination_enabled = len(result) > SEARCH_TAGS_THRESHOLD
+
+                # Use the special serializer to only show the tree
+                # of the search result.
+                self.serializer_class = TagsForSearchSerializer
+
+                result = self._build_search_tree(result)
+            else:
+                # Get root tags of taxonomy
+
+                # Checks the taxonomy size to determine whether
+                # to turn pagination on or off.
+                self.pagination_enabled = taxonomy.tag_set.count() > TAGS_THRESHOLD
+
+                if self.pagination_enabled:
+                    # If pagination is enabled, use the normal serializer
+                    # with children link.
+                    self.serializer_class = TagsSerializer
+                else:
+                    # If pagination is disabled, use the special serializer
+                    # to show children. In this case, we return all taxonomy tags
+                    # in a tree structure.
+                    self.serializer_class = TagsWithSubTagsSerializer
+
+                result = get_root_tags(taxonomy)
+
+            return result
+
+    def get_queryset(self) -> list[Tag]:  # type: ignore[override]
+        """
+        Builds and returns the queryset to be paginated.
+
+        The return type is not a QuerySet because the tagging python api functions
+        return lists, and on this point convert the list to a query set
+        is an unnecesary operation.
+        """
+        pk = self.kwargs.get("pk")
+        parent_tag_id = self.request.query_params.get("parent_tag_id", None)
+        search_term = self.request.query_params.get("search_term", None)
+
+        result = self.get_matching_tags(
+            pk,
+            parent_tag_id=parent_tag_id,
+            search_term=search_term,
+        )
+
+        # This function is not called automatically
+        self.pagination_class = self.get_pagination_class()
+
+        return result

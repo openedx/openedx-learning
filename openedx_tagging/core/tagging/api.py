@@ -79,6 +79,47 @@ def get_tags(taxonomy: Taxonomy) -> list[Tag]:
     return taxonomy.cast().get_tags()
 
 
+def get_root_tags(taxonomy: Taxonomy) -> list[Tag]:
+    """
+    Returns a list of the root tags for the given taxonomy.
+
+    Note that if the taxonomy allows free-text tags, then the returned list will be empty.
+    """
+    return list(taxonomy.cast().get_filtered_tags())
+
+
+def search_tags(taxonomy: Taxonomy, search_term: str) -> list[Tag]:
+    """
+    Returns a list of all tags that contains `search_term` of the given taxonomy.
+
+    Note that if the taxonomy allows free-text tags, then the returned list will be empty.
+    """
+    return list(
+        taxonomy.cast().get_filtered_tags(
+            search_term=search_term,
+            search_in_all=True,
+        )
+    )
+
+
+def get_children_tags(
+    taxonomy: Taxonomy,
+    parent_tag_id: int,
+    search_term: str | None = None,
+) -> list[Tag]:
+    """
+    Returns a list of children tags for the given parent tag.
+
+    Note that if the taxonomy allows free-text tags, then the returned list will be empty.
+    """
+    return list(
+        taxonomy.cast().get_filtered_tags(
+            parent_tag_id=parent_tag_id,
+            search_term=search_term,
+        )
+    )
+
+
 def resync_object_tags(object_tags: QuerySet | None = None) -> int:
     """
     Reconciles ObjectTag entries with any changes made to their associated taxonomies and tags.
@@ -98,8 +139,7 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
 
 
 def get_object_tags(
-    object_id: str,
-    taxonomy_id: str | None = None
+    object_id: str, taxonomy_id: str | None = None
 ) -> QuerySet[ObjectTag]:
     """
     Returns a Queryset of object tags for a given object.
@@ -124,10 +164,8 @@ def delete_object_tags(object_id: str):
     """
     Delete all ObjectTag entries for a given object.
     """
-    tags = (
-        ObjectTag.objects.filter(
-            object_id=object_id,
-        )
+    tags = ObjectTag.objects.filter(
+        object_id=object_id,
     )
 
     tags.delete()
