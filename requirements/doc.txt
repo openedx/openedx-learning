@@ -24,19 +24,28 @@ babel==2.12.1
     #   sphinx
 beautifulsoup4==4.12.2
     # via pydata-sphinx-theme
-billiard==3.6.4.0
+billiard==4.1.0
     # via
     #   -r requirements/test.txt
     #   celery
 bleach==6.0.0
     # via readme-renderer
-celery==5.2.0
+celery==5.3.1
     # via -r requirements/test.txt
-certifi==2023.5.7
-    # via requests
-charset-normalizer==3.1.0
-    # via requests
-click==8.1.3
+certifi==2023.7.22
+    # via
+    #   -r requirements/test.txt
+    #   requests
+cffi==1.15.1
+    # via
+    #   -r requirements/test.txt
+    #   cryptography
+    #   pynacl
+charset-normalizer==3.2.0
+    # via
+    #   -r requirements/test.txt
+    #   requests
+click==8.1.6
     # via
     #   -r requirements/test.txt
     #   celery
@@ -44,6 +53,7 @@ click==8.1.3
     #   click-plugins
     #   click-repl
     #   code-annotations
+    #   edx-django-utils
     #   import-linter
 click-didyoumean==0.3.0
     # via
@@ -63,19 +73,40 @@ coverage[toml]==7.2.7
     # via
     #   -r requirements/test.txt
     #   pytest-cov
+cryptography==41.0.3
+    # via
+    #   -r requirements/test.txt
+    #   pyjwt
 ddt==1.6.0
     # via -r requirements/test.txt
 django==3.2.19
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
+    #   django-crum
     #   django-debug-toolbar
+    #   django-waffle
     #   djangorestframework
+    #   drf-jwt
+    #   edx-django-utils
+    #   edx-drf-extensions
     #   sphinxcontrib-django
+django-crum==0.7.9
+    # via
+    #   -r requirements/test.txt
+    #   edx-django-utils
 django-debug-toolbar==4.1.0
     # via -r requirements/test.txt
+django-waffle==4.0.0
+    # via
+    #   -r requirements/test.txt
+    #   edx-django-utils
+    #   edx-drf-extensions
 djangorestframework==3.14.0
-    # via -r requirements/test.txt
+    # via
+    #   -r requirements/test.txt
+    #   drf-jwt
+    #   edx-drf-extensions
 doc8==1.1.1
     # via -r requirements/doc.in
 docutils==0.19
@@ -85,6 +116,20 @@ docutils==0.19
     #   readme-renderer
     #   restructuredtext-lint
     #   sphinx
+drf-jwt==1.19.2
+    # via
+    #   -r requirements/test.txt
+    #   edx-drf-extensions
+edx-django-utils==5.7.0
+    # via
+    #   -r requirements/test.txt
+    #   edx-drf-extensions
+edx-drf-extensions==8.8.0
+    # via -r requirements/test.txt
+edx-opaque-keys==2.4.0
+    # via
+    #   -r requirements/test.txt
+    #   edx-drf-extensions
 exceptiongroup==1.1.1
     # via
     #   -r requirements/test.txt
@@ -94,7 +139,9 @@ grimp==2.4
     #   -r requirements/test.txt
     #   import-linter
 idna==3.4
-    # via requests
+    # via
+    #   -r requirements/test.txt
+    #   requests
 imagesize==1.4.1
     # via sphinx
 import-linter==1.9.0
@@ -120,6 +167,10 @@ mock==5.0.2
     # via -r requirements/test.txt
 mysqlclient==2.1.1
     # via -r requirements/test.txt
+newrelic==8.9.0
+    # via
+    #   -r requirements/test.txt
+    #   edx-django-utils
 packaging==23.1
     # via
     #   -r requirements/test.txt
@@ -140,6 +191,14 @@ prompt-toolkit==3.0.39
     # via
     #   -r requirements/test.txt
     #   click-repl
+psutil==5.9.5
+    # via
+    #   -r requirements/test.txt
+    #   edx-django-utils
+pycparser==2.21
+    # via
+    #   -r requirements/test.txt
+    #   cffi
 pydata-sphinx-theme==0.13.3
     # via sphinx-book-theme
 pygments==2.15.1
@@ -149,6 +208,19 @@ pygments==2.15.1
     #   pydata-sphinx-theme
     #   readme-renderer
     #   sphinx
+pyjwt[crypto]==2.8.0
+    # via
+    #   -r requirements/test.txt
+    #   drf-jwt
+    #   edx-drf-extensions
+pymongo==3.13.0
+    # via
+    #   -r requirements/test.txt
+    #   edx-opaque-keys
+pynacl==1.5.0
+    # via
+    #   -r requirements/test.txt
+    #   edx-django-utils
 pytest==7.3.2
     # via
     #   -r requirements/test.txt
@@ -158,6 +230,11 @@ pytest-cov==4.1.0
     # via -r requirements/test.txt
 pytest-django==4.5.2
     # via -r requirements/test.txt
+python-dateutil==2.8.2
+    # via
+    #   -r requirements/test.txt
+    #   celery
+    #   edx-drf-extensions
 python-slugify==8.0.1
     # via
     #   -r requirements/test.txt
@@ -165,7 +242,6 @@ python-slugify==8.0.1
 pytz==2023.3
     # via
     #   -r requirements/test.txt
-    #   celery
     #   django
     #   djangorestframework
 pyyaml==6.0
@@ -175,13 +251,24 @@ pyyaml==6.0
 readme-renderer==40.0
     # via -r requirements/doc.in
 requests==2.31.0
-    # via sphinx
+    # via
+    #   -r requirements/test.txt
+    #   edx-drf-extensions
+    #   sphinx
 restructuredtext-lint==1.4.0
     # via doc8
 rules==3.3
     # via -r requirements/test.txt
+semantic-version==2.10.0
+    # via
+    #   -r requirements/test.txt
+    #   edx-drf-extensions
 six==1.16.0
-    # via bleach
+    # via
+    #   -r requirements/test.txt
+    #   bleach
+    #   edx-drf-extensions
+    #   python-dateutil
 snowballstemmer==2.2.0
     # via sphinx
 soupsieve==2.4.1
@@ -218,6 +305,8 @@ stevedore==5.1.0
     #   -r requirements/test.txt
     #   code-annotations
     #   doc8
+    #   edx-django-utils
+    #   edx-opaque-keys
 text-unidecode==1.3
     # via
     #   -r requirements/test.txt
@@ -236,8 +325,14 @@ typing-extensions==4.6.3
     #   grimp
     #   import-linter
     #   pydata-sphinx-theme
-urllib3==2.0.3
-    # via requests
+tzdata==2023.3
+    # via
+    #   -r requirements/test.txt
+    #   celery
+urllib3==2.0.4
+    # via
+    #   -r requirements/test.txt
+    #   requests
 vine==5.0.0
     # via
     #   -r requirements/test.txt
@@ -250,6 +345,3 @@ wcwidth==0.2.6
     #   prompt-toolkit
 webencodings==0.5.1
     # via bleach
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools

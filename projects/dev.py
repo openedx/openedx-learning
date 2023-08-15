@@ -113,3 +113,10 @@ OPENEDX_LEARNING = {
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
+
+######################### Django Rest Framework ########################
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'edx_rest_framework_extensions.paginators.DefaultPagination',
+    'PAGE_SIZE': 10,
+}
