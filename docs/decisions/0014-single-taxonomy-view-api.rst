@@ -7,8 +7,8 @@ Context
 
 This view returns tags of a closed taxonomy (for MVP has not been implemented yet
 for open taxonomies). It is necessary to make a decision about what structure the tags are going 
-to have and how the pagination is going to work. It was taken into account that a taxonomy can
-have a large number of tags and are mostly represented as trees.
+to have, how the pagination is going to work and how will the search for tags be implemented.
+It was taken into account that a taxonomy can have a large number of tags and are mostly represented as trees.
 
 **Branch:** Is the representation of a root Tag and all its children up to the leaves.
 
@@ -82,6 +82,17 @@ Children do not affect pagination in any way.
   the branch has hundreds of children, and they would still all be brought.
 
 
+Search tags
+~~~~~~~~~~~~
+
+Support tag search on the backend. Return a subset of matching tags in the format proposed
+in this document.
+
+**Pros**
+
+- It is the most scalable way.
+
+
 Rejected Options
 -----------------
 
@@ -131,3 +142,15 @@ Ex. If the ``page_size`` is 100, when fetching the first root tag, which has 10 
 - All branches are variable in size, therefore a variable number of root tags
   would be returned. This would cause interfaces between taxonomies to be inconsistent
   in the number of root tags shown.
+
+
+Search on frontend
+~~~~~~~~~~~~~~~~~~
+
+We constrain the number of tags allowed in a taxonomy for MVP, so that the API 
+can return all the tags in one page. So we can perform the tag search on the frontend.
+
+**Cons:**
+
+- It is not scalable
+- Sets limits of tags that can be created in the taxonomy
