@@ -12,6 +12,13 @@ have a large number of tags and are mostly represented as trees.
 
 **Branch:** Is the representation of a root Tag and all its children up to the leaves.
 
+For the decisions, the following use cases were taken into account:
+
+- List of root tags that can be expanded to show children tags.
+    - This list can be sorted alphabetically: A-Z (default) and Z-A
+- The user can expand all root tags.
+- The user can search for tags.
+
 
 Decision
 ---------
@@ -21,7 +28,8 @@ Tag representation
 ~~~~~~~~
 
 Return a list of root tags and within each one have the list of children tags. Each root would have
-its entire branch. The list of root tags will be ordered alphabetically as is each listing at each level of the tree.
+its entire branch. The list of root tags will be ordered alphabetically as is each listing
+at each level of the tree. This order can only be reversed in the root tag listing.
 
 {
     "count": 100,
@@ -89,8 +97,7 @@ Return a simple list of tags, regardless of whether it is root or leaf.
 
 **Cons:**
 
-- It is more work to re-process all that list in the frontend to know who it is
-whose father.
+- It is more work to re-process all that list in the frontend to know who it is whose father.
 - In no edX's interface is it used this way and it would be a very specific use case.
 - Pagination would be more complicated to perform.
 
