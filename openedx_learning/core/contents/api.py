@@ -16,6 +16,9 @@ from .models import RawContent, TextContent
 def create_raw_content(
     learning_package_id, data_bytes, mime_type, created, hash_digest=None
 ):
+    """
+    Create a new RawContent instance and persist it to storage.
+    """
     hash_digest = hash_digest or create_hash_digest(data_bytes)
     raw_content = RawContent.objects.create(
         learning_package_id=learning_package_id,
@@ -32,7 +35,10 @@ def create_raw_content(
 
 
 def create_text_from_raw_content(raw_content, encoding="utf-8-sig"):
-    text = codecs.decode(raw_content.file.open().read(), "utf-8-sig")
+    """
+    Create a new TextContent instance for the given RawContent.
+    """
+    text = codecs.decode(raw_content.file.open().read(), encoding)
     return TextContent.objects.create(
         raw_content=raw_content,
         text=text,
@@ -43,6 +49,10 @@ def create_text_from_raw_content(raw_content, encoding="utf-8-sig"):
 def get_or_create_raw_content(
     learning_package_id, data_bytes, mime_type, created, hash_digest=None
 ):
+    """
+    Get the RawContent in the given learning package with the specified data,
+    or create it if it doesn't exist.
+    """
     hash_digest = hash_digest or create_hash_digest(data_bytes)
     try:
         raw_content = RawContent.objects.get(
@@ -66,12 +76,16 @@ def get_or_create_text_content_from_bytes(
     hash_digest=None,
     encoding="utf-8-sig",
 ):
+    """
+    Get the TextContent in the given learning package with the specified data,
+    or create it if it doesn't exist.
+    """
     with atomic():
         raw_content, rc_created = get_or_create_raw_content(
-            learning_package_id, data_bytes, mime_type, created, hash_digest=None
+            learning_package_id, data_bytes, mime_type, created, hash_digest
         )
         if rc_created or not hasattr(raw_content, "text_content"):
-            text = codecs.decode(data_bytes, "utf-8-sig")
+            text = codecs.decode(data_bytes, encoding)
             text_content = TextContent.objects.create(
                 raw_content=raw_content,
                 text=text,

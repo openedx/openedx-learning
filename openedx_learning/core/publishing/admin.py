@@ -1,3 +1,6 @@
+"""
+Django admin for publishing models
+"""
 from django.contrib import admin
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
@@ -12,6 +15,7 @@ from .models import (
 
 @admin.register(LearningPackage)
 class LearningPackageAdmin(ReadOnlyModelAdmin):
+    """Read-only admin for LearningPackage model"""
     fields = ["key", "title", "uuid", "created", "updated"]
     readonly_fields = ["key", "title", "uuid", "created", "updated"]
     list_display = ["key", "title", "uuid", "created", "updated"]
@@ -19,6 +23,7 @@ class LearningPackageAdmin(ReadOnlyModelAdmin):
 
 
 class PublishLogRecordTabularInline(admin.TabularInline):
+    """Inline read-only tabular view for PublishLogRecords"""
     model = PublishLogRecord
     fields = [
         "entity",
@@ -43,6 +48,7 @@ class PublishLogRecordTabularInline(admin.TabularInline):
         return pl_record.new_version.version_num
 
     def title(self, pl_record: PublishLogRecord):
+        """Get the title to display for the PublishLogRecord"""
         if pl_record.new_version:
             return pl_record.new_version.title
         if pl_record.old_version:
@@ -52,6 +58,7 @@ class PublishLogRecordTabularInline(admin.TabularInline):
 
 @admin.register(PublishLog)
 class PublishLogAdmin(ReadOnlyModelAdmin):
+    """Read-only admin view for PublishLog"""
     inlines = [PublishLogRecordTabularInline]
 
     fields = ["uuid", "learning_package", "published_at", "published_by", "message"]
@@ -62,6 +69,7 @@ class PublishLogAdmin(ReadOnlyModelAdmin):
 
 @admin.register(PublishableEntity)
 class PublishableEntityAdmin(ReadOnlyModelAdmin):
+    """Read-only admin view for Publishable Entities"""
     fields = [
         "key",
         "draft_version",
@@ -91,6 +99,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
 
 @admin.register(Published)
 class PublishedAdmin(ReadOnlyModelAdmin):
+    """Read-only admin view for Published model"""
     fields = ["entity", "version_num", "previous", "published_at", "message"]
     list_display = fields
 
@@ -108,6 +117,7 @@ class PublishedAdmin(ReadOnlyModelAdmin):
         return published_obj.version.version_num
 
     def previous(self, published_obj):
+        """Determine what to show in the "Previous" field"""
         old_version = published_obj.publish_log_record.old_version
         # if there was no previous old version, old version is None
         if not old_version:

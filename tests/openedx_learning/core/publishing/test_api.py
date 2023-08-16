@@ -1,3 +1,6 @@
+"""
+Tests of the Publishing app's python API
+"""
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -9,6 +12,7 @@ from openedx_learning.core.publishing.api import create_learning_package
 
 
 class CreateLearningPackageTestCase(TestCase):
+    """Test creating a LearningPackage"""
     def test_normal(self):
         """Normal flow with no errors."""
         key = "my_key"

@@ -1,17 +1,21 @@
+"""
+Django admin for components models
+"""
 from django.contrib import admin
 from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
 from django.utils.html import format_html
 
+from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 from .models import (
     Component,
     ComponentVersion,
     ComponentVersionRawContent,
 )
-from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 
 
 class ComponentVersionInline(admin.TabularInline):
+    """Inline admin view of ComponentVersion from the Component Admin"""
     model = ComponentVersion
     fields = ["version_num", "created", "title", "format_uuid"]
     readonly_fields = ["version_num", "created", "title", "uuid", "format_uuid"]
@@ -29,6 +33,7 @@ class ComponentVersionInline(admin.TabularInline):
 
 @admin.register(Component)
 class ComponentAdmin(ReadOnlyModelAdmin):
+    """Django admin configuration for Component"""
     list_display = ("key", "uuid", "namespace", "type", "created")
     readonly_fields = [
         "learning_package",
@@ -44,6 +49,7 @@ class ComponentAdmin(ReadOnlyModelAdmin):
 
 
 class RawContentInline(admin.TabularInline):
+    """Django admin configuration for RawContent"""
     model = ComponentVersion.raw_contents.through
 
     def get_queryset(self, request):
@@ -93,6 +99,7 @@ class RawContentInline(admin.TabularInline):
 
 @admin.register(ComponentVersion)
 class ComponentVersionAdmin(ReadOnlyModelAdmin):
+    """Django admin configuration for ComponentVersion"""
     readonly_fields = [
         "component",
         "uuid",
@@ -120,29 +127,8 @@ class ComponentVersionAdmin(ReadOnlyModelAdmin):
         )
 
 
-def is_displayable_text(mime_type):
-    # Our usual text files, including things like text/markdown, text/html
-    media_type, media_subtype = mime_type.split("/")
-
-    if media_type == "text":
-        return True
-
-    # Our OLX goes here, but so do some other things like
-    if media_subtype.endswith("+xml"):
-        return True
-
-    # Other application/* types that we know we can display.
-    if media_subtype in ["json", "x-subrip"]:
-        return True
-
-    # Other formats that are really specific types of JSON
-    if media_subtype.endswith("+json"):
-        return True
-
-    return False
-
-
 def link_for_cvc(cvc_obj: ComponentVersionRawContent):
+    """Get the download URL for the given ComponentVersionRawContent instance"""
     return "/media_server/component_asset/{}/{}/{}/{}".format(
         cvc_obj.raw_content.learning_package.key,
         cvc_obj.component_version.component.key,
@@ -152,6 +138,9 @@ def link_for_cvc(cvc_obj: ComponentVersionRawContent):
 
 
 def format_text_for_admin_display(text):
+    """
+    Get the HTML to display the given plain text (preserving formatting)
+    """
     return format_html(
         '<pre style="white-space: pre-wrap;">\n{}\n</pre>',
         text,
@@ -159,6 +148,9 @@ def format_text_for_admin_display(text):
 
 
 def content_preview(cvc_obj: ComponentVersionRawContent):
+    """
+    Get the HTML to display a preview of the given ComponentVersionRawContent
+    """
     raw_content_obj = cvc_obj.raw_content
 
     if raw_content_obj.mime_type.startswith("image/"):

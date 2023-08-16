@@ -1,3 +1,6 @@
+"""
+Django metadata for the Contents Django application.
+"""
 from django.apps import AppConfig
 
 

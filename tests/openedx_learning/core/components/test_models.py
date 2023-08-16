@@ -1,3 +1,6 @@
+"""
+Tests related to the Component models
+"""
 from datetime import datetime, timezone
 
 from django.test.testcases import TestCase

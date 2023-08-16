@@ -1,3 +1,8 @@
+"""
+Views for the media server application
+
+(serves media files in dev or low-traffic instances).
+"""
 from pathlib import Path
 
 from django.http import FileResponse
@@ -28,7 +33,7 @@ def component_asset(
             learning_package_key, component_key, version_num, asset_path
         )
     except ObjectDoesNotExist:
-        raise Http404("File not found")
+        raise Http404("File not found")  # pylint: disable=raise-missing-from
 
     if not cvc.learner_downloadable and not (
         request.user and request.user.is_superuser

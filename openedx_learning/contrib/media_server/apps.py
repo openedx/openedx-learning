@@ -1,3 +1,6 @@
+"""
+Django app metadata for the Media Server application.
+"""
 from django.apps import AppConfig
 from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings

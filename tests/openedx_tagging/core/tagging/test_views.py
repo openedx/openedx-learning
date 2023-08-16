@@ -1,12 +1,12 @@
 """
 Tests tagging rest api views
 """
+from urllib.parse import urlparse, parse_qs
 
 import ddt
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
-from urllib.parse import urlparse, parse_qs
 
 from openedx_tagging.core.tagging.models import Taxonomy
 from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
@@ -19,7 +19,7 @@ TAXONOMY_DETAIL_URL = "/tagging/rest_api/v1/taxonomies/{pk}/"
 
 def check_taxonomy(
     data,
-    id,
+    id,  # pylint: disable=redefined-builtin
     name,
     description=None,
     enabled=True,
@@ -29,6 +29,7 @@ def check_taxonomy(
     system_defined=False,
     visible_to_authors=True,
 ):
+    """Helper method to check expected fields of a Taxonomy"""
     assert data["id"] == id
     assert data["name"] == name
     assert data["description"] == description
@@ -42,6 +43,7 @@ def check_taxonomy(
 
 @ddt.ddt
 class TestTaxonomyViewSet(APITestCase):
+    """Test of the Taxonomy REST API"""
     def setUp(self):
         super().setUp()
 
@@ -222,7 +224,7 @@ class TestTaxonomyViewSet(APITestCase):
         self.client.force_authenticate(user=self.staff)
         response = self.client.post(url, create_data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
-        assert response.data["system_defined"] == False
+        assert response.data["system_defined"] is False
 
     @ddt.data(
         (None, status.HTTP_403_FORBIDDEN),

@@ -7,8 +7,11 @@ from openedx_learning.core.components.models import Component
 
 
 class ComponentViewSet(viewsets.ViewSet):
+    """
+    Example endpoints for a Components REST API. Not implemented.
+    """
     def list(self, request):
-        items = Component.objects.all()
+        items = Component.objects.all()  # pylint: disable=unused-variable
         raise NotImplementedError
 
     def retrieve(self, request, pk=None):

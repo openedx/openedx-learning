@@ -180,7 +180,6 @@ class TextContent(models.Model):
     text = MultiCollationTextField(
         blank=True,
         max_length=MAX_TEXT_LENGTH,
-        
         # We don't really expect to ever sort by the text column. This is here
         # primarily to force the column to be created as utf8mb4 on MySQL. I'm
         # using the binary collation because it's a little cheaper/faster.

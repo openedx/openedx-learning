@@ -23,8 +23,14 @@ from .models import ComponentVersionRawContent, Component, ComponentVersion
 
 
 def create_component(
-    learning_package_id, namespace, type, local_key, created, created_by
+    learning_package_id,
+    namespace,
+    type,  # pylint: disable=redefined-builtin
+    local_key,
+    created,
+    created_by,
 ):
+    """Create a new Component (an entity like a Problem or Video)"""
     key = f"{namespace}:{type}@{local_key}"
     with atomic():
         publishable_entity = create_publishable_entity(
@@ -41,6 +47,7 @@ def create_component(
 
 
 def create_component_version(component_pk, version_num, title, created, created_by):
+    """Create a new ComponentVersion"""
     with atomic():
         publishable_entity_version = create_publishable_entity_version(
             entity_id=component_pk,
@@ -57,8 +64,15 @@ def create_component_version(component_pk, version_num, title, created, created_
 
 
 def create_component_and_version(
-    learning_package_id, namespace, type, local_key, title, created, created_by
+    learning_package_id,
+    namespace,
+    type,  # pylint: disable=redefined-builtin
+    local_key,
+    title,
+    created,
+    created_by,
 ):
+    """Create a Component and associated ComponentVersion atomically"""
     with atomic():
         component = create_component(
             learning_package_id, namespace, type, local_key, created, created_by
@@ -103,8 +117,12 @@ def get_component_version_content(
 
 
 def add_content_to_component_version(
-    component_version, raw_content_id, key, learner_downloadable=False
+    component_version,
+    raw_content_id,
+    key,
+    learner_downloadable=False,
 ):
+    """Add a RawContent to the given ComponentVersion"""
     cvrc, _created = ComponentVersionRawContent.objects.get_or_create(
         component_version=component_version,
         raw_content_id=raw_content_id,
