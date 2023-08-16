@@ -18,7 +18,7 @@ from openedx_learning.lib.fields import (
 from ..publishing.models import LearningPackage
 
 
-class RawContent(models.Model):
+class RawContent(models.Model):  # type: ignore[django-manager-missing]
     """
     This is the most basic piece of raw content data, with no version metadata.
 

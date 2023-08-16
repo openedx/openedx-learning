@@ -1,6 +1,7 @@
 """
 Helper mixin classes for content apps that want to use the publishing app.
 """
+from __future__ import annotations
 from functools import cached_property
 
 from django.core.exceptions import ImproperlyConfigured
@@ -25,7 +26,7 @@ class PublishableEntityMixin(models.Model):
         def get_queryset(self) -> QuerySet:
             return super().get_queryset().select_related("publishable_entity")
 
-    objects = PublishableEntityMixinManager()
+    objects: models.Manager[PublishableEntityMixin] = PublishableEntityMixinManager()
 
     publishable_entity = models.OneToOneField(
         PublishableEntity, on_delete=models.CASCADE, primary_key=True
@@ -216,7 +217,7 @@ class PublishableEntityVersionMixin(models.Model):
                 )
             )
 
-    objects = PublishableEntityVersionMixinManager()
+    objects: models.Manager[PublishableEntityVersionMixin] = PublishableEntityVersionMixinManager()
 
     publishable_entity_version = models.OneToOneField(
         PublishableEntityVersion, on_delete=models.CASCADE, primary_key=True
@@ -247,11 +248,15 @@ class PublishableContentModelRegistry:
     This class tracks content models built on PublishableEntity(Version).
     """
 
-    _unversioned_to_versioned = {}
-    _versioned_to_unversioned = {}
+    _unversioned_to_versioned: dict[type[PublishableEntityMixin], type[PublishableEntityVersionMixin]] = {}
+    _versioned_to_unversioned: dict[type[PublishableEntityVersionMixin], type[PublishableEntityMixin]] = {}
 
     @classmethod
-    def register(cls, content_model_cls, content_version_model_cls):
+    def register(
+        cls,
+        content_model_cls: type[PublishableEntityMixin],
+        content_version_model_cls: type[PublishableEntityVersionMixin],
+    ):
         """
         Register what content model maps to what content version model.
 

@@ -19,7 +19,7 @@ from .collations import MultiCollationMixin
 from .validators import validate_utc_datetime
 
 
-def create_hash_digest(data_bytes):
+def create_hash_digest(data_bytes: bytes) -> str:
     return hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
 
 

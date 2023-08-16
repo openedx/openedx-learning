@@ -24,13 +24,12 @@ from openedx_learning.lib.fields import (
 )
 
 
-class LearningPackage(models.Model):
+class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
     """
     Top level container for a grouping of authored content.
 
     Each PublishableEntity belongs to exactly one LearningPackage.
     """
-
     uuid = immutable_uuid_field()
     key = key_field()
     title = case_insensitive_char_field(max_length=500, blank=False)

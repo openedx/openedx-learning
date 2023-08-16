@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.safestring import SafeText
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 from .models import (
@@ -21,14 +22,13 @@ class ComponentVersionInline(admin.TabularInline):
     readonly_fields = ["version_num", "created", "title", "uuid", "format_uuid"]
     extra = 0
 
+    @admin.display(description="UUID")
     def format_uuid(self, cv_obj):
         return format_html(
             '<a href="{}">{}</a>',
             reverse("admin:oel_components_componentversion_change", args=(cv_obj.pk,)),
             cv_obj.uuid,
         )
-
-    format_uuid.short_description = "UUID"
 
 
 @admin.register(Component)
@@ -81,11 +81,11 @@ class RawContentInline(admin.TabularInline):
     def rendered_data(self, cvc_obj):
         return content_preview(cvc_obj)
 
+    @admin.display(description="Size")
     def format_size(self, cvc_obj):
         return filesizeformat(cvc_obj.raw_content.size)
 
-    format_size.short_description = "Size"
-
+    @admin.display(description="Key")
     def format_key(self, cvc_obj):
         return format_html(
             '<a href="{}">{}</a>',
@@ -93,8 +93,6 @@ class RawContentInline(admin.TabularInline):
             # reverse("admin:components_content_change", args=(cvc_obj.content_id,)),
             cvc_obj.key,
         )
-
-    format_key.short_description = "Key"
 
 
 @admin.register(ComponentVersion)
@@ -127,7 +125,7 @@ class ComponentVersionAdmin(ReadOnlyModelAdmin):
         )
 
 
-def link_for_cvc(cvc_obj: ComponentVersionRawContent):
+def link_for_cvc(cvc_obj: ComponentVersionRawContent) -> str:
     """Get the download URL for the given ComponentVersionRawContent instance"""
     return "/media_server/component_asset/{}/{}/{}/{}".format(
         cvc_obj.raw_content.learning_package.key,
@@ -137,7 +135,7 @@ def link_for_cvc(cvc_obj: ComponentVersionRawContent):
     )
 
 
-def format_text_for_admin_display(text):
+def format_text_for_admin_display(text: str) -> SafeText:
     """
     Get the HTML to display the given plain text (preserving formatting)
     """
@@ -147,7 +145,7 @@ def format_text_for_admin_display(text):
     )
 
 
-def content_preview(cvc_obj: ComponentVersionRawContent):
+def content_preview(cvc_obj: ComponentVersionRawContent) -> SafeText:
     """
     Get the HTML to display a preview of the given ComponentVersionRawContent
     """
