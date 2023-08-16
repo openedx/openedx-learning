@@ -4,7 +4,7 @@ import ddt
 from django.test.testcases import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api
-from openedx_tagging.core.tagging.models import ObjectTag, Tag
+from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 
 from .test_models import TestTagTaxonomyMixin, get_tag
 
@@ -55,20 +55,22 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_get_taxonomies(self):
         tax1 = tagging_api.create_taxonomy("Enabled")
         tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
+        tax3 = Taxonomy.objects.get(name="Import Taxonomy Test")
         with self.assertNumQueries(1):
             enabled = list(tagging_api.get_taxonomies())
-
         assert enabled == [
             tax1,
+            tax3,
             self.language_taxonomy,
             self.taxonomy,
             self.system_taxonomy,
             self.user_taxonomy,
         ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
-        assert str(enabled[1]) == "<Taxonomy> (-1) Languages"
-        assert str(enabled[2]) == "<Taxonomy> (1) Life on Earth"
-        assert str(enabled[3]) == "<SystemDefinedTaxonomy> (4) System defined taxonomy"
+        assert str(enabled[1]) == "<Taxonomy> (5) Import Taxonomy Test"
+        assert str(enabled[2]) == "<Taxonomy> (-1) Languages"
+        assert str(enabled[3]) == "<Taxonomy> (1) Life on Earth"
+        assert str(enabled[4]) == "<SystemDefinedTaxonomy> (4) System defined taxonomy"
 
         with self.assertNumQueries(1):
             disabled = list(tagging_api.get_taxonomies(enabled=False))
@@ -80,6 +82,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert both == [
             tax2,
             tax1,
+            tax3,
             self.language_taxonomy,
             self.taxonomy,
             self.system_taxonomy,

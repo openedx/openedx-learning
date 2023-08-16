@@ -11,7 +11,7 @@ def load_language_taxonomy(apps, schema_editor):
     call_command("loaddata", "--app=oel_tagging", "language_taxonomy.yaml")
 
 
-def revert(apps, schema_editor):
+def revert(apps, schema_editor):  # pragma: no cover
     """
     Deletes language taxonomy an tags
     """
