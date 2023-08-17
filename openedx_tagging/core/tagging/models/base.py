@@ -1,7 +1,8 @@
 """ Tagging app base data models """
 from __future__ import annotations
 import logging
-from typing import List, Type, Union
+from typing import List
+from typing_extensions import Self  # Until we upgrade to python 3.11
 
 from django.db import models
 from django.utils.module_loading import import_string
@@ -208,7 +209,7 @@ class Taxonomy(models.Model):
         return None
 
     @taxonomy_class.setter
-    def taxonomy_class(self, taxonomy_class: Union[Type, None]):
+    def taxonomy_class(self, taxonomy_class: type[Taxonomy] | None):
         """
         Assigns the given taxonomy_class's module path.class to the field.
 
@@ -626,7 +627,7 @@ class ObjectTag(models.Model):
 
         A valid ObjectTag must be linked to a Taxonomy, and be a valid tag in that taxonomy.
         """
-        return bool(self.taxonomy) and self.taxonomy.validate_object_tag(self)
+        return self.taxonomy.validate_object_tag(self) if self.taxonomy else False
 
     def get_lineage(self) -> Lineage:
         """
@@ -653,7 +654,7 @@ class ObjectTag(models.Model):
         # Locate an enabled taxonomy matching _name, and maybe a tag matching _value
         if not self.taxonomy_id:
             # Use the linked tag's taxonomy if there is one.
-            if self.tag_id:
+            if self.tag:
                 self.taxonomy_id = self.tag.taxonomy_id
                 changed = True
             else:
@@ -680,7 +681,7 @@ class ObjectTag(models.Model):
                         self.tag = None
 
         # Sync the stored _name with the taxonomy.name
-        if self.taxonomy_id and self._name != self.taxonomy.name:
+        if self.taxonomy and self._name != self.taxonomy.name:
             self.name = self.taxonomy.name
             changed = True
 
@@ -699,13 +700,13 @@ class ObjectTag(models.Model):
         return changed
 
     @classmethod
-    def cast(cls, object_tag: "ObjectTag") -> "ObjectTag":
+    def cast(cls, object_tag: ObjectTag) -> Self:
         """
         Returns a cls instance with the same properties as the given ObjectTag.
         """
         return cls().copy(object_tag)
 
-    def copy(self, object_tag: "ObjectTag") -> "ObjectTag":
+    def copy(self, object_tag: ObjectTag) -> Self:
         """
         Copy the fields from the given ObjectTag into the current instance.
         """

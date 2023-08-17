@@ -1,7 +1,13 @@
 """
 Exceptions for tag import/export actions
 """
-from django.utils.translation import gettext_lazy as _
+from __future__ import annotations
+import typing
+
+from django.utils.translation import gettext as _
+
+if typing.TYPE_CHECKING:
+    from .actions import ImportAction
 
 
 class TagImportError(Exception):
@@ -33,7 +39,7 @@ class ImportActionError(TagImportError):
     Base exception for actions
     """
 
-    def __init__(self, action: str, tag_id: str, message: str, **kargs):
+    def __init__(self, action: ImportAction, tag_id: str, message: str, **kargs):
         self.message = _(
             f"Action error in '{action.name}' (#{action.index}): {message}"
         )

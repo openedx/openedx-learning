@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from django.db import models
 
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _, gettext_lazy
 
 from .base import Taxonomy
 
@@ -29,13 +29,13 @@ class TagImportTask(models.Model):
     )
 
     log = models.TextField(
-        null=True, default=None, help_text=_("Action execution logs")
+        blank=True, default=None, help_text=gettext_lazy("Action execution logs")
     )
 
     status = models.CharField(
         max_length=20,
         choices=[(status, status.value) for status in TagImportTaskState],
-        help_text=_("Task status"),
+        help_text=gettext_lazy("Task status"),
     )
 
     creation_date = models.DateTimeField(auto_now_add=True)
