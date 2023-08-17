@@ -274,6 +274,21 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
 
+        # Delete the tags
+        tagging_api.delete_object_tags("biology101")
+
+        # Ensure the tags were deleted
+        assert (
+            len(
+                list(
+                    tagging_api.get_object_tags(
+                        object_id="biology101",
+                    )
+                )
+            )
+            == 0
+        )
+
     def test_tag_object_free_text(self):
         self.taxonomy.allow_free_text = True
         self.taxonomy.save()
