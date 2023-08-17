@@ -1,11 +1,13 @@
 """Django rules-based permissions for tagging"""
+from __future__ import annotations
+from typing import Union
 
+import django.contrib.auth.models
 import rules
-from django.contrib.auth import get_user_model
 
 from .models import ObjectTag, Tag, Taxonomy
 
-User = get_user_model()
+UserType = Union[django.contrib.auth.models.User, django.contrib.auth.models.AnonymousUser]
 
 
 # Global staff are taxonomy admins.
@@ -14,7 +16,7 @@ is_taxonomy_admin = rules.is_staff
 
 
 @rules.predicate
-def can_view_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
+def can_view_taxonomy(user: UserType, taxonomy: Taxonomy | None = None) -> bool:
     """
     Anyone can view an enabled taxonomy or list all taxonomies,
     but only taxonomy admins can view a disabled taxonomy.
@@ -23,7 +25,7 @@ def can_view_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
 
 
 @rules.predicate
-def can_change_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
+def can_change_taxonomy(user: UserType, taxonomy: Taxonomy | None = None) -> bool:
     """
     Even taxonomy admins cannot change system taxonomies.
     """
@@ -33,7 +35,7 @@ def can_change_taxonomy(user: User, taxonomy: Taxonomy = None) -> bool:
 
 
 @rules.predicate
-def can_change_tag(user: User, tag: Tag = None) -> bool:
+def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
     """
     Even taxonomy admins cannot add tags to system taxonomies (their tags are system-defined), or free-text taxonomies
     (these don't have predefined tags).
@@ -47,7 +49,7 @@ def can_change_tag(user: User, tag: Tag = None) -> bool:
 
 
 @rules.predicate
-def can_change_object_tag(user: User, object_tag: ObjectTag = None) -> bool:
+def can_change_object_tag(user: UserType, object_tag: ObjectTag | None = None) -> bool:
     """
     Taxonomy admins can create or modify object tags on enabled taxonomies.
     """
