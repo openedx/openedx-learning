@@ -118,6 +118,19 @@ def get_object_tags(
     return tags
 
 
+def delete_object_tags(object_id: str):
+    """
+    Delete all ObjectTag entries for a given object.
+    """
+    tags = (
+        ObjectTag.objects.filter(
+            object_id=object_id,
+        )
+    )
+
+    tags.delete()
+
+
 def tag_object(
     taxonomy: Taxonomy,
     tags: List,
