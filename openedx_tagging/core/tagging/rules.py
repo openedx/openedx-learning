@@ -1,6 +1,6 @@
 """Django rules-based permissions for tagging"""
 from __future__ import annotations
-from typing import Union
+from typing import Union, Callable
 
 import django.contrib.auth.models
 import rules
@@ -12,7 +12,7 @@ UserType = Union[django.contrib.auth.models.User, django.contrib.auth.models.Ano
 
 # Global staff are taxonomy admins.
 # (Superusers can already do anything)
-is_taxonomy_admin = rules.is_staff
+is_taxonomy_admin: Callable[[UserType], bool] = rules.is_staff
 
 
 @rules.predicate
@@ -30,7 +30,7 @@ def can_change_taxonomy(user: UserType, taxonomy: Taxonomy | None = None) -> boo
     Even taxonomy admins cannot change system taxonomies.
     """
     return is_taxonomy_admin(user) and (
-        not taxonomy or (taxonomy and not taxonomy.cast().system_defined)
+        not taxonomy or bool(taxonomy and not taxonomy.cast().system_defined)
     )
 
 
@@ -40,7 +40,7 @@ def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
     Even taxonomy admins cannot add tags to system taxonomies (their tags are system-defined), or free-text taxonomies
     (these don't have predefined tags).
     """
-    taxonomy = tag.taxonomy.cast() if (tag and tag.taxonomy_id) else None
+    taxonomy = tag.taxonomy.cast() if (tag and tag.taxonomy) else None
     return is_taxonomy_admin(user) and (
         not tag
         or not taxonomy
@@ -54,7 +54,7 @@ def can_change_object_tag(user: UserType, object_tag: ObjectTag | None = None) -
     Taxonomy admins can create or modify object tags on enabled taxonomies.
     """
     taxonomy = (
-        object_tag.taxonomy.cast() if (object_tag and object_tag.taxonomy_id) else None
+        object_tag.taxonomy.cast() if (object_tag and object_tag.taxonomy) else None
     )
     object_tag = taxonomy.object_tag_class.cast(object_tag) if taxonomy else object_tag
     return is_taxonomy_admin(user) and (

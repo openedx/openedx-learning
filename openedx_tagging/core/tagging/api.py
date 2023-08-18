@@ -10,7 +10,8 @@ No permissions/rules are enforced by these methods -- these must be enforced in 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
-from typing import Iterator, List, Type, Union
+from __future__ import annotations
+from typing import Iterator
 
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
@@ -20,12 +21,12 @@ from .models import ObjectTag, Tag, Taxonomy
 
 def create_taxonomy(
     name: str,
-    description: str = None,
+    description: str | None = None,
     enabled=True,
     required=False,
     allow_multiple=False,
     allow_free_text=False,
-    taxonomy_class: Type = None,
+    taxonomy_class: type[Taxonomy] | None = None,
 ) -> Taxonomy:
     """
     Creates, saves, and returns a new Taxonomy with the given attributes.
@@ -44,7 +45,7 @@ def create_taxonomy(
     return taxonomy.cast()
 
 
-def get_taxonomy(id: int) -> Union[Taxonomy, None]:
+def get_taxonomy(id: int) -> Taxonomy | None:
     """
     Returns a Taxonomy cast to the appropriate subclass which has the given ID.
     """
@@ -68,7 +69,7 @@ def get_taxonomies(enabled=True) -> QuerySet:
     return queryset.filter(enabled=enabled)
 
 
-def get_tags(taxonomy: Taxonomy) -> List[Tag]:
+def get_tags(taxonomy: Taxonomy) -> list[Tag]:
     """
     Returns a list of predefined tags for the given taxonomy.
 
@@ -77,7 +78,7 @@ def get_tags(taxonomy: Taxonomy) -> List[Tag]:
     return taxonomy.cast().get_tags()
 
 
-def resync_object_tags(object_tags: QuerySet = None) -> int:
+def resync_object_tags(object_tags: QuerySet | None = None) -> int:
     """
     Reconciles ObjectTag entries with any changes made to their associated taxonomies and tags.
 
@@ -96,7 +97,7 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
 
 
 def get_object_tags(
-    object_id: str, taxonomy: Taxonomy = None, valid_only=True
+    object_id: str, taxonomy: Taxonomy | None = None, valid_only=True
 ) -> Iterator[ObjectTag]:
     """
     Generates a list of object tags for a given object.
@@ -124,9 +125,9 @@ def get_object_tags(
 
 def tag_object(
     taxonomy: Taxonomy,
-    tags: List,
+    tags: list[str],
     object_id: str,
-) -> List[ObjectTag]:
+) -> list[ObjectTag]:
     """
     Replaces the existing ObjectTag entries for the given taxonomy + object_id with the given list of tags.
 
@@ -142,7 +143,7 @@ def tag_object(
 def autocomplete_tags(
     taxonomy: Taxonomy,
     search: str,
-    object_id: str = None,
+    object_id: str | None= None,
     object_tags_only=True,
 ) -> QuerySet:
     """
