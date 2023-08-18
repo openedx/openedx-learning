@@ -2,15 +2,23 @@
 Tagging API Views
 """
 from django.http import Http404
-from rest_framework.viewsets import ModelViewSet
+from rest_framework import status
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.response import Response
 
 from ...api import (
     create_taxonomy,
     get_taxonomy,
     get_taxonomies,
+    get_object_tags,
 )
-from .permissions import TaxonomyObjectPermissions
-from .serializers import TaxonomyListQueryParamsSerializer, TaxonomySerializer
+from .permissions import TaxonomyObjectPermissions, ObjectTagObjectPermissions
+from .serializers import (
+    TaxonomyListQueryParamsSerializer,
+    TaxonomySerializer,
+    ObjectTagListQueryParamsSerializer,
+    ObjectTagSerializer,
+)
 
 
 class TaxonomyView(ModelViewSet):
@@ -145,3 +153,76 @@ class TaxonomyView(ModelViewSet):
         Create a new taxonomy.
         """
         serializer.instance = create_taxonomy(**serializer.validated_data)
+
+
+class ObjectTagView(ReadOnlyModelViewSet):
+    """
+    View to retrieve paginated ObjectTags for an Object, given its Object ID.
+    (What tags does this object have?)
+
+    **Retrieve Parameters**
+        * object_id (required): - The Object ID to retrieve ObjectTags for.
+
+    **Retrieve Query Parameters**
+        * taxonomy (optional) - PK of taxonomy to filter ObjectTags for.
+        * page (optional) - Page number of paginated results.
+        * page_size (optional) - Number of results included in each page.
+
+    **Retrieve Example Requests**
+        GET api/tagging/v1/object_tags/:object_id
+        GET api/tagging/v1/object_tags/:object_id?taxonomy=1
+        GET api/tagging/v1/object_tags/:object_id?taxonomy=1&page=2
+        GET api/tagging/v1/object_tags/:object_id?taxonomy=1&page=2&page_size=10
+
+    **Retrieve Query Returns**
+        * 200 - Success
+        * 400 - Invalid query parameter
+        * 403 - Permission denied
+
+    **Create Query Returns**
+        * 403 - Permission denied
+        * 405 - Method not allowed
+
+    **Update Query Returns**
+        * 403 - Permission denied
+        * 405 - Method not allowed
+
+    **Delete Query Returns**
+        * 403 - Permission denied
+        * 405 - Method not allowed
+    """
+
+    serializer_class = ObjectTagSerializer
+    permission_classes = [ObjectTagObjectPermissions]
+    lookup_field = "object_id"
+
+    def get_queryset(self):
+        """
+        Return a queryset of object tags for a given object.
+
+        If a taxonomy is passed in, object tags are limited to that taxonomy.
+        """
+        object_id = self.kwargs.get("object_id")
+        query_params = ObjectTagListQueryParamsSerializer(
+            data=self.request.query_params.dict()
+        )
+        query_params.is_valid(raise_exception=True)
+        taxonomy_id = query_params.data.get("taxonomy", None)
+        return get_object_tags(object_id, taxonomy_id)
+
+    def retrieve(self, request, object_id=None):
+        """
+        Retrieve ObjectTags that belong to a given Object given its
+        object_id and return paginated results.
+
+        Note: We override `retrieve` here instead of `list` because we are
+        passing in the Object ID (object_id) in the path (as opposed to passing
+        it in as a query_param) to retrieve the related ObjectTags.
+        By default retrieve would expect an ObjectTag ID to be passed in the
+        path and returns a it as a single result however that is not
+        behavior we want.
+        """
+        object_tags = self.get_queryset()
+        paginated_object_tags = self.paginate_queryset(object_tags)
+        serializer = ObjectTagSerializer(paginated_object_tags, many=True)
+        return self.get_paginated_response(serializer.data)
