@@ -33,7 +33,7 @@ def create_taxonomy(
     """
     taxonomy = Taxonomy(
         name=name,
-        description=description,
+        description=description or "",
         enabled=enabled,
         required=required,
         allow_multiple=allow_multiple,
@@ -107,7 +107,9 @@ def get_object_tags(
     Pass valid_only=False when displaying tags to content authors, so they can see invalid tags too.
     Invalid tags will (probably) be hidden from learners.
     """
-    ObjectTagClass = taxonomy.object_tag_class if taxonomy else ObjectTag
+    ObjectTagClass = ObjectTag
+    if taxonomy:
+        ObjectTagClass = taxonomy.object_tag_class
     tags = (
         ObjectTagClass.objects.filter(
             object_id=object_id,

@@ -1,9 +1,9 @@
 """
 Actions for import tags
 """
-from typing import List
+from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
 
 from ..models import Taxonomy, Tag
 from .exceptions import ImportActionError, ImportActionConflict
@@ -55,7 +55,7 @@ class ImportAction:
         """
         raise NotImplementedError
 
-    def validate(self, indexed_actions) -> List[ImportActionError]:
+    def validate(self, indexed_actions) -> list[ImportActionError]:
         """
         Implement this to find inconsistencies with tags in the
         database or with previous actions.
@@ -90,7 +90,7 @@ class ImportAction:
 
         return None
 
-    def _validate_parent(self, indexed_actions) -> ImportActionError:
+    def _validate_parent(self, indexed_actions) -> ImportActionError | None:
         """
         Helper method to validate that the parent tag has already been defined.
         """
@@ -110,6 +110,7 @@ class ImportAction:
                         "You need to add parent before the child in your file."
                     ),
                 )
+        return None
 
     def _validate_value(self, indexed_actions):
         """
@@ -202,7 +203,7 @@ class CreateTag(ImportAction):
                 message=_("Duplicated external_id tag."),
             )
 
-    def validate(self, indexed_actions) -> List[ImportActionError]:
+    def validate(self, indexed_actions) -> list[ImportActionError]:
         """
         Validates the creation action
         """
@@ -283,7 +284,7 @@ class UpdateParentTag(ImportAction):
         except Tag.DoesNotExist:
             return False
 
-    def validate(self, indexed_actions) -> List[ImportActionError]:
+    def validate(self, indexed_actions) -> list[ImportActionError]:
         """
         Validates the update parent action
         """
@@ -342,7 +343,7 @@ class RenameTag(ImportAction):
         except Tag.DoesNotExist:
             return False
 
-    def validate(self, indexed_actions) -> List[ImportActionError]:
+    def validate(self, indexed_actions) -> list[ImportActionError]:
         """
         Validates the rename action
         """
@@ -387,7 +388,7 @@ class DeleteTag(ImportAction):
         """
         return False
 
-    def validate(self, indexed_actions) -> List[ImportActionError]:
+    def validate(self, indexed_actions) -> list[ImportActionError]:
         """
         No validations necessary
         """
@@ -421,7 +422,7 @@ class WithoutChanges(ImportAction):
         """
         return False
 
-    def validate(self, indexed_actions) -> List[ImportActionError]:
+    def validate(self, indexed_actions) -> list[ImportActionError]:
         """
         No validations necessary
         """

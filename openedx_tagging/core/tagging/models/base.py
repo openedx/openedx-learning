@@ -121,7 +121,6 @@ class Taxonomy(models.Model):
         ),
     )
     description = MultiCollationTextField(
-        null=True,
         blank=True,
         help_text=_(
             "Provides extra information for the user when applying tags from this taxonomy to an object."

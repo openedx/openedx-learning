@@ -52,7 +52,7 @@ class ImportActionConflict(ImportActionError):
 
     def __init__(
         self,
-        action: str,
+        action: ImportAction,
         tag_id: str,
         conflict_action_index: int,
         message: str,

@@ -60,7 +60,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
     def test_check_status(self):
         TagImportTask.create(self.taxonomy)
         status = import_export_api.get_last_import_status(self.taxonomy)
-        assert status == TagImportTaskState.LOADING_DATA.value
+        assert status == TagImportTaskState.LOADING_DATA
 
     def test_check_log(self):
         TagImportTask.create(self.taxonomy)
@@ -103,7 +103,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         )
         status = import_export_api.get_last_import_status(self.taxonomy)
         log = import_export_api.get_last_import_log(self.taxonomy)
-        assert status == TagImportTaskState.ERROR.value
+        assert status == TagImportTaskState.ERROR
         assert "ValueError('I/O operation on closed file.')" in log
 
     def test_with_parser_error(self):
@@ -114,7 +114,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         )
         status = import_export_api.get_last_import_status(self.taxonomy)
         log = import_export_api.get_last_import_log(self.taxonomy)
-        assert status == TagImportTaskState.ERROR.value
+        assert status == TagImportTaskState.ERROR
         assert "Starting to load data from file" in log
         assert "Invalid '.json' format" in log
 
@@ -126,7 +126,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         )
         status = import_export_api.get_last_import_status(self.taxonomy)
         log = import_export_api.get_last_import_log(self.taxonomy)
-        assert status == TagImportTaskState.ERROR.value
+        assert status == TagImportTaskState.ERROR
         assert "Starting to load data from file" in log
         assert "Load data finished" in log
         assert "Starting plan actions" in log
@@ -142,7 +142,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         )
         status = import_export_api.get_last_import_status(self.taxonomy)
         log = import_export_api.get_last_import_log(self.taxonomy)
-        assert status == TagImportTaskState.SUCCESS.value
+        assert status == TagImportTaskState.SUCCESS
         assert "Starting to load data from file" in log
         assert "Load data finished" in log
         assert "Starting plan actions" in log
