@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import ddt  # type: ignore
+import ddt  # type: ignore[import]
 from django.test import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api

@@ -1,7 +1,7 @@
 """
 Test the tagging base models
 """
-import ddt  # type: ignore
+import ddt  # type: ignore[import]
 from django.contrib.auth import get_user_model
 from django.db.utils import IntegrityError
 from django.test.testcases import TestCase

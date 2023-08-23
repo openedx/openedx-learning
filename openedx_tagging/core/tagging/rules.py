@@ -7,7 +7,7 @@ from typing import Callable, Union
 
 import django.contrib.auth.models
 # typing support in rules depends on https://github.com/dfunckt/django-rules/pull/177
-import rules  # type: ignore
+import rules  # type: ignore[import]
 
 from .models import ObjectTag, Tag, Taxonomy
 

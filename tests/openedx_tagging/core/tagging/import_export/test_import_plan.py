@@ -1,7 +1,7 @@
 """
 Test for import_plan functions
 """
-import ddt  # type: ignore
+import ddt  # type: ignore[import]
 from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging.import_export.actions import CreateTag

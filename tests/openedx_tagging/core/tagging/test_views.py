@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs, urlparse
 
-import ddt  # type: ignore
+import ddt  # type: ignore[import]
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase

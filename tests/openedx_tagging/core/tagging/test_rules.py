@@ -1,6 +1,7 @@
 """
 Tests tagging rules-based permissions
 """
+import ddt  # type: ignore[import]
 from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
 

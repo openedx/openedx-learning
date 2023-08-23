@@ -3,7 +3,7 @@ Tests for actions
 """
 from __future__ import annotations
 
-import ddt  # type: ignore
+import ddt  # type: ignore[import]
 from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging.import_export.actions import (

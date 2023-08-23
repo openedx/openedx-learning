@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from io import BytesIO
 
-import ddt  # type: ignore
+import ddt  # type: ignore[import]
 from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging.import_export.exceptions import TagParserError
@@ -28,7 +28,7 @@ class TestParser(TestCase):
 
     def test_parser_not_found(self) -> None:
         with self.assertRaises(ValueError):
-            get_parser(None)  # type: ignore
+            get_parser(None)  # type: ignore[arg-type]
 
     def test_not_implemented(self) -> None:
         taxonomy = Taxonomy(name="Test taxonomy")
