@@ -2,20 +2,21 @@
 Tests for actions
 """
 from __future__ import annotations
-import ddt  # type: ignore
 
+import ddt  # type: ignore
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import Tag
-from openedx_tagging.core.tagging.import_export.import_plan import TagItem
 from openedx_tagging.core.tagging.import_export.actions import (
-    ImportAction,
     CreateTag,
-    UpdateParentTag,
-    RenameTag,
     DeleteTag,
+    ImportAction,
+    RenameTag,
+    UpdateParentTag,
     WithoutChanges,
 )
+from openedx_tagging.core.tagging.import_export.import_plan import TagItem
+from openedx_tagging.core.tagging.models import Tag
+
 from .mixins import TestImportExportMixin
 
 

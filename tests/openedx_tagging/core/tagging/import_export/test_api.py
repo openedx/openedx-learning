@@ -6,14 +6,9 @@ from io import BytesIO
 
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import (
-    TagImportTask,
-    TagImportTaskState,
-    Taxonomy,
-    LanguageTaxonomy,
-)
-from openedx_tagging.core.tagging.import_export import ParserFormat
 import openedx_tagging.core.tagging.import_export.api as import_export_api
+from openedx_tagging.core.tagging.import_export import ParserFormat
+from openedx_tagging.core.tagging.models import LanguageTaxonomy, TagImportTask, TagImportTaskState, Taxonomy
 
 from .mixins import TestImportExportMixin
 

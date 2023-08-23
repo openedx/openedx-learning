@@ -1,8 +1,9 @@
 from datetime import datetime
 from enum import Enum
-from django.db import models
 
-from django.utils.translation import gettext as _, gettext_lazy
+from django.db import models
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 
 from .base import Taxonomy
 

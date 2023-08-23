@@ -2,12 +2,12 @@
 Test for import_plan functions
 """
 import ddt  # type: ignore
-
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.import_export.import_plan import TagItem, TagImportPlan
 from openedx_tagging.core.tagging.import_export.actions import CreateTag
 from openedx_tagging.core.tagging.import_export.exceptions import TagImportError
+from openedx_tagging.core.tagging.import_export.import_plan import TagImportPlan, TagItem
+
 from .test_actions import TestImportActionMixin
 
 

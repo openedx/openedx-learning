@@ -5,6 +5,7 @@ Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
 from __future__ import annotations
+
 import codecs
 from datetime import datetime
 
@@ -12,6 +13,7 @@ from django.core.files.base import ContentFile
 from django.db.transaction import atomic
 
 from openedx_learning.lib.fields import create_hash_digest
+
 from .models import RawContent, TextContent
 
 

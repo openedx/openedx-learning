@@ -11,17 +11,15 @@ Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
 from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
 
 from django.db.models import Q
 from django.db.transaction import atomic
 
-from ..publishing.api import (
-    create_publishable_entity,
-    create_publishable_entity_version,
-)
-from .models import ComponentVersionRawContent, Component, ComponentVersion
+from ..publishing.api import create_publishable_entity, create_publishable_entity_version
+from .models import Component, ComponentVersion, ComponentVersionRawContent
 
 
 def create_component(

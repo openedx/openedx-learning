@@ -2,6 +2,7 @@
 Exceptions for tag import/export actions
 """
 from __future__ import annotations
+
 import typing
 
 from django.utils.translation import gettext as _

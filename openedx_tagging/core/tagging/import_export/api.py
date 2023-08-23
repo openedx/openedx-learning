@@ -43,13 +43,14 @@ TODO for next versions
 - Join/reduce actions on TagImportPlan. See `generate_actions()`
 """
 from __future__ import annotations
+
 from io import BytesIO
 
 from django.utils.translation import gettext_lazy as _
 
-from ..models import Taxonomy, TagImportTask, TagImportTaskState
-from .parsers import get_parser, ParserFormat
+from ..models import TagImportTask, TagImportTaskState, Taxonomy
 from .import_plan import TagImportPlan, TagImportTask
+from .parsers import ParserFormat, get_parser
 
 
 def import_tags(

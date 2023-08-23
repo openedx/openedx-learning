@@ -4,7 +4,7 @@ API Serializers for taxonomies
 
 from rest_framework import serializers
 
-from openedx_tagging.core.tagging.models import Taxonomy, ObjectTag
+from openedx_tagging.core.tagging.models import ObjectTag, Taxonomy
 
 
 class TaxonomyListQueryParamsSerializer(serializers.Serializer):

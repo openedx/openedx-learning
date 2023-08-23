@@ -2,16 +2,12 @@
 Django admin for publishing models
 """
 from __future__ import annotations
+
 from django.contrib import admin
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
-from .models import (
-    LearningPackage,
-    PublishableEntity,
-    Published,
-    PublishLog,
-    PublishLogRecord,
-)
+
+from .models import LearningPackage, PublishableEntity, Published, PublishLog, PublishLogRecord
 
 
 @admin.register(LearningPackage)

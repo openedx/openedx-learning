@@ -4,9 +4,9 @@ Tests of the Publishing app's python API
 from datetime import datetime, timezone
 from uuid import UUID
 
+import pytest
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-import pytest
 
 from openedx_learning.core.publishing.api import create_learning_package
 

@@ -9,6 +9,7 @@ We have helpers to make case sensitivity consistent across backends. MySQL is
 case-insensitive by default, SQLite and Postgres are case-sensitive.
 """
 from __future__ import annotations
+
 import hashlib
 import uuid
 

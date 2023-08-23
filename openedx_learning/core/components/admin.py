@@ -8,11 +8,8 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeText
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
-from .models import (
-    Component,
-    ComponentVersion,
-    ComponentVersionRawContent,
-)
+
+from .models import Component, ComponentVersion, ComponentVersionRawContent
 
 
 class ComponentVersionInline(admin.TabularInline):

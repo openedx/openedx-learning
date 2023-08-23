@@ -3,16 +3,16 @@ These models are the most basic pieces of content we support. Think of them as
 the simplest building blocks to store data with. They need to be composed into
 more intelligent data models to be useful.
 """
-from django.db import models
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.validators import MaxValueValidator
+from django.db import models
 
 from openedx_learning.lib.fields import (
+    MultiCollationTextField,
     case_insensitive_char_field,
     hash_field,
     manual_date_time_field,
-    MultiCollationTextField,
 )
 
 from ..publishing.models import LearningPackage

@@ -5,9 +5,8 @@ Views for the media server application
 """
 from pathlib import Path
 
-from django.http import FileResponse
-from django.http import Http404
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
+from django.http import FileResponse, Http404
 
 from openedx_learning.core.components.api import get_component_version_content
 

@@ -1,15 +1,3 @@
-from .base import (
-    Tag,
-    Taxonomy,
-    ObjectTag,
-)
-from .system_defined import (
-    ModelObjectTag,
-    ModelSystemDefinedTaxonomy,
-    UserSystemDefinedTaxonomy,
-    LanguageTaxonomy,
-)
-from .import_export import (
-    TagImportTask,
-    TagImportTaskState,
-)
+from .base import ObjectTag, Tag, Taxonomy
+from .import_export import TagImportTask, TagImportTaskState
+from .system_defined import LanguageTaxonomy, ModelObjectTag, ModelSystemDefinedTaxonomy, UserSystemDefinedTaxonomy

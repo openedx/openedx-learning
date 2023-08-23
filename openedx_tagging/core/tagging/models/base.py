@@ -1,17 +1,15 @@
 """ Tagging app base data models """
 from __future__ import annotations
+
 import logging
 from typing import List
-from typing_extensions import Self  # Until we upgrade to python 3.11
 
 from django.db import models
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
+from typing_extensions import Self  # Until we upgrade to python 3.11
 
-from openedx_learning.lib.fields import (
-    MultiCollationTextField,
-    case_insensitive_char_field,
-)
+from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
 
 log = logging.getLogger(__name__)
 

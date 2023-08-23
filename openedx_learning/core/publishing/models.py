@@ -11,10 +11,9 @@ support the logic for the management of the publishing process:
 * Managing reverts.
 * Storing and querying publish history.
 """
-from django.db import models
-
 from django.conf import settings
 from django.core.validators import MinValueValidator
+from django.db import models
 
 from openedx_learning.lib.fields import (
     case_insensitive_char_field,

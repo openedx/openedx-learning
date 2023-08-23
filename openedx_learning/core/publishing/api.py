@@ -5,25 +5,22 @@ Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
 from __future__ import annotations
+
 from datetime import datetime, timezone
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, QuerySet
 from django.db.transaction import atomic
 
+from .model_mixins import PublishableContentModelRegistry, PublishableEntityMixin, PublishableEntityVersionMixin
 from .models import (
     Draft,
     LearningPackage,
+    PublishableEntity,
+    PublishableEntityVersion,
     Published,
     PublishLog,
     PublishLogRecord,
-    PublishableEntity,
-    PublishableEntityVersion,
-)
-from .model_mixins import (
-    PublishableContentModelRegistry,
-    PublishableEntityMixin,
-    PublishableEntityVersionMixin,
 )
 
 

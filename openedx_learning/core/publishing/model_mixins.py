@@ -2,13 +2,14 @@
 Helper mixin classes for content apps that want to use the publishing app.
 """
 from __future__ import annotations
+
 from functools import cached_property
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import models
 from django.db.models.query import QuerySet
 
-from .models import Draft, Published, PublishableEntity, PublishableEntityVersion
+from .models import Draft, PublishableEntity, PublishableEntityVersion, Published
 
 
 class PublishableEntityMixin(models.Model):

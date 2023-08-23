@@ -2,23 +2,17 @@
 Test for import/export parsers
 """
 from __future__ import annotations
-from io import BytesIO
-import json
-import ddt  # type: ignore
 
+import json
+from io import BytesIO
+
+import ddt  # type: ignore
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.import_export.parsers import (
-    Parser,
-    get_parser,
-    JSONParser,
-    CSVParser,
-    ParserFormat,
-)
-from openedx_tagging.core.tagging.import_export.exceptions import (
-    TagParserError,
-)
+from openedx_tagging.core.tagging.import_export.exceptions import TagParserError
+from openedx_tagging.core.tagging.import_export.parsers import CSVParser, JSONParser, Parser, ParserFormat, get_parser
 from openedx_tagging.core.tagging.models import Taxonomy
+
 from .mixins import TestImportExportMixin
 
 

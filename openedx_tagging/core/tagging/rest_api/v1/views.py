@@ -3,21 +3,16 @@ Tagging API Views
 """
 from django.http import Http404
 from rest_framework import status
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
-from ...api import (
-    create_taxonomy,
-    get_taxonomy,
-    get_taxonomies,
-    get_object_tags,
-)
-from .permissions import TaxonomyObjectPermissions, ObjectTagObjectPermissions
+from ...api import create_taxonomy, get_object_tags, get_taxonomies, get_taxonomy
+from .permissions import ObjectTagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
-    TaxonomyListQueryParamsSerializer,
-    TaxonomySerializer,
     ObjectTagListQueryParamsSerializer,
     ObjectTagSerializer,
+    TaxonomyListQueryParamsSerializer,
+    TaxonomySerializer,
 )
 
 

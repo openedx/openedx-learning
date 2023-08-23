@@ -1,15 +1,10 @@
 """ Test the tagging base models """
 import ddt  # type: ignore
 from django.contrib.auth import get_user_model
-from django.test.testcases import TestCase
 from django.db.utils import IntegrityError
+from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import (
-    ObjectTag,
-    Tag,
-    Taxonomy,
-    LanguageTaxonomy,
-)
+from openedx_tagging.core.tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
 
 
 def get_tag(value):

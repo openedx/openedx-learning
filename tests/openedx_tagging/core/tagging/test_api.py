@@ -1,5 +1,6 @@
 """ Test the tagging APIs """
 from __future__ import annotations
+
 from typing import Any
 
 import ddt  # type: ignore

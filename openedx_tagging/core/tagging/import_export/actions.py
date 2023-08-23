@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from django.utils.translation import gettext as _
 
-from ..models import Taxonomy, Tag
-from .exceptions import ImportActionError, ImportActionConflict
+from ..models import Tag, Taxonomy
+from .exceptions import ImportActionConflict, ImportActionError
 
 
 class ImportAction:

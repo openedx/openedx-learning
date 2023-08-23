@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.import_export import ParserFormat
 import openedx_tagging.core.tagging.import_export.tasks as import_export_tasks
+from openedx_tagging.core.tagging.import_export import ParserFormat
 
 from .mixins import TestImportExportMixin
 

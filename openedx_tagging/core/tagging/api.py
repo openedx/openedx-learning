@@ -11,6 +11,7 @@ Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
 from __future__ import annotations
+
 from typing import Iterator
 
 from django.db.models import QuerySet

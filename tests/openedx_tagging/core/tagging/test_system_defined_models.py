@@ -1,14 +1,10 @@
 """ Test the tagging system-defined taxonomy models """
 import ddt  # type: ignore
-
+from django.contrib.auth import get_user_model
 from django.db.utils import IntegrityError
 from django.test import TestCase, override_settings
-from django.contrib.auth import get_user_model
 
-from openedx_tagging.core.tagging.models import (
-    ObjectTag,
-    Tag,
-)
+from openedx_tagging.core.tagging.models import ObjectTag, Tag
 from openedx_tagging.core.tagging.models.system_defined import (
     ModelObjectTag,
     ModelSystemDefinedTaxonomy,
@@ -16,7 +12,6 @@ from openedx_tagging.core.tagging.models.system_defined import (
 )
 
 from .test_models import TestTagTaxonomyMixin
-
 
 test_languages = [
     ("en", "English"),

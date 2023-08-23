@@ -1,6 +1,7 @@
 """Django rules-based permissions for tagging"""
 from __future__ import annotations
-from typing import Union, Callable
+
+from typing import Callable, Union
 
 import django.contrib.auth.models
 # typing support in rules depends on https://github.com/dfunckt/django-rules/pull/177

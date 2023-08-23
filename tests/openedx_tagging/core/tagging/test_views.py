@@ -2,14 +2,15 @@
 Tests tagging rest api views
 """
 from __future__ import annotations
-from urllib.parse import urlparse, parse_qs
+
+from urllib.parse import parse_qs, urlparse
 
 import ddt  # type: ignore
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from openedx_tagging.core.tagging.models import Taxonomy, ObjectTag, Tag
+from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
 
 User = get_user_model()

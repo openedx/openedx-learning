@@ -2,23 +2,18 @@
 Parsers to import and export tags
 """
 from __future__ import annotations
+
 import csv
 import json
 from enum import Enum
-from io import BytesIO, TextIOWrapper, StringIO
+from io import BytesIO, StringIO, TextIOWrapper
 
 from django.utils.translation import gettext as _
 
-from .import_plan import TagItem
-from .exceptions import (
-    TagParserError,
-    InvalidFormat,
-    FieldJSONError,
-    EmptyJSONField,
-    EmptyCSVField,
-)
-from ..models import Taxonomy
 from ..api import get_tags
+from ..models import Taxonomy
+from .exceptions import EmptyCSVField, EmptyJSONField, FieldJSONError, InvalidFormat, TagParserError
+from .import_plan import TagItem
 
 
 class ParserFormat(Enum):

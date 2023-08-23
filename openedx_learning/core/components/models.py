@@ -17,19 +17,14 @@ by convention, but it's possible we might want to have special identifiers
 later.
 """
 from __future__ import annotations
+
 from django.db import models
 
-from openedx_learning.lib.fields import (
-    case_sensitive_char_field,
-    immutable_uuid_field,
-    key_field,
-)
-from ..publishing.models import LearningPackage
-from ..publishing.model_mixins import (
-    PublishableEntityMixin,
-    PublishableEntityVersionMixin,
-)
+from openedx_learning.lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
+
 from ..contents.models import RawContent
+from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
+from ..publishing.models import LearningPackage
 
 
 class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]

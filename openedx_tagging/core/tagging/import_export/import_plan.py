@@ -6,14 +6,8 @@ from __future__ import annotations
 from attrs import define
 from django.db import transaction
 
-from ..models import Taxonomy, TagImportTask
-from .actions import (
-    DeleteTag,
-    ImportAction,
-    UpdateParentTag,
-    WithoutChanges,
-    available_actions,
-)
+from ..models import TagImportTask, Taxonomy
+from .actions import DeleteTag, ImportAction, UpdateParentTag, WithoutChanges, available_actions
 from .exceptions import ImportActionError
 
 

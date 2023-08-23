@@ -1,5 +1,6 @@
 """ Tagging app system-defined taxonomies data models """
 from __future__ import annotations
+
 import logging
 from typing import Any, List, Type, Union
 
@@ -9,7 +10,7 @@ from django.db import models
 
 from openedx_tagging.core.tagging.models.base import ObjectTag
 
-from .base import Tag, Taxonomy, ObjectTag
+from .base import ObjectTag, Tag, Taxonomy
 
 log = logging.getLogger(__name__)
 
