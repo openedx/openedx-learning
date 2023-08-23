@@ -97,32 +97,39 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
 
 
 def get_object_tags(
-    object_id: str, taxonomy: Taxonomy | None = None, valid_only=True
-) -> Iterator[ObjectTag]:
+    object_id: str,
+    taxonomy_id: str | None = None
+) -> QuerySet:
     """
-    Generates a list of object tags for a given object.
+    Returns a Queryset of object tags for a given object.
 
     Pass taxonomy to limit the returned object_tags to a specific taxonomy.
-
-    Pass valid_only=False when displaying tags to content authors, so they can see invalid tags too.
-    Invalid tags will (probably) be hidden from learners.
     """
     ObjectTagClass = ObjectTag
-    if taxonomy:
+    extra_filters = {}
+    if taxonomy_id is not None:
+        taxonomy = Taxonomy.objects.get(pk=taxonomy_id)
         ObjectTagClass = taxonomy.object_tag_class
+        extra_filters["taxonomy_id"] = taxonomy_id
     tags = (
-        ObjectTagClass.objects.filter(
-            object_id=object_id,
-        )
+        ObjectTagClass.objects.filter(object_id=object_id, **extra_filters)
         .select_related("tag", "taxonomy")
         .order_by("id")
     )
-    if taxonomy:
-        tags = tags.filter(taxonomy=taxonomy)
+    return tags
 
-    for object_tag in tags:
-        if not valid_only or object_tag.is_valid():
-            yield object_tag
+
+def delete_object_tags(object_id: str):
+    """
+    Delete all ObjectTag entries for a given object.
+    """
+    tags = (
+        ObjectTag.objects.filter(
+            object_id=object_id,
+        )
+    )
+
+    tags.delete()
 
 
 def tag_object(

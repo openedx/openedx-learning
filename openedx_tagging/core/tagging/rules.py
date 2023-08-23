@@ -75,7 +75,7 @@ rules.add_perm("oel_tagging.delete_tag", is_taxonomy_admin)
 rules.add_perm("oel_tagging.view_tag", rules.always_allow)
 
 # ObjectTag
-rules.add_perm("oel_tagging.add_object_tag", can_change_object_tag)
-rules.add_perm("oel_tagging.change_object_tag", can_change_object_tag)
-rules.add_perm("oel_tagging.delete_object_tag", is_taxonomy_admin)
-rules.add_perm("oel_tagging.view_object_tag", rules.always_allow)
+rules.add_perm("oel_tagging.add_objecttag", can_change_object_tag)
+rules.add_perm("oel_tagging.change_objecttag", can_change_object_tag)
+rules.add_perm("oel_tagging.delete_objecttag", is_taxonomy_admin)
+rules.add_perm("oel_tagging.view_objecttag", rules.always_allow)

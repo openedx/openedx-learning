@@ -259,7 +259,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert (
                 list(
                     tagging_api.get_object_tags(
-                        taxonomy=self.taxonomy,
+                        taxonomy_id=self.taxonomy.pk,
                         object_id="biology101",
                     )
                 )
@@ -273,6 +273,21 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.taxonomy == self.taxonomy
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
+
+        # Delete the tags
+        tagging_api.delete_object_tags("biology101")
+
+        # Ensure the tags were deleted
+        assert (
+            len(
+                list(
+                    tagging_api.get_object_tags(
+                        object_id="biology101",
+                    )
+                )
+            )
+            == 0
+        )
 
     def test_tag_object_free_text(self):
         self.taxonomy.allow_free_text = True
@@ -340,7 +355,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert (
                 list(
                     tagging_api.get_object_tags(
-                        taxonomy=self.language_taxonomy,
+                        taxonomy_id=self.language_taxonomy.pk,
                         object_id="biology101",
                     )
                 )
@@ -386,7 +401,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert (
                 list(
                     tagging_api.get_object_tags(
-                        taxonomy=self.user_taxonomy,
+                        taxonomy_id=self.user_taxonomy.pk,
                         object_id="biology101",
                     )
                 )
@@ -430,28 +445,9 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert list(
             tagging_api.get_object_tags(
                 object_id="abc",
-                valid_only=False,
             )
         ) == [
             alpha,
-            beta,
-        ]
-
-        # No valid tags for this object yet..
-        assert not list(
-            tagging_api.get_object_tags(
-                object_id="abc",
-                valid_only=True,
-            )
-        )
-        beta.tag = self.mammalia
-        beta.save()
-        assert list(
-            tagging_api.get_object_tags(
-                object_id="abc",
-                valid_only=True,
-            )
-        ) == [
             beta,
         ]
 
@@ -459,8 +455,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert list(
             tagging_api.get_object_tags(
                 object_id="abc",
-                taxonomy=self.taxonomy,
-                valid_only=False,
+                taxonomy_id=self.taxonomy.pk,
             )
         ) == [
             beta,
