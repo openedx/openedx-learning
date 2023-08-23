@@ -104,7 +104,7 @@ class RawContent(models.Model):  # type: ignore[django-manager-missing]
     # models that offer better latency guarantees.
     file = models.FileField(
         null=True,
-        storage=settings.OPENEDX_LEARNING.get("STORAGE", default_storage),
+        storage=settings.OPENEDX_LEARNING.get("STORAGE", default_storage),  # type: ignore
     )
 
     class Meta:
