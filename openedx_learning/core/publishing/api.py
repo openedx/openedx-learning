@@ -26,6 +26,7 @@ from .model_mixins import (
     PublishableEntityVersionMixin,
 )
 
+
 def create_learning_package(
     key: str, title: str, created: datetime | None = None
 ) -> LearningPackage:

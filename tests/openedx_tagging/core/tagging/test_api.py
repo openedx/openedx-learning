@@ -471,11 +471,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ]
 
     @ddt.data(
-        ("ChA", ["Archaea", "Archaebacteria"], [2,5]),
-        ("ar", ['Archaea', 'Archaebacteria', 'Arthropoda'], [2,5,14]),
-        ("aE", ['Archaea', 'Archaebacteria', 'Plantae'], [2,5,10]),
+        ("ChA", ["Archaea", "Archaebacteria"], [2, 5]),
+        ("ar", ['Archaea', 'Archaebacteria', 'Arthropoda'], [2, 5, 14]),
+        ("aE", ['Archaea', 'Archaebacteria', 'Plantae'], [2, 5, 10]),
         (
-            "a", 
+            "a",
             [
                 'Animalia',
                 'Archaea',
@@ -486,7 +486,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 'Placozoa',
                 'Plantae',
             ],
-            [9,2,5,14,16,13,19,10],
+            [9, 2, 5, 14, 16, 13, 19, 10],
         ),
     )
     @ddt.unpack

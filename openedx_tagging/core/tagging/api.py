@@ -152,7 +152,7 @@ def tag_object(
 def autocomplete_tags(
     taxonomy: Taxonomy,
     search: str,
-    object_id: str | None= None,
+    object_id: str | None = None,
     object_tags_only=True,
 ) -> QuerySet:
     """

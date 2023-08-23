@@ -39,8 +39,8 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         ]}
         self.invalid_parser_file = BytesIO(json.dumps(json_data).encode())
         json_data = {"tags": [
-            {'id': 'tag_31', 'value': 'Tag 31',},
-            {'id': 'tag_31', 'value': 'Tag 32',},
+            {'id': 'tag_31', 'value': 'Tag 31'},
+            {'id': 'tag_31', 'value': 'Tag 32'},
         ]}
         self.invalid_plan_file = BytesIO(json.dumps(json_data).encode())
 
@@ -217,4 +217,3 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
                 if tag.parent:
                     assert new_tag.parent
                     assert tag.parent.external_id == new_tag.parent.external_id
-        

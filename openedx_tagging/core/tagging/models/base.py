@@ -270,13 +270,16 @@ class Taxonomy(models.Model):
 
     def get_tags(self, tag_set: models.QuerySet | None = None) -> list[Tag]:
         """
-        Returns a list of all Tags in the current taxonomy, from the root(s) down to TAXONOMY_MAX_DEPTH tags, in tree order.
+        Returns a list of all Tags in the current taxonomy, from the root(s)
+        down to TAXONOMY_MAX_DEPTH tags, in tree order.
 
         Use `tag_set` to do an initial filtering of the tags.
 
-        Annotates each returned Tag with its ``depth`` in the tree (starting at 0).
+        Annotates each returned Tag with its ``depth`` in the tree (starting at
+        0).
 
-        Performance note: may perform as many as TAXONOMY_MAX_DEPTH select queries.
+        Performance note: may perform as many as TAXONOMY_MAX_DEPTH select
+        queries.
         """
         tags: list[Tag] = []
         if self.allow_free_text:
@@ -509,7 +512,8 @@ class ObjectTag(models.Model):
         default=None,
         on_delete=models.SET_NULL,
         help_text=_(
-            "Taxonomy that this object tag belongs to. Used for validating the tag and provides the tag's 'name' if set."
+            "Taxonomy that this object tag belongs to. "
+            "Used for validating the tag and provides the tag's 'name' if set."
         ),
     )
     tag = models.ForeignKey(

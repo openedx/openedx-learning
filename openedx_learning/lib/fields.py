@@ -180,6 +180,6 @@ class MultiCollationTextField(MultiCollationMixin, models.TextField):
 
     We don't ever really want to _sort_ by a TextField, but setting a collation
     forces the compatible charset to be set in MySQL, and that's the part that
-    matters for our purposes. So for example, if you set 
+    matters for our purposes.
     """
     pass  # pylint: disable=unnecessary-pass

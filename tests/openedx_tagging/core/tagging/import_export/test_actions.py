@@ -23,6 +23,8 @@ class TestImportActionMixin(TestImportExportMixin):
     """
     Mixin for import action tests
     """
+    indexed_actions: dict[str, list[ImportAction]]
+
     def setUp(self) -> None:  # Note: we must specify '-> None' to opt in to type checking
         super().setUp()
         self.indexed_actions = {
@@ -243,8 +245,8 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         self.assertEqual(len(errors), expected)
 
     @ddt.data(
-    ('tag_30', 'Tag 30', None),  # No parent
-    ('tag_31', 'Tag 31', 'tag_3'),  # With parent
+        ('tag_30', 'Tag 30', None),  # No parent
+        ('tag_31', 'Tag 31', 'tag_3'),  # With parent
     )
     @ddt.unpack
     def test_execute(self, tag_id: str, value: str, parent_id: str | None):
@@ -312,7 +314,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
         ('tag_2', 'tag_1', False),  # Parent don't change
         ('tag_2', 'tag_3', True),  # Valid
         ('tag_1', None, False),  # Both parent id are None
-        ('tag_1', 'tag_3', True), # Valid
+        ('tag_1', 'tag_3', True),  # Valid
     )
     @ddt.unpack
     def test_applies_for(self, tag_id: str, parent_id: str | None, expected: bool):
