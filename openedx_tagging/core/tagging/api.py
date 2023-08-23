@@ -53,7 +53,7 @@ def get_taxonomy(id: int) -> Taxonomy | None:
     return taxonomy.cast() if taxonomy else None
 
 
-def get_taxonomies(enabled=True) -> QuerySet:
+def get_taxonomies(enabled=True) -> QuerySet[Taxonomy]:
     """
     Returns a queryset containing the enabled taxonomies, sorted by name.
 
@@ -99,7 +99,7 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
 def get_object_tags(
     object_id: str,
     taxonomy_id: str | None = None
-) -> QuerySet:
+) -> QuerySet[ObjectTag]:
     """
     Returns a Queryset of object tags for a given object.
 

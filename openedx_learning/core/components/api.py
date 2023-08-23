@@ -10,6 +10,8 @@ directly, since there might be other related models that you may not know about.
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
+from __future__ import annotations
+from datetime import datetime
 from pathlib import Path
 
 from django.db.models import Q
@@ -23,12 +25,12 @@ from .models import ComponentVersionRawContent, Component, ComponentVersion
 
 
 def create_component(
-    learning_package_id,
-    namespace,
-    type,  # pylint: disable=redefined-builtin
-    local_key,
-    created,
-    created_by,
+    learning_package_id: int,
+    namespace: str,
+    type: str,  # pylint: disable=redefined-builtin
+    local_key: str,
+    created: datetime,
+    created_by: int | None,
 ):
     """Create a new Component (an entity like a Problem or Video)"""
     key = f"{namespace}:{type}@{local_key}"
@@ -64,13 +66,13 @@ def create_component_version(component_pk, version_num, title, created, created_
 
 
 def create_component_and_version(
-    learning_package_id,
-    namespace,
-    type,  # pylint: disable=redefined-builtin
-    local_key,
-    title,
-    created,
-    created_by,
+    learning_package_id: int,
+    namespace: str,
+    type: str,  # pylint: disable=redefined-builtin
+    local_key: str,
+    title: str,
+    created: datetime,
+    created_by: int | None,
 ):
     """Create a Component and associated ComponentVersion atomically"""
     with atomic():
@@ -121,7 +123,7 @@ def add_content_to_component_version(
     raw_content_id,
     key,
     learner_downloadable=False,
-):
+) -> ComponentVersionRawContent:
     """Add a RawContent to the given ComponentVersion"""
     cvrc, _created = ComponentVersionRawContent.objects.get_or_create(
         component_version=component_version,

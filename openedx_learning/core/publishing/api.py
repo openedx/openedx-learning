@@ -26,7 +26,6 @@ from .model_mixins import (
     PublishableEntityVersionMixin,
 )
 
-
 def create_learning_package(
     key: str, title: str, created: datetime | None = None
 ) -> LearningPackage:
@@ -54,7 +53,13 @@ def create_learning_package(
     return package
 
 
-def create_publishable_entity(learning_package_id, key, created, created_by):
+def create_publishable_entity(
+    learning_package_id: int,
+    key: str,
+    created: datetime,
+    # User ID who created this
+    created_by: int | None,
+) -> PublishableEntity:
     """
     Create a PublishableEntity.
 
@@ -65,13 +70,17 @@ def create_publishable_entity(learning_package_id, key, created, created_by):
         learning_package_id=learning_package_id,
         key=key,
         created=created,
-        created_by=created_by,
+        created_by_id=created_by,
     )
 
 
 def create_publishable_entity_version(
-    entity_id, version_num, title, created, created_by
-):
+    entity_id: int,
+    version_num: int,
+    title: str,
+    created: datetime,
+    created_by: int | None,
+) -> PublishableEntityVersion:
     """
     Create a PublishableEntityVersion.
 
@@ -101,7 +110,10 @@ def learning_package_exists(key: str) -> bool:
 
 
 def publish_all_drafts(
-    learning_package_id, message="", published_at=None, published_by=None
+    learning_package_id: int,
+    message="",
+    published_at: datetime | None = None,
+    published_by: int | None = None
 ):
     """
     Publish everything that is a Draft and is not already published.
