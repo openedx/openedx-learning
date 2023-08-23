@@ -48,7 +48,13 @@ def create_component(
     return component
 
 
-def create_component_version(component_pk, version_num, title, created, created_by):
+def create_component_version(
+    component_pk: int,
+    version_num: int,
+    title: str,
+    created: datetime,
+    created_by: int | None,
+) -> ComponentVersion:
     """Create a new ComponentVersion"""
     with atomic():
         publishable_entity_version = create_publishable_entity_version(
@@ -89,7 +95,7 @@ def create_component_and_version(
         return (component, component_version)
 
 
-def get_component_by_pk(component_pk):
+def get_component_by_pk(component_pk: int) -> Component:
     return Component.objects.get(pk=component_pk)
 
 
@@ -119,9 +125,9 @@ def get_component_version_content(
 
 
 def add_content_to_component_version(
-    component_version,
-    raw_content_id,
-    key,
+    component_version: ComponentVersion,
+    raw_content_id: int,
+    key: str,
     learner_downloadable=False,
 ) -> ComponentVersionRawContent:
     """Add a RawContent to the given ComponentVersion"""
