@@ -205,7 +205,7 @@
   pk: 1
   fields:
     name: Life on Earth
-    description: null
+    description: A taxonomy about life on earth.
     enabled: true
     required: false
     allow_multiple: false
@@ -234,7 +234,7 @@
   pk: 5
   fields:
     name: Import Taxonomy Test
-    description: null
+    description: ""
     enabled: true
     required: false
     allow_multiple: false
