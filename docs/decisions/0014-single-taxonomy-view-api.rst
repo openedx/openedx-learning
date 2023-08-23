@@ -14,10 +14,21 @@ It was taken into account that a taxonomy can have a large number of tags and ar
 
 For the decisions, the following use cases were taken into account:
 
-- List of root tags that can be expanded to show children tags.
-    - This list can be sorted alphabetically: A-Z (default) and Z-A
-- The user can expand all root tags.
-- The user can search for tags.
+- As a taxonomy administrator, I want to see all the tags available for use with a closed taxonomy,
+  so that I can see the taxonomy's structure in the management interface.
+     - As a taxonomy administrator, I want to see the available tags as a lits of root tags
+       that can be expanded to show children tags.
+     - As a taxonomy administrator, I want to sort the list of root tags alphabetically: A-Z (default) and Z-A.
+     - As a taxonomy administrator, I want to expand all root tags to see all children tags.
+     - As a taxonomy administrator, I want to search for tags, so I can find root and children tags more easily.
+- (TODO: discuss with UX) As a course author, when I am editing the tags of a component, I want to see all the tags available
+  from a particular taxonomy that I can use.
+
+Excluded use cases:
+
+- As a content author, when searching/filtering a course/library, I want to see which tags are applied to the content
+  and use them to refine my search. - This is excluded from this API's use case because this is automatically handled
+  by elasticsearch/opensearch.
 
 
 Decision
