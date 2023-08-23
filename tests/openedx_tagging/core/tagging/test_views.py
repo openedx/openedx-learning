@@ -26,7 +26,7 @@ def check_taxonomy(
     data: dict,
     id,  # pylint: disable=redefined-builtin
     name,
-    description=None,
+    description="",
     enabled=True,
     required=False,
     allow_multiple=False,
@@ -154,7 +154,7 @@ class TestTaxonomyViewSet(APITestCase):
     )
     @ddt.unpack
     def test_detail_taxonomy(self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int):
-        create_data = {**{"name": "taxonomy detail test"}, **taxonomy_data}
+        create_data = {"name": "taxonomy detail test", **taxonomy_data}
         taxonomy = Taxonomy.objects.create(**create_data)
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
