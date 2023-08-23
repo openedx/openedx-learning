@@ -3,7 +3,7 @@ Test for import/export parsers
 """
 from io import BytesIO
 import json
-import ddt
+import ddt  # type: ignore
 
 from django.test.testcases import TestCase
 

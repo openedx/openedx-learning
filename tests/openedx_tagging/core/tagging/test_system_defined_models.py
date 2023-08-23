@@ -1,8 +1,8 @@
 """ Test the tagging system-defined taxonomy models """
-import ddt
+import ddt  # type: ignore
 
 from django.db.utils import IntegrityError
-from django.test.testcases import TestCase, override_settings
+from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 
 from openedx_tagging.core.tagging.models import (

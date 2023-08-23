@@ -1,6 +1,6 @@
 """Tests tagging rules-based permissions"""
 
-import ddt
+import ddt  # type: ignore
 from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
 

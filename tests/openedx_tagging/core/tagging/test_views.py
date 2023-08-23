@@ -1,9 +1,10 @@
 """
 Tests tagging rest api views
 """
+from __future__ import annotations
 from urllib.parse import urlparse, parse_qs
 
-import ddt
+import ddt  # type: ignore
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -21,7 +22,7 @@ OBJECT_TAGS_RETRIEVE_URL = '/tagging/rest_api/v1/object_tags/{object_id}/'
 
 
 def check_taxonomy(
-    data,
+    data: dict,
     id,  # pylint: disable=redefined-builtin
     name,
     description=None,
@@ -47,7 +48,7 @@ def check_taxonomy(
 @ddt.ddt
 class TestTaxonomyViewSet(APITestCase):
     """Test of the Taxonomy REST API"""
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
 
         self.user = User.objects.create(
@@ -75,7 +76,7 @@ class TestTaxonomyViewSet(APITestCase):
         ("invalid", status.HTTP_400_BAD_REQUEST, None),
     )
     @ddt.unpack
-    def test_list_taxonomy_queryparams(self, enabled, expected_status, expected_count):
+    def test_list_taxonomy_queryparams(self, enabled, expected_status: int, expected_count: int | None):
         Taxonomy.objects.create(name="Taxonomy enabled 1", enabled=True).save()
         Taxonomy.objects.create(name="Taxonomy enabled 2", enabled=True).save()
         Taxonomy.objects.create(name="Taxonomy disabled", enabled=False).save()
@@ -100,7 +101,7 @@ class TestTaxonomyViewSet(APITestCase):
         ("staff", status.HTTP_200_OK),
     )
     @ddt.unpack
-    def test_list_taxonomy(self, user_attr, expected_status):
+    def test_list_taxonomy(self, user_attr: str | None, expected_status: int):
         url = TAXONOMY_LIST_URL
 
         if user_attr:
@@ -110,7 +111,7 @@ class TestTaxonomyViewSet(APITestCase):
         response = self.client.get(url)
         assert response.status_code == expected_status
 
-    def test_list_taxonomy_pagination(self):
+    def test_list_taxonomy_pagination(self) -> None:
         url = TAXONOMY_LIST_URL
         Taxonomy.objects.create(name="T1", enabled=True).save()
         Taxonomy.objects.create(name="T2", enabled=True).save()
@@ -128,10 +129,10 @@ class TestTaxonomyViewSet(APITestCase):
         self.assertEqual(set(t["name"] for t in response.data["results"]), set(("T2", "T3")))
         parsed_url = urlparse(response.data["next"])
 
-        next_page = parse_qs(parsed_url.query).get("page", [None])[0]
+        next_page = parse_qs(parsed_url.query).get("page", [""])[0]
         assert next_page == "3"
 
-    def test_list_invalid_page(self):
+    def test_list_invalid_page(self) -> None:
         url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.user)
@@ -151,7 +152,7 @@ class TestTaxonomyViewSet(APITestCase):
         ("staff", {"enabled": False}, status.HTTP_200_OK),
     )
     @ddt.unpack
-    def test_detail_taxonomy(self, user_attr, taxonomy_data, expected_status):
+    def test_detail_taxonomy(self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int):
         create_data = {**{"name": "taxonomy detail test"}, **taxonomy_data}
         taxonomy = Taxonomy.objects.create(**create_data)
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
@@ -166,7 +167,7 @@ class TestTaxonomyViewSet(APITestCase):
         if status.is_success(expected_status):
             check_taxonomy(response.data, taxonomy.pk, **create_data)
 
-    def test_detail_taxonomy_404(self):
+    def test_detail_taxonomy_404(self) -> None:
         url = TAXONOMY_DETAIL_URL.format(pk=123123)
 
         self.client.force_authenticate(user=self.staff)
@@ -179,7 +180,7 @@ class TestTaxonomyViewSet(APITestCase):
         ("staff", status.HTTP_201_CREATED),
     )
     @ddt.unpack
-    def test_create_taxonomy(self, user_attr, expected_status):
+    def test_create_taxonomy(self, user_attr: str | None, expected_status: int):
         url = TAXONOMY_LIST_URL
 
         create_data = {
@@ -210,7 +211,7 @@ class TestTaxonomyViewSet(APITestCase):
         {"name": "Error taxonomy 2", "required": "Invalid value"},
         {"name": "Error taxonomy 3", "enabled": "Invalid value"},
     )
-    def test_create_taxonomy_error(self, create_data):
+    def test_create_taxonomy_error(self, create_data: dict[str, str]):
         url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.staff)

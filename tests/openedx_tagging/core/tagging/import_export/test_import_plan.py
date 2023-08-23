@@ -1,7 +1,7 @@
 """
 Test for import_plan functions
 """
-import ddt
+import ddt  # type: ignore
 
 from django.test.testcases import TestCase
 

@@ -13,7 +13,7 @@ from openedx_learning.core.publishing.api import create_learning_package
 
 class CreateLearningPackageTestCase(TestCase):
     """Test creating a LearningPackage"""
-    def test_normal(self):
+    def test_normal(self) -> None:  # Note: we must specify '-> None' to opt in to type checking
         """Normal flow with no errors."""
         key = "my_key"
         title = "My Excellent Title with Emoji 🔥"
@@ -31,7 +31,7 @@ class CreateLearningPackageTestCase(TestCase):
         # Having an actual value here means we were persisted to the database.
         assert isinstance(package.id, int)
 
-    def test_auto_datetime(self):
+    def test_auto_datetime(self) -> None:
         """Auto-generated created datetime works as expected."""
         key = "my_key"
         title = "My Excellent Title with Emoji 🔥"
@@ -51,7 +51,7 @@ class CreateLearningPackageTestCase(TestCase):
         # Having an actual value here means we were persisted to the database.
         assert isinstance(package.id, int)
 
-    def test_non_utc_time(self):
+    def test_non_utc_time(self) -> None:
         """Require UTC timezone for created."""
         with pytest.raises(ValidationError) as excinfo:
             create_learning_package("my_key", "A Title", datetime(2023, 4, 2))
@@ -61,7 +61,7 @@ class CreateLearningPackageTestCase(TestCase):
         assert "created" in message_dict
         assert "updated" in message_dict
 
-    def test_already_exists(self):
+    def test_already_exists(self) -> None:
         """Raises ValidationError for duplicate keys."""
         create_learning_package("my_key", "Original")
         with pytest.raises(ValidationError) as excinfo:
