@@ -172,7 +172,6 @@ class MultiCollationCharField(MultiCollationMixin, models.CharField):
     PostgreSQL. Even MariaDB is starting to diverge from MySQL in terms of what
     collations are supported.
     """
-    pass  # pylint: disable=unnecessary-pass
 
 
 class MultiCollationTextField(MultiCollationMixin, models.TextField):
@@ -183,4 +182,3 @@ class MultiCollationTextField(MultiCollationMixin, models.TextField):
     forces the compatible charset to be set in MySQL, and that's the part that
     matters for our purposes.
     """
-    pass  # pylint: disable=unnecessary-pass

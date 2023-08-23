@@ -1,6 +1,6 @@
-"""Tests tagging rules-based permissions"""
-
-import ddt  # type: ignore
+"""
+Tests tagging rules-based permissions
+"""
 from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
 
@@ -46,7 +46,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.change_taxonomy",
     )
     def test_add_change_taxonomy(self, perm):
-        """Taxonomy administrators can create or modify any Taxonomy"""
+        """
+        Taxonomy administrators can create or modify any Taxonomy
+        """
         assert self.superuser.has_perm(perm)
         assert self.superuser.has_perm(perm, self.taxonomy)
         assert self.staff.has_perm(perm)
@@ -60,7 +62,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.delete_taxonomy",
     )
     def test_system_taxonomy(self, perm):
-        """Taxonomy administrators cannot edit system taxonomies"""
+        """
+        Taxonomy administrators cannot edit system taxonomies
+        """
         assert self.superuser.has_perm(perm, self.system_taxonomy)
         assert not self.staff.has_perm(perm, self.system_taxonomy)
         assert not self.learner.has_perm(perm, self.system_taxonomy)
@@ -70,7 +74,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         False,
     )
     def test_delete_taxonomy(self, enabled):
-        """Taxonomy administrators can delete any Taxonomy"""
+        """
+        Taxonomy administrators can delete any Taxonomy
+        """
         self.taxonomy.enabled = enabled
         assert self.superuser.has_perm("oel_tagging.delete_taxonomy")
         assert self.superuser.has_perm("oel_tagging.delete_taxonomy", self.taxonomy)
@@ -84,7 +90,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         False,
     )
     def test_view_taxonomy_enabled(self, enabled):
-        """Anyone can see enabled taxonomies, but learners cannot see disabled taxonomies"""
+        """
+        Anyone can see enabled taxonomies, but learners cannot see disabled taxonomies
+        """
         self.taxonomy.enabled = enabled
         assert self.superuser.has_perm("oel_tagging.view_taxonomy")
         assert self.superuser.has_perm("oel_tagging.view_taxonomy", self.taxonomy)
@@ -102,7 +110,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.change_tag",
     )
     def test_add_change_tag(self, perm):
-        """Taxonomy administrators can modify tags on non-free-text taxonomies"""
+        """
+        Taxonomy administrators can modify tags on non-free-text taxonomies
+        """
         assert self.superuser.has_perm(perm)
         assert self.superuser.has_perm(perm, self.bacteria)
         assert self.staff.has_perm(perm)
@@ -115,7 +125,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.change_tag",
     )
     def test_tag_free_text_taxonomy(self, perm):
-        """Taxonomy administrators cannot modify tags on a free-text Taxonomy"""
+        """
+        Taxonomy administrators cannot modify tags on a free-text Taxonomy
+        """
         self.taxonomy.allow_free_text = True
         self.taxonomy.save()
         assert self.superuser.has_perm(perm, self.bacteria)
@@ -128,7 +140,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.delete_tag",
     )
     def test_tag_no_taxonomy(self, perm):
-        """Taxonomy administrators can modify any Tag, even those with no Taxonnmy."""
+        """
+        Taxonomy administrators can modify any Tag, even those with no Taxonnmy.
+        """
         tag = Tag()
         assert self.superuser.has_perm(perm, tag)
         assert self.staff.has_perm(perm, tag)
@@ -139,7 +153,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         False,
     )
     def test_delete_tag(self, allow_free_text):
-        """Taxonomy administrators can delete any Tag, even those associated with a free-text Taxonomy."""
+        """
+        Taxonomy administrators can delete any Tag, even those associated with a free-text Taxonomy.
+        """
         self.taxonomy.allow_free_text = allow_free_text
         self.taxonomy.save()
         assert self.superuser.has_perm("oel_tagging.delete_tag")
@@ -150,7 +166,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         assert not self.learner.has_perm("oel_tagging.delete_tag", self.bacteria)
 
     def test_view_tag(self):
-        """Anyone can view any Tag"""
+        """
+        Anyone can view any Tag
+        """
         assert self.superuser.has_perm("oel_tagging.view_tag")
         assert self.superuser.has_perm("oel_tagging.view_tag", self.bacteria)
         assert self.staff.has_perm("oel_tagging.view_tag")
@@ -165,7 +183,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.change_objecttag",
     )
     def test_add_change_object_tag(self, perm):
-        """Taxonomy administrators can create/edit an ObjectTag with an enabled Taxonomy"""
+        """
+        Taxonomy administrators can create/edit an ObjectTag with an enabled Taxonomy
+        """
         assert self.superuser.has_perm(perm)
         assert self.superuser.has_perm(perm, self.object_tag)
         assert self.staff.has_perm(perm)
@@ -178,7 +198,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.change_objecttag",
     )
     def test_object_tag_disabled_taxonomy(self, perm):
-        """Taxonomy administrators cannot create/edit an ObjectTag with a disabled Taxonomy"""
+        """
+        Taxonomy administrators cannot create/edit an ObjectTag with a disabled Taxonomy
+        """
         self.taxonomy.enabled = False
         self.taxonomy.save()
         assert self.superuser.has_perm(perm, self.object_tag)
@@ -190,7 +212,9 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         False,
     )
     def test_delete_objecttag(self, enabled):
-        """Taxonomy administrators can delete any ObjectTag, even those associated with a disabled Taxonomy."""
+        """
+        Taxonomy administrators can delete any ObjectTag, even those associated with a disabled Taxonomy.
+        """
         self.taxonomy.enabled = enabled
         self.taxonomy.save()
         assert self.superuser.has_perm("oel_tagging.delete_objecttag")
@@ -208,14 +232,18 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.delete_objecttag",
     )
     def test_object_tag_no_taxonomy(self, perm):
-        """Taxonomy administrators can modify an ObjectTag with no Taxonomy"""
+        """
+        Taxonomy administrators can modify an ObjectTag with no Taxonomy
+        """
         object_tag = ObjectTag()
         assert self.superuser.has_perm(perm, object_tag)
         assert self.staff.has_perm(perm, object_tag)
         assert not self.learner.has_perm(perm, object_tag)
 
     def test_view_object_tag(self):
-        """Anyone can view any ObjectTag"""
+        """
+        Anyone can view any ObjectTag
+        """
         assert self.superuser.has_perm("oel_tagging.view_objecttag")
         assert self.superuser.has_perm("oel_tagging.view_objecttag", self.object_tag)
         assert self.staff.has_perm("oel_tagging.view_objecttag")

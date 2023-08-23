@@ -13,7 +13,9 @@ from .models import Component, ComponentVersion, ComponentVersionRawContent
 
 
 class ComponentVersionInline(admin.TabularInline):
-    """Inline admin view of ComponentVersion from the Component Admin"""
+    """
+    Inline admin view of ComponentVersion from the Component Admin
+    """
     model = ComponentVersion
     fields = ["version_num", "created", "title", "format_uuid"]
     readonly_fields = ["version_num", "created", "title", "uuid", "format_uuid"]
@@ -30,7 +32,9 @@ class ComponentVersionInline(admin.TabularInline):
 
 @admin.register(Component)
 class ComponentAdmin(ReadOnlyModelAdmin):
-    """Django admin configuration for Component"""
+    """
+    Django admin configuration for Component
+    """
     list_display = ("key", "uuid", "namespace", "type", "created")
     readonly_fields = [
         "learning_package",
@@ -46,7 +50,9 @@ class ComponentAdmin(ReadOnlyModelAdmin):
 
 
 class RawContentInline(admin.TabularInline):
-    """Django admin configuration for RawContent"""
+    """
+    Django admin configuration for RawContent
+    """
     model = ComponentVersion.raw_contents.through
 
     def get_queryset(self, request):
@@ -94,7 +100,9 @@ class RawContentInline(admin.TabularInline):
 
 @admin.register(ComponentVersion)
 class ComponentVersionAdmin(ReadOnlyModelAdmin):
-    """Django admin configuration for ComponentVersion"""
+    """
+    Django admin configuration for ComponentVersion
+    """
     readonly_fields = [
         "component",
         "uuid",
@@ -123,7 +131,9 @@ class ComponentVersionAdmin(ReadOnlyModelAdmin):
 
 
 def link_for_cvc(cvc_obj: ComponentVersionRawContent) -> str:
-    """Get the download URL for the given ComponentVersionRawContent instance"""
+    """
+    Get the download URL for the given ComponentVersionRawContent instance
+    """
     return "/media_server/component_asset/{}/{}/{}/{}".format(
         cvc_obj.raw_content.learning_package.key,
         cvc_obj.component_version.component.key,

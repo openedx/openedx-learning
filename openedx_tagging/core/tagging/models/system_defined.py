@@ -1,8 +1,10 @@
-""" Tagging app system-defined taxonomies data models """
+"""
+Tagging app system-defined taxonomies data models
+"""
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Type, Union
+from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -50,7 +52,7 @@ class ModelObjectTag(ObjectTag):
         super().__init__(*args, **kwargs)
 
     @property
-    def tag_class_model(self) -> Type:
+    def tag_class_model(self) -> type[models.Model]:
         """
         Subclasses must implement this method to return the Django.model
         class referenced by these object tags.
@@ -66,7 +68,7 @@ class ModelObjectTag(ObjectTag):
         """
         return "pk"
 
-    def get_instance(self) -> Union[models.Model, None]:
+    def get_instance(self) -> models.Model | None:
         """
         Returns the instance of tag_class_model associated with this object tag, or None if not found.
         """

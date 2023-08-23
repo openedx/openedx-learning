@@ -1,4 +1,6 @@
-""" Test the tagging system-defined taxonomy models """
+"""
+Test the tagging system-defined taxonomy models
+"""
 from __future__ import annotations
 
 import ddt  # type: ignore

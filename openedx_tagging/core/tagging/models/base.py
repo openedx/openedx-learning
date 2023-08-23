@@ -1,4 +1,6 @@
-""" Tagging app base data models """
+"""
+Tagging app base data models
+"""
 from __future__ import annotations
 
 import logging
@@ -338,7 +340,7 @@ class Taxonomy(models.Model):
 
     def _check_taxonomy(
         self,
-        object_tag: "ObjectTag",
+        object_tag: ObjectTag,
     ) -> bool:
         """
         Returns True if the given object tag is valid for the current Taxonomy.
@@ -346,7 +348,7 @@ class Taxonomy(models.Model):
         Subclasses can override this method to perform their own taxonomy validation checks.
         """
         # Must be linked to this taxonomy
-        return bool(object_tag.taxonomy_id) and object_tag.taxonomy_id == self.id
+        return (object_tag.taxonomy_id is not None) and object_tag.taxonomy_id == self.id
 
     def _check_tag(
         self,

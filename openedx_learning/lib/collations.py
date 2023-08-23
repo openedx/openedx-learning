@@ -77,7 +77,6 @@ class MultiCollationMixin:
 
         This can be removed when we move to Django 4.2.
         """
-        pass  # pylint: disable=unnecessary-pass
 
     def db_parameters(self, connection):
         """

@@ -34,7 +34,9 @@ def check_taxonomy(
     system_defined=False,
     visible_to_authors=True,
 ):
-    """Helper method to check expected fields of a Taxonomy"""
+    """
+    Helper method to check expected fields of a Taxonomy
+    """
     assert data["id"] == id
     assert data["name"] == name
     assert data["description"] == description
@@ -48,7 +50,9 @@ def check_taxonomy(
 
 @ddt.ddt
 class TestTaxonomyViewSet(APITestCase):
-    """Test of the Taxonomy REST API"""
+    """
+    Test of the Taxonomy REST API
+    """
     def setUp(self) -> None:
         super().setUp()
 

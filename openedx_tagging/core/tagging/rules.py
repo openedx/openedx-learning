@@ -1,4 +1,6 @@
-"""Django rules-based permissions for tagging"""
+"""
+Django rules-based permissions for tagging
+"""
 from __future__ import annotations
 
 from typing import Callable, Union

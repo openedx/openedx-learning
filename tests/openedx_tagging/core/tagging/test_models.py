@@ -1,4 +1,6 @@
-""" Test the tagging base models """
+"""
+Test the tagging base models
+"""
 import ddt  # type: ignore
 from django.contrib.auth import get_user_model
 from django.db.utils import IntegrityError

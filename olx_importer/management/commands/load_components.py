@@ -46,7 +46,9 @@ class Command(BaseCommand):
         self.init_known_types()
 
     def init_known_types(self):
-        """Intialize mimetypes with some custom mappings we want to use."""
+        """
+        Intialize mimetypes with some custom mappings we want to use.
+        """
         # This is our own hacky video transcripts related format.
         mimetypes.add_type("application/vnd.openedx.srt+json", ".sjson")
 

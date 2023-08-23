@@ -11,7 +11,7 @@ class ComponentViewSet(viewsets.ViewSet):
     Example endpoints for a Components REST API. Not implemented.
     """
     def list(self, request):
-        items = Component.objects.all()  # pylint: disable=unused-variable
+        _items = Component.objects.all()
         raise NotImplementedError
 
     def retrieve(self, request, pk=None):
