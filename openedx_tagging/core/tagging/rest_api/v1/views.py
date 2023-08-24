@@ -1,12 +1,15 @@
 """
 Tagging API Views
 """
+from django.db import models
 from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from ...api import create_taxonomy, get_object_tags, get_taxonomies, get_taxonomy
+from ...models import Taxonomy
 from .permissions import ObjectTagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
@@ -128,12 +131,12 @@ class TaxonomyView(ModelViewSet):
     serializer_class = TaxonomySerializer
     permission_classes = [TaxonomyObjectPermissions]
 
-    def get_object(self):
+    def get_object(self) -> Taxonomy:
         """
         Return the requested taxonomy object, if the user has appropriate
         permissions.
         """
-        pk = self.kwargs.get("pk")
+        pk = int(self.kwargs["pk"])
         taxonomy = get_taxonomy(pk)
         if not taxonomy:
             raise Http404("Taxonomy not found")
@@ -141,7 +144,7 @@ class TaxonomyView(ModelViewSet):
 
         return taxonomy
 
-    def get_queryset(self):
+    def get_queryset(self) -> models.QuerySet:
         """
         Return a list of taxonomies.
 
@@ -157,7 +160,7 @@ class TaxonomyView(ModelViewSet):
 
         return get_taxonomies(enabled)
 
-    def perform_create(self, serializer):
+    def perform_create(self, serializer) -> None:
         """
         Create a new taxonomy.
         """
@@ -205,13 +208,13 @@ class ObjectTagView(ReadOnlyModelViewSet):
     permission_classes = [ObjectTagObjectPermissions]
     lookup_field = "object_id"
 
-    def get_queryset(self):
+    def get_queryset(self) -> models.QuerySet:
         """
         Return a queryset of object tags for a given object.
 
         If a taxonomy is passed in, object tags are limited to that taxonomy.
         """
-        object_id = self.kwargs.get("object_id")
+        object_id: str = self.kwargs["object_id"]
         query_params = ObjectTagListQueryParamsSerializer(
             data=self.request.query_params.dict()
         )
