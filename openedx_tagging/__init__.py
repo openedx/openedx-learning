@@ -1,1 +1,3 @@
-"""Open edX Tagging app."""
+"""
+Open edX Tagging app.
+"""

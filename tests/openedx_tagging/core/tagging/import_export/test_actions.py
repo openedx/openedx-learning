@@ -1,20 +1,22 @@
 """
 Tests for actions
 """
-import ddt
+from __future__ import annotations
 
+import ddt  # type: ignore[import]
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.models import Tag
-from openedx_tagging.core.tagging.import_export.import_plan import TagItem
 from openedx_tagging.core.tagging.import_export.actions import (
-    ImportAction,
     CreateTag,
-    UpdateParentTag,
-    RenameTag,
     DeleteTag,
+    ImportAction,
+    RenameTag,
+    UpdateParentTag,
     WithoutChanges,
 )
+from openedx_tagging.core.tagging.import_export.import_plan import TagItem
+from openedx_tagging.core.tagging.models import Tag
+
 from .mixins import TestImportExportMixin
 
 
@@ -22,7 +24,9 @@ class TestImportActionMixin(TestImportExportMixin):
     """
     Mixin for import action tests
     """
-    def setUp(self):
+    indexed_actions: dict[str, list[ImportAction]]
+
+    def setUp(self) -> None:  # Note: we must specify '-> None' to opt in to type checking
         super().setUp()
         self.indexed_actions = {
             'create': [
@@ -65,7 +69,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
         with self.assertRaises(NotImplementedError):
             action.execute()
 
-    def test_str(self):
+    def test_str(self) -> None:
         expected = "Action import_action (index=100,id=tag_1)"
         action = ImportAction(
             taxonomy=self.taxonomy,
@@ -103,14 +107,14 @@ class TestImportAction(TestImportActionMixin, TestCase):
         ('tag_100', False),
     )
     @ddt.unpack
-    def test_validate_parent(self, parent_id, expected):
+    def test_validate_parent(self, parent_id: str, expected: bool):
         action = ImportAction(
             self.taxonomy,
             TagItem(
                 id='tag_110',
                 value='_',
                 parent_id=parent_id,
-                index=100
+                index=100,
             ),
             index=100,
         )
@@ -152,7 +156,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
         ('Tag 20', None)
     )
     @ddt.unpack
-    def test_validate_value(self, value, expected):
+    def test_validate_value(self, value: str, expected: str | None):
         action = ImportAction(
             self.taxonomy,
             TagItem(
@@ -180,7 +184,7 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         ('tag_100', True),
     )
     @ddt.unpack
-    def test_applies_for(self, tag_id, expected):
+    def test_applies_for(self, tag_id: str, expected: bool):
         result = CreateTag.applies_for(
             self.taxonomy,
             TagItem(
@@ -196,7 +200,7 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         ('tag_100', True),
     )
     @ddt.unpack
-    def test_validate_id(self, tag_id, expected):
+    def test_validate_id(self, tag_id: str, expected: bool):
         action = CreateTag(
             taxonomy=self.taxonomy,
             tag=TagItem(
@@ -227,7 +231,7 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         ('tag_20', "Tag 20", 'tag_1', 0),  # Valid
     )
     @ddt.unpack
-    def test_validate(self, tag_id, tag_value, parent_id, expected):
+    def test_validate(self, tag_id: str, tag_value: str, parent_id: str | None, expected: bool):
         action = CreateTag(
             taxonomy=self.taxonomy,
             tag=TagItem(
@@ -242,11 +246,11 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         self.assertEqual(len(errors), expected)
 
     @ddt.data(
-    ('tag_30', 'Tag 30', None),  # No parent
-    ('tag_31', 'Tag 31', 'tag_3'),  # With parent
+        ('tag_30', 'Tag 30', None),  # No parent
+        ('tag_31', 'Tag 31', 'tag_3'),  # With parent
     )
     @ddt.unpack
-    def test_execute(self, tag_id, value, parent_id):
+    def test_execute(self, tag_id: str, value: str, parent_id: str | None):
         tag = TagItem(
             id=tag_id,
             value=value,
@@ -260,12 +264,12 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         with self.assertRaises(Tag.DoesNotExist):
             self.taxonomy.tag_set.get(external_id=tag_id)
         action.execute()
-        tag = self.taxonomy.tag_set.get(external_id=tag_id)
-        assert tag.value == value
+        tag_obj = self.taxonomy.tag_set.get(external_id=tag_id)
+        assert tag_obj.value == value
         if parent_id:
-            assert tag.parent.external_id == parent_id
+            assert tag_obj.parent.external_id == parent_id
         else:
-            assert tag.parent is None
+            assert tag_obj.parent is None
 
 
 @ddt.ddt
@@ -293,7 +297,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
         ),
     )
     @ddt.unpack
-    def test_str(self, tag_id, parent_id, expected):
+    def test_str(self, tag_id: str, parent_id: str, expected: str):
         tag_item = TagItem(
             id=tag_id,
             value='_',
@@ -311,10 +315,10 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
         ('tag_2', 'tag_1', False),  # Parent don't change
         ('tag_2', 'tag_3', True),  # Valid
         ('tag_1', None, False),  # Both parent id are None
-        ('tag_1', 'tag_3', True), # Valid
+        ('tag_1', 'tag_3', True),  # Valid
     )
     @ddt.unpack
-    def test_applies_for(self, tag_id, parent_id, expected):
+    def test_applies_for(self, tag_id: str, parent_id: str | None, expected: bool):
         result = UpdateParentTag.applies_for(
             taxonomy=self.taxonomy,
             tag=TagItem(
@@ -332,7 +336,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
         ('tag_2', 'tag_10', 0),  # Valid
     )
     @ddt.unpack
-    def test_validate(self, tag_id, parent_id, expected):
+    def test_validate(self, tag_id: str, parent_id: str | None, expected: int):
         action = UpdateParentTag(
             taxonomy=self.taxonomy,
             tag=TagItem(
@@ -385,7 +389,7 @@ class TestRenameTag(TestImportActionMixin, TestCase):
         ('tag_1', 'Tag 1 v2', True),  # Valid
     )
     @ddt.unpack
-    def test_applies_for(self, tag_id, value, expected):
+    def test_applies_for(self, tag_id: str, value: str, expected: bool):
         result = RenameTag.applies_for(
             taxonomy=self.taxonomy,
             tag=TagItem(
@@ -403,7 +407,7 @@ class TestRenameTag(TestImportActionMixin, TestCase):
         ('Tag 12', 0),  # Valid
     )
     @ddt.unpack
-    def test_validate(self, value, expected):
+    def test_validate(self, value: str, expected: int):
         action = RenameTag(
             taxonomy=self.taxonomy,
             tag=TagItem(
@@ -416,7 +420,7 @@ class TestRenameTag(TestImportActionMixin, TestCase):
         errors = action.validate(self.indexed_actions)
         self.assertEqual(len(errors), expected)
 
-    def test_execute(self):
+    def test_execute(self) -> None:
         tag_id = 'tag_1'
         value = 'Tag 1 V2'
         tag_item = TagItem(
@@ -440,10 +444,10 @@ class TestDeleteTag(TestImportActionMixin, TestCase):
     Test for 'delete' action
     """
 
-    def test_applies_for(self):
+    def test_applies_for(self) -> None:
         assert not DeleteTag.applies_for(self.taxonomy, None)
 
-    def test_validate(self):
+    def test_validate(self) -> None:
         action = DeleteTag(
             taxonomy=self.taxonomy,
             tag=TagItem(
@@ -455,7 +459,7 @@ class TestDeleteTag(TestImportActionMixin, TestCase):
         )
         assert not action.validate(self.indexed_actions)
 
-    def test_execute(self):
+    def test_execute(self) -> None:
         tag_id = 'tag_3'
         tag_item = TagItem(
             id=tag_id,
@@ -475,7 +479,7 @@ class TestWithoutChanges(TestImportActionMixin, TestCase):
     """
     Test for 'without_changes' action
     """
-    def test_applies_for(self):
+    def test_applies_for(self) -> None:
         result = WithoutChanges.applies_for(
             self.taxonomy,
             tag=TagItem(
@@ -486,7 +490,7 @@ class TestWithoutChanges(TestImportActionMixin, TestCase):
         )
         self.assertFalse(result)
 
-    def test_validate(self):
+    def test_validate(self) -> None:
         action = WithoutChanges(
             taxonomy=self.taxonomy,
             tag=TagItem(

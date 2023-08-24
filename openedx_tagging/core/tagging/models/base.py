@@ -1,15 +1,17 @@
-""" Tagging app base data models """
+"""
+Tagging app base data models
+"""
+from __future__ import annotations
+
 import logging
-from typing import List, Type, Union
+from typing import List
 
 from django.db import models
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
+from typing_extensions import Self  # Until we upgrade to python 3.11
 
-from openedx_learning.lib.fields import (
-    MultiCollationTextField,
-    case_insensitive_char_field,
-)
+from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
 
 log = logging.getLogger(__name__)
 
@@ -95,7 +97,7 @@ class Tag(models.Model):
         Performance note: may perform as many as TAXONOMY_MAX_DEPTH select queries.
         """
         lineage: Lineage = []
-        tag = self
+        tag: Tag | None = self
         depth = TAXONOMY_MAX_DEPTH
         while tag and depth > 0:
             lineage.insert(0, tag.value)
@@ -119,7 +121,6 @@ class Taxonomy(models.Model):
         ),
     )
     description = MultiCollationTextField(
-        null=True,
         blank=True,
         help_text=_(
             "Provides extra information for the user when applying tags from this taxonomy to an object."
@@ -187,7 +188,7 @@ class Taxonomy(models.Model):
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
 
     @property
-    def object_tag_class(self) -> Type:
+    def object_tag_class(self) -> type[ObjectTag]:
         """
         Returns the ObjectTag subclass associated with this taxonomy, which is ObjectTag by default.
 
@@ -196,7 +197,7 @@ class Taxonomy(models.Model):
         return ObjectTag
 
     @property
-    def taxonomy_class(self) -> Type:
+    def taxonomy_class(self) -> type[Taxonomy] | None:
         """
         Returns the Taxonomy subclass associated with this instance, or None if none supplied.
 
@@ -206,16 +207,8 @@ class Taxonomy(models.Model):
             return import_string(self._taxonomy_class)
         return None
 
-    @property
-    def system_defined(self) -> bool:
-        """
-        Indicates that tags and metadata for this taxonomy are maintained by the system;
-        taxonomy admins will not be permitted to modify them.
-        """
-        return False
-
     @taxonomy_class.setter
-    def taxonomy_class(self, taxonomy_class: Union[Type, None]):
+    def taxonomy_class(self, taxonomy_class: type[Taxonomy] | None):
         """
         Assigns the given taxonomy_class's module path.class to the field.
 
@@ -233,6 +226,14 @@ class Taxonomy(models.Model):
             )
         else:
             self._taxonomy_class = None
+
+    @property
+    def system_defined(self) -> bool:
+        """
+        Indicates that tags and metadata for this taxonomy are maintained by the system;
+        taxonomy admins will not be permitted to modify them.
+        """
+        return False
 
     def cast(self):
         """
@@ -252,7 +253,7 @@ class Taxonomy(models.Model):
 
         return self
 
-    def copy(self, taxonomy: "Taxonomy") -> "Taxonomy":
+    def copy(self, taxonomy: Taxonomy) -> Taxonomy:
         """
         Copy the fields from the given Taxonomy into the current instance.
         """
@@ -267,22 +268,25 @@ class Taxonomy(models.Model):
         self._taxonomy_class = taxonomy._taxonomy_class
         return self
 
-    def get_tags(self, tag_set: models.QuerySet = None) -> List[Tag]:
+    def get_tags(self, tag_set: models.QuerySet | None = None) -> list[Tag]:
         """
-        Returns a list of all Tags in the current taxonomy, from the root(s) down to TAXONOMY_MAX_DEPTH tags, in tree order.
+        Returns a list of all Tags in the current taxonomy, from the root(s)
+        down to TAXONOMY_MAX_DEPTH tags, in tree order.
 
         Use `tag_set` to do an initial filtering of the tags.
 
-        Annotates each returned Tag with its ``depth`` in the tree (starting at 0).
+        Annotates each returned Tag with its ``depth`` in the tree (starting at
+        0).
 
-        Performance note: may perform as many as TAXONOMY_MAX_DEPTH select queries.
+        Performance note: may perform as many as TAXONOMY_MAX_DEPTH select
+        queries.
         """
-        tags = []
+        tags: list[Tag] = []
         if self.allow_free_text:
             return tags
 
         if tag_set is None:
-            tag_set = self.tag_set
+            tag_set = self.tag_set.all()
 
         parents = None
         for depth in range(TAXONOMY_MAX_DEPTH):
@@ -336,7 +340,7 @@ class Taxonomy(models.Model):
 
     def _check_taxonomy(
         self,
-        object_tag: "ObjectTag",
+        object_tag: ObjectTag,
     ) -> bool:
         """
         Returns True if the given object tag is valid for the current Taxonomy.
@@ -344,11 +348,11 @@ class Taxonomy(models.Model):
         Subclasses can override this method to perform their own taxonomy validation checks.
         """
         # Must be linked to this taxonomy
-        return object_tag.taxonomy_id and object_tag.taxonomy_id == self.id
+        return (object_tag.taxonomy_id is not None) and object_tag.taxonomy_id == self.id
 
     def _check_tag(
         self,
-        object_tag: "ObjectTag",
+        object_tag: ObjectTag,
     ) -> bool:
         """
         Returns True if the given object tag's value is valid for the current Taxonomy.
@@ -360,11 +364,11 @@ class Taxonomy(models.Model):
             return bool(object_tag.value)
 
         # Closed taxonomies need an associated tag in this taxonomy
-        return object_tag.tag_id and object_tag.tag.taxonomy_id == self.id
+        return (object_tag.tag is not None) and object_tag.tag.taxonomy_id == self.id
 
     def _check_object(
         self,
-        object_tag: "ObjectTag",
+        object_tag: ObjectTag,
     ) -> bool:
         """
         Returns True if the given object tag's object is valid for the current Taxonomy.
@@ -375,9 +379,9 @@ class Taxonomy(models.Model):
 
     def tag_object(
         self,
-        tags: List,
+        tags: list[str],
         object_id: str,
-    ) -> List["ObjectTag"]:
+    ) -> list[ObjectTag]:
         """
         Replaces the existing ObjectTag entries for the current taxonomy + object_id with the given list of tags.
         If self.allows_free_text, then the list should be a list of tag values.
@@ -433,7 +437,7 @@ class Taxonomy(models.Model):
     def autocomplete_tags(
         self,
         search: str,
-        object_id: str = None,
+        object_id: str | None = None,
     ) -> models.QuerySet:
         """
         Provides auto-complete suggestions by matching the `search` string against existing
@@ -456,11 +460,11 @@ class Taxonomy(models.Model):
           search the suggestions on a list of available tags.
         """
         # Fetch tags that the object already has to exclude them from the result
-        excluded_tags = []
+        excluded_tags: list[str] = []
         if object_id:
-            excluded_tags = self.objecttag_set.filter(object_id=object_id).values_list(
+            excluded_tags = list(self.objecttag_set.filter(object_id=object_id).values_list(
                 "_value", flat=True
-            )
+            ))
         return (
             # Fetch object tags from this taxonomy whose value contains the search
             self.objecttag_set.filter(_value__icontains=search)
@@ -508,7 +512,8 @@ class ObjectTag(models.Model):
         default=None,
         on_delete=models.SET_NULL,
         help_text=_(
-            "Taxonomy that this object tag belongs to. Used for validating the tag and provides the tag's 'name' if set."
+            "Taxonomy that this object tag belongs to. "
+            "Used for validating the tag and provides the tag's 'name' if set."
         ),
     )
     tag = models.ForeignKey(
@@ -565,7 +570,7 @@ class ObjectTag(models.Model):
         If taxonomy is set, then returns its name.
         Otherwise, returns the cached _name field.
         """
-        return self.taxonomy.name if self.taxonomy_id else self._name
+        return self.taxonomy.name if self.taxonomy else self._name
 
     @name.setter
     def name(self, name: str):
@@ -582,7 +587,7 @@ class ObjectTag(models.Model):
         If tag is set, then returns its value.
         Otherwise, returns the cached _value field.
         """
-        return self.tag.value if self.tag_id else self._value
+        return self.tag.value if self.tag else self._value
 
     @value.setter
     def value(self, value: str):
@@ -599,7 +604,7 @@ class ObjectTag(models.Model):
         If tag is set, then returns its id.
         Otherwise, returns the cached _value field.
         """
-        return self.tag.id if self.tag_id else self._value
+        return self.tag.id if self.tag else self._value
 
     @tag_ref.setter
     def tag_ref(self, tag_ref: str):
@@ -610,7 +615,7 @@ class ObjectTag(models.Model):
         """
         self.value = tag_ref
 
-        if self.taxonomy_id:
+        if self.taxonomy:
             try:
                 self.tag = self.taxonomy.tag_set.get(pk=tag_ref)
                 self.value = self.tag.value
@@ -625,7 +630,7 @@ class ObjectTag(models.Model):
 
         A valid ObjectTag must be linked to a Taxonomy, and be a valid tag in that taxonomy.
         """
-        return self.taxonomy_id and self.taxonomy.validate_object_tag(self)
+        return self.taxonomy.validate_object_tag(self) if self.taxonomy else False
 
     def get_lineage(self) -> Lineage:
         """
@@ -634,7 +639,7 @@ class ObjectTag(models.Model):
         If linked to a Tag, returns its lineage.
         Otherwise, returns an array containing its value string.
         """
-        return self.tag.get_lineage() if self.tag_id else [self._value]
+        return self.tag.get_lineage() if self.tag else [self._value]
 
     def resync(self) -> bool:
         """
@@ -652,7 +657,7 @@ class ObjectTag(models.Model):
         # Locate an enabled taxonomy matching _name, and maybe a tag matching _value
         if not self.taxonomy_id:
             # Use the linked tag's taxonomy if there is one.
-            if self.tag_id:
+            if self.tag:
                 self.taxonomy_id = self.tag.taxonomy_id
                 changed = True
             else:
@@ -679,7 +684,7 @@ class ObjectTag(models.Model):
                         self.tag = None
 
         # Sync the stored _name with the taxonomy.name
-        if self.taxonomy_id and self._name != self.taxonomy.name:
+        if self.taxonomy and self._name != self.taxonomy.name:
             self.name = self.taxonomy.name
             changed = True
 
@@ -698,13 +703,13 @@ class ObjectTag(models.Model):
         return changed
 
     @classmethod
-    def cast(cls, object_tag: "ObjectTag") -> "ObjectTag":
+    def cast(cls, object_tag: ObjectTag) -> Self:
         """
         Returns a cls instance with the same properties as the given ObjectTag.
         """
         return cls().copy(object_tag)
 
-    def copy(self, object_tag: "ObjectTag") -> "ObjectTag":
+    def copy(self, object_tag: ObjectTag) -> Self:
         """
         Copy the fields from the given ObjectTag into the current instance.
         """

@@ -42,13 +42,15 @@ TODO for next versions
   (ex. server crash)
 - Join/reduce actions on TagImportPlan. See `generate_actions()`
 """
+from __future__ import annotations
+
 from io import BytesIO
 
 from django.utils.translation import gettext_lazy as _
 
-from ..models import Taxonomy, TagImportTask, TagImportTaskState
-from .parsers import get_parser, ParserFormat
+from ..models import TagImportTask, TagImportTaskState, Taxonomy
 from .import_plan import TagImportPlan, TagImportTask
+from .parsers import ParserFormat, get_parser
 
 
 def import_tags(
@@ -124,7 +126,9 @@ def get_last_import_status(taxonomy: Taxonomy) -> TagImportTaskState:
     Get status of the last import task of the given taxonomy
     """
     task = _get_last_import_task(taxonomy)
-    return task.status
+    if task is None:
+        raise ValueError("No import task was created yet.")
+    return TagImportTaskState(task.status)
 
 
 def get_last_import_log(taxonomy: Taxonomy) -> str:
@@ -132,6 +136,8 @@ def get_last_import_log(taxonomy: Taxonomy) -> str:
     Get logs of the last import task of the given taxonomy
     """
     task = _get_last_import_task(taxonomy)
+    if task is None:
+        raise ValueError("No import task was created yet.")
     return task.log
 
 
@@ -158,7 +164,7 @@ def _check_unique_import_task(taxonomy: Taxonomy) -> bool:
     )
 
 
-def _get_last_import_task(taxonomy: Taxonomy) -> TagImportTask:
+def _get_last_import_task(taxonomy: Taxonomy) -> TagImportTask | None:
     """
     Get the last import task for the given taxonomy
     """

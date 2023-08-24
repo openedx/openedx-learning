@@ -10,7 +10,9 @@ No permissions/rules are enforced by these methods -- these must be enforced in 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
-from typing import Iterator, List, Type, Union
+from __future__ import annotations
+
+from typing import Iterator
 
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
@@ -20,19 +22,19 @@ from .models import ObjectTag, Tag, Taxonomy
 
 def create_taxonomy(
     name: str,
-    description: str = None,
+    description: str | None = None,
     enabled=True,
     required=False,
     allow_multiple=False,
     allow_free_text=False,
-    taxonomy_class: Type = None,
+    taxonomy_class: type[Taxonomy] | None = None,
 ) -> Taxonomy:
     """
     Creates, saves, and returns a new Taxonomy with the given attributes.
     """
     taxonomy = Taxonomy(
         name=name,
-        description=description,
+        description=description or "",
         enabled=enabled,
         required=required,
         allow_multiple=allow_multiple,
@@ -44,7 +46,7 @@ def create_taxonomy(
     return taxonomy.cast()
 
 
-def get_taxonomy(id: int) -> Union[Taxonomy, None]:
+def get_taxonomy(id: int) -> Taxonomy | None:
     """
     Returns a Taxonomy cast to the appropriate subclass which has the given ID.
     """
@@ -52,7 +54,7 @@ def get_taxonomy(id: int) -> Union[Taxonomy, None]:
     return taxonomy.cast() if taxonomy else None
 
 
-def get_taxonomies(enabled=True) -> QuerySet:
+def get_taxonomies(enabled=True) -> QuerySet[Taxonomy]:
     """
     Returns a queryset containing the enabled taxonomies, sorted by name.
 
@@ -68,7 +70,7 @@ def get_taxonomies(enabled=True) -> QuerySet:
     return queryset.filter(enabled=enabled)
 
 
-def get_tags(taxonomy: Taxonomy) -> List[Tag]:
+def get_tags(taxonomy: Taxonomy) -> list[Tag]:
     """
     Returns a list of predefined tags for the given taxonomy.
 
@@ -77,7 +79,7 @@ def get_tags(taxonomy: Taxonomy) -> List[Tag]:
     return taxonomy.cast().get_tags()
 
 
-def resync_object_tags(object_tags: QuerySet = None) -> int:
+def resync_object_tags(object_tags: QuerySet | None = None) -> int:
     """
     Reconciles ObjectTag entries with any changes made to their associated taxonomies and tags.
 
@@ -96,25 +98,25 @@ def resync_object_tags(object_tags: QuerySet = None) -> int:
 
 
 def get_object_tags(
-    object_id: str, taxonomy_id: str = None
-) -> QuerySet:
+    object_id: str,
+    taxonomy_id: str | None = None
+) -> QuerySet[ObjectTag]:
     """
     Returns a Queryset of object tags for a given object.
 
     Pass taxonomy to limit the returned object_tags to a specific taxonomy.
     """
-    taxonomy = get_taxonomy(taxonomy_id)
-    ObjectTagClass = taxonomy.object_tag_class if taxonomy else ObjectTag
+    ObjectTagClass = ObjectTag
+    extra_filters = {}
+    if taxonomy_id is not None:
+        taxonomy = Taxonomy.objects.get(pk=taxonomy_id)
+        ObjectTagClass = taxonomy.object_tag_class
+        extra_filters["taxonomy_id"] = taxonomy_id
     tags = (
-        ObjectTagClass.objects.filter(
-            object_id=object_id,
-        )
+        ObjectTagClass.objects.filter(object_id=object_id, **extra_filters)
         .select_related("tag", "taxonomy")
         .order_by("id")
     )
-    if taxonomy:
-        tags = tags.filter(taxonomy=taxonomy)
-
     return tags
 
 
@@ -133,9 +135,9 @@ def delete_object_tags(object_id: str):
 
 def tag_object(
     taxonomy: Taxonomy,
-    tags: List,
+    tags: list[str],
     object_id: str,
-) -> List[ObjectTag]:
+) -> list[ObjectTag]:
     """
     Replaces the existing ObjectTag entries for the given taxonomy + object_id with the given list of tags.
 
@@ -151,7 +153,7 @@ def tag_object(
 def autocomplete_tags(
     taxonomy: Taxonomy,
     search: str,
-    object_id: str = None,
+    object_id: str | None = None,
     object_tags_only=True,
 ) -> QuerySet:
     """

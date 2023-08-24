@@ -1,6 +1,7 @@
 """
-
+Django settings for testing and development purposes
 """
+from __future__ import annotations
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / {dir_name} /
@@ -96,7 +97,7 @@ STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
-STATICFILES_DIRS = [
+STATICFILES_DIRS: list[Path] = [
     #     BASE_DIR / 'projects' / 'static'
 ]
 MEDIA_URL = "/media/"

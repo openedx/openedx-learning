@@ -1,3 +1,6 @@
+"""
+Django metadata for the Learning Core REST API app
+"""
 from django.apps import AppConfig
 
 

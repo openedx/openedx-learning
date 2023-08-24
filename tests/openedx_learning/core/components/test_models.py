@@ -1,28 +1,30 @@
+"""
+Tests related to the Component models
+"""
 from datetime import datetime, timezone
 
 from django.test.testcases import TestCase
 
-from openedx_learning.core.publishing.api import (
-    create_learning_package,
-    publish_all_drafts,
-)
 from openedx_learning.core.components.api import create_component_and_version
+from openedx_learning.core.publishing.api import LearningPackage, create_learning_package, publish_all_drafts
 
 
 class TestModelVersioningQueries(TestCase):
     """
     Test that Component/ComponentVersion are registered with the publishing app.
     """
+    learning_package: LearningPackage
+    now: datetime
 
     @classmethod
-    def setUpTestData(cls):
+    def setUpTestData(cls) -> None:  # Note: we must specify '-> None' to opt in to type checking
         cls.learning_package = create_learning_package(
             "components.TestVersioning",
             "Learning Package for Testing Component Versioning",
         )
         cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
 
-    def test_latest_version(self):
+    def test_latest_version(self) -> None:
         component, component_version = create_component_and_version(
             learning_package_id=self.learning_package.id,
             namespace="xblock.v1",

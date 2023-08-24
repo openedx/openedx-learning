@@ -1,16 +1,24 @@
+"""
+Tests of the Publishing app's python API
+"""
 from datetime import datetime, timezone
 from uuid import UUID
 
+import pytest
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-import pytest
 
 from openedx_learning.core.publishing.api import create_learning_package
 
 
 class CreateLearningPackageTestCase(TestCase):
-    def test_normal(self):
-        """Normal flow with no errors."""
+    """
+    Test creating a LearningPackage
+    """
+    def test_normal(self) -> None:  # Note: we must specify '-> None' to opt in to type checking
+        """
+        Normal flow with no errors.
+        """
         key = "my_key"
         title = "My Excellent Title with Emoji 🔥"
         created = datetime(2023, 4, 2, 15, 9, 0, tzinfo=timezone.utc)
@@ -27,8 +35,10 @@ class CreateLearningPackageTestCase(TestCase):
         # Having an actual value here means we were persisted to the database.
         assert isinstance(package.id, int)
 
-    def test_auto_datetime(self):
-        """Auto-generated created datetime works as expected."""
+    def test_auto_datetime(self) -> None:
+        """
+        Auto-generated created datetime works as expected.
+        """
         key = "my_key"
         title = "My Excellent Title with Emoji 🔥"
         package = create_learning_package(key, title)
@@ -47,8 +57,10 @@ class CreateLearningPackageTestCase(TestCase):
         # Having an actual value here means we were persisted to the database.
         assert isinstance(package.id, int)
 
-    def test_non_utc_time(self):
-        """Require UTC timezone for created."""
+    def test_non_utc_time(self) -> None:
+        """
+        Require UTC timezone for created.
+        """
         with pytest.raises(ValidationError) as excinfo:
             create_learning_package("my_key", "A Title", datetime(2023, 4, 2))
         message_dict = excinfo.value.message_dict
@@ -57,8 +69,10 @@ class CreateLearningPackageTestCase(TestCase):
         assert "created" in message_dict
         assert "updated" in message_dict
 
-    def test_already_exists(self):
-        """Raises ValidationError for duplicate keys."""
+    def test_already_exists(self) -> None:
+        """
+        Raises ValidationError for duplicate keys.
+        """
         create_learning_package("my_key", "Original")
         with pytest.raises(ValidationError) as excinfo:
             create_learning_package("my_key", "Duplicate")

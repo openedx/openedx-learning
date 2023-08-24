@@ -1,7 +1,12 @@
-""" Test the tagging APIs """
-import ddt
+"""
+Test the tagging APIs
+"""
+from __future__ import annotations
 
-from django.test.testcases import TestCase, override_settings
+from typing import Any
+
+import ddt  # type: ignore[import]
+from django.test import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
@@ -22,9 +27,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     """
     Test the Tagging API methods.
     """
-
-    def test_create_taxonomy(self):
-        params = {
+    def test_create_taxonomy(self) -> None:  # Note: we must specify '-> None' to opt in to type checking
+        params: dict[str, Any] = {
             "name": "Difficulty",
             "description": "This taxonomy contains tags describing the difficulty of an activity",
             "enabled": False,
@@ -46,13 +50,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             )
         assert "<class 'str'> must be a subclass of Taxonomy" in str(exc.exception)
 
-    def test_get_taxonomy(self):
+    def test_get_taxonomy(self) -> None:
         tax1 = tagging_api.get_taxonomy(1)
         assert tax1 == self.taxonomy
         no_tax = tagging_api.get_taxonomy(10)
         assert no_tax is None
 
-    def test_get_taxonomies(self):
+    def test_get_taxonomies(self) -> None:
         tax1 = tagging_api.create_taxonomy("Enabled")
         tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
         tax3 = Taxonomy.objects.get(name="Import Taxonomy Test")
@@ -90,7 +94,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ]
 
     @override_settings(LANGUAGES=test_languages)
-    def test_get_tags(self):
+    def test_get_tags(self) -> None:
         self.setup_tag_depths()
         assert tagging_api.get_tags(self.taxonomy) == [
             *self.domain_tags,
@@ -103,7 +107,14 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         expected_langs = [lang[0] for lang in test_languages]
         assert langs == expected_langs
 
-    def check_object_tag(self, object_tag, taxonomy, tag, name, value):
+    def check_object_tag(
+        self,
+        object_tag: ObjectTag,
+        taxonomy: Taxonomy | None,
+        tag: Tag | None,
+        name: str,
+        value: str,
+    ):
         """
         Verifies that the properties of the given object_tag (once refreshed from the database) match those given.
         """
@@ -113,7 +124,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert object_tag.name == name
         assert object_tag.value == value
 
-    def test_resync_object_tags(self):
+    def test_resync_object_tags(self) -> None:
         missing_links = ObjectTag.objects.create(
             object_id="abc",
             _name=self.taxonomy.name,
@@ -228,7 +239,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             no_changes, first_taxonomy, None, "Life on Earth", "Anamelia"
         )
 
-    def test_tag_object(self):
+    def test_tag_object(self) -> None:
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
         test_tags = [
@@ -289,7 +300,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             == 0
         )
 
-    def test_tag_object_free_text(self):
+    def test_tag_object_free_text(self) -> None:
         self.taxonomy.allow_free_text = True
         self.taxonomy.save()
         object_tags = tagging_api.tag_object(
@@ -306,7 +317,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
         assert object_tag.object_id == "biology101"
 
-    def test_tag_object_no_multiple(self):
+    def test_tag_object_no_multiple(self) -> None:
         with self.assertRaises(ValueError) as exc:
             tagging_api.tag_object(
                 self.taxonomy,
@@ -315,7 +326,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             )
         assert "only allows one tag per object" in str(exc.exception)
 
-    def test_tag_object_required(self):
+    def test_tag_object_required(self) -> None:
         self.taxonomy.required = True
         self.taxonomy.save()
         with self.assertRaises(ValueError) as exc:
@@ -326,7 +337,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             )
         assert "requires at least one tag per object" in str(exc.exception)
 
-    def test_tag_object_invalid_tag(self):
+    def test_tag_object_invalid_tag(self) -> None:
         with self.assertRaises(ValueError) as exc:
             tagging_api.tag_object(
                 self.taxonomy,
@@ -338,7 +349,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         )
 
     @override_settings(LANGUAGES=test_languages)
-    def test_tag_object_language_taxonomy(self):
+    def test_tag_object_language_taxonomy(self) -> None:
         tags_list = [
             [get_tag("Azerbaijani").id],
             [get_tag("English").id],
@@ -371,7 +382,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.object_id == "biology101"
 
     @override_settings(LANGUAGES=test_languages)
-    def test_tag_object_language_taxonomy_ivalid(self):
+    def test_tag_object_language_taxonomy_ivalid(self) -> None:
         tags = [get_tag("Spanish").id]
         with self.assertRaises(ValueError) as exc:
             tagging_api.tag_object(
@@ -383,7 +394,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             exc.exception
         )
 
-    def test_tag_object_model_system_taxonomy(self):
+    def test_tag_object_model_system_taxonomy(self) -> None:
         users = [
             self.user_1,
             self.user_2,
@@ -410,6 +421,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             # And the expected number of tags were returned
             assert len(object_tags) == len(tags)
             for object_tag in object_tags:
+                assert object_tag.tag
                 assert object_tag.tag.external_id == str(user.id)
                 assert object_tag.tag.value == user.username
                 assert object_tag.is_valid()
@@ -417,7 +429,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.name == self.user_taxonomy.name
                 assert object_tag.object_id == "biology101"
 
-    def test_tag_object_model_system_taxonomy_invalid(self):
+    def test_tag_object_model_system_taxonomy_invalid(self) -> None:
         tags = ["Invalid id"]
         with self.assertRaises(ValueError) as exc:
             tagging_api.tag_object(
@@ -429,7 +441,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             exc.exception
         )
 
-    def test_get_object_tags(self):
+    def test_get_object_tags(self) -> None:
         # Alpha tag has no taxonomy
         alpha = ObjectTag(object_id="abc")
         alpha.name = self.taxonomy.name
@@ -462,11 +474,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ]
 
     @ddt.data(
-        ("ChA", ["Archaea", "Archaebacteria"], [2,5]),
-        ("ar", ['Archaea', 'Archaebacteria', 'Arthropoda'], [2,5,14]),
-        ("aE", ['Archaea', 'Archaebacteria', 'Plantae'], [2,5,10]),
+        ("ChA", ["Archaea", "Archaebacteria"], [2, 5]),
+        ("ar", ['Archaea', 'Archaebacteria', 'Arthropoda'], [2, 5, 14]),
+        ("aE", ['Archaea', 'Archaebacteria', 'Plantae'], [2, 5, 10]),
         (
-            "a", 
+            "a",
             [
                 'Animalia',
                 'Archaea',
@@ -477,11 +489,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 'Placozoa',
                 'Plantae',
             ],
-            [9,2,5,14,16,13,19,10],
+            [9, 2, 5, 14, 16, 13, 19, 10],
         ),
     )
     @ddt.unpack
-    def test_autocomplete_tags(self, search, expected_values, expected_ids):
+    def test_autocomplete_tags(self, search: str, expected_values: list[str], expected_ids: list[int | None]):
         tags = [
             'Archaea',
             'Archaebacteria',
@@ -531,17 +543,17 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             expected_ids,
         )
 
-    def test_autocompleate_not_implemented(self):
+    def test_autocompleate_not_implemented(self) -> None:
         with self.assertRaises(NotImplementedError):
             tagging_api.autocomplete_tags(self.taxonomy, 'test', None, object_tags_only=False)
 
-    def _get_tag_values(self, tags):
+    def _get_tag_values(self, tags) -> list[str]:
         """
         Get tag values from tagging_api.autocomplete_tags() result
         """
         return [tag.get("value") for tag in tags]
 
-    def _get_tag_ids(self, tags):
+    def _get_tag_ids(self, tags) -> list[int]:
         """
         Get tag ids from tagging_api.autocomplete_tags() result
         """
@@ -549,11 +561,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     def _validate_autocomplete_tags(
         self,
-        taxonomy,
-        search,
-        expected_values,
-        expected_ids,
-    ):
+        taxonomy: Taxonomy,
+        search: str,
+        expected_values: list[str],
+        expected_ids: list[int | None],
+    ) -> None:
         """
         Validate autocomplete tags
         """

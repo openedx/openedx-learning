@@ -1,3 +1,6 @@
+"""
+Useful validation methods
+"""
 from datetime import datetime, timezone
 
 from django.core.exceptions import ValidationError

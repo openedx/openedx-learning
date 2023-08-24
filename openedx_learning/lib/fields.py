@@ -7,9 +7,9 @@ https://open-edx-proposals.readthedocs.io/en/latest/best-practices/oep-0038-Data
 
 We have helpers to make case sensitivity consistent across backends. MySQL is
 case-insensitive by default, SQLite and Postgres are case-sensitive.
-
-
 """
+from __future__ import annotations
+
 import hashlib
 import uuid
 
@@ -19,11 +19,11 @@ from .collations import MultiCollationMixin
 from .validators import validate_utc_datetime
 
 
-def create_hash_digest(data_bytes):
+def create_hash_digest(data_bytes: bytes) -> str:
     return hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
 
 
-def case_insensitive_char_field(**kwargs):
+def case_insensitive_char_field(**kwargs) -> MultiCollationCharField:
     """
     Return a case-insensitive ``MultiCollationCharField``.
 
@@ -53,7 +53,7 @@ def case_insensitive_char_field(**kwargs):
     return MultiCollationCharField(**final_kwargs)
 
 
-def case_sensitive_char_field(**kwargs):
+def case_sensitive_char_field(**kwargs) -> MultiCollationCharField:
     """
     Return a case-sensitive ``MultiCollationCharField``.
 
@@ -79,7 +79,7 @@ def case_sensitive_char_field(**kwargs):
     return MultiCollationCharField(**final_kwargs)
 
 
-def immutable_uuid_field():
+def immutable_uuid_field() -> models.UUIDField:
     """
     Stable, randomly-generated UUIDs.
 
@@ -97,7 +97,7 @@ def immutable_uuid_field():
     )
 
 
-def key_field():
+def key_field() -> MultiCollationCharField:
     """
     Externally created Identifier fields.
 
@@ -111,7 +111,7 @@ def key_field():
     return case_sensitive_char_field(max_length=500, blank=False)
 
 
-def hash_field():
+def hash_field() -> models.CharField:
     """
     Holds a hash digest meant to identify a piece of content.
 
@@ -130,7 +130,7 @@ def hash_field():
     )
 
 
-def manual_date_time_field():
+def manual_date_time_field() -> models.DateTimeField:
     """
     DateTimeField that does not auto-generate values.
 
@@ -159,7 +159,7 @@ def manual_date_time_field():
         ],
     )
 
- 
+
 class MultiCollationCharField(MultiCollationMixin, models.CharField):
     """
     CharField subclass with per-database-vendor collation settings.
@@ -172,7 +172,6 @@ class MultiCollationCharField(MultiCollationMixin, models.CharField):
     PostgreSQL. Even MariaDB is starting to diverge from MySQL in terms of what
     collations are supported.
     """
-    pass
 
 
 class MultiCollationTextField(MultiCollationMixin, models.TextField):
@@ -181,6 +180,5 @@ class MultiCollationTextField(MultiCollationMixin, models.TextField):
 
     We don't ever really want to _sort_ by a TextField, but setting a collation
     forces the compatible charset to be set in MySQL, and that's the part that
-    matters for our purposes. So for example, if you set 
+    matters for our purposes.
     """
-    pass

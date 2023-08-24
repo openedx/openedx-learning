@@ -1,13 +1,19 @@
+"""
+Django admin for contents models
+"""
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import RawContent
-
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
+
+from .models import RawContent
 
 
 @admin.register(RawContent)
 class RawContentAdmin(ReadOnlyModelAdmin):
+    """
+    Django admin for RawContent model
+    """
     list_display = [
         "hash_digest",
         "file_link",

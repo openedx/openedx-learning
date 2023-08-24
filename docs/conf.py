@@ -524,6 +524,8 @@ def on_init(app):  # pylint: disable=unused-argument
 
 
 def setup(app):
-    """Sphinx extension: run sphinx-apidoc."""
+    """
+    Sphinx extension: run sphinx-apidoc.
+    """
     event = 'builder-inited'
     app.connect(event, on_init)

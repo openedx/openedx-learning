@@ -110,6 +110,8 @@ django==3.2.19
     #   -r requirements/quality.txt
     #   django-crum
     #   django-debug-toolbar
+    #   django-stubs
+    #   django-stubs-ext
     #   django-waffle
     #   djangorestframework
     #   drf-jwt
@@ -124,6 +126,14 @@ django-debug-toolbar==4.1.0
     # via
     #   -r requirements/dev.in
     #   -r requirements/quality.txt
+django-stubs==4.2.3
+    # via
+    #   -r requirements/quality.txt
+    #   djangorestframework-stubs
+django-stubs-ext==4.2.2
+    # via
+    #   -r requirements/quality.txt
+    #   django-stubs
 django-waffle==4.0.0
     # via
     #   -r requirements/quality.txt
@@ -134,6 +144,8 @@ djangorestframework==3.14.0
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
+djangorestframework-stubs==3.14.2
+    # via -r requirements/quality.txt
 docutils==0.20.1
     # via
     #   -r requirements/quality.txt
@@ -239,6 +251,15 @@ more-itertools==9.1.0
     # via
     #   -r requirements/quality.txt
     #   jaraco-classes
+mypy==1.5.1
+    # via
+    #   -r requirements/quality.txt
+    #   django-stubs
+    #   djangorestframework-stubs
+mypy-extensions==1.0.0
+    # via
+    #   -r requirements/quality.txt
+    #   mypy
 mysqlclient==2.1.1
     # via -r requirements/quality.txt
 newrelic==8.9.0
@@ -378,6 +399,7 @@ readme-renderer==40.0
 requests==2.31.0
     # via
     #   -r requirements/quality.txt
+    #   djangorestframework-stubs
     #   edx-drf-extensions
     #   requests-toolbelt
     #   twine
@@ -438,7 +460,9 @@ tomli==2.0.1
     #   -r requirements/quality.txt
     #   build
     #   coverage
+    #   django-stubs
     #   import-linter
+    #   mypy
     #   pylint
     #   pyproject-hooks
     #   pytest
@@ -456,14 +480,36 @@ tox-battery==0.6.1
     # via -r requirements/dev.in
 twine==4.0.2
     # via -r requirements/quality.txt
+types-pytz==2023.3.0.1
+    # via
+    #   -r requirements/quality.txt
+    #   django-stubs
+types-pyyaml==6.0.12.11
+    # via
+    #   -r requirements/quality.txt
+    #   django-stubs
+    #   djangorestframework-stubs
+types-requests==2.31.0.2
+    # via
+    #   -r requirements/quality.txt
+    #   djangorestframework-stubs
+types-urllib3==1.26.25.14
+    # via
+    #   -r requirements/quality.txt
+    #   types-requests
 typing-extensions==4.6.3
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
     #   asgiref
     #   astroid
+    #   django-stubs
+    #   django-stubs-ext
+    #   djangorestframework-stubs
     #   grimp
     #   import-linter
+    #   mypy
+    #   pylint
 tzdata==2023.3
     # via
     #   -r requirements/quality.txt

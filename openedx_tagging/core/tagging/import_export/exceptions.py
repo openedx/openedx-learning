@@ -1,7 +1,14 @@
 """
 Exceptions for tag import/export actions
 """
-from django.utils.translation import gettext_lazy as _
+from __future__ import annotations
+
+import typing
+
+from django.utils.translation import gettext as _
+
+if typing.TYPE_CHECKING:
+    from .actions import ImportAction
 
 
 class TagImportError(Exception):
@@ -11,6 +18,7 @@ class TagImportError(Exception):
 
     def __init__(self, message: str = "", **kargs):
         self.message = message
+        super().__init__(message, **kargs)
 
     def __str__(self):
         return str(self.message)
@@ -24,7 +32,9 @@ class TagParserError(TagImportError):
     Base exception for parsers
     """
 
-    def __init__(self, tag, **kargs):
+    def __init__(self, tag: dict | None, **kargs):
+        super().__init__()
+        self.tag = tag
         self.message = _(f"Import parser error on {tag}")
 
 
@@ -33,7 +43,7 @@ class ImportActionError(TagImportError):
     Base exception for actions
     """
 
-    def __init__(self, action: str, tag_id: str, message: str, **kargs):
+    def __init__(self, action: ImportAction, tag_id: str, message: str, **kargs):
         self.message = _(
             f"Action error in '{action.name}' (#{action.index}): {message}"
         )
@@ -46,7 +56,7 @@ class ImportActionConflict(ImportActionError):
 
     def __init__(
         self,
-        action: str,
+        action: ImportAction,
         tag_id: str,
         conflict_action_index: int,
         message: str,
@@ -63,8 +73,8 @@ class InvalidFormat(TagParserError):
     Exception used when there is an error with the format
     """
 
-    def __init__(self, tag: dict, format: str, message: str, **kargs):
-        self.tag = tag
+    def __init__(self, tag: dict | None, format: str, message: str, **kargs):
+        super().__init__(tag)
         self.message = _(f"Invalid '{format}' format: {message}")
 
 
@@ -73,8 +83,8 @@ class FieldJSONError(TagParserError):
     Exception used when missing a required field on the .json
     """
 
-    def __init__(self, tag, field, **kargs):
-        self.tag = tag
+    def __init__(self, tag: dict | None, field, **kargs):
+        super().__init__(tag)
         self.message = _(f"Missing '{field}' field on {tag}")
 
 

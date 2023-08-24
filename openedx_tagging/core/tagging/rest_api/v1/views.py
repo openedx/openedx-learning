@@ -1,23 +1,21 @@
 """
 Tagging API Views
 """
+from django.db import models
 from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
-from ...api import (
-    create_taxonomy,
-    get_taxonomy,
-    get_taxonomies,
-    get_object_tags,
-)
-from .permissions import TaxonomyObjectPermissions, ObjectTagObjectPermissions
+from ...api import create_taxonomy, get_object_tags, get_taxonomies, get_taxonomy
+from ...models import Taxonomy
+from .permissions import ObjectTagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
-    TaxonomyListQueryParamsSerializer,
-    TaxonomySerializer,
     ObjectTagListQueryParamsSerializer,
     ObjectTagSerializer,
+    TaxonomyListQueryParamsSerializer,
+    TaxonomySerializer,
 )
 
 
@@ -26,14 +24,15 @@ class TaxonomyView(ModelViewSet):
     View to list, create, retrieve, update, or delete Taxonomies.
 
     **List Query Parameters**
-        * enabled (optional) - Filter by enabled status. Valid values: true, false, 1, 0, "true", "false", "1"
+        * enabled (optional) - Filter by enabled status. Valid values: true,
+          false, 1, 0, "true", "false", "1"
         * page (optional) - Page number (default: 1)
         * page_size (optional) - Number of items per page (default: 10)
 
     **List Example Requests**
-        GET api/tagging/v1/taxonomy                                                 - Get all taxonomies
-        GET api/tagging/v1/taxonomy?enabled=true                                    - Get all enabled taxonomies
-        GET api/tagging/v1/taxonomy?enabled=false                                   - Get all disabled taxonomies
+        GET api/tagging/v1/taxonomy                - Get all taxonomies
+        GET api/tagging/v1/taxonomy?enabled=true   - Get all enabled taxonomies
+        GET api/tagging/v1/taxonomy?enabled=false  - Get all disabled taxonomies
 
     **List Query Returns**
         * 200 - Success
@@ -44,24 +43,32 @@ class TaxonomyView(ModelViewSet):
         * pk (required): - The pk of the taxonomy to retrieve
 
     **Retrieve Example Requests**
-        GET api/tagging/v1/taxonomy/:pk                                             - Get a specific taxonomy
+        GET api/tagging/v1/taxonomy/:pk            - Get a specific taxonomy
 
     **Retrieve Query Returns**
         * 200 - Success
-        * 404 - Taxonomy not found or User does not have permission to access the taxonomy
+        * 404 - Taxonomy not found or User does not have permission to access
+          the taxonomy
 
     **Create Parameters**
-        * name (required): User-facing label used when applying tags from this taxonomy to Open edX objects.
-        * description (optional): Provides extra information for the user when applying tags from this taxonomy to an object.
-        * enabled (optional): Only enabled taxonomies will be shown to authors (default: true).
-        * required (optional): Indicates that one or more tags from this taxonomy must be added to an object (default: False).
-        * allow_multiple (optional): Indicates that multiple tags from this taxonomy may be added to an object (default: False).
-        * allow_free_text (optional): Indicates that tags in this taxonomy need not be predefined; authors may enter their own tag values (default: False).
+        * name (required): User-facing label used when applying tags from this
+          taxonomy to Open edX objects.
+        * description (optional): Provides extra information for the user when
+          applying tags from this taxonomy to an object.
+        * enabled (optional): Only enabled taxonomies will be shown to authors
+          (default: true).
+        * required (optional): Indicates that one or more tags from this
+          taxonomy must be added to an object (default: False).
+        * allow_multiple (optional): Indicates that multiple tags from this
+          taxonomy may be added to an object (default: False).
+        * allow_free_text (optional): Indicates that tags in this taxonomy need
+          not be predefined; authors may enter their own tag values (default:
+          False).
 
     **Create Example Requests**
-        POST api/tagging/v1/taxonomy                                                - Create a taxonomy
+        POST api/tagging/v1/taxonomy               - Create a taxonomy
         {
-            "name": "Taxonomy Name",                    - User-facing label used when applying tags from this taxonomy to Open edX objects."
+            "name": "Taxonomy Name",
             "description": "This is a description",
             "enabled": True,
             "required": True,
@@ -77,15 +84,20 @@ class TaxonomyView(ModelViewSet):
         * pk (required): - The pk of the taxonomy to update
 
     **Update Request Body**
-        * name (optional): User-facing label used when applying tags from this taxonomy to Open edX objects.
-        * description (optional): Provides extra information for the user when applying tags from this taxonomy to an object.
+        * name (optional): User-facing label used when applying tags from this
+          taxonomy to Open edX objects.
+        * description (optional): Provides extra information for the user when
+          applying tags from this taxonomy to an object.
         * enabled (optional): Only enabled taxonomies will be shown to authors.
-        * required (optional): Indicates that one or more tags from this taxonomy must be added to an object.
-        * allow_multiple (optional): Indicates that multiple tags from this taxonomy may be added to an object.
-        * allow_free_text (optional): Indicates that tags in this taxonomy need not be predefined; authors may enter their own tag values.
+        * required (optional): Indicates that one or more tags from this
+          taxonomy must be added to an object.
+        * allow_multiple (optional): Indicates that multiple tags from this
+          taxonomy may be added to an object.
+        * allow_free_text (optional): Indicates that tags in this taxonomy need
+          not be predefined; authors may enter their own tag values.
 
     **Update Example Requests**
-        PUT api/tagging/v1/taxonomy/:pk                                            - Update a taxonomy
+        PUT api/tagging/v1/taxonomy/:pk            - Update a taxonomy
         {
             "name": "Taxonomy New Name",
             "description": "This is a new description",
@@ -94,7 +106,7 @@ class TaxonomyView(ModelViewSet):
             "allow_multiple": False,
             "allow_free_text": True,
         }
-        PATCH api/tagging/v1/taxonomy/:pk                                          - Partially update a taxonomy
+        PATCH api/tagging/v1/taxonomy/:pk          - Partially update a taxonomy
         {
             "name": "Taxonomy New Name",
         }
@@ -107,7 +119,7 @@ class TaxonomyView(ModelViewSet):
         * pk (required): - The pk of the taxonomy to delete
 
     **Delete Example Requests**
-        DELETE api/tagging/v1/taxonomy/:pk                                         - Delete a taxonomy
+        DELETE api/tagging/v1/taxonomy/:pk         - Delete a taxonomy
 
     **Delete Query Returns**
         * 200 - Success
@@ -119,12 +131,12 @@ class TaxonomyView(ModelViewSet):
     serializer_class = TaxonomySerializer
     permission_classes = [TaxonomyObjectPermissions]
 
-    def get_object(self):
+    def get_object(self) -> Taxonomy:
         """
         Return the requested taxonomy object, if the user has appropriate
         permissions.
         """
-        pk = self.kwargs.get("pk")
+        pk = int(self.kwargs["pk"])
         taxonomy = get_taxonomy(pk)
         if not taxonomy:
             raise Http404("Taxonomy not found")
@@ -132,7 +144,7 @@ class TaxonomyView(ModelViewSet):
 
         return taxonomy
 
-    def get_queryset(self):
+    def get_queryset(self) -> models.QuerySet:
         """
         Return a list of taxonomies.
 
@@ -148,7 +160,7 @@ class TaxonomyView(ModelViewSet):
 
         return get_taxonomies(enabled)
 
-    def perform_create(self, serializer):
+    def perform_create(self, serializer) -> None:
         """
         Create a new taxonomy.
         """
@@ -196,13 +208,13 @@ class ObjectTagView(ReadOnlyModelViewSet):
     permission_classes = [ObjectTagObjectPermissions]
     lookup_field = "object_id"
 
-    def get_queryset(self):
+    def get_queryset(self) -> models.QuerySet:
         """
         Return a queryset of object tags for a given object.
 
         If a taxonomy is passed in, object tags are limited to that taxonomy.
         """
-        object_id = self.kwargs.get("object_id")
+        object_id: str = self.kwargs["object_id"]
         query_params = ObjectTagListQueryParamsSerializer(
             data=self.request.query_params.dict()
         )

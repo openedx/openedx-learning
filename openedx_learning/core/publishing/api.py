@@ -4,27 +4,28 @@ Publishing API (warning: UNSTABLE, in progress API)
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from typing import Optional
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, QuerySet
 from django.db.transaction import atomic
 
+from .model_mixins import PublishableContentModelRegistry, PublishableEntityMixin, PublishableEntityVersionMixin
 from .models import (
     Draft,
     LearningPackage,
+    PublishableEntity,
+    PublishableEntityVersion,
     Published,
     PublishLog,
     PublishLogRecord,
-    PublishableEntity,
-    PublishableEntityVersion,
 )
-from .model_mixins import PublishableContentModelRegistry
 
 
 def create_learning_package(
-    key: str, title: str, created: Optional[datetime] = None
+    key: str, title: str, created: datetime | None = None
 ) -> LearningPackage:
     """
     Create a new LearningPackage.
@@ -50,7 +51,13 @@ def create_learning_package(
     return package
 
 
-def create_publishable_entity(learning_package_id, key, created, created_by):
+def create_publishable_entity(
+    learning_package_id: int,
+    key: str,
+    created: datetime,
+    # User ID who created this
+    created_by: int | None,
+) -> PublishableEntity:
     """
     Create a PublishableEntity.
 
@@ -61,13 +68,17 @@ def create_publishable_entity(learning_package_id, key, created, created_by):
         learning_package_id=learning_package_id,
         key=key,
         created=created,
-        created_by=created_by,
+        created_by_id=created_by,
     )
 
 
 def create_publishable_entity_version(
-    entity_id, version_num, title, created, created_by
-):
+    entity_id: int,
+    version_num: int,
+    title: str,
+    created: datetime,
+    created_by: int | None,
+) -> PublishableEntityVersion:
     """
     Create a PublishableEntityVersion.
 
@@ -93,11 +104,14 @@ def learning_package_exists(key: str) -> bool:
     """
     Check whether a LearningPackage with a particular key exists.
     """
-    LearningPackage.objects.filter(key=key).exists()
+    return LearningPackage.objects.filter(key=key).exists()
 
 
 def publish_all_drafts(
-    learning_package_id, message="", published_at=None, published_by=None
+    learning_package_id: int,
+    message="",
+    published_at: datetime | None = None,
+    published_by: int | None = None
 ):
     """
     Publish everything that is a Draft and is not already published.
@@ -116,8 +130,8 @@ def publish_from_drafts(
     learning_package_id: int,  # LearningPackage.id
     draft_qset: QuerySet,
     message: str = "",
-    published_at: Optional[datetime] = None,
-    published_by: Optional[int] = None,  # User.id
+    published_at: datetime | None = None,
+    published_by: int | None = None,  # User.id
 ) -> PublishLog:
     """
     Publish the rows in the ``draft_model_qsets`` args passed in.
@@ -131,7 +145,7 @@ def publish_from_drafts(
             learning_package_id=learning_package_id,
             message=message,
             published_at=published_at,
-            published_by=published_by,
+            published_by_id=published_by,
         )
         publish_log.full_clean()
         publish_log.save(force_insert=True)
@@ -166,7 +180,10 @@ def publish_from_drafts(
     return publish_log
 
 
-def register_content_models(content_model_cls, content_version_model_cls):
+def register_content_models(
+    content_model_cls: type[PublishableEntityMixin],
+    content_version_model_cls: type[PublishableEntityVersionMixin],
+):
     """
     Register what content model maps to what content version model.
 

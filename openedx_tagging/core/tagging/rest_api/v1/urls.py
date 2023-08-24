@@ -2,9 +2,8 @@
 Taxonomies API v1 URLs.
 """
 
+from django.urls.conf import include, path
 from rest_framework.routers import DefaultRouter
-
-from django.urls.conf import path, include
 
 from . import views
 

@@ -16,22 +16,18 @@ specify a ComponentVersion-local identifier. We're using this like a file path
 by convention, but it's possible we might want to have special identifiers
 later.
 """
+from __future__ import annotations
+
 from django.db import models
 
-from openedx_learning.lib.fields import (
-    case_sensitive_char_field,
-    immutable_uuid_field,
-    key_field,
-)
-from ..publishing.models import LearningPackage
-from ..publishing.model_mixins import (
-    PublishableEntityMixin,
-    PublishableEntityVersionMixin,
-)
+from openedx_learning.lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
+
 from ..contents.models import RawContent
+from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
+from ..publishing.models import LearningPackage
 
 
-class Component(PublishableEntityMixin):
+class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     """
     This represents any Component that has ever existed in a LearningPackage.
 
@@ -69,6 +65,10 @@ class Component(PublishableEntityMixin):
     Make a foreign key to the Component model when you need a stable reference
     that will exist for as long as the LearningPackage itself exists.
     """
+    # Tell mypy what type our objects manager has.
+    # It's actually PublishableEntityMixinManager, but that has the exact same
+    # interface as the base manager class.
+    objects: models.Manager[Component]
 
     # This foreign key is technically redundant because we're already locked to
     # a single LearningPackage through our publishable_entity relation. However, having
@@ -143,6 +143,10 @@ class ComponentVersion(PublishableEntityVersionMixin):
     This holds the content using a M:M relationship with RawContent via
     ComponentVersionRawContent.
     """
+    # Tell mypy what type our objects manager has.
+    # It's actually PublishableEntityVersionMixinManager, but that has the exact
+    # same interface as the base manager class.
+    objects: models.Manager[ComponentVersion]
 
     # This is technically redundant, since we can get this through
     # publishable_entity_version.publishable.component, but this is more

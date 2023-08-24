@@ -2,9 +2,11 @@
 Import and export celery tasks
 """
 from io import BytesIO
-from celery import shared_task
+
+from celery import shared_task  # type: ignore[import]
 
 import openedx_tagging.core.tagging.import_export.api as import_export_api
+
 from ..models import Taxonomy
 from .parsers import ParserFormat
 

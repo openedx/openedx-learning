@@ -1,23 +1,18 @@
 """
 Test for import/export parsers
 """
-from io import BytesIO
-import json
-import ddt
+from __future__ import annotations
 
+import json
+from io import BytesIO
+
+import ddt  # type: ignore[import]
 from django.test.testcases import TestCase
 
-from openedx_tagging.core.tagging.import_export.parsers import (
-    Parser,
-    get_parser,
-    JSONParser,
-    CSVParser,
-    ParserFormat,
-)
-from openedx_tagging.core.tagging.import_export.exceptions import (
-    TagParserError,
-)
+from openedx_tagging.core.tagging.import_export.exceptions import TagParserError
+from openedx_tagging.core.tagging.import_export.parsers import CSVParser, JSONParser, Parser, ParserFormat, get_parser
 from openedx_tagging.core.tagging.models import Taxonomy
+
 from .mixins import TestImportExportMixin
 
 
@@ -26,16 +21,16 @@ class TestParser(TestCase):
     Test for general parser functions
     """
 
-    def test_get_parser(self):
+    def test_get_parser(self) -> None:
         for parser_format in ParserFormat:
             parser = get_parser(parser_format)
             self.assertEqual(parser.format, parser_format)
 
-    def test_parser_not_found(self):
+    def test_parser_not_found(self) -> None:
         with self.assertRaises(ValueError):
-            get_parser(None)
+            get_parser(None)  # type: ignore[arg-type]
 
-    def test_not_implemented(self):
+    def test_not_implemented(self) -> None:
         taxonomy = Taxonomy(name="Test taxonomy")
         taxonomy.save()
         with self.assertRaises(NotImplementedError):
@@ -43,7 +38,7 @@ class TestParser(TestCase):
         with self.assertRaises(NotImplementedError):
             Parser.export(taxonomy)
 
-    def test_tag_parser_error(self):
+    def test_tag_parser_error(self) -> None:
         tag = {"id": 'tag_id', "value": "tag_value"}
         expected_str = f"Import parser error on {tag}"
         expected_repr = f"TagParserError(Import parser error on {tag})"
@@ -58,7 +53,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
     Test for .json parser
     """
 
-    def test_invalid_json(self):
+    def test_invalid_json(self) -> None:
         json_data = "{This is an invalid json}"
         json_file = BytesIO(json_data.encode())
         tags, errors = JSONParser.parse_import(json_file)
@@ -66,7 +61,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
         assert len(errors) == 1
         assert "Expecting property name enclosed in double quotes" in str(errors[0])
 
-    def test_load_data_errors(self):
+    def test_load_data_errors(self) -> None:
         json_data = {"invalid": [
             {"id": "tag_1", "name": "Tag 1"},
         ]}
@@ -84,7 +79,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
     @ddt.data(
         (
             {"tags": [
-                {"id": "tag_1", "value": "Tag 1"}, # Valid
+                {"id": "tag_1", "value": "Tag 1"},  # Valid
             ]},
             []
         ),
@@ -105,7 +100,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
             {"tags": [
                 {"id": "", "value": "tag 1"},
                 {"id": "tag_2", "value": ""},
-                {"id": "tag_3", "value": "tag 3", "parent_id": ""}, # Valid
+                {"id": "tag_3", "value": "tag 3", "parent_id": ""},  # Valid
             ]},
             [
                 "Empty 'id' field on {'id': '', 'value': 'tag 1'}",
@@ -114,7 +109,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
         )
     )
     @ddt.unpack
-    def test_parse_tags_errors(self, json_data, expected_errors):
+    def test_parse_tags_errors(self, json_data: dict, expected_errors: list[str]):
         json_file = BytesIO(json.dumps(json_data).encode())
 
         _, errors = JSONParser.parse_import(json_file)
@@ -123,7 +118,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
         for error in errors:
             self.assertIn(str(error), expected_errors)
 
-    def test_parse_tags(self):
+    def test_parse_tags(self) -> None:
         expected_tags = [
             {"id": "tag_1", "value": "tag 1"},
             {"id": "tag_2", "value": "tag 2"},
@@ -157,7 +152,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
                 index + JSONParser.inital_row
             )
 
-    def test_export_data(self):
+    def test_export_data(self) -> None:
         result = JSONParser.export(self.taxonomy)
         tags = json.loads(result).get("tags")
         assert len(tags) == self.taxonomy.tag_set.count()
@@ -167,7 +162,7 @@ class TestJSONParser(TestImportExportMixin, TestCase):
             if tag.get("parent_id"):
                 assert tag.get("parent_id") == taxonomy_tag.parent.external_id
 
-    def test_import_with_export_output(self):
+    def test_import_with_export_output(self) -> None:
         output = JSONParser.export(self.taxonomy)
         json_file = BytesIO(output.encode())
         tags, errors = JSONParser.parse_import(json_file)
@@ -175,7 +170,6 @@ class TestJSONParser(TestImportExportMixin, TestCase):
 
         self.assertEqual(len(errors), 0)
         self.assertEqual(len(tags), len(output_tags))
-
 
         for tag in tags:
             output_tag = None
@@ -218,7 +212,7 @@ class TestCSVParser(TestImportExportMixin, TestCase):
         )
     )
     @ddt.unpack
-    def test_load_data_errors(self, csv_data, expected_errors):
+    def test_load_data_errors(self, csv_data: str, expected_errors: list[str]):
         csv_file = BytesIO(csv_data.encode())
 
         tags, errors = CSVParser.parse_import(csv_file)
@@ -237,7 +231,7 @@ class TestCSVParser(TestImportExportMixin, TestCase):
             ]
         ),
         (
-            "id,value\ntag_1,tag 1\n", # Valid
+            "id,value\ntag_1,tag 1\n",  # Valid
             []
         )
     )
@@ -263,7 +257,7 @@ class TestCSVParser(TestImportExportMixin, TestCase):
             )
         return csv
 
-    def test_parse_tags(self):
+    def test_parse_tags(self) -> None:
         expected_tags = [
             {"id": "tag_1", "value": "tag 1"},
             {"id": "tag_2", "value": "tag 2"},
@@ -296,7 +290,7 @@ class TestCSVParser(TestImportExportMixin, TestCase):
                 index + CSVParser.inital_row
             )
 
-    def test_import_with_export_output(self):
+    def test_import_with_export_output(self) -> None:
         output = CSVParser.export(self.taxonomy)
         csv_file = BytesIO(output.encode())
         tags, errors = CSVParser.parse_import(csv_file)

@@ -1,19 +1,13 @@
 """
 Classes and functions to create an import plan and execution.
 """
-from attrs import define
-from typing import List, Optional
+from __future__ import annotations
 
+from attrs import define
 from django.db import transaction
 
-from ..models import Taxonomy, TagImportTask
-from .actions import (
-    DeleteTag,
-    ImportAction,
-    UpdateParentTag,
-    WithoutChanges,
-    available_actions,
-)
+from ..models import TagImportTask, Taxonomy
+from .actions import DeleteTag, ImportAction, UpdateParentTag, WithoutChanges, available_actions
 from .exceptions import ImportActionError
 
 
@@ -22,11 +16,10 @@ class TagItem:
     """
     Tag representation on the tag import plan
     """
-
     id: str
     value: str
-    index: Optional[int] = 0
-    parent_id: Optional[str] = None
+    index: int | None = 0
+    parent_id: str | None = None
 
 
 class TagImportPlan:
@@ -34,8 +27,8 @@ class TagImportPlan:
     Class with functions to build an import plan and excute the plan
     """
 
-    actions: List[ImportAction]
-    errors: List[ImportActionError]
+    actions: list[ImportAction]
+    errors: list[ImportActionError]
     indexed_actions: dict
     actions_dict: dict
     taxonomy: Taxonomy
@@ -119,7 +112,7 @@ class TagImportPlan:
 
     def generate_actions(
         self,
-        tags: List[TagItem],
+        tags: list[TagItem],
         replace=False,
     ):
         """
@@ -182,7 +175,7 @@ class TagImportPlan:
         return result
 
     @transaction.atomic()
-    def execute(self, task: TagImportTask = None):
+    def execute(self, task: TagImportTask | None = None):
         """
         Executes each action
 

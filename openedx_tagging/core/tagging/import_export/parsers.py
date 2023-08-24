@@ -1,24 +1,19 @@
 """
 Parsers to import and export tags
 """
+from __future__ import annotations
+
 import csv
 import json
 from enum import Enum
-from io import BytesIO, TextIOWrapper, StringIO
-from typing import List, Tuple
+from io import BytesIO, StringIO, TextIOWrapper
 
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
 
-from .import_plan import TagItem
-from .exceptions import (
-    TagParserError,
-    InvalidFormat,
-    FieldJSONError,
-    EmptyJSONField,
-    EmptyCSVField,
-)
-from ..models import Taxonomy
 from ..api import get_tags
+from ..models import Taxonomy
+from .exceptions import EmptyCSVField, EmptyJSONField, FieldJSONError, InvalidFormat, TagParserError
+from .import_plan import TagItem
 
 
 class ParserFormat(Enum):
@@ -48,7 +43,7 @@ class Parser:
     optional_fields = ["parent_id"]
 
     # Set the format associated to the parser
-    format = None
+    format: ParserFormat
     # We can change the error when is missing a required field
     missing_field_error = TagParserError
     # We can change the error when a required field is empty
@@ -57,7 +52,7 @@ class Parser:
     inital_row = 1
 
     @classmethod
-    def parse_import(cls, file: BytesIO) -> Tuple[List[TagItem], List[TagParserError]]:
+    def parse_import(cls, file: BytesIO) -> tuple[list[TagItem], list[TagParserError]]:
         """
         Parse tags in file an returns tags ready for use in TagImportPlan
 
@@ -85,7 +80,7 @@ class Parser:
         return cls._export_data(tags, taxonomy)
 
     @classmethod
-    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[TagParserError]]:
+    def _load_data(cls, file: BytesIO) -> tuple[list[dict], list[TagParserError]]:
         """
         Each parser implements this function according to its format.
         This function reads the file and returns a list with the values of each tag.
@@ -96,7 +91,7 @@ class Parser:
         raise NotImplementedError
 
     @classmethod
-    def _export_data(cls, tags: List[dict], taxonomy: Taxonomy) -> str:
+    def _export_data(cls, tags: list[dict], taxonomy: Taxonomy) -> str:
         """
         Each parser implements this function according to its format.
         Returns a string with tags data in the parser format.
@@ -108,7 +103,7 @@ class Parser:
         raise NotImplementedError
 
     @classmethod
-    def _parse_tags(cls, tags_data: dict) -> Tuple[List[TagItem], List[TagParserError]]:
+    def _parse_tags(cls, tags_data: list[dict]) -> tuple[list[TagItem], list[TagParserError]]:
         """
         Validate the required fields of each tag.
 
@@ -161,7 +156,7 @@ class Parser:
         return tags, errors
 
     @classmethod
-    def _load_tags_for_export(cls, taxonomy: Taxonomy) -> List[dict]:
+    def _load_tags_for_export(cls, taxonomy: Taxonomy) -> list[dict]:
         """
         Returns a list of taxonomy's tags in the form of a dictionary
         with required and optional fields
@@ -201,12 +196,12 @@ class JSONParser(Parser):
     """
 
     format = ParserFormat.JSON
-    missing_field_error = FieldJSONError
-    empty_field_error = EmptyJSONField
+    missing_field_error: type[TagParserError] = FieldJSONError
+    empty_field_error: type[TagParserError] = EmptyJSONField
     inital_row = 0
 
     @classmethod
-    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[TagParserError]]:
+    def _load_data(cls, file: BytesIO) -> tuple[list[dict], list[TagParserError]]:
         """
         Read a .json file and validates the root structure of the json
         """
@@ -214,11 +209,11 @@ class JSONParser(Parser):
         try:
             tags_data = json.load(file)
         except json.JSONDecodeError as error:
-            return None, [
+            return [], [
                 InvalidFormat(tag=None, format=cls.format.value, message=str(error))
             ]
         if "tags" not in tags_data:
-            return None, [
+            return [], [
                 InvalidFormat(
                     tag=None,
                     format=cls.format.value,
@@ -230,7 +225,7 @@ class JSONParser(Parser):
         return tags_data, []
 
     @classmethod
-    def _export_data(cls, tags: List[dict], taxonomy: Taxonomy) -> str:
+    def _export_data(cls, tags: list[dict], taxonomy: Taxonomy) -> str:
         """
         Export tags and taxonomy metadata in JSON format
         """
@@ -255,11 +250,11 @@ class CSVParser(Parser):
     """
 
     format = ParserFormat.CSV
-    empty_field_error = EmptyCSVField
+    empty_field_error: type[TagParserError] = EmptyCSVField
     inital_row = 2
 
     @classmethod
-    def _load_data(cls, file: BytesIO) -> Tuple[List[dict], List[TagParserError]]:
+    def _load_data(cls, file: BytesIO) -> tuple[list[dict], list[TagParserError]]:
         """
         Read a .csv file and validates the header fields
         """
@@ -267,13 +262,13 @@ class CSVParser(Parser):
         text_tags = TextIOWrapper(file, encoding="utf-8")
         csv_reader = csv.DictReader(text_tags)
         header_fields = csv_reader.fieldnames
-        errors = cls._verify_header(header_fields)
+        errors = cls._verify_header(list(header_fields or []))
         if errors:
-            return None, errors
+            return [], errors
         return list(csv_reader), []
 
     @classmethod
-    def _export_data(cls, tags: List[dict], taxonomy: Taxonomy) -> str:
+    def _export_data(cls, tags: list[dict], taxonomy: Taxonomy) -> str:
         """
         Export tags in CSV format
 
@@ -291,11 +286,11 @@ class CSVParser(Parser):
             return csv_string
 
     @classmethod
-    def _verify_header(cls, header_fields: List[str]) -> List[TagParserError]:
+    def _verify_header(cls, header_fields: list[str]) -> list[TagParserError]:
         """
         Verify that the header contains the required fields
         """
-        errors = []
+        errors: list[TagParserError] = []
         for req_field in cls.required_fields:
             if req_field not in header_fields:
                 errors.append(
@@ -312,7 +307,7 @@ class CSVParser(Parser):
 _parsers = [JSONParser, CSVParser]
 
 
-def get_parser(parser_format: ParserFormat) -> Parser:
+def get_parser(parser_format: ParserFormat) -> type[Parser]:
     """
     Get the parser for the respective `format`
 

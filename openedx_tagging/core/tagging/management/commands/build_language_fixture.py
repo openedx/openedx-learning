@@ -10,7 +10,7 @@ import urllib.request
 
 from django.core.management.base import BaseCommand
 
-endpoint = "https://pkgstore.datahub.io/core/language-codes/language-codes_json/data/97607046542b532c395cf83df5185246/language-codes_json.json"
+endpoint = "https://pkgstore.datahub.io/core/language-codes/language-codes_json/data/97607046542b532c395cf83df5185246/language-codes_json.json"  # noqa
 output = "./openedx_tagging/core/tagging/fixtures/language_taxonomy.yaml"
 
 

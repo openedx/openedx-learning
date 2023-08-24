@@ -3,22 +3,22 @@ These models are the most basic pieces of content we support. Think of them as
 the simplest building blocks to store data with. They need to be composed into
 more intelligent data models to be useful.
 """
-from django.db import models
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.validators import MaxValueValidator
+from django.db import models
 
 from openedx_learning.lib.fields import (
+    MultiCollationTextField,
     case_insensitive_char_field,
     hash_field,
     manual_date_time_field,
-    MultiCollationTextField,
 )
 
 from ..publishing.models import LearningPackage
 
 
-class RawContent(models.Model):
+class RawContent(models.Model):  # type: ignore[django-manager-missing]
     """
     This is the most basic piece of raw content data, with no version metadata.
 
@@ -104,7 +104,7 @@ class RawContent(models.Model):
     # models that offer better latency guarantees.
     file = models.FileField(
         null=True,
-        storage=settings.OPENEDX_LEARNING.get("STORAGE", default_storage),
+        storage=settings.OPENEDX_LEARNING.get("STORAGE", default_storage),  # type: ignore
     )
 
     class Meta:
@@ -180,7 +180,6 @@ class TextContent(models.Model):
     text = MultiCollationTextField(
         blank=True,
         max_length=MAX_TEXT_LENGTH,
-        
         # We don't really expect to ever sort by the text column. This is here
         # primarily to force the column to be created as utf8mb4 on MySQL. I'm
         # using the binary collation because it's a little cheaper/faster.

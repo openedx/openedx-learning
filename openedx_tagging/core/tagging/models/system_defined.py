@@ -1,6 +1,10 @@
-""" Tagging app system-defined taxonomies data models """
+"""
+Tagging app system-defined taxonomies data models
+"""
+from __future__ import annotations
+
 import logging
-from typing import Any, List, Type, Union
+from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -8,7 +12,7 @@ from django.db import models
 
 from openedx_tagging.core.tagging.models.base import ObjectTag
 
-from .base import Tag, Taxonomy, ObjectTag
+from .base import ObjectTag, Tag, Taxonomy
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +52,7 @@ class ModelObjectTag(ObjectTag):
         super().__init__(*args, **kwargs)
 
     @property
-    def tag_class_model(self) -> Type:
+    def tag_class_model(self) -> type[models.Model]:
         """
         Subclasses must implement this method to return the Django.model
         class referenced by these object tags.
@@ -64,7 +68,7 @@ class ModelObjectTag(ObjectTag):
         """
         return "pk"
 
-    def get_instance(self) -> Union[models.Model, None]:
+    def get_instance(self) -> models.Model | None:
         """
         Returns the instance of tag_class_model associated with this object tag, or None if not found.
         """
@@ -104,7 +108,7 @@ class ModelObjectTag(ObjectTag):
 
     @property
     def tag_ref(self) -> str:
-        return (self.tag.external_id or self.tag.id) if self.tag_id else self._value
+        return (self.tag.external_id or self.tag.id) if self.tag else self._value
 
     @tag_ref.setter
     def tag_ref(self, tag_ref: str):
@@ -115,7 +119,7 @@ class ModelObjectTag(ObjectTag):
         """
         self.value = tag_ref
 
-        if self.taxonomy_id:
+        if self.taxonomy:
             try:
                 self.tag = self.taxonomy.tag_set.get(
                     external_id=tag_ref,
@@ -159,9 +163,9 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         super().__init__(*args, **kwargs)
 
     @property
-    def object_tag_class(self) -> Type:
+    def object_tag_class(self) -> type[ModelObjectTag]:
         """
-        Returns the ObjectTag subclass associated with this taxonomy.
+        Returns the ModelObjectTag subclass associated with this taxonomy.
 
         Model Taxonomy subclasses must implement this to provide a ModelObjectTag subclass.
         """
@@ -192,7 +196,7 @@ class UserModelObjectTag(ModelObjectTag):
         proxy = True
 
     @property
-    def tag_class_model(self) -> Type:
+    def tag_class_model(self) -> type[models.Model]:
         """
         Associate the user model
         """
@@ -217,7 +221,7 @@ class UserSystemDefinedTaxonomy(ModelSystemDefinedTaxonomy):
         proxy = True
 
     @property
-    def object_tag_class(self) -> Type:
+    def object_tag_class(self):
         """
         Returns the ObjectTag subclass associated with this taxonomy, which is ModelObjectTag by default.
 
@@ -237,7 +241,7 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
     class Meta:
         proxy = True
 
-    def get_tags(self, tag_set: models.QuerySet = None) -> List[Tag]:
+    def get_tags(self, tag_set: models.QuerySet | None = None) -> list[Tag]:
         """
         Returns a list of all the available Language Tags, annotated with ``depth`` = 0.
         """
@@ -245,7 +249,7 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
         tag_set = self.tag_set.filter(external_id__in=available_langs)
         return super().get_tags(tag_set=tag_set)
 
-    def _get_available_languages(cls) -> List[str]:
+    def _get_available_languages(cls) -> set[str]:
         """
         Get available languages from Django LANGUAGE.
         """
@@ -260,6 +264,8 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
         Returns True if the tag is on the available languages
         """
         available_langs = self._get_available_languages()
+        if not object_tag.tag:
+            raise AttributeError("Expected object_tag.tag to be set")
         return object_tag.tag.external_id in available_langs
 
     def _check_tag(self, object_tag: ObjectTag) -> bool:

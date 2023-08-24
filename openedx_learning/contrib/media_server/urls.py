@@ -1,3 +1,6 @@
+"""
+URLs for the media server application
+"""
 from django.urls import path
 
 from .views import component_asset

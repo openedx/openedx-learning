@@ -15,7 +15,7 @@ class MultiCollationMixin:
     they're the only Field types that store text data.
     """
 
-    def __init__(self, *args, db_collations=None, db_collation=None, **kwargs):
+    def __init__(self, *args, db_collations=None, db_collation=None, **kwargs):  # pylint: disable=unused-argument
         """
         Init like any field but add db_collations and disallow db_collation
 
@@ -77,7 +77,6 @@ class MultiCollationMixin:
 
         This can be removed when we move to Django 4.2.
         """
-        pass
 
     def db_parameters(self, connection):
         """

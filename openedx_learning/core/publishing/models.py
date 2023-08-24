@@ -11,10 +11,9 @@ support the logic for the management of the publishing process:
 * Managing reverts.
 * Storing and querying publish history.
 """
-from django.db import models
-
 from django.conf import settings
 from django.core.validators import MinValueValidator
+from django.db import models
 
 from openedx_learning.lib.fields import (
     case_insensitive_char_field,
@@ -24,13 +23,12 @@ from openedx_learning.lib.fields import (
 )
 
 
-class LearningPackage(models.Model):
+class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
     """
     Top level container for a grouping of authored content.
 
     Each PublishableEntity belongs to exactly one LearningPackage.
     """
-
     uuid = immutable_uuid_field()
     key = key_field()
     title = case_insensitive_char_field(max_length=500, blank=False)

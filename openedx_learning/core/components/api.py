@@ -10,21 +10,29 @@ directly, since there might be other related models that you may not know about.
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
+from __future__ import annotations
+
+from datetime import datetime
 from pathlib import Path
 
 from django.db.models import Q
 from django.db.transaction import atomic
 
-from ..publishing.api import (
-    create_publishable_entity,
-    create_publishable_entity_version,
-)
-from .models import ComponentVersionRawContent, Component, ComponentVersion
+from ..publishing.api import create_publishable_entity, create_publishable_entity_version
+from .models import Component, ComponentVersion, ComponentVersionRawContent
 
 
 def create_component(
-    learning_package_id, namespace, type, local_key, created, created_by
+    learning_package_id: int,
+    namespace: str,
+    type: str,  # pylint: disable=redefined-builtin
+    local_key: str,
+    created: datetime,
+    created_by: int | None,
 ):
+    """
+    Create a new Component (an entity like a Problem or Video)
+    """
     key = f"{namespace}:{type}@{local_key}"
     with atomic():
         publishable_entity = create_publishable_entity(
@@ -40,7 +48,16 @@ def create_component(
     return component
 
 
-def create_component_version(component_pk, version_num, title, created, created_by):
+def create_component_version(
+    component_pk: int,
+    version_num: int,
+    title: str,
+    created: datetime,
+    created_by: int | None,
+) -> ComponentVersion:
+    """
+    Create a new ComponentVersion
+    """
     with atomic():
         publishable_entity_version = create_publishable_entity_version(
             entity_id=component_pk,
@@ -57,8 +74,17 @@ def create_component_version(component_pk, version_num, title, created, created_
 
 
 def create_component_and_version(
-    learning_package_id, namespace, type, local_key, title, created, created_by
+    learning_package_id: int,
+    namespace: str,
+    type: str,  # pylint: disable=redefined-builtin
+    local_key: str,
+    title: str,
+    created: datetime,
+    created_by: int | None,
 ):
+    """
+    Create a Component and associated ComponentVersion atomically
+    """
     with atomic():
         component = create_component(
             learning_package_id, namespace, type, local_key, created, created_by
@@ -73,7 +99,7 @@ def create_component_and_version(
         return (component, component_version)
 
 
-def get_component_by_pk(component_pk):
+def get_component_by_pk(component_pk: int) -> Component:
     return Component.objects.get(pk=component_pk)
 
 
@@ -103,8 +129,14 @@ def get_component_version_content(
 
 
 def add_content_to_component_version(
-    component_version, raw_content_id, key, learner_downloadable=False
-):
+    component_version: ComponentVersion,
+    raw_content_id: int,
+    key: str,
+    learner_downloadable=False,
+) -> ComponentVersionRawContent:
+    """
+    Add a RawContent to the given ComponentVersion
+    """
     cvrc, _created = ComponentVersionRawContent.objects.get_or_create(
         component_version=component_version,
         raw_content_id=raw_content_id,
