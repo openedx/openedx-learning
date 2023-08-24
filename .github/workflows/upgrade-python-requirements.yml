@@ -17,11 +17,11 @@ jobs:
     uses: openedx/.github/.github/workflows/upgrade-python-requirements.yml@master
     with:
     # If copying manually, also provide your default branch name in quotes here
-      branch: ${{ github.event.inputs.branch || "main" }}
+      branch: ${{ github.event.inputs.branch || 'main' }}
       # optional parameters below; fill in if you'd like github or email notifications
       # user_reviewers: ""
       team_reviewers: "axim-aximprovements"
-      # email_address: ""
+      email_address: "aximimprovements@axim.org"
       # send_success_notification: false
       # python_version: ""
     secrets:
