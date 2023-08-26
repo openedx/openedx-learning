@@ -68,16 +68,31 @@ the following has been agreed:
 - It is the simplest way.
 - Paging both root tags and children mitigates the huge number of tags that can be.
 
+Search tags
+~~~~~~~~~~~~
+
+Support tag search on the backend. Return a subset of matching tags.
+We will use the same views to perform a search with the same logic:
+
+- **get_root_tags(search: str)**
+- **get_children_tags(search: str)**
+
+For the search ``SEARCH_TAGS_THRESHOLD`` will be used. (It is recommended that it be 20 percent of ``TAGS_THRESHOLD``).
+It will work in the same way of ``TAGS_THRESHOLD`` (see Views & Pagination)
+
+**Pros**
+
+- It is the most scalable way.
 
 Tag representation
 ~~~~~~~~~~~~~~~~~~~
 
 Return a list of root tags and within a link to obtain the children tags
-or the complete list of children tags depending of ``TAGS_THRESHOLD`` (see Views & Pagination). 
+or the complete list of children tags depending of ``TAGS_THRESHOLD`` or ``SEARCH_TAGS_THRESHOLD``. 
 The list of root tags will be ordered alphabetically. If it has child tags, they must also
 be ordered alphabetically.
 
-**(taxonomy.tags.count < TAGS_THRESHOLD)**::
+**(taxonomy.tags.count < *_THRESHOLD)**::
 
   {
     "count": 100,
@@ -121,17 +136,6 @@ be ordered alphabetically.
 - The edX's interfaces show the tags in the form of a tree.
 - The frontend needs no further processing as it is in a displayable format.
 - It is kept as a simple implementation.
-
-
-Search tags
-~~~~~~~~~~~~
-
-Support tag search on the backend. Return a subset of matching tags in the format proposed
-in this document.
-
-**Pros**
-
-- It is the most scalable way.
 
 
 Rejected Options
