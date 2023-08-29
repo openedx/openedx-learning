@@ -56,7 +56,7 @@ In both cases the results are paginated. In addition to the common pagination me
 - Total number of pages.
 - Total number of root/children tags.
 - Range index of current page, Ex. Page 1: 1-12, Page 2: 13-24.
-- Total number of children of each root tag.
+- Total number of children of each tag.
 
 The pagination of root tags and child tags are independent.
 In order to be able to fulfill the functionality of "Expand-all" in a scalable way,
