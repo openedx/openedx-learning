@@ -1,4 +1,4 @@
-13. Single taxonomy view API
+14. Single taxonomy view API
 =====================================
 
 Context
@@ -9,9 +9,9 @@ for open taxonomies). It is necessary to make a decision about what structure th
 to have, how the pagination is going to work and how will the search for tags be implemented.
 It was taken into account that taxonomies commonly have the following characteristics:
 
-- It have few root tags.
-- It have a very large number of children for each tag.
-- It is mostly represented as trees on frontend.
+- It has few root tags.
+- It may a very large number of children for each tag.
+- It is mostly represented as trees on frontend, with a depth of up to 3 levels.
 
 For the decisions, the following use cases were taken into account:
 
@@ -41,43 +41,51 @@ Decision
 Views & Pagination
 ~~~~~~~~~~~~~~~~~~~
 
-Make two different views:
+Make one view:
 
-- **get_root_tags():** It is the first call to obtain the parent tags of the taxonomy.
-  It has pagination. In addition to the common pagination metadata, it is necessary to return:
-    - Total number of pages.
-    - Total number of root tags.
-    - Range index of current page, Ex. Page 1: 1-12, Page 2: 13-24
-    - Total number of children of each root tag.
-- **get_children_tags():** Called each time the user expands a parent tag to see its children.
-  It has pagination. In addition to the common pagination metadata, it is necessary to return:
-    - Total number of children of each tag.
+**get_matching_tags(parent_tag_id: str = None, search_term: str = None)**
 
-As described above, the pagination of root tags and child tags are independent.
+that can handle this cases:
+
+- Get the root tags of the taxonomy. If ``parent_tag_id`` is ``None``.
+- Get the children of a tag. Called each time the user expands a parent tag to see its children.
+  If ``parent_tag_id`` is not ``None``.
+
+In both cases the results are paginated. In addition to the common pagination metadata, it is necessary to return:
+
+- Total number of pages.
+- Total number of root/children tags.
+- Range index of current page, Ex. Page 1: 1-12, Page 2: 13-24.
+- Total number of children of each root tag.
+
+The pagination of root tags and child tags are independent.
 In order to be able to fulfill the functionality of "Expand-all" in a scalable way,
 the following has been agreed:
 
 - Create a ``TAGS_THRESHOLD`` (default: 1000).
-- If ``taxonomy.tags.count < TAGS_THRESHOLD``, then ``get_root_tags`` will return all tags on the taxonomy,
+- If ``taxonomy.tags.count < TAGS_THRESHOLD``, then ``get_matching_tags()`` will return all tags on the taxonomy,
   roots and children.
-- Otherwise, ``get_root_tags`` will only return root tags, and it will be necessary
-  to use ``get_children_tags`` to return children. Also the "Expand-all" functionality will be disabled. 
+- Otherwise, ``get_matching_tags()`` will only return paginated root tags, and it will be necessary
+  to use ``get_matching_tags()`` to return paginated children. Also the "Expand-all" functionality will be disabled.
+
+For search you can see the next section (Search tags)
 
 **Pros**
 
 - It is the simplest way.
-- Paging both root tags and children mitigates the huge number of tags that can be.
+- Paging both root tags and children mitigates the huge number of tags that can be found in large taxonomies.
 
 Search tags
 ~~~~~~~~~~~~
 
 Support tag search on the backend. Return a subset of matching tags.
-We will use the same views to perform a search with the same logic:
+We will use the same view to perform a search with the same logic:
 
-- **get_root_tags(search: str)**
-- **get_children_tags(search: str)**
+**get_matching_tags(parent_tag_id: str = None, search_term: str = None)**
 
-For the search ``SEARCH_TAGS_THRESHOLD`` will be used. (It is recommended that it be 20 percent of ``TAGS_THRESHOLD``).
+We can use ``search_term`` to perferom a search on root tags or children tags depending of ``parent_tag_id``.
+
+For the search, ``SEARCH_TAGS_THRESHOLD`` will be used. (It is recommended that it be 20% of ``TAGS_THRESHOLD``).
 It will work in the same way of ``TAGS_THRESHOLD`` (see Views & Pagination)
 
 **Pros**
