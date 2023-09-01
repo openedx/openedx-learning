@@ -55,3 +55,19 @@ class ObjectTagSerializer(serializers.ModelSerializer):
             "tag_ref",
             "is_valid",
         ]
+
+
+class ObjectTagUpdateBodySerializer(serializers.Serializer):
+    """
+    Serializer of the body for the ObjectTag UPDATE view
+    """
+
+    tags = serializers.ListField(child=serializers.CharField(), required=True)
+
+
+class ObjectTagUpdateQueryParamsSerializer(serializers.Serializer):
+    """
+    Serializer of the query params for the ObjectTag UPDATE view
+    """
+
+    taxonomy = serializers.PrimaryKeyRelatedField(queryset=Taxonomy.objects.all(), required=True)

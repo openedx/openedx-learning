@@ -27,6 +27,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     """
     Test the Tagging API methods.
     """
+
     def test_create_taxonomy(self) -> None:  # Note: we must specify '-> None' to opt in to type checking
         params: dict[str, Any] = {
             "name": "Difficulty",
@@ -42,11 +43,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert not taxonomy.system_defined
         assert taxonomy.visible_to_authors
 
-    def test_bad_taxonomy_class(self):
+    def test_bad_taxonomy_class(self) -> None:
         with self.assertRaises(ValueError) as exc:
             tagging_api.create_taxonomy(
                 name="Bad class",
-                taxonomy_class=str,
+                taxonomy_class=str,  # type: ignore[arg-type]
             )
         assert "<class 'str'> must be a subclass of Taxonomy" in str(exc.exception)
 
@@ -114,7 +115,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tag: Tag | None,
         name: str,
         value: str,
-    ):
+    ) -> None:
         """
         Verifies that the properties of the given object_tag (once refreshed from the database) match those given.
         """
@@ -344,9 +345,106 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 ["Eukaryota Xenomorph"],
                 "biology101",
             )
-        assert "Invalid object tag for taxonomy (1): Eukaryota Xenomorph" in str(
-            exc.exception
+        assert "Invalid object tag for taxonomy (1): Eukaryota Xenomorph" in str(exc.exception)
+
+    def test_tag_object_string(self) -> None:
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                self.taxonomy,
+                'string',  # type: ignore[arg-type]
+                "biology101",
+            )
+        assert "Tags must be a list, not str." in str(exc.exception)
+
+    def test_tag_object_integer(self) -> None:
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                self.taxonomy,
+                1,  # type: ignore[arg-type]
+                "biology101",
+            )
+        assert "Tags must be a list, not int." in str(exc.exception)
+
+    def test_tag_object_same_id(self) -> None:
+        # Tag the object with the same id twice
+        tagging_api.tag_object(
+            self.taxonomy,
+            [self.eubacteria.id],
+            "biology101",
         )
+        object_tags = tagging_api.tag_object(
+            self.taxonomy,
+            [self.eubacteria.id],
+            "biology101",
+        )
+        assert len(object_tags) == 1
+        assert str(object_tags[0]) == "<ObjectTag> biology101: Life on Earth=Eubacteria"
+
+    def test_tag_object_same_value(self) -> None:
+        # Tag the object with the same value twice
+        tagging_api.tag_object(
+            self.taxonomy,
+            ["Eubacteria"],
+            "biology101",
+        )
+        object_tags = tagging_api.tag_object(
+            self.taxonomy,
+            ["Eubacteria"],
+            "biology101",
+        )
+
+        assert len(object_tags) == 1
+        assert str(object_tags[0]) == "<ObjectTag> biology101: Life on Earth=Eubacteria"
+
+    def test_tag_object_same_mixed(self) -> None:
+        # Tag the object with the same id/value twice
+        tagging_api.tag_object(
+            self.taxonomy,
+            [self.eubacteria.id],
+            "biology101",
+        )
+        object_tags = tagging_api.tag_object(
+            self.taxonomy,
+            ["Eubacteria"],
+            "biology101",
+        )
+
+        assert len(object_tags) == 1
+        assert str(object_tags[0]) == "<ObjectTag> biology101: Life on Earth=Eubacteria"
+
+    def test_tag_object_same_id_multiple(self) -> None:
+        self.taxonomy.allow_multiple = True
+        self.taxonomy.save()
+        # Tag the object with the same value twice
+        object_tags = tagging_api.tag_object(
+            self.taxonomy,
+            [self.eubacteria.id, self.eubacteria.id],
+            "biology101",
+        )
+        assert len(object_tags) == 1
+
+    def test_tag_object_same_value_multiple(self) -> None:
+        self.taxonomy.allow_multiple = True
+        self.taxonomy.save()
+        # Tag the object with the same value twice
+        object_tags = tagging_api.tag_object(
+            self.taxonomy,
+            ["Eubacteria", "Eubacteria"],
+            "biology101",
+        )
+        assert len(object_tags) == 1
+
+    def test_tag_object_same_value_multiple_free(self) -> None:
+        self.taxonomy.allow_multiple = True
+        self.taxonomy.allow_free_text = True
+        self.taxonomy.save()
+        # Tag the object with the same value twice
+        object_tags = tagging_api.tag_object(
+            self.taxonomy,
+            ["tag1", "tag1"],
+            "biology101",
+        )
+        assert len(object_tags) == 1
 
     @override_settings(LANGUAGES=test_languages)
     def test_tag_object_language_taxonomy(self) -> None:
@@ -493,7 +591,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ),
     )
     @ddt.unpack
-    def test_autocomplete_tags(self, search: str, expected_values: list[str], expected_ids: list[int | None]):
+    def test_autocomplete_tags(self, search: str, expected_values: list[str], expected_ids: list[int | None]) -> None:
         tags = [
             'Archaea',
             'Archaebacteria',
