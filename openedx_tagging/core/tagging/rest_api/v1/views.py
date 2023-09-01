@@ -3,17 +3,19 @@ Tagging API Views
 """
 from django.db import models
 from django.http import Http404
-from django.shortcuts import get_object_or_404
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework import mixins
+from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
-from ...api import create_taxonomy, get_object_tags, get_taxonomies, get_taxonomy
+from ...api import create_taxonomy, get_object_tags, get_taxonomies, get_taxonomy, tag_object
 from ...models import Taxonomy
+from ...rules import ChangeObjectTagPermissionItem
 from .permissions import ObjectTagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
     ObjectTagSerializer,
+    ObjectTagUpdateBodySerializer,
+    ObjectTagUpdateQueryParamsSerializer,
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
 )
@@ -167,10 +169,9 @@ class TaxonomyView(ModelViewSet):
         serializer.instance = create_taxonomy(**serializer.validated_data)
 
 
-class ObjectTagView(ReadOnlyModelViewSet):
+class ObjectTagView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.ListModelMixin, GenericViewSet):
     """
-    View to retrieve paginated ObjectTags for an Object, given its Object ID.
-    (What tags does this object have?)
+    View to retrieve paginated ObjectTags for a provided Object ID (object_id).
 
     **Retrieve Parameters**
         * object_id (required): - The Object ID to retrieve ObjectTags for.
@@ -195,7 +196,14 @@ class ObjectTagView(ReadOnlyModelViewSet):
         * 403 - Permission denied
         * 405 - Method not allowed
 
+    **Update Parameters**
+        * object_id (required): - The Object ID to add ObjectTags for.
+
+    **Update Request Body**
+        * tags: List of tags to be applied to a object id. Must be a list of Tag ids or Tag values.
+
     **Update Query Returns**
+        * 200 - Success
         * 403 - Permission denied
         * 405 - Method not allowed
 
@@ -224,8 +232,8 @@ class ObjectTagView(ReadOnlyModelViewSet):
 
     def retrieve(self, request, object_id=None):
         """
-        Retrieve ObjectTags that belong to a given Object given its
-        object_id and return paginated results.
+        Retrieve ObjectTags that belong to a given object_id and
+        return paginated results.
 
         Note: We override `retrieve` here instead of `list` because we are
         passing in the Object ID (object_id) in the path (as opposed to passing
@@ -238,3 +246,58 @@ class ObjectTagView(ReadOnlyModelViewSet):
         paginated_object_tags = self.paginate_queryset(object_tags)
         serializer = ObjectTagSerializer(paginated_object_tags, many=True)
         return self.get_paginated_response(serializer.data)
+
+    def update(self, request, object_id, partial=False):
+        """
+        Update ObjectTags that belong to a given object_id and
+        return the list of these ObjecTags paginated.
+
+        Pass a list of Tag ids or Tag values to be applied to an object id in the
+        body `tag` parameter. Passing an empty list will remove all tags from
+        the object id.
+
+        **Example Body Requests**
+
+        PUT api/tagging/v1/object_tags/:object_id
+
+        **Example Body Requests**
+        ```json
+        {
+            "tags": [1, 2, 3]
+        },
+        {
+            "tags": ["Tag 1", "Tag 2"]
+        },
+        {
+            "tags": []
+        }
+        """
+
+        if partial:
+            raise MethodNotAllowed("PATCH", detail="PATCH not allowed")
+
+        query_params = ObjectTagUpdateQueryParamsSerializer(data=request.query_params.dict())
+        query_params.is_valid(raise_exception=True)
+        taxonomy = query_params.validated_data.get("taxonomy", None)
+        taxonomy = taxonomy.cast()
+
+        perm = f"{taxonomy._meta.app_label}.change_objecttag"
+
+        perm_obj = ChangeObjectTagPermissionItem(
+            taxonomy=taxonomy,
+            object_id=object_id,
+        )
+
+        if not request.user.has_perm(perm, perm_obj):
+            raise PermissionDenied("You do not have permission to change object tags for this taxonomy or object_id.")
+
+        body = ObjectTagUpdateBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        tags = body.data.get("tags", [])
+        try:
+            tag_object(taxonomy, tags, object_id)
+        except ValueError as e:
+            raise ValidationError(e)
+
+        return self.retrieve(request, object_id)

@@ -385,10 +385,29 @@ class Taxonomy(models.Model):
         """
         Replaces the existing ObjectTag entries for the current taxonomy + object_id with the given list of tags.
         If self.allows_free_text, then the list should be a list of tag values.
-        Otherwise, it should be a list of existing Tag IDs.
+        Otherwise, it should be either a list of existing Tag Values or IDs.
         Raised ValueError if the proposed tags are invalid for this taxonomy.
         Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
         """
+
+        def _find_object_tag_index(tag_ref, object_tags) -> int:
+            """
+            Search for Tag in the given list of ObjectTags by tag_ref or value,
+            returning its index or -1 if not found.
+            """
+            return next(
+                (
+                    i
+                    for i, object_tag in enumerate(object_tags)
+                    if object_tag.tag_ref == tag_ref or object_tag.value == tag_ref
+                ),
+                -1,
+            )
+
+        if not isinstance(tags, list):
+            raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
+
+        tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
 
         if not self.allow_multiple and len(tags) > 1:
             raise ValueError(_(f"Taxonomy ({self.id}) only allows one tag per object."))
@@ -399,17 +418,17 @@ class Taxonomy(models.Model):
             )
 
         ObjectTagClass = self.object_tag_class
-        current_tags = {
-            tag.tag_ref: tag
-            for tag in ObjectTagClass.objects.filter(
+        current_tags = list(
+            ObjectTagClass.objects.filter(
                 taxonomy=self,
                 object_id=object_id,
             )
-        }
+        )
         updated_tags = []
         for tag_ref in tags:
-            if tag_ref in current_tags:
-                object_tag = current_tags.pop(tag_ref)
+            object_tag_index = _find_object_tag_index(tag_ref, current_tags)
+            if object_tag_index >= 0:
+                object_tag = current_tags.pop(object_tag_index)
             else:
                 object_tag = ObjectTagClass(
                     taxonomy=self,
@@ -429,7 +448,7 @@ class Taxonomy(models.Model):
             object_tag.save()
 
         # ...and delete any omitted existing tags
-        for old_tag in current_tags.values():
+        for old_tag in current_tags:
             old_tag.delete()
 
         return updated_tags
