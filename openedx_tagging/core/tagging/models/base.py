@@ -408,11 +408,12 @@ class Taxonomy(models.Model):
             """
             Checks if the current count of tags for the object is less than 100
             """
+            # Exclude self.id to avoid counting the tags that are going to be updated
             current_count = ObjectTag.objects.filter(object_id=object_id).exclude(taxonomy_id=self.id).count()
 
             if current_count >= 100:
                 raise ValueError(
-                    _(f"Object ({object_id}) already have 100 tags.")
+                    _(f"Object ({object_id}) already have 100 or more tags.")
                 )
 
         _check_current_tag_count()
