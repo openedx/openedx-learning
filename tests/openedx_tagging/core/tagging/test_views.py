@@ -732,7 +732,4 @@ class TestObjectTagViewSet(APITestCase):
 
         response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
         assert response.status_code == expected_status
-        if status.is_success(expected_status):
-            assert len(response.data) == 1
-            assert set(t["value"] for t in response.data) == set(["Tag 1"])
-
+        assert not status.is_success(expected_status)  # No success cases here
