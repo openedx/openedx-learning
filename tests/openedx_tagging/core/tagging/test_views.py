@@ -449,12 +449,12 @@ class TestObjectTagViewSet(APITestCase):
             )
 
         # Free-Text Taxonomies created by taxonomy admins, each linked
-        # to 200 ObjectTags
+        # to 10 ObjectTags
         self.open_taxonomy_enabled = Taxonomy.objects.create(name="Enabled Free-Text Taxonomy", allow_free_text=True)
         self.open_taxonomy_disabled = Taxonomy.objects.create(
             name="Disabled Free-Text Taxonomy", allow_free_text=True, enabled=False
         )
-        for i in range(200):
+        for i in range(10):
             ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_enabled, _value=f"Free Text {i}")
             ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_disabled, _value=f"Free Text {i}")
 
@@ -462,15 +462,15 @@ class TestObjectTagViewSet(APITestCase):
         rules.set_perm("oel_tagging.change_objecttag_objectid", _object_permission)
 
     @ddt.data(
-        (None, "abc", status.HTTP_403_FORBIDDEN, None, None),
-        ("user", "abc", status.HTTP_200_OK, 461, 10),
-        ("staff", "abc", status.HTTP_200_OK, 461, 10),
-        (None, "non-existing-id", status.HTTP_403_FORBIDDEN, None, None),
-        ("user", "non-existing-id", status.HTTP_200_OK, 0, 0),
-        ("staff", "non-existing-id", status.HTTP_200_OK, 0, 0),
+        (None, "abc", status.HTTP_403_FORBIDDEN, None),
+        ("user", "abc", status.HTTP_200_OK, 81),
+        ("staff", "abc", status.HTTP_200_OK, 81),
+        (None, "non-existing-id", status.HTTP_403_FORBIDDEN, None),
+        ("user", "non-existing-id", status.HTTP_200_OK, 0),
+        ("staff", "non-existing-id", status.HTTP_200_OK, 0),
     )
     @ddt.unpack
-    def test_retrieve_object_tags(self, user_attr, object_id, expected_status, expected_count, expected_results):
+    def test_retrieve_object_tags(self, user_attr, object_id, expected_status, expected_count):
         """
         Test retrieving object tags
         """
@@ -484,18 +484,16 @@ class TestObjectTagViewSet(APITestCase):
         assert response.status_code == expected_status
 
         if status.is_success(expected_status):
-            assert response.data.get("count") == expected_count
-            assert response.data.get("results") is not None
-            assert len(response.data.get("results")) == expected_results
+            assert len(response.data) == expected_count
 
     @ddt.data(
-        (None, "abc", status.HTTP_403_FORBIDDEN, None, None),
-        ("user", "abc", status.HTTP_200_OK, 20, 10),
-        ("staff", "abc", status.HTTP_200_OK, 20, 10),
+        (None, "abc", status.HTTP_403_FORBIDDEN, None),
+        ("user", "abc", status.HTTP_200_OK, 20),
+        ("staff", "abc", status.HTTP_200_OK, 20),
     )
     @ddt.unpack
     def test_retrieve_object_tags_taxonomy_queryparam(
-        self, user_attr, object_id, expected_status, expected_count, expected_results
+        self, user_attr, object_id, expected_status, expected_count
     ):
         """
         Test retrieving object tags for specific taxonomies provided
@@ -509,11 +507,8 @@ class TestObjectTagViewSet(APITestCase):
         response = self.client.get(url, {"taxonomy": self.enabled_taxonomy.pk})
         assert response.status_code == expected_status
         if status.is_success(expected_status):
-            assert response.data.get("count") == expected_count
-            assert response.data.get("results") is not None
-            assert len(response.data.get("results")) == expected_results
-            object_tags = response.data.get("results")
-            for object_tag in object_tags:
+            assert len(response.data) == expected_count
+            for object_tag in response.data:
                 assert object_tag.get("is_valid") is True
                 assert object_tag.get("taxonomy_id") == self.enabled_taxonomy.pk
 
@@ -536,51 +531,6 @@ class TestObjectTagViewSet(APITestCase):
         # Invalid Taxonomy
         response = self.client.get(url, {"taxonomy": 123123})
         assert response.status_code == expected_status
-
-    @ddt.data(
-        # Page 1, default page size 10, total count 200, returns 10 results
-        (None, 1, None, status.HTTP_403_FORBIDDEN, None, None),
-        ("user", 1, None, status.HTTP_200_OK, 200, 10),
-        ("staff", 1, None, status.HTTP_200_OK, 200, 10),
-        # Page 2, default page size 10, total count 200, returns 10 results
-        (None, 2, None, status.HTTP_403_FORBIDDEN, None, None),
-        ("user", 2, None, status.HTTP_200_OK, 200, 10),
-        ("staff", 2, None, status.HTTP_200_OK, 200, 10),
-        # Page 21, default page size 10, total count 200, no more results
-        (None, 21, None, status.HTTP_403_FORBIDDEN, None, None),
-        ("user", 21, None, status.HTTP_404_NOT_FOUND, None, None),
-        ("staff", 21, None, status.HTTP_404_NOT_FOUND, None, None),
-        # Page 3, page size 2, total count 200, returns 2 results
-        (None, 3, 2, status.HTTP_403_FORBIDDEN, 200, 2),
-        ("user", 3, 2, status.HTTP_200_OK, 200, 2),
-        ("staff", 3, 2, status.HTTP_200_OK, 200, 2),
-    )
-    @ddt.unpack
-    def test_retrieve_object_tags_pagination(
-        self, user_attr, page, page_size, expected_status, expected_count, expected_results
-    ):
-        """
-        Test pagination for retrieve object tags
-        """
-        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id="abc")
-
-        if user_attr:
-            user = getattr(self, user_attr)
-            self.client.force_authenticate(user=user)
-
-        query_params = {"taxonomy": self.open_taxonomy_enabled.pk, "page": page}
-        if page_size:
-            query_params["page_size"] = page_size
-
-        response = self.client.get(url, query_params)
-        assert response.status_code == expected_status
-        if status.is_success(expected_status):
-            assert response.data.get("count") == expected_count
-            assert response.data.get("results") is not None
-            assert len(response.data.get("results")) == expected_results
-            object_tags = response.data.get("results")
-            for object_tag in object_tags:
-                assert object_tag.get("taxonomy_id") == self.open_taxonomy_enabled.pk
 
     @ddt.data(
         (None, "POST", status.HTTP_403_FORBIDDEN),
@@ -660,8 +610,8 @@ class TestObjectTagViewSet(APITestCase):
         response = self.client.put(url, {"tags": tag_values}, format="json")
         assert response.status_code == expected_status
         if status.is_success(expected_status):
-            assert len(response.data.get("results")) == len(tag_values)
-            assert set(t["value"] for t in response.data["results"]) == set(tag_values)
+            assert len(response.data) == len(tag_values)
+            assert set(t["value"] for t in response.data) == set(tag_values)
 
     @ddt.data(
         # Can't add invalid tags to a closed taxonomy
@@ -727,8 +677,8 @@ class TestObjectTagViewSet(APITestCase):
         response = self.client.put(url, {"tags": tag_values}, format="json")
         assert response.status_code == expected_status
         if status.is_success(expected_status):
-            assert len(response.data.get("results")) == len(tag_values)
-            assert set(t["value"] for t in response.data["results"]) == set(tag_values)
+            assert len(response.data) == len(tag_values)
+            assert set(t["value"] for t in response.data) == set(tag_values)
 
     @ddt.data(
         # Users and staff can add multiple tags to a allow_multiple=True taxonomy
@@ -764,8 +714,8 @@ class TestObjectTagViewSet(APITestCase):
         response = self.client.put(url, {"tags": tag_values}, format="json")
         assert response.status_code == expected_status
         if status.is_success(expected_status):
-            assert len(response.data.get("results")) == len(tag_values)
-            assert set(t["value"] for t in response.data["results"]) == set(tag_values)
+            assert len(response.data) == len(tag_values)
+            assert set(t["value"] for t in response.data) == set(tag_values)
 
     @ddt.data(
         (None, status.HTTP_403_FORBIDDEN),
@@ -782,3 +732,7 @@ class TestObjectTagViewSet(APITestCase):
 
         response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
         assert response.status_code == expected_status
+        if status.is_success(expected_status):
+            assert len(response.data) == 1
+            assert set(t["value"] for t in response.data) == set(["Tag 1"])
+

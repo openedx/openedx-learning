@@ -5,6 +5,7 @@ from django.db import models
 from django.http import Http404
 from rest_framework import mixins
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
+from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from ...api import create_taxonomy, get_object_tags, get_taxonomies, get_taxonomy, tag_object
@@ -171,21 +172,17 @@ class TaxonomyView(ModelViewSet):
 
 class ObjectTagView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.ListModelMixin, GenericViewSet):
     """
-    View to retrieve paginated ObjectTags for a provided Object ID (object_id).
+    View to retrieve ObjectTags for a provided Object ID (object_id).
 
     **Retrieve Parameters**
         * object_id (required): - The Object ID to retrieve ObjectTags for.
 
     **Retrieve Query Parameters**
         * taxonomy (optional) - PK of taxonomy to filter ObjectTags for.
-        * page (optional) - Page number of paginated results.
-        * page_size (optional) - Number of results included in each page.
 
     **Retrieve Example Requests**
         GET api/tagging/v1/object_tags/:object_id
         GET api/tagging/v1/object_tags/:object_id?taxonomy=1
-        GET api/tagging/v1/object_tags/:object_id?taxonomy=1&page=2
-        GET api/tagging/v1/object_tags/:object_id?taxonomy=1&page=2&page_size=10
 
     **Retrieve Query Returns**
         * 200 - Success
@@ -232,8 +229,7 @@ class ObjectTagView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.L
 
     def retrieve(self, request, object_id=None):
         """
-        Retrieve ObjectTags that belong to a given object_id and
-        return paginated results.
+        Retrieve ObjectTags that belong to a given object_id
 
         Note: We override `retrieve` here instead of `list` because we are
         passing in the Object ID (object_id) in the path (as opposed to passing
@@ -243,14 +239,12 @@ class ObjectTagView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.L
         behavior we want.
         """
         object_tags = self.get_queryset()
-        paginated_object_tags = self.paginate_queryset(object_tags)
-        serializer = ObjectTagSerializer(paginated_object_tags, many=True)
-        return self.get_paginated_response(serializer.data)
+        serializer = ObjectTagSerializer(object_tags, many=True)
+        return Response(serializer.data)
 
     def update(self, request, object_id, partial=False):
         """
-        Update ObjectTags that belong to a given object_id and
-        return the list of these ObjecTags paginated.
+        Update ObjectTags that belong to a given object_id
 
         Pass a list of Tag ids or Tag values to be applied to an object id in the
         body `tag` parameter. Passing an empty list will remove all tags from
