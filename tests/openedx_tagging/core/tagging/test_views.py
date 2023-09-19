@@ -756,7 +756,6 @@ class TestObjectTagViewSet(APITestCase):
         # Can't add another tag because the object already has 100 tags
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-
         # The user can edit the tags that are already on the object
         for taxonomy in self.dummy_taxonomies:
             url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)

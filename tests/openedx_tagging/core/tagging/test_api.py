@@ -568,7 +568,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 "object_1",
             )
 
-
     def test_get_object_tags(self) -> None:
         # Alpha tag has no taxonomy
         alpha = ObjectTag(object_id="abc")
