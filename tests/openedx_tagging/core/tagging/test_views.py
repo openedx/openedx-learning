@@ -406,7 +406,7 @@ class TestObjectTagViewSet(APITestCase):
             """
             Everyone have object permission on object_id "abc"
             """
-            return object_id == "abc" or object_id == "limit_tag_count"
+            return object_id in ("abc", "limit_tag_count")
 
         super().setUp()
 
@@ -461,7 +461,12 @@ class TestObjectTagViewSet(APITestCase):
         self.dummy_taxonomies = []
         for i in range(100):
             taxonomy = Taxonomy.objects.create(name=f"Dummy Taxonomy {i}", allow_free_text=True)
-            ObjectTag.objects.create(object_id="limit_tag_count", taxonomy=taxonomy, _name=taxonomy.name, _value="Dummy Tag")
+            ObjectTag.objects.create(
+                object_id="limit_tag_count",
+                taxonomy=taxonomy,
+                _name=taxonomy.name,
+                _value="Dummy Tag"
+            )
             self.dummy_taxonomies.append(taxonomy)
 
         # Override the object permission for the test
