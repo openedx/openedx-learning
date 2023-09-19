@@ -54,7 +54,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_get_taxonomy(self) -> None:
         tax1 = tagging_api.get_taxonomy(1)
         assert tax1 == self.taxonomy
-        no_tax = tagging_api.get_taxonomy(10)
+        no_tax = tagging_api.get_taxonomy(200)
         assert no_tax is None
 
     def test_get_taxonomies(self) -> None:
@@ -70,7 +70,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.taxonomy,
             self.system_taxonomy,
             self.user_taxonomy,
-        ]
+        ] + self.dummy_taxonomies
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
         assert str(enabled[1]) == "<Taxonomy> (5) Import Taxonomy Test"
         assert str(enabled[2]) == "<Taxonomy> (-1) Languages"
@@ -92,7 +92,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.taxonomy,
             self.system_taxonomy,
             self.user_taxonomy,
-        ]
+        ] + self.dummy_taxonomies
 
     @override_settings(LANGUAGES=test_languages)
     def test_get_tags(self) -> None:
@@ -538,6 +538,35 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert "Invalid object tag for taxonomy (3): Invalid id" in str(
             exc.exception
         )
+
+    def test_tag_object_limit(self) -> None:
+        """
+        Test that the tagging limit is enforced.
+        """
+        # The user can add up to 100 tags to a object
+        for taxonomy in self.dummy_taxonomies:
+            tagging_api.tag_object(
+                taxonomy,
+                ["Dummy Tag"],
+                "object_1",
+            )
+
+        # Adding a new tag should fail
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                self.taxonomy,
+                ["Eubacteria"],
+                "object_1",
+            )
+
+        # Updating existing tags should work
+        for taxonomy in self.dummy_taxonomies:
+            tagging_api.tag_object(
+                taxonomy,
+                ["New Dummy Tag"],
+                "object_1",
+            )
+
 
     def test_get_object_tags(self) -> None:
         # Alpha tag has no taxonomy

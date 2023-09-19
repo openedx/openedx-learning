@@ -406,7 +406,7 @@ class TestObjectTagViewSet(APITestCase):
             """
             Everyone have object permission on object_id "abc"
             """
-            return object_id == "abc"
+            return object_id == "abc" or object_id == "limit_tag_count"
 
         super().setUp()
 
@@ -457,6 +457,12 @@ class TestObjectTagViewSet(APITestCase):
         for i in range(10):
             ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_enabled, _value=f"Free Text {i}")
             ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_disabled, _value=f"Free Text {i}")
+
+        self.dummy_taxonomies = []
+        for i in range(100):
+            taxonomy = Taxonomy.objects.create(name=f"Dummy Taxonomy {i}", allow_free_text=True)
+            ObjectTag.objects.create(object_id="limit_tag_count", taxonomy=taxonomy, _name=taxonomy.name, _value="Dummy Tag")
+            self.dummy_taxonomies.append(taxonomy)
 
         # Override the object permission for the test
         rules.set_perm("oel_tagging.change_objecttag_objectid", _object_permission)
@@ -733,3 +739,21 @@ class TestObjectTagViewSet(APITestCase):
         response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
         assert response.status_code == expected_status
         assert not status.is_success(expected_status)  # No success cases here
+
+    def test_tag_object_count_limit(self):
+        """
+        Checks if the limit of 100 tags per object is enforced
+        """
+        object_id = "limit_tag_count"
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=self.enabled_taxonomy.pk)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
+        # Can't add another tag because the object already has 100 tags
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+        # The user can edit the tags that are already on the object
+        for taxonomy in self.dummy_taxonomies:
+            url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
+            response = self.client.put(url, {"tags": ["New Tag"]}, format="json")
+            assert response.status_code == status.HTTP_200_OK

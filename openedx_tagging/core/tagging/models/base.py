@@ -404,6 +404,19 @@ class Taxonomy(models.Model):
                 -1,
             )
 
+        def _check_current_tag_count() -> None:
+            """
+            Checks if the current count of tags for the object is less than 100
+            """
+            current_count = ObjectTag.objects.filter(object_id=object_id).exclude(taxonomy_id=self.id).count()
+
+            if current_count >= 100:
+                raise ValueError(
+                    _(f"Object ({object_id}) already have 100 tags.")
+                )
+
+        _check_current_tag_count()
+
         if not isinstance(tags, list):
             raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
 
