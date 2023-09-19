@@ -558,6 +558,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 ["Eubacteria"],
                 "object_1",
             )
+            assert "already have 100 or more tags" in str(exc.exception)
 
         # Updating existing tags should work
         for taxonomy in self.dummy_taxonomies:
