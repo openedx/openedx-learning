@@ -11,4 +11,11 @@ router = DefaultRouter()
 router.register("taxonomies", views.TaxonomyView, basename="taxonomy")
 router.register("object_tags", views.ObjectTagView, basename="object_tag")
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    path("", include(router.urls)),
+    path(
+        "taxonomies/<str:pk>/tags/",
+        views.TaxonomyTagsView.as_view(),
+        name="taxonomy-tags",
+    ),
+]

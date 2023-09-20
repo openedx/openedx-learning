@@ -39,7 +39,9 @@ class TestTagTaxonomyMixin:
         self.eubacteria = get_tag("Eubacteria")
         self.chordata = get_tag("Chordata")
         self.mammalia = get_tag("Mammalia")
+        self.animalia = get_tag("Animalia")
         self.system_taxonomy_tag = get_tag("System Tag 1")
+        self.english_tag = get_tag("English")
         self.user_1 = get_user_model()(
             id=1,
             username="test_user_1",
@@ -58,6 +60,12 @@ class TestTagTaxonomyMixin:
             get_tag("Bacteria"),
             get_tag("Eukaryota"),
         ]
+        # Domain tags that contains 'ar'
+        self.filtered_domain_tags = [
+            get_tag("Archaea"),
+            get_tag("Eukaryota"),
+        ]
+
         # Kingdom tags (depth=1)
         self.kingdom_tags = [
             # Kingdoms of https://en.wikipedia.org/wiki/Archaea
@@ -74,6 +82,7 @@ class TestTagTaxonomyMixin:
             get_tag("Plantae"),
             get_tag("Protista"),
         ]
+
         # Phylum tags (depth=2)
         self.phylum_tags = [
             # Some phyla of https://en.wikipedia.org/wiki/Animalia
@@ -84,6 +93,19 @@ class TestTagTaxonomyMixin:
             get_tag("Gastrotrich"),
             get_tag("Placozoa"),
             get_tag("Porifera"),
+        ]
+        # Phylum tags that contains 'da'
+        self.filtered_phylum_tags = [
+            get_tag("Arthropoda"),
+            get_tag("Chordata"),
+            get_tag("Cnidaria"),
+        ]
+
+        # Biology tags that contains 'eu'
+        self.filtered_tags = [
+            get_tag("Eubacteria"),
+            get_tag("Eukaryota"),
+            get_tag("Euryarchaeida"),
         ]
 
         self.system_tags = [
@@ -220,10 +242,48 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
             *self.phylum_tags,
         ]
 
+    def test_get_root_tags(self):
+        assert list(self.taxonomy.get_filtered_tags()) == self.domain_tags
+        assert list(
+            self.taxonomy.get_filtered_tags(search_term='aR')
+        ) == self.filtered_domain_tags
+
     def test_get_tags_free_text(self):
         self.taxonomy.allow_free_text = True
         with self.assertNumQueries(0):
             assert self.taxonomy.get_tags() == []
+
+    def test_get_children_tags(self):
+        assert list(
+            self.taxonomy.get_filtered_tags(parent_tag_id=self.animalia.id)
+        ) == self.phylum_tags
+        assert list(
+            self.taxonomy.get_filtered_tags(
+                parent_tag_id=self.animalia.id,
+                search_term='dA',
+            )
+        ) == self.filtered_phylum_tags
+        assert not list(
+            self.system_taxonomy.get_filtered_tags(
+                parent_tag_id=self.system_taxonomy_tag.id
+            )
+        )
+
+    def test_get_children_tags_free_text(self):
+        self.taxonomy.allow_free_text = True
+        assert not list(self.taxonomy.get_filtered_tags(
+            parent_tag_id=self.animalia.id
+        ))
+        assert not list(self.taxonomy.get_filtered_tags(
+            parent_tag_id=self.animalia.id,
+            search_term='dA',
+        ))
+
+    def test_search_tags(self):
+        assert list(self.taxonomy.get_filtered_tags(
+            search_term='eU',
+            search_in_all=True
+        )) == self.filtered_tags
 
     def test_get_tags_shallow_taxonomy(self):
         taxonomy = Taxonomy.objects.create(name="Difficulty")

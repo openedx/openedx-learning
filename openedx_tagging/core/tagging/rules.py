@@ -12,7 +12,9 @@ from attrs import define
 
 from .models import Tag, Taxonomy
 
-UserType = Union[django.contrib.auth.models.User, django.contrib.auth.models.AnonymousUser]
+UserType = Union[
+    django.contrib.auth.models.User, django.contrib.auth.models.AnonymousUser
+]
 
 
 # Global staff are taxonomy admins.
@@ -74,7 +76,9 @@ def can_change_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
 
 
 @rules.predicate
-def can_change_object_tag(user: UserType, perm_obj: ChangeObjectTagPermissionItem | None = None) -> bool:
+def can_change_object_tag(
+    user: UserType, perm_obj: ChangeObjectTagPermissionItem | None = None
+) -> bool:
     """
     Checks if the user has permissions to create or modify tags on the given taxonomy and object_id.
     """
@@ -84,7 +88,9 @@ def can_change_object_tag(user: UserType, perm_obj: ChangeObjectTagPermissionIte
         return True
 
     # Checks the permission for the taxonomy
-    taxonomy_perm = user.has_perm("oel_tagging.change_objecttag_taxonomy", perm_obj.taxonomy)
+    taxonomy_perm = user.has_perm(
+        "oel_tagging.change_objecttag_taxonomy", perm_obj.taxonomy
+    )
     if not taxonomy_perm:
         return False
 
@@ -109,6 +115,7 @@ rules.add_perm("oel_tagging.add_tag", can_change_tag)
 rules.add_perm("oel_tagging.change_tag", can_change_tag)
 rules.add_perm("oel_tagging.delete_tag", is_taxonomy_admin)
 rules.add_perm("oel_tagging.view_tag", rules.always_allow)
+rules.add_perm("oel_tagging.list_tag", can_view_taxonomy)
 
 # ObjectTag
 rules.add_perm("oel_tagging.add_objecttag", can_change_object_tag)

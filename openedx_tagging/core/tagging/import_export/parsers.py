@@ -103,7 +103,9 @@ class Parser:
         raise NotImplementedError
 
     @classmethod
-    def _parse_tags(cls, tags_data: list[dict]) -> tuple[list[TagItem], list[TagParserError]]:
+    def _parse_tags(
+        cls, tags_data: list[dict]
+    ) -> tuple[list[TagItem], list[TagParserError]]:
         """
         Validate the required fields of each tag.
 
