@@ -6,16 +6,19 @@ import openedx_learning.lib.fields
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('oel_tagging', '0007_tag_import_task_log_null_fix'),
+        ("oel_tagging", "0007_tag_import_task_log_null_fix"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='taxonomy',
-            name='description',
-            field=openedx_learning.lib.fields.MultiCollationTextField(blank=True, default='', help_text='Provides extra information for the user when applying tags from this taxonomy to an object.'),
+            model_name="taxonomy",
+            name="description",
+            field=openedx_learning.lib.fields.MultiCollationTextField(
+                blank=True,
+                default="",
+                help_text="Provides extra information for the user when applying tags from this taxonomy to an object.",
+            ),
             preserve_default=False,
         ),
     ]

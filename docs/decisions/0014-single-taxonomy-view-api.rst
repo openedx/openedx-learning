@@ -83,9 +83,18 @@ We will use the same view to perform a search with the same logic:
 
 **get_matching_tags(parent_tag_id: str = None, search_term: str = None)**
 
-We can use ``search_term`` to perferom a search on root tags or children tags depending of ``parent_tag_id``.
+We can use ``search_term`` to perform a search on all taxonomy tags or children tags depending of ``parent_tag_id``.
+The result will be a pruned tree with the necessary tags to be able to reach the results from a root tag. 
+Ex. if in the result there may be a child tag of ``depth=2``, but the parents are not found in the result.
+In this case, it is necessary to add the parent and the parent of the parent (root tag) to be able to show
+the child tag that is in the result.
 
 For the search, ``SEARCH_TAGS_THRESHOLD`` will be used. (It is recommended that it be 20% of ``TAGS_THRESHOLD``).
+It will work in the following way:
+
+- If ``search_result.count() < SEARCH_TAGS_THRESHOLD``, then it will return all tags on the result tree without pagination.
+- Otherwise, it will return the roots of the result tree with pagination. Each root will have the entire pruned branch.
+
 It will work in the same way of ``TAGS_THRESHOLD`` (see Views & Pagination)
 
 **Pros**

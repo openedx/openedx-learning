@@ -14,11 +14,13 @@ from rest_framework.test import APITestCase
 
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
+from openedx_tagging.core.tagging.rest_api.paginators import TagsPagination
 
 User = get_user_model()
 
 TAXONOMY_LIST_URL = "/tagging/rest_api/v1/taxonomies/"
 TAXONOMY_DETAIL_URL = "/tagging/rest_api/v1/taxonomies/{pk}/"
+TAXONOMY_TAGS_URL = "/tagging/rest_api/v1/taxonomies/{pk}/tags/"
 
 
 OBJECT_TAGS_RETRIEVE_URL = "/tagging/rest_api/v1/object_tags/{object_id}/"
@@ -28,8 +30,8 @@ LANGUAGE_TAXONOMY_ID = -1
 
 
 def check_taxonomy(
-    data: dict,
-    id,  # pylint: disable=redefined-builtin
+    data,
+    taxonomy_id,
     name,
     description="",
     enabled=True,
@@ -40,9 +42,9 @@ def check_taxonomy(
     visible_to_authors=True,
 ):
     """
-    Helper method to check expected fields of a Taxonomy
+    Check taxonomy data
     """
-    assert data["id"] == id
+    assert data["id"] == taxonomy_id
     assert data["name"] == name
     assert data["description"] == description
     assert data["enabled"] == enabled
@@ -53,12 +55,12 @@ def check_taxonomy(
     assert data["visible_to_authors"] == visible_to_authors
 
 
-@ddt.ddt
-class TestTaxonomyViewSet(APITestCase):
+class TestTaxonomyViewMixin(APITestCase):
     """
-    Test of the Taxonomy REST API
+    Mixin for taxonomy views. Adds users.
     """
-    def setUp(self) -> None:
+
+    def setUp(self):
         super().setUp()
 
         self.user = User.objects.create(
@@ -71,6 +73,13 @@ class TestTaxonomyViewSet(APITestCase):
             email="staff@example.com",
             is_staff=True,
         )
+
+
+@ddt.ddt
+class TestTaxonomyViewSet(TestTaxonomyViewMixin):
+    """
+    Test taxonomy view set
+    """
 
     @ddt.data(
         (None, status.HTTP_200_OK, 4),
@@ -238,7 +247,7 @@ class TestTaxonomyViewSet(APITestCase):
         self.client.force_authenticate(user=self.staff)
         response = self.client.post(url, create_data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
-        assert response.data["system_defined"] is False
+        assert not response.data["system_defined"]
 
     @ddt.data(
         (None, status.HTTP_403_FORBIDDEN),
@@ -391,7 +400,7 @@ class TestTaxonomyViewSet(APITestCase):
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.delete(url)
-        assert response.status_code, status.HTTP_404_NOT_FOUND
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @ddt.ddt
@@ -761,3 +770,319 @@ class TestObjectTagViewSet(APITestCase):
             url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
             response = self.client.put(url, {"tags": ["New Tag"]}, format="json")
             assert response.status_code == status.HTTP_200_OK
+
+
+class TestTaxonomyTagsView(TestTaxonomyViewMixin):
+    """
+    Tests the list tags of taxonomy view
+    """
+
+    fixtures = ["tests/openedx_tagging/core/fixtures/tagging.yaml"]
+
+    def setUp(self):
+        self.small_taxonomy = Taxonomy.objects.get(name="Life on Earth")
+        self.large_taxonomy = Taxonomy(name="Large Taxonomy")
+        self.large_taxonomy.save()
+
+        self.small_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=self.small_taxonomy.pk)
+        self.large_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=self.large_taxonomy.pk)
+
+        self.root_tags_count = 51
+        self.children_tags_count = [12, 12]  # 51 * 12 * 12 = 7344 tags
+
+        self.page_size = TagsPagination().page_size
+
+        return super().setUp()
+
+    def _create_tag(self, depth: int, parent: Tag | None = None):
+        """
+        Creates tags and children in a recursive way.
+        """
+        tag_count = self.large_taxonomy.tag_set.count()
+        tag = Tag(
+            taxonomy=self.large_taxonomy,
+            parent=parent,
+            value=f"Tag {tag_count}",
+        )
+        tag.save()
+        if depth < len(self.children_tags_count):
+            for _ in range(self.children_tags_count[depth]):
+                self._create_tag(depth + 1, parent=tag)
+        return tag
+
+    def _build_large_taxonomy(self):
+        # Pupulates the large taxonomy with tags
+        for _ in range(self.root_tags_count):
+            self._create_tag(0)
+
+    def test_invalid_taxonomy(self):
+        url = TAXONOMY_TAGS_URL.format(pk=212121)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_not_authorized_user(self):
+        # Not authenticated user
+        response = self.client.get(self.small_taxonomy_url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+        self.small_taxonomy.enabled = False
+        self.small_taxonomy.save()
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.small_taxonomy_url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_small_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(self.small_taxonomy_url)
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+        results = data.get("results", [])
+
+        # Count of root tags
+        root_count = self.small_taxonomy.tag_set.filter(parent=None).count()
+        assert len(results) == root_count
+
+        # Checking tag fields
+        root_tag = self.small_taxonomy.tag_set.get(id=results[0].get("id"))
+        root_children_count = root_tag.children.count()
+        assert results[0].get("value") == root_tag.value
+        assert results[0].get("taxonomy_id") == self.small_taxonomy.id
+        assert results[0].get("children_count") == root_children_count
+        assert len(results[0].get("sub_tags")) == root_children_count
+
+        # Checking pagination values
+        assert data.get("next") is None
+        assert data.get("previous") is None
+        assert data.get("count") == root_count
+        assert data.get("num_pages") == 1
+        assert data.get("current_page") == 1
+
+    def test_small_search(self):
+        search_term = 'eU'
+        url = f"{self.small_taxonomy_url}?search_term={search_term}"
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+        results = data.get("results", [])
+
+        assert len(results) == 3
+
+        # Checking pagination values
+        assert data.get("next") is None
+        assert data.get("previous") is None
+        assert data.get("count") == 3
+        assert data.get("num_pages") == 1
+        assert data.get("current_page") == 1
+
+    def test_large_taxonomy(self):
+        self._build_large_taxonomy()
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(self.large_taxonomy_url)
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+        results = data.get("results", [])
+
+        # Count of paginated root tags
+        assert len(results) == self.page_size
+
+        # Checking tag fields
+        root_tag = self.large_taxonomy.tag_set.get(id=results[0].get("id"))
+        assert results[0].get("value") == root_tag.value
+        assert results[0].get("taxonomy_id") == self.large_taxonomy.id
+        assert results[0].get("parent_id") == root_tag.parent_id
+        assert results[0].get("children_count") == root_tag.children.count()
+        assert results[0].get("sub_tags_link") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
+            f"/tags/?parent_tag_id={root_tag.id}"
+        )
+
+        # Checking pagination values
+        assert data.get("next") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}/tags/?page=2"
+        )
+        assert data.get("previous") is None
+        assert data.get("count") == self.root_tags_count
+        assert data.get("num_pages") == 6
+        assert data.get("current_page") == 1
+
+    def test_next_page_large_taxonomy(self):
+        self._build_large_taxonomy()
+        self.client.force_authenticate(user=self.staff)
+
+        # Gets the root tags to obtain the next links
+        response = self.client.get(self.large_taxonomy_url)
+
+        # Gets the next root tags
+        response = self.client.get(response.data.get("next"))
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+
+        # Checking pagination values
+        assert data.get("next") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}/tags/?page=3"
+        )
+        assert data.get("previous") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}/tags/"
+        )
+        assert data.get("count") == self.root_tags_count
+        assert data.get("num_pages") == 6
+        assert data.get("current_page") == 2
+
+    def test_large_search(self):
+        self._build_large_taxonomy()
+        search_term = '1'
+        url = f"{self.large_taxonomy_url}?search_term={search_term}"
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+        results = data.get("results", [])
+
+        # Count of paginated root tags
+        assert len(results) == self.page_size
+
+        # Checking pagination values
+        assert data.get("next") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
+            f"/tags/?page=2&search_term={search_term}"
+        )
+        assert data.get("previous") is None
+        assert data.get("count") == 51
+        assert data.get("num_pages") == 6
+        assert data.get("current_page") == 1
+
+    def test_next_large_search(self):
+        self._build_large_taxonomy()
+        search_term = '1'
+        url = f"{self.large_taxonomy_url}?search_term={search_term}"
+
+        # Get first page of the search
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+
+        # Get next page
+        response = self.client.get(response.data.get("next"))
+
+        data = response.data
+        results = data.get("results", [])
+
+        # Count of paginated root tags
+        assert len(results) == self.page_size
+
+        # Checking pagination values
+        assert data.get("next") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
+            f"/tags/?page=3&search_term={search_term}"
+        )
+        assert data.get("previous") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
+            f"/tags/?search_term={search_term}"
+        )
+        assert data.get("count") == 51
+        assert data.get("num_pages") == 6
+        assert data.get("current_page") == 2
+
+    def test_get_children(self):
+        self._build_large_taxonomy()
+        self.client.force_authenticate(user=self.staff)
+
+        # Get root tags to obtain the children link of a tag.
+        response = self.client.get(self.large_taxonomy_url)
+        results = response.data.get("results", [])
+
+        # Get children tags
+        response = self.client.get(results[0].get("sub_tags_link"))
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+        results = data.get("results", [])
+
+        # Count of paginated children tags
+        assert len(results) == self.page_size
+
+        # Checking tag fields
+        tag = self.large_taxonomy.tag_set.get(id=results[0].get("id"))
+        assert results[0].get("value") == tag.value
+        assert results[0].get("taxonomy_id") == self.large_taxonomy.id
+        assert results[0].get("parent_id") == tag.parent_id
+        assert results[0].get("children_count") == tag.children.count()
+        assert results[0].get("sub_tags_link") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
+            f"/tags/?parent_tag_id={tag.id}"
+        )
+
+        # Checking pagination values
+        assert data.get("next") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
+            f"/tags/?page=2&parent_tag_id={tag.parent_id}"
+        )
+        assert data.get("previous") is None
+        assert data.get("count") == self.children_tags_count[0]
+        assert data.get("num_pages") == 2
+        assert data.get("current_page") == 1
+
+    def test_get_leaves(self):
+        # Get tags depth=2
+        self.client.force_authenticate(user=self.staff)
+        parent_tag = Tag.objects.get(value="Animalia")
+
+        # Build url to get tags depth=2
+        url = f"{self.small_taxonomy_url}?parent_tag_id={parent_tag.id}"
+        response = self.client.get(url)
+        results = response.data.get("results", [])
+
+        # Checking tag fields
+        tag = self.small_taxonomy.tag_set.get(id=results[0].get("id"))
+        assert results[0].get("value") == tag.value
+        assert results[0].get("taxonomy_id") == self.small_taxonomy.id
+        assert results[0].get("parent_id") == tag.parent_id
+        assert results[0].get("children_count") == tag.children.count()
+        assert results[0].get("sub_tags_link") is None
+
+    def test_next_children(self):
+        self._build_large_taxonomy()
+        self.client.force_authenticate(user=self.staff)
+
+        # Get roots to obtain children link of a tag
+        response = self.client.get(self.large_taxonomy_url)
+        results = response.data.get("results", [])
+
+        # Get children to obtain next link
+        response = self.client.get(results[0].get("sub_tags_link"))
+
+        # Get next children
+        response = self.client.get(response.data.get("next"))
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+        results = data.get("results", [])
+        tag = self.large_taxonomy.tag_set.get(id=results[0].get("id"))
+
+        # Checking pagination values
+        assert data.get("next") is None
+        assert data.get("previous") == (
+            "http://testserver/tagging/"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}/tags/?parent_tag_id={tag.parent_id}"
+        )
+        assert data.get("count") == self.children_tags_count[0]
+        assert data.get("num_pages") == 2
+        assert data.get("current_page") == 2

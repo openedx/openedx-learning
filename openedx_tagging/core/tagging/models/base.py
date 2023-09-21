@@ -268,7 +268,10 @@ class Taxonomy(models.Model):
         self._taxonomy_class = taxonomy._taxonomy_class
         return self
 
-    def get_tags(self, tag_set: models.QuerySet | None = None) -> list[Tag]:
+    def get_tags(
+        self,
+        tag_set: models.QuerySet[Tag] | None = None,
+    ) -> list[Tag]:
         """
         Returns a list of all Tags in the current taxonomy, from the root(s)
         down to TAXONOMY_MAX_DEPTH tags, in tree order.
@@ -289,6 +292,7 @@ class Taxonomy(models.Model):
             tag_set = self.tag_set.all()
 
         parents = None
+
         for depth in range(TAXONOMY_MAX_DEPTH):
             filtered_tags = tag_set.prefetch_related("parent")
             if parents is None:
@@ -309,6 +313,42 @@ class Taxonomy(models.Model):
             if not parents:
                 break
         return tags
+
+    def get_filtered_tags(
+        self,
+        tag_set: models.QuerySet[Tag] | None = None,
+        parent_tag_id: int | None = None,
+        search_term: str | None = None,
+        search_in_all: bool = False,
+    ) -> models.QuerySet[Tag]:
+        """
+        Returns a filtered QuerySet of tags.
+        By default returns the root tags of the given taxonomy
+
+        Use `parent_tag_id` to return the children of a tag.
+
+        Use `search_term` to filter the results by values that contains `search_term`.
+
+        Set `search_in_all` to True to make the search in all tags on the given taxonomy.
+
+        Note: This is mostly an 'internal' API and generally code outside of openedx_tagging
+        should use the APIs in openedx_tagging.api which in turn use this.
+        """
+        if tag_set is None:
+            tag_set = self.tag_set.all()
+
+        if self.allow_free_text:
+            return tag_set.none()
+
+        if not search_in_all:
+            # If not search in all taxonomy, then apply parent filter.
+            tag_set = tag_set.filter(parent=parent_tag_id)
+
+        if search_term:
+            # Apply search filter
+            tag_set = tag_set.filter(value__icontains=search_term)
+
+        return tag_set.order_by("value", "id")
 
     def validate_object_tag(
         self,
@@ -348,7 +388,9 @@ class Taxonomy(models.Model):
         Subclasses can override this method to perform their own taxonomy validation checks.
         """
         # Must be linked to this taxonomy
-        return (object_tag.taxonomy_id is not None) and object_tag.taxonomy_id == self.id
+        return (
+            object_tag.taxonomy_id is not None
+        ) and object_tag.taxonomy_id == self.id
 
     def _check_tag(
         self,
@@ -495,9 +537,11 @@ class Taxonomy(models.Model):
         # Fetch tags that the object already has to exclude them from the result
         excluded_tags: list[str] = []
         if object_id:
-            excluded_tags = list(self.objecttag_set.filter(object_id=object_id).values_list(
-                "_value", flat=True
-            ))
+            excluded_tags = list(
+                self.objecttag_set.filter(object_id=object_id).values_list(
+                    "_value", flat=True
+                )
+            )
         return (
             # Fetch object tags from this taxonomy whose value contains the search
             self.objecttag_set.filter(_value__icontains=search)

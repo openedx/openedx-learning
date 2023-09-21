@@ -17,8 +17,16 @@ test_languages = [
     ("az", "Azerbaijani"),
     ("en", "English"),
     ("id", "Indonesian"),
+    ("ga", "Irish"),
+    ("pl", "Polish"),
     ("qu", "Quechua"),
     ("zu", "Zulu"),
+]
+# Languages that contains 'ish'
+filtered_test_languages = [
+    ("en", "English"),
+    ("ga", "Irish"),
+    ("pl", "Polish"),
 ]
 
 
@@ -107,6 +115,46 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         langs = [tag.external_id for tag in tags]
         expected_langs = [lang[0] for lang in test_languages]
         assert langs == expected_langs
+
+    @override_settings(LANGUAGES=test_languages)
+    def test_get_root_tags(self):
+        assert tagging_api.get_root_tags(self.taxonomy) == self.domain_tags
+        assert tagging_api.get_root_tags(self.system_taxonomy) == self.system_tags
+        tags = tagging_api.get_root_tags(self.language_taxonomy)
+        langs = [tag.external_id for tag in tags]
+        expected_langs = [lang[0] for lang in test_languages]
+        assert langs == expected_langs
+
+    @override_settings(LANGUAGES=test_languages)
+    def test_search_tags(self):
+        assert tagging_api.search_tags(
+            self.taxonomy,
+            search_term='eU'
+        ) == self.filtered_tags
+
+        tags = tagging_api.search_tags(self.language_taxonomy, search_term='IsH')
+        langs = [tag.external_id for tag in tags]
+        expected_langs = [lang[0] for lang in filtered_test_languages]
+        assert langs == expected_langs
+
+    def test_get_children_tags(self):
+        assert tagging_api.get_children_tags(
+            self.taxonomy,
+            self.animalia.id,
+        ) == self.phylum_tags
+        assert tagging_api.get_children_tags(
+                self.taxonomy,
+                self.animalia.id,
+                search_term='dA',
+        ) == self.filtered_phylum_tags
+        assert not tagging_api.get_children_tags(
+            self.system_taxonomy,
+            self.system_taxonomy_tag.id,
+        )
+        assert not tagging_api.get_children_tags(
+            self.language_taxonomy,
+            self.english_tag,
+        )
 
     def check_object_tag(
         self,
