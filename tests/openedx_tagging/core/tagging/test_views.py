@@ -469,7 +469,11 @@ class TestObjectTagViewSet(APITestCase):
 
         self.dummy_taxonomies = []
         for i in range(100):
-            taxonomy = Taxonomy.objects.create(name=f"Dummy Taxonomy {i}", allow_free_text=True)
+            taxonomy = Taxonomy.objects.create(
+                name=f"Dummy Taxonomy {i}",
+                allow_free_text=True,
+                allow_multiple=True
+            )
             ObjectTag.objects.create(
                 object_id="limit_tag_count",
                 taxonomy=taxonomy,
@@ -770,6 +774,12 @@ class TestObjectTagViewSet(APITestCase):
             url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
             response = self.client.put(url, {"tags": ["New Tag"]}, format="json")
             assert response.status_code == status.HTTP_200_OK
+
+        # Editing tags adding another one will fail
+        for taxonomy in self.dummy_taxonomies:
+            url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
+            response = self.client.put(url, {"tags": ["New Tag 1", "New Tag 2"]}, format="json")
+            assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 class TestTaxonomyTagsView(TestTaxonomyViewMixin):

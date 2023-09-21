@@ -606,7 +606,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 ["Eubacteria"],
                 "object_1",
             )
-            assert "already have 100 or more tags" in str(exc.exception)
+            assert exc.exception
+            assert "Cannot add more than 100 tags to" in str(exc.exception)
 
         # Updating existing tags should work
         for taxonomy in self.dummy_taxonomies:
@@ -615,6 +616,17 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 ["New Dummy Tag"],
                 "object_1",
             )
+
+        # Updating existing tags adding a new one should fail
+        for taxonomy in self.dummy_taxonomies:
+            with self.assertRaises(ValueError) as exc:
+                tagging_api.tag_object(
+                    taxonomy,
+                    ["New Dummy Tag 1", "New Dummy Tag 2"],
+                    "object_1",
+                )
+                assert exc.exception
+                assert "Cannot add more than 100 tags to" in str(exc.exception)
 
     def test_get_object_tags(self) -> None:
         # Alpha tag has no taxonomy

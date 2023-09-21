@@ -117,7 +117,11 @@ class TestTagTaxonomyMixin:
 
         self.dummy_taxonomies = []
         for i in range(100):
-            taxonomy = Taxonomy.objects.create(name=f"ZZ Dummy Taxonomy {i:03}", allow_free_text=True)
+            taxonomy = Taxonomy.objects.create(
+                name=f"ZZ Dummy Taxonomy {i:03}",
+                allow_free_text=True,
+                allow_multiple=True
+            )
             ObjectTag.objects.create(
                 object_id="limit_tag_count",
                 taxonomy=taxonomy,
