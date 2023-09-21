@@ -458,7 +458,6 @@ class Taxonomy(models.Model):
                     _(f"Cannot add more than 100 tags to ({object_id}).")
                 )
 
-
         if not isinstance(tags, list):
             raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
 

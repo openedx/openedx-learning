@@ -500,3 +500,4 @@ class TaxonomyTagsView(ListAPIView):
         self.pagination_class = self.get_pagination_class()
 
         return result
+
