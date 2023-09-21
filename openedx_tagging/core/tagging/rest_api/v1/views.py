@@ -7,8 +7,8 @@ from django.db import models
 from django.http import Http404
 from rest_framework import mixins
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
-from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
+from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from openedx_tagging.core.tagging.models.base import Tag
