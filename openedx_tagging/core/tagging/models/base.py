@@ -446,10 +446,24 @@ class Taxonomy(models.Model):
                 -1,
             )
 
+        def _check_new_tag_count(new_tag_count: int) -> None:
+            """
+            Checks if the new count of tags for the object is equal or less than 100
+            """
+            # Exclude self.id to avoid counting the tags that are going to be updated
+            current_count = ObjectTag.objects.filter(object_id=object_id).exclude(taxonomy_id=self.id).count()
+
+            if current_count + new_tag_count > 100:
+                raise ValueError(
+                    _(f"Cannot add more than 100 tags to ({object_id}).")
+                )
+
         if not isinstance(tags, list):
             raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
 
         tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
+
+        _check_new_tag_count(len(tags))
 
         if not self.allow_multiple and len(tags) > 1:
             raise ValueError(_(f"Taxonomy ({self.id}) only allows one tag per object."))

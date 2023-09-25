@@ -115,6 +115,21 @@ class TestTagTaxonomyMixin:
             get_tag("System Tag 4"),
         ]
 
+        self.dummy_taxonomies = []
+        for i in range(100):
+            taxonomy = Taxonomy.objects.create(
+                name=f"ZZ Dummy Taxonomy {i:03}",
+                allow_free_text=True,
+                allow_multiple=True
+            )
+            ObjectTag.objects.create(
+                object_id="limit_tag_count",
+                taxonomy=taxonomy,
+                _name=taxonomy.name,
+                _value="Dummy Tag",
+            )
+            self.dummy_taxonomies.append(taxonomy)
+
     def setup_tag_depths(self):
         """
         Annotate our tags with depth so we can compare them.
