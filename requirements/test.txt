@@ -14,6 +14,11 @@ asgiref==3.7.2
     #   django
 attrs==23.1.0
     # via -r requirements/base.txt
+backports-zoneinfo[tzdata]==0.2.1
+    # via
+    #   -r requirements/base.txt
+    #   celery
+    #   kombu
 billiard==4.1.0
     # via
     #   -r requirements/base.txt
@@ -263,10 +268,12 @@ typing-extensions==4.6.3
     #   djangorestframework-stubs
     #   grimp
     #   import-linter
+    #   kombu
     #   mypy
 tzdata==2023.3
     # via
     #   -r requirements/base.txt
+    #   backports-zoneinfo
     #   celery
 urllib3==2.0.4
     # via

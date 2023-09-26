@@ -18,6 +18,11 @@ astroid==2.15.5
     #   pylint-celery
 attrs==23.1.0
     # via -r requirements/test.txt
+backports-zoneinfo[tzdata]==0.2.1
+    # via
+    #   -r requirements/test.txt
+    #   celery
+    #   kombu
 billiard==4.1.0
     # via
     #   -r requirements/test.txt
@@ -157,6 +162,8 @@ importlib-metadata==6.7.0
     # via
     #   keyring
     #   twine
+importlib-resources==6.1.0
+    # via keyring
 iniconfig==2.0.0
     # via
     #   -r requirements/test.txt
@@ -389,11 +396,14 @@ typing-extensions==4.6.3
     #   djangorestframework-stubs
     #   grimp
     #   import-linter
+    #   kombu
     #   mypy
     #   pylint
+    #   rich
 tzdata==2023.3
     # via
     #   -r requirements/test.txt
+    #   backports-zoneinfo
     #   celery
 urllib3==2.0.4
     # via
@@ -415,4 +425,6 @@ webencodings==0.5.1
 wrapt==1.15.0
     # via astroid
 zipp==3.15.0
-    # via importlib-metadata
+    # via
+    #   importlib-metadata
+    #   importlib-resources

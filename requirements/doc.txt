@@ -22,6 +22,11 @@ babel==2.12.1
     # via
     #   pydata-sphinx-theme
     #   sphinx
+backports-zoneinfo[tzdata]==0.2.1
+    # via
+    #   -r requirements/test.txt
+    #   celery
+    #   kombu
 beautifulsoup4==4.12.2
     # via pydata-sphinx-theme
 billiard==4.1.0
@@ -85,6 +90,8 @@ django==3.2.19
     #   -r requirements/test.txt
     #   django-crum
     #   django-debug-toolbar
+    #   django-stubs
+    #   django-stubs-ext
     #   django-waffle
     #   djangorestframework
     #   drf-jwt
@@ -156,6 +163,8 @@ imagesize==1.4.1
     # via sphinx
 import-linter==1.9.0
     # via -r requirements/test.txt
+importlib-metadata==6.8.0
+    # via sphinx
 iniconfig==2.0.0
     # via
     #   -r requirements/test.txt
@@ -261,6 +270,7 @@ python-slugify==8.0.1
 pytz==2023.3
     # via
     #   -r requirements/test.txt
+    #   babel
     #   django
     #   djangorestframework
 pyyaml==6.0
@@ -366,11 +376,13 @@ typing-extensions==4.6.3
     #   djangorestframework-stubs
     #   grimp
     #   import-linter
+    #   kombu
     #   mypy
     #   pydata-sphinx-theme
 tzdata==2023.3
     # via
     #   -r requirements/test.txt
+    #   backports-zoneinfo
     #   celery
 urllib3==2.0.4
     # via
@@ -388,3 +400,5 @@ wcwidth==0.2.6
     #   prompt-toolkit
 webencodings==0.5.1
     # via bleach
+zipp==3.17.0
+    # via importlib-metadata
