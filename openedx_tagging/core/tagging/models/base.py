@@ -11,7 +11,7 @@ from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 from typing_extensions import Self  # Until we upgrade to python 3.11
 
-from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field
+from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field, case_sensitive_char_field
 
 log = logging.getLogger(__name__)
 
@@ -577,7 +577,7 @@ class ObjectTag(models.Model):
     """
 
     id = models.BigAutoField(primary_key=True)
-    object_id = case_insensitive_char_field(
+    object_id = case_sensitive_char_field(
         max_length=255,
         db_index=True,
         editable=False,

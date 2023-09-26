@@ -494,6 +494,38 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         )
         assert len(object_tags) == 1
 
+    def test_tag_object_case_id(self) -> None:
+        """
+        Test that the case of the object_id is preserved.
+        """
+        tagging_api.tag_object(
+            self.taxonomy,
+            [self.eubacteria.id],
+            "biology101",
+        )
+
+        tagging_api.tag_object(
+            self.taxonomy,
+            [self.archaea.id],
+            "BIOLOGY101",
+        )
+
+        object_tags_lower = tagging_api.get_object_tags(
+            taxonomy_id=self.taxonomy.pk,
+            object_id="biology101",
+        )
+
+        assert len(object_tags_lower) == 1
+        assert object_tags_lower[0].tag_id == self.eubacteria.id
+
+        object_tags_upper = tagging_api.get_object_tags(
+            taxonomy_id=self.taxonomy.pk,
+            object_id="BIOLOGY101",
+        )
+
+        assert len(object_tags_upper) == 1
+        assert object_tags_upper[0].tag_id == self.archaea.id
+
     @override_settings(LANGUAGES=test_languages)
     def test_tag_object_language_taxonomy(self) -> None:
         tags_list = [
