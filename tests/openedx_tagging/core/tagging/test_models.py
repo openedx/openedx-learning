@@ -3,6 +3,7 @@ Test the tagging base models
 """
 import ddt  # type: ignore[import]
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.utils import IntegrityError
 from django.test.testcases import TestCase
 
@@ -525,3 +526,39 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
                 "biology101",
             )
         assert "Invalid object tag for taxonomy" in str(exc.exception)
+
+    def test_tag_case(self) -> None:
+        """
+        Test that the object_id is case sensitive.
+        """
+        # Tag with object_id with lower case
+        ObjectTag(
+            object_id="case:id:2",
+            taxonomy=self.taxonomy,
+            tag=self.domain_tags[0],
+        ).save()
+
+        # Tag with object_id with upper case should not trigger IntegrityError
+        ObjectTag(
+            object_id="CASE:id:2",
+            taxonomy=self.taxonomy,
+            tag=self.domain_tags[0],
+        ).save()
+
+        # Create another ObjectTag with lower case object_id should trigger IntegrityError
+        with transaction.atomic():
+            with self.assertRaises(IntegrityError):
+                ObjectTag(
+                    object_id="case:id:2",
+                    taxonomy=self.taxonomy,
+                    tag=self.domain_tags[0],
+                ).save()
+
+        # Create another ObjectTag with upper case object_id should trigger IntegrityError
+        with transaction.atomic():
+            with self.assertRaises(IntegrityError):
+                ObjectTag(
+                    object_id="CASE:id:2",
+                    taxonomy=self.taxonomy,
+                    tag=self.domain_tags[0],
+                ).save()
