@@ -145,7 +145,7 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
 def get_object_tags(
     object_id: str,
     taxonomy_id: int | None = None,
-    ObjectTagClass: type[ObjectTag] = ObjectTag
+    object_tag_class: type[ObjectTag] = ObjectTag
 ) -> QuerySet[ObjectTag]:
     """
     Returns a Queryset of object tags for a given object.
@@ -154,7 +154,7 @@ def get_object_tags(
     """
     filters = {"taxonomy_id": taxonomy_id} if taxonomy_id else {}
     tags = (
-        ObjectTagClass.objects.filter(object_id=object_id, **filters)
+        object_tag_class.objects.filter(object_id=object_id, **filters)
         .select_related("tag", "taxonomy")
         .order_by("id")
     )
@@ -175,7 +175,7 @@ def tag_object(
     taxonomy: Taxonomy,
     tags: list[str],
     object_id: str,
-    ObjectTagClass: type[ObjectTag] = ObjectTag,
+    object_tag_class: type[ObjectTag] = ObjectTag,
 ) -> None:
     """
     Replaces the existing ObjectTag entries for the given taxonomy + object_id
@@ -183,7 +183,7 @@ def tag_object(
 
     tags: A list of the values of the tags from this taxonomy to apply.
 
-    ObjectTagClass: Optional. Use a proxy subclass of ObjectTag for additional
+    object_tag_class: Optional. Use a proxy subclass of ObjectTag for additional
         validation. (e.g. only allow tagging certain types of objects.)
 
     Raised Tag.DoesNotExist if the proposed tags are invalid for this taxonomy.
@@ -206,6 +206,7 @@ def tag_object(
     if not isinstance(tags, list):
         raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
 
+    ObjectTagClass = object_tag_class
     taxonomy = taxonomy.cast()  # Make sure we're using the right subclass. This is a no-op if we are already.
     tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
 

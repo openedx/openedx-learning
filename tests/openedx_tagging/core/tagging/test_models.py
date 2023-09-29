@@ -33,9 +33,7 @@ class TestTagTaxonomyMixin:
         self.system_taxonomy = Taxonomy.objects.get(
             name="System defined taxonomy"
         )
-        self.language_taxonomy = Taxonomy.objects.get(name="Languages")
-        self.language_taxonomy.taxonomy_class = LanguageTaxonomy
-        self.language_taxonomy = self.language_taxonomy.cast()
+        self.language_taxonomy = LanguageTaxonomy.objects.get(name="Languages")
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
         self.archaea = get_tag("Archaea")
         self.archaebacteria = get_tag("Archaebacteria")
