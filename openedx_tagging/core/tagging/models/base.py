@@ -188,15 +188,6 @@ class Taxonomy(models.Model):
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
 
     @property
-    def object_tag_class(self) -> type[ObjectTag]:
-        """
-        Returns the ObjectTag subclass associated with this taxonomy, which is ObjectTag by default.
-
-        Taxonomy subclasses may override this method to use different subclasses of ObjectTag.
-        """
-        return ObjectTag
-
-    @property
     def taxonomy_class(self) -> type[Taxonomy] | None:
         """
         Returns the Taxonomy subclass associated with this instance, or None if none supplied.
@@ -350,6 +341,7 @@ class Taxonomy(models.Model):
 
         return tag_set.order_by("value", "id")
 
+    # TODO: replace this with just validate_value() and value_for_external_id()
     def validate_object_tag(
         self,
         object_tag: "ObjectTag",
@@ -418,144 +410,6 @@ class Taxonomy(models.Model):
         Subclasses can override this method to perform their own taxonomy validation checks.
         """
         return bool(object_tag.object_id)
-
-    def tag_object(
-        self,
-        tags: list[str],
-        object_id: str,
-    ) -> list[ObjectTag]:
-        """
-        Replaces the existing ObjectTag entries for the current taxonomy + object_id with the given list of tags.
-        If self.allows_free_text, then the list should be a list of tag values.
-        Otherwise, it should be either a list of existing Tag Values or IDs.
-        Raised ValueError if the proposed tags are invalid for this taxonomy.
-        Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
-        """
-
-        def _find_object_tag_index(tag_ref, object_tags) -> int:
-            """
-            Search for Tag in the given list of ObjectTags by tag_ref or value,
-            returning its index or -1 if not found.
-            """
-            return next(
-                (
-                    i
-                    for i, object_tag in enumerate(object_tags)
-                    if object_tag.tag_ref == tag_ref or object_tag.value == tag_ref
-                ),
-                -1,
-            )
-
-        def _check_new_tag_count(new_tag_count: int) -> None:
-            """
-            Checks if the new count of tags for the object is equal or less than 100
-            """
-            # Exclude self.id to avoid counting the tags that are going to be updated
-            current_count = ObjectTag.objects.filter(object_id=object_id).exclude(taxonomy_id=self.id).count()
-
-            if current_count + new_tag_count > 100:
-                raise ValueError(
-                    _(f"Cannot add more than 100 tags to ({object_id}).")
-                )
-
-        if not isinstance(tags, list):
-            raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
-
-        tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
-
-        _check_new_tag_count(len(tags))
-
-        if not self.allow_multiple and len(tags) > 1:
-            raise ValueError(_(f"Taxonomy ({self.id}) only allows one tag per object."))
-
-        if self.required and len(tags) == 0:
-            raise ValueError(
-                _(f"Taxonomy ({self.id}) requires at least one tag per object.")
-            )
-
-        ObjectTagClass = self.object_tag_class
-        current_tags = list(
-            ObjectTagClass.objects.filter(
-                taxonomy=self,
-                object_id=object_id,
-            )
-        )
-        updated_tags = []
-        for tag_ref in tags:
-            object_tag_index = _find_object_tag_index(tag_ref, current_tags)
-            if object_tag_index >= 0:
-                object_tag = current_tags.pop(object_tag_index)
-            else:
-                object_tag = ObjectTagClass(
-                    taxonomy=self,
-                    object_id=object_id,
-                )
-
-            object_tag.tag_ref = tag_ref
-            object_tag.resync()
-            if not self.validate_object_tag(object_tag):
-                raise ValueError(
-                    _(f"Invalid object tag for taxonomy ({self.id}): {tag_ref}")
-                )
-            updated_tags.append(object_tag)
-
-        # Save all updated tags at once to avoid partial updates
-        for object_tag in updated_tags:
-            object_tag.save()
-
-        # ...and delete any omitted existing tags
-        for old_tag in current_tags:
-            old_tag.delete()
-
-        return updated_tags
-
-    def autocomplete_tags(
-        self,
-        search: str,
-        object_id: str | None = None,
-    ) -> models.QuerySet:
-        """
-        Provides auto-complete suggestions by matching the `search` string against existing
-        ObjectTags linked to the given taxonomy. A case-insensitive search is used in order
-        to return the highest number of relevant tags.
-
-        If `object_id` is provided, then object tag values already linked to this object
-        are omitted from the returned suggestions. (ObjectTag values must be unique for a
-        given object + taxonomy, and so omitting these suggestions helps users avoid
-        duplication errors.).
-
-        Returns a QuerySet of dictionaries containing distinct `value` (string) and `tag`
-        (numeric ID) values, sorted alphabetically by `value`.
-
-        Subclasses can override this method to perform their own autocomplete process.
-        Subclass use cases:
-        * Large taxonomy associated with a model. It can be overridden to get
-          the suggestions directly from the model by doing own filtering.
-        * Taxonomy with a list of available tags: It can be overridden to only
-          search the suggestions on a list of available tags.
-        """
-        # Fetch tags that the object already has to exclude them from the result
-        excluded_tags: list[str] = []
-        if object_id:
-            excluded_tags = list(
-                self.objecttag_set.filter(object_id=object_id).values_list(
-                    "_value", flat=True
-                )
-            )
-        return (
-            # Fetch object tags from this taxonomy whose value contains the search
-            self.objecttag_set.filter(_value__icontains=search)
-            # omit any tags whose values match the tags on the given object
-            .exclude(_value__in=excluded_tags)
-            # alphabetical ordering
-            .order_by("_value")
-            # Alias the `_value` field to `value` to make it nicer for users
-            .annotate(value=models.F("_value"))
-            # obtain tag values
-            .values("value", "tag_id")
-            # remove repeats
-            .distinct()
-        )
 
 
 class ObjectTag(models.Model):
@@ -683,6 +537,7 @@ class ObjectTag(models.Model):
         """
         return self.tag.id if self.tag else self._value
 
+    # TODO: remove tag_ref, always reference tags by 'value'
     @tag_ref.setter
     def tag_ref(self, tag_ref: str):
         """

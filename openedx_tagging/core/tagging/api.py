@@ -14,7 +14,8 @@ from __future__ import annotations
 
 from typing import Iterator
 
-from django.db.models import QuerySet
+from django.db import transaction
+from django.db.models import QuerySet, F
 from django.utils.translation import gettext_lazy as _
 
 from .models import ObjectTag, Tag, Taxonomy
@@ -139,21 +140,16 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
 
 
 def get_object_tags(
-    object_id: str, taxonomy_id: str | None = None
+    object_id: str,
+    ObjectTagClass: type[ObjectTag] = ObjectTag
 ) -> QuerySet[ObjectTag]:
     """
     Returns a Queryset of object tags for a given object.
 
     Pass taxonomy to limit the returned object_tags to a specific taxonomy.
     """
-    ObjectTagClass = ObjectTag
-    extra_filters = {}
-    if taxonomy_id is not None:
-        taxonomy = Taxonomy.objects.get(pk=taxonomy_id)
-        ObjectTagClass = taxonomy.object_tag_class
-        extra_filters["taxonomy_id"] = taxonomy_id
     tags = (
-        ObjectTagClass.objects.filter(object_id=object_id, **extra_filters)
+        ObjectTagClass.objects.filter(object_id=object_id)
         .select_related("tag", "taxonomy")
         .order_by("id")
     )
@@ -164,9 +160,7 @@ def delete_object_tags(object_id: str):
     """
     Delete all ObjectTag entries for a given object.
     """
-    tags = ObjectTag.objects.filter(
-        object_id=object_id,
-    )
+    tags = ObjectTag.objects.filter(object_id=object_id)
 
     tags.delete()
 
@@ -175,6 +169,7 @@ def tag_object(
     taxonomy: Taxonomy,
     tags: list[str],
     object_id: str,
+    ObjectTagClass: type[ObjectTag] = ObjectTag,
 ) -> list[ObjectTag]:
     """
     Replaces the existing ObjectTag entries for the given taxonomy + object_id with the given list of tags.
@@ -185,9 +180,77 @@ def tag_object(
     Raised ValueError if the proposed tags are invalid for this taxonomy.
     Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
     """
-    return taxonomy.cast().tag_object(tags, object_id)
+
+    def _check_new_tag_count(new_tag_count: int) -> None:
+        """
+        Checks if the new count of tags for the object is equal or less than 100
+        """
+        # Exclude self.id to avoid counting the tags that are going to be updated
+        current_count = ObjectTag.objects.filter(object_id=object_id).exclude(taxonomy_id=taxonomy.id).count()
+
+        if current_count + new_tag_count > 100:
+            raise ValueError(
+                _(f"Cannot add more than 100 tags to ({object_id}).")
+            )
+
+    if not isinstance(tags, list):
+        raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
+
+    taxonomy = taxonomy.cast()  # Make sure we're using the right subclass. This is a no-op if we are already.
+    tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
+
+    _check_new_tag_count(len(tags))
+
+    if not taxonomy.allow_multiple and len(tags) > 1:
+        raise ValueError(_(f"Taxonomy ({taxonomy.name}) only allows one tag per object."))
+
+    if taxonomy.required and len(tags) == 0:
+        raise ValueError(
+            _(f"Taxonomy ({taxonomy.id}) requires at least one tag per object.")
+        )
+
+    current_tags = list(
+        ObjectTagClass.objects.filter(taxonomy=taxonomy, object_id=object_id)
+    )
+    updated_tags = []
+    if taxonomy.allow_free_text:
+        for tag_value in tags:
+            object_tag_index = next((i for (i, t) in enumerate(current_tags) if t._value == tag_value), -1)
+            if object_tag_index >= 0:
+                # This tag is already applied.
+                object_tag = current_tags.pop(object_tag_index)
+            else:
+                object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, _value=tag_value)
+                updated_tags.append(object_tag)
+    else:
+        # Handle closed taxonomies:
+        for tag_ref in tags:
+            tag = taxonomy.tag_set.get(pk=tag_ref)  # TODO: this should be taxonomy.tag_for_value(tag_value)
+            object_tag_index = next((i for (i, t) in enumerate(current_tags) if t.tag_id == tag.id), -1)
+            if object_tag_index >= 0:
+                # This tag is already applied.
+                object_tag = current_tags.pop(object_tag_index)
+                if object_tag._value != tag.value:
+                    # The ObjectTag's cached '_value' is out of sync with the Tag, so update it:
+                    object_tag._value = tag.value
+                    updated_tags.append(object_tag)
+            else:
+                # We are newly applying this tag:
+                object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, tag=tag, _value=tag.value)
+                updated_tags.append(object_tag)
+
+    # Save all updated tags at once to avoid partial updates
+    with transaction.atomic():
+        for object_tag in updated_tags:
+            object_tag.save()
+        # ...and delete any omitted existing tags
+        for old_tag in current_tags:
+            old_tag.delete()
+
+    return updated_tags
 
 
+# TODO: return tags from closed taxonomies as well as the count of how many times each is used.
 def autocomplete_tags(
     taxonomy: Taxonomy,
     search: str,
@@ -228,4 +291,25 @@ def autocomplete_tags(
                 "using get_tags() and filtering them on the frontend."
             )
         )
-    return taxonomy.cast().autocomplete_tags(search, object_id)
+    # Fetch tags that the object already has to exclude them from the result
+    excluded_tags: list[str] = []
+    if object_id:
+        excluded_tags = list(
+            taxonomy.objecttag_set.filter(object_id=object_id).values_list(
+                "_value", flat=True
+            )
+        )
+    return (
+        # Fetch object tags from this taxonomy whose value contains the search
+        taxonomy.objecttag_set.filter(_value__icontains=search)
+        # omit any tags whose values match the tags on the given object
+        .exclude(_value__in=excluded_tags)
+        # alphabetical ordering
+        .order_by("_value")
+        # Alias the `_value` field to `value` to make it nicer for users
+        .annotate(value=F("_value"))
+        # obtain tag values
+        .values("value", "tag_id")
+        # remove repeats
+        .distinct()
+    )
