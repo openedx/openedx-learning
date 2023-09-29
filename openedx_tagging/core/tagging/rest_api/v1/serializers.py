@@ -53,7 +53,8 @@ class ObjectTagSerializer(serializers.ModelSerializer):
             "name",
             "value",
             "taxonomy_id",
-            "is_valid",
+            # If the Tag or Taxonomy has been deleted, this ObjectTag shouldn't be shown to users.
+            "is_deleted",
         ]
 
 

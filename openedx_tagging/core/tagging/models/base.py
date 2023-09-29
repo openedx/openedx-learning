@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from typing import List
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
@@ -59,7 +60,7 @@ class Tag(models.Model):
     )
     external_id = case_insensitive_char_field(
         max_length=255,
-        null=True,
+        null=True,  # To allow multiple values with our UNIQUE constraint, we need to use NULL values here instead of ""
         blank=True,
         help_text=_(
             "Used to link an Open edX Tag with a tag in an externally-defined taxonomy."
@@ -359,7 +360,7 @@ class Taxonomy(models.Model):
         """
         self.check_casted()
         if self.allow_free_text:
-            return True
+            return value != "" and isinstance(value, str)
         return self.tag_set.filter(value__iexact=value).exists()
 
     def tag_for_value(self, value: str) -> Tag:
@@ -435,7 +436,8 @@ class ObjectTag(models.Model):
     )
     tag = models.ForeignKey(
         Tag,
-        null=True,
+        null=True,  # NULL in the case of free text taxonomies or when the Tag gets deleted.
+        blank=True,
         default=None,
         on_delete=models.SET_NULL,
         help_text=_(
@@ -443,7 +445,6 @@ class ObjectTag(models.Model):
         ),
     )
     _name = case_insensitive_char_field(
-        null=False,
         max_length=255,
         help_text=_(
             "User-facing label used for this tag, stored in case taxonomy is (or becomes) null."
@@ -451,7 +452,6 @@ class ObjectTag(models.Model):
         ),
     )
     _value = case_insensitive_char_field(
-        null=False,
         max_length=500,
         help_text=_(
             "User-facing value used for this tag, stored in case tag is null, e.g if taxonomy is free text, or if it"
@@ -465,7 +465,19 @@ class ObjectTag(models.Model):
             models.Index(fields=["taxonomy", "object_id"]),
             models.Index(fields=["taxonomy", "_value"]),
         ]
-        unique_together = ("taxonomy", "_value", "object_id")
+        unique_together = [
+            ("object_id", "taxonomy", "tag_id"),
+            ("object_id", "taxonomy", "_value"),
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.pk:  # This is a new instance:
+            # Set _name and _value automatically on creation, if they weren't set:
+            if self.taxonomy and not self._name:
+                self._name = self.taxonomy.name
+            if not self._value and self.tag:
+                self._value = self.tag.value
 
     def __repr__(self):
         """
@@ -512,19 +524,26 @@ class ObjectTag(models.Model):
         Stores to the _value field.
         """
         self._value = value
-
-    def is_valid(self) -> bool:
+    
+    @property
+    def is_deleted(self) -> bool:
         """
-        Returns True if this ObjectTag represents a valid taxonomy tag.
-
-        A valid ObjectTag must be linked to a Taxonomy, and be a valid tag in that taxonomy.
+        Has this Tag been deleted from the Taxonomy? If so, we preserve this
+        ObjecTag in the DB but it shouldn't be shown to the user.
         """
+        return self.taxonomy is None or (self.tag is None and not self.taxonomy.allow_free_text)
+
+    def clean(self):
         if self.tag:
-            return True  # If the Tag still exists, this is a valid value in the taxonomy.
-        elif self.taxonomy:
-            # If this is not a free text value and it's no longer linked to a Tag, it's invalid.
-            # Running self.resync() _might_ fix this though.
-            return self.taxonomy.allow_free_text
+            if self.tag.taxonomy_id != self.taxonomy_id:
+                raise ValidationError("ObjectTag's Taxonomy does not match Tag taxonomy")
+            elif self.tag.value != self._value:
+                raise ValidationError("ObjectTag's _value is out of sync with Tag.value")
+        else:
+            # Note: self.taxonomy and/or self.tag may be NULL which is OK, because it means the Tag/Taxonomy
+            # was deleted, but we still preserve this _value here in case the Taxonomy or Tag get re-created in future.
+            if self._value == "":
+                raise ValidationError("Invalid _value - empty string")
 
     def get_lineage(self) -> Lineage:
         """

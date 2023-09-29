@@ -174,7 +174,7 @@ def tag_object(
     tags: list[str],
     object_id: str,
     ObjectTagClass: type[ObjectTag] = ObjectTag,
-) -> list[ObjectTag]:
+) -> None:
     """
     Replaces the existing ObjectTag entries for the given taxonomy + object_id
     with the given list of tags.
@@ -244,18 +244,18 @@ def tag_object(
                     updated_tags.append(object_tag)
             else:
                 # We are newly applying this tag:
-                object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, tag=tag, _value=tag.value)
+                object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, tag=tag)
                 updated_tags.append(object_tag)
 
     # Save all updated tags at once to avoid partial updates
     with transaction.atomic():
-        for object_tag in updated_tags:
-            object_tag.save()
-        # ...and delete any omitted existing tags
+        # delete any omitted existing tags. We do this first to reduce chances of UNIQUE constraint edge cases
         for old_tag in current_tags:
             old_tag.delete()
-
-    return updated_tags
+        # add the new tags:
+        for object_tag in updated_tags:
+            object_tag.full_clean()  # Run validation
+            object_tag.save()
 
 
 # TODO: return tags from closed taxonomies as well as the count of how many times each is used.
