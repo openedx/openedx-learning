@@ -2,19 +2,17 @@
 Test the tagging system-defined taxonomy models
 """
 from __future__ import annotations
+
 from datetime import datetime
 
 import ddt  # type: ignore[import]
-from django.test import TestCase, override_settings
 import pytest
+from django.test import TestCase, override_settings
 
 from openedx_learning.core.publishing.models import LearningPackage
 from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.models import Taxonomy
-from openedx_tagging.core.tagging.models.system_defined import (
-    ModelSystemDefinedTaxonomy,
-    UserSystemDefinedTaxonomy,
-)
+from openedx_tagging.core.tagging.models.system_defined import ModelSystemDefinedTaxonomy, UserSystemDefinedTaxonomy
 
 from .test_models import TestTagTaxonomyMixin
 
@@ -32,21 +30,6 @@ class EmptyTestClass:
     """
     Empty class used for testing
     """
-
-
-class InvalidModelTaxonomy(ModelSystemDefinedTaxonomy):
-    """
-    Model used for testing
-    """
-
-    @property
-    def object_tag_class(self):
-        return EmptyTestClass
-
-    class Meta:
-        proxy = True
-        managed = False
-        app_label = "oel_tagging"
 
 
 class TestLPTaxonomy(ModelSystemDefinedTaxonomy):
@@ -210,7 +193,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         api.tag_object(self.author_taxonomy, [self.user_1.username], object2_id)
         initial_object_tags = api.get_object_tags(object1_id)
         assert [t.value for t in initial_object_tags] == [self.user_1.username]
-        assert list(api.get_object_tags(other_obj_id)) == []
+        assert not list(api.get_object_tags(other_obj_id))
         # Change user_1's username:
         new_username = "new_username"
         self.user_1.username = new_username
@@ -222,7 +205,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         # This is good - all the objects throughout the system with this tag now show the new value.
         assert [t.value for t in api.get_object_tags(object2_id)] == [new_username]
         # And just to make sure there are no other random changes to other objects:
-        assert list(api.get_object_tags(other_obj_id)) == []
+        assert not list(api.get_object_tags(other_obj_id))
 
     def test_tag_object_delete_user(self):
         """

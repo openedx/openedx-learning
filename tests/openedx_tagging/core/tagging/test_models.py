@@ -2,12 +2,12 @@
 Test the tagging base models
 """
 import ddt  # type: ignore[import]
+import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.utils import IntegrityError
 from django.test.testcases import TestCase
-import pytest
 
 from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
@@ -444,7 +444,7 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         with pytest.raises(ValidationError):
             object_tag.full_clean()
         object_tag.tag = self.tag
-        object_tag._value = self.tag.value
+        object_tag._value = self.tag.value  # pylint: disable=protected-access
         object_tag.full_clean()
 
     def test_tag_case(self) -> None:
@@ -476,7 +476,7 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
                 ).save()
 
     def test_is_deleted(self):
-        self.taxonomy.allow_multiple=True
+        self.taxonomy.allow_multiple = True
         self.taxonomy.save()
         open_taxonomy = Taxonomy.objects.create(name="Freetext Life", allow_free_text=True, allow_multiple=True)
 

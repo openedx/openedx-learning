@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Iterator
 
 from django.db import transaction
-from django.db.models import QuerySet, F
+from django.db.models import F, QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from .models import ObjectTag, Tag, Taxonomy

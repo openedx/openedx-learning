@@ -2,11 +2,12 @@
 Test the tagging APIs
 """
 from __future__ import annotations
+
 from typing import Any
 
 import ddt  # type: ignore[import]
-from django.test import TestCase, override_settings
 import pytest
+from django.test import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
@@ -257,9 +258,9 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             # And the expected number of tags were returned
             assert len(object_tags) == len(tag_list)
             for index, object_tag in enumerate(object_tags):
-                assert object_tag.tag_id == tag_list[index].id
-                assert object_tag._value == tag_list[index].value
                 object_tag.full_clean()  # Should not raise any ValidationErrors
+                assert object_tag.tag_id == tag_list[index].id
+                assert object_tag._value == tag_list[index].value  # pylint: disable=protected-access
                 assert object_tag.taxonomy == self.taxonomy
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
@@ -277,7 +278,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         object_tag.full_clean()  # Should not raise any ValidationErrors
         assert object_tag.taxonomy == self.taxonomy
         assert object_tag.name == self.taxonomy.name
-        assert object_tag._value == "Eukaryota Xenomorph"
+        assert object_tag._value == "Eukaryota Xenomorph"  # pylint: disable=protected-access
         assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
         assert object_tag.object_id == "biology101"
 

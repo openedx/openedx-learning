@@ -244,7 +244,7 @@ class Taxonomy(models.Model):
             )
 
         return self
-    
+
     def check_casted(self):
         """
         Double-check that this taxonomy has been cast() to a subclass if needed.
@@ -524,7 +524,7 @@ class ObjectTag(models.Model):
         Stores to the _value field.
         """
         self._value = value
-    
+
     @property
     def is_deleted(self) -> bool:
         """

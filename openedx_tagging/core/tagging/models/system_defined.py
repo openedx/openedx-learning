@@ -103,7 +103,7 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         except ObjectDoesNotExist:
             raise Tag.DoesNotExist
         # Use the canonical value from here on (possibly with different case from the value given as a parameter)
-        value =  getattr(instance, self.tag_class_value_field)
+        value = getattr(instance, self.tag_class_value_field)
         # We assume the value may change but the external_id is immutable.
         # So look up keys using external_id. There may be a key with the same external_id but an out of date value.
         external_id = str(getattr(instance, self.tag_class_key_field))
