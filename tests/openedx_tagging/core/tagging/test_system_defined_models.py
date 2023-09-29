@@ -3,7 +3,7 @@ Test the tagging system-defined taxonomy models
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import ddt  # type: ignore[import]
 import pytest
@@ -54,6 +54,24 @@ class TestLPTaxonomy(ModelSystemDefinedTaxonomy):
         app_label = "oel_tagging"
 
 
+class CaseInsensitiveTitleLPTaxonomy(TestLPTaxonomy):
+    """
+    Model that points to LearningPackage instances but uses 'title' as values
+    """
+    @property
+    def tag_class_value_field(self) -> str:
+        # Title isn't unique, so wouldn't make a good 'value' in real usage, but title is case-insensitive so we use it
+        # here to test case insensitivity. (On MySQL, only columns with case-insensitive collation can be used with
+        # case-insensitive comparison operators. On SQLite you could just use the 'key' field for testing, and it works
+        # fine.)
+        return "title"
+
+    class Meta:
+        proxy = True
+        managed = False
+        app_label = "oel_tagging"
+
+
 @ddt.ddt
 class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
     """
@@ -62,7 +80,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     @staticmethod
     def _create_learning_pkg(**kwargs) -> LearningPackage:
-        timestamp = datetime.now()
+        timestamp = datetime.now(tz=timezone.utc)
         return LearningPackage.objects.create(**kwargs, created=timestamp, updated=timestamp)
 
     @classmethod
@@ -147,10 +165,16 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         For now, values are case insensitive. We may change that in the future.
         """
         object1_id, object2_id = "obj1", "obj2"
-        api.tag_object(self.lp_taxonomy, ["P1"], object1_id)
-        api.tag_object(self.lp_taxonomy, ["p1", "P2"], object2_id)
-        assert [t.value for t in api.get_object_tags(object1_id)] == ["p1"]
-        assert [t.value for t in api.get_object_tags(object2_id)] == ["p1", "p2"]
+        taxonomy = CaseInsensitiveTitleLPTaxonomy.objects.create(
+            taxonomy_class=CaseInsensitiveTitleLPTaxonomy,
+            name="LearningPackage Title Taxonomy",
+            allow_multiple=True,
+        )
+        api.tag_object(taxonomy, ["LEARNING PACKAGE 1"], object1_id)
+        api.tag_object(taxonomy, ["Learning Package 1", "LEARNING PACKAGE 2"], object2_id)
+        # But they always get normalized to the case used on the actual model:
+        assert [t.value for t in api.get_object_tags(object1_id)] == ["Learning Package 1"]
+        assert [t.value for t in api.get_object_tags(object2_id)] == ["Learning Package 1", "Learning Package 2"]
 
     def test_multiple_taxonomies(self):
         """

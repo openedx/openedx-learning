@@ -98,7 +98,8 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         Get the Tag object for the given value.
         """
         try:
-            # First we look up the instance by value
+            # First we look up the instance by value.
+            # We specify 'iexact' but whether it's case sensitive or not on MySQL depends on the model's collation.
             instance = self.tag_class_model.objects.get(**{f"{self.tag_class_value_field}__iexact": value})
         except ObjectDoesNotExist:
             raise Tag.DoesNotExist
@@ -133,7 +134,8 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         Will raise Tag.DoesNotExist if the tag is not valid for this taxonomy.
         """
         try:
-            # First we look up the instance by value
+            # First we look up the instance by external_id
+            # We specify 'iexact' but whether it's case sensitive or not on MySQL depends on the model's collation.
             instance = self.tag_class_model.objects.get(**{f"{self.tag_class_key_field}__iexact": external_id})
         except ObjectDoesNotExist:
             raise Tag.DoesNotExist
