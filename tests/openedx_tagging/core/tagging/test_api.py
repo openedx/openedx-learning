@@ -2,11 +2,11 @@
 Test the tagging APIs
 """
 from __future__ import annotations
-
 from typing import Any
 
 import ddt  # type: ignore[import]
 from django.test import TestCase, override_settings
+import pytest
 
 import openedx_tagging.core.tagging.api as tagging_api
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
@@ -174,226 +174,128 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert object_tag.value == value
 
     def test_resync_object_tags(self) -> None:
-        missing_links = ObjectTag.objects.create(
-            object_id="abc",
-            _name=self.taxonomy.name,
-            _value=self.mammalia.value,
-        )
-        changed_links = ObjectTag.objects.create(
-            object_id="def",
-            taxonomy=self.taxonomy,
-            tag=self.mammalia,
-        )
-        changed_links.name = "Life"
-        changed_links.value = "Animals"
-        changed_links.save()
-        no_changes = ObjectTag.objects.create(
-            object_id="ghi",
-            taxonomy=self.taxonomy,
-            tag=self.mammalia,
-        )
-        no_changes.name = self.taxonomy.name
-        no_changes.value = self.mammalia.value
-        no_changes.save()
-
-        changed = tagging_api.resync_object_tags()
-        assert changed == 2
-        for object_tag in (missing_links, changed_links, no_changes):
-            self.check_object_tag(
-                object_tag, self.taxonomy, self.mammalia, "Life on Earth", "Mammalia"
-            )
-
-        # Once all tags are resynced, they stay that way
-        changed = tagging_api.resync_object_tags()
-        assert changed == 0
-
-        # Resync will use the tag's taxonomy if possible
-        changed_links.taxonomy = None
-        changed_links.save()
-        changed = tagging_api.resync_object_tags()
-        assert changed == 1
-        for object_tag in (missing_links, changed_links, no_changes):
-            self.check_object_tag(
-                object_tag, self.taxonomy, self.mammalia, "Life on Earth", "Mammalia"
-            )
-
-        # Resync will use the taxonomy's tags if possible
-        changed_links.tag = None
-        changed_links.value = "Xenomorph"
-        changed_links.save()
-        changed = tagging_api.resync_object_tags()
-        assert changed == 0
-        changed_links.value = "Mammalia"
-        changed_links.save()
-
-        # ObjectTag value preserved even if linked tag is deleted
-        self.mammalia.delete()
-        for object_tag in (missing_links, changed_links, no_changes):
-            self.check_object_tag(
-                object_tag, self.taxonomy, None, "Life on Earth", "Mammalia"
-            )
-        # Recreating the tag to test resyncing works
-        new_mammalia = Tag.objects.create(
-            value="Mammalia",
-            taxonomy=self.taxonomy,
-        )
-        changed = tagging_api.resync_object_tags()
-        assert changed == 3
-        for object_tag in (missing_links, changed_links, no_changes):
-            self.check_object_tag(
-                object_tag, self.taxonomy, new_mammalia, "Life on Earth", "Mammalia"
-            )
-
-        # ObjectTag name preserved even if linked taxonomy and its tags are deleted
-        self.taxonomy.delete()
-        for object_tag in (missing_links, changed_links, no_changes):
-            self.check_object_tag(object_tag, None, None, "Life on Earth", "Mammalia")
-
-        # Resyncing the tags for code coverage
-        changed = tagging_api.resync_object_tags()
-        assert changed == 0
-
-        # Recreate the taxonomy and resync some tags
-        first_taxonomy = tagging_api.create_taxonomy(
-            "Life on Earth", allow_free_text=True
-        )
-        second_taxonomy = tagging_api.create_taxonomy("Life on Earth")
-        new_tag = Tag.objects.create(
-            value="Mammalia",
-            taxonomy=second_taxonomy,
-        )
-
-        # Ensure the resync prefers the closed taxonomy with the matching tag
-        changed = tagging_api.resync_object_tags(
-            ObjectTag.objects.filter(object_id__in=["abc", "def"])
-        )
-        assert changed == 2
-
-        for object_tag in (missing_links, changed_links):
-            self.check_object_tag(
-                object_tag, second_taxonomy, new_tag, "Life on Earth", "Mammalia"
-            )
-
-        # Ensure the omitted tag was not updated
-        self.check_object_tag(no_changes, None, None, "Life on Earth", "Mammalia")
-
-        # Update that one too, to demonstrate the free-text tags are ok
-        no_changes.value = "Anamelia"
-        no_changes.save()
-        changed = tagging_api.resync_object_tags(
-            ObjectTag.objects.filter(id=no_changes.id)
-        )
-        assert changed == 1
-        self.check_object_tag(
-            no_changes, first_taxonomy, None, "Life on Earth", "Anamelia"
-        )
-
-    def test_tag_object(self) -> None:
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
+        open_taxonomy = Taxonomy.objects.create(name="Freetext Life", allow_free_text=True, allow_multiple=True)
+
+        object_id = "obj1"
+        # Create some tags:
+        tagging_api.tag_object(self.taxonomy, [self.archaea.value, self.bacteria.value], object_id)  # Regular tags
+        tagging_api.tag_object(open_taxonomy, ["foo", "bar"], object_id)  # Free text tags
+
+        # At first, none of these will be deleted:
+        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
+            (self.archaea.value, False),
+            (self.bacteria.value, False),
+            ("foo", False),
+            ("bar", False),
+        ]
+
+        # Delete "bacteria" from the taxonomy:
+        self.bacteria.delete()  # TODO: add an API method for this
+
+        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
+            (self.archaea.value, False),
+            (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
+            ("foo", False),
+            ("bar", False),
+        ]
+
+        # Re-syncing the tags at this point does nothing:
+        tagging_api.resync_object_tags()
+
+        # Now re-create the tag
+        self.bacteria.save()
+
+        # Then re-sync the tags:
+        changed = tagging_api.resync_object_tags()
+        assert changed == 1
+
+        # Now the tag is not deleted:
+        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
+            (self.archaea.value, False),
+            (self.bacteria.value, False),  # <--- not deleted
+            ("foo", False),
+            ("bar", False),
+        ]
+
+        # Re-syncing the tags now does nothing:
+        changed = tagging_api.resync_object_tags()
+        assert changed == 0
+
+    def test_tag_object(self):
+        self.taxonomy.allow_multiple = True
+
         test_tags = [
             [
-                self.archaea.id,
-                self.eubacteria.id,
-                self.chordata.id,
+                self.archaea,
+                self.eubacteria,
+                self.chordata,
             ],
             [
-                self.chordata.id,
-                self.archaebacteria.id,
+                self.archaebacteria,
+                self.chordata,
             ],
             [
-                self.archaebacteria.id,
-                self.archaea.id,
+                self.archaea,
+                self.archaebacteria,
             ],
         ]
 
         # Tag and re-tag the object, checking that the expected tags are returned and deleted
         for tag_list in test_tags:
-            object_tags = tagging_api.tag_object(
+            tagging_api.tag_object(
                 self.taxonomy,
-                tag_list,
+                [t.value for t in tag_list],
                 "biology101",
             )
-
             # Ensure the expected number of tags exist in the database
-            assert (
-                list(
-                    tagging_api.get_object_tags(
-                        taxonomy_id=self.taxonomy.pk,
-                        object_id="biology101",
-                    )
-                )
-                == object_tags
+            object_tags = ObjectTag.objects.filter(
+                taxonomy=self.taxonomy,
+                object_id="biology101",
             )
             # And the expected number of tags were returned
             assert len(object_tags) == len(tag_list)
             for index, object_tag in enumerate(object_tags):
-                assert object_tag.tag_id == tag_list[index]
-                assert object_tag.is_valid()
+                assert object_tag.tag_id == tag_list[index].id
+                assert object_tag._value == tag_list[index].value
+                object_tag.full_clean()  # Should not raise any ValidationErrors
                 assert object_tag.taxonomy == self.taxonomy
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
 
-        # Delete the tags
-        tagging_api.delete_object_tags("biology101")
-
-        # Ensure the tags were deleted
-        assert (
-            len(
-                list(
-                    tagging_api.get_object_tags(
-                        object_id="biology101",
-                    )
-                )
-            )
-            == 0
-        )
-
-    def test_tag_object_free_text(self) -> None:
+    def test_tag_object_free_text(self):
         self.taxonomy.allow_free_text = True
-        self.taxonomy.save()
-        object_tags = tagging_api.tag_object(
+        tagging_api.tag_object(
             self.taxonomy,
             ["Eukaryota Xenomorph"],
             "biology101",
         )
+        object_tags = tagging_api.get_object_tags("biology101")
         assert len(object_tags) == 1
         object_tag = object_tags[0]
-        assert object_tag.is_valid()
+        object_tag.full_clean()  # Should not raise any ValidationErrors
         assert object_tag.taxonomy == self.taxonomy
         assert object_tag.name == self.taxonomy.name
-        assert object_tag.tag_ref == "Eukaryota Xenomorph"
+        assert object_tag._value == "Eukaryota Xenomorph"
         assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
         assert object_tag.object_id == "biology101"
 
-    def test_tag_object_no_multiple(self) -> None:
-        with self.assertRaises(ValueError) as exc:
-            tagging_api.tag_object(
-                self.taxonomy,
-                ["A", "B"],
-                "biology101",
-            )
-        assert "only allows one tag per object" in str(exc.exception)
+    def test_tag_object_no_multiple(self):
+        with pytest.raises(ValueError) as excinfo:
+            tagging_api.tag_object(self.taxonomy, ["A", "B"], "biology101")
+        assert "only allows one tag per object" in str(excinfo.value)
 
-    def test_tag_object_required(self) -> None:
+    def test_tag_object_required(self):
         self.taxonomy.required = True
-        self.taxonomy.save()
-        with self.assertRaises(ValueError) as exc:
-            tagging_api.tag_object(
-                self.taxonomy,
-                [],
-                "biology101",
-            )
-        assert "requires at least one tag per object" in str(exc.exception)
+        with pytest.raises(ValueError) as excinfo:
+            tagging_api.tag_object(self.taxonomy, [], "biology101")
+        assert "requires at least one tag per object" in str(excinfo.value)
 
-    def test_tag_object_invalid_tag(self) -> None:
-        with self.assertRaises(ValueError) as exc:
-            tagging_api.tag_object(
-                self.taxonomy,
-                ["Eukaryota Xenomorph"],
-                "biology101",
-            )
-        assert "Invalid object tag for taxonomy (1): Eukaryota Xenomorph" in str(exc.exception)
+    def test_tag_object_invalid_tag(self):
+        with pytest.raises(tagging_api.TagDoesNotExist) as excinfo:
+            tagging_api.tag_object(self.taxonomy, ["Eukaryota Xenomorph"], "biology101")
+        assert "Tag matching query does not exist." in str(excinfo.value)
 
     def test_tag_object_string(self) -> None:
         with self.assertRaises(ValueError) as exc:
@@ -414,17 +316,18 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert "Tags must be a list, not int." in str(exc.exception)
 
     def test_tag_object_same_id(self) -> None:
-        # Tag the object with the same id twice
+        # Tag the object with the same tag twice
         tagging_api.tag_object(
             self.taxonomy,
-            [self.eubacteria.id],
+            [self.eubacteria.value],
             "biology101",
         )
-        object_tags = tagging_api.tag_object(
+        tagging_api.tag_object(
             self.taxonomy,
-            [self.eubacteria.id],
+            [self.eubacteria.value],
             "biology101",
         )
+        object_tags = tagging_api.get_object_tags("biology101")
         assert len(object_tags) == 1
         assert str(object_tags[0]) == "<ObjectTag> biology101: Life on Earth=Eubacteria"
 
@@ -432,66 +335,24 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         # Tag the object with the same value twice
         tagging_api.tag_object(
             self.taxonomy,
-            ["Eubacteria"],
+            [self.eubacteria.value, self.eubacteria.value],
             "biology101",
         )
-        object_tags = tagging_api.tag_object(
-            self.taxonomy,
-            ["Eubacteria"],
-            "biology101",
-        )
-
+        object_tags = tagging_api.get_object_tags("biology101")
         assert len(object_tags) == 1
         assert str(object_tags[0]) == "<ObjectTag> biology101: Life on Earth=Eubacteria"
-
-    def test_tag_object_same_mixed(self) -> None:
-        # Tag the object with the same id/value twice
-        tagging_api.tag_object(
-            self.taxonomy,
-            [self.eubacteria.id],
-            "biology101",
-        )
-        object_tags = tagging_api.tag_object(
-            self.taxonomy,
-            ["Eubacteria"],
-            "biology101",
-        )
-
-        assert len(object_tags) == 1
-        assert str(object_tags[0]) == "<ObjectTag> biology101: Life on Earth=Eubacteria"
-
-    def test_tag_object_same_id_multiple(self) -> None:
-        self.taxonomy.allow_multiple = True
-        self.taxonomy.save()
-        # Tag the object with the same value twice
-        object_tags = tagging_api.tag_object(
-            self.taxonomy,
-            [self.eubacteria.id, self.eubacteria.id],
-            "biology101",
-        )
-        assert len(object_tags) == 1
-
-    def test_tag_object_same_value_multiple(self) -> None:
-        self.taxonomy.allow_multiple = True
-        self.taxonomy.save()
-        # Tag the object with the same value twice
-        object_tags = tagging_api.tag_object(
-            self.taxonomy,
-            ["Eubacteria", "Eubacteria"],
-            "biology101",
-        )
-        assert len(object_tags) == 1
 
     def test_tag_object_same_value_multiple_free(self) -> None:
         self.taxonomy.allow_multiple = True
         self.taxonomy.allow_free_text = True
         self.taxonomy.save()
         # Tag the object with the same value twice
-        object_tags = tagging_api.tag_object(
+        tagging_api.tag_object(
             self.taxonomy,
             ["tag1", "tag1"],
             "biology101",
         )
+        object_tags = tagging_api.get_object_tags("biology101")
         assert len(object_tags) == 1
 
     def test_tag_object_case_id(self) -> None:
@@ -500,13 +361,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
         tagging_api.tag_object(
             self.taxonomy,
-            [self.eubacteria.id],
+            [self.eubacteria.value],
             "biology101",
         )
 
         tagging_api.tag_object(
             self.taxonomy,
-            [self.archaea.id],
+            [self.archaea.value],
             "BIOLOGY101",
         )
 
@@ -529,48 +390,33 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     @override_settings(LANGUAGES=test_languages)
     def test_tag_object_language_taxonomy(self) -> None:
         tags_list = [
-            [get_tag("Azerbaijani").id],
-            [get_tag("English").id],
+            ["Azerbaijani"],
+            ["English"],
         ]
 
         for tags in tags_list:
-            object_tags = tagging_api.tag_object(
-                self.language_taxonomy,
-                tags,
-                "biology101",
-            )
+            tagging_api.tag_object(self.language_taxonomy, tags, "biology101")
 
             # Ensure the expected number of tags exist in the database
-            assert (
-                list(
-                    tagging_api.get_object_tags(
-                        taxonomy_id=self.language_taxonomy.pk,
-                        object_id="biology101",
-                    )
-                )
-                == object_tags
-            )
+            object_tags = tagging_api.get_object_tags("biology101")
             # And the expected number of tags were returned
             assert len(object_tags) == len(tags)
             for index, object_tag in enumerate(object_tags):
-                assert object_tag.tag_id == tags[index]
-                assert object_tag.is_valid()
+                object_tag.full_clean()  # Check full model validation
+                assert object_tag.value == tags[index]
+                assert not object_tag.is_deleted
                 assert object_tag.taxonomy == self.language_taxonomy
                 assert object_tag.name == self.language_taxonomy.name
                 assert object_tag.object_id == "biology101"
 
     @override_settings(LANGUAGES=test_languages)
-    def test_tag_object_language_taxonomy_ivalid(self) -> None:
-        tags = [get_tag("Spanish").id]
-        with self.assertRaises(ValueError) as exc:
+    def test_tag_object_language_taxonomy_invalid(self) -> None:
+        with self.assertRaises(tagging_api.TagDoesNotExist):
             tagging_api.tag_object(
                 self.language_taxonomy,
-                tags,
+                ["Spanish"],
                 "biology101",
             )
-        assert "Invalid object tag for taxonomy (-1): -40" in str(
-            exc.exception
-        )
 
     def test_tag_object_model_system_taxonomy(self) -> None:
         users = [
@@ -579,45 +425,27 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ]
 
         for user in users:
-            tags = [user.id]
-            object_tags = tagging_api.tag_object(
-                self.user_taxonomy,
-                tags,
-                "biology101",
-            )
+            tags = [user.username]
+            tagging_api.tag_object(self.user_taxonomy, tags, "biology101")
 
             # Ensure the expected number of tags exist in the database
-            assert (
-                list(
-                    tagging_api.get_object_tags(
-                        taxonomy_id=self.user_taxonomy.pk,
-                        object_id="biology101",
-                    )
-                )
-                == object_tags
-            )
+            object_tags = tagging_api.get_object_tags("biology101")
             # And the expected number of tags were returned
             assert len(object_tags) == len(tags)
             for object_tag in object_tags:
+                object_tag.full_clean()  # Check full model validation
                 assert object_tag.tag
                 assert object_tag.tag.external_id == str(user.id)
                 assert object_tag.tag.value == user.username
-                assert object_tag.is_valid()
+                assert not object_tag.is_deleted
                 assert object_tag.taxonomy == self.user_taxonomy
                 assert object_tag.name == self.user_taxonomy.name
                 assert object_tag.object_id == "biology101"
 
     def test_tag_object_model_system_taxonomy_invalid(self) -> None:
         tags = ["Invalid id"]
-        with self.assertRaises(ValueError) as exc:
-            tagging_api.tag_object(
-                self.user_taxonomy,
-                tags,
-                "biology101",
-            )
-        assert "Invalid object tag for taxonomy (3): Invalid id" in str(
-            exc.exception
-        )
+        with self.assertRaises(tagging_api.TagDoesNotExist):
+            tagging_api.tag_object(self.user_taxonomy, tags, "biology101")
 
     def test_tag_object_limit(self) -> None:
         """

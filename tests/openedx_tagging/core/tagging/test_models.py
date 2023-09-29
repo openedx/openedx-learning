@@ -447,80 +447,6 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         object_tag._value = self.tag.value
         object_tag.full_clean()
 
-    def test_tag_object(self):
-        self.taxonomy.allow_multiple = True
-
-        test_tags = [
-            [
-                self.archaea,
-                self.eubacteria,
-                self.chordata,
-            ],
-            [
-                self.archaebacteria,
-                self.chordata,
-            ],
-            [
-                self.archaea,
-                self.archaebacteria,
-            ],
-        ]
-
-        # Tag and re-tag the object, checking that the expected tags are returned and deleted
-        for tag_list in test_tags:
-            api.tag_object(
-                self.taxonomy,
-                [t.value for t in tag_list],
-                "biology101",
-            )
-            # Ensure the expected number of tags exist in the database
-            object_tags = ObjectTag.objects.filter(
-                taxonomy=self.taxonomy,
-                object_id="biology101",
-            )
-            # And the expected number of tags were returned
-            assert len(object_tags) == len(tag_list)
-            for index, object_tag in enumerate(object_tags):
-                assert object_tag.tag_id == tag_list[index].id
-                assert object_tag._value == tag_list[index].value
-                object_tag.full_clean()  # Should not raise any ValidationErrors
-                assert object_tag.taxonomy == self.taxonomy
-                assert object_tag.name == self.taxonomy.name
-                assert object_tag.object_id == "biology101"
-
-    def test_tag_object_free_text(self):
-        self.taxonomy.allow_free_text = True
-        api.tag_object(
-            self.taxonomy,
-            ["Eukaryota Xenomorph"],
-            "biology101",
-        )
-        object_tags = api.get_object_tags("biology101")
-        assert len(object_tags) == 1
-        object_tag = object_tags[0]
-        object_tag.full_clean()  # Should not raise any ValidationErrors
-        assert object_tag.taxonomy == self.taxonomy
-        assert object_tag.name == self.taxonomy.name
-        assert object_tag._value == "Eukaryota Xenomorph"
-        assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
-        assert object_tag.object_id == "biology101"
-
-    def test_tag_object_no_multiple(self):
-        with pytest.raises(ValueError) as excinfo:
-            api.tag_object(self.taxonomy, ["A", "B"], "biology101")
-        assert "only allows one tag per object" in str(excinfo.value)
-
-    def test_tag_object_required(self):
-        self.taxonomy.required = True
-        with pytest.raises(ValueError) as excinfo:
-            api.tag_object(self.taxonomy, [], "biology101")
-        assert "requires at least one tag per object" in str(excinfo.value)
-
-    def test_tag_object_invalid_tag(self):
-        with pytest.raises(api.TagDoesNotExist) as excinfo:
-            api.tag_object(self.taxonomy, ["Eukaryota Xenomorph"], "biology101")
-        assert "Tag matching query does not exist." in str(excinfo.value)
-
     def test_tag_case(self) -> None:
         """
         Test that the object_id is case sensitive.
@@ -567,10 +493,6 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             ("bar", False),
             ("tribble", False),
         ]
-        initial_tags = api.get_object_tags(object_id)
-        assert len(initial_tags) == 5
-        for t in initial_tags:
-            assert t.is_deleted is False
 
         # Delete "bacteria" from the taxonomy:
         self.bacteria.delete()  # TODO: add an API method for this

@@ -567,34 +567,8 @@ class ObjectTag(models.Model):
         """
         changed = False
 
-        # Locate an enabled taxonomy matching _name, and maybe a tag matching _value
-        if not self.taxonomy_id:
-            # Use the linked tag's taxonomy if there is one.
-            if self.tag:
-                self.taxonomy_id = self.tag.taxonomy_id
-                changed = True
-            else:
-                for taxonomy in Taxonomy.objects.filter(
-                    name=self.name, enabled=True
-                ).order_by("allow_free_text", "id"):
-                    # Cast to the subclass to preserve custom validation
-                    taxonomy = taxonomy.cast()
-
-                    # Closed taxonomies require a tag matching _value,
-                    # and we'd rather match a closed taxonomy than an open one.
-                    # So see if there's a matching tag available in this taxonomy.
-                    tag = taxonomy.tag_set.filter(value=self.value).first()
-
-                    # Make sure this taxonomy will accept object tags like this.
-                    self.taxonomy = taxonomy
-                    self.tag = tag
-                    if taxonomy.validate_object_tag(self):
-                        changed = True
-                        break
-                    # If not, undo those changes and try the next one
-                    else:
-                        self.taxonomy = None
-                        self.tag = None
+        # We used to have code here that would try to find a new taxonomy if the current taxonomy has been deleted.
+        # But for now that's removed, as it risks things like linking a tag to the wrong org's taxonomy.
 
         # Sync the stored _name with the taxonomy.name
         if self.taxonomy and self._name != self.taxonomy.name:
