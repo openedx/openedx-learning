@@ -4,15 +4,15 @@ Tagging app system-defined taxonomies data models
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
-from openedx_tagging.core.tagging.models.base import ObjectTag, Tag
+from openedx_tagging.core.tagging.models.base import Tag
 
-from .base import ObjectTag, Tag, Taxonomy
+from .base import Tag, Taxonomy
 
 log = logging.getLogger(__name__)
 
@@ -34,113 +34,16 @@ class SystemDefinedTaxonomy(Taxonomy):
         return True
 
 
-class ModelObjectTag(ObjectTag):
-    """
-    Model-based ObjectTag, abstract class.
-
-    Used by ModelSystemDefinedTaxonomy to maintain dynamic Tags which are associated with a configured Model instance.
-    """
-
-    class Meta:
-        proxy = True
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """
-        Checks if the `tag_class_model` is correct
-        """
-        assert issubclass(self.tag_class_model, models.Model)
-        super().__init__(*args, **kwargs)
-
-    @property
-    def tag_class_model(self) -> type[models.Model]:
-        """
-        Subclasses must implement this method to return the Django.model
-        class referenced by these object tags.
-        """
-        raise NotImplementedError
-
-    @property
-    def tag_class_value(self) -> str:
-        """
-        Returns the name of the tag_class_model field to use as the Tag.value when creating Tags for this taxonomy.
-
-        Subclasses may override this method to use different fields.
-        """
-        return "pk"
-
-    def get_instance(self) -> models.Model | None:
-        """
-        Returns the instance of tag_class_model associated with this object tag, or None if not found.
-        """
-        instance_id = self.tag.external_id if self.tag else None
-        if instance_id:
-            try:
-                return self.tag_class_model.objects.get(pk=instance_id)
-            except ValueError as e:
-                log.exception(f"{self}: {str(e)}")
-            except self.tag_class_model.DoesNotExist:
-                log.exception(
-                    f"{self}: {self.tag_class_model.__name__} pk={instance_id} does not exist."
-                )
-
-        return None
-
-    def _resync_tag(self) -> bool:
-        """
-        Resync our tag's value with the value from the instance.
-
-        If the instance associated with the tag no longer exists, we unset our tag, because it's no longer valid.
-
-        Returns True if the given tag was changed, False otherwise.
-        """
-        instance = self.get_instance()
-        if instance:
-            value = getattr(instance, self.tag_class_value)
-            self.value = value
-            if self.tag and self.tag.value != value:
-                self.tag.value = value
-                self.tag.save()
-                return True
-        else:
-            self.tag = None
-
-        return False
-
-    @property
-    def tag_ref(self) -> str:
-        return (self.tag.external_id or self.tag.id) if self.tag else self._value
-
-    @tag_ref.setter
-    def tag_ref(self, tag_ref: str):
-        """
-        Sets the ObjectTag's Tag and/or value, depending on whether a valid Tag is found, or can be created.
-
-        Creates a Tag for the given tag_ref value, if one containing that external_id not already exist.
-        """
-        self.value = tag_ref
-
-        if self.taxonomy:
-            try:
-                self.tag = self.taxonomy.tag_set.get(
-                    external_id=tag_ref,
-                )
-            except (ValueError, Tag.DoesNotExist):
-                # Creates a new Tag for this instance
-                self.tag = Tag(
-                    taxonomy=self.taxonomy,
-                    external_id=tag_ref,
-                )
-
-            self._resync_tag()
-
-
 class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
     """
     Model based system taxonomy abstract class.
 
-    This type of taxonomy has an associated Django model in ModelObjectTag.tag_class_model().
-    They are designed to create Tags when required for new ObjectTags, to maintain
-    their status as "closed" taxonomies.
+    This type of taxonomy has an associated Django model in
+    ModelSystemDefinedTaxonomy.tag_class_model.
+
+    They are designed to create Tags when required for new ObjectTags, to
+    maintain their status as "closed" taxonomies.
+
     The Tags are representations of the instances of the associated model.
 
     Tag.external_id stores an identifier from the instance (`pk` as default)
@@ -155,41 +58,99 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
     class Meta:
         proxy = True
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """
-        Checks if the `object_tag_class` is a subclass of ModelObjectTag.
-        """
-        assert issubclass(self.object_tag_class, ModelObjectTag)
-        super().__init__(*args, **kwargs)
-
     @property
-    def object_tag_class(self) -> type[ModelObjectTag]:
+    def tag_class_model(self) -> type[models.Model]:
         """
-        Returns the ModelObjectTag subclass associated with this taxonomy.
-
-        Model Taxonomy subclasses must implement this to provide a ModelObjectTag subclass.
+        Define what Django model this taxonomy is associated with
         """
         raise NotImplementedError
 
-    def _check_instance(self, object_tag: ObjectTag) -> bool:
+    @property
+    def tag_class_value_field(self) -> str:
         """
-        Returns True if the instance exists
+        The name of the tag_class_model field to use as the Tag.value when creating Tags for this taxonomy.
 
-        Subclasses can override this method to perform their own instance validation checks.
+        Subclasses may override this method to use different fields.
         """
-        object_tag = self.object_tag_class.cast(object_tag)
-        return bool(object_tag.get_instance())
+        raise NotImplementedError
 
-    def _check_tag(self, object_tag: ObjectTag) -> bool:
+    @property
+    def tag_class_key_field(self) -> str:
         """
-        Returns True if the instance is valid
+        The name of the tag_class_model field to use as the Tag.external_id when creating Tags for this taxonomy.
+
+        This must be an immutable ID.
         """
-        return super()._check_tag(object_tag) and self._check_instance(object_tag)
+        return "pk"
+
+    def validate_value(self, value: str):
+        """
+        Check if 'value' is part of this Taxonomy, based on the specified model.
+        """
+        try:
+            self.tag_class_model.objects.get(**{f"{self.tag_class_value_field}__iexact": value})
+            return True
+        except ObjectDoesNotExist:
+            return False
+
+    def tag_for_value(self, value: str):
+        """
+        Get the Tag object for the given value.
+        """
+        try:
+            # First we look up the instance by value
+            instance = self.tag_class_model.objects.get(**{f"{self.tag_class_value_field}__iexact": value})
+        except ObjectDoesNotExist:
+            raise Tag.DoesNotExist
+        # Use the canonical value from here on (possibly with different case from the value given as a parameter)
+        value =  getattr(instance, self.tag_class_value_field)
+        # We assume the value may change but the external_id is immutable.
+        # So look up keys using external_id. There may be a key with the same external_id but an out of date value.
+        external_id = str(getattr(instance, self.tag_class_key_field))
+        tag, _created = self.tag_set.get_or_create(external_id=external_id, defaults={"value": value})
+        if tag.value != value:
+            # Update the Tag to reflect the new cached 'value'
+            tag.value = value
+            tag.save()
+        return tag
+
+    def validate_external_id(self, external_id: str):
+        """
+        Check if 'external_id' is part of this Taxonomy.
+        """
+        try:
+            self.tag_class_model.objects.get(**{f"{self.tag_class_key_field}__iexact": external_id})
+            return True
+        except ObjectDoesNotExist:
+            return False
+
+    def tag_for_external_id(self, external_id: str):
+        """
+        Get the Tag object for the given external_id.
+        Some Taxonomies may auto-create the Tag at this point, e.g. a User
+        Taxonomy will create User Tags "just in time".
+
+        Will raise Tag.DoesNotExist if the tag is not valid for this taxonomy.
+        """
+        try:
+            # First we look up the instance by value
+            instance = self.tag_class_model.objects.get(**{f"{self.tag_class_key_field}__iexact": external_id})
+        except ObjectDoesNotExist:
+            raise Tag.DoesNotExist
+        value = getattr(instance, self.tag_class_value_field)
+        # Use the canonical external_id from here on (may differ in capitalization)
+        external_id = getattr(instance, self.tag_class_key_field)
+        tag, _created = self.tag_set.get_or_create(external_id=external_id, defaults={"value": value})
+        if tag.value != value:
+            # Update the Tag to reflect the new cached 'value'
+            tag.value = value
+            tag.save()
+        return tag
 
 
-class UserModelObjectTag(ModelObjectTag):
+class UserSystemDefinedTaxonomy(ModelSystemDefinedTaxonomy):
     """
-    ObjectTags for the UserSystemDefinedTaxonomy.
+    A Taxonomy that allows tagging objects using users.
     """
 
     class Meta:
@@ -198,36 +159,18 @@ class UserModelObjectTag(ModelObjectTag):
     @property
     def tag_class_model(self) -> type[models.Model]:
         """
-        Associate the user model
+        Define what Django model this taxonomy is associated with
         """
         return get_user_model()
 
     @property
-    def tag_class_value(self) -> str:
+    def tag_class_value_field(self) -> str:
         """
         Returns the name of the tag_class_model field to use as the Tag.value when creating Tags for this taxonomy.
 
         Subclasses may override this method to use different fields.
         """
         return "username"
-
-
-class UserSystemDefinedTaxonomy(ModelSystemDefinedTaxonomy):
-    """
-    User based system taxonomy class.
-    """
-
-    class Meta:
-        proxy = True
-
-    @property
-    def object_tag_class(self):
-        """
-        Returns the ObjectTag subclass associated with this taxonomy, which is ModelObjectTag by default.
-
-        Model Taxonomy subclasses must implement this to provide a ModelObjectTag subclass.
-        """
-        return UserModelObjectTag
 
 
 class LanguageTaxonomy(SystemDefinedTaxonomy):
@@ -288,17 +231,49 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
             langs.add(django_lang[0].split("-")[0])
         return langs
 
-    def _check_valid_language(self, object_tag: ObjectTag) -> bool:
+    def validate_value(self, value: str):
         """
-        Returns True if the tag is on the available languages
+        Check if 'value' is part of this Taxonomy, based on the specified model.
         """
-        available_langs = self._get_available_languages()
-        if not object_tag.tag:
-            raise AttributeError("Expected object_tag.tag to be set")
-        return object_tag.tag.external_id in available_langs
+        for _, lang_name in settings.LANGUAGES:
+            if lang_name == value:
+                return True
+        return False
 
-    def _check_tag(self, object_tag: ObjectTag) -> bool:
+    def tag_for_value(self, value: str):
         """
-        Returns True if the tag is on the available languages
+        Get the Tag object for the given value.
         """
-        return super()._check_tag(object_tag) and self._check_valid_language(object_tag)
+        for lang_code, lang_name in settings.LANGUAGES:
+            if lang_name == value:
+                return self.tag_for_external_id(lang_code)
+        raise Tag.DoesNotExist
+
+    def validate_external_id(self, external_id: str):
+        """
+        Check if 'external_id' is part of this Taxonomy.
+        """
+        lang_code = external_id.lower()
+        LANGUAGE_DICT = getattr(settings, "LANGUAGE_DICT", dict(settings.LANGUAGES))  # setting may or may not exist.
+        return lang_code in LANGUAGE_DICT
+
+    def tag_for_external_id(self, external_id: str):
+        """
+        Get the Tag object for the given external_id.
+        Some Taxonomies may auto-create the Tag at this point, e.g. a User
+        Taxonomy will create User Tags "just in time".
+
+        Will raise Tag.DoesNotExist if the tag is not valid for this taxonomy.
+        """
+        lang_code = external_id.lower()
+        LANGUAGE_DICT = getattr(settings, "LANGUAGE_DICT", dict(settings.LANGUAGES))  # setting may or may not exist.
+        try:
+            lang_name = LANGUAGE_DICT[lang_code]
+        except KeyError:
+            raise Tag.DoesNotExist
+        tag, _created = self.tag_set.get_or_create(external_id=lang_code, defaults={"value": lang_name})
+        if tag.value != lang_name:
+            # Update the Tag to reflect the new language name
+            tag.value = lang_name
+            tag.save()
+        return tag

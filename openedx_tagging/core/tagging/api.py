@@ -20,6 +20,9 @@ from django.utils.translation import gettext_lazy as _
 
 from .models import ObjectTag, Tag, Taxonomy
 
+# Export this as part of the API
+TagDoesNotExist = Tag.DoesNotExist
+
 
 def create_taxonomy(
     name: str,
@@ -165,6 +168,7 @@ def delete_object_tags(object_id: str):
     tags.delete()
 
 
+# TODO: a function called "tag_object" should take "object_id" as its first parameter, not taxonomy
 def tag_object(
     taxonomy: Taxonomy,
     tags: list[str],
@@ -172,13 +176,17 @@ def tag_object(
     ObjectTagClass: type[ObjectTag] = ObjectTag,
 ) -> list[ObjectTag]:
     """
-    Replaces the existing ObjectTag entries for the given taxonomy + object_id with the given list of tags.
+    Replaces the existing ObjectTag entries for the given taxonomy + object_id
+    with the given list of tags.
 
-    If taxonomy.allows_free_text, then the list should be a list of tag values.
-    Otherwise, it should be a list of existing Tag IDs.
+    tags: A list of the values of the tags from this taxonomy to apply.
 
-    Raised ValueError if the proposed tags are invalid for this taxonomy.
-    Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
+    ObjectTagClass: Optional. Use a proxy subclass of ObjectTag for additional
+        validation. (e.g. only allow tagging certain types of objects.)
+
+    Raised Tag.DoesNotExist if the proposed tags are invalid for this taxonomy.
+    Preserves existing (valid) tags, adds new (valid) tags, and removes omitted
+    (or invalid) tags.
     """
 
     def _check_new_tag_count(new_tag_count: int) -> None:
@@ -224,8 +232,8 @@ def tag_object(
                 updated_tags.append(object_tag)
     else:
         # Handle closed taxonomies:
-        for tag_ref in tags:
-            tag = taxonomy.tag_set.get(pk=tag_ref)  # TODO: this should be taxonomy.tag_for_value(tag_value)
+        for tag_value in tags:
+            tag = taxonomy.tag_for_value(tag_value)  # Will raise Tag.DoesNotExist if the value is invalid.
             object_tag_index = next((i for (i, t) in enumerate(current_tags) if t.tag_id == tag.id), -1)
             if object_tag_index >= 0:
                 # This tag is already applied.

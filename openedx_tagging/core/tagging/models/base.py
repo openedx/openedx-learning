@@ -137,7 +137,7 @@ class Taxonomy(models.Model):
         ),
     )
     allow_multiple = models.BooleanField(
-        default=False,
+        default=False,  # TODO: This should be true, or perhaps remove this property altogether
         help_text=_(
             "Indicates that multiple tags from this taxonomy may be added to an object."
         ),
@@ -243,6 +243,13 @@ class Taxonomy(models.Model):
             )
 
         return self
+    
+    def check_casted(self):
+        """
+        Double-check that this taxonomy has been cast() to a subclass if needed.
+        """
+        if self.cast() is not self:
+            raise TypeError("Taxonomy was used incorrectly - without .cast()")
 
     def copy(self, taxonomy: Taxonomy) -> Taxonomy:
         """
@@ -341,75 +348,54 @@ class Taxonomy(models.Model):
 
         return tag_set.order_by("value", "id")
 
-    # TODO: replace this with just validate_value() and value_for_external_id()
-    def validate_object_tag(
-        self,
-        object_tag: "ObjectTag",
-        check_taxonomy=True,
-        check_tag=True,
-        check_object=True,
-    ) -> bool:
+    def validate_value(self, value: str) -> bool:
         """
-        Returns True if the given object tag is valid for the current Taxonomy.
-
-        Subclasses should override the internal _validate* methods to perform their own validation checks, e.g. against
-        dynamically generated tag lists.
-
-        If `check_taxonomy` is False, then we skip validating the object tag's taxonomy reference.
-        If `check_tag` is False, then we skip validating the object tag's tag reference.
-        If `check_object` is False, then we skip validating the object ID/type.
+        Check if 'value' is part of this Taxonomy.
+        A 'Tag' object may not exist for the value (e.g. if this is a free text
+        taxonomy, then any value is allowed but no Tags are created; if this is
+        a user taxonomy, Tag entries may only get created as needed.), but if
+        this returns True then the value conceptually exists in this taxonomy
+        and can be used to tag objects.
         """
-        if check_taxonomy and not self._check_taxonomy(object_tag):
-            return False
-
-        if check_tag and not self._check_tag(object_tag):
-            return False
-
-        if check_object and not self._check_object(object_tag):
-            return False
-
-        return True
-
-    def _check_taxonomy(
-        self,
-        object_tag: ObjectTag,
-    ) -> bool:
-        """
-        Returns True if the given object tag is valid for the current Taxonomy.
-
-        Subclasses can override this method to perform their own taxonomy validation checks.
-        """
-        # Must be linked to this taxonomy
-        return (
-            object_tag.taxonomy_id is not None
-        ) and object_tag.taxonomy_id == self.id
-
-    def _check_tag(
-        self,
-        object_tag: ObjectTag,
-    ) -> bool:
-        """
-        Returns True if the given object tag's value is valid for the current Taxonomy.
-
-        Subclasses can override this method to perform their own taxonomy validation checks.
-        """
-        # Open taxonomies only need a value.
+        self.check_casted()
         if self.allow_free_text:
-            return bool(object_tag.value)
+            return True
+        return self.tag_set.filter(value__iexact=value).exists()
 
-        # Closed taxonomies need an associated tag in this taxonomy
-        return (object_tag.tag is not None) and object_tag.tag.taxonomy_id == self.id
-
-    def _check_object(
-        self,
-        object_tag: ObjectTag,
-    ) -> bool:
+    def tag_for_value(self, value: str) -> Tag:
         """
-        Returns True if the given object tag's object is valid for the current Taxonomy.
+        Get the Tag object for the given value.
+        Some Taxonomies may auto-create the Tag at this point, e.g. a User
+        Taxonomy will create User Tags "just in time".
 
-        Subclasses can override this method to perform their own taxonomy validation checks.
+        Will raise Tag.DoesNotExist if the value is not valid for this taxonomy.
         """
-        return bool(object_tag.object_id)
+        self.check_casted()
+        if self.allow_free_text:
+            raise ValueError("tag_for_value() doesn't work for free text taxonomies. They don't use Tag instances.")
+        return self.tag_set.get(value__iexact=value)
+
+    def validate_external_id(self, external_id: str) -> bool:
+        """
+        Check if 'external_id' is part of this Taxonomy.
+        """
+        self.check_casted()
+        if self.allow_free_text:
+            return False  # Free text taxonomies don't use 'external_id' on their tags
+        return self.tag_set.filter(external_id__iexact=external_id).exists()
+
+    def tag_for_external_id(self, external_id: str) -> Tag:
+        """
+        Get the Tag object for the given external_id.
+        Some Taxonomies may auto-create the Tag at this point, e.g. a User
+        Taxonomy will create User Tags "just in time".
+
+        Will raise Tag.DoesNotExist if the tag is not valid for this taxonomy.
+        """
+        self.check_casted()
+        if self.allow_free_text:
+            raise ValueError("tag_for_external_id() doesn't work for free text taxonomies.")
+        return self.tag_set.get(external_id__iexact=external_id)
 
 
 class ObjectTag(models.Model):
@@ -527,42 +513,18 @@ class ObjectTag(models.Model):
         """
         self._value = value
 
-    @property
-    def tag_ref(self) -> str:
-        """
-        Returns this tag's reference string.
-
-        If tag is set, then returns its id.
-        Otherwise, returns the cached _value field.
-        """
-        return self.tag.id if self.tag else self._value
-
-    # TODO: remove tag_ref, always reference tags by 'value'
-    @tag_ref.setter
-    def tag_ref(self, tag_ref: str):
-        """
-        Sets the ObjectTag's Tag and/or value, depending on whether a valid Tag is found.
-
-        Subclasses may override this method to dynamically create Tags.
-        """
-        self.value = tag_ref
-
-        if self.taxonomy:
-            try:
-                self.tag = self.taxonomy.tag_set.get(pk=tag_ref)
-                self.value = self.tag.value
-            except (ValueError, Tag.DoesNotExist):
-                # This might be ok, e.g. if our taxonomy.allow_free_text, so we just pass through here.
-                # We rely on the caller to validate before saving.
-                pass
-
     def is_valid(self) -> bool:
         """
         Returns True if this ObjectTag represents a valid taxonomy tag.
 
         A valid ObjectTag must be linked to a Taxonomy, and be a valid tag in that taxonomy.
         """
-        return self.taxonomy.validate_object_tag(self) if self.taxonomy else False
+        if self.tag:
+            return True  # If the Tag still exists, this is a valid value in the taxonomy.
+        elif self.taxonomy:
+            # If this is not a free text value and it's no longer linked to a Tag, it's invalid.
+            # Running self.resync() _might_ fix this though.
+            return self.taxonomy.allow_free_text
 
     def get_lineage(self) -> Lineage:
         """

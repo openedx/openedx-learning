@@ -53,7 +53,6 @@ class ObjectTagSerializer(serializers.ModelSerializer):
             "name",
             "value",
             "taxonomy_id",
-            "tag_ref",
             "is_valid",
         ]
 
