@@ -234,12 +234,12 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 self.chordata,
             ],
             [
-                self.archaebacteria,
                 self.chordata,
+                self.archaebacteria,
             ],
             [
-                self.archaea,
                 self.archaebacteria,
+                self.archaea,
             ],
         ]
 
@@ -251,10 +251,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 "biology101",
             )
             # Ensure the expected number of tags exist in the database
-            object_tags = ObjectTag.objects.filter(
-                taxonomy=self.taxonomy,
-                object_id="biology101",
-            )
+            object_tags = tagging_api.get_object_tags("biology101", taxonomy_id=self.taxonomy.id)
             # And the expected number of tags were returned
             assert len(object_tags) == len(tag_list)
             for index, object_tag in enumerate(object_tags):
