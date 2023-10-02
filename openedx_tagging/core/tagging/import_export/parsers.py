@@ -117,6 +117,7 @@ class Parser:
         row = cls.inital_row
         for tag in tags_data:
             has_error = False
+            tag_data = {}
 
             # Verify the required fields
             for req_field in cls.required_fields:
@@ -140,20 +141,21 @@ class Parser:
                         )
                     )
                     has_error = True
+                else:
+                    tag_data[req_field] = tag[req_field]
 
-            tag["index"] = row
+            tag_data["index"] = row
             row += 1
 
             # Skip parse if there is an error
             if has_error:
                 continue
 
-            # Updating any empty optional field to None
+            # Optional fields default to None
             for opt_field in cls.optional_fields:
-                if opt_field in tag and not tag.get(opt_field):
-                    tag[opt_field] = None
+                tag_data[opt_field] = tag.get(opt_field) or None
 
-            tags.append(TagItem(**tag))
+            tags.append(TagItem(**tag_data))
 
         return tags, errors
 
