@@ -1,0 +1,158 @@
+{
+  "tags": [
+   {
+     "id": "WINDS",
+     "value": "Wind instruments",
+     "parent_id": "",
+     "comments": "This is an example Tag Import file, in JSON format."
+   },
+   {
+     "id": "PERCUSS",
+     "value": "Percussion instruments",
+     "parent_id": "",
+     "comments": "Only the 'id' and 'value' fields are required. They can be anything you like, but they must must be unique within the taxonomy. Existing tags matching 'id' will be updated on import."
+   },
+   {
+     "id": "ELECTRIC",
+     "value": "Electronic instruments",
+     "parent_id": "",
+     "comments": "Top-level tags have no 'parent_id', and you can have as many top-level tags as you wish."
+   },
+   {
+     "id": "STRINGS",
+     "value": "String instruments",
+     "parent_id": "",
+     "comments": "All other fields (like these 'comments') are ignored on import, and will not be included in subsequent tag exports."
+   },
+   {
+     "id": "BELLS",
+     "value": "Idiophone",
+     "parent_id": "PERCUSS",
+     "comments": "Providing a 'parent_id' creates a tag hierarchy."
+   },
+   {
+     "id": "DRUMS",
+     "value": "Membranophone",
+     "parent_id": "PERCUSS",
+     "comments": "The 'parent_id' must match an 'id' found earlier in the import file."
+   },
+   {
+     "id": "CAJÓN",
+     "value": "Cajón",
+     "parent_id": "DRUMS",
+     "comments": "Tag values may contain unicode characters."
+   },
+   {
+     "id": "PYLE",
+     "value": "Pyle Stringed Jam Cajón",
+     "parent_id": "CAJÓN",
+     "comments": "A tag hierarchy may contain as many as 3 levels. This tag is at level 4, and so it will not be shown to users."
+   },
+   {
+     "id": "THERAMIN",
+     "value": "Theramin",
+     "parent_id": "ELECTRIC",
+     "comments": "A tag hierarchy may contain uneven levels. Here, the Electronic branch has only 2 levels, while Percussion has 3."
+   },
+   {
+     "id": "CHORD",
+     "value": "Chordophone",
+     "parent_id": "PERCUSS"
+   },
+   {
+     "id": "BRASS",
+     "value": "Brass",
+     "parent_id": "WINDS"
+   },
+   {
+     "id": "WOODS",
+     "value": "Woodwinds",
+     "parent_id": "WINDS"
+   },
+   {
+     "id": "FLUTE",
+     "value": "Flute",
+     "parent_id": "WOODS"
+   },
+   {
+     "id": "PLUCK",
+     "value": "Plucked strings",
+     "parent_id": "STRINGS"
+   },
+   {
+     "id": "MANDOLIN",
+     "value": "Mandolin",
+     "parent_id": "PLUCK"
+   },
+   {
+     "id": "HARP",
+     "value": "Harp",
+     "parent_id": "PLUCK"
+   },
+   {
+     "id": "BANJO",
+     "value": "Banjo",
+     "parent_id": "PLUCK"
+   },
+   {
+     "id": "BOW",
+     "value": "Bowed strings",
+     "parent_id": "STRINGS"
+   },
+   {
+     "id": "VIOLIN",
+     "value": "Violin",
+     "parent_id": "BOW"
+   },
+   {
+     "id": "CELLO",
+     "value": "Cello",
+     "parent_id": "BOW"
+   },
+   {
+     "id": "CLARINET",
+     "value": "Clarinet",
+     "parent_id": "WOODS"
+   },
+   {
+     "id": "OBOE",
+     "value": "Oboe",
+     "parent_id": "WOODS"
+   },
+   {
+     "id": "TRUMPET",
+     "value": "Trumpet",
+     "parent_id": "BRASS"
+   },
+   {
+     "id": "TUBA",
+     "value": "Tuba",
+     "parent_id": "BRASS"
+   },
+   {
+     "id": "SYNTH",
+     "value": "Synthesizer",
+     "parent_id": "ELECTRIC"
+   },
+   {
+     "id": "CELESTA",
+     "value": "Celesta",
+     "parent_id": "BELLS"
+   },
+   {
+     "id": "HI-HAT",
+     "value": "Hi-hat",
+     "parent_id": "BELLS"
+   },
+   {
+     "id": "TABLA",
+     "value": "Tabla",
+     "parent_id": "DRUMS"
+   },
+   {
+     "id": "PIANO",
+     "value": "Piano",
+     "parent_id": "CHORD"
+   }
+  ]
+}
