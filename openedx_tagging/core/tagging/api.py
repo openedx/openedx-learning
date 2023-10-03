@@ -26,7 +26,6 @@ def create_taxonomy(
     name: str,
     description: str | None = None,
     enabled=True,
-    required=False,
     allow_multiple=False,
     allow_free_text=False,
     taxonomy_class: type[Taxonomy] | None = None,
@@ -38,7 +37,6 @@ def create_taxonomy(
         name=name,
         description=description or "",
         enabled=enabled,
-        required=required,
         allow_multiple=allow_multiple,
         allow_free_text=allow_free_text,
     )
@@ -212,11 +210,6 @@ def tag_object(
 
     if not taxonomy.allow_multiple and len(tags) > 1:
         raise ValueError(_(f"Taxonomy ({taxonomy.name}) only allows one tag per object."))
-
-    if taxonomy.required and len(tags) == 0:
-        raise ValueError(
-            _(f"Taxonomy ({taxonomy.id}) requires at least one tag per object.")
-        )
 
     current_tags = list(
         ObjectTagClass.objects.filter(taxonomy=taxonomy, object_id=object_id)

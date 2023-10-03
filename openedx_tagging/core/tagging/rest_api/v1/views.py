@@ -78,8 +78,6 @@ class TaxonomyView(ModelViewSet):
           applying tags from this taxonomy to an object.
         * enabled (optional): Only enabled taxonomies will be shown to authors
           (default: true).
-        * required (optional): Indicates that one or more tags from this
-          taxonomy must be added to an object (default: False).
         * allow_multiple (optional): Indicates that multiple tags from this
           taxonomy may be added to an object (default: False).
         * allow_free_text (optional): Indicates that tags in this taxonomy need
@@ -92,7 +90,6 @@ class TaxonomyView(ModelViewSet):
             "name": "Taxonomy Name",
             "description": "This is a description",
             "enabled": True,
-            "required": True,
             "allow_multiple": True,
             "allow_free_text": True,
         }
@@ -110,8 +107,6 @@ class TaxonomyView(ModelViewSet):
         * description (optional): Provides extra information for the user when
           applying tags from this taxonomy to an object.
         * enabled (optional): Only enabled taxonomies will be shown to authors.
-        * required (optional): Indicates that one or more tags from this
-          taxonomy must be added to an object.
         * allow_multiple (optional): Indicates that multiple tags from this
           taxonomy may be added to an object.
         * allow_free_text (optional): Indicates that tags in this taxonomy need
@@ -123,7 +118,6 @@ class TaxonomyView(ModelViewSet):
             "name": "Taxonomy New Name",
             "description": "This is a new description",
             "enabled": False,
-            "required": False,
             "allow_multiple": False,
             "allow_free_text": True,
         }
