@@ -183,7 +183,7 @@ def _import_export_validations(taxonomy: Taxonomy):
     if taxonomy.allow_free_text:
         raise NotImplementedError(
             _(
-                f"Import/export for free-form taxonomies will be implemented in the future."
+                "Import/export for free-form taxonomies will be implemented in the future."
             )
         )
     if taxonomy.system_defined:

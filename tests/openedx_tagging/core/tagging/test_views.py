@@ -533,7 +533,7 @@ class TestObjectTagViewSet(APITestCase):
         if status.is_success(expected_status):
             assert len(response.data) == expected_count
             for object_tag in response.data:
-                assert object_tag.get("is_valid") is True
+                assert object_tag.get("is_deleted") is False
                 assert object_tag.get("taxonomy_id") == self.enabled_taxonomy.pk
 
     @ddt.data(

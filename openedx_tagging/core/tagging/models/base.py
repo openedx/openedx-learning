@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from typing import List
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
@@ -59,7 +60,7 @@ class Tag(models.Model):
     )
     external_id = case_insensitive_char_field(
         max_length=255,
-        null=True,
+        null=True,  # To allow multiple values with our UNIQUE constraint, we need to use NULL values here instead of ""
         blank=True,
         help_text=_(
             "Used to link an Open edX Tag with a tag in an externally-defined taxonomy."
@@ -137,7 +138,7 @@ class Taxonomy(models.Model):
         ),
     )
     allow_multiple = models.BooleanField(
-        default=False,
+        default=False,  # TODO: This should be true, or perhaps remove this property altogether
         help_text=_(
             "Indicates that multiple tags from this taxonomy may be added to an object."
         ),
@@ -186,15 +187,6 @@ class Taxonomy(models.Model):
                 f"Unable to import taxonomy_class for {self.id}: {self._taxonomy_class}"
             )
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
-
-    @property
-    def object_tag_class(self) -> type[ObjectTag]:
-        """
-        Returns the ObjectTag subclass associated with this taxonomy, which is ObjectTag by default.
-
-        Taxonomy subclasses may override this method to use different subclasses of ObjectTag.
-        """
-        return ObjectTag
 
     @property
     def taxonomy_class(self) -> type[Taxonomy] | None:
@@ -253,6 +245,13 @@ class Taxonomy(models.Model):
 
         return self
 
+    def check_casted(self):
+        """
+        Double-check that this taxonomy has been cast() to a subclass if needed.
+        """
+        if self.cast() is not self:
+            raise TypeError("Taxonomy was used incorrectly - without .cast()")
+
     def copy(self, taxonomy: Taxonomy) -> Taxonomy:
         """
         Copy the fields from the given Taxonomy into the current instance.
@@ -265,7 +264,7 @@ class Taxonomy(models.Model):
         self.allow_multiple = taxonomy.allow_multiple
         self.allow_free_text = taxonomy.allow_free_text
         self.visible_to_authors = taxonomy.visible_to_authors
-        self._taxonomy_class = taxonomy._taxonomy_class
+        self._taxonomy_class = taxonomy._taxonomy_class  # pylint: disable=protected-access
         return self
 
     def get_tags(
@@ -350,212 +349,54 @@ class Taxonomy(models.Model):
 
         return tag_set.order_by("value", "id")
 
-    def validate_object_tag(
-        self,
-        object_tag: "ObjectTag",
-        check_taxonomy=True,
-        check_tag=True,
-        check_object=True,
-    ) -> bool:
+    def validate_value(self, value: str) -> bool:
         """
-        Returns True if the given object tag is valid for the current Taxonomy.
-
-        Subclasses should override the internal _validate* methods to perform their own validation checks, e.g. against
-        dynamically generated tag lists.
-
-        If `check_taxonomy` is False, then we skip validating the object tag's taxonomy reference.
-        If `check_tag` is False, then we skip validating the object tag's tag reference.
-        If `check_object` is False, then we skip validating the object ID/type.
+        Check if 'value' is part of this Taxonomy.
+        A 'Tag' object may not exist for the value (e.g. if this is a free text
+        taxonomy, then any value is allowed but no Tags are created; if this is
+        a user taxonomy, Tag entries may only get created as needed.), but if
+        this returns True then the value conceptually exists in this taxonomy
+        and can be used to tag objects.
         """
-        if check_taxonomy and not self._check_taxonomy(object_tag):
-            return False
-
-        if check_tag and not self._check_tag(object_tag):
-            return False
-
-        if check_object and not self._check_object(object_tag):
-            return False
-
-        return True
-
-    def _check_taxonomy(
-        self,
-        object_tag: ObjectTag,
-    ) -> bool:
-        """
-        Returns True if the given object tag is valid for the current Taxonomy.
-
-        Subclasses can override this method to perform their own taxonomy validation checks.
-        """
-        # Must be linked to this taxonomy
-        return (
-            object_tag.taxonomy_id is not None
-        ) and object_tag.taxonomy_id == self.id
-
-    def _check_tag(
-        self,
-        object_tag: ObjectTag,
-    ) -> bool:
-        """
-        Returns True if the given object tag's value is valid for the current Taxonomy.
-
-        Subclasses can override this method to perform their own taxonomy validation checks.
-        """
-        # Open taxonomies only need a value.
+        self.check_casted()
         if self.allow_free_text:
-            return bool(object_tag.value)
+            return value != "" and isinstance(value, str)
+        return self.tag_set.filter(value__iexact=value).exists()
 
-        # Closed taxonomies need an associated tag in this taxonomy
-        return (object_tag.tag is not None) and object_tag.tag.taxonomy_id == self.id
-
-    def _check_object(
-        self,
-        object_tag: ObjectTag,
-    ) -> bool:
+    def tag_for_value(self, value: str) -> Tag:
         """
-        Returns True if the given object tag's object is valid for the current Taxonomy.
+        Get the Tag object for the given value.
+        Some Taxonomies may auto-create the Tag at this point, e.g. a User
+        Taxonomy will create User Tags "just in time".
 
-        Subclasses can override this method to perform their own taxonomy validation checks.
+        Will raise Tag.DoesNotExist if the value is not valid for this taxonomy.
         """
-        return bool(object_tag.object_id)
+        self.check_casted()
+        if self.allow_free_text:
+            raise ValueError("tag_for_value() doesn't work for free text taxonomies. They don't use Tag instances.")
+        return self.tag_set.get(value__iexact=value)
 
-    def tag_object(
-        self,
-        tags: list[str],
-        object_id: str,
-    ) -> list[ObjectTag]:
+    def validate_external_id(self, external_id: str) -> bool:
         """
-        Replaces the existing ObjectTag entries for the current taxonomy + object_id with the given list of tags.
-        If self.allows_free_text, then the list should be a list of tag values.
-        Otherwise, it should be either a list of existing Tag Values or IDs.
-        Raised ValueError if the proposed tags are invalid for this taxonomy.
-        Preserves existing (valid) tags, adds new (valid) tags, and removes omitted (or invalid) tags.
+        Check if 'external_id' is part of this Taxonomy.
         """
+        self.check_casted()
+        if self.allow_free_text:
+            return False  # Free text taxonomies don't use 'external_id' on their tags
+        return self.tag_set.filter(external_id__iexact=external_id).exists()
 
-        def _find_object_tag_index(tag_ref, object_tags) -> int:
-            """
-            Search for Tag in the given list of ObjectTags by tag_ref or value,
-            returning its index or -1 if not found.
-            """
-            return next(
-                (
-                    i
-                    for i, object_tag in enumerate(object_tags)
-                    if object_tag.tag_ref == tag_ref or object_tag.value == tag_ref
-                ),
-                -1,
-            )
-
-        def _check_new_tag_count(new_tag_count: int) -> None:
-            """
-            Checks if the new count of tags for the object is equal or less than 100
-            """
-            # Exclude self.id to avoid counting the tags that are going to be updated
-            current_count = ObjectTag.objects.filter(object_id=object_id).exclude(taxonomy_id=self.id).count()
-
-            if current_count + new_tag_count > 100:
-                raise ValueError(
-                    _(f"Cannot add more than 100 tags to ({object_id}).")
-                )
-
-        if not isinstance(tags, list):
-            raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
-
-        tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
-
-        _check_new_tag_count(len(tags))
-
-        if not self.allow_multiple and len(tags) > 1:
-            raise ValueError(_(f"Taxonomy ({self.id}) only allows one tag per object."))
-
-        if self.required and len(tags) == 0:
-            raise ValueError(
-                _(f"Taxonomy ({self.id}) requires at least one tag per object.")
-            )
-
-        ObjectTagClass = self.object_tag_class
-        current_tags = list(
-            ObjectTagClass.objects.filter(
-                taxonomy=self,
-                object_id=object_id,
-            )
-        )
-        updated_tags = []
-        for tag_ref in tags:
-            object_tag_index = _find_object_tag_index(tag_ref, current_tags)
-            if object_tag_index >= 0:
-                object_tag = current_tags.pop(object_tag_index)
-            else:
-                object_tag = ObjectTagClass(
-                    taxonomy=self,
-                    object_id=object_id,
-                )
-
-            object_tag.tag_ref = tag_ref
-            object_tag.resync()
-            if not self.validate_object_tag(object_tag):
-                raise ValueError(
-                    _(f"Invalid object tag for taxonomy ({self.id}): {tag_ref}")
-                )
-            updated_tags.append(object_tag)
-
-        # Save all updated tags at once to avoid partial updates
-        for object_tag in updated_tags:
-            object_tag.save()
-
-        # ...and delete any omitted existing tags
-        for old_tag in current_tags:
-            old_tag.delete()
-
-        return updated_tags
-
-    def autocomplete_tags(
-        self,
-        search: str,
-        object_id: str | None = None,
-    ) -> models.QuerySet:
+    def tag_for_external_id(self, external_id: str) -> Tag:
         """
-        Provides auto-complete suggestions by matching the `search` string against existing
-        ObjectTags linked to the given taxonomy. A case-insensitive search is used in order
-        to return the highest number of relevant tags.
+        Get the Tag object for the given external_id.
+        Some Taxonomies may auto-create the Tag at this point, e.g. a User
+        Taxonomy will create User Tags "just in time".
 
-        If `object_id` is provided, then object tag values already linked to this object
-        are omitted from the returned suggestions. (ObjectTag values must be unique for a
-        given object + taxonomy, and so omitting these suggestions helps users avoid
-        duplication errors.).
-
-        Returns a QuerySet of dictionaries containing distinct `value` (string) and `tag`
-        (numeric ID) values, sorted alphabetically by `value`.
-
-        Subclasses can override this method to perform their own autocomplete process.
-        Subclass use cases:
-        * Large taxonomy associated with a model. It can be overridden to get
-          the suggestions directly from the model by doing own filtering.
-        * Taxonomy with a list of available tags: It can be overridden to only
-          search the suggestions on a list of available tags.
+        Will raise Tag.DoesNotExist if the tag is not valid for this taxonomy.
         """
-        # Fetch tags that the object already has to exclude them from the result
-        excluded_tags: list[str] = []
-        if object_id:
-            excluded_tags = list(
-                self.objecttag_set.filter(object_id=object_id).values_list(
-                    "_value", flat=True
-                )
-            )
-        return (
-            # Fetch object tags from this taxonomy whose value contains the search
-            self.objecttag_set.filter(_value__icontains=search)
-            # omit any tags whose values match the tags on the given object
-            .exclude(_value__in=excluded_tags)
-            # alphabetical ordering
-            .order_by("_value")
-            # Alias the `_value` field to `value` to make it nicer for users
-            .annotate(value=models.F("_value"))
-            # obtain tag values
-            .values("value", "tag_id")
-            # remove repeats
-            .distinct()
-        )
+        self.check_casted()
+        if self.allow_free_text:
+            raise ValueError("tag_for_external_id() doesn't work for free text taxonomies.")
+        return self.tag_set.get(external_id__iexact=external_id)
 
 
 class ObjectTag(models.Model):
@@ -595,7 +436,8 @@ class ObjectTag(models.Model):
     )
     tag = models.ForeignKey(
         Tag,
-        null=True,
+        null=True,  # NULL in the case of free text taxonomies or when the Tag gets deleted.
+        blank=True,
         default=None,
         on_delete=models.SET_NULL,
         help_text=_(
@@ -603,7 +445,6 @@ class ObjectTag(models.Model):
         ),
     )
     _name = case_insensitive_char_field(
-        null=False,
         max_length=255,
         help_text=_(
             "User-facing label used for this tag, stored in case taxonomy is (or becomes) null."
@@ -611,7 +452,6 @@ class ObjectTag(models.Model):
         ),
     )
     _value = case_insensitive_char_field(
-        null=False,
         max_length=500,
         help_text=_(
             "User-facing value used for this tag, stored in case tag is null, e.g if taxonomy is free text, or if it"
@@ -625,7 +465,19 @@ class ObjectTag(models.Model):
             models.Index(fields=["taxonomy", "object_id"]),
             models.Index(fields=["taxonomy", "_value"]),
         ]
-        unique_together = ("taxonomy", "_value", "object_id")
+        unique_together = [
+            ("object_id", "taxonomy", "tag_id"),
+            ("object_id", "taxonomy", "_value"),
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.pk:  # This is a new instance:
+            # Set _name and _value automatically on creation, if they weren't set:
+            if not self._name and self.taxonomy:
+                self._name = self.taxonomy.name
+            if not self._value and self.tag:
+                self._value = self.tag.value
 
     def __repr__(self):
         """
@@ -674,40 +526,33 @@ class ObjectTag(models.Model):
         self._value = value
 
     @property
-    def tag_ref(self) -> str:
+    def is_deleted(self) -> bool:
         """
-        Returns this tag's reference string.
-
-        If tag is set, then returns its id.
-        Otherwise, returns the cached _value field.
+        Has this Tag been deleted from the Taxonomy? If so, we preserve this
+        ObjecTag in the DB but it shouldn't be shown to the user.
         """
-        return self.tag.id if self.tag else self._value
+        return self.taxonomy is None or (self.tag is None and not self.taxonomy.allow_free_text)
 
-    @tag_ref.setter
-    def tag_ref(self, tag_ref: str):
+    def clean(self):
         """
-        Sets the ObjectTag's Tag and/or value, depending on whether a valid Tag is found.
+        Validate this ObjectTag.
 
-        Subclasses may override this method to dynamically create Tags.
+        Note: this doesn't happen automatically on save(); only when edited in
+        the django admin. So it's best practice to call obj_tag.full_clean()
+        before saving.
         """
-        self.value = tag_ref
-
-        if self.taxonomy:
-            try:
-                self.tag = self.taxonomy.tag_set.get(pk=tag_ref)
-                self.value = self.tag.value
-            except (ValueError, Tag.DoesNotExist):
-                # This might be ok, e.g. if our taxonomy.allow_free_text, so we just pass through here.
-                # We rely on the caller to validate before saving.
-                pass
-
-    def is_valid(self) -> bool:
-        """
-        Returns True if this ObjectTag represents a valid taxonomy tag.
-
-        A valid ObjectTag must be linked to a Taxonomy, and be a valid tag in that taxonomy.
-        """
-        return self.taxonomy.validate_object_tag(self) if self.taxonomy else False
+        if self.tag:
+            if self.tag.taxonomy_id != self.taxonomy_id:
+                raise ValidationError("ObjectTag's Taxonomy does not match Tag taxonomy")
+            if self.tag.value != self._value:
+                raise ValidationError("ObjectTag's _value is out of sync with Tag.value")
+        else:
+            # Note: self.taxonomy and/or self.tag may be NULL which is OK, because it means the Tag/Taxonomy
+            # was deleted, but we still preserve this _value here in case the Taxonomy or Tag get re-created in future.
+            if self._value == "":
+                raise ValidationError("Invalid _value - empty string")
+        if self.taxonomy and self.taxonomy.name != self._name:
+            raise ValidationError("ObjectTag's _name is out of sync with Taxonomy.name")
 
     def get_lineage(self) -> Lineage:
         """
@@ -731,34 +576,8 @@ class ObjectTag(models.Model):
         """
         changed = False
 
-        # Locate an enabled taxonomy matching _name, and maybe a tag matching _value
-        if not self.taxonomy_id:
-            # Use the linked tag's taxonomy if there is one.
-            if self.tag:
-                self.taxonomy_id = self.tag.taxonomy_id
-                changed = True
-            else:
-                for taxonomy in Taxonomy.objects.filter(
-                    name=self.name, enabled=True
-                ).order_by("allow_free_text", "id"):
-                    # Cast to the subclass to preserve custom validation
-                    taxonomy = taxonomy.cast()
-
-                    # Closed taxonomies require a tag matching _value,
-                    # and we'd rather match a closed taxonomy than an open one.
-                    # So see if there's a matching tag available in this taxonomy.
-                    tag = taxonomy.tag_set.filter(value=self.value).first()
-
-                    # Make sure this taxonomy will accept object tags like this.
-                    self.taxonomy = taxonomy
-                    self.tag = tag
-                    if taxonomy.validate_object_tag(self):
-                        changed = True
-                        break
-                    # If not, undo those changes and try the next one
-                    else:
-                        self.taxonomy = None
-                        self.tag = None
+        # We used to have code here that would try to find a new taxonomy if the current taxonomy has been deleted.
+        # But for now that's removed, as it risks things like linking a tag to the wrong org's taxonomy.
 
         # Sync the stored _name with the taxonomy.name
         if self.taxonomy and self._name != self.taxonomy.name:
@@ -794,6 +613,6 @@ class ObjectTag(models.Model):
         self.tag = object_tag.tag
         self.taxonomy = object_tag.taxonomy
         self.object_id = object_tag.object_id
-        self._value = object_tag._value
-        self._name = object_tag._name
+        self._value = object_tag._value  # pylint: disable=protected-access
+        self._name = object_tag._name  # pylint: disable=protected-access
         return self

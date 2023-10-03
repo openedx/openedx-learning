@@ -2,11 +2,14 @@
 Test the tagging base models
 """
 import ddt  # type: ignore[import]
+import pytest
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.utils import IntegrityError
 from django.test.testcases import TestCase
 
+from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
 
 
@@ -30,9 +33,7 @@ class TestTagTaxonomyMixin:
         self.system_taxonomy = Taxonomy.objects.get(
             name="System defined taxonomy"
         )
-        self.language_taxonomy = Taxonomy.objects.get(name="Languages")
-        self.language_taxonomy.taxonomy_class = LanguageTaxonomy
-        self.language_taxonomy = self.language_taxonomy.cast()
+        self.language_taxonomy = LanguageTaxonomy.objects.get(name="Languages")
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
         self.archaea = get_tag("Archaea")
         self.archaebacteria = get_tag("Archaebacteria")
@@ -177,7 +178,7 @@ class TestObjectTagSubclass(ObjectTag):
 
 
 @ddt.ddt
-class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
+class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
     """
     Test the Tag and Taxonomy models' properties and methods.
     """
@@ -326,7 +327,7 @@ class TestModelTagTaxonomy(TestTagTaxonomyMixin, TestCase):
             ).save()
 
 
-class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
+class TestObjectTag(TestTagTaxonomyMixin, TestCase):
     """
     Test the ObjectTag model and the related Taxonomy methods and fields.
     """
@@ -410,144 +411,53 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
         object_tag.refresh_from_db()
         assert object_tag.get_lineage() == ["Another tag"]
 
-    def test_tag_ref(self):
-        object_tag = ObjectTag()
-        object_tag.tag_ref = 1
-        object_tag.save()
-        assert object_tag.tag is None
-        assert object_tag.value == 1
-
-    def test_object_tag_is_valid(self):
+    def test_validate_value_free_text(self):
         open_taxonomy = Taxonomy.objects.create(
             name="Freetext Life",
             allow_free_text=True,
         )
+        # An empty string or other non-string is not valid in a free-text taxonomy
+        assert open_taxonomy.validate_value("") is False
+        assert open_taxonomy.validate_value(None) is False
+        assert open_taxonomy.validate_value(True) is False
+        # But any other string value is valid:
+        assert open_taxonomy.validate_value("Any text we want") is True
 
-        object_tag = ObjectTag(
-            taxonomy=self.taxonomy,
-        )
-        # ObjectTag will only be valid for its taxonomy
-        assert not open_taxonomy.validate_object_tag(object_tag)
+    def test_validate_value_closed(self):
+        """
+        Test validate_value() in a closed taxonomy
+        """
+        assert self.taxonomy.validate_value("Eukaryota") is True
+        assert self.taxonomy.validate_value("Foobarensia") is False
+        assert self.taxonomy.tag_for_value("Eukaryota").value == "Eukaryota"
+        with pytest.raises(api.TagDoesNotExist):
+            self.taxonomy.tag_for_value("Foobarensia")
 
-        # ObjectTags in a free-text taxonomy are valid with a value
-        assert not object_tag.is_valid()
-        object_tag.value = "Any text we want"
-        object_tag.taxonomy = open_taxonomy
-        assert not object_tag.is_valid()
-        object_tag.object_id = "object:id"
-        assert object_tag.is_valid()
-
+    def test_clean(self):
         # ObjectTags in a closed taxonomy require a tag in that taxonomy
-        object_tag.taxonomy = self.taxonomy
-        object_tag.tag = Tag.objects.create(
-            taxonomy=self.system_taxonomy,
+        object_tag = ObjectTag(taxonomy=self.taxonomy, tag=Tag.objects.create(
+            taxonomy=self.system_taxonomy,  # Different taxonomy
             value="PT",
-        )
-        assert not object_tag.is_valid()
+        ))
+        with pytest.raises(ValidationError):
+            object_tag.full_clean()
         object_tag.tag = self.tag
-        assert object_tag.is_valid()
-
-    def test_tag_object(self):
-        self.taxonomy.allow_multiple = True
-
-        test_tags = [
-            [
-                self.archaea.id,
-                self.eubacteria.id,
-                self.chordata.id,
-            ],
-            [
-                self.archaebacteria.id,
-                self.chordata.id,
-            ],
-            [
-                self.archaea.id,
-                self.archaebacteria.id,
-            ],
-        ]
-
-        # Tag and re-tag the object, checking that the expected tags are returned and deleted
-        for tag_list in test_tags:
-            object_tags = self.taxonomy.tag_object(
-                tag_list,
-                "biology101",
-            )
-
-            # Ensure the expected number of tags exist in the database
-            assert ObjectTag.objects.filter(
-                taxonomy=self.taxonomy,
-                object_id="biology101",
-            ).count() == len(tag_list)
-            # And the expected number of tags were returned
-            assert len(object_tags) == len(tag_list)
-            for index, object_tag in enumerate(object_tags):
-                assert object_tag.tag_id == tag_list[index]
-                assert object_tag.is_valid
-                assert object_tag.taxonomy == self.taxonomy
-                assert object_tag.name == self.taxonomy.name
-                assert object_tag.object_id == "biology101"
-
-    def test_tag_object_free_text(self):
-        self.taxonomy.allow_free_text = True
-        object_tags = self.taxonomy.tag_object(
-            ["Eukaryota Xenomorph"],
-            "biology101",
-        )
-        assert len(object_tags) == 1
-        object_tag = object_tags[0]
-        assert object_tag.is_valid
-        assert object_tag.taxonomy == self.taxonomy
-        assert object_tag.name == self.taxonomy.name
-        assert object_tag.tag_ref == "Eukaryota Xenomorph"
-        assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
-        assert object_tag.object_id == "biology101"
-
-    def test_tag_object_no_multiple(self):
-        with self.assertRaises(ValueError) as exc:
-            self.taxonomy.tag_object(
-                ["A", "B"],
-                "biology101",
-            )
-        assert "only allows one tag per object" in str(exc.exception)
-
-    def test_tag_object_required(self):
-        self.taxonomy.required = True
-        with self.assertRaises(ValueError) as exc:
-            self.taxonomy.tag_object(
-                [],
-                "biology101",
-            )
-        assert "requires at least one tag per object" in str(exc.exception)
-
-    def test_tag_object_invalid_tag(self):
-        with self.assertRaises(ValueError) as exc:
-            self.taxonomy.tag_object(
-                ["Eukaryota Xenomorph"],
-                "biology101",
-            )
-        assert "Invalid object tag for taxonomy" in str(exc.exception)
+        object_tag._value = self.tag.value  # pylint: disable=protected-access
+        object_tag.full_clean()
 
     def test_tag_case(self) -> None:
         """
         Test that the object_id is case sensitive.
         """
         # Tag with object_id with lower case
-        ObjectTag(
-            object_id="case:id:2",
-            taxonomy=self.taxonomy,
-            tag=self.domain_tags[0],
-        ).save()
+        api.tag_object(self.taxonomy, [self.domain_tags[0].value], object_id="case:id:2")
 
         # Tag with object_id with upper case should not trigger IntegrityError
-        ObjectTag(
-            object_id="CASE:id:2",
-            taxonomy=self.taxonomy,
-            tag=self.domain_tags[0],
-        ).save()
+        api.tag_object(self.taxonomy, [self.domain_tags[0].value], object_id="CASE:id:2")
 
         # Create another ObjectTag with lower case object_id should trigger IntegrityError
         with transaction.atomic():
-            with self.assertRaises(IntegrityError):
+            with pytest.raises(IntegrityError):
                 ObjectTag(
                     object_id="case:id:2",
                     taxonomy=self.taxonomy,
@@ -556,9 +466,50 @@ class TestModelObjectTag(TestTagTaxonomyMixin, TestCase):
 
         # Create another ObjectTag with upper case object_id should trigger IntegrityError
         with transaction.atomic():
-            with self.assertRaises(IntegrityError):
+            with pytest.raises(IntegrityError):
                 ObjectTag(
                     object_id="CASE:id:2",
                     taxonomy=self.taxonomy,
                     tag=self.domain_tags[0],
                 ).save()
+
+    def test_is_deleted(self):
+        self.taxonomy.allow_multiple = True
+        self.taxonomy.save()
+        open_taxonomy = Taxonomy.objects.create(name="Freetext Life", allow_free_text=True, allow_multiple=True)
+
+        object_id = "obj1"
+        # Create some tags:
+        api.tag_object(self.taxonomy, [self.archaea.value, self.bacteria.value], object_id)  # Regular tags
+        api.tag_object(open_taxonomy, ["foo", "bar", "tribble"], object_id)  # Free text tags
+
+        # At first, none of these will be deleted:
+        assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            (self.archaea.value, False),
+            (self.bacteria.value, False),
+            ("foo", False),
+            ("bar", False),
+            ("tribble", False),
+        ]
+
+        # Delete "bacteria" from the taxonomy:
+        self.bacteria.delete()  # TODO: add an API method for this
+
+        assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            (self.archaea.value, False),
+            (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
+            ("foo", False),
+            ("bar", False),
+            ("tribble", False),
+        ]
+
+        # Then delete the whole free text taxonomy
+        open_taxonomy.delete()
+
+        assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            (self.archaea.value, False),
+            (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
+            ("foo", True),  # <--- Deleted, but the value is preserved
+            ("bar", True),  # <--- Deleted, but the value is preserved
+            ("tribble", True),  # <--- Deleted, but the value is preserved
+        ]

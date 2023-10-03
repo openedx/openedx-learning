@@ -1296,3 +1296,4 @@
     allow_multiple: false
     allow_free_text: false
     visible_to_authors: true
+    _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.LanguageTaxonomy
