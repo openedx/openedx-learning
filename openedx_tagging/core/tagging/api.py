@@ -12,8 +12,6 @@ are stored in this app.
 """
 from __future__ import annotations
 
-from typing import Iterator
-
 from django.db import transaction
 from django.db.models import F, QuerySet
 from django.utils.translation import gettext_lazy as _
@@ -50,11 +48,11 @@ def create_taxonomy(
     return taxonomy.cast()
 
 
-def get_taxonomy(id: int) -> Taxonomy | None:
+def get_taxonomy(taxonomy_id: int) -> Taxonomy | None:
     """
     Returns a Taxonomy cast to the appropriate subclass which has the given ID.
     """
-    taxonomy = Taxonomy.objects.filter(id=id).first()
+    taxonomy = Taxonomy.objects.filter(pk=taxonomy_id).first()
     return taxonomy.cast() if taxonomy else None
 
 
@@ -226,7 +224,7 @@ def tag_object(
     updated_tags = []
     if taxonomy.allow_free_text:
         for tag_value in tags:
-            object_tag_index = next((i for (i, t) in enumerate(current_tags) if t._value == tag_value), -1)
+            object_tag_index = next((i for (i, t) in enumerate(current_tags) if t.value == tag_value), -1)
             if object_tag_index >= 0:
                 # This tag is already applied.
                 object_tag = current_tags.pop(object_tag_index)
@@ -241,9 +239,9 @@ def tag_object(
             if object_tag_index >= 0:
                 # This tag is already applied.
                 object_tag = current_tags.pop(object_tag_index)
-                if object_tag._value != tag.value:
+                if object_tag._value != tag.value:  # pylint: disable=protected-access
                     # The ObjectTag's cached '_value' is out of sync with the Tag, so update it:
-                    object_tag._value = tag.value
+                    object_tag._value = tag.value  # pylint: disable=protected-access
                     updated_tags.append(object_tag)
             else:
                 # We are newly applying this tag:

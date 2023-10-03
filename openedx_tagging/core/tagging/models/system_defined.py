@@ -101,8 +101,8 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
             # First we look up the instance by value.
             # We specify 'iexact' but whether it's case sensitive or not on MySQL depends on the model's collation.
             instance = self.tag_class_model.objects.get(**{f"{self.tag_class_value_field}__iexact": value})
-        except ObjectDoesNotExist:
-            raise Tag.DoesNotExist
+        except ObjectDoesNotExist as exc:
+            raise Tag.DoesNotExist from exc
         # Use the canonical value from here on (possibly with different case from the value given as a parameter)
         value = getattr(instance, self.tag_class_value_field)
         # We assume the value may change but the external_id is immutable.
@@ -137,8 +137,8 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
             # First we look up the instance by external_id
             # We specify 'iexact' but whether it's case sensitive or not on MySQL depends on the model's collation.
             instance = self.tag_class_model.objects.get(**{f"{self.tag_class_key_field}__iexact": external_id})
-        except ObjectDoesNotExist:
-            raise Tag.DoesNotExist
+        except ObjectDoesNotExist as exc:
+            raise Tag.DoesNotExist from exc
         value = getattr(instance, self.tag_class_value_field)
         # Use the canonical external_id from here on (may differ in capitalization)
         external_id = getattr(instance, self.tag_class_key_field)
@@ -223,14 +223,14 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
             search_in_all=search_in_all,
         )
 
+    @classmethod
     def _get_available_languages(cls) -> set[str]:
         """
         Get available languages from Django LANGUAGE.
         """
         langs = set()
         for django_lang in settings.LANGUAGES:
-            # Split to get the language part
-            langs.add(django_lang[0].split("-")[0])
+            langs.add(django_lang[0])
         return langs
 
     def validate_value(self, value: str):
@@ -256,8 +256,9 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
         Check if 'external_id' is part of this Taxonomy.
         """
         lang_code = external_id.lower()
-        LANGUAGE_DICT = getattr(settings, "LANGUAGE_DICT", dict(settings.LANGUAGES))  # setting may or may not exist.
-        return lang_code in LANGUAGE_DICT
+        # Get settings.LANGUAGES (a list of tuples) as a dict. In LMS/CMS this is already cached as LANGUAGE_DICT
+        languages_as_dict = getattr(settings, "LANGUAGE_DICT", dict(settings.LANGUAGES))
+        return lang_code in languages_as_dict
 
     def tag_for_external_id(self, external_id: str):
         """
@@ -268,11 +269,12 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
         Will raise Tag.DoesNotExist if the tag is not valid for this taxonomy.
         """
         lang_code = external_id.lower()
-        LANGUAGE_DICT = getattr(settings, "LANGUAGE_DICT", dict(settings.LANGUAGES))  # setting may or may not exist.
+        # Get settings.LANGUAGES (a list of tuples) as a dict. In LMS/CMS this is already cached as LANGUAGE_DICT
+        languages_as_dict = getattr(settings, "LANGUAGE_DICT", dict(settings.LANGUAGES))
         try:
-            lang_name = LANGUAGE_DICT[lang_code]
-        except KeyError:
-            raise Tag.DoesNotExist
+            lang_name = languages_as_dict[lang_code]
+        except KeyError as exc:
+            raise Tag.DoesNotExist from exc
         tag, _created = self.tag_set.get_or_create(external_id=lang_code, defaults={"value": lang_name})
         if tag.value != lang_name:
             # Update the Tag to reflect the new language name

@@ -264,7 +264,7 @@ class Taxonomy(models.Model):
         self.allow_multiple = taxonomy.allow_multiple
         self.allow_free_text = taxonomy.allow_free_text
         self.visible_to_authors = taxonomy.visible_to_authors
-        self._taxonomy_class = taxonomy._taxonomy_class
+        self._taxonomy_class = taxonomy._taxonomy_class  # pylint: disable=protected-access
         return self
 
     def get_tags(
@@ -474,7 +474,7 @@ class ObjectTag(models.Model):
         super().__init__(*args, **kwargs)
         if not self.pk:  # This is a new instance:
             # Set _name and _value automatically on creation, if they weren't set:
-            if self.taxonomy and not self._name:
+            if not self._name and self.taxonomy:
                 self._name = self.taxonomy.name
             if not self._value and self.tag:
                 self._value = self.tag.value
@@ -534,16 +534,25 @@ class ObjectTag(models.Model):
         return self.taxonomy is None or (self.tag is None and not self.taxonomy.allow_free_text)
 
     def clean(self):
+        """
+        Validate this ObjectTag.
+
+        Note: this doesn't happen automatically on save(); only when edited in
+        the django admin. So it's best practice to call obj_tag.full_clean()
+        before saving.
+        """
         if self.tag:
             if self.tag.taxonomy_id != self.taxonomy_id:
                 raise ValidationError("ObjectTag's Taxonomy does not match Tag taxonomy")
-            elif self.tag.value != self._value:
+            if self.tag.value != self._value:
                 raise ValidationError("ObjectTag's _value is out of sync with Tag.value")
         else:
             # Note: self.taxonomy and/or self.tag may be NULL which is OK, because it means the Tag/Taxonomy
             # was deleted, but we still preserve this _value here in case the Taxonomy or Tag get re-created in future.
             if self._value == "":
                 raise ValidationError("Invalid _value - empty string")
+        if self.taxonomy and self.taxonomy.name != self._name:
+            raise ValidationError("ObjectTag's _name is out of sync with Taxonomy.name")
 
     def get_lineage(self) -> Lineage:
         """
@@ -604,6 +613,6 @@ class ObjectTag(models.Model):
         self.tag = object_tag.tag
         self.taxonomy = object_tag.taxonomy
         self.object_id = object_tag.object_id
-        self._value = object_tag._value
-        self._name = object_tag._name
+        self._value = object_tag._value  # pylint: disable=protected-access
+        self._name = object_tag._name  # pylint: disable=protected-access
         return self
