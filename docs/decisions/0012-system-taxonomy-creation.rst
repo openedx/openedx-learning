@@ -4,9 +4,10 @@
 Context
 --------
 
-System-defined taxonomies are taxonomies created by the system. Some of these are totally static (e.g Language)
-and some depends on a core data model (e.g. Organizations). It is necessary to define how to create and validate 
-the System-defined taxonomies and their tags.
+System-defined taxonomies are taxonomies created by the system. Some of these
+depend on Django settings (e.g. Languages) and others depends on a core data
+model (e.g. Organizations or Users). It is necessary to define how to create and
+validate the System-defined taxonomies and their tags.
 
 
 Decision
@@ -15,44 +16,50 @@ Decision
 System Tag lists and validation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Each System-defined Taxonomy will have its own ``ObjectTag`` subclass which is used for tag validation (e.g. ``LanguageObjectTag``, ``OrganizationObjectTag``).
-Each subclass can overwrite ``get_tags``; to configure the valid tags, and ``is_valid``; to check if a list of tags are valid.  Both functions are implemented on the ``ObjectTag`` base class, but can be overwritten to handle special cases.
+Each Taxonomy has two methods for validating tags:
+#. ``validate_value``
+#. ``validate_external_id``
 
-We need to create an instance of each System-defined Taxonomy in a fixture. With their respective characteristics and subclasses.
-The ``pk`` of these instances must be negative so as not to affect the auto-incremented ``pk`` of Taxonomies.
+These functions will return ``True`` if a given tag is valid, based on its
+external ID or value.  Subclasses should override these as needed, to implement
+different types of taxonomy behavior (e.g. based on a model or baed on Django
+settings).
 
-Later, we need to create content-side ObjectTags that live on ``openedx.features.content_tagging`` for each content and taxonomy to be used (eg. ``CourseLanguageObjectTag``, ``CourseOrganizationObjectTag``).
-This new class is used to configure the automatic content tagging. You can read the `document number 0013`_ to see this configuration.
+For example ``validate_value("English")`` will return ``True`` for the language
+taxonomy if the English language is enabled in the Django settings. Likewise,
+``validate_external_id("en")`` would return true, but
+``validate_external_id("zz")`` would be ``False`` because there is no such
+language. Or, for a User taxonomy, ``validate_value("username")`` would return
+``True`` if a user with that username exists, or ``validate_external_id(...)``
+could validate if a user with that ID exists (note that the ID must be converted
+to a string).
 
-Tags creation
-~~~~~~~~~~~~~~
+In all of these cases, a ``Tag`` instance may or may not exist in the database.
+Before saving an ``ObjectTag`` which references a tag in these taxonomies, the
+tagging API will use either ``Taxonomy.tag_for_value`` or
+``Taxonomy.tag_for_external_id``. These methods are responsible for both
+validating the tag (like ``validate_...``) but also auto-creating the ``Tag``
+instance in case it doesn't already exist. Subclasses should override these as
+needed.
 
-We have two ways to handle Tags creation and validation for System-defined Taxonomies:
+In this way, the system-defined taxonomies are fully dynamic and can represent
+tags based on Languages, Users, or Organizations that may exist in large numbers
+or be constantly created.
 
-**Hardcoded by fixtures/migrations**
+At present, there isn't a good way to *list* all of the [potential] tags that
+exist in a system-defined Taxonomy. We may add an API for that in the future,
+for example to list all of the available languages. However for other cases like
+users it doesn't make sense to even try to list all of the available tags. So
+for now, the assumption is that the UI will not even try to display a list of
+available tags for system-defined taxonomies. After all, system-defined tags are
+usually applied automatically, rather than a user manually selecting from a
+list. If there is a need to show a list of tags to the user, use the API that
+lists the actually applied tags - i.e. the values of the ``ObjectTag``s
+currently applied to objects using the taxonomy.
 
-#. If the tags don't change over the time, you can create all on a fixture (e.g Languages).
-   The ``pk`` of these instances must be negative.
-#. If the tags change over the time, you can create all on a migration. If you edit, delete, or add new tags, you should also do it in a migration.
+Tags hard-coded by fixtures/migrations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Dynamic tags**
-
-Closed Taxonomies that depends on a core data model. Ex. AuthorTaxonomy with Users as Tags
-
-#. Tags are created on the fly when new ObjectTags are added.
-#. Tag.external_id we store an identifier from the instance (eg. User.pk).
-#. Tag.value we store a human readable representation of the instance (eg. User.username).
-#. Resync the tags to re-fetch the value. 
-
-
-Rejected Options
------------------
-
-Free-form tags
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Open Taxonomy that depends on a core data model, but simplifies the creation of Tags by allowing free-form tags,
-
-Rejected because it has been seen that using dynamic tags provides more functionality and more advantages.
-
-.. _document number 0013: https://github.com/openedx/openedx-learning/blob/main/docs/decisions/0013-system-taxonomy-auto-tagging.rst
+In the future there may be system-defined taxonomies that are not dynamics at
+all, where the list of tags are defined by ``Tag`` instances created by a
+fixture or migration. However, as of now we don't have a use case for that.
