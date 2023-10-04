@@ -91,7 +91,7 @@ def create_publishable_entity_version(
             version_num=version_num,
             title=title,
             created=created,
-            created_by=created_by,
+            created_by_id=created_by,
         )
         Draft.objects.create(
             entity_id=entity_id,

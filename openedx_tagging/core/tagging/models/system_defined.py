@@ -88,7 +88,10 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         Check if 'value' is part of this Taxonomy, based on the specified model.
         """
         try:
-            self.tag_class_model.objects.get(**{f"{self.tag_class_value_field}__iexact": value})
+            # See https://github.com/typeddjango/django-stubs/issues/1684 for why we need to ignore this.
+            self.tag_class_model.objects.get(  # type: ignore[attr-defined]
+                **{f"{self.tag_class_value_field}__iexact": value}
+            )
             return True
         except ObjectDoesNotExist:
             return False
@@ -100,7 +103,10 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         try:
             # First we look up the instance by value.
             # We specify 'iexact' but whether it's case sensitive or not on MySQL depends on the model's collation.
-            instance = self.tag_class_model.objects.get(**{f"{self.tag_class_value_field}__iexact": value})
+            # See https://github.com/typeddjango/django-stubs/issues/1684 for why we need to ignore this.
+            instance = self.tag_class_model.objects.get(  # type: ignore[attr-defined]
+                **{f"{self.tag_class_value_field}__iexact": value}
+            )
         except ObjectDoesNotExist as exc:
             raise Tag.DoesNotExist from exc
         # Use the canonical value from here on (possibly with different case from the value given as a parameter)
@@ -120,7 +126,10 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         Check if 'external_id' is part of this Taxonomy.
         """
         try:
-            self.tag_class_model.objects.get(**{f"{self.tag_class_key_field}__iexact": external_id})
+            # See https://github.com/typeddjango/django-stubs/issues/1684 for why we need to ignore this.
+            self.tag_class_model.objects.get(  # type: ignore[attr-defined]
+                **{f"{self.tag_class_key_field}__iexact": external_id}
+            )
             return True
         except ObjectDoesNotExist:
             return False
@@ -136,7 +145,10 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         try:
             # First we look up the instance by external_id
             # We specify 'iexact' but whether it's case sensitive or not on MySQL depends on the model's collation.
-            instance = self.tag_class_model.objects.get(**{f"{self.tag_class_key_field}__iexact": external_id})
+            # See https://github.com/typeddjango/django-stubs/issues/1684 for why we need to ignore this.
+            instance = self.tag_class_model.objects.get(  # type: ignore[attr-defined]
+                **{f"{self.tag_class_key_field}__iexact": external_id}
+            )
         except ObjectDoesNotExist as exc:
             raise Tag.DoesNotExist from exc
         value = getattr(instance, self.tag_class_value_field)
