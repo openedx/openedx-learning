@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from django.db import transaction
 from django.db.models import F, QuerySet
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
 
 from .models import ObjectTag, Tag, Taxonomy
 
@@ -198,11 +198,11 @@ def tag_object(
 
         if current_count + new_tag_count > 100:
             raise ValueError(
-                _(f"Cannot add more than 100 tags to ({object_id}).")
+                _("Cannot add more than 100 tags to ({object_id}).").format(object_id=object_id)
             )
 
     if not isinstance(tags, list):
-        raise ValueError(_(f"Tags must be a list, not {type(tags).__name__}."))
+        raise ValueError(_("Tags must be a list, not {type}.").format(type=type(tags).__name__))
 
     ObjectTagClass = object_tag_class
     taxonomy = taxonomy.cast()  # Make sure we're using the right subclass. This is a no-op if we are already.
@@ -211,11 +211,11 @@ def tag_object(
     _check_new_tag_count(len(tags))
 
     if not taxonomy.allow_multiple and len(tags) > 1:
-        raise ValueError(_(f"Taxonomy ({taxonomy.name}) only allows one tag per object."))
+        raise ValueError(_("Taxonomy ({name}) only allows one tag per object.").format(name=taxonomy.name))
 
     if taxonomy.required and len(tags) == 0:
         raise ValueError(
-            _(f"Taxonomy ({taxonomy.id}) requires at least one tag per object.")
+            _("Taxonomy ({id}) requires at least one tag per object.").format(id=taxonomy.id)
         )
 
     current_tags = list(

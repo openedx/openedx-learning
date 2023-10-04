@@ -46,9 +46,10 @@ from __future__ import annotations
 
 from io import BytesIO
 
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
 
 from ..models import TagImportTask, TagImportTaskState, Taxonomy
+from .exceptions import TagImportError
 from .import_plan import TagImportPlan, TagImportTask
 from .parsers import ParserFormat, get_parser
 
@@ -115,7 +116,7 @@ def import_tags(
         tag_import_plan.execute(task)
         task.end_success()
         return True
-    except Exception as exception:
+    except (TagImportError, ValueError) as exception:
         # Log any exception
         task.log_exception(exception)
         return False
@@ -159,8 +160,10 @@ def _check_unique_import_task(taxonomy: Taxonomy) -> bool:
     if not last_task:
         return True
     return (
-        last_task.status == TagImportTaskState.SUCCESS.value
-        or last_task.status == TagImportTaskState.ERROR.value
+        last_task.status in {
+            TagImportTaskState.SUCCESS.value,
+            TagImportTaskState.ERROR.value
+        }
     )
 
 
@@ -189,6 +192,6 @@ def _import_export_validations(taxonomy: Taxonomy):
     if taxonomy.system_defined:
         raise ValueError(
             _(
-                f"Invalid taxonomy ({taxonomy.id}): You cannot import/export a system-defined taxonomy."
-            )
+                "Invalid taxonomy ({id}): You cannot import/export a system-defined taxonomy."
+            ).format(id=taxonomy.id)
         )
