@@ -590,7 +590,7 @@ class TestObjectTagViewSet(APITestCase):
             response = self.client.post(url, {"test": "payload"}, format="json")
         elif http_method == "PATCH":
             response = self.client.patch(url, {"test": "payload"}, format="json")
-        elif http_method == "DELETE":
+        else:  # http_method == "DELETE"
             response = self.client.delete(url)
 
         assert response.status_code == expected_status
