@@ -12,7 +12,7 @@ asgiref==3.7.2
     # via
     #   -r requirements/quality.txt
     #   django
-astroid==2.15.7
+astroid==2.15.8
     # via
     #   -r requirements/quality.txt
     #   pylint
@@ -38,14 +38,14 @@ certifi==2023.7.22
     # via
     #   -r requirements/quality.txt
     #   requests
-cffi==1.15.1
+cffi==1.16.0
     # via
     #   -r requirements/quality.txt
     #   cryptography
     #   pynacl
 chardet==5.2.0
     # via diff-cover
-charset-normalizer==3.2.0
+charset-normalizer==3.3.0
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -84,7 +84,7 @@ code-annotations==1.5.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
-coverage[toml]==7.3.1
+coverage[toml]==7.3.2
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -92,7 +92,6 @@ cryptography==41.0.4
     # via
     #   -r requirements/quality.txt
     #   pyjwt
-    #   secretstorage
 ddt==1.6.0
     # via -r requirements/quality.txt
 diff-cover==7.7.0
@@ -214,11 +213,6 @@ jaraco-classes==3.3.0
     # via
     #   -r requirements/quality.txt
     #   keyring
-jeepney==0.8.0
-    # via
-    #   -r requirements/quality.txt
-    #   keyring
-    #   secretstorage
 jinja2==3.1.2
     # via
     #   -r requirements/quality.txt
@@ -269,7 +263,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.0
     # via -r requirements/quality.txt
-newrelic==9.0.0
+newrelic==9.1.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -277,7 +271,7 @@ nh3==0.2.14
     # via
     #   -r requirements/quality.txt
     #   readme-renderer
-packaging==23.1
+packaging==23.2
     # via
     #   -r requirements/ci.txt
     #   -r requirements/pip-tools.txt
@@ -297,7 +291,7 @@ pkginfo==1.9.6
     # via
     #   -r requirements/quality.txt
     #   twine
-platformdirs==3.10.0
+platformdirs==3.11.0
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -343,7 +337,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==2.17.5
+pylint==2.17.7
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -421,16 +415,12 @@ rfc3986==2.0.0
     # via
     #   -r requirements/quality.txt
     #   twine
-rich==13.5.3
+rich==13.6.0
     # via
     #   -r requirements/quality.txt
     #   twine
 rules==3.3
     # via -r requirements/quality.txt
-secretstorage==3.3.3
-    # via
-    #   -r requirements/quality.txt
-    #   keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/quality.txt
@@ -498,14 +488,10 @@ types-pyyaml==6.0.12.12
     #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.4
+types-requests==2.31.0.7
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-types-urllib3==1.26.25.14
-    # via
-    #   -r requirements/quality.txt
-    #   types-requests
 typing-extensions==4.8.0
     # via
     #   -r requirements/ci.txt
@@ -527,11 +513,12 @@ tzdata==2023.3
     #   -r requirements/quality.txt
     #   backports-zoneinfo
     #   celery
-urllib3==2.0.5
+urllib3==2.0.6
     # via
     #   -r requirements/quality.txt
     #   requests
     #   twine
+    #   types-requests
 vine==5.0.0
     # via
     #   -r requirements/quality.txt
@@ -542,7 +529,7 @@ virtualenv==20.24.5
     # via
     #   -r requirements/ci.txt
     #   tox
-wcwidth==0.2.6
+wcwidth==0.2.8
     # via
     #   -r requirements/quality.txt
     #   prompt-toolkit

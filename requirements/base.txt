@@ -20,11 +20,11 @@ celery==5.3.4
     # via -r requirements/base.in
 certifi==2023.7.22
     # via requests
-cffi==1.15.1
+cffi==1.16.0
     # via
     #   cryptography
     #   pynacl
-charset-normalizer==3.2.0
+charset-normalizer==3.3.0
     # via requests
 click==8.1.7
     # via
@@ -74,7 +74,7 @@ idna==3.4
     # via requests
 kombu==5.3.2
     # via celery
-newrelic==9.0.0
+newrelic==9.1.0
     # via edx-django-utils
 pbr==5.11.1
     # via stevedore
@@ -121,12 +121,12 @@ tzdata==2023.3
     # via
     #   backports-zoneinfo
     #   celery
-urllib3==2.0.5
+urllib3==2.0.6
     # via requests
 vine==5.0.0
     # via
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.6
+wcwidth==0.2.8
     # via prompt-toolkit
