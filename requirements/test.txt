@@ -29,12 +29,12 @@ certifi==2023.7.22
     # via
     #   -r requirements/base.txt
     #   requests
-cffi==1.15.1
+cffi==1.16.0
     # via
     #   -r requirements/base.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.2.0
+charset-normalizer==3.3.0
     # via
     #   -r requirements/base.txt
     #   requests
@@ -62,7 +62,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==1.5.0
     # via -r requirements/test.in
-coverage[toml]==7.3.1
+coverage[toml]==7.3.2
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -153,11 +153,11 @@ mypy-extensions==1.0.0
     # via mypy
 mysqlclient==2.2.0
     # via -r requirements/test.in
-newrelic==9.0.0
+newrelic==9.1.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-packaging==23.1
+packaging==23.2
     # via pytest
 pbr==5.11.1
     # via
@@ -253,10 +253,8 @@ types-pyyaml==6.0.12.12
     # via
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.4
+types-requests==2.31.0.7
     # via djangorestframework-stubs
-types-urllib3==1.26.25.14
-    # via types-requests
 typing-extensions==4.8.0
     # via
     #   -r requirements/base.txt
@@ -274,17 +272,18 @@ tzdata==2023.3
     #   -r requirements/base.txt
     #   backports-zoneinfo
     #   celery
-urllib3==2.0.5
+urllib3==2.0.6
     # via
     #   -r requirements/base.txt
     #   requests
+    #   types-requests
 vine==5.0.0
     # via
     #   -r requirements/base.txt
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.6
+wcwidth==0.2.8
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit

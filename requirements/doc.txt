@@ -18,7 +18,7 @@ asgiref==3.7.2
     #   django
 attrs==23.1.0
     # via -r requirements/test.txt
-babel==2.12.1
+babel==2.13.0
     # via
     #   pydata-sphinx-theme
     #   sphinx
@@ -39,12 +39,12 @@ certifi==2023.7.22
     # via
     #   -r requirements/test.txt
     #   requests
-cffi==1.15.1
+cffi==1.16.0
     # via
     #   -r requirements/test.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.2.0
+charset-normalizer==3.3.0
     # via
     #   -r requirements/test.txt
     #   requests
@@ -72,7 +72,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==1.5.0
     # via -r requirements/test.txt
-coverage[toml]==7.3.1
+coverage[toml]==7.3.2
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -193,13 +193,13 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.0
     # via -r requirements/test.txt
-newrelic==9.0.0
+newrelic==9.1.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
 nh3==0.2.14
     # via readme-renderer
-packaging==23.1
+packaging==23.2
     # via
     #   -r requirements/test.txt
     #   pydata-sphinx-theme
@@ -312,7 +312,7 @@ sphinxcontrib-applehelp==1.0.4
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
     # via sphinx
-sphinxcontrib-django==2.4
+sphinxcontrib-django==2.5
     # via -r requirements/doc.in
 sphinxcontrib-htmlhelp==2.0.1
     # via sphinx
@@ -356,14 +356,10 @@ types-pyyaml==6.0.12.12
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.4
+types-requests==2.31.0.7
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-types-urllib3==1.26.25.14
-    # via
-    #   -r requirements/test.txt
-    #   types-requests
 typing-extensions==4.8.0
     # via
     #   -r requirements/test.txt
@@ -382,17 +378,18 @@ tzdata==2023.3
     #   -r requirements/test.txt
     #   backports-zoneinfo
     #   celery
-urllib3==2.0.5
+urllib3==2.0.6
     # via
     #   -r requirements/test.txt
     #   requests
+    #   types-requests
 vine==5.0.0
     # via
     #   -r requirements/test.txt
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.6
+wcwidth==0.2.8
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
