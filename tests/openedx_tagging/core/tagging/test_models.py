@@ -1,6 +1,8 @@
 """
 Test the tagging base models
 """
+from __future__ import annotations
+
 import ddt  # type: ignore[import]
 import pytest
 from django.contrib.auth import get_user_model
@@ -55,54 +57,6 @@ class TestTagTaxonomyMixin:
         )
         self.user_2.save()
 
-        # Domain tags (depth=0)
-        # https://en.wikipedia.org/wiki/Domain_(biology)
-        self.domain_tags = [
-            get_tag("Archaea"),
-            get_tag("Bacteria"),
-            get_tag("Eukaryota"),
-        ]
-        # Domain tags that contains 'ar'
-        self.filtered_domain_tags = [
-            get_tag("Archaea"),
-            get_tag("Eukaryota"),
-        ]
-
-        # Kingdom tags (depth=1)
-        self.kingdom_tags = [
-            # Kingdoms of https://en.wikipedia.org/wiki/Archaea
-            get_tag("DPANN"),
-            get_tag("Euryarchaeida"),
-            get_tag("Proteoarchaeota"),
-            # Kingdoms of https://en.wikipedia.org/wiki/Bacterial_taxonomy
-            get_tag("Archaebacteria"),
-            get_tag("Eubacteria"),
-            # Kingdoms of https://en.wikipedia.org/wiki/Eukaryote
-            get_tag("Animalia"),
-            get_tag("Fungi"),
-            get_tag("Monera"),
-            get_tag("Plantae"),
-            get_tag("Protista"),
-        ]
-
-        # Phylum tags (depth=2)
-        self.phylum_tags = [
-            # Some phyla of https://en.wikipedia.org/wiki/Animalia
-            get_tag("Arthropoda"),
-            get_tag("Chordata"),
-            get_tag("Cnidaria"),
-            get_tag("Ctenophora"),
-            get_tag("Gastrotrich"),
-            get_tag("Placozoa"),
-            get_tag("Porifera"),
-        ]
-        # Phylum tags that contains 'da'
-        self.filtered_phylum_tags = [
-            get_tag("Arthropoda"),
-            get_tag("Chordata"),
-            get_tag("Cnidaria"),
-        ]
-
         # Biology tags that contains 'eu'
         self.filtered_tags = [
             get_tag("Eubacteria"),
@@ -131,17 +85,6 @@ class TestTagTaxonomyMixin:
                 _value="Dummy Tag",
             )
             self.dummy_taxonomies.append(taxonomy)
-
-    def setup_tag_depths(self):
-        """
-        Annotate our tags with depth so we can compare them.
-        """
-        for tag in self.domain_tags:
-            tag.depth = 0
-        for tag in self.kingdom_tags:
-            tag.depth = 1
-        for tag in self.phylum_tags:
-            tag.depth = 2
 
 
 class TaxonomyTestSubclassA(Taxonomy):
@@ -237,6 +180,20 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
             self.taxonomy.taxonomy_class = str
         assert "<class 'str'> must be a subclass of Taxonomy" in str(exc.exception)
 
+    def test_unique_tags(self):
+        # Creating new tag
+        Tag(
+            taxonomy=self.taxonomy,
+            value='New value'
+        ).save()
+
+        # Creating repeated tag
+        with self.assertRaises(IntegrityError):
+            Tag(
+                taxonomy=self.taxonomy,
+                value=self.archaea.value,
+            ).save()
+
     @ddt.data(
         # Root tags just return their own value
         ("bacteria", ["Bacteria"]),
@@ -251,80 +208,311 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
     def test_get_lineage(self, tag_attr, lineage):
         assert getattr(self, tag_attr).get_lineage() == lineage
 
-    def test_get_tags(self):
-        self.setup_tag_depths()
-        assert self.taxonomy.get_tags() == [
-            *self.domain_tags,
-            *self.kingdom_tags,
-            *self.phylum_tags,
+
+
+@ddt.ddt
+class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
+    """
+    Test the the get_filtered_tags() method of closed taxonomies
+    """
+    def test_get_root(self) -> None:
+        """
+        Test basic retrieval of root tags in the closed taxonomy, using
+        get_filtered_tags(). Without counts included.
+        """
+        result = list(self.taxonomy.get_filtered_tags(depth=1, include_counts=False))
+        common_fields = {"depth": 0, "parent_value": None, "external_id": None}
+        assert result == [
+            # These are the root tags, in alphabetical order:
+            {"value": "Archaea", "child_count": 3, **common_fields},
+            {"value": "Bacteria", "child_count": 2, **common_fields},
+            {"value": "Eukaryota", "child_count": 5, **common_fields},
         ]
 
-    def test_get_root_tags(self):
-        assert list(self.taxonomy.get_filtered_tags()) == self.domain_tags
-        assert list(
-            self.taxonomy.get_filtered_tags(search_term='aR')
-        ) == self.filtered_domain_tags
-
-    def test_get_tags_free_text(self):
-        self.taxonomy.allow_free_text = True
-        with self.assertNumQueries(0):
-            assert self.taxonomy.get_tags() == []
-
-    def test_get_children_tags(self):
-        assert list(
-            self.taxonomy.get_filtered_tags(parent_tag_id=self.animalia.id)
-        ) == self.phylum_tags
-        assert list(
-            self.taxonomy.get_filtered_tags(
-                parent_tag_id=self.animalia.id,
-                search_term='dA',
-            )
-        ) == self.filtered_phylum_tags
-        assert not list(
-            self.system_taxonomy.get_filtered_tags(
-                parent_tag_id=self.system_taxonomy_tag.id
-            )
-        )
-
-    def test_get_children_tags_free_text(self):
-        self.taxonomy.allow_free_text = True
-        assert not list(self.taxonomy.get_filtered_tags(
-            parent_tag_id=self.animalia.id
-        ))
-        assert not list(self.taxonomy.get_filtered_tags(
-            parent_tag_id=self.animalia.id,
-            search_term='dA',
-        ))
-
-    def test_search_tags(self):
-        assert list(self.taxonomy.get_filtered_tags(
-            search_term='eU',
-            search_in_all=True
-        )) == self.filtered_tags
-
-    def test_get_tags_shallow_taxonomy(self):
-        taxonomy = Taxonomy.objects.create(name="Difficulty")
-        tags = [
-            Tag.objects.create(taxonomy=taxonomy, value="1. Easy"),
-            Tag.objects.create(taxonomy=taxonomy, value="2. Moderate"),
-            Tag.objects.create(taxonomy=taxonomy, value="3. Hard"),
+    def test_get_child_tags_one_level(self) -> None:
+        """
+        Test basic retrieval of tags one level below the "Eukaryota" root tag in
+        the closed taxonomy, using get_filtered_tags(). With counts included.
+        """
+        result = list(self.taxonomy.get_filtered_tags(depth=1, parent_tag_value="Eukaryota"))
+        common_fields = {"depth": 1, "parent_value": "Eukaryota", "usage_count": 0, "external_id": None}
+        assert result == [
+            # These are the Eukaryota tags, in alphabetical order:
+            {"value": "Animalia", "child_count": 7, **common_fields},
+            {"value": "Fungi", "child_count": 0, **common_fields},
+            {"value": "Monera", "child_count": 0, **common_fields},
+            {"value": "Plantae", "child_count": 0, **common_fields},
+            {"value": "Protista", "child_count": 0, **common_fields},
         ]
+
+    def test_get_grandchild_tags_one_level(self) -> None:
+        """
+        Test basic retrieval of a single level of tags at two level belows the
+        "Eukaryota" root tag in the closed taxonomy, using get_filtered_tags().
+        """
+        result = list(self.taxonomy.get_filtered_tags(depth=1, parent_tag_value="Animalia"))
+        common_fields = {"depth": 2, "parent_value": "Animalia", "usage_count": 0, "external_id": None}
+        assert result == [
+            # These are the Eukaryota tags, in alphabetical order:
+            {"value": "Arthropoda", "child_count": 0, **common_fields},
+            {"value": "Chordata", "child_count": 1, **common_fields},
+            {"value": "Cnidaria", "child_count": 0, **common_fields},
+            {"value": "Ctenophora", "child_count": 0, **common_fields},
+            {"value": "Gastrotrich", "child_count": 0, **common_fields},
+            {"value": "Placozoa", "child_count": 0, **common_fields},
+            {"value": "Porifera", "child_count": 0, **common_fields},
+        ]
+
+    def test_get_depth_1_search_term(self) -> None:
+        """
+        Filter the root tags to only those that match a search term
+        """
+        result = list(self.taxonomy.get_filtered_tags(depth=1, search_term="ARCH"))
+        assert result == [
+            {
+                "value": "Archaea",
+                "child_count": 3,
+                "depth": 0,
+                "usage_count": 0,
+                "parent_value": None,
+                "external_id": None,
+            },
+        ]
+        # Note that other tags in the taxonomy match "ARCH" but are excluded because of the depth=1 search
+
+    def test_get_depth_1_child_search_term(self) -> None:
+        """
+        Filter the child tags of "Bacteria" to only those that match a search term
+        """
+        result = list(self.taxonomy.get_filtered_tags(depth=1, search_term="ARCH", parent_tag_value="Bacteria"))
+        assert result == [
+            {
+                "value": "Archaebacteria",
+                "child_count": 0,
+                "depth": 1,
+                "usage_count": 0,
+                "parent_value": "Bacteria",
+                "external_id": None,
+            },
+        ]
+        # Note that other tags in the taxonomy match "ARCH" but are excluded because of the depth=1 search
+
+    def test_depth_1_queries(self) -> None:
+        """
+        Test the number of queries used by get_filtered_tags() with closed
+        taxonomies when depth=1. This should be a constant, not O(n).
+        """
+        with self.assertNumQueries(1):
+            self.test_get_root()
+        with self.assertNumQueries(1):
+            self.test_get_depth_1_search_term()
+        # When listing the tags below a specific tag, there is one additional query to load each ancestor tag:
         with self.assertNumQueries(2):
-            assert taxonomy.get_tags() == tags
+            self.test_get_child_tags_one_level()
+        with self.assertNumQueries(2):
+            self.test_get_depth_1_child_search_term()
+        with self.assertNumQueries(3):
+            self.test_get_grandchild_tags_one_level()
 
-    def test_unique_tags(self):
-        # Creating new tag
-        Tag(
-            taxonomy=self.taxonomy,
-            value='New value'
-        ).save()
+    ##################
 
-        # Creating repeated tag
-        with self.assertRaises(IntegrityError):
-            Tag(
-                taxonomy=self.taxonomy,
-                value=self.archaea.value,
-            ).save()
+    @staticmethod
+    def _pretty_format_result(result) -> list[str]:
+        """
+        Format a result to be more human readable.
+        """
+        return [
+            f"{t['depth'] * '  '}{t['value']} ({t['parent_value']}) " +
+            f"(used: {t['usage_count']}, children: {t['child_count']})"
+            for t in result
+        ]
+
+    def test_get_all(self) -> None:
+        """
+        Test getting all of the tags in the taxonomy, using get_filtered_tags()
+        """
+        result = self._pretty_format_result(self.taxonomy.get_filtered_tags())
+        assert result == [
+            "Archaea (None) (used: 0, children: 3)",
+            "  DPANN (Archaea) (used: 0, children: 0)",
+            "  Euryarchaeida (Archaea) (used: 0, children: 0)",
+            "  Proteoarchaeota (Archaea) (used: 0, children: 0)",
+            "Bacteria (None) (used: 0, children: 2)",
+            "  Archaebacteria (Bacteria) (used: 0, children: 0)",
+            "  Eubacteria (Bacteria) (used: 0, children: 0)",
+            "Eukaryota (None) (used: 0, children: 5)",
+            "  Animalia (Eukaryota) (used: 0, children: 7)",
+            "    Arthropoda (Animalia) (used: 0, children: 0)",
+            "    Chordata (Animalia) (used: 0, children: 1)",  # note this has a child but the child is not included
+            "    Cnidaria (Animalia) (used: 0, children: 0)",
+            "    Ctenophora (Animalia) (used: 0, children: 0)",
+            "    Gastrotrich (Animalia) (used: 0, children: 0)",
+            "    Placozoa (Animalia) (used: 0, children: 0)",
+            "    Porifera (Animalia) (used: 0, children: 0)",
+            "  Fungi (Eukaryota) (used: 0, children: 0)",
+            "  Monera (Eukaryota) (used: 0, children: 0)",
+            "  Plantae (Eukaryota) (used: 0, children: 0)",
+            "  Protista (Eukaryota) (used: 0, children: 0)",
+        ]
+
+    def test_search(self) -> None:
+        """
+        Search the whole taxonomy (up to max depth) for a given term. Should
+        return all tags that match the term as well as their ancestors.
+        """
+        result = self._pretty_format_result(self.taxonomy.get_filtered_tags(search_term="ARCH"))
+        assert result == [
+            "Archaea (None) (used: 0, children: 3)",  # Matches the value of this root tag, ARCHaea
+            "  Euryarchaeida (Archaea) (used: 0, children: 0)",  # Matches the value of this child tag
+            "  Proteoarchaeota (Archaea) (used: 0, children: 0)",  # Matches the value of this child tag
+            "Bacteria (None) (used: 0, children: 2)",  # Does not match this tag but matches a descendant:
+            "  Archaebacteria (Bacteria) (used: 0, children: 0)",  # Matches the value of this child tag
+        ]
+
+    def test_search_2(self) -> None:
+        """
+        Another search test, that matches a tag deeper in the taxonomy to check
+        that all its ancestors are returned by the search.
+        """
+        result = self._pretty_format_result(self.taxonomy.get_filtered_tags(search_term="chordata"))
+        assert result == [
+            "Eukaryota (None) (used: 0, children: 5)",
+            "  Animalia (Eukaryota) (used: 0, children: 7)",
+            "    Chordata (Animalia) (used: 0, children: 1)",  # this is the matching tag.
+        ]
+
+    def test_tags_deep(self) -> None:
+        """
+        Test getting a deep tag in the taxonomy
+        """
+        result = list(self.taxonomy.get_filtered_tags(parent_tag_value="Chordata"))
+        assert result == [
+            {
+                "value": "Mammalia",
+                "parent_value": "Chordata",
+                "depth": 3,
+                "usage_count": 0,
+                "child_count": 0,
+                "external_id": None,
+            }
+        ]
+
+    def test_deep_queries(self) -> None:
+        """
+        Test the number of queries used by get_filtered_tags() with closed
+        taxonomies when depth=None. This should be a constant, not O(n).
+        """
+        with self.assertNumQueries(1):
+            self.test_get_all()
+        # Searching below a specific tag requires an additional query to load that tag:
+        with self.assertNumQueries(2):
+            self.test_tags_deep()
+        # Keyword search requires an additional query:
+        with self.assertNumQueries(2):
+            self.test_search()
+        with self.assertNumQueries(2):
+            self.test_search_2()
+
+    def test_get_external_id(self) -> None:
+        """
+        Test that if our tags have external IDs, those external IDs are returned
+        """
+        self.bacteria.external_id = "bct001"
+        self.bacteria.save()
+        result = list(self.taxonomy.get_filtered_tags(search_term="Eubacteria"))
+        assert result[0]["value"] == "Bacteria"
+        assert result[0]["external_id"] == "bct001"
+
+    def test_usage_count(self) -> None:
+        """
+        Test that the usage count in the results is right
+        """
+        api.tag_object(object_id="obj01", taxonomy=self.taxonomy, tags=["Bacteria"])
+        api.tag_object(object_id="obj02", taxonomy=self.taxonomy, tags=["Bacteria"])
+        api.tag_object(object_id="obj03", taxonomy=self.taxonomy, tags=["Bacteria"])
+        api.tag_object(object_id="obj04", taxonomy=self.taxonomy, tags=["Eubacteria"])
+        # Now the API should reflect these usage counts:
+        result = self._pretty_format_result(self.taxonomy.get_filtered_tags(search_term="bacteria"))
+        assert result == [
+            "Bacteria (None) (used: 3, children: 2)",
+            "  Archaebacteria (Bacteria) (used: 0, children: 0)",
+            "  Eubacteria (Bacteria) (used: 1, children: 0)",
+        ]
+        # Same with depth=1, which uses a different query internally:
+        result1 = self._pretty_format_result(self.taxonomy.get_filtered_tags(search_term="bacteria", depth=1))
+        assert result1 == [
+            "Bacteria (None) (used: 3, children: 2)",
+        ]
+
+
+class TestFilteredTagsFreeTextTaxonomy(TestCase):
+    """
+    Tests for listing/autocompleting/searching for tags in a free text taxonomy.
+
+    Free text taxonomies only return tags that are actually used.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.taxonomy = Taxonomy.objects.create(allow_free_text=True, name="FreeText")
+        # The "triple" tag will be applied to three objects, "double" to two, and "solo" to one:
+        api.tag_object(object_id="obj1", taxonomy=self.taxonomy, tags=["triple"])
+        api.tag_object(object_id="obj2", taxonomy=self.taxonomy, tags=["triple", "double"])
+        api.tag_object(object_id="obj3", taxonomy=self.taxonomy, tags=["triple", "double"])
+        api.tag_object(object_id="obj4", taxonomy=self.taxonomy, tags=["solo"])
+
+    def test_get_filtered_tags(self):
+        """
+        Test basic retrieval of all tags in the taxonomy.
+        Without counts included.
+        """
+        result = list(self.taxonomy.get_filtered_tags(include_counts=False))
+        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None}
+        assert result == [
+            # These should appear in alphabetical order:
+            {"value": "double", **common_fields},
+            {"value": "solo", **common_fields},
+            {"value": "triple", **common_fields},
+        ]
+
+    def test_get_filtered_tags_with_count(self):
+        """
+        Test basic retrieval of all tags in the taxonomy.
+        Without counts included.
+        """
+        result = list(self.taxonomy.get_filtered_tags(include_counts=True))
+        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None}
+        assert result == [
+            # These should appear in alphabetical order:
+            {"value": "double", "usage_count": 2, **common_fields},
+            {"value": "solo", "usage_count": 1, **common_fields},
+            {"value": "triple", "usage_count": 3, **common_fields},
+        ]
+
+    def test_get_filtered_tags_num_queries(self):
+        """
+        Test that the number of queries used by get_filtered_tags() is fixed
+        and not O(n) or worse.
+        """
+        with self.assertNumQueries(1):
+            self.test_get_filtered_tags()
+        with self.assertNumQueries(1):
+            self.test_get_filtered_tags_with_count()
+
+    def test_get_filtered_tags_with_search(self) -> None:
+        """
+        Test basic retrieval of only matching tags.
+        """
+        result1 = list(self.taxonomy.get_filtered_tags(search_term="le"))
+        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None}
+        assert result1 == [
+            # These should appear in alphabetical order:
+            {"value": "double", "usage_count": 2, **common_fields},
+            {"value": "triple", "usage_count": 3, **common_fields},
+        ]
+        # And it should be case insensitive:
+        result2 = list(self.taxonomy.get_filtered_tags(search_term="LE"))
+        assert result1 == result2
 
 
 class TestObjectTag(TestTagTaxonomyMixin, TestCase):
@@ -450,10 +638,10 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         Test that the object_id is case sensitive.
         """
         # Tag with object_id with lower case
-        api.tag_object(self.taxonomy, [self.domain_tags[0].value], object_id="case:id:2")
+        api.tag_object(self.taxonomy, [self.chordata.value], object_id="case:id:2")
 
         # Tag with object_id with upper case should not trigger IntegrityError
-        api.tag_object(self.taxonomy, [self.domain_tags[0].value], object_id="CASE:id:2")
+        api.tag_object(self.taxonomy, [self.chordata.value], object_id="CASE:id:2")
 
         # Create another ObjectTag with lower case object_id should trigger IntegrityError
         with transaction.atomic():
@@ -461,7 +649,7 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
                 ObjectTag(
                     object_id="case:id:2",
                     taxonomy=self.taxonomy,
-                    tag=self.domain_tags[0],
+                    tag=self.chordata,
                 ).save()
 
         # Create another ObjectTag with upper case object_id should trigger IntegrityError
@@ -470,7 +658,7 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
                 ObjectTag(
                     object_id="CASE:id:2",
                     taxonomy=self.taxonomy,
-                    tag=self.domain_tags[0],
+                    tag=self.chordata,
                 ).save()
 
     def test_is_deleted(self):

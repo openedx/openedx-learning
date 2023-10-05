@@ -13,9 +13,10 @@ are stored in this app.
 from __future__ import annotations
 
 from django.db import transaction
-from django.db.models import F, QuerySet
+from django.db.models import QuerySet
 from django.utils.translation import gettext as _
 
+from .data import TagData
 from .models import ObjectTag, Tag, Taxonomy
 
 # Export this as part of the API
@@ -70,54 +71,56 @@ def get_taxonomies(enabled=True) -> QuerySet[Taxonomy]:
     return queryset.filter(enabled=enabled)
 
 
-def get_tags(taxonomy: Taxonomy) -> list[Tag]:
+def get_tags(taxonomy: Taxonomy) -> QuerySet[TagData]:
     """
-    Returns a list of predefined tags for the given taxonomy.
+    Returns a QuerySet of all the tags in the given taxonomy.
 
-    Note that if the taxonomy allows free-text tags, then the returned list will be empty.
+    Note that if the taxonomy is dynamic or free-text, only tags that have
+    already been applied to some object will be returned.
     """
-    return taxonomy.cast().get_tags()
+    return taxonomy.cast().get_filtered_tags()
 
 
-def get_root_tags(taxonomy: Taxonomy) -> list[Tag]:
+def get_root_tags(taxonomy: Taxonomy) -> QuerySet[TagData]:
     """
     Returns a list of the root tags for the given taxonomy.
 
     Note that if the taxonomy allows free-text tags, then the returned list will be empty.
     """
-    return list(taxonomy.cast().get_filtered_tags())
+    return taxonomy.cast().get_filtered_tags(depth=1)
 
 
-def search_tags(taxonomy: Taxonomy, search_term: str) -> list[Tag]:
+def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: int | None = None) -> QuerySet[TagData]:
     """
-    Returns a list of all tags that contains `search_term` of the given taxonomy.
+    Returns a list of all tags that contains `search_term` of the given
+    taxonomy, as well as their ancestors (so they can be displayed in a tree).
 
-    Note that if the taxonomy allows free-text tags, then the returned list will be empty.
+    If exclude_object_id is set, any tags applied to that object will be
+    excluded from the results, e.g. to power an autocomplete search when adding
+    additional tags to an object.
     """
-    return list(
-        taxonomy.cast().get_filtered_tags(
-            search_term=search_term,
-            search_in_all=True,
+    qs = taxonomy.cast().get_filtered_tags(search_term=search_term)
+    if exclude_object_id:
+        # Fetch tags that the object already has to exclude them from the result
+        excluded_values = list(
+            taxonomy.objecttag_set.filter(object_id=exclude_object_id).values_list(
+                "_value", flat=True
+            )
         )
-    )
+        qs = qs.exclude(value__in=excluded_values)
+    return qs
 
 
 def get_children_tags(
     taxonomy: Taxonomy,
-    parent_tag_id: int,
-    search_term: str | None = None,
-) -> list[Tag]:
+    parent_tag_value: str,
+) -> QuerySet[TagData]:
     """
-    Returns a list of children tags for the given parent tag.
+    Returns a QuerySet of children tags for the given parent tag.
 
     Note that if the taxonomy allows free-text tags, then the returned list will be empty.
     """
-    return list(
-        taxonomy.cast().get_filtered_tags(
-            parent_tag_id=parent_tag_id,
-            search_term=search_term,
-        )
-    )
+    return taxonomy.cast().get_filtered_tags(parent_tag_value=parent_tag_value)
 
 
 def resync_object_tags(object_tags: QuerySet | None = None) -> int:
@@ -250,68 +253,3 @@ def tag_object(
         for object_tag in updated_tags:
             object_tag.full_clean()  # Run validation
             object_tag.save()
-
-
-# TODO: return tags from closed taxonomies as well as the count of how many times each is used.
-def autocomplete_tags(
-    taxonomy: Taxonomy,
-    search: str,
-    object_id: str | None = None,
-    object_tags_only=True,
-) -> QuerySet:
-    """
-    Provides auto-complete suggestions by matching the `search` string against existing
-    ObjectTags linked to the given taxonomy. A case-insensitive search is used in order
-    to return the highest number of relevant tags.
-
-    If `object_id` is provided, then object tag values already linked to this object
-    are omitted from the returned suggestions. (ObjectTag values must be unique for a
-    given object + taxonomy, and so omitting these suggestions helps users avoid
-    duplication errors.).
-
-    Returns a QuerySet of dictionaries containing distinct `value` (string) and
-    `tag` (numeric ID) values, sorted alphabetically by `value`.
-    The `value` is what should be shown as a suggestion to users,
-    and if it's a free-text taxonomy, `tag` will be `None`:  we include the `tag` ID
-    in anticipation of the second use case listed below.
-
-    Use cases:
-    * This method is useful for reducing tag variation in free-text taxonomies by showing
-      users tags that are similar to what they're typing. E.g., if the `search` string "dn"
-      shows that other objects have been tagged with "DNA", "DNA electrophoresis", and "DNA fingerprinting",
-      this encourages users to use those existing tags if relevant, instead of creating new ones that
-      look similar (e.g. "dna finger-printing").
-    * It could also be used to assist tagging for closed taxonomies with a list of possible tags which is too
-      large to return all at once, e.g. a user model taxonomy that dynamically creates tags on request for any
-      registered user in the database. (Note that this is not implemented yet, but may be as part of a future change.)
-    """
-    if not object_tags_only:
-        raise NotImplementedError(
-            _(
-                "Using this would return a query set of tags instead of object tags."
-                "For now we recommend fetching all of the taxonomy's tags "
-                "using get_tags() and filtering them on the frontend."
-            )
-        )
-    # Fetch tags that the object already has to exclude them from the result
-    excluded_tags: list[str] = []
-    if object_id:
-        excluded_tags = list(
-            taxonomy.objecttag_set.filter(object_id=object_id).values_list(
-                "_value", flat=True
-            )
-        )
-    return (
-        # Fetch object tags from this taxonomy whose value contains the search
-        taxonomy.objecttag_set.filter(_value__icontains=search)
-        # omit any tags whose values match the tags on the given object
-        .exclude(_value__in=excluded_tags)
-        # alphabetical ordering
-        .order_by("_value")
-        # Alias the `_value` field to `value` to make it nicer for users
-        .annotate(value=F("_value"))
-        # obtain tag values
-        .values("value", "tag_id")
-        # remove repeats
-        .distinct()
-    )

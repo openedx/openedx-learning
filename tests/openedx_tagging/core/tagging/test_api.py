@@ -7,6 +7,7 @@ from typing import Any
 
 import ddt  # type: ignore[import]
 import pytest
+from django.db.models import QuerySet
 from django.test import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api
@@ -594,15 +595,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             expected_ids,
         )
 
-    def test_autocompleate_not_implemented(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            tagging_api.autocomplete_tags(self.taxonomy, 'test', None, object_tags_only=False)
-
-    def _get_tag_values(self, tags) -> list[str]:
+    def _get_tag_values(self, tags: QuerySet[tagging_api.TagData]) -> list[str]:
         """
         Get tag values from tagging_api.autocomplete_tags() result
         """
-        return [tag.get("value") for tag in tags]
+        return [tag["value"] for tag in tags]
 
     def _get_tag_ids(self, tags) -> list[int]:
         """
@@ -622,7 +619,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
 
         # Normal search
-        result = tagging_api.autocomplete_tags(taxonomy, search)
+        result = tagging_api.search_tags(taxonomy, search)
         tag_values = self._get_tag_values(result)
         for value in tag_values:
             assert search.lower() in value.lower()
@@ -644,6 +641,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ).save()
 
         # Search with object
-        result = tagging_api.autocomplete_tags(taxonomy, search, object_id)
+        result = tagging_api.search_tags(taxonomy, search, object_id)
         assert self._get_tag_values(result) == expected_values[1:]
         assert self._get_tag_ids(result) == expected_ids[1:]

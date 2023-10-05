@@ -168,12 +168,12 @@ class Parser:
         The tags are ordered by hierarchy, first, parents and then children.
         `get_tags` is in charge of returning this in a hierarchical way.
         """
-        tags = get_tags(taxonomy)
+        tags = Taxonomy.get_filtered_tags().all()
         result = []
         for tag in tags:
             result_tag = {
-                "id": tag.external_id or tag.id,
-                "value": tag.value,
+                "id": tag["external_id"] or tag["id"],
+                "value": tag["value"],
             }
             if tag.parent:
                 result_tag["parent_id"] = tag.parent.external_id or tag.parent.id
