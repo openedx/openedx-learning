@@ -42,7 +42,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "name": "Difficulty",
             "description": "This taxonomy contains tags describing the difficulty of an activity",
             "enabled": False,
-            "required": True,
             "allow_multiple": True,
             "allow_free_text": True,
         }
@@ -112,31 +111,61 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             *self.phylum_tags,
         ]
         assert tagging_api.get_tags(self.system_taxonomy) == self.system_tags
-        tags = tagging_api.get_tags(self.language_taxonomy)
-        langs = [tag.external_id for tag in tags]
-        expected_langs = [lang[0] for lang in test_languages]
-        assert langs == expected_langs
 
     @override_settings(LANGUAGES=test_languages)
     def test_get_root_tags(self):
         assert tagging_api.get_root_tags(self.taxonomy) == self.domain_tags
         assert tagging_api.get_root_tags(self.system_taxonomy) == self.system_tags
-        tags = tagging_api.get_root_tags(self.language_taxonomy)
-        langs = [tag.external_id for tag in tags]
-        expected_langs = [lang[0] for lang in test_languages]
-        assert langs == expected_langs
 
     @override_settings(LANGUAGES=test_languages)
+    def test_get_root_language_tags(self):
+        """
+        For the language taxonomy, listing and searching tags will only show
+        tags that have been used at least once.
+        """
+        before_langs = [
+            tag.external_id for tag in
+            tagging_api.get_root_tags(self.language_taxonomy)
+        ]
+        assert before_langs == ["en"]
+        # Use a few more tags:
+        for _lang_code, lang_value in test_languages:
+            tagging_api.tag_object(object_id="foo", taxonomy=self.language_taxonomy, tags=[lang_value])
+        # now a search will return matching tags:
+        after_langs = [
+            tag.external_id for tag in
+            tagging_api.get_root_tags(self.language_taxonomy)
+        ]
+        expected_langs = [lang_code for lang_code, _ in test_languages]
+        assert after_langs == expected_langs
+
     def test_search_tags(self):
         assert tagging_api.search_tags(
             self.taxonomy,
             search_term='eU'
         ) == self.filtered_tags
 
-        tags = tagging_api.search_tags(self.language_taxonomy, search_term='IsH')
-        langs = [tag.external_id for tag in tags]
-        expected_langs = [lang[0] for lang in filtered_test_languages]
-        assert langs == expected_langs
+    @override_settings(LANGUAGES=test_languages)
+    def test_search_language_tags(self):
+        """
+        For the language taxonomy, listing and searching tags will only show
+        tags that have been used at least once.
+        """
+        before_langs = [
+            tag.external_id for tag in
+            tagging_api.search_tags(self.language_taxonomy, search_term='IsH')
+        ]
+        assert before_langs == ["en"]
+        # Use a few more tags:
+        for _lang_code, lang_value in test_languages:
+            tagging_api.tag_object(object_id="foo", taxonomy=self.language_taxonomy, tags=[lang_value])
+        # now a search will return matching tags:
+        after_langs = [
+            tag.external_id for tag in
+            tagging_api.search_tags(self.language_taxonomy, search_term='IsH')
+        ]
+        expected_langs = [lang_code for lang_code, _ in filtered_test_languages]
+        assert after_langs == expected_langs
 
     def test_get_children_tags(self):
         assert tagging_api.get_children_tags(
@@ -283,12 +312,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         with pytest.raises(ValueError) as excinfo:
             tagging_api.tag_object(self.taxonomy, ["A", "B"], "biology101")
         assert "only allows one tag per object" in str(excinfo.value)
-
-    def test_tag_object_required(self):
-        self.taxonomy.required = True
-        with pytest.raises(ValueError) as excinfo:
-            tagging_api.tag_object(self.taxonomy, [], "biology101")
-        assert "requires at least one tag per object" in str(excinfo.value)
 
     def test_tag_object_invalid_tag(self):
         with pytest.raises(tagging_api.TagDoesNotExist) as excinfo:

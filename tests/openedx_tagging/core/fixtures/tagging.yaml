@@ -207,7 +207,6 @@
     name: Life on Earth
     description: A taxonomy about life on earth.
     enabled: true
-    required: false
     allow_multiple: false
     allow_free_text: false
 - model: oel_tagging.taxonomy
@@ -216,7 +215,6 @@
     name: User Authors
     description: Allows tags for any User on the instance.
     enabled: true
-    required: false
     allow_multiple: false
     allow_free_text: false
     _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.UserSystemDefinedTaxonomy
@@ -226,7 +224,6 @@
     name: System defined taxonomy
     description: Generic System defined taxonomy
     enabled: true
-    required: false
     allow_multiple: false
     allow_free_text: false
     _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.SystemDefinedTaxonomy
@@ -236,7 +233,6 @@
     name: Import Taxonomy Test
     description: ""
     enabled: true
-    required: false
     allow_multiple: false
     allow_free_text: false
     

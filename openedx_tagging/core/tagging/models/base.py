@@ -131,14 +131,8 @@ class Taxonomy(models.Model):
         default=True,
         help_text=_("Only enabled taxonomies will be shown to authors."),
     )
-    required = models.BooleanField(
-        default=False,
-        help_text=_(
-            "Indicates that one or more tags from this taxonomy must be added to an object."
-        ),
-    )
     allow_multiple = models.BooleanField(
-        default=False,  # TODO: This should be true, or perhaps remove this property altogether
+        default=True,
         help_text=_(
             "Indicates that multiple tags from this taxonomy may be added to an object."
         ),
@@ -260,7 +254,6 @@ class Taxonomy(models.Model):
         self.name = taxonomy.name
         self.description = taxonomy.description
         self.enabled = taxonomy.enabled
-        self.required = taxonomy.required
         self.allow_multiple = taxonomy.allow_multiple
         self.allow_free_text = taxonomy.allow_free_text
         self.visible_to_authors = taxonomy.visible_to_authors

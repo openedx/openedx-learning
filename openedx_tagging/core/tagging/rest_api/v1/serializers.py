@@ -24,7 +24,6 @@ class TaxonomySerializer(serializers.ModelSerializer):
             "name",
             "description",
             "enabled",
-            "required",
             "allow_multiple",
             "allow_free_text",
             "system_defined",
