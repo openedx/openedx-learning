@@ -26,7 +26,7 @@ def create_taxonomy(
     name: str,
     description: str | None = None,
     enabled=True,
-    allow_multiple=False,
+    allow_multiple=True,
     allow_free_text=False,
     taxonomy_class: type[Taxonomy] | None = None,
 ) -> Taxonomy:

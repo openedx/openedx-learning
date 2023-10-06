@@ -79,7 +79,7 @@ class TaxonomyView(ModelViewSet):
         * enabled (optional): Only enabled taxonomies will be shown to authors
           (default: true).
         * allow_multiple (optional): Indicates that multiple tags from this
-          taxonomy may be added to an object (default: False).
+          taxonomy may be added to an object (default: True).
         * allow_free_text (optional): Indicates that tags in this taxonomy need
           not be predefined; authors may enter their own tag values (default:
           False).
