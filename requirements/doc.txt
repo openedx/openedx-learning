@@ -82,7 +82,7 @@ cryptography==41.0.4
     #   pyjwt
 ddt==1.6.0
     # via -r requirements/test.txt
-django==3.2.21
+django==3.2.22
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
@@ -120,7 +120,7 @@ djangorestframework==3.14.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.14.2
+djangorestframework-stubs==3.14.3
     # via -r requirements/test.txt
 doc8==1.1.1
     # via -r requirements/doc.in
@@ -356,7 +356,7 @@ types-pyyaml==6.0.12.12
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.7
+types-requests==2.31.0.8
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
