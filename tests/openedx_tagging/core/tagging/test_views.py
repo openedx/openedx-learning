@@ -35,8 +35,7 @@ def check_taxonomy(
     name,
     description="",
     enabled=True,
-    required=False,
-    allow_multiple=False,
+    allow_multiple=True,
     allow_free_text=False,
     system_defined=False,
     visible_to_authors=True,
@@ -48,7 +47,6 @@ def check_taxonomy(
     assert data["name"] == name
     assert data["description"] == description
     assert data["enabled"] == enabled
-    assert data["required"] == required
     assert data["allow_multiple"] == allow_multiple
     assert data["allow_free_text"] == allow_free_text
     assert data["system_defined"] == system_defined
@@ -206,7 +204,6 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             "name": "taxonomy_data_2",
             "description": "This is a description",
             "enabled": False,
-            "required": True,
             "allow_multiple": True,
         }
 
@@ -227,7 +224,6 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
     @ddt.data(
         {},
-        {"name": "Error taxonomy 2", "required": "Invalid value"},
         {"name": "Error taxonomy 3", "enabled": "Invalid value"},
     )
     def test_create_taxonomy_error(self, create_data: dict[str, str]):
@@ -260,7 +256,6 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             name="test update taxonomy",
             description="taxonomy description",
             enabled=True,
-            required=False,
         )
         taxonomy.save()
 
@@ -283,7 +278,6 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "name": "new name",
                     "description": "taxonomy description",
                     "enabled": True,
-                    "required": False,
                 },
             )
 
@@ -320,7 +314,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_patch_taxonomy(self, user_attr, expected_status):
-        taxonomy = Taxonomy.objects.create(name="test patch taxonomy", enabled=False, required=True)
+        taxonomy = Taxonomy.objects.create(name="test patch taxonomy", enabled=False)
         taxonomy.save()
 
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
@@ -329,7 +323,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        response = self.client.patch(url, {"name": "new name", "required": False}, format="json")
+        response = self.client.patch(url, {"name": "new name", "enabled": True}, format="json")
         assert response.status_code == expected_status
 
         # If we were able to update the taxonomy, check if the name changed
@@ -340,8 +334,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                 response.data["id"],
                 **{
                     "name": "new name",
-                    "enabled": False,
-                    "required": False,
+                    "enabled": True,
                 },
             )
 
@@ -439,8 +432,8 @@ class TestObjectTagViewSet(APITestCase):
         self.language_taxonomy = Taxonomy.objects.get(pk=LANGUAGE_TAXONOMY_ID)
 
         # Closed Taxonomies created by taxonomy admins, each with 20 ObjectTags
-        self.enabled_taxonomy = Taxonomy.objects.create(name="Enabled Taxonomy")
-        self.disabled_taxonomy = Taxonomy.objects.create(name="Disabled Taxonomy", enabled=False)
+        self.enabled_taxonomy = Taxonomy.objects.create(name="Enabled Taxonomy", allow_multiple=False)
+        self.disabled_taxonomy = Taxonomy.objects.create(name="Disabled Taxonomy", enabled=False, allow_multiple=False)
         self.multiple_taxonomy = Taxonomy.objects.create(name="Multiple Taxonomy", allow_multiple=True)
         for i in range(20):
             # Valid ObjectTags
@@ -459,9 +452,11 @@ class TestObjectTagViewSet(APITestCase):
 
         # Free-Text Taxonomies created by taxonomy admins, each linked
         # to 10 ObjectTags
-        self.open_taxonomy_enabled = Taxonomy.objects.create(name="Enabled Free-Text Taxonomy", allow_free_text=True)
+        self.open_taxonomy_enabled = Taxonomy.objects.create(
+            name="Enabled Free-Text Taxonomy", allow_free_text=True, allow_multiple=False,
+        )
         self.open_taxonomy_disabled = Taxonomy.objects.create(
-            name="Disabled Free-Text Taxonomy", allow_free_text=True, enabled=False
+            name="Disabled Free-Text Taxonomy", allow_free_text=True, enabled=False, allow_multiple=False,
         )
         for i in range(10):
             ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_enabled, _value=f"Free Text {i}")
@@ -684,10 +679,6 @@ class TestObjectTagViewSet(APITestCase):
         (None, "open_taxonomy_disabled", [], status.HTTP_403_FORBIDDEN),
         ("user", "open_taxonomy_disabled", [], status.HTTP_403_FORBIDDEN),
         ("staff", "open_taxonomy_disabled", [], status.HTTP_200_OK),
-        # Users and staff can't clear a taxonomy with required=True
-        (None, "language_taxonomy", [], status.HTTP_403_FORBIDDEN),
-        ("user", "language_taxonomy", [], status.HTTP_400_BAD_REQUEST),
-        ("staff", "language_taxonomy", [], status.HTTP_400_BAD_REQUEST),
     )
     @ddt.unpack
     def test_tag_object_clear(self, user_attr, taxonomy_attr, tag_values, expected_status):

@@ -43,7 +43,7 @@ class TestTagTaxonomyMixin:
         self.mammalia = get_tag("Mammalia")
         self.animalia = get_tag("Animalia")
         self.system_taxonomy_tag = get_tag("System Tag 1")
-        self.english_tag = get_tag("English")
+        self.english_tag = self.language_taxonomy.tag_for_external_id("en")
         self.user_1 = get_user_model()(
             id=1,
             username="test_user_1",

@@ -8,15 +8,17 @@ def load_language_taxonomy(apps, schema_editor):
     """
     Load language taxonomy and tags
     """
-    call_command("loaddata", "--app=oel_tagging", "language_taxonomy.yaml")
+    # Due to changes in the data model this fixture was no longer working and is
+    # no longer needed anyways - the language taxonomy will be created in
+    # 0012_language_taxonomy.
+    pass
 
 
 def revert(apps, schema_editor):  # pragma: no cover
     """
     Deletes language taxonomy an tags
     """
-    Taxonomy = apps.get_model("oel_tagging", "Taxonomy")
-    Taxonomy.objects.filter(id=-1).delete()
+    pass
 
 
 class Migration(migrations.Migration):
