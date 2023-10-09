@@ -41,7 +41,7 @@ click-repl==0.3.0
     # via celery
 cryptography==41.0.4
     # via pyjwt
-django==3.2.21
+django==3.2.22
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/base.in

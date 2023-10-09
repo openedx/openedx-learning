@@ -106,7 +106,7 @@ djangorestframework==3.14.0
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.14.2
+djangorestframework-stubs==3.14.3
     # via -r requirements/test.in
 drf-jwt==1.19.2
     # via
@@ -253,7 +253,7 @@ types-pyyaml==6.0.12.12
     # via
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.7
+types-requests==2.31.0.8
     # via djangorestframework-stubs
 typing-extensions==4.8.0
     # via
