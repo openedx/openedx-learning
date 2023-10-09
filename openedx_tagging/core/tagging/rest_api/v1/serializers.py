@@ -8,7 +8,7 @@ from rest_framework.reverse import reverse
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 
 
-class TaxonomyListQueryParamsSerializer(serializers.Serializer):
+class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for the query params for the GET view
     """
@@ -24,7 +24,6 @@ class TaxonomySerializer(serializers.ModelSerializer):
             "name",
             "description",
             "enabled",
-            "required",
             "allow_multiple",
             "allow_free_text",
             "system_defined",
@@ -32,7 +31,7 @@ class TaxonomySerializer(serializers.ModelSerializer):
         ]
 
 
-class ObjectTagListQueryParamsSerializer(serializers.Serializer):
+class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for the query params for the ObjectTag GET view
     """
@@ -58,7 +57,7 @@ class ObjectTagSerializer(serializers.ModelSerializer):
         ]
 
 
-class ObjectTagUpdateBodySerializer(serializers.Serializer):
+class ObjectTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer of the body for the ObjectTag UPDATE view
     """
@@ -66,7 +65,7 @@ class ObjectTagUpdateBodySerializer(serializers.Serializer):
     tags = serializers.ListField(child=serializers.CharField(), required=True)
 
 
-class ObjectTagUpdateQueryParamsSerializer(serializers.Serializer):
+class ObjectTagUpdateQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer of the query params for the ObjectTag UPDATE view
     """
@@ -98,6 +97,9 @@ class TagsSerializer(serializers.ModelSerializer):
         )
 
     def get_sub_tags_link(self, obj):
+        """
+        Returns URL for the list of child tags of the current tag.
+        """
         if obj.children.count():
             query_params = f"?parent_tag_id={obj.id}"
             url = (
@@ -106,8 +108,12 @@ class TagsSerializer(serializers.ModelSerializer):
             )
             request = self.context.get("request")
             return request.build_absolute_uri(url)
+        return None
 
     def get_children_count(self, obj):
+        """
+        Returns the number of child tags of the given tag.
+        """
         return obj.children.count()
 
 
@@ -132,6 +138,9 @@ class TagsWithSubTagsSerializer(serializers.ModelSerializer):
         )
 
     def get_sub_tags(self, obj):
+        """
+        Returns a serialized list of child tags for the given tag.
+        """
         serializer = TagsWithSubTagsSerializer(
             obj.children.all().order_by("value", "id"),
             many=True,
@@ -140,6 +149,9 @@ class TagsWithSubTagsSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def get_children_count(self, obj):
+        """
+        Returns the number of child tags of the given tag.
+        """
         return obj.children.count()
 
 
@@ -151,8 +163,14 @@ class TagsForSearchSerializer(TagsWithSubTagsSerializer):
     """
 
     def get_sub_tags(self, obj):
+        """
+        Returns a serialized list of child tags for the given tag.
+        """
         serializer = TagsWithSubTagsSerializer(obj.sub_tags, many=True, read_only=True)
         return serializer.data
 
     def get_children_count(self, obj):
+        """
+        Returns the number of child tags of the given tag.
+        """
         return len(obj.sub_tags)

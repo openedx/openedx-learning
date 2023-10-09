@@ -78,10 +78,8 @@ class TaxonomyView(ModelViewSet):
           applying tags from this taxonomy to an object.
         * enabled (optional): Only enabled taxonomies will be shown to authors
           (default: true).
-        * required (optional): Indicates that one or more tags from this
-          taxonomy must be added to an object (default: False).
         * allow_multiple (optional): Indicates that multiple tags from this
-          taxonomy may be added to an object (default: False).
+          taxonomy may be added to an object (default: True).
         * allow_free_text (optional): Indicates that tags in this taxonomy need
           not be predefined; authors may enter their own tag values (default:
           False).
@@ -92,7 +90,6 @@ class TaxonomyView(ModelViewSet):
             "name": "Taxonomy Name",
             "description": "This is a description",
             "enabled": True,
-            "required": True,
             "allow_multiple": True,
             "allow_free_text": True,
         }
@@ -110,8 +107,6 @@ class TaxonomyView(ModelViewSet):
         * description (optional): Provides extra information for the user when
           applying tags from this taxonomy to an object.
         * enabled (optional): Only enabled taxonomies will be shown to authors.
-        * required (optional): Indicates that one or more tags from this
-          taxonomy must be added to an object.
         * allow_multiple (optional): Indicates that multiple tags from this
           taxonomy may be added to an object.
         * allow_free_text (optional): Indicates that tags in this taxonomy need
@@ -123,7 +118,6 @@ class TaxonomyView(ModelViewSet):
             "name": "Taxonomy New Name",
             "description": "This is a new description",
             "enabled": False,
-            "required": False,
             "allow_multiple": False,
             "allow_free_text": True,
         }
@@ -250,7 +244,7 @@ class ObjectTagView(
         taxonomy_id = query_params.data.get("taxonomy", None)
         return get_object_tags(object_id, taxonomy_id)
 
-    def retrieve(self, request, object_id=None):
+    def retrieve(self, request, *args, **kwargs):
         """
         Retrieve ObjectTags that belong to a given object_id
 
@@ -265,7 +259,7 @@ class ObjectTagView(
         serializer = ObjectTagSerializer(object_tags, many=True)
         return Response(serializer.data)
 
-    def update(self, request, object_id, partial=False):
+    def update(self, request, *args, **kwargs):
         """
         Update ObjectTags that belong to a given object_id
 
@@ -290,6 +284,7 @@ class ObjectTagView(
         }
         """
 
+        partial = kwargs.pop('partial', False)
         if partial:
             raise MethodNotAllowed("PATCH", detail="PATCH not allowed")
 
@@ -302,6 +297,7 @@ class ObjectTagView(
 
         perm = f"{taxonomy._meta.app_label}.change_objecttag"
 
+        object_id = kwargs.pop('object_id')
         perm_obj = ChangeObjectTagPermissionItem(
             taxonomy=taxonomy,
             object_id=object_id,
@@ -319,9 +315,9 @@ class ObjectTagView(
         try:
             tag_object(taxonomy, tags, object_id)
         except Tag.DoesNotExist as e:
-            raise ValidationError(e)
+            raise ValidationError from e
         except ValueError as e:
-            raise ValidationError(e)
+            raise ValidationError from e
 
         return self.retrieve(request, object_id)
 
