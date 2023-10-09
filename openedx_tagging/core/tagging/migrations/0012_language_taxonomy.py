@@ -35,7 +35,7 @@ def revert(apps, schema_editor):  # pragma: no cover
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("oel_tagging", "0011_remove_required"),
+        ("oel_tagging", "0001_squashed"),
     ]
 
     operations = [
