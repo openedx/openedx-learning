@@ -32,7 +32,7 @@ class EmptyTestClass:
     """
 
 
-class TestLPTaxonomy(ModelSystemDefinedTaxonomy):
+class LPTaxonomyTest(ModelSystemDefinedTaxonomy):
     """
     Model used for testing - points to LearningPackage instances
     """
@@ -54,7 +54,7 @@ class TestLPTaxonomy(ModelSystemDefinedTaxonomy):
         app_label = "oel_tagging"
 
 
-class CaseInsensitiveTitleLPTaxonomy(TestLPTaxonomy):
+class CaseInsensitiveTitleLPTaxonomy(LPTaxonomyTest):
     """
     Model that points to LearningPackage instances but uses 'title' as values
     """
@@ -89,8 +89,8 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         # Create two learning packages and a taxonomy that can tag any object using learning packages as tags:
         cls.learning_pkg_1 = cls._create_learning_pkg(key="p1", title="Learning Package 1")
         cls.learning_pkg_2 = cls._create_learning_pkg(key="p2", title="Learning Package 2")
-        cls.lp_taxonomy = TestLPTaxonomy.objects.create(
-            taxonomy_class=TestLPTaxonomy,
+        cls.lp_taxonomy = LPTaxonomyTest.objects.create(
+            taxonomy_class=LPTaxonomyTest,
             name="LearningPackage Taxonomy",
             allow_multiple=True,
         )

@@ -244,7 +244,7 @@ class ObjectTagView(
         taxonomy_id = query_params.data.get("taxonomy", None)
         return get_object_tags(object_id, taxonomy_id)
 
-    def retrieve(self, request, object_id=None):
+    def retrieve(self, request, *args, **kwargs):
         """
         Retrieve ObjectTags that belong to a given object_id
 
@@ -259,7 +259,7 @@ class ObjectTagView(
         serializer = ObjectTagSerializer(object_tags, many=True)
         return Response(serializer.data)
 
-    def update(self, request, object_id, partial=False):
+    def update(self, request, *args, **kwargs):
         """
         Update ObjectTags that belong to a given object_id
 
@@ -284,6 +284,7 @@ class ObjectTagView(
         }
         """
 
+        partial = kwargs.pop('partial', False)
         if partial:
             raise MethodNotAllowed("PATCH", detail="PATCH not allowed")
 
@@ -296,6 +297,7 @@ class ObjectTagView(
 
         perm = f"{taxonomy._meta.app_label}.change_objecttag"
 
+        object_id = kwargs.pop('object_id')
         perm_obj = ChangeObjectTagPermissionItem(
             taxonomy=taxonomy,
             object_id=object_id,
@@ -313,9 +315,9 @@ class ObjectTagView(
         try:
             tag_object(taxonomy, tags, object_id)
         except Tag.DoesNotExist as e:
-            raise ValidationError(e)
+            raise ValidationError from e
         except ValueError as e:
-            raise ValidationError(e)
+            raise ValidationError from e
 
         return self.retrieve(request, object_id)
 

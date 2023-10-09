@@ -144,7 +144,7 @@ class TestTagTaxonomyMixin:
             tag.depth = 2
 
 
-class TestTaxonomySubclassA(Taxonomy):
+class TaxonomyTestSubclassA(Taxonomy):
     """
     Model A for testing the taxonomy subclass casting.
     """
@@ -155,7 +155,7 @@ class TestTaxonomySubclassA(Taxonomy):
         app_label = "oel_tagging"
 
 
-class TestTaxonomySubclassB(TestTaxonomySubclassA):
+class TaxonomyTestSubclassB(TaxonomyTestSubclassA):
     """
     Model B for testing the taxonomy subclass casting.
     """
@@ -166,7 +166,7 @@ class TestTaxonomySubclassB(TestTaxonomySubclassA):
         app_label = "oel_tagging"
 
 
-class TestObjectTagSubclass(ObjectTag):
+class ObjectTagTestSubclass(ObjectTag):
     """
     Model for testing the ObjectTag copy.
     """
@@ -200,9 +200,9 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_taxonomy_cast(self):
         for subclass in (
-            TestTaxonomySubclassA,
+            TaxonomyTestSubclassA,
             # Ensure that casting to a sub-subclass works as expected
-            TestTaxonomySubclassB,
+            TaxonomyTestSubclassB,
             # and that we can un-set the subclass
             None,
         ):
@@ -349,11 +349,11 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         )
 
     def test_cast(self):
-        copy_tag = TestObjectTagSubclass.cast(self.object_tag)
+        copy_tag = ObjectTagTestSubclass.cast(self.object_tag)
         assert (
             str(copy_tag)
             == repr(copy_tag)
-            == "<TestObjectTagSubclass> object:id:1: Life on Earth=Bacteria"
+            == "<ObjectTagTestSubclass> object:id:1: Life on Earth=Bacteria"
         )
 
     def test_object_tag_name(self):

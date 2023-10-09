@@ -6,6 +6,9 @@ from rest_framework.permissions import DjangoObjectPermissions
 
 
 class TaxonomyObjectPermissions(DjangoObjectPermissions):
+    """
+    Maps each REST API methods to its corresponding Taxonomy permission.
+    """
     perms_map = {
         "GET": ["%(app_label)s.view_%(model_name)s"],
         "OPTIONS": [],
@@ -18,6 +21,9 @@ class TaxonomyObjectPermissions(DjangoObjectPermissions):
 
 
 class ObjectTagObjectPermissions(DjangoObjectPermissions):
+    """
+    Maps each REST API methods to its corresponding ObjectTag permission.
+    """
     perms_map = {
         "GET": ["%(app_label)s.view_%(model_name)s"],
         "OPTIONS": [],
@@ -30,7 +36,13 @@ class ObjectTagObjectPermissions(DjangoObjectPermissions):
 
 
 class TagListPermissions(DjangoObjectPermissions):
+    """
+    Permissions for Tag object views.
+    """
     def has_permission(self, request, view):
+        """
+        Returns True if the user on the given request is allowed the given view.
+        """
         if not request.user or (
             not request.user.is_authenticated and self.authenticated_users_only
         ):
@@ -38,4 +50,7 @@ class TagListPermissions(DjangoObjectPermissions):
         return True
 
     def has_object_permission(self, request, view, obj):
+        """
+        Returns True if the user on the given request is allowed the given view for the given object.
+        """
         return rules.has_perm("oel_tagging.list_tag", request.user, obj)

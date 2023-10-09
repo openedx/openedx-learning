@@ -212,13 +212,13 @@ class JSONParser(Parser):
             tags_data = json.load(file)
         except json.JSONDecodeError as error:
             return [], [
-                InvalidFormat(tag=None, format=cls.format.value, message=str(error))
+                InvalidFormat(tag=None, input_format=cls.format.value, message=str(error))
             ]
         if "tags" not in tags_data:
             return [], [
                 InvalidFormat(
                     tag=None,
-                    format=cls.format.value,
+                    input_format=cls.format.value,
                     message=_("Missing 'tags' field on the .json file"),
                 )
             ]
@@ -298,8 +298,8 @@ class CSVParser(Parser):
                 errors.append(
                     InvalidFormat(
                         tag=None,
-                        format=cls.format.value,
-                        message=_(f"Missing '{req_field}' field on CSV headers"),
+                        input_format=cls.format.value,
+                        message=_("Missing '{req_field}' field on CSV headers").format(req_field=req_field),
                     )
                 )
         return errors
@@ -319,4 +319,4 @@ def get_parser(parser_format: ParserFormat) -> type[Parser]:
         if parser_format == parser.format:
             return parser
 
-    raise ValueError(_(f"Parser not found for format {parser_format}"))
+    raise ValueError(_("Parser not found for format {parser_format}").format(parser_format=parser_format))

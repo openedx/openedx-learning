@@ -1,3 +1,7 @@
+"""
+Paginators uses by the REST API
+"""
+
 from edx_rest_framework_extensions.paginators import DefaultPagination  # type: ignore[import]
 
 # From this point, the tags begin to be paginated
