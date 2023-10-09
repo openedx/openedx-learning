@@ -5,7 +5,7 @@ Taxonomies API v1 URLs.
 from django.urls.conf import include, path
 from rest_framework.routers import DefaultRouter
 
-from . import views
+from . import views, views_import
 
 router = DefaultRouter()
 router.register("taxonomies", views.TaxonomyView, basename="taxonomy")
@@ -17,5 +17,10 @@ urlpatterns = [
         "taxonomies/<str:pk>/tags/",
         views.TaxonomyTagsView.as_view(),
         name="taxonomy-tags",
+    ),
+    path(
+        "import/template.<str:file_ext>",
+        views_import.TemplateView.as_view(),
+        name="taxonomy-import-template",
     ),
 ]

@@ -79,6 +79,12 @@ class TestJSONParser(TestImportExportMixin, TestCase):
     @ddt.data(
         (
             {"tags": [
+                {"id": "tag_1", "value": "Tag 1", "comment": "This field is ignored."},  # Valid
+            ]},
+            []
+        ),
+        (
+            {"tags": [
                 {"id": "tag_1", "value": "Tag 1"},  # Valid
             ]},
             []
@@ -208,6 +214,11 @@ class TestCSVParser(TestImportExportMixin, TestCase):
         (
             # Valid
             "id,value\n",
+            []
+        ),
+        (
+            # Valid
+            "id,value,ignored\n",
             []
         )
     )
