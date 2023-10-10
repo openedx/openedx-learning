@@ -242,6 +242,18 @@ class ObjectTagView(
         )
         query_params.is_valid(raise_exception=True)
         taxonomy_id = query_params.data.get("taxonomy", None)
+
+        # Checks the permission for the object_id
+        objectid_perm = self.request.user.has_perm(
+            "oel_tagging.view_objecttag_objectid",
+            # The obj arg expects an object, but we are passing a string
+            object_id,  # type: ignore[arg-type]
+        )
+
+        if not objectid_perm:
+            raise PermissionDenied(
+                "You do not have permission to view object tags for this object_id."
+            )
         return get_object_tags(object_id, taxonomy_id)
 
     def retrieve(self, request, *args, **kwargs):
@@ -255,7 +267,7 @@ class ObjectTagView(
         path and returns a it as a single result however that is not
         behavior we want.
         """
-        object_tags = self.get_queryset()
+        object_tags = self.filter_queryset(self.get_queryset())
         serializer = ObjectTagSerializer(object_tags, many=True)
         return Response(serializer.data)
 

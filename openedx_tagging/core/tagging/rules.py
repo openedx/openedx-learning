@@ -66,6 +66,16 @@ def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
 
 
 @rules.predicate
+def can_view_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
+    """
+    Nobody can view object tags without checking the permission for the tagged object.
+
+    This rule should be defined in other apps for proper permission checking.
+    """
+    return False
+
+
+@rules.predicate
 def can_change_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
     """
     Nobody can create or modify object tags without checking the permission for the tagged object.
@@ -124,5 +134,6 @@ rules.add_perm("oel_tagging.delete_objecttag", can_change_object_tag)
 rules.add_perm("oel_tagging.view_objecttag", rules.always_allow)
 
 # Users can tag objects using tags from any taxonomy that they have permission to view
+rules.add_perm("oel_tagging.view_objecttag_objectid", can_view_object_tag_objectid)
 rules.add_perm("oel_tagging.change_objecttag_taxonomy", can_view_taxonomy)
 rules.add_perm("oel_tagging.change_objecttag_objectid", can_change_object_tag_objectid)

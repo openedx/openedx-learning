@@ -15,6 +15,7 @@ from rest_framework.test import APITestCase
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
 from openedx_tagging.core.tagging.rest_api.paginators import TagsPagination
+from openedx_tagging.core.tagging.rules import can_change_object_tag_objectid, can_view_object_tag_objectid
 
 User = get_user_model()
 
@@ -404,11 +405,23 @@ class TestObjectTagViewSet(APITestCase):
 
     def setUp(self):
 
-        def _object_permission(_user, object_id: str) -> bool:
+        def _change_object_permission(user, object_id: str) -> bool:
             """
-            Everyone have object permission on object_id "abc"
+            Everyone have object permission on object_id "abc" and "limit_tag_count"
             """
-            return object_id in ("abc", "limit_tag_count")
+            if object_id in ("abc", "limit_tag_count"):
+                return True
+
+            return can_change_object_tag_objectid(user, object_id)
+
+        def _view_object_permission(user, object_id: str) -> bool:
+            """
+            Everyone have object permission on object_id "abc", "limit_tag_count" and "view_only"
+            """
+            if object_id in ("abc", "limit_tag_count", "view_only"):
+                return True
+
+            return can_view_object_tag_objectid(user, object_id)
 
         super().setUp()
 
@@ -478,15 +491,16 @@ class TestObjectTagViewSet(APITestCase):
             self.dummy_taxonomies.append(taxonomy)
 
         # Override the object permission for the test
-        rules.set_perm("oel_tagging.change_objecttag_objectid", _object_permission)
+        rules.set_perm("oel_tagging.change_objecttag_objectid", _change_object_permission)
+        rules.set_perm("oel_tagging.view_objecttag_objectid", _view_object_permission)
 
     @ddt.data(
         (None, "abc", status.HTTP_403_FORBIDDEN, None),
         ("user", "abc", status.HTTP_200_OK, 81),
         ("staff", "abc", status.HTTP_200_OK, 81),
         (None, "non-existing-id", status.HTTP_403_FORBIDDEN, None),
-        ("user", "non-existing-id", status.HTTP_200_OK, 0),
-        ("staff", "non-existing-id", status.HTTP_200_OK, 0),
+        ("user", "non-existing-id", status.HTTP_403_FORBIDDEN, None),
+        ("staff", "non-existing-id", status.HTTP_403_FORBIDDEN, None),
     )
     @ddt.unpack
     def test_retrieve_object_tags(self, user_attr, object_id, expected_status, expected_count):
@@ -744,7 +758,7 @@ class TestObjectTagViewSet(APITestCase):
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id="not abc", taxonomy_id=self.enabled_taxonomy.pk)
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id="view_only", taxonomy_id=self.enabled_taxonomy.pk)
 
         response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
         assert response.status_code == expected_status
