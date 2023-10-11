@@ -315,3 +315,17 @@ def autocomplete_tags(
         # remove repeats
         .distinct()
     )
+
+
+def add_tag_to_taxonomy(
+    taxonomy: Taxonomy,
+    tag: str,
+    parent_tag_id: int | None = None,
+    external_id: str | None = None
+) -> Tag:
+    """
+    Adds a new Tag to provided Taxonomy. If a Tag already exists in the
+    Taxonomy, an exception is raised, otherwise the newly created
+    Tag is returned
+    """
+    return taxonomy.cast().add_tag(tag, parent_tag_id, external_id)

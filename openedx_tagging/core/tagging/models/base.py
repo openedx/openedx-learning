@@ -342,6 +342,45 @@ class Taxonomy(models.Model):
 
         return tag_set.order_by("value", "id")
 
+    def add_tag(
+        self,
+        tag_value: str,
+        parent_tag_id: int | None = None,
+        external_id: str | None = None
+
+    ) -> Tag:
+        """
+        Add new Tag to Taxonomy. If an existing Tag with the `tag_value` already
+        exists in the Taxonomy, an exception is raised, otherwise the newly
+        created Tag is returned
+        """
+        self.check_casted()
+
+        if self.allow_free_text:
+            raise ValueError(
+                "add_tag() doesn't work for free text taxonomies. They don't use Tag instances."
+            )
+
+        if self.system_defined:
+            raise ValueError(
+                "add_tag() doesn't work for system defined taxonomies. They cannot be modified."
+            )
+
+        current_tags = self.get_tags()
+
+        if self.tag_set.filter(value__iexact=tag_value).exists():
+            raise ValueError(f"Tag with value '{tag_value}' already exists for taxonomy.")
+
+        parent = None
+        if parent_tag_id:
+            parent = Tag.objects.get(id=parent_tag_id)
+
+        tag = Tag.objects.create(
+            taxonomy=self, value=tag_value, parent=parent, external_id=external_id
+        )
+
+        return tag
+
     def validate_value(self, value: str) -> bool:
         """
         Check if 'value' is part of this Taxonomy.

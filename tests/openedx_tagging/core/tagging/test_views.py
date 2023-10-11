@@ -897,7 +897,7 @@ class TestObjectTagViewSet(APITestCase):
 
 class TestTaxonomyTagsView(TestTaxonomyViewMixin):
     """
-    Tests the list tags of taxonomy view
+    Tests the list/create/update/delete tags of taxonomy view
     """
 
     fixtures = ["tests/openedx_tagging/core/fixtures/tagging.yaml"]
@@ -1209,3 +1209,143 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == self.children_tags_count[0]
         assert data.get("num_pages") == 2
         assert data.get("current_page") == 2
+
+    def test_create_tag_in_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        data = response.data
+
+        self.assertIsNotNone(data.get("id"))
+        self.assertEqual(data.get("value"), new_tag_value)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertIsNone(data.get("parent_id"))
+        self.assertIsNone(data.get("external_id"))
+        self.assertIsNone(data.get("sub_tags_link"))
+        self.assertEqual(data.get("children_count"), 0)
+
+    def test_create_tag_in_taxonomy_with_parent_id(self):
+        self.client.force_authenticate(user=self.user)
+        parent_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+        new_tag_value = "New Child Tag"
+        new_external_id = "extId"
+
+        create_data = {
+            "tag": new_tag_value,
+            "parent_tag_id": parent_tag.id,
+            "external_id": new_external_id
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        data = response.data
+
+        self.assertIsNotNone(data.get("id"))
+        self.assertEqual(data.get("value"), new_tag_value)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertEqual(data.get("parent_id"), parent_tag.id)
+        self.assertEqual(data.get("external_id"), new_external_id)
+        self.assertIsNone(data.get("sub_tags_link"))
+        self.assertEqual(data.get("children_count"), 0)
+
+    def test_create_tag_in_invalid_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        invalid_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=919191)
+        response = self.client.post(
+            invalid_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_create_tag_in_free_text_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        # Setting free text flag on taxonomy
+        self.small_taxonomy.allow_free_text = True
+        self.small_taxonomy.save()
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_tag_in_system_defined_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        # Setting taxonomy to be system defined
+        self.small_taxonomy.taxonomy_class = SystemDefinedTaxonomy
+        self.small_taxonomy.save()
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_tag_in_taxonomy_with_invalid_parent_tag_id(self):
+        self.client.force_authenticate(user=self.user)
+        invalid_parent_tag_id = 91919
+        new_tag_value = "New Child Tag"
+
+        create_data = {
+            "tag": new_tag_value,
+            "parent_tag_id": invalid_parent_tag_id,
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_tag_in_taxonomy_with_already_existing_value(self):
+        self.client.force_authenticate(user=self.user)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # Make request again with the same Tag value after it was created
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST

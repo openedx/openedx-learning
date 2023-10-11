@@ -3,12 +3,12 @@ Tagging API Views
 """
 from __future__ import annotations
 
-from django.db import models
+from django.db import model
 from django.http import Http404, HttpResponse
-from rest_framework import mixins
+from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
@@ -23,6 +23,7 @@ from ...api import (
     get_taxonomy,
     search_tags,
     tag_object,
+    add_tag_to_taxonomy,
 )
 from ...import_export.api import export_tags
 from ...import_export.parsers import ParserFormat
@@ -41,6 +42,7 @@ from .serializers import (
     TaxonomyExportQueryParamsSerializer,
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
+    TaxonomyTagCreateBodySerializer,
 )
 from .utils import view_auth_classes
 
@@ -404,9 +406,9 @@ class ObjectTagView(
 
 
 @view_auth_classes
-class TaxonomyTagsView(ListAPIView):
+class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
     """
-    View to list tags of a taxonomy.
+    View to list/create/update/delete tags of a taxonomy.
 
     **List Query Parameters**
         * pk (required) - The pk of the taxonomy to retrieve tags.
@@ -423,6 +425,31 @@ class TaxonomyTagsView(ListAPIView):
         * 400 - Invalid query parameter
         * 403 - Permission denied
         * 404 - Taxonomy not found
+
+    **Create Query Parameters**
+        * pk (required) - The pk of the taxonomy to create a Tag for
+
+    **Create Request Body**
+        * tag (required): The value of the Tag that should be added to
+          the Taxonomy
+        * parent_tag_id (optional): The id of the parent tag that the new
+          Tag should fall under
+        * extenal_id (optional): The external id for the new Tag
+
+    **Create Example Requests**
+        POST api/tagging/v1/taxonomy/:pk/tags                                       - Create a Tag in taxonomy
+        {
+            "value": "New Tag",
+            "parent_tag_id": 123
+            "external_id": "abc123",
+        }
+
+    **Create Query Returns**
+        * 201 - Success
+        * 400 - Invalid parameters provided
+        * 403 - Permission denied
+        * 404 - Taxonomy not found
+
     """
 
     permission_classes = [TagListPermissions]
@@ -580,3 +607,28 @@ class TaxonomyTagsView(ListAPIView):
         self.pagination_class = self.get_pagination_class()
 
         return result
+
+    def post(self, request, *args, **kwargs):
+        """
+        Creates new Tag in Taxonomy and returns the newly created Tag.
+        """
+        pk = self.kwargs.get("pk")
+        taxonomy = self.get_taxonomy(pk)
+
+        body = TaxonomyTagCreateBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        tag = body.data.get("tag")
+        parent_tag_id = body.data.get("parent_tag_id", None)
+        external_id = body.data.get("external_id", None)
+
+        try:
+            new_tag = add_tag_to_taxonomy(
+                taxonomy, tag, parent_tag_id, external_id
+            )
+        except ValueError as e:
+            raise ValidationError from e
+
+        return Response(
+            TagsSerializer(new_tag).data, status=status.HTTP_201_CREATED
+        )

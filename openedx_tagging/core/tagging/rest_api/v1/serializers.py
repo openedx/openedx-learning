@@ -110,6 +110,7 @@ class TagsSerializer(serializers.ModelSerializer):
             "value",
             "taxonomy_id",
             "parent_id",
+            "external_id",
             "sub_tags_link",
             "children_count",
         )
@@ -192,3 +193,15 @@ class TagsForSearchSerializer(TagsWithSubTagsSerializer):
         Returns the number of child tags of the given tag.
         """
         return len(obj.sub_tags)
+
+
+class TaxonomyTagCreateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags CREATE view
+    """
+
+    tag = serializers.CharField(required=True)
+    parent_tag_id = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(), required=False
+    )
+    external_id = serializers.CharField(required=False)
