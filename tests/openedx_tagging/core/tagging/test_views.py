@@ -416,10 +416,10 @@ class TestObjectTagViewSet(APITestCase):
 
         def _view_object_permission(user, object_id: str) -> bool:
             """
-            Everyone have object permission on object_id "abc", "limit_tag_count" and "view_only"
+            Everyone have object permission on all objects but "unauthorized_id"
             """
-            if object_id in ("abc", "limit_tag_count", "view_only"):
-                return True
+            if object_id == "unauthorized_id":
+                return False
 
             return can_view_object_tag_objectid(user, object_id)
 
@@ -495,19 +495,16 @@ class TestObjectTagViewSet(APITestCase):
         rules.set_perm("oel_tagging.view_objecttag_objectid", _view_object_permission)
 
     @ddt.data(
-        (None, "abc", status.HTTP_403_FORBIDDEN, None),
-        ("user", "abc", status.HTTP_200_OK, 81),
-        ("staff", "abc", status.HTTP_200_OK, 81),
-        (None, "non-existing-id", status.HTTP_403_FORBIDDEN, None),
-        ("user", "non-existing-id", status.HTTP_403_FORBIDDEN, None),
-        ("staff", "non-existing-id", status.HTTP_403_FORBIDDEN, None),
+        (None, status.HTTP_403_FORBIDDEN, None),
+        ("user", status.HTTP_200_OK, 81),
+        ("staff", status.HTTP_200_OK, 81),
     )
     @ddt.unpack
-    def test_retrieve_object_tags(self, user_attr, object_id, expected_status, expected_count):
+    def test_retrieve_object_tags(self, user_attr, expected_status, expected_count):
         """
         Test retrieving object tags
         """
-        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id="abc")
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -518,6 +515,24 @@ class TestObjectTagViewSet(APITestCase):
 
         if status.is_success(expected_status):
             assert len(response.data) == expected_count
+
+    @ddt.data(
+        None,
+        "user",
+        "staff"
+    )
+    def test_retrieve_object_tags_unauthorized(self, user_attr):
+        """
+        Test retrieving object tags from an unauthorized object_id
+        """
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id="unauthorized_id")
+
+        if user_attr:
+            user = getattr(self, user_attr)
+            self.client.force_authenticate(user=user)
+
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @ddt.data(
         (None, "abc", status.HTTP_403_FORBIDDEN, None),

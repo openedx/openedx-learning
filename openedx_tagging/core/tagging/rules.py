@@ -68,11 +68,11 @@ def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
 @rules.predicate
 def can_view_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
     """
-    Nobody can view object tags without checking the permission for the tagged object.
+    Everybody can view object tags from any objects.
 
-    This rule should be defined in other apps for proper permission checking.
+    This rule could be defined in other apps for proper permission checking.
     """
-    return False
+    return True
 
 
 @rules.predicate
