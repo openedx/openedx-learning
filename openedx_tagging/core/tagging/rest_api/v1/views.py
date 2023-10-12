@@ -253,14 +253,18 @@ class ObjectTagView(
             object_id=object_id,
         )
 
-        if not self.request.user.has_perm(perm, perm_obj):
+        if not self.request.user.has_perm(
+            perm,
+            # The obj arg expects a model, but we are passing an object
+            perm_obj,  # type: ignore[arg-type]
+        ):
             raise PermissionDenied(
                 "You do not have permission to view object tags for this taxonomy or object_id."
             )
 
         return get_object_tags(object_id, taxonomy_id)
 
-    def retrieve(self, request, *args, **kwargs):
+    def retrieve(self, request, *args, **kwargs) -> Response:
         """
         Retrieve ObjectTags that belong to a given object_id
 
@@ -275,7 +279,7 @@ class ObjectTagView(
         serializer = ObjectTagSerializer(object_tags, many=True)
         return Response(serializer.data)
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request, *args, **kwargs) -> Response:
         """
         Update ObjectTags that belong to a given object_id
 
@@ -311,7 +315,7 @@ class ObjectTagView(
         taxonomy = query_params.validated_data.get("taxonomy", None)
         taxonomy = taxonomy.cast()
 
-        perm = f"{taxonomy._meta.app_label}.change_objecttag"
+        perm = "oel_tagging.change_objecttag"
 
         object_id = kwargs.pop('object_id')
         perm_obj = ObjectTagPermissionItem(
@@ -319,7 +323,11 @@ class ObjectTagView(
             object_id=object_id,
         )
 
-        if not request.user.has_perm(perm, perm_obj):
+        if not request.user.has_perm(
+            perm,
+            # The obj arg expects a model, but we are passing an object
+            perm_obj,  # type: ignore[arg-type]
+        ):
             raise PermissionDenied(
                 "You do not have permission to change object tags for this taxonomy or object_id."
             )
