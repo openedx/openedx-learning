@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging.models import ObjectTag
-from openedx_tagging.core.tagging.rules import ChangeObjectTagPermissionItem
+from openedx_tagging.core.tagging.rules import ObjectTagPermissionItem
 
 from .test_models import TestTagTaxonomyMixin
 
@@ -188,7 +188,7 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         """
         Everyone can create/edit an ObjectTag with an enabled Taxonomy
         """
-        obj_perm = ChangeObjectTagPermissionItem(
+        obj_perm = ObjectTagPermissionItem(
             taxonomy=self.object_tag.taxonomy,
             object_id=self.object_tag.object_id,
         )
@@ -210,7 +210,7 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         """
         self.taxonomy.enabled = False
         self.taxonomy.save()
-        obj_perm = ChangeObjectTagPermissionItem(
+        obj_perm = ObjectTagPermissionItem(
             taxonomy=self.object_tag.taxonomy,
             object_id=self.object_tag.object_id,
         )
@@ -229,7 +229,7 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         """
         self.taxonomy.enabled = False
         self.taxonomy.save()
-        obj_perm = ChangeObjectTagPermissionItem(
+        obj_perm = ObjectTagPermissionItem(
             taxonomy=self.object_tag.taxonomy,
             object_id="not abc",
         )

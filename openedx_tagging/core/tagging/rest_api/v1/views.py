@@ -24,7 +24,7 @@ from ...api import (
     tag_object,
 )
 from ...models import Taxonomy
-from ...rules import ChangeObjectTagPermissionItem
+from ...rules import ObjectTagPermissionItem
 from ..paginators import SEARCH_TAGS_THRESHOLD, TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
 from .permissions import ObjectTagObjectPermissions, TagListPermissions, TaxonomyObjectPermissions
 from .serializers import (
@@ -241,19 +241,23 @@ class ObjectTagView(
             data=self.request.query_params.dict()
         )
         query_params.is_valid(raise_exception=True)
-        taxonomy_id = query_params.data.get("taxonomy", None)
+        taxonomy = query_params.validated_data.get("taxonomy", None)
+        taxonomy_id = None
+        if taxonomy:
+            taxonomy = taxonomy.cast()
+            taxonomy_id = taxonomy.id
 
-        # Checks the permission for the object_id
-        objectid_perm = self.request.user.has_perm(
-            "oel_tagging.view_objecttag_objectid",
-            # The obj arg expects an object, but we are passing a string
-            object_id,  # type: ignore[arg-type]
+        perm = "oel_tagging.view_objecttag"
+        perm_obj = ObjectTagPermissionItem(
+            taxonomy=taxonomy,
+            object_id=object_id,
         )
 
-        if not objectid_perm:
+        if not self.request.user.has_perm(perm, perm_obj):
             raise PermissionDenied(
-                "You do not have permission to view object tags for this object_id."
+                "You do not have permission to view object tags for this taxonomy or object_id."
             )
+
         return get_object_tags(object_id, taxonomy_id)
 
     def retrieve(self, request, *args, **kwargs):
@@ -310,7 +314,7 @@ class ObjectTagView(
         perm = f"{taxonomy._meta.app_label}.change_objecttag"
 
         object_id = kwargs.pop('object_id')
-        perm_obj = ChangeObjectTagPermissionItem(
+        perm_obj = ObjectTagPermissionItem(
             taxonomy=taxonomy,
             object_id=object_id,
         )
