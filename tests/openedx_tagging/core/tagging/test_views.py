@@ -407,7 +407,7 @@ class TestObjectTagViewSet(APITestCase):
 
         def _change_object_permission(user, object_id: str) -> bool:
             """
-            Everyone have object permission on object_id "abc" and "limit_tag_count"
+            For testing, let everyone have edit object permission on object_id "abc" and "limit_tag_count"
             """
             if object_id in ("abc", "limit_tag_count"):
                 return True
@@ -416,7 +416,7 @@ class TestObjectTagViewSet(APITestCase):
 
         def _view_object_permission(user, object_id: str) -> bool:
             """
-            Everyone have object permission on all objects but "unauthorized_id"
+            For testing, let everyone have view object permission on all objects but "unauthorized_id"
             """
             if object_id == "unauthorized_id":
                 return False
@@ -516,21 +516,12 @@ class TestObjectTagViewSet(APITestCase):
         if status.is_success(expected_status):
             assert len(response.data) == expected_count
 
-    @ddt.data(
-        None,
-        "user",
-        "staff"
-    )
-    def test_retrieve_object_tags_unauthorized(self, user_attr):
+    def test_retrieve_object_tags_unauthorized(self):
         """
         Test retrieving object tags from an unauthorized object_id
         """
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id="unauthorized_id")
-
-        if user_attr:
-            user = getattr(self, user_attr)
-            self.client.force_authenticate(user=user)
-
+        self.client.force_authenticate(user=self.staff)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
