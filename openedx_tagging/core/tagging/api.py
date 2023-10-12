@@ -129,13 +129,7 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
     if not object_tags:
         object_tags = ObjectTag.objects.select_related("tag", "taxonomy")
 
-    num_changed = 0
-    for object_tag in object_tags:
-        changed = object_tag.resync()
-        if changed:
-            object_tag.save()
-            num_changed += 1
-    return num_changed
+    return ObjectTag.resync_object_tags(object_tags)
 
 
 def get_object_tags(
@@ -329,3 +323,13 @@ def add_tag_to_taxonomy(
     Tag is returned
     """
     return taxonomy.cast().add_tag(tag, parent_tag_id, external_id)
+
+
+def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: int, tag_value: str):
+    """
+    Update a Tag that belongs to a Taxonomy. The related ObjectTags are
+    updated accordingly.
+
+    Currently only support updates the Tag value.
+    """
+    return taxonomy.cast().update_tag(tag, tag_value)

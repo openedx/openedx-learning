@@ -366,19 +366,44 @@ class Taxonomy(models.Model):
                 "add_tag() doesn't work for system defined taxonomies. They cannot be modified."
             )
 
-        current_tags = self.get_tags()
-
         if self.tag_set.filter(value__iexact=tag_value).exists():
             raise ValueError(f"Tag with value '{tag_value}' already exists for taxonomy.")
 
         parent = None
         if parent_tag_id:
-            parent = Tag.objects.get(id=parent_tag_id)
+            parent = self.tag_set.get(id=parent_tag_id)
 
         tag = Tag.objects.create(
             taxonomy=self, value=tag_value, parent=parent, external_id=external_id
         )
 
+        return tag
+
+    def update_tag(self, tag_id: int, tag_value: str) -> Tag:
+        """
+        Update an existing Tag in Taxonomy and return it. Currently only
+        supports updating the Tag's value.
+        """
+        self.check_casted()
+
+        if self.allow_free_text:
+            raise ValueError(
+                "update_tag() doesn't work for free text taxonomies. They don't use Tag instances."
+            )
+
+        if self.system_defined:
+            raise ValueError(
+                "update_tag() doesn't work for system defined taxonomies. They cannot be modified."
+            )
+
+        # Update Tag instance with new value
+        tag = self.tag_set.get(id=tag_id)
+        tag.value = tag_value
+        tag.save()
+
+        # Resync all related ObjectTags to update to the new Tag value
+        object_tags = self.objecttag_set.all()
+        ObjectTag.resync_object_tags(object_tags)
         return tag
 
     def validate_value(self, value: str) -> bool:
@@ -648,3 +673,18 @@ class ObjectTag(models.Model):
         self._value = object_tag._value  # pylint: disable=protected-access
         self._name = object_tag._name  # pylint: disable=protected-access
         return self
+
+    @classmethod
+    def resync_object_tags(cls, object_tags: models.QuerySet[ObjectTag]) -> int:
+        """
+        Reconciles ObjectTag entries with any changes made to their associated
+        taxonomies and tags. Return the number of changes made.
+        """
+        num_changed = 0
+        for object_tag in object_tags:
+            changed = object_tag.resync()
+            if changed:
+                object_tag.save()
+                num_changed += 1
+
+        return num_changed

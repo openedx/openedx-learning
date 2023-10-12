@@ -3,7 +3,7 @@ Tagging API Views
 """
 from __future__ import annotations
 
-from django.db import model
+from django.db import models
 from django.http import Http404, HttpResponse
 from rest_framework import mixins, status
 from rest_framework.decorators import action
@@ -15,6 +15,7 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from openedx_tagging.core.tagging.models.base import Tag
 
 from ...api import (
+    add_tag_to_taxonomy,
     create_taxonomy,
     get_children_tags,
     get_object_tags,
@@ -23,7 +24,7 @@ from ...api import (
     get_taxonomy,
     search_tags,
     tag_object,
-    add_tag_to_taxonomy,
+    update_tag_in_taxonomy,
 )
 from ...import_export.api import export_tags
 from ...import_export.parsers import ParserFormat
@@ -43,6 +44,7 @@ from .serializers import (
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
     TaxonomyTagCreateBodySerializer,
+    TaxonomyTagUpdateBodySerializer,
 )
 from .utils import view_auth_classes
 
@@ -626,9 +628,40 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
             new_tag = add_tag_to_taxonomy(
                 taxonomy, tag, parent_tag_id, external_id
             )
+        except Tag.DoesNotExist as e:
+            raise Http404("Parent Tag not found") from e
         except ValueError as e:
             raise ValidationError from e
 
+        serializer_context = self.get_serializer_context()
         return Response(
-            TagsSerializer(new_tag).data, status=status.HTTP_201_CREATED
+            self.serializer_class(new_tag, context=serializer_context).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    def update(self, request, *args, **kwargs):
+        """
+        Updates a Tag that belongs to the Taxonomy and returns it.
+        Currently only updating the Tag value is supported.
+        """
+        pk = self.kwargs.get("pk")
+        taxonomy = self.get_taxonomy(pk)
+
+        body = TaxonomyTagUpdateBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        tag = body.data.get("tag")
+        tag_value = body.data.get("tag_value")
+
+        try:
+            updated_tag = update_tag_in_taxonomy(taxonomy, tag, tag_value)
+        except Tag.DoesNotExist as e:
+            raise Http404("Tag not found") from e
+        except ValueError as e:
+            raise ValidationError from e
+
+        serializer_context = self.get_serializer_context()
+        return Response(
+            self.serializer_class(updated_tag, context=serializer_context).data,
+            status=status.HTTP_200_OK
         )

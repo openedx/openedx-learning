@@ -1329,6 +1329,22 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_create_tag_in_taxonomy_with_parent_tag_id_in_other_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+        invalid_parent_tag_id = 1
+        new_tag_value = "New Child Tag"
+
+        create_data = {
+            "tag": new_tag_value,
+            "parent_tag_id": invalid_parent_tag_id,
+        }
+
+        response = self.client.post(
+            self.large_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     def test_create_tag_in_taxonomy_with_already_existing_value(self):
         self.client.force_authenticate(user=self.user)
         new_tag_value = "New Tag"
@@ -1349,3 +1365,165 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_update_tag_in_taxonomy_with_different_methods(self):
+        self.client.force_authenticate(user=self.user)
+        updated_tag_value = "Updated Tag"
+        updated_tag_value_2 = "Updated Tag 2"
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        update_data = {
+            "tag": existing_tag.id,
+            "tag_value": updated_tag_value
+        }
+
+        # Test updating using the PUT method
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+
+        # Check that Tag value got updated
+        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("value"), updated_tag_value)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("external_id"), existing_tag.external_id)
+
+        # Test updating using the PATCH method
+        update_data["tag_value"] = updated_tag_value_2
+        response = self.client.patch(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+
+        # Check the Tag value got updated again
+        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("value"), updated_tag_value_2)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("external_id"), existing_tag.external_id)
+
+    def test_update_tag_in_taxonomy_reflects_changes_in_object_tags(self):
+        self.client.force_authenticate(user=self.user)
+
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        # Setup ObjectTags
+        # _value=existing_tag.value
+        object_tag_1 = ObjectTag.objects.create(
+            object_id="abc", taxonomy=self.small_taxonomy, tag=existing_tag
+        )
+        object_tag_2 = ObjectTag.objects.create(
+            object_id="def", taxonomy=self.small_taxonomy, tag=existing_tag
+        )
+        object_tag_3 = ObjectTag.objects.create(
+            object_id="ghi", taxonomy=self.small_taxonomy, tag=existing_tag
+        )
+
+        assert object_tag_1.value == existing_tag.value
+        assert object_tag_2.value == existing_tag.value
+        assert object_tag_3.value == existing_tag.value
+
+        updated_tag_value = "Updated Tag"
+        update_data = {
+            "tag": existing_tag.id,
+            "tag_value": updated_tag_value
+        }
+
+        # Test updating using the PUT method
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+
+        # Check that Tag value got updated
+        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("value"), updated_tag_value)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("external_id"), existing_tag.external_id)
+
+        # Check that the ObjectTags got updated as well
+        object_tag_1.refresh_from_db()
+        self.assertEqual(object_tag_1.value, updated_tag_value)
+        object_tag_2.refresh_from_db()
+        self.assertEqual(object_tag_2.value, updated_tag_value)
+        object_tag_3.refresh_from_db()
+        self.assertEqual(object_tag_3.value, updated_tag_value)
+
+    def test_update_tag_in_taxonomy_with_invalid_tag_id(self):
+        self.client.force_authenticate(user=self.user)
+        updated_tag_value = "Updated Tag"
+
+        update_data = {
+            "tag": 919191,
+            "tag_value": updated_tag_value
+        }
+
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_update_tag_in_taxonomy_with_tag_id_in_other_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+        updated_tag_value = "Updated Tag"
+
+        update_data = {
+            "tag": 1,
+            "tag_value": updated_tag_value
+        }
+
+        response = self.client.put(
+            self.large_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_update_tag_in_taxonomy_with_no_tag_value_provided(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        update_data = {
+            "tag": existing_tag.id
+        }
+
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_update_tag_in_invalid_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        updated_tag_value = "Updated Tag"
+        update_data = {
+            "tag": existing_tag.id,
+            "tag_value": updated_tag_value
+        }
+
+        invalid_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=919191)
+        response = self.client.put(
+            invalid_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND

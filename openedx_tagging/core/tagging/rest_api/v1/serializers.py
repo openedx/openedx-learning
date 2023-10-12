@@ -205,3 +205,14 @@ class TaxonomyTagCreateBodySerializer(serializers.Serializer):  # pylint: disabl
         queryset=Tag.objects.all(), required=False
     )
     external_id = serializers.CharField(required=False)
+
+
+class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags UPDATE view
+    """
+
+    tag = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(), required=True
+    )
+    tag_value = serializers.CharField(required=True)
