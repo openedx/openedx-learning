@@ -38,8 +38,10 @@ from .serializers import (
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
 )
+from .utils import view_auth_classes
 
 
+@view_auth_classes
 class TaxonomyView(ModelViewSet):
     """
     View to list, create, retrieve, update, or delete Taxonomies.
@@ -182,6 +184,7 @@ class TaxonomyView(ModelViewSet):
         serializer.instance = create_taxonomy(**serializer.validated_data)
 
 
+@view_auth_classes
 class ObjectTagView(
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
@@ -322,6 +325,7 @@ class ObjectTagView(
         return self.retrieve(request, object_id)
 
 
+@view_auth_classes
 class TaxonomyTagsView(ListAPIView):
     """
     View to list tags of a taxonomy.

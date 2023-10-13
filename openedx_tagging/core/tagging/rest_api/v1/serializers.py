@@ -17,6 +17,9 @@ class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disa
 
 
 class TaxonomySerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Taxonomy model.
+    """
     class Meta:
         model = Taxonomy
         fields = [
@@ -29,6 +32,13 @@ class TaxonomySerializer(serializers.ModelSerializer):
             "system_defined",
             "visible_to_authors",
         ]
+
+    def to_representation(self, instance):
+        """
+        Cast the taxonomy before serialize
+        """
+        instance = instance.cast()
+        return super().to_representation(instance)
 
 
 class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
