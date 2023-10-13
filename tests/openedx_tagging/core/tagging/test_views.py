@@ -12,6 +12,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from openedx_tagging.core.tagging.import_export import api as import_export_api
+from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
 from openedx_tagging.core.tagging.rest_api.paginators import TagsPagination
@@ -20,6 +22,7 @@ User = get_user_model()
 
 TAXONOMY_LIST_URL = "/tagging/rest_api/v1/taxonomies/"
 TAXONOMY_DETAIL_URL = "/tagging/rest_api/v1/taxonomies/{pk}/"
+TAXONOMY_EXPORT_URL = "/tagging/rest_api/v1/taxonomies/{pk}/export/"
 TAXONOMY_TAGS_URL = "/tagging/rest_api/v1/taxonomies/{pk}/tags/"
 
 
@@ -393,6 +396,105 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.delete(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    @ddt.data(
+        ("csv", "text"),
+        ("json", "application/json")
+    )
+    @ddt.unpack
+    def test_export_taxonomy(self, output_format, content_type):
+        """
+        Tests if a user can export a taxonomy
+        """
+        taxonomy = Taxonomy.objects.create(name="T1", enabled=True)
+        taxonomy.save()
+        for i in range(20):
+            # Valid ObjectTags
+            Tag.objects.create(taxonomy=taxonomy, value=f"Tag {i}").save()
+
+        url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url, {"output_format": output_format})
+        assert response.status_code == status.HTTP_200_OK
+        if output_format == "json":
+            expected_data = import_export_api.export_tags(taxonomy, ParserFormat.JSON)
+        else:
+            expected_data = import_export_api.export_tags(taxonomy, ParserFormat.CSV)
+
+        assert response.headers['Content-Type'] == content_type
+        assert response.content == expected_data.encode("utf-8")
+
+    @ddt.data(
+        ("csv", "text/csv"),
+        ("json", "application/json")
+    )
+    @ddt.unpack
+    def test_export_taxonomy_download(self, output_format, content_type):
+        """
+        Tests if a user can export a taxonomy with download option
+        """
+        taxonomy = Taxonomy.objects.create(name="T1", enabled=True)
+        taxonomy.save()
+        for i in range(20):
+            # Valid ObjectTags
+            Tag.objects.create(taxonomy=taxonomy, value=f"Tag {i}").save()
+
+        url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url, {"output_format": output_format, "download": True})
+        assert response.status_code == status.HTTP_200_OK
+        if output_format == "json":
+            expected_data = import_export_api.export_tags(taxonomy, ParserFormat.JSON)
+        else:
+            expected_data = import_export_api.export_tags(taxonomy, ParserFormat.CSV)
+
+        assert response.headers['Content-Type'] == content_type
+        assert response.headers['Content-Disposition'] == f'attachment; filename="{taxonomy.name}.{output_format}"'
+        assert response.content == expected_data.encode("utf-8")
+
+    def test_export_taxonomy_invalid_param_output_format(self):
+        """
+        Tests if a user can export a taxonomy using an invalid output_format param
+        """
+        taxonomy = Taxonomy.objects.create(name="T1", enabled=True)
+        taxonomy.save()
+
+        url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url, {"output_format": "html", "download": True})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_export_taxonomy_invalid_param_download(self):
+        """
+        Tests if a user can export a taxonomy using an invalid output_format param
+        """
+        taxonomy = Taxonomy.objects.create(name="T1", enabled=True)
+        taxonomy.save()
+
+        url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url, {"output_format": "json", "download": "invalid"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_export_taxonomy_unauthorized(self):
+        """
+        Tests if a user can export a taxonomy that he doesn't have authorization
+        """
+        # Only staff can view a disabled taxonomy
+        taxonomy = Taxonomy.objects.create(name="T1", enabled=False)
+        taxonomy.save()
+
+        url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url, {"output_format": "json"})
+
+        # Return 404, because the user doesn't have permission to view the taxonomy
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
