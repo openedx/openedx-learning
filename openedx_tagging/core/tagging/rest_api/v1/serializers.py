@@ -16,7 +16,18 @@ class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disa
     enabled = serializers.BooleanField(required=False)
 
 
+class TaxonomyExportQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer for the query params for the GET view
+    """
+    download = serializers.BooleanField(required=False, default=False)
+    output_format = serializers.RegexField(r"(?i)^(json|csv)$", allow_blank=False)
+
+
 class TaxonomySerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Taxonomy model.
+    """
     class Meta:
         model = Taxonomy
         fields = [
@@ -29,6 +40,13 @@ class TaxonomySerializer(serializers.ModelSerializer):
             "system_defined",
             "visible_to_authors",
         ]
+
+    def to_representation(self, instance):
+        """
+        Cast the taxonomy before serialize
+        """
+        instance = instance.cast()
+        return super().to_representation(instance)
 
 
 class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method

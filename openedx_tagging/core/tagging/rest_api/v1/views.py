@@ -4,8 +4,9 @@ Tagging API Views
 from __future__ import annotations
 
 from django.db import models
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from rest_framework import mixins
+from rest_framework.decorators import action
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
@@ -23,6 +24,8 @@ from ...api import (
     search_tags,
     tag_object,
 )
+from ...import_export.api import export_tags
+from ...import_export.parsers import ParserFormat
 from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import SEARCH_TAGS_THRESHOLD, TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
@@ -35,14 +38,17 @@ from .serializers import (
     TagsForSearchSerializer,
     TagsSerializer,
     TagsWithSubTagsSerializer,
+    TaxonomyExportQueryParamsSerializer,
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
 )
+from .utils import view_auth_classes
 
 
+@view_auth_classes
 class TaxonomyView(ModelViewSet):
     """
-    View to list, create, retrieve, update, or delete Taxonomies.
+    View to list, create, retrieve, update, delete or export Taxonomies.
 
     **List Query Parameters**
         * enabled (optional) - Filter by enabled status. Valid values: true,
@@ -141,6 +147,23 @@ class TaxonomyView(ModelViewSet):
         * 404 - Taxonomy not found
         * 403 - Permission denied
 
+    **Export Query Parameters**
+        * output_format - Define the output format. Valid values: json, csv
+        * download (optional) - Add headers on the response to let the browser
+          automatically download the file.
+
+    **Export Example Requests**
+        GET api/tagging/v1/taxonomy/:pk/export?output_format=csv                - Export taxonomy as CSV
+        GET api/tagging/v1/taxonomy/:pk/export?output_format=json               - Export taxonomy as JSON
+        GET api/tagging/v1/taxonomy/:pk/export?output_format=csv&download=1     - Export and downloads taxonomy as CSV
+        GET api/tagging/v1/taxonomy/:pk/export?output_format=json&download=1    - Export and downloads taxonomy as JSON
+
+    **Export Query Returns**
+        * 200 - Success
+        * 400 - Invalid query parameter
+        * 403 - Permission denied
+
+
     """
 
     serializer_class = TaxonomySerializer
@@ -181,7 +204,41 @@ class TaxonomyView(ModelViewSet):
         """
         serializer.instance = create_taxonomy(**serializer.validated_data)
 
+    @action(detail=True, methods=["get"])
+    def export(self, request, **_kwargs) -> HttpResponse:
+        """
+        Export a taxonomy.
+        """
+        taxonomy = self.get_object()
+        perm = "oel_tagging.export_taxonomy"
+        if not request.user.has_perm(perm, taxonomy):
+            raise PermissionDenied("You do not have permission to export this taxonomy.")
+        query_params = TaxonomyExportQueryParamsSerializer(
+            data=request.query_params.dict()
+        )
+        query_params.is_valid(raise_exception=True)
+        output_format = query_params.data.get("output_format")
+        assert output_format is not None
+        if output_format.lower() == "json":
+            parser_format = ParserFormat.JSON
+            content_type = "application/json"
+        else:
+            parser_format = ParserFormat.CSV
+            if query_params.data.get("download"):
+                content_type = "text/csv"
+            else:
+                content_type = "text"
 
+        tags = export_tags(taxonomy, parser_format)
+        if query_params.data.get("download"):
+            response = HttpResponse(tags.encode('utf-8'), content_type=content_type)
+            response["Content-Disposition"] = f'attachment; filename="{taxonomy.name}{parser_format.value}"'
+            return response
+
+        return HttpResponse(tags, content_type=content_type)
+
+
+@view_auth_classes
 class ObjectTagView(
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
@@ -346,6 +403,7 @@ class ObjectTagView(
         return self.retrieve(request, object_id)
 
 
+@view_auth_classes
 class TaxonomyTagsView(ListAPIView):
     """
     View to list tags of a taxonomy.
