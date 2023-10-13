@@ -16,6 +16,14 @@ class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disa
     enabled = serializers.BooleanField(required=False)
 
 
+class TaxonomyExportQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer for the query params for the GET view
+    """
+    download = serializers.BooleanField(required=False, default=False)
+    output_format = serializers.RegexField(r"(?i)^(json|csv)$", allow_blank=False)
+
+
 class TaxonomySerializer(serializers.ModelSerializer):
     class Meta:
         model = Taxonomy
