@@ -15,6 +15,7 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from openedx_tagging.core.tagging.models.base import Tag
 
 from ...api import (
+    TagDoesNotExist,
     add_tag_to_taxonomy,
     create_taxonomy,
     delete_tags_from_taxonomy,
@@ -401,7 +402,7 @@ class ObjectTagView(
         tags = body.data.get("tags", [])
         try:
             tag_object(taxonomy, tags, object_id)
-        except Tag.DoesNotExist as e:
+        except TagDoesNotExist as e:
             raise ValidationError from e
         except ValueError as e:
             raise ValidationError from e
@@ -677,7 +678,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
             new_tag = add_tag_to_taxonomy(
                 taxonomy, tag, parent_tag_id, external_id
             )
-        except Tag.DoesNotExist as e:
+        except TagDoesNotExist as e:
             raise Http404("Parent Tag not found") from e
         except ValueError as e:
             raise ValidationError(e) from e
@@ -704,7 +705,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
 
         try:
             updated_tag = update_tag_in_taxonomy(taxonomy, tag, tag_value)
-        except Tag.DoesNotExist as e:
+        except TagDoesNotExist as e:
             raise Http404("Tag not found") from e
         except ValueError as e:
             raise ValidationError(e) from e

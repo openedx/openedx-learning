@@ -1210,6 +1210,19 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("num_pages") == 2
         assert data.get("current_page") == 2
 
+    def test_create_tag_in_taxonomy_while_loggedout(self):
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
     def test_create_tag_in_taxonomy(self):
         self.client.force_authenticate(user=self.user)
         new_tag_value = "New Tag"
@@ -1365,6 +1378,24 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_update_tag_in_taxonomy_while_loggedout(self):
+        updated_tag_value = "Updated Tag"
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        update_data = {
+            "tag": existing_tag.id,
+            "tag_value": updated_tag_value
+        }
+
+        # Test updating using the PUT method
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_update_tag_in_taxonomy_with_different_methods(self):
         self.client.force_authenticate(user=self.user)
@@ -1527,6 +1558,21 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_single_tag_from_taxonomy_while_loggedout(self):
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tag_ids": [existing_tag.id],
+            "with_subtags": True
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_delete_single_tag_from_taxonomy(self):
         self.client.force_authenticate(user=self.user)
