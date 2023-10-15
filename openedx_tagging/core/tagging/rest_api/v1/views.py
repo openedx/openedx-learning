@@ -17,6 +17,7 @@ from openedx_tagging.core.tagging.models.base import Tag
 from ...api import (
     add_tag_to_taxonomy,
     create_taxonomy,
+    delete_tags_from_taxonomy,
     get_children_tags,
     get_object_tags,
     get_root_tags,
@@ -44,6 +45,7 @@ from .serializers import (
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
     TaxonomyTagCreateBodySerializer,
+    TaxonomyTagDeleteBodySerializer,
     TaxonomyTagUpdateBodySerializer,
 )
 from .utils import view_auth_classes
@@ -452,6 +454,53 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         * 403 - Permission denied
         * 404 - Taxonomy not found
 
+    **Update Query Parameters**
+        * pk (required) - The pk of the taxonomy to update a Tag in
+
+    **Update Request Body**
+        * tag (required): The ID of the Tag that should be updated
+        * tag_value (required): The updated value of the Tag
+
+    **Update Example Requests**
+        PUT api/tagging/v1/taxonomy/:pk/tags                                        - Update a Tag in Taxonomy
+        {
+            "tag": 1,
+            "tag_value": "Updated Tag Value"
+        }
+        PATCH api/tagging/v1/taxonomy/:pk/tags                                      - Update a Tag in Taxonomy
+        {
+            "tag": 1,
+            "tag_value": "Updated Tag Value"
+        }
+
+    **Update Query Returns**
+        * 200 - Success
+        * 400 - Invalid parameters provided
+        * 403 - Permission denied
+        * 404 - Taxonomy, Tag or Parent Tag not found
+
+    **Delete Query Parameters**
+        * pk (required) - The pk of the taxonomy to Delete Tag(s) in
+
+    **Delete Request Body**
+        * tag_ids (required): The IDs of Tags that should be deleted from Taxonomy
+        * with_subtags (optional): If a Tag in the provided ids contains
+                                   children (subtags), deletion will fail unless
+                                   set to `True`. Defaults to `False`.
+
+    **Delete Example Requests**
+        DELETE api/tagging/v1/taxonomy/:pk/tags                                     - Delete Tag(s) in Taxonomy
+        {
+            "tag_ids": [1,2,3],
+            "with_subtags": True
+        }
+
+    **Delete Query Returns**
+        * 200 - Success
+        * 400 - Invalid parameters provided
+        * 403 - Permission denied
+        * 404 - Taxonomy not found
+
     """
 
     permission_classes = [TagListPermissions]
@@ -631,7 +680,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         except Tag.DoesNotExist as e:
             raise Http404("Parent Tag not found") from e
         except ValueError as e:
-            raise ValidationError from e
+            raise ValidationError(e) from e
 
         serializer_context = self.get_serializer_context()
         return Response(
@@ -658,10 +707,32 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         except Tag.DoesNotExist as e:
             raise Http404("Tag not found") from e
         except ValueError as e:
-            raise ValidationError from e
+            raise ValidationError(e) from e
 
         serializer_context = self.get_serializer_context()
         return Response(
             self.serializer_class(updated_tag, context=serializer_context).data,
             status=status.HTTP_200_OK
         )
+
+    def delete(self, request, *args, **kwargs):
+        """
+        Deletes Tag(s) in Taxonomy. If any of the Tags have children and
+        the `with_subtags` is not set to `True` it will fail, otherwise
+        the sub-tags will be deleted as well.
+        """
+        pk = self.kwargs.get("pk")
+        taxonomy = self.get_taxonomy(pk)
+
+        body = TaxonomyTagDeleteBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        tag_ids = body.data.get("tag_ids")
+        with_subtags = body.data.get("with_subtags")
+
+        try:
+            delete_tags_from_taxonomy(taxonomy, tag_ids, with_subtags)
+        except ValueError as e:
+            raise ValidationError(e) from e
+
+        return Response(status=status.HTTP_200_OK)

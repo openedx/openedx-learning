@@ -216,3 +216,16 @@ class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disabl
         queryset=Tag.objects.all(), required=True
     )
     tag_value = serializers.CharField(required=True)
+
+
+class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags DELETE view
+    """
+
+    tag_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(),
+        many=True,
+        required=True
+    )
+    with_subtags = serializers.BooleanField(required=False)

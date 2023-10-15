@@ -1527,3 +1527,128 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_single_tag_from_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tag_ids": [existing_tag.id],
+            "with_subtags": True
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check that Tag no longer exists
+        with self.assertRaises(Tag.DoesNotExist):
+            existing_tag.refresh_from_db()
+
+    def test_delete_multiple_tags_from_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Get Tags that will be deleted
+        existing_tags = self.small_taxonomy.tag_set.filter(parent=None)[:3]
+
+        delete_data = {
+            "tag_ids": [existing_tag.id for existing_tag in existing_tags],
+            "with_subtags": True
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check that Tags no longer exists
+        for existing_tag in existing_tags:
+            with self.assertRaises(Tag.DoesNotExist):
+                existing_tag.refresh_from_db()
+
+    def test_delete_tag_with_subtags_should_fail_without_flag_passed(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tag_ids": [existing_tag.id]
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_delete_tag_in_invalid_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tag_ids": [existing_tag.id]
+        }
+
+        invalid_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=919191)
+        response = self.client.delete(
+            invalid_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_tag_in_taxonomy_with_invalid_tag_id(self):
+        self.client.force_authenticate(user=self.user)
+
+        delete_data = {
+            "tag_ids": [91919]
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_delete_tag_with_tag_id_in_other_taxonomy(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Get Tag in other Taxonomy
+        tag_in_other_taxonomy = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tag_ids": [tag_in_other_taxonomy.id]
+        }
+
+        response = self.client.delete(
+            self.large_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_delete_tag_in_taxonomy_without_subtags(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(children__isnull=True).first()
+
+        delete_data = {
+            "tag_ids": [existing_tag.id]
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check that Tag no longer exists
+        with self.assertRaises(Tag.DoesNotExist):
+            existing_tag.refresh_from_db()

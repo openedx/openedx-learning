@@ -406,6 +406,43 @@ class Taxonomy(models.Model):
         ObjectTag.resync_object_tags(object_tags)
         return tag
 
+    def delete_tags(self, tag_ids: List[int], with_subtags: bool = False):
+        """
+        Delete the Taxonomy Tags provided. If any of them have children and
+        the `with_subtags` is not set to `True` it will fail, otherwise
+        the sub-tags will be deleted as well.
+        """
+        self.check_casted()
+
+        if self.allow_free_text:
+            raise ValueError(
+                "delete_tags() doesn't work for free text taxonomies. They don't use Tag instances."
+            )
+
+        if self.system_defined:
+            raise ValueError(
+                "delete_tags() doesn't work for system defined taxonomies. They cannot be modified."
+            )
+
+        tags = self.tag_set.filter(id__in=tag_ids)
+
+        if tags.count() != len(tag_ids):
+            # If they do not match that means there is a Tag ID in the provided
+            # list that is either invalid or does not belong to this Taxonomy
+            raise ValueError("Invalid tag id provided or tag id does not belong to taxonomy")
+
+        # Check if any Tag contains subtags (children)
+        contains_children = tags.filter(children__isnull=False).distinct().exists()
+
+        if contains_children and not with_subtags:
+            raise ValueError(
+                "Tag(s) contain children, `with_subtags` must be `True` for "
+                "all Tags and their subtags (children) to be deleted."
+            )
+
+        # Delete the Tags with their subtags if any
+        tags.delete()
+
     def validate_value(self, value: str) -> bool:
         """
         Check if 'value' is part of this Taxonomy.

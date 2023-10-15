@@ -333,3 +333,16 @@ def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: int, tag_value: str):
     Currently only support updates the Tag value.
     """
     return taxonomy.cast().update_tag(tag, tag_value)
+
+
+def delete_tags_from_taxonomy(
+    taxonomy: Taxonomy,
+    tag_ids: list[Tag],
+    with_subtags: bool
+):
+    """
+    Delete Tags that belong to a Taxonomy. If any of the Tags have children and
+    the `with_subtags` is not set to `True` it will fail, otherwise
+    the sub-tags will be deleted as well.
+    """
+    return taxonomy.cast().delete_tags(tag_ids, with_subtags)
