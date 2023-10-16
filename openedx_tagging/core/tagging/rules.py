@@ -66,6 +66,15 @@ def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
 
 
 @rules.predicate
+def can_view_object_tag_taxonomy(user: UserType, taxonomy: Taxonomy) -> bool:
+    """
+    Only enabled taxonomy and users with permission to view this taxonomy can view object tags
+    from that taxonomy.
+    """
+    return taxonomy.cast().enabled and can_view_taxonomy(user, taxonomy)
+
+
+@rules.predicate
 def can_view_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
     """
     Everybody can view object tags from any objects.
@@ -164,6 +173,6 @@ rules.add_perm("oel_tagging.view_objecttag", can_view_object_tag)
 
 # Users can tag objects using tags from any taxonomy that they have permission to view
 rules.add_perm("oel_tagging.view_objecttag_objectid", can_view_object_tag_objectid)
-rules.add_perm("oel_tagging.view_objecttag_taxonomy", can_view_taxonomy)
-rules.add_perm("oel_tagging.change_objecttag_taxonomy", can_view_taxonomy)
+rules.add_perm("oel_tagging.view_objecttag_taxonomy", can_view_object_tag_taxonomy)
+rules.add_perm("oel_tagging.change_objecttag_taxonomy", can_view_object_tag_taxonomy)
 rules.add_perm("oel_tagging.change_objecttag_objectid", can_change_object_tag_objectid)
