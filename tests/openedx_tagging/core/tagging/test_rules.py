@@ -215,7 +215,7 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
             object_id=self.object_tag.object_id,
         )
         assert self.superuser.has_perm(perm, obj_perm)
-        assert self.staff.has_perm(perm, obj_perm)
+        assert not self.staff.has_perm(perm, obj_perm)
         assert not self.learner.has_perm(perm, obj_perm)
 
     @ddt.data(
