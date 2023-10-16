@@ -70,7 +70,12 @@ def can_view_object_tag_taxonomy(user: UserType, taxonomy: Taxonomy) -> bool:
     """
     Only enabled taxonomy and users with permission to view this taxonomy can view object tags
     from that taxonomy.
+
+    This rule is different from can_view_taxonomy because it checks if the taxonomy is enabled.
     """
+    if not taxonomy:
+        return True
+
     return taxonomy.cast().enabled and can_view_taxonomy(user, taxonomy)
 
 
