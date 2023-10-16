@@ -23,7 +23,7 @@ is_taxonomy_admin: Callable[[UserType], bool] = rules.is_staff
 
 
 @define
-class ChangeObjectTagPermissionItem:
+class ObjectTagPermissionItem:
     """
     Pair of taxonomy and object_id used for permission checking.
     """
@@ -66,6 +66,58 @@ def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
 
 
 @rules.predicate
+def can_view_object_tag_taxonomy(user: UserType, taxonomy: Taxonomy) -> bool:
+    """
+    Only enabled taxonomy and users with permission to view this taxonomy can view object tags
+    from that taxonomy.
+
+    This rule is different from can_view_taxonomy because it checks if the taxonomy is enabled.
+    """
+    if not taxonomy:
+        return True
+
+    return taxonomy.cast().enabled and can_view_taxonomy(user, taxonomy)
+
+
+@rules.predicate
+def can_view_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
+    """
+    Everybody can view object tags from any objects.
+
+    This rule could be defined in other apps for proper permission checking.
+    """
+    return True
+
+
+@rules.predicate
+def can_view_object_tag(
+    user: UserType, perm_obj: ObjectTagPermissionItem | None = None
+) -> bool:
+    """
+    Checks if the user has permissions to view tags on the given taxonomy and object_id.
+    """
+
+    # The following code allows METHOD permission (GET) in the viewset for everyone
+    if perm_obj is None:
+        return True
+
+    # Checks the permission for the taxonomy
+    taxonomy_perm = user.has_perm(
+        "oel_tagging.view_objecttag_taxonomy", perm_obj.taxonomy
+    )
+    if not taxonomy_perm:
+        return False
+
+    # Checks the permission for the object_id
+    objectid_perm = user.has_perm(
+        "oel_tagging.view_objecttag_objectid",
+        # The obj arg expects an object, but we are passing a string
+        perm_obj.object_id,  # type: ignore[arg-type]
+    )
+    return objectid_perm
+
+
+@rules.predicate
 def can_change_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
     """
     Nobody can create or modify object tags without checking the permission for the tagged object.
@@ -77,7 +129,7 @@ def can_change_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
 
 @rules.predicate
 def can_change_object_tag(
-    user: UserType, perm_obj: ChangeObjectTagPermissionItem | None = None
+    user: UserType, perm_obj: ObjectTagPermissionItem | None = None
 ) -> bool:
     """
     Checks if the user has permissions to create or modify tags on the given taxonomy and object_id.
@@ -122,8 +174,10 @@ rules.add_perm("oel_tagging.list_tag", can_view_taxonomy)
 rules.add_perm("oel_tagging.add_objecttag", can_change_object_tag)
 rules.add_perm("oel_tagging.change_objecttag", can_change_object_tag)
 rules.add_perm("oel_tagging.delete_objecttag", can_change_object_tag)
-rules.add_perm("oel_tagging.view_objecttag", rules.always_allow)
+rules.add_perm("oel_tagging.view_objecttag", can_view_object_tag)
 
 # Users can tag objects using tags from any taxonomy that they have permission to view
-rules.add_perm("oel_tagging.change_objecttag_taxonomy", can_view_taxonomy)
+rules.add_perm("oel_tagging.view_objecttag_objectid", can_view_object_tag_objectid)
+rules.add_perm("oel_tagging.view_objecttag_taxonomy", can_view_object_tag_taxonomy)
+rules.add_perm("oel_tagging.change_objecttag_taxonomy", can_view_object_tag_taxonomy)
 rules.add_perm("oel_tagging.change_objecttag_objectid", can_change_object_tag_objectid)
