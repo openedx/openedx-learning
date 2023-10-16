@@ -52,16 +52,27 @@ def can_change_taxonomy(user: UserType, taxonomy: Taxonomy | None = None) -> boo
 
 
 @rules.predicate
-def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
+def can_view_tag(user: UserType, tag: Tag | None = None) -> bool:
     """
-    Even taxonomy admins cannot add tags to system taxonomies (their tags are system-defined), or free-text taxonomies
-    (these don't have predefined tags).
+    User can view tags for any taxonomy they can view.
     """
     taxonomy = tag.taxonomy.cast() if (tag and tag.taxonomy) else None
-    return is_taxonomy_admin(user) and (
-        not tag
-        or not taxonomy
-        or (taxonomy and not taxonomy.allow_free_text and not taxonomy.system_defined)
+    has_perm_thing = user.has_perm(
+        "oel_tagging.view_taxonomy",
+        taxonomy,
+    )
+    return has_perm_thing
+
+
+@rules.predicate
+def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
+    """
+    Users can change tags for any taxonomy they can modify.
+    """
+    taxonomy = tag.taxonomy.cast() if (tag and tag.taxonomy) else None
+    return user.has_perm(
+        "oel_tagging.change_taxonomy",
+        taxonomy,
     )
 
 
@@ -166,8 +177,10 @@ rules.add_perm("oel_tagging.export_taxonomy", can_view_taxonomy)
 # Tag
 rules.add_perm("oel_tagging.add_tag", can_change_tag)
 rules.add_perm("oel_tagging.change_tag", can_change_tag)
-rules.add_perm("oel_tagging.delete_tag", is_taxonomy_admin)
-rules.add_perm("oel_tagging.view_tag", rules.always_allow)
+rules.add_perm("oel_tagging.delete_tag", can_change_tag)
+rules.add_perm("oel_tagging.view_tag", can_view_tag)
+# Special Case for listing Tags, we check if we can view the Taxonomy since
+# that is what is passed in rather than a Tag object
 rules.add_perm("oel_tagging.list_tag", can_view_taxonomy)
 
 # ObjectTag

@@ -33,7 +33,7 @@ from ...import_export.parsers import ParserFormat
 from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import SEARCH_TAGS_THRESHOLD, TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
-from .permissions import ObjectTagObjectPermissions, TagListPermissions, TaxonomyObjectPermissions
+from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
     ObjectTagSerializer,
@@ -504,7 +504,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
 
     """
 
-    permission_classes = [TagListPermissions]
+    permission_classes = [TagObjectPermissions]
     pagination_enabled = True
 
     def __init__(self):
@@ -637,7 +637,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
 
             return result
 
-    def get_queryset(self) -> list[Tag]:  # type: ignore[override]
+    def get_queryset(self) -> models.QuerySet[Tag]:  # type: ignore[override]
         """
         Builds and returns the queryset to be paginated.
 
@@ -655,10 +655,26 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
             search_term=search_term,
         )
 
+        # Convert the results back to a QuerySet for permissions to apply
+        # Due to the conversion we lose the populated `sub_tags` attribute,
+        # in the case of using the special search serializer so we
+        # need to repopulate it again
+        if self.serializer_class == TagsForSearchSerializer:
+            results_dict = {tag.id: tag for tag in result}
+
+            result_queryset = Tag.objects.filter(id__in=results_dict.keys())
+
+            for tag in result_queryset:
+                sub_tags = results_dict[tag.id].sub_tags  # type: ignore[attr-defined]
+                tag.sub_tags = sub_tags  # type: ignore[attr-defined]
+
+        else:
+            result_queryset = Tag.objects.filter(id__in=[tag.id for tag in result])
+
         # This function is not called automatically
         self.pagination_class = self.get_pagination_class()
 
-        return result
+        return result_queryset
 
     def post(self, request, *args, **kwargs):
         """
@@ -683,6 +699,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         except ValueError as e:
             raise ValidationError(e) from e
 
+        self.serializer_class = TagsSerializer
         serializer_context = self.get_serializer_context()
         return Response(
             self.serializer_class(new_tag, context=serializer_context).data,
@@ -710,6 +727,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         except ValueError as e:
             raise ValidationError(e) from e
 
+        self.serializer_class = TagsSerializer
         serializer_context = self.get_serializer_context()
         return Response(
             self.serializer_class(updated_tag, context=serializer_context).data,

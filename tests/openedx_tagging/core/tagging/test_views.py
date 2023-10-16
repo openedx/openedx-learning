@@ -1223,8 +1223,22 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_create_tag_in_taxonomy(self):
+    def test_create_tag_in_taxonomy_without_permission(self):
         self.client.force_authenticate(user=self.user)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_create_tag_in_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
         new_tag_value = "New Tag"
 
         create_data = {
@@ -1248,7 +1262,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         self.assertEqual(data.get("children_count"), 0)
 
     def test_create_tag_in_taxonomy_with_parent_id(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         parent_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
         new_tag_value = "New Child Tag"
         new_external_id = "extId"
@@ -1276,7 +1290,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         self.assertEqual(data.get("children_count"), 0)
 
     def test_create_tag_in_invalid_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         new_tag_value = "New Tag"
 
         create_data = {
@@ -1291,7 +1305,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_create_tag_in_free_text_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         new_tag_value = "New Tag"
 
         create_data = {
@@ -1309,7 +1323,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_create_tag_in_system_defined_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         new_tag_value = "New Tag"
 
         create_data = {
@@ -1327,7 +1341,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_create_tag_in_taxonomy_with_invalid_parent_tag_id(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         invalid_parent_tag_id = 91919
         new_tag_value = "New Child Tag"
 
@@ -1343,7 +1357,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_create_tag_in_taxonomy_with_parent_tag_id_in_other_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         invalid_parent_tag_id = 1
         new_tag_value = "New Child Tag"
 
@@ -1359,7 +1373,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_create_tag_in_taxonomy_with_already_existing_value(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         new_tag_value = "New Tag"
 
         create_data = {
@@ -1397,8 +1411,27 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_update_tag_in_taxonomy_with_different_methods(self):
+    def test_update_tag_in_taxonomy_without_permission(self):
         self.client.force_authenticate(user=self.user)
+        updated_tag_value = "Updated Tag"
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        update_data = {
+            "tag": existing_tag.id,
+            "tag_value": updated_tag_value
+        }
+
+        # Test updating using the PUT method
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_update_tag_in_taxonomy_with_different_methods(self):
+        self.client.force_authenticate(user=self.staff)
         updated_tag_value = "Updated Tag"
         updated_tag_value_2 = "Updated Tag 2"
 
@@ -1444,7 +1477,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         self.assertEqual(data.get("external_id"), existing_tag.external_id)
 
     def test_update_tag_in_taxonomy_reflects_changes_in_object_tags(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
@@ -1495,7 +1528,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         self.assertEqual(object_tag_3.value, updated_tag_value)
 
     def test_update_tag_in_taxonomy_with_invalid_tag_id(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         updated_tag_value = "Updated Tag"
 
         update_data = {
@@ -1510,7 +1543,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_update_tag_in_taxonomy_with_tag_id_in_other_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
         updated_tag_value = "Updated Tag"
 
         update_data = {
@@ -1525,7 +1558,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_update_tag_in_taxonomy_with_no_tag_value_provided(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         # Existing Tag that will be updated
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
@@ -1541,7 +1574,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_update_tag_in_invalid_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         # Existing Tag that will be updated
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
@@ -1574,8 +1607,24 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_delete_single_tag_from_taxonomy(self):
+    def test_delete_single_tag_from_taxonomy_without_permission(self):
         self.client.force_authenticate(user=self.user)
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tag_ids": [existing_tag.id],
+            "with_subtags": True
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_delete_single_tag_from_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
 
         # Get Tag that will be deleted
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
@@ -1596,7 +1645,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             existing_tag.refresh_from_db()
 
     def test_delete_multiple_tags_from_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         # Get Tags that will be deleted
         existing_tags = self.small_taxonomy.tag_set.filter(parent=None)[:3]
@@ -1618,7 +1667,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
                 existing_tag.refresh_from_db()
 
     def test_delete_tag_with_subtags_should_fail_without_flag_passed(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         # Get Tag that will be deleted
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
@@ -1634,7 +1683,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_delete_tag_in_invalid_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         # Get Tag that will be deleted
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
@@ -1651,7 +1700,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_tag_in_taxonomy_with_invalid_tag_id(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         delete_data = {
             "tag_ids": [91919]
@@ -1664,7 +1713,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_delete_tag_with_tag_id_in_other_taxonomy(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         # Get Tag in other Taxonomy
         tag_in_other_taxonomy = self.small_taxonomy.tag_set.filter(parent=None).first()
@@ -1680,7 +1729,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_delete_tag_in_taxonomy_without_subtags(self):
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.staff)
 
         # Get Tag that will be deleted
         existing_tag = self.small_taxonomy.tag_set.filter(children__isnull=True).first()
