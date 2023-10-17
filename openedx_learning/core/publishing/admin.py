@@ -73,7 +73,7 @@ class PublishLogAdmin(ReadOnlyModelAdmin):
 
 
 @admin.register(PublishableEntity)
-class PublishableEntityAdmin(ReadOnlyModelAdmin):
+class APublishableEntityAdmin(ReadOnlyModelAdmin):
     """
     Read-only admin view for Publishable Entities
     """
@@ -94,14 +94,18 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related(
-            "learning_package", "published__version", "draft__version"
+            "learning_package", "published__version",
         )
 
     def draft_version(self, entity):
-        return entity.draft.version.version_num
+        if entity.draft.version:
+            return entity.draft.version.version_num
+        return None
 
     def published_version(self, entity):
-        return entity.published.version.version_num
+        if entity.published.version:
+            return entity.published.version.version_num
+        return None
 
 
 @admin.register(Published)

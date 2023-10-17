@@ -93,9 +93,9 @@ def create_publishable_entity_version(
             created=created,
             created_by_id=created_by,
         )
-        Draft.objects.create(
+        Draft.objects.update_or_create(
             entity_id=entity_id,
-            version=version,
+            defaults=dict(version=version),
         )
     return version
 
@@ -178,6 +178,13 @@ def publish_from_drafts(
             )
 
     return publish_log
+
+
+def delete_drafts(
+    learning_package_id: int,
+    draft_qset: QuerySet,
+):
+    pass
 
 
 def register_content_models(

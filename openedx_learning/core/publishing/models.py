@@ -308,10 +308,12 @@ class Draft(models.Model):
     are updated, not when publishing happens. The Published model only changes
     when something is published.
     """
-
+    # If we're removing a PublishableEntity entirely, also remove the Draft
+    # entry for it. This isn't a normal operation, but can happen if you're
+    # deleting an entire LearningPackage.
     entity = models.OneToOneField(
         PublishableEntity,
-        on_delete=models.RESTRICT,
+        on_delete=models.CASCADE,
         primary_key=True,
     )
     version = models.OneToOneField(
@@ -425,7 +427,7 @@ class Published(models.Model):
 
     entity = models.OneToOneField(
         PublishableEntity,
-        on_delete=models.RESTRICT,
+        on_delete=models.CASCADE,
         primary_key=True,
     )
     version = models.OneToOneField(
