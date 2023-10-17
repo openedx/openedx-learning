@@ -437,7 +437,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
     **Create Request Body**
         * tag (required): The value of the Tag that should be added to
           the Taxonomy
-        * parent_tag_id (optional): The id of the parent tag that the new
+        * parent_tag_value (optional): The value of the parent tag that the new
           Tag should fall under
         * extenal_id (optional): The external id for the new Tag
 
@@ -445,7 +445,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         POST api/tagging/v1/taxonomy/:pk/tags                                       - Create a Tag in taxonomy
         {
             "value": "New Tag",
-            "parent_tag_id": 123
+            "parent_tag_value": "Parent Tag"
             "external_id": "abc123",
         }
 
@@ -459,19 +459,19 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         * pk (required) - The pk of the taxonomy to update a Tag in
 
     **Update Request Body**
-        * tag (required): The ID of the Tag that should be updated
-        * tag_value (required): The updated value of the Tag
+        * tag (required): The value (identifier) of the Tag to be updated
+        * updated_tag_value (required): The updated value of the Tag
 
     **Update Example Requests**
         PUT api/tagging/v1/taxonomy/:pk/tags                                        - Update a Tag in Taxonomy
         {
-            "tag": 1,
-            "tag_value": "Updated Tag Value"
+            "tag": "Tag 1",
+            "updated_tag_value": "Updated Tag Value"
         }
         PATCH api/tagging/v1/taxonomy/:pk/tags                                      - Update a Tag in Taxonomy
         {
-            "tag": 1,
-            "tag_value": "Updated Tag Value"
+            "tag": "Tag 1",
+            "updated_tag_value": "Updated Tag Value"
         }
 
     **Update Query Returns**
@@ -484,7 +484,8 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         * pk (required) - The pk of the taxonomy to Delete Tag(s) in
 
     **Delete Request Body**
-        * tag_ids (required): The IDs of Tags that should be deleted from Taxonomy
+        * tags (required): The values (identifiers) of Tags that should be
+                           deleted from Taxonomy
         * with_subtags (optional): If a Tag in the provided ids contains
                                    children (subtags), deletion will fail unless
                                    set to `True`. Defaults to `False`.
@@ -492,7 +493,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
     **Delete Example Requests**
         DELETE api/tagging/v1/taxonomy/:pk/tags                                     - Delete Tag(s) in Taxonomy
         {
-            "tag_ids": [1,2,3],
+            "tags": ["Tag 1", "Tag 2", "Tag 3"],
             "with_subtags": True
         }
 
@@ -687,12 +688,12 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         body.is_valid(raise_exception=True)
 
         tag = body.data.get("tag")
-        parent_tag_id = body.data.get("parent_tag_id", None)
+        parent_tag_value = body.data.get("parent_tag_value", None)
         external_id = body.data.get("external_id", None)
 
         try:
             new_tag = add_tag_to_taxonomy(
-                taxonomy, tag, parent_tag_id, external_id
+                taxonomy, tag, parent_tag_value, external_id
             )
         except TagDoesNotExist as e:
             raise Http404("Parent Tag not found") from e
@@ -718,10 +719,10 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         body.is_valid(raise_exception=True)
 
         tag = body.data.get("tag")
-        tag_value = body.data.get("tag_value")
+        updated_tag_value = body.data.get("updated_tag_value")
 
         try:
-            updated_tag = update_tag_in_taxonomy(taxonomy, tag, tag_value)
+            updated_tag = update_tag_in_taxonomy(taxonomy, tag, updated_tag_value)
         except TagDoesNotExist as e:
             raise Http404("Tag not found") from e
         except ValueError as e:
@@ -746,11 +747,11 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         body = TaxonomyTagDeleteBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
-        tag_ids = body.data.get("tag_ids")
+        tags = body.data.get("tags")
         with_subtags = body.data.get("with_subtags")
 
         try:
-            delete_tags_from_taxonomy(taxonomy, tag_ids, with_subtags)
+            delete_tags_from_taxonomy(taxonomy, tags, with_subtags)
         except ValueError as e:
             raise ValidationError(e) from e
 

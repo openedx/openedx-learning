@@ -321,7 +321,7 @@ def autocomplete_tags(
 def add_tag_to_taxonomy(
     taxonomy: Taxonomy,
     tag: str,
-    parent_tag_id: int | None = None,
+    parent_tag_value: str | None = None,
     external_id: str | None = None
 ) -> Tag:
     """
@@ -329,18 +329,18 @@ def add_tag_to_taxonomy(
     Taxonomy, an exception is raised, otherwise the newly created
     Tag is returned
     """
-    return taxonomy.cast().add_tag(tag, parent_tag_id, external_id)
+    return taxonomy.cast().add_tag(tag, parent_tag_value, external_id)
 
 
-def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: int, tag_value: str):
+def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: str, new_value: str):
     """
     Update a Tag that belongs to a Taxonomy. The related ObjectTags are
     updated accordingly.
 
-    Currently only support updates the Tag value.
+    Currently only supports updating the Tag value.
     """
     taxonomy = taxonomy.cast()
-    updated_tag = taxonomy.update_tag(tag, tag_value)
+    updated_tag = taxonomy.update_tag(tag, new_value)
 
     # Resync all related ObjectTags to update to the new Tag value
     object_tags = taxonomy.objecttag_set.all()
@@ -351,7 +351,7 @@ def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: int, tag_value: str):
 
 def delete_tags_from_taxonomy(
     taxonomy: Taxonomy,
-    tag_ids: list[int],
+    tags: list[str],
     with_subtags: bool
 ):
     """
@@ -360,7 +360,7 @@ def delete_tags_from_taxonomy(
     the sub-tags will be deleted as well.
     """
     taxonomy = taxonomy.cast()
-    taxonomy.delete_tags(tag_ids, with_subtags)
+    taxonomy.delete_tags(tags, with_subtags)
 
     # Resync all related ObjectTags after deleting the Tag(s)
     object_tags = taxonomy.objecttag_set.all()

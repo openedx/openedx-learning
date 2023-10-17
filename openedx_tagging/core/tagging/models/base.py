@@ -345,7 +345,7 @@ class Taxonomy(models.Model):
     def add_tag(
         self,
         tag_value: str,
-        parent_tag_id: int | None = None,
+        parent_tag_value: str | None = None,
         external_id: str | None = None
     ) -> Tag:
         """
@@ -369,8 +369,8 @@ class Taxonomy(models.Model):
             raise ValueError(f"Tag with value '{tag_value}' already exists for taxonomy.")
 
         parent = None
-        if parent_tag_id:
-            parent = self.tag_set.get(id=parent_tag_id)
+        if parent_tag_value:
+            parent = self.tag_set.get(value__iexact=parent_tag_value)
 
         tag = Tag.objects.create(
             taxonomy=self, value=tag_value, parent=parent, external_id=external_id
@@ -378,7 +378,7 @@ class Taxonomy(models.Model):
 
         return tag
 
-    def update_tag(self, tag_id: int, tag_value: str) -> Tag:
+    def update_tag(self, tag: str, new_value: str) -> Tag:
         """
         Update an existing Tag in Taxonomy and return it. Currently only
         supports updating the Tag's value.
@@ -396,12 +396,12 @@ class Taxonomy(models.Model):
             )
 
         # Update Tag instance with new value
-        tag = self.tag_set.get(id=tag_id)
-        tag.value = tag_value
-        tag.save()
-        return tag
+        tag_to_update = self.tag_set.get(value__iexact=tag)
+        tag_to_update.value = new_value
+        tag_to_update.save()
+        return tag_to_update
 
-    def delete_tags(self, tag_ids: List[int], with_subtags: bool = False):
+    def delete_tags(self, tags: List[str], with_subtags: bool = False):
         """
         Delete the Taxonomy Tags provided. If any of them have children and
         the `with_subtags` is not set to `True` it will fail, otherwise
@@ -419,15 +419,15 @@ class Taxonomy(models.Model):
                 "delete_tags() doesn't work for system defined taxonomies. They cannot be modified."
             )
 
-        tags = self.tag_set.filter(id__in=tag_ids)
+        tags_to_delete = self.tag_set.filter(value__in=tags)
 
-        if tags.count() != len(tag_ids):
+        if tags_to_delete.count() != len(tags):
             # If they do not match that means there is a Tag ID in the provided
             # list that is either invalid or does not belong to this Taxonomy
             raise ValueError("Invalid tag id provided or tag id does not belong to taxonomy")
 
         # Check if any Tag contains subtags (children)
-        contains_children = tags.filter(children__isnull=False).distinct().exists()
+        contains_children = tags_to_delete.filter(children__isnull=False).distinct().exists()
 
         if contains_children and not with_subtags:
             raise ValueError(
@@ -436,7 +436,7 @@ class Taxonomy(models.Model):
             )
 
         # Delete the Tags with their subtags if any
-        tags.delete()
+        tags_to_delete.delete()
 
     def validate_value(self, value: str) -> bool:
         """

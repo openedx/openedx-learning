@@ -1,7 +1,6 @@
 """
 API Serializers for taxonomies
 """
-
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
@@ -201,10 +200,20 @@ class TaxonomyTagCreateBodySerializer(serializers.Serializer):  # pylint: disabl
     """
 
     tag = serializers.CharField(required=True)
-    parent_tag_id = serializers.PrimaryKeyRelatedField(
-        queryset=Tag.objects.all(), required=False
+    parent_tag_value = serializers.CharField(
+        source='parent.value', required=False
     )
     external_id = serializers.CharField(required=False)
+
+    def validate_parent_tag_value(self, value):
+        """
+        Check that the provided parent Tag exists based on the value
+        """
+        valid = Tag.objects.filter(value__iexact=value).exists()
+        if not valid:
+            raise serializers.ValidationError("Invalid `parent_tag_value` provided")
+
+        return value
 
 
 class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -212,10 +221,19 @@ class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disabl
     Serializer of the body for the Taxonomy Tags UPDATE view
     """
 
-    tag = serializers.PrimaryKeyRelatedField(
-        queryset=Tag.objects.all(), required=True
-    )
-    tag_value = serializers.CharField(required=True)
+    tag = serializers.CharField(source="value", required=True)
+    updated_tag_value = serializers.CharField(required=True)
+
+    def validate_tag(self, value):
+        """
+        Check that the provided Tag exists based on the value
+        """
+
+        valid = Tag.objects.filter(value__iexact=value).exists()
+        if not valid:
+            raise serializers.ValidationError("Invalid `tag` provided")
+
+        return value
 
 
 class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -223,9 +241,18 @@ class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disabl
     Serializer of the body for the Taxonomy Tags DELETE view
     """
 
-    tag_ids = serializers.PrimaryKeyRelatedField(
-        queryset=Tag.objects.all(),
-        many=True,
-        required=True
+    tags = serializers.ListField(
+        child=serializers.CharField(), required=True
     )
     with_subtags = serializers.BooleanField(required=False)
+
+    def validate_tags(self, value):
+        """
+        Check that the provided Tags exists based on the values
+        """
+
+        valid = Tag.objects.filter(value__in=value).count() == len(value)
+        if not valid:
+            raise serializers.ValidationError("One or more tag in `tags` is invalid")
+
+        return value

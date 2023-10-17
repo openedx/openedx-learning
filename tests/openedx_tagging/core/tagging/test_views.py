@@ -1261,7 +1261,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         self.assertIsNone(data.get("sub_tags_link"))
         self.assertEqual(data.get("children_count"), 0)
 
-    def test_create_tag_in_taxonomy_with_parent_id(self):
+    def test_create_tag_in_taxonomy_with_parent(self):
         self.client.force_authenticate(user=self.staff)
         parent_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
         new_tag_value = "New Child Tag"
@@ -1269,7 +1269,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         create_data = {
             "tag": new_tag_value,
-            "parent_tag_id": parent_tag.id,
+            "parent_tag_value": parent_tag.value,
             "external_id": new_external_id
         }
 
@@ -1340,14 +1340,14 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_create_tag_in_taxonomy_with_invalid_parent_tag_id(self):
+    def test_create_tag_in_taxonomy_with_invalid_parent_tag(self):
         self.client.force_authenticate(user=self.staff)
-        invalid_parent_tag_id = 91919
+        invalid_parent_tag = "Invalid Tag"
         new_tag_value = "New Child Tag"
 
         create_data = {
             "tag": new_tag_value,
-            "parent_tag_id": invalid_parent_tag_id,
+            "parent_tag_value": invalid_parent_tag,
         }
 
         response = self.client.post(
@@ -1356,14 +1356,14 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_create_tag_in_taxonomy_with_parent_tag_id_in_other_taxonomy(self):
+    def test_create_tag_in_taxonomy_with_parent_tag_in_other_taxonomy(self):
         self.client.force_authenticate(user=self.staff)
-        invalid_parent_tag_id = 1
+        tag_in_other_taxonomy = Tag.objects.get(id=1)
         new_tag_value = "New Child Tag"
 
         create_data = {
             "tag": new_tag_value,
-            "parent_tag_id": invalid_parent_tag_id,
+            "parent_tag_value": tag_in_other_taxonomy.value,
         }
 
         response = self.client.post(
@@ -1400,8 +1400,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         update_data = {
-            "tag": existing_tag.id,
-            "tag_value": updated_tag_value
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
         }
 
         # Test updating using the PUT method
@@ -1419,8 +1419,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         update_data = {
-            "tag": existing_tag.id,
-            "tag_value": updated_tag_value
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
         }
 
         # Test updating using the PUT method
@@ -1439,8 +1439,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         update_data = {
-            "tag": existing_tag.id,
-            "tag_value": updated_tag_value
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
         }
 
         # Test updating using the PUT method
@@ -1460,7 +1460,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         self.assertEqual(data.get("external_id"), existing_tag.external_id)
 
         # Test updating using the PATCH method
-        update_data["tag_value"] = updated_tag_value_2
+        update_data["tag"] = updated_tag_value  # Since the value changed
+        update_data["updated_tag_value"] = updated_tag_value_2
         response = self.client.patch(
             self.small_taxonomy_url, update_data, format="json"
         )
@@ -1499,8 +1500,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         updated_tag_value = "Updated Tag"
         update_data = {
-            "tag": existing_tag.id,
-            "tag_value": updated_tag_value
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
         }
 
         # Test updating using the PUT method
@@ -1527,13 +1528,13 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         object_tag_3.refresh_from_db()
         self.assertEqual(object_tag_3.value, updated_tag_value)
 
-    def test_update_tag_in_taxonomy_with_invalid_tag_id(self):
+    def test_update_tag_in_taxonomy_with_invalid_tag(self):
         self.client.force_authenticate(user=self.staff)
         updated_tag_value = "Updated Tag"
 
         update_data = {
             "tag": 919191,
-            "tag_value": updated_tag_value
+            "updated_tag_value": updated_tag_value
         }
 
         response = self.client.put(
@@ -1542,13 +1543,14 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_update_tag_in_taxonomy_with_tag_id_in_other_taxonomy(self):
+    def test_update_tag_in_taxonomy_with_tag_in_other_taxonomy(self):
         self.client.force_authenticate(user=self.staff)
         updated_tag_value = "Updated Tag"
+        tag_in_other_taxonomy = Tag.objects.get(id=1)
 
         update_data = {
-            "tag": 1,
-            "tag_value": updated_tag_value
+            "tag": tag_in_other_taxonomy.value,
+            "updated_tag_value": updated_tag_value
         }
 
         response = self.client.put(
@@ -1564,7 +1566,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         update_data = {
-            "tag": existing_tag.id
+            "tag": existing_tag.value
         }
 
         response = self.client.put(
@@ -1581,8 +1583,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         updated_tag_value = "Updated Tag"
         update_data = {
-            "tag": existing_tag.id,
-            "tag_value": updated_tag_value
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
         }
 
         invalid_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=919191)
@@ -1597,7 +1599,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         delete_data = {
-            "tag_ids": [existing_tag.id],
+            "tags": [existing_tag.value],
             "with_subtags": True
         }
 
@@ -1613,7 +1615,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         delete_data = {
-            "tag_ids": [existing_tag.id],
+            "tags": [existing_tag.value],
             "with_subtags": True
         }
 
@@ -1630,7 +1632,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         delete_data = {
-            "tag_ids": [existing_tag.id],
+            "tags": [existing_tag.value],
             "with_subtags": True
         }
 
@@ -1651,7 +1653,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tags = self.small_taxonomy.tag_set.filter(parent=None)[:3]
 
         delete_data = {
-            "tag_ids": [existing_tag.id for existing_tag in existing_tags],
+            "tags": [existing_tag.value for existing_tag in existing_tags],
             "with_subtags": True
         }
 
@@ -1673,7 +1675,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         delete_data = {
-            "tag_ids": [existing_tag.id]
+            "tags": [existing_tag.value]
         }
 
         response = self.client.delete(
@@ -1689,7 +1691,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         delete_data = {
-            "tag_ids": [existing_tag.id]
+            "tags": [existing_tag.value]
         }
 
         invalid_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=919191)
@@ -1699,11 +1701,11 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_delete_tag_in_taxonomy_with_invalid_tag_id(self):
+    def test_delete_tag_in_taxonomy_with_invalid_tag(self):
         self.client.force_authenticate(user=self.staff)
 
         delete_data = {
-            "tag_ids": [91919]
+            "tags": ["Invalid Tag"]
         }
 
         response = self.client.delete(
@@ -1712,14 +1714,14 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_delete_tag_with_tag_id_in_other_taxonomy(self):
+    def test_delete_tag_with_tag_in_other_taxonomy(self):
         self.client.force_authenticate(user=self.staff)
 
         # Get Tag in other Taxonomy
         tag_in_other_taxonomy = self.small_taxonomy.tag_set.filter(parent=None).first()
 
         delete_data = {
-            "tag_ids": [tag_in_other_taxonomy.id]
+            "tags": [tag_in_other_taxonomy.value]
         }
 
         response = self.client.delete(
@@ -1735,7 +1737,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         existing_tag = self.small_taxonomy.tag_set.filter(children__isnull=True).first()
 
         delete_data = {
-            "tag_ids": [existing_tag.id]
+            "tags": [existing_tag.value]
         }
 
         response = self.client.delete(
