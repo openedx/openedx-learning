@@ -399,10 +399,6 @@ class Taxonomy(models.Model):
         tag = self.tag_set.get(id=tag_id)
         tag.value = tag_value
         tag.save()
-
-        # Resync all related ObjectTags to update to the new Tag value
-        object_tags = self.objecttag_set.all()
-        ObjectTag.resync_object_tags(object_tags)
         return tag
 
     def delete_tags(self, tag_ids: List[int], with_subtags: bool = False):
@@ -709,18 +705,3 @@ class ObjectTag(models.Model):
         self._value = object_tag._value  # pylint: disable=protected-access
         self._name = object_tag._name  # pylint: disable=protected-access
         return self
-
-    @classmethod
-    def resync_object_tags(cls, object_tags: models.QuerySet[ObjectTag]) -> int:
-        """
-        Reconciles ObjectTag entries with any changes made to their associated
-        taxonomies and tags. Return the number of changes made.
-        """
-        num_changed = 0
-        for object_tag in object_tags:
-            changed = object_tag.resync()
-            if changed:
-                object_tag.save()
-                num_changed += 1
-
-        return num_changed

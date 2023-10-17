@@ -129,7 +129,14 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
     if not object_tags:
         object_tags = ObjectTag.objects.select_related("tag", "taxonomy")
 
-    return ObjectTag.resync_object_tags(object_tags)
+    num_changed = 0
+    for object_tag in object_tags:
+        changed = object_tag.resync()
+        if changed:
+            object_tag.save()
+            num_changed += 1
+
+    return num_changed
 
 
 def get_object_tags(
@@ -332,12 +339,19 @@ def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: int, tag_value: str):
 
     Currently only support updates the Tag value.
     """
-    return taxonomy.cast().update_tag(tag, tag_value)
+    taxonomy = taxonomy.cast()
+    updated_tag = taxonomy.update_tag(tag, tag_value)
+
+    # Resync all related ObjectTags to update to the new Tag value
+    object_tags = taxonomy.objecttag_set.all()
+    resync_object_tags(object_tags)
+
+    return updated_tag
 
 
 def delete_tags_from_taxonomy(
     taxonomy: Taxonomy,
-    tag_ids: list[Tag],
+    tag_ids: list[int],
     with_subtags: bool
 ):
     """
@@ -345,4 +359,9 @@ def delete_tags_from_taxonomy(
     the `with_subtags` is not set to `True` it will fail, otherwise
     the sub-tags will be deleted as well.
     """
-    return taxonomy.cast().delete_tags(tag_ids, with_subtags)
+    taxonomy = taxonomy.cast()
+    taxonomy.delete_tags(tag_ids, with_subtags)
+
+    # Resync all related ObjectTags after deleting the Tag(s)
+    object_tags = taxonomy.objecttag_set.all()
+    resync_object_tags(object_tags)
