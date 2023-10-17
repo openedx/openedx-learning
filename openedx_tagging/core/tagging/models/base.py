@@ -347,7 +347,6 @@ class Taxonomy(models.Model):
         tag_value: str,
         parent_tag_id: int | None = None,
         external_id: str | None = None
-
     ) -> Tag:
         """
         Add new Tag to Taxonomy. If an existing Tag with the `tag_value` already

@@ -57,11 +57,10 @@ def can_view_tag(user: UserType, tag: Tag | None = None) -> bool:
     User can view tags for any taxonomy they can view.
     """
     taxonomy = tag.taxonomy.cast() if (tag and tag.taxonomy) else None
-    has_perm_thing = user.has_perm(
+    return user.has_perm(
         "oel_tagging.view_taxonomy",
         taxonomy,
     )
-    return has_perm_thing
 
 
 @rules.predicate

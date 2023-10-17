@@ -4,6 +4,8 @@ Tagging permissions
 import rules  # type: ignore[import]
 from rest_framework.permissions import DjangoObjectPermissions
 
+from ...models import Tag
+
 
 class TaxonomyObjectPermissions(DjangoObjectPermissions):
     """
@@ -54,4 +56,5 @@ class TagObjectPermissions(DjangoObjectPermissions):
         """
         Returns True if the user on the given request is allowed the given view for the given object.
         """
+        obj = obj.taxonomy if isinstance(obj, Tag) else obj
         return rules.has_perm("oel_tagging.list_tag", request.user, obj)
