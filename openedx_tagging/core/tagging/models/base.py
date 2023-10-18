@@ -370,8 +370,9 @@ class Taxonomy(models.Model):
             child_count=Value(0),
             external_id=Value(None, output_field=models.CharField()),
             parent_value=Value(None, output_field=models.CharField()),
+            _id=Value(None, output_field=models.CharField()),
         )
-        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id").order_by("value")
+        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("value")
         if include_counts:
             return qs.annotate(usage_count=models.Count("value"))
         else:
@@ -402,7 +403,8 @@ class Taxonomy(models.Model):
         # Filter by search term:
         if search_term:
             qs = qs.filter(value__icontains=search_term)
-        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id").order_by("value")
+        qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
+        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("value")
         if include_counts:
             # We need to include the count of how many times this tag is used to tag objects.
             # You'd think we could just use:
@@ -468,7 +470,8 @@ class Taxonomy(models.Model):
         ))
         # Add the parent value
         qs = qs.annotate(parent_value=F("parent__value"))
-        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id").order_by("sort_key")
+        qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
+        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("sort_key")
         if include_counts:
             # Including the counts is a bit tricky; see the comment above in _get_filtered_tags_one_level()
             obj_tags = ObjectTag.objects.filter(tag_id=models.OuterRef("pk")).order_by().annotate(

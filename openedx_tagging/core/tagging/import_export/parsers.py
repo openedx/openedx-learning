@@ -166,17 +166,19 @@ class Parser:
         with required and optional fields
 
         The tags are ordered by hierarchy, first, parents and then children.
-        `get_tags` is in charge of returning this in a hierarchical way.
+        `get_filtered_tags` is in charge of returning this in a hierarchical
+        way.
         """
         tags = taxonomy.get_filtered_tags().all()
         result = []
         for tag in tags:
             result_tag = {
-                "id": tag["external_id"] or tag["id"],
+                "id": tag["external_id"] or tag["_id"],
                 "value": tag["value"],
             }
-            if tag.parent:
-                result_tag["parent_id"] = tag.parent.external_id or tag.parent.id
+            if tag["parent_value"]:
+                parent_tag = next(t for t in tags if t["value"] == tag["parent_value"])
+                result_tag["parent_id"] = parent_tag["external_id"] or parent_tag["_id"]
             result.append(result_tag)
         return result
 

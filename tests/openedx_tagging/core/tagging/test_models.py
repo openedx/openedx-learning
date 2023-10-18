@@ -223,6 +223,8 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = list(self.taxonomy.get_filtered_tags(depth=1, include_counts=False))
         common_fields = {"depth": 0, "parent_value": None, "external_id": None}
+        for r in result:
+            del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the root tags, in alphabetical order:
             {"value": "Archaea", "child_count": 3, **common_fields},
@@ -237,6 +239,8 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = list(self.taxonomy.get_filtered_tags(depth=1, parent_tag_value="Eukaryota"))
         common_fields = {"depth": 1, "parent_value": "Eukaryota", "usage_count": 0, "external_id": None}
+        for r in result:
+            del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
             {"value": "Animalia", "child_count": 7, **common_fields},
@@ -253,6 +257,8 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = list(self.taxonomy.get_filtered_tags(depth=1, parent_tag_value="Animalia"))
         common_fields = {"depth": 2, "parent_value": "Animalia", "usage_count": 0, "external_id": None}
+        for r in result:
+            del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
             {"value": "Arthropoda", "child_count": 0, **common_fields},
@@ -277,6 +283,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 "usage_count": 0,
                 "parent_value": None,
                 "external_id": None,
+                "_id": 2,  # These IDs are hard-coded in the test fixture file
             },
         ]
         # Note that other tags in the taxonomy match "ARCH" but are excluded because of the depth=1 search
@@ -294,6 +301,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 "usage_count": 0,
                 "parent_value": "Bacteria",
                 "external_id": None,
+                "_id": 5,  # These IDs are hard-coded in the test fixture file
             },
         ]
         # Note that other tags in the taxonomy match "ARCH" but are excluded because of the depth=1 search
@@ -384,6 +392,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 "usage_count": 0,
                 "child_count": 0,
                 "external_id": None,
+                "_id": 21,  # These IDs are hard-coded in the test fixture file
             }
         ]
 
@@ -457,7 +466,7 @@ class TestFilteredTagsFreeTextTaxonomy(TestCase):
         Without counts included.
         """
         result = list(self.taxonomy.get_filtered_tags(include_counts=False))
-        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None}
+        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None, "_id": None}
         assert result == [
             # These should appear in alphabetical order:
             {"value": "double", **common_fields},
@@ -471,7 +480,7 @@ class TestFilteredTagsFreeTextTaxonomy(TestCase):
         Without counts included.
         """
         result = list(self.taxonomy.get_filtered_tags(include_counts=True))
-        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None}
+        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None, "_id": None}
         assert result == [
             # These should appear in alphabetical order:
             {"value": "double", "usage_count": 2, **common_fields},
@@ -494,7 +503,7 @@ class TestFilteredTagsFreeTextTaxonomy(TestCase):
         Test basic retrieval of only matching tags.
         """
         result1 = list(self.taxonomy.get_filtered_tags(search_term="le"))
-        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None}
+        common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None, "_id": None}
         assert result1 == [
             # These should appear in alphabetical order:
             {"value": "double", "usage_count": 2, **common_fields},

@@ -22,3 +22,5 @@ class TagData(TypedDict):
     parent_value: str | None
     # Note: usage_count may not actually be present but there's no way to indicate that w/ python types at the moment
     usage_count: int
+    # Internal database ID, if any. Generally should not be used; prefer 'value' which is unique within each taxonomy.
+    _id: int | None
