@@ -300,6 +300,7 @@ class Taxonomy(models.Model):
         parent_tag_value: str | None = None,
         search_term: str | None = None,
         include_counts: bool = True,
+        excluded_values: list[str] | None = None,
     ) -> models.QuerySet[TagData]:
         """
         Returns a filtered QuerySet of tag values.
@@ -316,24 +317,35 @@ class Taxonomy(models.Model):
 
         Use `search_term` to filter the results by values that contains `search_term`.
 
+        Use `excluded_values` to exclude tags with that value (and their parents, if applicable) from the results.
+
         Note: This is mostly an 'internal' API and generally code outside of openedx_tagging
         should use the APIs in openedx_tagging.api which in turn use this.
         """
         if self.allow_free_text:
             if parent_tag_value is not None:
                 raise ValueError("Cannot specify a parent tag ID for free text taxonomies")
-            return self._get_filtered_tags_free_text(search_term=search_term, include_counts=include_counts)
+            result = self._get_filtered_tags_free_text(search_term=search_term, include_counts=include_counts)
+            if excluded_values:
+                return result.exclude(value__in=excluded_values)
+            else:
+                return result
         elif depth == 1:
-            return self._get_filtered_tags_one_level(
+            result = self._get_filtered_tags_one_level(
                 parent_tag_value=parent_tag_value,
                 search_term=search_term,
                 include_counts=include_counts,
             )
+            if excluded_values:
+                return result.exclude(value__in=excluded_values)
+            else:
+                return result
         elif depth is None or depth == TAXONOMY_MAX_DEPTH:
             return self._get_filtered_tags_deep(
                 parent_tag_value=parent_tag_value,
                 search_term=search_term,
                 include_counts=include_counts,
+                excluded_values=excluded_values,
             )
         else:
             raise ValueError("Unsupported depth value for get_filtered_tags()")
@@ -409,6 +421,7 @@ class Taxonomy(models.Model):
         parent_tag_value: str | None,
         search_term: str | None,
         include_counts: bool,
+        excluded_values: list[str] | None,
     ) -> models.QuerySet[TagData]:
         """
         Implementation of get_filtered_tags() for closed taxonomies, where
@@ -433,6 +446,8 @@ class Taxonomy(models.Model):
             matching_tags = qs.filter(value__icontains=search_term).values(
                 'id', 'parent_id', 'parent__parent_id', 'parent__parent__parent_id'
             )
+            if excluded_values:
+                matching_tags = matching_tags.exclude(value__in=excluded_values)
             matching_ids = []
             for row in matching_tags:
                 for pk in row.values():

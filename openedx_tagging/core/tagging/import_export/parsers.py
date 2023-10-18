@@ -168,7 +168,7 @@ class Parser:
         The tags are ordered by hierarchy, first, parents and then children.
         `get_tags` is in charge of returning this in a hierarchical way.
         """
-        tags = Taxonomy.get_filtered_tags().all()
+        tags = taxonomy.get_filtered_tags().all()
         result = []
         for tag in tags:
             result_tag = {

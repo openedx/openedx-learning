@@ -90,7 +90,7 @@ def get_root_tags(taxonomy: Taxonomy) -> QuerySet[TagData]:
     return taxonomy.cast().get_filtered_tags(depth=1)
 
 
-def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: int | None = None) -> QuerySet[TagData]:
+def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: str | None = None) -> QuerySet[TagData]:
     """
     Returns a list of all tags that contains `search_term` of the given
     taxonomy, as well as their ancestors (so they can be displayed in a tree).
@@ -99,15 +99,16 @@ def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: int | N
     excluded from the results, e.g. to power an autocomplete search when adding
     additional tags to an object.
     """
-    qs = taxonomy.cast().get_filtered_tags(search_term=search_term)
+    excluded_values = None
     if exclude_object_id:
-        # Fetch tags that the object already has to exclude them from the result
+        # Fetch tags that the object already has to exclude them from the result.
+        # Note: this adds a fair bit of complexity. In the future, maybe we can just do this filtering on the frontend?
         excluded_values = list(
             taxonomy.objecttag_set.filter(object_id=exclude_object_id).values_list(
                 "_value", flat=True
             )
         )
-        qs = qs.exclude(value__in=excluded_values)
+    qs = taxonomy.cast().get_filtered_tags(search_term=search_term, excluded_values=excluded_values)
     return qs
 
 
@@ -120,7 +121,7 @@ def get_children_tags(
 
     Note that if the taxonomy allows free-text tags, then the returned list will be empty.
     """
-    return taxonomy.cast().get_filtered_tags(parent_tag_value=parent_tag_value)
+    return taxonomy.cast().get_filtered_tags(parent_tag_value=parent_tag_value, depth=1)
 
 
 def resync_object_tags(object_tags: QuerySet | None = None) -> int:
