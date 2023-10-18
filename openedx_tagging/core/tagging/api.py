@@ -329,7 +329,16 @@ def add_tag_to_taxonomy(
     Taxonomy, an exception is raised, otherwise the newly created
     Tag is returned
     """
-    return taxonomy.cast().add_tag(tag, parent_tag_value, external_id)
+    taxonomy = taxonomy.cast()
+    new_tag = taxonomy.add_tag(tag, parent_tag_value, external_id)
+
+    # Resync all related ObjectTags after creating new Tag to
+    # to ensure any existing ObjectTags with the same value will
+    # be linked to the new Tag
+    object_tags = taxonomy.objecttag_set.all()
+    resync_object_tags(object_tags)
+
+    return new_tag
 
 
 def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: str, new_value: str):
@@ -361,7 +370,3 @@ def delete_tags_from_taxonomy(
     """
     taxonomy = taxonomy.cast()
     taxonomy.delete_tags(tags, with_subtags)
-
-    # Resync all related ObjectTags after deleting the Tag(s)
-    object_tags = taxonomy.objecttag_set.all()
-    resync_object_tags(object_tags)
