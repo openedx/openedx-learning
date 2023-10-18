@@ -7,10 +7,10 @@ from typing import Any
 
 import ddt  # type: ignore[import]
 import pytest
-from django.db.models import QuerySet
 from django.test import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api
+from openedx_tagging.core.tagging.data import TagDataQuerySet
 from openedx_tagging.core.tagging.models import ObjectTag, Taxonomy
 
 from .test_models import TestTagTaxonomyMixin, get_tag
@@ -250,7 +250,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
         Trying to get children of a system tag that has no children yields an empty result:
         """
-        assert list(tagging_api.get_children_tags(self.system_taxonomy, self.system_taxonomy_tag.value)) == []
+        assert not list(tagging_api.get_children_tags(self.system_taxonomy, self.system_taxonomy_tag.value))
 
     def test_resync_object_tags(self) -> None:
         self.taxonomy.allow_multiple = True
@@ -572,9 +572,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Fetch all the tags for a given object ID
         assert list(
-            tagging_api.get_object_tags(
-                object_id="abc",
-            )
+            tagging_api.get_object_tags(object_id="abc")
         ) == [
             alpha,
             beta,
@@ -582,83 +580,10 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Fetch all the tags for a given object ID + taxonomy
         assert list(
-            tagging_api.get_object_tags(
-                object_id="abc",
-                taxonomy_id=self.taxonomy.pk,
-            )
+            tagging_api.get_object_tags(object_id="abc", taxonomy_id=self.taxonomy.pk)
         ) == [
             beta,
         ]
-
-    @ddt.data(
-        ("ChA", ["Archaea", "Archaebacteria"], [2, 5]),
-        ("ar", ['Archaea', 'Archaebacteria', 'Arthropoda'], [2, 5, 14]),
-        ("aE", ['Archaea', 'Archaebacteria', 'Plantae'], [2, 5, 10]),
-        (
-            "a",
-            [
-                'Animalia',
-                'Archaea',
-                'Archaebacteria',
-                'Arthropoda',
-                'Gastrotrich',
-                'Monera',
-                'Placozoa',
-                'Plantae',
-            ],
-            [9, 2, 5, 14, 16, 13, 19, 10],
-        ),
-    )
-    @ddt.unpack
-    def test_autocomplete_tags(self, search: str, expected_values: list[str], expected_ids: list[int | None]) -> None:
-        tags = [
-            'Archaea',
-            'Archaebacteria',
-            'Animalia',
-            'Arthropoda',
-            'Plantae',
-            'Monera',
-            'Gastrotrich',
-            'Placozoa',
-        ] + expected_values  # To create repeats
-        closed_taxonomy = self.taxonomy
-        open_taxonomy = tagging_api.create_taxonomy(
-            "Free_Text_Taxonomy",
-            allow_free_text=True,
-        )
-
-        for index, value in enumerate(tags):
-            # Creating ObjectTags for open taxonomy
-            ObjectTag(
-                object_id=f"object_id_{index}",
-                taxonomy=open_taxonomy,
-                _value=value,
-            ).save()
-
-            # Creating ObjectTags for closed taxonomy
-            tag = get_tag(value)
-            ObjectTag(
-                object_id=f"object_id_{index}",
-                taxonomy=closed_taxonomy,
-                tag=tag,
-                _value=value,
-            ).save()
-
-        # Test for open taxonomy
-        # self._validate_autocomplete_tags(
-        #     open_taxonomy,
-        #     search,
-        #     expected_values,
-        #     [None] * len(expected_ids),
-        # )
-
-        # # Test for closed taxonomy
-        # self._validate_autocomplete_tags(
-        #     closed_taxonomy,
-        #     search,
-        #     expected_values,
-        #     expected_ids,
-        # )
 
     @ddt.data(
         ("ChA", [
@@ -741,11 +666,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "  Euryarchaeida (used: 0, children: 0)",
             "  Proteoarchaeota (used: 0, children: 0)",
             # These results are no longer included because of exclude_object_id:
-            #"Bacteria (used: 0, children: 2)",  # does not contain "cha" but a child does
-            #"  Archaebacteria (used: 1, children: 0)",
+            # "Bacteria (used: 0, children: 2)",  # does not contain "cha" but a child does
+            # "  Archaebacteria (used: 1, children: 0)",
         ]
 
-    def _get_tag_values(self, tags: QuerySet[tagging_api.TagData]) -> list[str]:
+    def _get_tag_values(self, tags: TagDataQuerySet) -> list[str]:
         """
         Get tag values from tagging_api.autocomplete_tags() result
         """
@@ -756,37 +681,3 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         Get tag ids from tagging_api.autocomplete_tags() result
         """
         return [tag.get("tag_id") for tag in tags]
-
-    def _validate_autocomplete_tags(
-        self,
-        taxonomy: Taxonomy,
-        search: str,
-        expected: list[str],
-    ) -> None:
-        """
-        Validate autocomplete tags
-        """
-
-        # Normal search
-        result = tagging_api.search_tags(taxonomy, search)
-
-        assert pretty_format_tags(result, parent=False) == expected
-
-        # Create ObjectTag to simulate the content tagging
-        first_value = next(t for t in result if search.lower() in t["value"].lower())
-        tag_model = None
-        if not taxonomy.allow_free_text:
-            tag_model = get_tag(first_value)
-
-        object_id = 'new_object_id'
-        ObjectTag(
-            object_id=object_id,
-            taxonomy=taxonomy,
-            tag=tag_model,
-            _value=first_value,
-        ).save()
-
-        # Search with object
-        result = tagging_api.search_tags(taxonomy, search, object_id)
-        assert self._get_tag_values(result) == expected_values[1:]
-        assert self._get_tag_ids(result) == expected_ids[1:]

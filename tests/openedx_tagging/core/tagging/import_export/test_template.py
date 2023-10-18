@@ -12,8 +12,8 @@ from openedx_tagging.core.tagging.api import get_tags
 from openedx_tagging.core.tagging.import_export import ParserFormat
 from openedx_tagging.core.tagging.import_export import api as import_api
 
-from .mixins import TestImportExportMixin
 from ..utils import pretty_format_tags
+from .mixins import TestImportExportMixin
 
 
 @ddt.ddt

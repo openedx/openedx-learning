@@ -5,7 +5,8 @@ API Serializers for taxonomies
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
-from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.data import TagData
+from openedx_tagging.core.tagging.models import ObjectTag, Taxonomy
 
 
 class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -93,102 +94,41 @@ class ObjectTagUpdateQueryParamsSerializer(serializers.Serializer):  # pylint: d
     )
 
 
-class TagsSerializer(serializers.ModelSerializer):
+class TagDataSerializer(serializers.Serializer):
     """
-    Serializer for Tags
+    Serializer for TagData
 
     Adds a link to get the sub tags
     """
+    value = serializers.CharField()
+    external_id = serializers.CharField(allow_null=True)
+    child_count = serializers.IntegerField()
+    depth = serializers.IntegerField()
+    parent_value = serializers.CharField(allow_null=True)
+    usage_count = serializers.IntegerField(required=False)
+    # Internal database ID, if any. Generally should not be used; prefer 'value' which is unique within each taxonomy.
+    # Free text taxonomies never have '_id' for their tags.
+    _id = serializers.IntegerField(allow_null=True)
 
-    sub_tags_link = serializers.SerializerMethodField()
-    children_count = serializers.SerializerMethodField()
+    sub_tags_url = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Tag
-        fields = (
-            "id",
-            "value",
-            "taxonomy_id",
-            "parent_id",
-            "sub_tags_link",
-            "children_count",
-        )
-
-    def get_sub_tags_link(self, obj):
+    def get_sub_tags_url(self, obj: TagData):
         """
         Returns URL for the list of child tags of the current tag.
         """
-        if obj.children.count():
-            query_params = f"?parent_tag_id={obj.id}"
+        if obj["child_count"] > 0 and "taxonomy_id" in self.context:
+            query_params = f"?parent_tag={obj['value']}"
+            request = self.context["request"]
+            url_namespace = request.resolver_match.namespace  # get the namespace, usually "oel_tagging"
             url = (
-                reverse("oel_tagging:taxonomy-tags", args=[str(obj.taxonomy_id)])
+                reverse(f"{url_namespace}:taxonomy-tags", args=[str(self.context["taxonomy_id"])])
                 + query_params
             )
-            request = self.context.get("request")
             return request.build_absolute_uri(url)
         return None
 
-    def get_children_count(self, obj):
-        """
-        Returns the number of child tags of the given tag.
-        """
-        return obj.children.count()
+    def update(self, instance, validated_data):
+        raise RuntimeError('`update()` is not supported by the TagData serializer.')
 
-
-class TagsWithSubTagsSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Tags.
-
-    Represents a tree with a list of sub tags
-    """
-
-    sub_tags = serializers.SerializerMethodField()
-    children_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Tag
-        fields = (
-            "id",
-            "value",
-            "taxonomy_id",
-            "sub_tags",
-            "children_count",
-        )
-
-    def get_sub_tags(self, obj):
-        """
-        Returns a serialized list of child tags for the given tag.
-        """
-        serializer = TagsWithSubTagsSerializer(
-            obj.children.all().order_by("value", "id"),
-            many=True,
-            read_only=True,
-        )
-        return serializer.data
-
-    def get_children_count(self, obj):
-        """
-        Returns the number of child tags of the given tag.
-        """
-        return obj.children.count()
-
-
-class TagsForSearchSerializer(TagsWithSubTagsSerializer):
-    """
-    Serializer for Tags
-
-    Used to filter sub tags of a given tag
-    """
-
-    def get_sub_tags(self, obj):
-        """
-        Returns a serialized list of child tags for the given tag.
-        """
-        serializer = TagsWithSubTagsSerializer(obj.sub_tags, many=True, read_only=True)
-        return serializer.data
-
-    def get_children_count(self, obj):
-        """
-        Returns the number of child tags of the given tag.
-        """
-        return len(obj.sub_tags)
+    def create(self, validated_data):
+        raise RuntimeError('`create()` is not supported by the TagData serializer.')

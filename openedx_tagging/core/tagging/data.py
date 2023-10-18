@@ -3,7 +3,10 @@ Data models used by openedx-tagging
 """
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
+
+from django.db.models import QuerySet
+from typing_extensions import TypeAlias
 
 
 class TagData(TypedDict):
@@ -24,3 +27,13 @@ class TagData(TypedDict):
     usage_count: int
     # Internal database ID, if any. Generally should not be used; prefer 'value' which is unique within each taxonomy.
     _id: int | None
+
+
+if TYPE_CHECKING:
+    from django_stubs_ext import ValuesQuerySet
+    TagDataQuerySet: TypeAlias = ValuesQuerySet[Any, TagData]
+    # The following works better for pyright (provides proper VS Code autocompletions),
+    # but I can't find any way to specify different types for pyright vs mypy :/
+    # TagDataQuerySet: TypeAlias = QuerySet[TagData]
+else:
+    TagDataQuerySet = QuerySet[TagData]

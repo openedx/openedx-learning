@@ -1,6 +1,7 @@
 """
 Useful utilities for testing tagging and taxonomy code.
 """
+from __future__ import annotations
 
 
 def pretty_format_tags(result, parent=True, external_id=False, usage_count=True) -> list[str]:

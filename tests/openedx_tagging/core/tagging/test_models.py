@@ -13,6 +13,7 @@ from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
+
 from .utils import pretty_format_tags
 
 
@@ -208,7 +209,6 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
     @ddt.unpack
     def test_get_lineage(self, tag_attr, lineage):
         assert getattr(self, tag_attr).get_lineage() == lineage
-
 
 
 @ddt.ddt
@@ -441,6 +441,35 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         result1 = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="bacteria", depth=1))
         assert result1 == [
             "Bacteria (None) (used: 3, children: 2)",
+        ]
+
+    def test_pathological_tree_sort(self) -> None:
+        """
+        Check for bugs in how tree sorting happens, if the tag names are very
+        similar.
+        """
+        # pylint: disable=unused-variable
+        taxonomy = api.create_taxonomy("Sort Test")
+        root1 = Tag.objects.create(taxonomy=taxonomy, value="1")
+        child1_1 = Tag.objects.create(taxonomy=taxonomy, value="11", parent=root1)
+        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="2", parent=root1)
+        child1_3 = Tag.objects.create(taxonomy=taxonomy, value="1 A", parent=root1)
+        child1_4 = Tag.objects.create(taxonomy=taxonomy, value="11111", parent=root1)
+        grandchild1_4_1 = Tag.objects.create(taxonomy=taxonomy, value="1111-grandchild", parent=child1_4)
+        root2 = Tag.objects.create(taxonomy=taxonomy, value="111")
+        child2_1 = Tag.objects.create(taxonomy=taxonomy, value="11111111", parent=root2)
+        child2_2 = Tag.objects.create(taxonomy=taxonomy, value="123", parent=root2)
+        result = pretty_format_tags(taxonomy.get_filtered_tags())
+        assert result == [
+            "1 (None) (used: 0, children: 4)",
+            "  1 A (1) (used: 0, children: 0)",
+            "  11 (1) (used: 0, children: 0)",
+            "  11111 (1) (used: 0, children: 1)",
+            "    1111-grandchild (11111) (used: 0, children: 0)",
+            "  2 (1) (used: 0, children: 0)",
+            "111 (None) (used: 0, children: 2)",
+            "  11111111 (111) (used: 0, children: 0)",
+            "  123 (111) (used: 0, children: 0)",
         ]
 
 

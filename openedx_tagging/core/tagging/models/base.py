@@ -17,7 +17,8 @@ from typing_extensions import Self  # Until we upgrade to python 3.11
 
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field, case_sensitive_char_field
 
-from ..data import TagData
+from ..data import TagDataQuerySet
+from .utils import ConcatNull
 
 log = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ class Tag(models.Model):
             tag = tag.parent
             depth -= 1
         return lineage
-    
+
     @cached_property
     def num_ancestors(self) -> int:
         """
@@ -123,7 +124,7 @@ class Tag(models.Model):
             num_ancestors += 1
             tag = tag.parent
         return num_ancestors
-    
+
     @staticmethod
     def annotate_depth(qs: models.QuerySet) -> models.QuerySet:
         """
@@ -301,7 +302,7 @@ class Taxonomy(models.Model):
         search_term: str | None = None,
         include_counts: bool = True,
         excluded_values: list[str] | None = None,
-    ) -> models.QuerySet[TagData]:
+    ) -> TagDataQuerySet:
         """
         Returns a filtered QuerySet of tag values.
         For free text or dynamic taxonomies, this will only return tag values
@@ -354,7 +355,7 @@ class Taxonomy(models.Model):
         self,
         search_term: str | None,
         include_counts: bool,
-    ) -> models.QuerySet[TagData]:
+    ) -> TagDataQuerySet:
         """
         Implementation of get_filtered_tags() for free text taxonomies.
         """
@@ -383,7 +384,7 @@ class Taxonomy(models.Model):
         parent_tag_value: str | None,
         search_term: str | None,
         include_counts: bool,
-    ) -> models.QuerySet[TagData]:
+    ) -> TagDataQuerySet:
         """
         Implementation of get_filtered_tags() for closed taxonomies, where
         depth=1. When depth=1, we're only looking at a single "level" of the
@@ -424,7 +425,7 @@ class Taxonomy(models.Model):
         search_term: str | None,
         include_counts: bool,
         excluded_values: list[str] | None,
-    ) -> models.QuerySet[TagData]:
+    ) -> TagDataQuerySet:
         """
         Implementation of get_filtered_tags() for closed taxonomies, where
         we're including tags from multiple levels of the hierarchy.
@@ -460,11 +461,14 @@ class Taxonomy(models.Model):
         qs = qs.annotate(child_count=models.Count("children"))
         # Add the "depth" to each tag:
         qs = Tag.annotate_depth(qs)
-        # Add the "lineage" field to sort them in order correctly:
+        # Add the "lineage" as a field called "sort_key" to sort them in order correctly:
         qs = qs.annotate(sort_key=Concat(
-            Coalesce(F("parent__parent__parent__value"), Value("")),
-            Coalesce(F("parent__parent__value"), Value("")),
-            Coalesce(F("parent__value"), Value("")),
+            # For a root tag, we want sort_key="RootValue" and for a depth=1 tag
+            # we want sort_key="RootValue\tValue". The following does that, since
+            # ConcatNull(...) returns NULL if any argument is NULL.
+            Coalesce(ConcatNull(F("parent__parent__parent__value"), Value("\t")), Value("")),
+            Coalesce(ConcatNull(F("parent__parent__value"), Value("\t")), Value("")),
+            Coalesce(ConcatNull(F("parent__value"), Value("\t")), Value("")),
             F("value"),
             output_field=models.CharField(),
         ))

@@ -10,7 +10,6 @@ from io import BytesIO, StringIO, TextIOWrapper
 
 from django.utils.translation import gettext as _
 
-from ..api import get_tags
 from ..models import Taxonomy
 from .exceptions import EmptyCSVField, EmptyJSONField, FieldJSONError, InvalidFormat, TagParserError
 from .import_plan import TagItem

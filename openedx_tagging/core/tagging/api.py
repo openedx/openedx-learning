@@ -16,7 +16,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 from django.utils.translation import gettext as _
 
-from .data import TagData
+from .data import TagDataQuerySet
 from .models import ObjectTag, Tag, Taxonomy
 
 # Export this as part of the API
@@ -71,7 +71,7 @@ def get_taxonomies(enabled=True) -> QuerySet[Taxonomy]:
     return queryset.filter(enabled=enabled)
 
 
-def get_tags(taxonomy: Taxonomy) -> QuerySet[TagData]:
+def get_tags(taxonomy: Taxonomy) -> TagDataQuerySet:
     """
     Returns a QuerySet of all the tags in the given taxonomy.
 
@@ -81,7 +81,7 @@ def get_tags(taxonomy: Taxonomy) -> QuerySet[TagData]:
     return taxonomy.cast().get_filtered_tags()
 
 
-def get_root_tags(taxonomy: Taxonomy) -> QuerySet[TagData]:
+def get_root_tags(taxonomy: Taxonomy) -> TagDataQuerySet:
     """
     Returns a list of the root tags for the given taxonomy.
 
@@ -90,7 +90,7 @@ def get_root_tags(taxonomy: Taxonomy) -> QuerySet[TagData]:
     return taxonomy.cast().get_filtered_tags(depth=1)
 
 
-def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: str | None = None) -> QuerySet[TagData]:
+def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: str | None = None) -> TagDataQuerySet:
     """
     Returns a list of all tags that contains `search_term` of the given
     taxonomy, as well as their ancestors (so they can be displayed in a tree).
@@ -115,7 +115,7 @@ def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: str | N
 def get_children_tags(
     taxonomy: Taxonomy,
     parent_tag_value: str,
-) -> QuerySet[TagData]:
+) -> TagDataQuerySet:
     """
     Returns a QuerySet of children tags for the given parent tag.
 
