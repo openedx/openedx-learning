@@ -13,6 +13,7 @@ from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
+from .utils import pretty_format_tags
 
 
 def get_tag(value):
@@ -316,22 +317,11 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     ##################
 
-    @staticmethod
-    def _pretty_format_result(result) -> list[str]:
-        """
-        Format a result to be more human readable.
-        """
-        return [
-            f"{t['depth'] * '  '}{t['value']} ({t['parent_value']}) " +
-            f"(used: {t['usage_count']}, children: {t['child_count']})"
-            for t in result
-        ]
-
     def test_get_all(self) -> None:
         """
         Test getting all of the tags in the taxonomy, using get_filtered_tags()
         """
-        result = self._pretty_format_result(self.taxonomy.get_filtered_tags())
+        result = pretty_format_tags(self.taxonomy.get_filtered_tags())
         assert result == [
             "Archaea (None) (used: 0, children: 3)",
             "  DPANN (Archaea) (used: 0, children: 0)",
@@ -360,7 +350,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         Search the whole taxonomy (up to max depth) for a given term. Should
         return all tags that match the term as well as their ancestors.
         """
-        result = self._pretty_format_result(self.taxonomy.get_filtered_tags(search_term="ARCH"))
+        result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="ARCH"))
         assert result == [
             "Archaea (None) (used: 0, children: 3)",  # Matches the value of this root tag, ARCHaea
             "  Euryarchaeida (Archaea) (used: 0, children: 0)",  # Matches the value of this child tag
@@ -374,7 +364,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         Another search test, that matches a tag deeper in the taxonomy to check
         that all its ancestors are returned by the search.
         """
-        result = self._pretty_format_result(self.taxonomy.get_filtered_tags(search_term="chordata"))
+        result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="chordata"))
         assert result == [
             "Eukaryota (None) (used: 0, children: 5)",
             "  Animalia (Eukaryota) (used: 0, children: 7)",
@@ -432,14 +422,14 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         api.tag_object(object_id="obj03", taxonomy=self.taxonomy, tags=["Bacteria"])
         api.tag_object(object_id="obj04", taxonomy=self.taxonomy, tags=["Eubacteria"])
         # Now the API should reflect these usage counts:
-        result = self._pretty_format_result(self.taxonomy.get_filtered_tags(search_term="bacteria"))
+        result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="bacteria"))
         assert result == [
             "Bacteria (None) (used: 3, children: 2)",
             "  Archaebacteria (Bacteria) (used: 0, children: 0)",
             "  Eubacteria (Bacteria) (used: 1, children: 0)",
         ]
         # Same with depth=1, which uses a different query internally:
-        result1 = self._pretty_format_result(self.taxonomy.get_filtered_tags(search_term="bacteria", depth=1))
+        result1 = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="bacteria", depth=1))
         assert result1 == [
             "Bacteria (None) (used: 3, children: 2)",
         ]

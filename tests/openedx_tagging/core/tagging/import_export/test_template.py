@@ -13,6 +13,7 @@ from openedx_tagging.core.tagging.import_export import ParserFormat
 from openedx_tagging.core.tagging.import_export import api as import_api
 
 from .mixins import TestImportExportMixin
+from ..utils import pretty_format_tags
 
 
 @ddt.ddt
@@ -47,44 +48,36 @@ class TestImportTemplate(TestImportExportMixin, TestCase):
                 replace=True,
             ), import_api.get_last_import_log(self.taxonomy)
 
-        imported_tags = [
-            {
-                "external_id": tag.external_id,
-                "value": tag.value,
-                "parent": tag.parent.external_id if tag.parent else None,
-            }
-            for tag in get_tags(self.taxonomy)
-        ]
-        assert imported_tags == [
-            {'external_id': "ELECTRIC", 'parent': None, 'value': 'Electronic instruments'},
-            {'external_id': 'PERCUSS', 'parent': None, 'value': 'Percussion instruments'},
-            {'external_id': 'STRINGS', 'parent': None, 'value': 'String instruments'},
-            {'external_id': 'WINDS', 'parent': None, 'value': 'Wind instruments'},
-            {'external_id': 'SYNTH', 'parent': 'ELECTRIC', 'value': 'Synthesizer'},
-            {'external_id': 'THERAMIN', 'parent': 'ELECTRIC', 'value': 'Theramin'},
-            {'external_id': 'CHORD', 'parent': 'PERCUSS', 'value': 'Chordophone'},
-            {'external_id': 'BELLS', 'parent': 'PERCUSS', 'value': 'Idiophone'},
-            {'external_id': 'DRUMS', 'parent': 'PERCUSS', 'value': 'Membranophone'},
-            {'external_id': 'BOW', 'parent': 'STRINGS', 'value': 'Bowed strings'},
-            {'external_id': 'PLUCK', 'parent': 'STRINGS', 'value': 'Plucked strings'},
-            {'external_id': 'BRASS', 'parent': 'WINDS', 'value': 'Brass'},
-            {'external_id': 'WOODS', 'parent': 'WINDS', 'value': 'Woodwinds'},
-            {'external_id': 'CELLO', 'parent': 'BOW', 'value': 'Cello'},
-            {'external_id': 'VIOLIN', 'parent': 'BOW', 'value': 'Violin'},
-            {'external_id': 'TRUMPET', 'parent': 'BRASS', 'value': 'Trumpet'},
-            {'external_id': 'TUBA', 'parent': 'BRASS', 'value': 'Tuba'},
-            {'external_id': 'PIANO', 'parent': 'CHORD', 'value': 'Piano'},
+        assert pretty_format_tags(get_tags(self.taxonomy), external_id=True, usage_count=False) == [
+            'Electronic instruments (ELECTRIC) (None) (children: 2)',
+            '  Synthesizer (SYNTH) (Electronic instruments) (children: 0)',
+            '  Theramin (THERAMIN) (Electronic instruments) (children: 0)',
+            'Percussion instruments (PERCUSS) (None) (children: 3)',
+            '  Chordophone (CHORD) (Percussion instruments) (children: 1)',
+            '    Piano (PIANO) (Chordophone) (children: 0)',
+            '  Idiophone (BELLS) (Percussion instruments) (children: 2)',
+            '    Celesta (CELESTA) (Idiophone) (children: 0)',
+            '    Hi-hat (HI-HAT) (Idiophone) (children: 0)',
+            '  Membranophone (DRUMS) (Percussion instruments) (children: 2)',
+            '    Cajón (CAJÓN) (Membranophone) (children: 1)',
             # This tag is present in the import files, but it will be omitted from get_tags()
             # because it sits beyond TAXONOMY_MAX_DEPTH.
-            # {'external_id': 'PYLE', 'parent': 'CAJÓN', 'value': 'Pyle Stringed Jam Cajón'},
-            {'external_id': 'CELESTA', 'parent': 'BELLS', 'value': 'Celesta'},
-            {'external_id': 'HI-HAT', 'parent': 'BELLS', 'value': 'Hi-hat'},
-            {'external_id': 'CAJÓN', 'parent': 'DRUMS', 'value': 'Cajón'},
-            {'external_id': 'TABLA', 'parent': 'DRUMS', 'value': 'Tabla'},
-            {'external_id': 'BANJO', 'parent': 'PLUCK', 'value': 'Banjo'},
-            {'external_id': 'HARP', 'parent': 'PLUCK', 'value': 'Harp'},
-            {'external_id': 'MANDOLIN', 'parent': 'PLUCK', 'value': 'Mandolin'},
-            {'external_id': 'CLARINET', 'parent': 'WOODS', 'value': 'Clarinet'},
-            {'external_id': 'FLUTE', 'parent': 'WOODS', 'value': 'Flute'},
-            {'external_id': 'OBOE', 'parent': 'WOODS', 'value': 'Oboe'},
+            #      Pyle Stringed Jam Cajón (PYLE) (Cajón) (children: 0)
+            '    Tabla (TABLA) (Membranophone) (children: 0)',
+            'String instruments (STRINGS) (None) (children: 2)',
+            '  Bowed strings (BOW) (String instruments) (children: 2)',
+            '    Cello (CELLO) (Bowed strings) (children: 0)',
+            '    Violin (VIOLIN) (Bowed strings) (children: 0)',
+            '  Plucked strings (PLUCK) (String instruments) (children: 3)',
+            '    Banjo (BANJO) (Plucked strings) (children: 0)',
+            '    Harp (HARP) (Plucked strings) (children: 0)',
+            '    Mandolin (MANDOLIN) (Plucked strings) (children: 0)',
+            'Wind instruments (WINDS) (None) (children: 2)',
+            '  Brass (BRASS) (Wind instruments) (children: 2)',
+            '    Trumpet (TRUMPET) (Brass) (children: 0)',
+            '    Tuba (TUBA) (Brass) (children: 0)',
+            '  Woodwinds (WOODS) (Wind instruments) (children: 3)',
+            '    Clarinet (CLARINET) (Woodwinds) (children: 0)',
+            '    Flute (FLUTE) (Woodwinds) (children: 0)',
+            '    Oboe (OBOE) (Woodwinds) (children: 0)',
         ]
