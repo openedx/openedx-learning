@@ -195,6 +195,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         response = self.client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_detail_taxonomy_invalud_pk(self) -> None:
+        url = TAXONOMY_DETAIL_URL.format(pk="invalid")
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     @ddt.data(
         (None, status.HTTP_401_UNAUTHORIZED),
         ("user", status.HTTP_403_FORBIDDEN),

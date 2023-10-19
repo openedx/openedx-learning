@@ -166,6 +166,7 @@ class TaxonomyView(ModelViewSet):
 
     """
 
+    lookup_value_regex = r"\d+"
     serializer_class = TaxonomySerializer
     permission_classes = [TaxonomyObjectPermissions]
 
