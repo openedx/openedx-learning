@@ -120,11 +120,12 @@ class TagsSerializer(serializers.ModelSerializer):
         """
         if obj.children.count():
             query_params = f"?parent_tag_id={obj.id}"
+            request = self.context.get("request")
+            url_namespace = request.resolver_match.namespace  # get the namespace, usually "oel_tagging"
             url = (
-                reverse("oel_tagging:taxonomy-tags", args=[str(obj.taxonomy_id)])
+                reverse(f"{url_namespace}:taxonomy-tags", args=[str(obj.taxonomy_id)])
                 + query_params
             )
-            request = self.context.get("request")
             return request.build_absolute_uri(url)
         return None
 
