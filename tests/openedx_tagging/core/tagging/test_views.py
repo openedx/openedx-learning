@@ -1189,10 +1189,10 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data = response.data
         results = data["results"]
         assert pretty_format_tags(results, usage_count=None) == [
-            "Tag 0 (None) (children: 12)",  # First 3 results don't match but have children that match
+            "Tag 0 (None) (children: 12)",  # First 2 results don't match but have children that match
             "  Tag 1 (Tag 0) (children: 12)",
             "    Tag 11 (Tag 1) (children: 0)",
-            "  Tag 105 (Tag 0) (children: 12)",
+            "  Tag 105 (Tag 0) (children: 12)",  # Non-match but children match
             "    Tag 110 (Tag 105) (children: 0)",
             "    Tag 111 (Tag 105) (children: 0)",
             "    Tag 112 (Tag 105) (children: 0)",

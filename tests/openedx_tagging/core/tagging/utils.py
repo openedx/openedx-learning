@@ -9,6 +9,7 @@ def pretty_format_tags(result, parent=True, external_id=False, usage_count=True)
     Format the result of get_filtered_tags() to be more human readable.
 
     Also works with other wrappers around get_filtered_tags, like api.get_tags()
+    Also works with serialized TagData from the REST API.
     """
     pretty_results = []
     for t in result:
