@@ -9,7 +9,7 @@ from typing import List
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q, Value
-from django.db.models.functions import Coalesce, Concat
+from django.db.models.functions import Concat
 from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
@@ -466,10 +466,11 @@ class Taxonomy(models.Model):
             # For a root tag, we want sort_key="RootValue" and for a depth=1 tag
             # we want sort_key="RootValue\tValue". The following does that, since
             # ConcatNull(...) returns NULL if any argument is NULL.
-            Coalesce(ConcatNull(F("parent__parent__parent__value"), Value("\t")), Value("")),
-            Coalesce(ConcatNull(F("parent__parent__value"), Value("\t")), Value("")),
-            Coalesce(ConcatNull(F("parent__value"), Value("\t")), Value("")),
+            ConcatNull(F("parent__parent__parent__value"), Value("\t")),
+            ConcatNull(F("parent__parent__value"), Value("\t")),
+            ConcatNull(F("parent__value"), Value("\t")),
             F("value"),
+            Value("\t"),  # We also need the '\t' separator character at the end, or MySQL will sort things wrong
             output_field=models.CharField(),
         ))
         # Add the parent value
