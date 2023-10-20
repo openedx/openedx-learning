@@ -197,63 +197,29 @@ class TagsForSearchSerializer(TagsWithSubTagsSerializer):
 
 class TaxonomyTagCreateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
-    Serializer of the body for the Taxonomy Tags CREATE view
+    Serializer of the body for the Taxonomy Tags CREATE request
     """
 
     tag = serializers.CharField(required=True)
-    parent_tag_value = serializers.CharField(
-        source='parent.value', required=False
-    )
+    parent_tag_value = serializers.CharField(required=False)
     external_id = serializers.CharField(required=False)
-
-    def validate_parent_tag_value(self, value):
-        """
-        Check that the provided parent Tag exists based on the value
-        """
-        valid = Tag.objects.filter(value__iexact=value).exists()
-        if not valid:
-            raise serializers.ValidationError("Invalid `parent_tag_value` provided")
-
-        return value
 
 
 class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
-    Serializer of the body for the Taxonomy Tags UPDATE view
+    Serializer of the body for the Taxonomy Tags UPDATE request
     """
 
-    tag = serializers.CharField(source="value", required=True)
+    tag = serializers.CharField(required=True)
     updated_tag_value = serializers.CharField(required=True)
-
-    def validate_tag(self, value):
-        """
-        Check that the provided Tag exists based on the value
-        """
-
-        valid = Tag.objects.filter(value__iexact=value).exists()
-        if not valid:
-            raise serializers.ValidationError("Invalid `tag` provided")
-
-        return value
 
 
 class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
-    Serializer of the body for the Taxonomy Tags DELETE view
+    Serializer of the body for the Taxonomy Tags DELETE request
     """
 
     tags = serializers.ListField(
         child=serializers.CharField(), required=True
     )
     with_subtags = serializers.BooleanField(required=False)
-
-    def validate_tags(self, value):
-        """
-        Check that the provided Tags exists based on the values
-        """
-
-        valid = Tag.objects.filter(value__in=value).count() == len(value)
-        if not valid:
-            raise serializers.ValidationError("One or more tag in `tags` is invalid")
-
-        return value

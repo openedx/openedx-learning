@@ -416,14 +416,14 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
     View to list/create/update/delete tags of a taxonomy.
 
     **List Query Parameters**
-        * pk (required) - The pk of the taxonomy to retrieve tags.
+        * id (required) - The ID of the taxonomy to retrieve tags.
         * parent_tag_id (optional) - Id of the tag to retrieve children tags.
         * page (optional) - Page number (default: 1)
         * page_size (optional) - Number of items per page (default: 10)
 
     **List Example Requests**
-        GET api/tagging/v1/taxonomy/:pk/tags                                        - Get tags of taxonomy
-        GET api/tagging/v1/taxonomy/:pk/tags?parent_tag_id=30                       - Get children tags of tag
+        GET api/tagging/v1/taxonomy/:id/tags                                        - Get tags of taxonomy
+        GET api/tagging/v1/taxonomy/:id/tags?parent_tag_id=30                       - Get children tags of tag
 
     **List Query Returns**
         * 200 - Success
@@ -432,7 +432,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         * 404 - Taxonomy not found
 
     **Create Query Parameters**
-        * pk (required) - The pk of the taxonomy to create a Tag for
+        * id (required) - The ID of the taxonomy to create a Tag for
 
     **Create Request Body**
         * tag (required): The value of the Tag that should be added to
@@ -442,7 +442,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         * extenal_id (optional): The external id for the new Tag
 
     **Create Example Requests**
-        POST api/tagging/v1/taxonomy/:pk/tags                                       - Create a Tag in taxonomy
+        POST api/tagging/v1/taxonomy/:id/tags                                       - Create a Tag in taxonomy
         {
             "value": "New Tag",
             "parent_tag_value": "Parent Tag"
@@ -456,19 +456,14 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         * 404 - Taxonomy not found
 
     **Update Query Parameters**
-        * pk (required) - The pk of the taxonomy to update a Tag in
+        * id (required) - The ID of the taxonomy to update a Tag in
 
     **Update Request Body**
         * tag (required): The value (identifier) of the Tag to be updated
         * updated_tag_value (required): The updated value of the Tag
 
     **Update Example Requests**
-        PUT api/tagging/v1/taxonomy/:pk/tags                                        - Update a Tag in Taxonomy
-        {
-            "tag": "Tag 1",
-            "updated_tag_value": "Updated Tag Value"
-        }
-        PATCH api/tagging/v1/taxonomy/:pk/tags                                      - Update a Tag in Taxonomy
+        PATCH api/tagging/v1/taxonomy/:id/tags                                      - Update a Tag in Taxonomy
         {
             "tag": "Tag 1",
             "updated_tag_value": "Updated Tag Value"
@@ -481,7 +476,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         * 404 - Taxonomy, Tag or Parent Tag not found
 
     **Delete Query Parameters**
-        * pk (required) - The pk of the taxonomy to Delete Tag(s) in
+        * id (required) - The ID of the taxonomy to Delete Tag(s) in
 
     **Delete Request Body**
         * tags (required): The values (identifiers) of Tags that should be
@@ -491,7 +486,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
                                    set to `True`. Defaults to `False`.
 
     **Delete Example Requests**
-        DELETE api/tagging/v1/taxonomy/:pk/tags                                     - Delete Tag(s) in Taxonomy
+        DELETE api/tagging/v1/taxonomy/:id/tags                                     - Delete Tag(s) in Taxonomy
         {
             "tags": ["Tag 1", "Tag 2", "Tag 3"],
             "with_subtags": True

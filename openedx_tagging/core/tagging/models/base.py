@@ -370,6 +370,12 @@ class Taxonomy(models.Model):
 
         parent = None
         if parent_tag_value:
+            # Check if parent tag is valid
+            if not Tag.objects.filter(value__iexact=parent_tag_value).exists():
+                raise ValueError("Invalid `parent_tag_value` provided")
+
+            # Get parent tag from taxonomy, raises Tag.DoesNotExist if doesn't
+            # belong to taxonomy
             parent = self.tag_set.get(value__iexact=parent_tag_value)
 
         tag = Tag.objects.create(
@@ -395,7 +401,12 @@ class Taxonomy(models.Model):
                 "update_tag() doesn't work for system defined taxonomies. They cannot be modified."
             )
 
-        # Update Tag instance with new value
+        # Check if tag is valid
+        if not Tag.objects.filter(value__iexact=tag).exists():
+            raise ValueError("Invalid `tag` provided")
+
+        # Update Tag instance with new value, raises Tag.DoesNotExist if
+        # tag doesn't belong to taxonomy
         tag_to_update = self.tag_set.get(value__iexact=tag)
         tag_to_update.value = new_value
         tag_to_update.save()
@@ -419,11 +430,15 @@ class Taxonomy(models.Model):
                 "delete_tags() doesn't work for system defined taxonomies. They cannot be modified."
             )
 
+        # Check if tags provided are valid
+        if not Tag.objects.filter(value__in=tags).count() == len(tags):
+            raise ValueError("One or more tag in `tags` is invalid")
+
         tags_to_delete = self.tag_set.filter(value__in=tags)
 
         if tags_to_delete.count() != len(tags):
-            # If they do not match that means there is a Tag ID in the provided
-            # list that is either invalid or does not belong to this Taxonomy
+            # If they do not match that means there is one or more Tag ID(s)
+            # provided that do not belong to this Taxonomy
             raise ValueError("Invalid tag id provided or tag id does not belong to taxonomy")
 
         # Check if any Tag contains subtags (children)
