@@ -1354,7 +1354,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             self.small_taxonomy_url, create_data, format="json"
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_create_tag_in_taxonomy_with_parent_tag_in_other_taxonomy(self):
         self.client.force_authenticate(user=self.staff)
@@ -1541,7 +1541,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             self.small_taxonomy_url, update_data, format="json"
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_update_tag_in_taxonomy_with_tag_in_other_taxonomy(self):
         self.client.force_authenticate(user=self.staff)

@@ -370,10 +370,6 @@ class Taxonomy(models.Model):
 
         parent = None
         if parent_tag_value:
-            # Check if parent tag is valid
-            if not Tag.objects.filter(value__iexact=parent_tag_value).exists():
-                raise ValueError("Invalid `parent_tag_value` provided")
-
             # Get parent tag from taxonomy, raises Tag.DoesNotExist if doesn't
             # belong to taxonomy
             parent = self.tag_set.get(value__iexact=parent_tag_value)
@@ -401,10 +397,6 @@ class Taxonomy(models.Model):
                 "update_tag() doesn't work for system defined taxonomies. They cannot be modified."
             )
 
-        # Check if tag is valid
-        if not Tag.objects.filter(value__iexact=tag).exists():
-            raise ValueError("Invalid `tag` provided")
-
         # Update Tag instance with new value, raises Tag.DoesNotExist if
         # tag doesn't belong to taxonomy
         tag_to_update = self.tag_set.get(value__iexact=tag)
@@ -429,10 +421,6 @@ class Taxonomy(models.Model):
             raise ValueError(
                 "delete_tags() doesn't work for system defined taxonomies. They cannot be modified."
             )
-
-        # Check if tags provided are valid
-        if not Tag.objects.filter(value__in=tags).count() == len(tags):
-            raise ValueError("One or more tag in `tags` is invalid")
 
         tags_to_delete = self.tag_set.filter(value__in=tags)
 
