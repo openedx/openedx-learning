@@ -5,17 +5,20 @@ from __future__ import annotations
 
 from django.db import models
 from django.http import Http404, HttpResponse
-from rest_framework import mixins
+from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from openedx_tagging.core.tagging.models.base import Tag
 
 from ...api import (
+    TagDoesNotExist,
+    add_tag_to_taxonomy,
     create_taxonomy,
+    delete_tags_from_taxonomy,
     get_children_tags,
     get_object_tags,
     get_root_tags,
@@ -23,13 +26,14 @@ from ...api import (
     get_taxonomy,
     search_tags,
     tag_object,
+    update_tag_in_taxonomy,
 )
 from ...import_export.api import export_tags
 from ...import_export.parsers import ParserFormat
 from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import SEARCH_TAGS_THRESHOLD, TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
-from .permissions import ObjectTagObjectPermissions, TagListPermissions, TaxonomyObjectPermissions
+from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
     ObjectTagSerializer,
@@ -41,6 +45,9 @@ from .serializers import (
     TaxonomyExportQueryParamsSerializer,
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
+    TaxonomyTagCreateBodySerializer,
+    TaxonomyTagDeleteBodySerializer,
+    TaxonomyTagUpdateBodySerializer,
 )
 from .utils import view_auth_classes
 
@@ -395,7 +402,7 @@ class ObjectTagView(
         tags = body.data.get("tags", [])
         try:
             tag_object(taxonomy, tags, object_id)
-        except Tag.DoesNotExist as e:
+        except TagDoesNotExist as e:
             raise ValidationError from e
         except ValueError as e:
             raise ValidationError from e
@@ -404,28 +411,96 @@ class ObjectTagView(
 
 
 @view_auth_classes
-class TaxonomyTagsView(ListAPIView):
+class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
     """
-    View to list tags of a taxonomy.
+    View to list/create/update/delete tags of a taxonomy.
 
     **List Query Parameters**
-        * pk (required) - The pk of the taxonomy to retrieve tags.
+        * id (required) - The ID of the taxonomy to retrieve tags.
         * parent_tag_id (optional) - Id of the tag to retrieve children tags.
         * page (optional) - Page number (default: 1)
         * page_size (optional) - Number of items per page (default: 10)
 
     **List Example Requests**
-        GET api/tagging/v1/taxonomy/:pk/tags                                        - Get tags of taxonomy
-        GET api/tagging/v1/taxonomy/:pk/tags?parent_tag_id=30                       - Get children tags of tag
+        GET api/tagging/v1/taxonomy/:id/tags                                        - Get tags of taxonomy
+        GET api/tagging/v1/taxonomy/:id/tags?parent_tag_id=30                       - Get children tags of tag
 
     **List Query Returns**
         * 200 - Success
         * 400 - Invalid query parameter
         * 403 - Permission denied
         * 404 - Taxonomy not found
+
+    **Create Query Parameters**
+        * id (required) - The ID of the taxonomy to create a Tag for
+
+    **Create Request Body**
+        * tag (required): The value of the Tag that should be added to
+          the Taxonomy
+        * parent_tag_value (optional): The value of the parent tag that the new
+          Tag should fall under
+        * extenal_id (optional): The external id for the new Tag
+
+    **Create Example Requests**
+        POST api/tagging/v1/taxonomy/:id/tags                                       - Create a Tag in taxonomy
+        {
+            "value": "New Tag",
+            "parent_tag_value": "Parent Tag"
+            "external_id": "abc123",
+        }
+
+    **Create Query Returns**
+        * 201 - Success
+        * 400 - Invalid parameters provided
+        * 403 - Permission denied
+        * 404 - Taxonomy not found
+
+    **Update Query Parameters**
+        * id (required) - The ID of the taxonomy to update a Tag in
+
+    **Update Request Body**
+        * tag (required): The value (identifier) of the Tag to be updated
+        * updated_tag_value (required): The updated value of the Tag
+
+    **Update Example Requests**
+        PATCH api/tagging/v1/taxonomy/:id/tags                                      - Update a Tag in Taxonomy
+        {
+            "tag": "Tag 1",
+            "updated_tag_value": "Updated Tag Value"
+        }
+
+    **Update Query Returns**
+        * 200 - Success
+        * 400 - Invalid parameters provided
+        * 403 - Permission denied
+        * 404 - Taxonomy, Tag or Parent Tag not found
+
+    **Delete Query Parameters**
+        * id (required) - The ID of the taxonomy to Delete Tag(s) in
+
+    **Delete Request Body**
+        * tags (required): The values (identifiers) of Tags that should be
+                           deleted from Taxonomy
+        * with_subtags (optional): If a Tag in the provided ids contains
+                                   children (subtags), deletion will fail unless
+                                   set to `True`. Defaults to `False`.
+
+    **Delete Example Requests**
+        DELETE api/tagging/v1/taxonomy/:id/tags                                     - Delete Tag(s) in Taxonomy
+        {
+            "tags": ["Tag 1", "Tag 2", "Tag 3"],
+            "with_subtags": True
+        }
+
+    **Delete Query Returns**
+        * 200 - Success
+        * 400 - Invalid parameters provided
+        * 403 - Permission denied
+        * 404 - Taxonomy not found
+
     """
 
-    permission_classes = [TagListPermissions]
+    permission_classes = [TagObjectPermissions]
     pagination_enabled = True
 
     def __init__(self):
@@ -558,7 +633,7 @@ class TaxonomyTagsView(ListAPIView):
 
             return result
 
-    def get_queryset(self) -> list[Tag]:  # type: ignore[override]
+    def get_queryset(self) -> models.QuerySet[Tag]:  # type: ignore[override]
         """
         Builds and returns the queryset to be paginated.
 
@@ -576,7 +651,103 @@ class TaxonomyTagsView(ListAPIView):
             search_term=search_term,
         )
 
+        # Convert the results back to a QuerySet for permissions to apply
+        # Due to the conversion we lose the populated `sub_tags` attribute,
+        # in the case of using the special search serializer so we
+        # need to repopulate it again
+        if self.serializer_class == TagsForSearchSerializer:
+            results_dict = {tag.id: tag for tag in result}
+
+            result_queryset = Tag.objects.filter(id__in=results_dict.keys())
+
+            for tag in result_queryset:
+                sub_tags = results_dict[tag.id].sub_tags  # type: ignore[attr-defined]
+                tag.sub_tags = sub_tags  # type: ignore[attr-defined]
+
+        else:
+            result_queryset = Tag.objects.filter(id__in=[tag.id for tag in result])
+
         # This function is not called automatically
         self.pagination_class = self.get_pagination_class()
 
-        return result
+        return result_queryset
+
+    def post(self, request, *args, **kwargs):
+        """
+        Creates new Tag in Taxonomy and returns the newly created Tag.
+        """
+        pk = self.kwargs.get("pk")
+        taxonomy = self.get_taxonomy(pk)
+
+        body = TaxonomyTagCreateBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        tag = body.data.get("tag")
+        parent_tag_value = body.data.get("parent_tag_value", None)
+        external_id = body.data.get("external_id", None)
+
+        try:
+            new_tag = add_tag_to_taxonomy(
+                taxonomy, tag, parent_tag_value, external_id
+            )
+        except TagDoesNotExist as e:
+            raise Http404("Parent Tag not found") from e
+        except ValueError as e:
+            raise ValidationError(e) from e
+
+        self.serializer_class = TagsSerializer
+        serializer_context = self.get_serializer_context()
+        return Response(
+            self.serializer_class(new_tag, context=serializer_context).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    def update(self, request, *args, **kwargs):
+        """
+        Updates a Tag that belongs to the Taxonomy and returns it.
+        Currently only updating the Tag value is supported.
+        """
+        pk = self.kwargs.get("pk")
+        taxonomy = self.get_taxonomy(pk)
+
+        body = TaxonomyTagUpdateBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        tag = body.data.get("tag")
+        updated_tag_value = body.data.get("updated_tag_value")
+
+        try:
+            updated_tag = update_tag_in_taxonomy(taxonomy, tag, updated_tag_value)
+        except TagDoesNotExist as e:
+            raise Http404("Tag not found") from e
+        except ValueError as e:
+            raise ValidationError(e) from e
+
+        self.serializer_class = TagsSerializer
+        serializer_context = self.get_serializer_context()
+        return Response(
+            self.serializer_class(updated_tag, context=serializer_context).data,
+            status=status.HTTP_200_OK
+        )
+
+    def delete(self, request, *args, **kwargs):
+        """
+        Deletes Tag(s) in Taxonomy. If any of the Tags have children and
+        the `with_subtags` is not set to `True` it will fail, otherwise
+        the sub-tags will be deleted as well.
+        """
+        pk = self.kwargs.get("pk")
+        taxonomy = self.get_taxonomy(pk)
+
+        body = TaxonomyTagDeleteBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        tags = body.data.get("tags")
+        with_subtags = body.data.get("with_subtags")
+
+        try:
+            delete_tags_from_taxonomy(taxonomy, tags, with_subtags)
+        except ValueError as e:
+            raise ValidationError(e) from e
+
+        return Response(status=status.HTTP_200_OK)

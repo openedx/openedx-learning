@@ -135,6 +135,7 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
         if changed:
             object_tag.save()
             num_changed += 1
+
     return num_changed
 
 
@@ -315,3 +316,57 @@ def autocomplete_tags(
         # remove repeats
         .distinct()
     )
+
+
+def add_tag_to_taxonomy(
+    taxonomy: Taxonomy,
+    tag: str,
+    parent_tag_value: str | None = None,
+    external_id: str | None = None
+) -> Tag:
+    """
+    Adds a new Tag to provided Taxonomy. If a Tag already exists in the
+    Taxonomy, an exception is raised, otherwise the newly created
+    Tag is returned
+    """
+    taxonomy = taxonomy.cast()
+    new_tag = taxonomy.add_tag(tag, parent_tag_value, external_id)
+
+    # Resync all related ObjectTags after creating new Tag to
+    # to ensure any existing ObjectTags with the same value will
+    # be linked to the new Tag
+    object_tags = taxonomy.objecttag_set.all()
+    resync_object_tags(object_tags)
+
+    return new_tag
+
+
+def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: str, new_value: str):
+    """
+    Update a Tag that belongs to a Taxonomy. The related ObjectTags are
+    updated accordingly.
+
+    Currently only supports updating the Tag value.
+    """
+    taxonomy = taxonomy.cast()
+    updated_tag = taxonomy.update_tag(tag, new_value)
+
+    # Resync all related ObjectTags to update to the new Tag value
+    object_tags = taxonomy.objecttag_set.all()
+    resync_object_tags(object_tags)
+
+    return updated_tag
+
+
+def delete_tags_from_taxonomy(
+    taxonomy: Taxonomy,
+    tags: list[str],
+    with_subtags: bool
+):
+    """
+    Delete Tags that belong to a Taxonomy. If any of the Tags have children and
+    the `with_subtags` is not set to `True` it will fail, otherwise
+    the sub-tags will be deleted as well.
+    """
+    taxonomy = taxonomy.cast()
+    taxonomy.delete_tags(tags, with_subtags)

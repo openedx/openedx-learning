@@ -141,12 +141,12 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
     )
     def test_tag_free_text_taxonomy(self, perm):
         """
-        Taxonomy administrators cannot modify tags on a free-text Taxonomy
+        Taxonomy administrators can modify any Tag, even those associated with a free-text Taxonomy
         """
         self.taxonomy.allow_free_text = True
         self.taxonomy.save()
         assert self.superuser.has_perm(perm, self.bacteria)
-        assert not self.staff.has_perm(perm, self.bacteria)
+        assert self.staff.has_perm(perm, self.bacteria)
         assert not self.learner.has_perm(perm, self.bacteria)
 
     @ddt.data(

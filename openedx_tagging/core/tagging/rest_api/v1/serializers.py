@@ -1,7 +1,6 @@
 """
 API Serializers for taxonomies
 """
-
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
@@ -110,6 +109,7 @@ class TagsSerializer(serializers.ModelSerializer):
             "value",
             "taxonomy_id",
             "parent_id",
+            "external_id",
             "sub_tags_link",
             "children_count",
         )
@@ -120,11 +120,12 @@ class TagsSerializer(serializers.ModelSerializer):
         """
         if obj.children.count():
             query_params = f"?parent_tag_id={obj.id}"
+            request = self.context.get("request")
+            url_namespace = request.resolver_match.namespace  # get the namespace, usually "oel_tagging"
             url = (
-                reverse("oel_tagging:taxonomy-tags", args=[str(obj.taxonomy_id)])
+                reverse(f"{url_namespace}:taxonomy-tags", args=[str(obj.taxonomy_id)])
                 + query_params
             )
-            request = self.context.get("request")
             return request.build_absolute_uri(url)
         return None
 
@@ -192,3 +193,33 @@ class TagsForSearchSerializer(TagsWithSubTagsSerializer):
         Returns the number of child tags of the given tag.
         """
         return len(obj.sub_tags)
+
+
+class TaxonomyTagCreateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags CREATE request
+    """
+
+    tag = serializers.CharField(required=True)
+    parent_tag_value = serializers.CharField(required=False)
+    external_id = serializers.CharField(required=False)
+
+
+class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags UPDATE request
+    """
+
+    tag = serializers.CharField(required=True)
+    updated_tag_value = serializers.CharField(required=True)
+
+
+class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags DELETE request
+    """
+
+    tags = serializers.ListField(
+        child=serializers.CharField(), required=True
+    )
+    with_subtags = serializers.BooleanField(required=False)
