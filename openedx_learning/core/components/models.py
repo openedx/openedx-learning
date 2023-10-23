@@ -157,7 +157,7 @@ class ComponentVersion(PublishableEntityVersionMixin):
 
     # The raw_contents hold the actual interesting data associated with this
     # ComponentVersion.
-    raw_contents = models.ManyToManyField(
+    raw_contents: models.ManyToManyField[RawContent, ComponentVersionRawContent] = models.ManyToManyField(
         RawContent,
         through="ComponentVersionRawContent",
         related_name="component_versions",
