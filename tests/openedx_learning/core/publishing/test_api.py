@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from openedx_learning.core.publishing import api as publishing_api
-from openedx_learning.core.publishing.models import Draft
+
 
 class CreateLearningPackageTestCase(TestCase):
     """
@@ -81,6 +81,9 @@ class CreateLearningPackageTestCase(TestCase):
 
 
 class DraftTestCase(TestCase):
+    """
+    Test basic operations with Drafts.
+    """
 
     def test_draft_lifecycle(self):
         """

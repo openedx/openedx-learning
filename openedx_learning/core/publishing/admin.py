@@ -5,10 +5,7 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from openedx_learning.lib.admin_utils import (
-    one_to_one_related_model_html,
-    ReadOnlyModelAdmin,
-)
+from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin, one_to_one_related_model_html
 
 from .models import LearningPackage, PublishableEntity, Published, PublishLog, PublishLogRecord
 
@@ -90,10 +87,28 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         "created_by",
     ]
     list_filter = ["learning_package"]
-
-    fields = list_display + ["see_also"]
-    readonly_fields = fields
     search_fields = ["key", "uuid"]
+
+    fields = [
+        "key",
+        "draft_version",
+        "published_version",
+        "uuid",
+        "learning_package",
+        "created",
+        "created_by",
+        "see_also",
+    ]
+    readonly_fields = [
+        "key",
+        "draft_version",
+        "published_version",
+        "uuid",
+        "learning_package",
+        "created",
+        "created_by",
+        "see_also",
+    ]
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)

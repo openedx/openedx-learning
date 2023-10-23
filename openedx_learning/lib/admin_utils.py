@@ -3,9 +3,8 @@ Convenience utilities for the Django Admin.
 """
 from django.contrib import admin
 from django.db.models.fields.reverse_related import OneToOneRel
-from django.urls import reverse, NoReverseMatch
+from django.urls import NoReverseMatch, reverse
 from django.utils.html import format_html, format_html_join
-from django.utils.safestring import mark_safe
 
 
 class ReadOnlyModelAdmin(admin.ModelAdmin):
@@ -49,7 +48,7 @@ def one_to_one_related_model_html(model_obj):
     over all models that have a OneToOneField to the passe din``model_obj``.
     This allows us to preserve our dependency boundaries within openedx-learning
     and accomodate any third party apps that might further extend these models.
-    
+
     This will output a list with one entry for each related field.
 
     * If the field's value is None, we output f"{field_name}: -"

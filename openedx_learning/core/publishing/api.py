@@ -95,7 +95,7 @@ def create_publishable_entity_version(
         )
         Draft.objects.update_or_create(
             entity_id=entity_id,
-            defaults=dict(version=version),
+            defaults={"version": version},
         )
     return version
 
@@ -193,10 +193,10 @@ def get_draft_version(publishable_entity_id: int) -> PublishableEntityVersion | 
     except Draft.DoesNotExist:
         # No draft was ever created.
         return None
-    
+
     # draft.version could be None if it was set that way by set_draft_version.
     # Setting the Draft.version to None is how we show that we've "deleted" the
-    # content in Studio. 
+    # content in Studio.
     return draft.version
 
 
