@@ -128,7 +128,7 @@ This repo is in a very experimental state. Discussion using GitHub Issues is wel
 Reporting Security Issues
 -------------------------
 
-Please do not report security issues in public. Please email security@edx.org.
+Please do not report security issues in public. Please email security@openedx.org.
 
 Help
 ----
