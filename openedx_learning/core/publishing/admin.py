@@ -5,7 +5,10 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
+from openedx_learning.lib.admin_utils import (
+    one_to_one_related_model_html,
+    ReadOnlyModelAdmin,
+)
 
 from .models import LearningPackage, PublishableEntity, Published, PublishLog, PublishLogRecord
 
@@ -73,11 +76,11 @@ class PublishLogAdmin(ReadOnlyModelAdmin):
 
 
 @admin.register(PublishableEntity)
-class APublishableEntityAdmin(ReadOnlyModelAdmin):
+class PublishableEntityAdmin(ReadOnlyModelAdmin):
     """
     Read-only admin view for Publishable Entities
     """
-    fields = (
+    list_display = [
         "key",
         "draft_version",
         "published_version",
@@ -85,10 +88,11 @@ class APublishableEntityAdmin(ReadOnlyModelAdmin):
         "learning_package",
         "created",
         "created_by",
-    )
-    readonly_fields = fields
-    list_display = fields
+    ]
     list_filter = ["learning_package"]
+
+    fields = list_display + ["see_also"]
+    readonly_fields = fields
     search_fields = ["key", "uuid"]
 
     def get_queryset(self, request):
@@ -96,6 +100,9 @@ class APublishableEntityAdmin(ReadOnlyModelAdmin):
         return queryset.select_related(
             "learning_package", "published__version",
         )
+
+    def see_also(self, entity):
+        return one_to_one_related_model_html(entity)
 
     def draft_version(self, entity):
         if entity.draft.version:
