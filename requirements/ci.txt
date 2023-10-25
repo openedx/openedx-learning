@@ -38,5 +38,5 @@ typing-extensions==4.8.0
     # via
     #   grimp
     #   import-linter
-virtualenv==20.24.5
+virtualenv==20.24.6
     # via tox

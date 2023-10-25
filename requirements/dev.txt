@@ -90,7 +90,7 @@ coverage[toml]==7.3.2
     #   -r requirements/quality.txt
     #   coverage
     #   pytest-cov
-cryptography==41.0.4
+cryptography==41.0.5
     # via
     #   -r requirements/quality.txt
     #   pyjwt
@@ -129,7 +129,7 @@ django-debug-toolbar==4.2.0
     # via
     #   -r requirements/dev.in
     #   -r requirements/quality.txt
-django-stubs==4.2.5
+django-stubs==4.2.6
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
@@ -165,7 +165,7 @@ edx-drf-extensions==8.12.0
     # via -r requirements/quality.txt
 edx-i18n-tools==1.3.0
     # via -r requirements/dev.in
-edx-lint==5.3.4
+edx-lint==5.3.6
     # via -r requirements/quality.txt
 edx-opaque-keys==2.5.1
     # via
@@ -261,7 +261,6 @@ more-itertools==10.1.0
 mypy==1.6.1
     # via
     #   -r requirements/quality.txt
-    #   django-stubs
     #   djangorestframework-stubs
 mypy-extensions==1.0.0
     # via
@@ -355,7 +354,7 @@ pylint-celery==0.3
     # via
     #   -r requirements/quality.txt
     #   edx-lint
-pylint-django==2.5.4
+pylint-django==2.5.5
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -376,7 +375,7 @@ pyproject-hooks==1.0.0
     # via
     #   -r requirements/pip-tools.txt
     #   build
-pytest==7.4.2
+pytest==7.4.3
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -485,9 +484,6 @@ tox==3.28.0
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/ci.txt
-    #   tox-battery
-tox-battery==0.6.2
-    # via -r requirements/dev.in
 twine==4.0.2
     # via -r requirements/quality.txt
 types-pytz==2023.3.1.1
@@ -536,7 +532,7 @@ vine==5.0.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.24.5
+virtualenv==20.24.6
     # via
     #   -r requirements/ci.txt
     #   tox
