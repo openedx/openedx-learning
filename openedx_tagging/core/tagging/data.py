@@ -3,7 +3,7 @@ Data models used by openedx-tagging
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict, NotRequired
 
 from django.db.models import QuerySet
 from typing_extensions import TypeAlias
@@ -23,8 +23,8 @@ class TagData(TypedDict):
     child_count: int
     depth: int
     parent_value: str | None
-    # Note: usage_count may not actually be present but there's no way to indicate that w/ python types at the moment
-    usage_count: int
+    # Note: usage_count may or may not be present, depending on the request.
+    usage_count: NotRequired[int]
     # Internal database ID, if any. Generally should not be used; prefer 'value' which is unique within each taxonomy.
     _id: int | None
 
