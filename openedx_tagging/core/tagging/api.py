@@ -90,7 +90,12 @@ def get_root_tags(taxonomy: Taxonomy) -> TagDataQuerySet:
     return taxonomy.cast().get_filtered_tags(depth=1)
 
 
-def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: str | None = None) -> TagDataQuerySet:
+def search_tags(
+    taxonomy: Taxonomy,
+    search_term: str,
+    exclude_object_id: str | None = None,
+    include_counts: bool = False,
+) -> TagDataQuerySet:
     """
     Returns a list of all tags that contains `search_term` of the given
     taxonomy, as well as their ancestors (so they can be displayed in a tree).
@@ -108,7 +113,11 @@ def search_tags(taxonomy: Taxonomy, search_term: str, exclude_object_id: str | N
                 "_value", flat=True
             )
         )
-    qs = taxonomy.cast().get_filtered_tags(search_term=search_term, excluded_values=excluded_values)
+    qs = taxonomy.cast().get_filtered_tags(
+        search_term=search_term,
+        excluded_values=excluded_values,
+        include_counts=include_counts,
+    )
     return qs
 
 

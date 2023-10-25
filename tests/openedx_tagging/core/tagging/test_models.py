@@ -237,7 +237,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         Test basic retrieval of tags one level below the "Eukaryota" root tag in
         the closed taxonomy, using get_filtered_tags(). With counts included.
         """
-        result = list(self.taxonomy.get_filtered_tags(depth=1, parent_tag_value="Eukaryota"))
+        result = list(self.taxonomy.get_filtered_tags(depth=1, parent_tag_value="Eukaryota", include_counts=True))
         common_fields = {"depth": 1, "parent_value": "Eukaryota", "usage_count": 0, "external_id": None}
         for r in result:
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
@@ -256,7 +256,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         "Eukaryota" root tag in the closed taxonomy, using get_filtered_tags().
         """
         result = list(self.taxonomy.get_filtered_tags(depth=1, parent_tag_value="Animalia"))
-        common_fields = {"depth": 2, "parent_value": "Animalia", "usage_count": 0, "external_id": None}
+        common_fields = {"depth": 2, "parent_value": "Animalia", "external_id": None}
         for r in result:
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
@@ -274,7 +274,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         Filter the root tags to only those that match a search term
         """
-        result = list(self.taxonomy.get_filtered_tags(depth=1, search_term="ARCH"))
+        result = list(self.taxonomy.get_filtered_tags(depth=1, search_term="ARCH", include_counts=True))
         assert result == [
             {
                 "value": "Archaea",
@@ -298,7 +298,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 "value": "Archaebacteria",
                 "child_count": 0,
                 "depth": 1,
-                "usage_count": 0,
                 "parent_value": "Bacteria",
                 "external_id": None,
                 "_id": 5,  # These IDs are hard-coded in the test fixture file
@@ -331,26 +330,26 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = pretty_format_tags(self.taxonomy.get_filtered_tags())
         assert result == [
-            "Archaea (None) (used: 0, children: 3)",
-            "  DPANN (Archaea) (used: 0, children: 0)",
-            "  Euryarchaeida (Archaea) (used: 0, children: 0)",
-            "  Proteoarchaeota (Archaea) (used: 0, children: 0)",
-            "Bacteria (None) (used: 0, children: 2)",
-            "  Archaebacteria (Bacteria) (used: 0, children: 0)",
-            "  Eubacteria (Bacteria) (used: 0, children: 0)",
-            "Eukaryota (None) (used: 0, children: 5)",
-            "  Animalia (Eukaryota) (used: 0, children: 7)",
-            "    Arthropoda (Animalia) (used: 0, children: 0)",
-            "    Chordata (Animalia) (used: 0, children: 1)",  # note this has a child but the child is not included
-            "    Cnidaria (Animalia) (used: 0, children: 0)",
-            "    Ctenophora (Animalia) (used: 0, children: 0)",
-            "    Gastrotrich (Animalia) (used: 0, children: 0)",
-            "    Placozoa (Animalia) (used: 0, children: 0)",
-            "    Porifera (Animalia) (used: 0, children: 0)",
-            "  Fungi (Eukaryota) (used: 0, children: 0)",
-            "  Monera (Eukaryota) (used: 0, children: 0)",
-            "  Plantae (Eukaryota) (used: 0, children: 0)",
-            "  Protista (Eukaryota) (used: 0, children: 0)",
+            "Archaea (None) (children: 3)",
+            "  DPANN (Archaea) (children: 0)",
+            "  Euryarchaeida (Archaea) (children: 0)",
+            "  Proteoarchaeota (Archaea) (children: 0)",
+            "Bacteria (None) (children: 2)",
+            "  Archaebacteria (Bacteria) (children: 0)",
+            "  Eubacteria (Bacteria) (children: 0)",
+            "Eukaryota (None) (children: 5)",
+            "  Animalia (Eukaryota) (children: 7)",
+            "    Arthropoda (Animalia) (children: 0)",
+            "    Chordata (Animalia) (children: 1)",  # note this has a child but the child is not included
+            "    Cnidaria (Animalia) (children: 0)",
+            "    Ctenophora (Animalia) (children: 0)",
+            "    Gastrotrich (Animalia) (children: 0)",
+            "    Placozoa (Animalia) (children: 0)",
+            "    Porifera (Animalia) (children: 0)",
+            "  Fungi (Eukaryota) (children: 0)",
+            "  Monera (Eukaryota) (children: 0)",
+            "  Plantae (Eukaryota) (children: 0)",
+            "  Protista (Eukaryota) (children: 0)",
         ]
 
     def test_search(self) -> None:
@@ -360,11 +359,11 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="ARCH"))
         assert result == [
-            "Archaea (None) (used: 0, children: 3)",  # Matches the value of this root tag, ARCHaea
-            "  Euryarchaeida (Archaea) (used: 0, children: 0)",  # Matches the value of this child tag
-            "  Proteoarchaeota (Archaea) (used: 0, children: 0)",  # Matches the value of this child tag
-            "Bacteria (None) (used: 0, children: 2)",  # Does not match this tag but matches a descendant:
-            "  Archaebacteria (Bacteria) (used: 0, children: 0)",  # Matches the value of this child tag
+            "Archaea (None) (children: 3)",  # Matches the value of this root tag, ARCHaea
+            "  Euryarchaeida (Archaea) (children: 0)",  # Matches the value of this child tag
+            "  Proteoarchaeota (Archaea) (children: 0)",  # Matches the value of this child tag
+            "Bacteria (None) (children: 2)",  # Does not match this tag but matches a descendant:
+            "  Archaebacteria (Bacteria) (children: 0)",  # Matches the value of this child tag
         ]
 
     def test_search_2(self) -> None:
@@ -374,16 +373,16 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="chordata"))
         assert result == [
-            "Eukaryota (None) (used: 0, children: 5)",
-            "  Animalia (Eukaryota) (used: 0, children: 7)",
-            "    Chordata (Animalia) (used: 0, children: 1)",  # this is the matching tag.
+            "Eukaryota (None) (children: 5)",
+            "  Animalia (Eukaryota) (children: 7)",
+            "    Chordata (Animalia) (children: 1)",  # this is the matching tag.
         ]
 
     def test_tags_deep(self) -> None:
         """
         Test getting a deep tag in the taxonomy
         """
-        result = list(self.taxonomy.get_filtered_tags(parent_tag_value="Chordata"))
+        result = list(self.taxonomy.get_filtered_tags(parent_tag_value="Chordata", include_counts=True))
         assert result == [
             {
                 "value": "Mammalia",
@@ -431,14 +430,16 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         api.tag_object(object_id="obj03", taxonomy=self.taxonomy, tags=["Bacteria"])
         api.tag_object(object_id="obj04", taxonomy=self.taxonomy, tags=["Eubacteria"])
         # Now the API should reflect these usage counts:
-        result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="bacteria"))
+        result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="bacteria", include_counts=True))
         assert result == [
             "Bacteria (None) (used: 3, children: 2)",
             "  Archaebacteria (Bacteria) (used: 0, children: 0)",
             "  Eubacteria (Bacteria) (used: 1, children: 0)",
         ]
         # Same with depth=1, which uses a different query internally:
-        result1 = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="bacteria", depth=1))
+        result1 = pretty_format_tags(
+            self.taxonomy.get_filtered_tags(search_term="bacteria", include_counts=True, depth=1)
+        )
         assert result1 == [
             "Bacteria (None) (used: 3, children: 2)",
         ]
@@ -461,15 +462,15 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         child2_2 = Tag.objects.create(taxonomy=taxonomy, value="123", parent=root2)
         result = pretty_format_tags(taxonomy.get_filtered_tags())
         assert result == [
-            "1 (None) (used: 0, children: 4)",
-            "  1 A (1) (used: 0, children: 0)",
-            "  11 (1) (used: 0, children: 0)",
-            "  11111 (1) (used: 0, children: 1)",
-            "    1111-grandchild (11111) (used: 0, children: 0)",
-            "  2 (1) (used: 0, children: 0)",
-            "111 (None) (used: 0, children: 2)",
-            "  11111111 (111) (used: 0, children: 0)",
-            "  123 (111) (used: 0, children: 0)",
+            "1 (None) (children: 4)",
+            "  1 A (1) (children: 0)",
+            "  11 (1) (children: 0)",
+            "  11111 (1) (children: 1)",
+            "    1111-grandchild (11111) (children: 0)",
+            "  2 (1) (children: 0)",
+            "111 (None) (children: 2)",
+            "  11111111 (111) (children: 0)",
+            "  123 (111) (children: 0)",
         ]
 
     def test_case_insensitive_sort(self) -> None:
@@ -491,25 +492,25 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
 
         result = pretty_format_tags(taxonomy.get_filtered_tags())
         assert result == [
-            "abstract (None) (used: 0, children: 2)",
-            "  Andes (abstract) (used: 0, children: 0)",
-            "  azores islands (abstract) (used: 0, children: 0)",
-            "ALPHABET (None) (used: 0, children: 5)",
-            "  aardvark (ALPHABET) (used: 0, children: 0)",
-            "  abacus (ALPHABET) (used: 0, children: 0)",
-            "  Android (ALPHABET) (used: 0, children: 0)",
-            "  ANVIL (ALPHABET) (used: 0, children: 0)",
-            "  azure (ALPHABET) (used: 0, children: 0)",
+            "abstract (None) (children: 2)",
+            "  Andes (abstract) (children: 0)",
+            "  azores islands (abstract) (children: 0)",
+            "ALPHABET (None) (children: 5)",
+            "  aardvark (ALPHABET) (children: 0)",
+            "  abacus (ALPHABET) (children: 0)",
+            "  Android (ALPHABET) (children: 0)",
+            "  ANVIL (ALPHABET) (children: 0)",
+            "  azure (ALPHABET) (children: 0)",
         ]
 
         # And it's case insensitive when getting only a single level:
         result = pretty_format_tags(taxonomy.get_filtered_tags(parent_tag_value="ALPHABET", depth=1))
         assert result == [
-            "  aardvark (ALPHABET) (used: 0, children: 0)",
-            "  abacus (ALPHABET) (used: 0, children: 0)",
-            "  Android (ALPHABET) (used: 0, children: 0)",
-            "  ANVIL (ALPHABET) (used: 0, children: 0)",
-            "  azure (ALPHABET) (used: 0, children: 0)",
+            "  aardvark (ALPHABET) (children: 0)",
+            "  abacus (ALPHABET) (children: 0)",
+            "  Android (ALPHABET) (children: 0)",
+            "  ANVIL (ALPHABET) (children: 0)",
+            "  azure (ALPHABET) (children: 0)",
         ]
 
 
@@ -571,7 +572,7 @@ class TestFilteredTagsFreeTextTaxonomy(TestCase):
         """
         Test basic retrieval of only matching tags.
         """
-        result1 = list(self.taxonomy.get_filtered_tags(search_term="le"))
+        result1 = list(self.taxonomy.get_filtered_tags(search_term="le", include_counts=True))
         common_fields = {"child_count": 0, "depth": 0, "parent_value": None, "external_id": None, "_id": None}
         assert result1 == [
             # These should appear in alphabetical order:
@@ -579,7 +580,7 @@ class TestFilteredTagsFreeTextTaxonomy(TestCase):
             {"value": "triple", "usage_count": 3, **common_fields},
         ]
         # And it should be case insensitive:
-        result2 = list(self.taxonomy.get_filtered_tags(search_term="LE"))
+        result2 = list(self.taxonomy.get_filtered_tags(search_term="LE", include_counts=True))
         assert result1 == result2
 
 

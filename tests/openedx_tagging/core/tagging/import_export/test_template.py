@@ -48,7 +48,7 @@ class TestImportTemplate(TestImportExportMixin, TestCase):
                 replace=True,
             ), import_api.get_last_import_log(self.taxonomy)
 
-        assert pretty_format_tags(get_tags(self.taxonomy), external_id=True, usage_count=False) == [
+        assert pretty_format_tags(get_tags(self.taxonomy), external_id=True) == [
             'Electronic instruments (ELECTRIC) (None) (children: 2)',
             '  Synthesizer (SYNTH) (Electronic instruments) (children: 0)',
             '  Theramin (THERAMIN) (Electronic instruments) (children: 0)',

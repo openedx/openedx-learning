@@ -965,7 +965,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         Test explicitly requesting only the root tags of a small taxonomy.
         """
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(self.small_taxonomy_url + "?root_only")
+        response = self.client.get(self.small_taxonomy_url + "?root_only&include_counts")
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
@@ -1008,26 +1008,26 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data = response.data
         results = data.get("results", [])
         assert pretty_format_tags(results) == [
-            "Archaea (None) (used: 0, children: 3)",
-            "  DPANN (Archaea) (used: 0, children: 0)",
-            "  Euryarchaeida (Archaea) (used: 0, children: 0)",
-            "  Proteoarchaeota (Archaea) (used: 0, children: 0)",
-            "Bacteria (None) (used: 0, children: 2)",
-            "  Archaebacteria (Bacteria) (used: 0, children: 0)",
-            "  Eubacteria (Bacteria) (used: 0, children: 0)",
-            "Eukaryota (None) (used: 0, children: 5)",
-            "  Animalia (Eukaryota) (used: 0, children: 7)",
-            "    Arthropoda (Animalia) (used: 0, children: 0)",
-            "    Chordata (Animalia) (used: 0, children: 1)",
-            "    Cnidaria (Animalia) (used: 0, children: 0)",
-            "    Ctenophora (Animalia) (used: 0, children: 0)",
-            "    Gastrotrich (Animalia) (used: 0, children: 0)",
-            "    Placozoa (Animalia) (used: 0, children: 0)",
-            "    Porifera (Animalia) (used: 0, children: 0)",
-            "  Fungi (Eukaryota) (used: 0, children: 0)",
-            "  Monera (Eukaryota) (used: 0, children: 0)",
-            "  Plantae (Eukaryota) (used: 0, children: 0)",
-            "  Protista (Eukaryota) (used: 0, children: 0)",
+            "Archaea (None) (children: 3)",
+            "  DPANN (Archaea) (children: 0)",
+            "  Euryarchaeida (Archaea) (children: 0)",
+            "  Proteoarchaeota (Archaea) (children: 0)",
+            "Bacteria (None) (children: 2)",
+            "  Archaebacteria (Bacteria) (children: 0)",
+            "  Eubacteria (Bacteria) (children: 0)",
+            "Eukaryota (None) (children: 5)",
+            "  Animalia (Eukaryota) (children: 7)",
+            "    Arthropoda (Animalia) (children: 0)",
+            "    Chordata (Animalia) (children: 1)",
+            "    Cnidaria (Animalia) (children: 0)",
+            "    Ctenophora (Animalia) (children: 0)",
+            "    Gastrotrich (Animalia) (children: 0)",
+            "    Placozoa (Animalia) (children: 0)",
+            "    Porifera (Animalia) (children: 0)",
+            "  Fungi (Eukaryota) (children: 0)",
+            "  Monera (Eukaryota) (children: 0)",
+            "  Plantae (Eukaryota) (children: 0)",
+            "  Protista (Eukaryota) (children: 0)",
         ]
 
         # Checking pagination values
@@ -1046,11 +1046,11 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_200_OK
         data = response.data
         assert pretty_format_tags(data["results"]) == [
-            "Archaea (None) (used: 0, children: 3)",
-            "  DPANN (Archaea) (used: 0, children: 0)",
-            "  Euryarchaeida (Archaea) (used: 0, children: 0)",
-            "  Proteoarchaeota (Archaea) (used: 0, children: 0)",
-            "Bacteria (None) (used: 0, children: 2)",
+            "Archaea (None) (children: 3)",
+            "  DPANN (Archaea) (children: 0)",
+            "  Euryarchaeida (Archaea) (children: 0)",
+            "  Proteoarchaeota (Archaea) (children: 0)",
+            "Bacteria (None) (children: 2)",
         ]
 
         # Checking pagination values
@@ -1065,11 +1065,11 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert next_response.status_code == status.HTTP_200_OK
         next_data = next_response.data
         assert pretty_format_tags(next_data["results"]) == [
-            "  Archaebacteria (Bacteria) (used: 0, children: 0)",
-            "  Eubacteria (Bacteria) (used: 0, children: 0)",
-            "Eukaryota (None) (used: 0, children: 5)",
-            "  Animalia (Eukaryota) (used: 0, children: 7)",
-            "    Arthropoda (Animalia) (used: 0, children: 0)",
+            "  Archaebacteria (Bacteria) (children: 0)",
+            "  Eubacteria (Bacteria) (children: 0)",
+            "Eukaryota (None) (children: 5)",
+            "  Animalia (Eukaryota) (children: 7)",
+            "    Arthropoda (Animalia) (children: 0)",
         ]
         assert next_data.get("current_page") == 2
 
@@ -1084,7 +1084,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
-        assert pretty_format_tags(data["results"], parent=False, usage_count=False) == [
+        assert pretty_format_tags(data["results"], parent=False) == [
             "Archaea (children: 3)",  # No match in this tag, but a child matches so it's included
             "  Euryarchaeida (children: 0)",
             "Bacteria (children: 2)",  # No match in this tag, but a child matches so it's included
@@ -1105,7 +1105,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         """
         self._build_large_taxonomy()
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(self.large_taxonomy_url)
+        response = self.client.get(self.large_taxonomy_url + "?include_counts")
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
@@ -1142,7 +1142,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         # Checking pagination values
         assert data.get("next") == (
             "http://testserver/tagging/"
-            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}/tags/?page=2"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}/tags/?include_counts=&page=2"
         )
         assert data.get("previous") is None
         assert data.get("count") == self.root_tags_count
@@ -1188,7 +1188,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         data = response.data
         results = data["results"]
-        assert pretty_format_tags(results, usage_count=None) == [
+        assert pretty_format_tags(results) == [
             "Tag 0 (None) (children: 12)",  # First 2 results don't match but have children that match
             "  Tag 1 (Tag 0) (children: 12)",
             "    Tag 11 (Tag 1) (children: 0)",
@@ -1206,7 +1206,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         # Get the next page:
         next_response = self.client.get(response.data.get("next"))
         assert next_response.status_code == status.HTTP_200_OK
-        assert pretty_format_tags(next_response.data["results"], usage_count=None) == [
+        assert pretty_format_tags(next_response.data["results"]) == [
             "    Tag 116 (Tag 105) (children: 0)",
             "    Tag 117 (Tag 105) (children: 0)",
             "  Tag 118 (Tag 0) (children: 12)",
@@ -1272,13 +1272,13 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         # Even though we didn't specify root_only, only the root tags will have
         # been returned, because of the taxonomy's size.
         assert pretty_format_tags(results) == [
-            "    Arthropoda (Animalia) (used: 0, children: 0)",
-            "    Chordata (Animalia) (used: 0, children: 1)",
-            "    Cnidaria (Animalia) (used: 0, children: 0)",
-            "    Ctenophora (Animalia) (used: 0, children: 0)",
-            "    Gastrotrich (Animalia) (used: 0, children: 0)",
-            "    Placozoa (Animalia) (used: 0, children: 0)",
-            "    Porifera (Animalia) (used: 0, children: 0)",
+            "    Arthropoda (Animalia) (children: 0)",
+            "    Chordata (Animalia) (children: 1)",
+            "    Cnidaria (Animalia) (children: 0)",
+            "    Ctenophora (Animalia) (children: 0)",
+            "    Gastrotrich (Animalia) (children: 0)",
+            "    Placozoa (Animalia) (children: 0)",
+            "    Porifera (Animalia) (children: 0)",
         ]
 
     def test_next_children(self):
@@ -1301,8 +1301,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         results = data["results"]
         assert pretty_format_tags(results) == [
             # There are 12 child tags total, so on this second page, we see only 2 (10 were on the first page):
-            "  Tag 79 (Tag 0) (used: 0, children: 12)",
-            "  Tag 92 (Tag 0) (used: 0, children: 12)",
+            "  Tag 79 (Tag 0) (children: 12)",
+            "  Tag 92 (Tag 0) (children: 12)",
         ]
 
         # Checking pagination values

@@ -116,7 +116,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ] + self.dummy_taxonomies
 
     def test_get_tags(self) -> None:
-        assert pretty_format_tags(tagging_api.get_tags(self.taxonomy), parent=False, usage_count=False) == [
+        assert pretty_format_tags(tagging_api.get_tags(self.taxonomy), parent=False) == [
             "Archaea (children: 3)",
             "  DPANN (children: 0)",
             "  Euryarchaeida (children: 0)",
@@ -141,7 +141,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     @override_settings(LANGUAGES=test_languages)
     def test_get_tags_system(self) -> None:
-        assert pretty_format_tags(tagging_api.get_tags(self.system_taxonomy), parent=False, usage_count=False) == [
+        assert pretty_format_tags(tagging_api.get_tags(self.system_taxonomy), parent=False) == [
             "System Tag 1 (children: 0)",
             "System Tag 2 (children: 0)",
             "System Tag 3 (children: 0)",
@@ -150,7 +150,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     def test_get_root_tags(self):
         root_life_on_earth_tags = tagging_api.get_root_tags(self.taxonomy)
-        assert pretty_format_tags(root_life_on_earth_tags, parent=False, usage_count=False) == [
+        assert pretty_format_tags(root_life_on_earth_tags, parent=False) == [
             'Archaea (children: 3)',
             'Bacteria (children: 2)',
             'Eukaryota (children: 5)',
@@ -159,7 +159,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     @override_settings(LANGUAGES=test_languages)
     def test_get_root_tags_system(self):
         result = tagging_api.get_root_tags(self.system_taxonomy)
-        assert pretty_format_tags(result, parent=False, usage_count=False) == [
+        assert pretty_format_tags(result, parent=False) == [
             'System Tag 1 (children: 0)',
             'System Tag 2 (children: 0)',
             'System Tag 3 (children: 0)',
@@ -190,7 +190,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     def test_search_tags(self) -> None:
         result = tagging_api.search_tags(self.taxonomy, search_term='eU')
-        assert pretty_format_tags(result, parent=False, usage_count=False) == [
+        assert pretty_format_tags(result, parent=False) == [
             'Archaea (children: 3)',  # Doesn't match 'eU' but is included because a child is included
             '  Euryarchaeida (children: 0)',
             'Bacteria (children: 2)',  # Doesn't match 'eU' but is included because a child is included
@@ -225,7 +225,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         Test getting the children of a particular tag in a closed taxonomy.
         """
         result1 = tagging_api.get_children_tags(self.taxonomy, "Animalia")
-        assert pretty_format_tags(result1, parent=False, usage_count=False) == [
+        assert pretty_format_tags(result1, parent=False) == [
             '    Arthropoda (children: 0)',
             '    Chordata (children: 1)',
             # Mammalia is a child of Chordata but excluded here.
@@ -651,7 +651,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 _value=value,
             ).save()
 
-        result = tagging_api.search_tags(closed_taxonomy, search)
+        result = tagging_api.search_tags(closed_taxonomy, search, include_counts=True)
         assert pretty_format_tags(result, parent=False) == expected
 
     def test_autocomplete_tags_closed_omit_object(self) -> None:
@@ -662,22 +662,10 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tagging_api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Archaebacteria"])
         result = tagging_api.search_tags(self.taxonomy, "ChA", exclude_object_id=object_id)
         assert pretty_format_tags(result, parent=False) == [
-            "Archaea (used: 0, children: 3)",
-            "  Euryarchaeida (used: 0, children: 0)",
-            "  Proteoarchaeota (used: 0, children: 0)",
+            "Archaea (children: 3)",
+            "  Euryarchaeida (children: 0)",
+            "  Proteoarchaeota (children: 0)",
             # These results are no longer included because of exclude_object_id:
-            # "Bacteria (used: 0, children: 2)",  # does not contain "cha" but a child does
-            # "  Archaebacteria (used: 1, children: 0)",
+            # "Bacteria (children: 2)",  # does not contain "cha" but a child does
+            # "  Archaebacteria (children: 0)",
         ]
-
-    def _get_tag_values(self, tags: TagDataQuerySet) -> list[str]:
-        """
-        Get tag values from tagging_api.autocomplete_tags() result
-        """
-        return [tag["value"] for tag in tags]
-
-    def _get_tag_ids(self, tags) -> list[int]:
-        """
-        Get tag ids from tagging_api.autocomplete_tags() result
-        """
-        return [tag.get("tag_id") for tag in tags]

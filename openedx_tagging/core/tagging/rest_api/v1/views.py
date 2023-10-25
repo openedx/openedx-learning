@@ -412,12 +412,14 @@ class TaxonomyTagsView(ListAPIView):
         * id (required) - The ID of the taxonomy to retrieve tags.
         * parent_tag (optional) - Retrieve children of the tag with this value.
         * root_only (optional) - If specified, only root tags are returned.
+        * include_counts (optional) - Include the count of how many times each
+          tag has been used.
         * page (optional) - Page number (default: 1)
         * page_size (optional) - Number of items per page (default: 10)
 
     **List Example Requests**
         GET api/tagging/v1/taxonomy/:id/tags                                        - Get tags of taxonomy
-        GET api/tagging/v1/taxonomy/:id/tags?parent_tag=Physics                     - Get child tags of tag
+        GET api/tagging/v1/taxonomy/:id/tags?parent_tag=Physics&include_counts      - Get child tags of tag
 
     **List Query Returns**
         * 200 - Success
@@ -456,6 +458,7 @@ class TaxonomyTagsView(ListAPIView):
         taxonomy = self.get_taxonomy(taxonomy_id)
         parent_tag_value = self.request.query_params.get("parent_tag", None)
         root_only = "root_only" in self.request.query_params
+        include_counts = "include_counts" in self.request.query_params
         search_term = self.request.query_params.get("search_term", None)
 
         if parent_tag_value:
@@ -480,4 +483,5 @@ class TaxonomyTagsView(ListAPIView):
             parent_tag_value=parent_tag_value,
             search_term=search_term,
             depth=depth,
+            include_counts=include_counts,
         )

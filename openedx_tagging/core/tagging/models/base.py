@@ -300,7 +300,7 @@ class Taxonomy(models.Model):
         depth: int | None = TAXONOMY_MAX_DEPTH,
         parent_tag_value: str | None = None,
         search_term: str | None = None,
-        include_counts: bool = True,
+        include_counts: bool = False,
         excluded_values: list[str] | None = None,
     ) -> TagDataQuerySet:
         """
