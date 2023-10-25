@@ -1365,13 +1365,12 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         data = response.data
 
-        self.assertIsNotNone(data.get("id"))
+        self.assertIsNotNone(data.get("_id"))
         self.assertEqual(data.get("value"), new_tag_value)
-        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
-        self.assertIsNone(data.get("parent_id"))
+        self.assertIsNone(data.get("parent_value"))
         self.assertIsNone(data.get("external_id"))
         self.assertIsNone(data.get("sub_tags_link"))
-        self.assertEqual(data.get("children_count"), 0)
+        self.assertEqual(data.get("child_count"), 0)
 
     def test_create_tag_in_taxonomy_with_parent(self):
         self.client.force_authenticate(user=self.staff)
@@ -1393,13 +1392,12 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         data = response.data
 
-        self.assertIsNotNone(data.get("id"))
+        self.assertIsNotNone(data.get("_id"))
         self.assertEqual(data.get("value"), new_tag_value)
-        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
-        self.assertEqual(data.get("parent_id"), parent_tag.id)
+        self.assertEqual(data.get("parent_value"), parent_tag.value)
         self.assertEqual(data.get("external_id"), new_external_id)
         self.assertIsNone(data.get("sub_tags_link"))
-        self.assertEqual(data.get("children_count"), 0)
+        self.assertEqual(data.get("child_count"), 0)
 
     def test_create_tag_in_invalid_taxonomy(self):
         self.client.force_authenticate(user=self.staff)
@@ -1565,10 +1563,9 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data = response.data
 
         # Check that Tag value got updated
-        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("_id"), existing_tag.id)
         self.assertEqual(data.get("value"), updated_tag_value)
-        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
-        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("parent_value"), existing_tag.parent)
         self.assertEqual(data.get("external_id"), existing_tag.external_id)
 
         # Test updating using the PATCH method
@@ -1583,10 +1580,9 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data = response.data
 
         # Check the Tag value got updated again
-        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("_id"), existing_tag.id)
         self.assertEqual(data.get("value"), updated_tag_value_2)
-        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
-        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("parent_value"), existing_tag.parent)
         self.assertEqual(data.get("external_id"), existing_tag.external_id)
 
     def test_update_tag_in_taxonomy_reflects_changes_in_object_tags(self):
@@ -1626,10 +1622,9 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data = response.data
 
         # Check that Tag value got updated
-        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("_id"), existing_tag.id)
         self.assertEqual(data.get("value"), updated_tag_value)
-        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
-        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("parent_value"), None)
         self.assertEqual(data.get("external_id"), existing_tag.external_id)
 
         # Check that the ObjectTags got updated as well

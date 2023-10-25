@@ -10,7 +10,6 @@ import pytest
 from django.test import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api
-from openedx_tagging.core.tagging.data import TagDataQuerySet
 from openedx_tagging.core.tagging.models import ObjectTag, Taxonomy
 
 from .test_models import TestTagTaxonomyMixin, get_tag

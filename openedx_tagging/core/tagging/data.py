@@ -3,10 +3,10 @@ Data models used by openedx-tagging
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypedDict, NotRequired
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from django.db.models import QuerySet
-from typing_extensions import TypeAlias
+from typing_extensions import NotRequired, TypeAlias
 
 
 class TagData(TypedDict):

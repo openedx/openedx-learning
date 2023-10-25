@@ -1,11 +1,13 @@
 """
 API Serializers for taxonomies
 """
+from __future__ import annotations
+
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
 from openedx_tagging.core.tagging.data import TagData
-from openedx_tagging.core.tagging.models import ObjectTag, Taxonomy
+from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 
 
 class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -95,7 +97,7 @@ class ObjectTagUpdateQueryParamsSerializer(serializers.Serializer):  # pylint: d
 
 class TagDataSerializer(serializers.Serializer):
     """
-    Serializer for TagData
+    Serializer for TagData dicts. Also can serialize Tag instances.
 
     Adds a link to get the sub tags
     """
@@ -111,12 +113,14 @@ class TagDataSerializer(serializers.Serializer):
 
     sub_tags_url = serializers.SerializerMethodField()
 
-    def get_sub_tags_url(self, obj: TagData):
+    def get_sub_tags_url(self, obj: TagData | Tag):
         """
         Returns URL for the list of child tags of the current tag.
         """
-        if obj["child_count"] > 0 and "taxonomy_id" in self.context:
-            query_params = f"?parent_tag={obj['value']}"
+        child_count = obj.child_count if isinstance(obj, Tag) else obj["child_count"]
+        if child_count > 0 and "taxonomy_id" in self.context:
+            value = obj.value if isinstance(obj, Tag) else obj["value"]
+            query_params = f"?parent_tag={value}"
             request = self.context["request"]
             url_namespace = request.resolver_match.namespace  # get the namespace, usually "oel_tagging"
             url = (
@@ -125,6 +129,16 @@ class TagDataSerializer(serializers.Serializer):
             )
             return request.build_absolute_uri(url)
         return None
+
+    def to_representation(self, instance: TagData | Tag) -> dict:
+        """
+        Convert this TagData (or Tag model instance) to the serialized dictionary
+        """
+        data = super().to_representation(instance)
+        if isinstance(instance, Tag):
+            data["_id"] = instance.pk  # The ID field won't otherwise be detected.
+            data["parent_value"] = instance.parent.value if instance.parent else None
+        return data
 
     def update(self, instance, validated_data):
         raise RuntimeError('`update()` is not supported by the TagData serializer.')

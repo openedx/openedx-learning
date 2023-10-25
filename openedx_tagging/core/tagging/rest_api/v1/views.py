@@ -12,8 +12,6 @@ from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
-from openedx_tagging.core.tagging.models.base import Tag
-
 from ...api import (
     TagDoesNotExist,
     add_tag_to_taxonomy,

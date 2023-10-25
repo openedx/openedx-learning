@@ -113,17 +113,16 @@ class Tag(models.Model):
         return lineage
 
     @cached_property
-    def num_ancestors(self) -> int:
+    def depth(self) -> int:
         """
-        How many ancestors this Tag has. Equivalent to its "depth" in the tree.
-        Zero for root tags.
+        How many ancestors this Tag has. Zero for root tags.
         """
-        num_ancestors = 0
+        depth = 0
         tag = self
         while tag.parent:
-            num_ancestors += 1
+            depth += 1
             tag = tag.parent
-        return num_ancestors
+        return depth
 
     @staticmethod
     def annotate_depth(qs: models.QuerySet) -> models.QuerySet:
@@ -140,6 +139,15 @@ class Tag(models.Model):
             # to 4 in order not to add too many joins to this query in general.
             default=4,
         ))
+
+    @cached_property
+    def child_count(self) -> int:
+        """
+        How many child tags this tag has in the taxonomy.
+        """
+        if self.taxonomy and not self.taxonomy.allow_free_text:
+            return self.taxonomy.tag_set.filter(parent=self).count()
+        return 0
 
 
 class Taxonomy(models.Model):
@@ -394,7 +402,7 @@ class Taxonomy(models.Model):
         if parent_tag_value:
             parent_tag = self.tag_for_value(parent_tag_value)
             qs: models.QuerySet = self.tag_set.filter(parent_id=parent_tag.pk)
-            qs = qs.annotate(depth=Value(parent_tag.num_ancestors + 1))
+            qs = qs.annotate(depth=Value(parent_tag.depth + 1))
             # Use parent_tag.value not parent_tag_value because they may differ in case
             qs = qs.annotate(parent_value=Value(parent_tag.value))
         else:
