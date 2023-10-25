@@ -457,6 +457,11 @@ class Taxonomy(models.Model):
                     if pk is not None:
                         matching_ids.append(pk)
             qs = qs.filter(pk__in=matching_ids)
+        elif excluded_values:
+            raise NotImplementedError("Using excluded_values without search_term is not currently supported.")
+            # We could implement this in the future but I'd prefer to get rid of the "excluded_values" API altogether.
+            # It remains to be seen if it's useful to do that on the backend, or if we can do it better/simpler on the
+            # frontend.
 
         qs = qs.annotate(child_count=models.Count("children"))
         # Add the "depth" to each tag:
