@@ -24,7 +24,7 @@ cffi==1.16.0
     # via
     #   cryptography
     #   pynacl
-charset-normalizer==3.3.0
+charset-normalizer==3.3.1
     # via requests
 click==8.1.7
     # via
@@ -66,7 +66,7 @@ drf-jwt==1.19.2
     # via edx-drf-extensions
 edx-django-utils==5.7.0
     # via edx-drf-extensions
-edx-drf-extensions==8.10.0
+edx-drf-extensions==8.12.0
     # via -r requirements/base.in
 edx-opaque-keys==2.5.1
     # via edx-drf-extensions
@@ -74,13 +74,13 @@ idna==3.4
     # via requests
 kombu==5.3.2
     # via celery
-newrelic==9.1.0
+newrelic==9.1.1
     # via edx-django-utils
 pbr==5.11.1
     # via stevedore
 prompt-toolkit==3.0.39
     # via click-repl
-psutil==5.9.5
+psutil==5.9.6
     # via edx-django-utils
 pycparser==2.21
     # via cffi
@@ -88,6 +88,7 @@ pyjwt[crypto]==2.8.0
     # via
     #   drf-jwt
     #   edx-drf-extensions
+    #   pyjwt
 pymongo==3.13.0
     # via edx-opaque-keys
 pynacl==1.5.0
@@ -121,7 +122,7 @@ tzdata==2023.3
     # via
     #   backports-zoneinfo
     #   celery
-urllib3==2.0.6
+urllib3==2.0.7
     # via requests
 vine==5.0.0
     # via

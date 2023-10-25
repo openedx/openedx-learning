@@ -491,6 +491,105 @@ class Taxonomy(models.Model):
             qs = qs.annotate(usage_count=models.Subquery(obj_tags.values('count')))
         return qs
 
+    def add_tag(
+        self,
+        tag_value: str,
+        parent_tag_value: str | None = None,
+        external_id: str | None = None
+    ) -> Tag:
+        """
+        Add new Tag to Taxonomy. If an existing Tag with the `tag_value` already
+        exists in the Taxonomy, an exception is raised, otherwise the newly
+        created Tag is returned
+        """
+        self.check_casted()
+
+        if self.allow_free_text:
+            raise ValueError(
+                "add_tag() doesn't work for free text taxonomies. They don't use Tag instances."
+            )
+
+        if self.system_defined:
+            raise ValueError(
+                "add_tag() doesn't work for system defined taxonomies. They cannot be modified."
+            )
+
+        if self.tag_set.filter(value__iexact=tag_value).exists():
+            raise ValueError(f"Tag with value '{tag_value}' already exists for taxonomy.")
+
+        parent = None
+        if parent_tag_value:
+            # Get parent tag from taxonomy, raises Tag.DoesNotExist if doesn't
+            # belong to taxonomy
+            parent = self.tag_set.get(value__iexact=parent_tag_value)
+
+        tag = Tag.objects.create(
+            taxonomy=self, value=tag_value, parent=parent, external_id=external_id
+        )
+
+        return tag
+
+    def update_tag(self, tag: str, new_value: str) -> Tag:
+        """
+        Update an existing Tag in Taxonomy and return it. Currently only
+        supports updating the Tag's value.
+        """
+        self.check_casted()
+
+        if self.allow_free_text:
+            raise ValueError(
+                "update_tag() doesn't work for free text taxonomies. They don't use Tag instances."
+            )
+
+        if self.system_defined:
+            raise ValueError(
+                "update_tag() doesn't work for system defined taxonomies. They cannot be modified."
+            )
+
+        # Update Tag instance with new value, raises Tag.DoesNotExist if
+        # tag doesn't belong to taxonomy
+        tag_to_update = self.tag_set.get(value__iexact=tag)
+        tag_to_update.value = new_value
+        tag_to_update.save()
+        return tag_to_update
+
+    def delete_tags(self, tags: List[str], with_subtags: bool = False):
+        """
+        Delete the Taxonomy Tags provided. If any of them have children and
+        the `with_subtags` is not set to `True` it will fail, otherwise
+        the sub-tags will be deleted as well.
+        """
+        self.check_casted()
+
+        if self.allow_free_text:
+            raise ValueError(
+                "delete_tags() doesn't work for free text taxonomies. They don't use Tag instances."
+            )
+
+        if self.system_defined:
+            raise ValueError(
+                "delete_tags() doesn't work for system defined taxonomies. They cannot be modified."
+            )
+
+        tags_to_delete = self.tag_set.filter(value__in=tags)
+
+        if tags_to_delete.count() != len(tags):
+            # If they do not match that means there is one or more Tag ID(s)
+            # provided that do not belong to this Taxonomy
+            raise ValueError("Invalid tag id provided or tag id does not belong to taxonomy")
+
+        # Check if any Tag contains subtags (children)
+        contains_children = tags_to_delete.filter(children__isnull=False).distinct().exists()
+
+        if contains_children and not with_subtags:
+            raise ValueError(
+                "Tag(s) contain children, `with_subtags` must be `True` for "
+                "all Tags and their subtags (children) to be deleted."
+            )
+
+        # Delete the Tags with their subtags if any
+        tags_to_delete.delete()
+
     def validate_value(self, value: str) -> bool:
         """
         Check if 'value' is part of this Taxonomy.

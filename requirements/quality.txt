@@ -12,7 +12,7 @@ asgiref==3.7.2
     # via
     #   -r requirements/test.txt
     #   django
-astroid==2.15.8
+astroid==3.0.1
     # via
     #   pylint
     #   pylint-celery
@@ -21,6 +21,7 @@ attrs==23.1.0
 backports-zoneinfo[tzdata]==0.2.1
     # via
     #   -r requirements/test.txt
+    #   backports-zoneinfo
     #   celery
     #   kombu
 billiard==4.1.0
@@ -38,7 +39,7 @@ cffi==1.16.0
     #   -r requirements/test.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.3.0
+charset-normalizer==3.3.1
     # via
     #   -r requirements/test.txt
     #   requests
@@ -75,6 +76,7 @@ code-annotations==1.5.0
 coverage[toml]==7.3.2
     # via
     #   -r requirements/test.txt
+    #   coverage
     #   pytest-cov
 cryptography==41.0.4
     # via
@@ -104,11 +106,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==4.2.0
     # via -r requirements/test.txt
-django-stubs==4.2.4
+django-stubs==4.2.5
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==4.2.2
+django-stubs-ext==4.2.5
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -122,7 +124,7 @@ djangorestframework==3.14.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.14.3
+djangorestframework-stubs==3.14.4
     # via -r requirements/test.txt
 docutils==0.20.1
     # via readme-renderer
@@ -134,7 +136,7 @@ edx-django-utils==5.7.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==8.10.0
+edx-drf-extensions==8.12.0
     # via -r requirements/test.txt
 edx-lint==5.3.4
     # via -r requirements/quality.in
@@ -146,7 +148,7 @@ exceptiongroup==1.1.3
     # via
     #   -r requirements/test.txt
     #   pytest
-grimp==3.0
+grimp==3.1
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -186,8 +188,6 @@ kombu==5.3.2
     # via
     #   -r requirements/test.txt
     #   celery
-lazy-object-proxy==1.9.0
-    # via astroid
 markdown-it-py==3.0.0
     # via rich
 markupsafe==2.1.3
@@ -202,7 +202,7 @@ mock==5.1.0
     # via -r requirements/test.txt
 more-itertools==10.1.0
     # via jaraco-classes
-mypy==1.5.1
+mypy==1.6.1
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -213,7 +213,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.0
     # via -r requirements/test.txt
-newrelic==9.1.0
+newrelic==9.1.1
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -239,11 +239,11 @@ prompt-toolkit==3.0.39
     # via
     #   -r requirements/test.txt
     #   click-repl
-psutil==5.9.5
+psutil==5.9.6
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pycodestyle==2.11.0
+pycodestyle==2.11.1
     # via -r requirements/quality.in
 pycparser==2.21
     # via
@@ -260,7 +260,8 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==2.17.7
+    #   pyjwt
+pylint==3.0.2
     # via
     #   edx-lint
     #   pylint-celery
@@ -268,7 +269,7 @@ pylint==2.17.7
     #   pylint-plugin-utils
 pylint-celery==0.3
     # via edx-lint
-pylint-django==2.5.3
+pylint-django==2.5.4
     # via edx-lint
 pylint-plugin-utils==0.8.2
     # via
@@ -375,7 +376,7 @@ types-pyyaml==6.0.12.12
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.8
+types-requests==2.31.0.10
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
@@ -399,7 +400,7 @@ tzdata==2023.3
     #   -r requirements/test.txt
     #   backports-zoneinfo
     #   celery
-urllib3==2.0.6
+urllib3==2.0.7
     # via
     #   -r requirements/test.txt
     #   requests
@@ -415,8 +416,6 @@ wcwidth==0.2.8
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-wrapt==1.15.0
-    # via astroid
 zipp==3.17.0
     # via
     #   importlib-metadata

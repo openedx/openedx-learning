@@ -197,6 +197,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         response = self.client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_detail_taxonomy_invalud_pk(self) -> None:
+        url = TAXONOMY_DETAIL_URL.format(pk="invalid")
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     @ddt.data(
         (None, status.HTTP_401_UNAUTHORIZED),
         ("user", status.HTTP_403_FORBIDDEN),
@@ -899,7 +906,7 @@ class TestObjectTagViewSet(APITestCase):
 
 class TestTaxonomyTagsView(TestTaxonomyViewMixin):
     """
-    Tests the list tags of taxonomy view
+    Tests the list/create/update/delete tags of taxonomy view
     """
 
     fixtures = ["tests/openedx_tagging/core/fixtures/tagging.yaml"]
@@ -1314,3 +1321,543 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == self.children_tags_count[0]
         assert data.get("num_pages") == 2
         assert data.get("current_page") == 2
+
+    def test_create_tag_in_taxonomy_while_loggedout(self):
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_create_tag_in_taxonomy_without_permission(self):
+        self.client.force_authenticate(user=self.user)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_create_tag_in_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        data = response.data
+
+        self.assertIsNotNone(data.get("id"))
+        self.assertEqual(data.get("value"), new_tag_value)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertIsNone(data.get("parent_id"))
+        self.assertIsNone(data.get("external_id"))
+        self.assertIsNone(data.get("sub_tags_link"))
+        self.assertEqual(data.get("children_count"), 0)
+
+    def test_create_tag_in_taxonomy_with_parent(self):
+        self.client.force_authenticate(user=self.staff)
+        parent_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+        new_tag_value = "New Child Tag"
+        new_external_id = "extId"
+
+        create_data = {
+            "tag": new_tag_value,
+            "parent_tag_value": parent_tag.value,
+            "external_id": new_external_id
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        data = response.data
+
+        self.assertIsNotNone(data.get("id"))
+        self.assertEqual(data.get("value"), new_tag_value)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertEqual(data.get("parent_id"), parent_tag.id)
+        self.assertEqual(data.get("external_id"), new_external_id)
+        self.assertIsNone(data.get("sub_tags_link"))
+        self.assertEqual(data.get("children_count"), 0)
+
+    def test_create_tag_in_invalid_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        invalid_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=919191)
+        response = self.client.post(
+            invalid_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_create_tag_in_free_text_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        # Setting free text flag on taxonomy
+        self.small_taxonomy.allow_free_text = True
+        self.small_taxonomy.save()
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_tag_in_system_defined_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        # Setting taxonomy to be system defined
+        self.small_taxonomy.taxonomy_class = SystemDefinedTaxonomy
+        self.small_taxonomy.save()
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_tag_in_taxonomy_with_invalid_parent_tag(self):
+        self.client.force_authenticate(user=self.staff)
+        invalid_parent_tag = "Invalid Tag"
+        new_tag_value = "New Child Tag"
+
+        create_data = {
+            "tag": new_tag_value,
+            "parent_tag_value": invalid_parent_tag,
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_create_tag_in_taxonomy_with_parent_tag_in_other_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+        tag_in_other_taxonomy = Tag.objects.get(id=1)
+        new_tag_value = "New Child Tag"
+
+        create_data = {
+            "tag": new_tag_value,
+            "parent_tag_value": tag_in_other_taxonomy.value,
+        }
+
+        response = self.client.post(
+            self.large_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_create_tag_in_taxonomy_with_already_existing_value(self):
+        self.client.force_authenticate(user=self.staff)
+        new_tag_value = "New Tag"
+
+        create_data = {
+            "tag": new_tag_value
+        }
+
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # Make request again with the same Tag value after it was created
+        response = self.client.post(
+            self.small_taxonomy_url, create_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_update_tag_in_taxonomy_while_loggedout(self):
+        updated_tag_value = "Updated Tag"
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        update_data = {
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
+        }
+
+        # Test updating using the PUT method
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_update_tag_in_taxonomy_without_permission(self):
+        self.client.force_authenticate(user=self.user)
+        updated_tag_value = "Updated Tag"
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        update_data = {
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
+        }
+
+        # Test updating using the PUT method
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_update_tag_in_taxonomy_with_different_methods(self):
+        self.client.force_authenticate(user=self.staff)
+        updated_tag_value = "Updated Tag"
+        updated_tag_value_2 = "Updated Tag 2"
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        update_data = {
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
+        }
+
+        # Test updating using the PUT method
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+
+        # Check that Tag value got updated
+        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("value"), updated_tag_value)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("external_id"), existing_tag.external_id)
+
+        # Test updating using the PATCH method
+        update_data["tag"] = updated_tag_value  # Since the value changed
+        update_data["updated_tag_value"] = updated_tag_value_2
+        response = self.client.patch(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+
+        # Check the Tag value got updated again
+        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("value"), updated_tag_value_2)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("external_id"), existing_tag.external_id)
+
+    def test_update_tag_in_taxonomy_reflects_changes_in_object_tags(self):
+        self.client.force_authenticate(user=self.staff)
+
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        # Setup ObjectTags
+        # _value=existing_tag.value
+        object_tag_1 = ObjectTag.objects.create(
+            object_id="abc", taxonomy=self.small_taxonomy, tag=existing_tag
+        )
+        object_tag_2 = ObjectTag.objects.create(
+            object_id="def", taxonomy=self.small_taxonomy, tag=existing_tag
+        )
+        object_tag_3 = ObjectTag.objects.create(
+            object_id="ghi", taxonomy=self.small_taxonomy, tag=existing_tag
+        )
+
+        assert object_tag_1.value == existing_tag.value
+        assert object_tag_2.value == existing_tag.value
+        assert object_tag_3.value == existing_tag.value
+
+        updated_tag_value = "Updated Tag"
+        update_data = {
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
+        }
+
+        # Test updating using the PUT method
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+
+        # Check that Tag value got updated
+        self.assertEqual(data.get("id"), existing_tag.id)
+        self.assertEqual(data.get("value"), updated_tag_value)
+        self.assertEqual(data.get("taxonomy_id"), self.small_taxonomy.pk)
+        self.assertEqual(data.get("parent_id"), existing_tag.parent)
+        self.assertEqual(data.get("external_id"), existing_tag.external_id)
+
+        # Check that the ObjectTags got updated as well
+        object_tag_1.refresh_from_db()
+        self.assertEqual(object_tag_1.value, updated_tag_value)
+        object_tag_2.refresh_from_db()
+        self.assertEqual(object_tag_2.value, updated_tag_value)
+        object_tag_3.refresh_from_db()
+        self.assertEqual(object_tag_3.value, updated_tag_value)
+
+    def test_update_tag_in_taxonomy_with_invalid_tag(self):
+        self.client.force_authenticate(user=self.staff)
+        updated_tag_value = "Updated Tag"
+
+        update_data = {
+            "tag": 919191,
+            "updated_tag_value": updated_tag_value
+        }
+
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_update_tag_in_taxonomy_with_tag_in_other_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+        updated_tag_value = "Updated Tag"
+        tag_in_other_taxonomy = Tag.objects.get(id=1)
+
+        update_data = {
+            "tag": tag_in_other_taxonomy.value,
+            "updated_tag_value": updated_tag_value
+        }
+
+        response = self.client.put(
+            self.large_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_update_tag_in_taxonomy_with_no_tag_value_provided(self):
+        self.client.force_authenticate(user=self.staff)
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        update_data = {
+            "tag": existing_tag.value
+        }
+
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_update_tag_in_invalid_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        updated_tag_value = "Updated Tag"
+        update_data = {
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
+        }
+
+        invalid_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=919191)
+        response = self.client.put(
+            invalid_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_single_tag_from_taxonomy_while_loggedout(self):
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tags": [existing_tag.value],
+            "with_subtags": True
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_delete_single_tag_from_taxonomy_without_permission(self):
+        self.client.force_authenticate(user=self.user)
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tags": [existing_tag.value],
+            "with_subtags": True
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_delete_single_tag_from_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tags": [existing_tag.value],
+            "with_subtags": True
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check that Tag no longer exists
+        with self.assertRaises(Tag.DoesNotExist):
+            existing_tag.refresh_from_db()
+
+    def test_delete_multiple_tags_from_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+
+        # Get Tags that will be deleted
+        existing_tags = self.small_taxonomy.tag_set.filter(parent=None)[:3]
+
+        delete_data = {
+            "tags": [existing_tag.value for existing_tag in existing_tags],
+            "with_subtags": True
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check that Tags no longer exists
+        for existing_tag in existing_tags:
+            with self.assertRaises(Tag.DoesNotExist):
+                existing_tag.refresh_from_db()
+
+    def test_delete_tag_with_subtags_should_fail_without_flag_passed(self):
+        self.client.force_authenticate(user=self.staff)
+
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tags": [existing_tag.value]
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_delete_tag_in_invalid_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tags": [existing_tag.value]
+        }
+
+        invalid_taxonomy_url = TAXONOMY_TAGS_URL.format(pk=919191)
+        response = self.client.delete(
+            invalid_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_tag_in_taxonomy_with_invalid_tag(self):
+        self.client.force_authenticate(user=self.staff)
+
+        delete_data = {
+            "tags": ["Invalid Tag"]
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_delete_tag_with_tag_in_other_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+
+        # Get Tag in other Taxonomy
+        tag_in_other_taxonomy = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        delete_data = {
+            "tags": [tag_in_other_taxonomy.value]
+        }
+
+        response = self.client.delete(
+            self.large_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_delete_tag_in_taxonomy_without_subtags(self):
+        self.client.force_authenticate(user=self.staff)
+
+        # Get Tag that will be deleted
+        existing_tag = self.small_taxonomy.tag_set.filter(children__isnull=True).first()
+
+        delete_data = {
+            "tags": [existing_tag.value]
+        }
+
+        response = self.client.delete(
+            self.small_taxonomy_url, delete_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check that Tag no longer exists
+        with self.assertRaises(Tag.DoesNotExist):
+            existing_tag.refresh_from_db()

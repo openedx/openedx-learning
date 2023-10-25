@@ -1,7 +1,6 @@
 """
 API Serializers for taxonomies
 """
-
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
@@ -132,3 +131,33 @@ class TagDataSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         raise RuntimeError('`create()` is not supported by the TagData serializer.')
+
+
+class TaxonomyTagCreateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags CREATE request
+    """
+
+    tag = serializers.CharField(required=True)
+    parent_tag_value = serializers.CharField(required=False)
+    external_id = serializers.CharField(required=False)
+
+
+class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags UPDATE request
+    """
+
+    tag = serializers.CharField(required=True)
+    updated_tag_value = serializers.CharField(required=True)
+
+
+class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Tags DELETE request
+    """
+
+    tags = serializers.ListField(
+        child=serializers.CharField(), required=True
+    )
+    with_subtags = serializers.BooleanField(required=False)
