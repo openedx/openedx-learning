@@ -472,6 +472,46 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "  123 (111) (used: 0, children: 0)",
         ]
 
+    def test_case_insensitive_sort(self) -> None:
+        """
+        Make sure the sorting is case-insensitive
+        """
+        # pylint: disable=unused-variable
+        taxonomy = api.create_taxonomy("Sort Test")
+        root1 = Tag.objects.create(taxonomy=taxonomy, value="ALPHABET")
+        child1_1 = Tag.objects.create(taxonomy=taxonomy, value="Android", parent=root1)
+        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="abacus", parent=root1)
+        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="azure", parent=root1)
+        child1_3 = Tag.objects.create(taxonomy=taxonomy, value="aardvark", parent=root1)
+        child1_4 = Tag.objects.create(taxonomy=taxonomy, value="ANVIL", parent=root1)
+
+        root2 = Tag.objects.create(taxonomy=taxonomy, value="abstract")
+        child2_1 = Tag.objects.create(taxonomy=taxonomy, value="Andes", parent=root2)
+        child2_2 = Tag.objects.create(taxonomy=taxonomy, value="azores islands", parent=root2)
+
+        result = pretty_format_tags(taxonomy.get_filtered_tags())
+        assert result == [
+            "abstract (None) (used: 0, children: 2)",
+            "  Andes (abstract) (used: 0, children: 0)",
+            "  azores islands (abstract) (used: 0, children: 0)",
+            "ALPHABET (None) (used: 0, children: 5)",
+            "  aardvark (ALPHABET) (used: 0, children: 0)",
+            "  abacus (ALPHABET) (used: 0, children: 0)",
+            "  Android (ALPHABET) (used: 0, children: 0)",
+            "  ANVIL (ALPHABET) (used: 0, children: 0)",
+            "  azure (ALPHABET) (used: 0, children: 0)",
+        ]
+
+        # And it's case insensitive when getting only a single level:
+        result = pretty_format_tags(taxonomy.get_filtered_tags(parent_tag_value="ALPHABET", depth=1))
+        assert result == [
+            "  aardvark (ALPHABET) (used: 0, children: 0)",
+            "  abacus (ALPHABET) (used: 0, children: 0)",
+            "  Android (ALPHABET) (used: 0, children: 0)",
+            "  ANVIL (ALPHABET) (used: 0, children: 0)",
+            "  azure (ALPHABET) (used: 0, children: 0)",
+        ]
+
 
 class TestFilteredTagsFreeTextTaxonomy(TestCase):
     """

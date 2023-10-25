@@ -9,7 +9,7 @@ from typing import List
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q, Value
-from django.db.models.functions import Concat
+from django.db.models.functions import Concat, Lower
 from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
@@ -462,7 +462,7 @@ class Taxonomy(models.Model):
         # Add the "depth" to each tag:
         qs = Tag.annotate_depth(qs)
         # Add the "lineage" as a field called "sort_key" to sort them in order correctly:
-        qs = qs.annotate(sort_key=Concat(
+        qs = qs.annotate(sort_key=Lower(Concat(
             # For a root tag, we want sort_key="RootValue" and for a depth=1 tag
             # we want sort_key="RootValue\tValue". The following does that, since
             # ConcatNull(...) returns NULL if any argument is NULL.
@@ -472,7 +472,7 @@ class Taxonomy(models.Model):
             F("value"),
             Value("\t"),  # We also need the '\t' separator character at the end, or MySQL will sort things wrong
             output_field=models.CharField(),
-        ))
+        )))
         # Add the parent value
         qs = qs.annotate(parent_value=F("parent__value"))
         qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
