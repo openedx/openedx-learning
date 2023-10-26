@@ -8,11 +8,17 @@ from typing import List
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import F, Q, Value
+from django.db.models.functions import Concat, Lower
+from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 from typing_extensions import Self  # Until we upgrade to python 3.11
 
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field, case_sensitive_char_field
+
+from ..data import TagDataQuerySet
+from .utils import ConcatNull
 
 log = logging.getLogger(__name__)
 
@@ -105,6 +111,43 @@ class Tag(models.Model):
             tag = tag.parent
             depth -= 1
         return lineage
+
+    @cached_property
+    def depth(self) -> int:
+        """
+        How many ancestors this Tag has. Zero for root tags.
+        """
+        depth = 0
+        tag = self
+        while tag.parent:
+            depth += 1
+            tag = tag.parent
+        return depth
+
+    @staticmethod
+    def annotate_depth(qs: models.QuerySet) -> models.QuerySet:
+        """
+        Given a query that loads Tag objects, annotate it with the depth of
+        each tag.
+        """
+        return qs.annotate(depth=models.Case(
+            models.When(parent_id=None, then=0),
+            models.When(parent__parent_id=None, then=1),
+            models.When(parent__parent__parent_id=None, then=2),
+            models.When(parent__parent__parent__parent_id=None, then=3),
+            # If the depth is 4 or more, currently we just "collapse" the depth
+            # to 4 in order not to add too many joins to this query in general.
+            default=4,
+        ))
+
+    @cached_property
+    def child_count(self) -> int:
+        """
+        How many child tags this tag has in the taxonomy.
+        """
+        if self.taxonomy and not self.taxonomy.allow_free_text:
+            return self.taxonomy.tag_set.filter(parent=self).count()
+        return 0
 
 
 class Taxonomy(models.Model):
@@ -260,87 +303,201 @@ class Taxonomy(models.Model):
         self._taxonomy_class = taxonomy._taxonomy_class  # pylint: disable=protected-access
         return self
 
-    def get_tags(
-        self,
-        tag_set: models.QuerySet[Tag] | None = None,
-    ) -> list[Tag]:
-        """
-        Returns a list of all Tags in the current taxonomy, from the root(s)
-        down to TAXONOMY_MAX_DEPTH tags, in tree order.
-
-        Use `tag_set` to do an initial filtering of the tags.
-
-        Annotates each returned Tag with its ``depth`` in the tree (starting at
-        0).
-
-        Performance note: may perform as many as TAXONOMY_MAX_DEPTH select
-        queries.
-        """
-        tags: list[Tag] = []
-        if self.allow_free_text:
-            return tags
-
-        if tag_set is None:
-            tag_set = self.tag_set.all()
-
-        parents = None
-
-        for depth in range(TAXONOMY_MAX_DEPTH):
-            filtered_tags = tag_set.prefetch_related("parent")
-            if parents is None:
-                filtered_tags = filtered_tags.filter(parent=None)
-            else:
-                filtered_tags = filtered_tags.filter(parent__in=parents)
-            next_parents = list(
-                filtered_tags.annotate(
-                    annotated_field=models.Value(
-                        depth, output_field=models.IntegerField()
-                    )
-                )
-                .order_by("parent__value", "value", "id")
-                .all()
-            )
-            tags.extend(next_parents)
-            parents = next_parents
-            if not parents:
-                break
-        return tags
-
     def get_filtered_tags(
         self,
-        tag_set: models.QuerySet[Tag] | None = None,
-        parent_tag_id: int | None = None,
+        depth: int | None = TAXONOMY_MAX_DEPTH,
+        parent_tag_value: str | None = None,
         search_term: str | None = None,
-        search_in_all: bool = False,
-    ) -> models.QuerySet[Tag]:
+        include_counts: bool = False,
+        excluded_values: list[str] | None = None,
+    ) -> TagDataQuerySet:
         """
-        Returns a filtered QuerySet of tags.
-        By default returns the root tags of the given taxonomy
+        Returns a filtered QuerySet of tag values.
+        For free text or dynamic taxonomies, this will only return tag values
+        that have actually been used.
 
-        Use `parent_tag_id` to return the children of a tag.
+        By default returns all the tags of the given taxonomy
+
+        Use `depth=1` to return a single level of tags, without any child
+        tags included. Use `depth=None` or `depth=TAXONOMY_MAX_DEPTH` to return
+        all descendants of the tags, up to our maximum supported depth.
+
+        Use `parent_tag_value` to return only the children/descendants of a specific tag.
 
         Use `search_term` to filter the results by values that contains `search_term`.
 
-        Set `search_in_all` to True to make the search in all tags on the given taxonomy.
+        Use `excluded_values` to exclude tags with that value (and their parents, if applicable) from the results.
 
         Note: This is mostly an 'internal' API and generally code outside of openedx_tagging
         should use the APIs in openedx_tagging.api which in turn use this.
         """
-        if tag_set is None:
-            tag_set = self.tag_set.all()
-
         if self.allow_free_text:
-            return tag_set.none()
+            if parent_tag_value is not None:
+                raise ValueError("Cannot specify a parent tag ID for free text taxonomies")
+            result = self._get_filtered_tags_free_text(search_term=search_term, include_counts=include_counts)
+            if excluded_values:
+                return result.exclude(value__in=excluded_values)
+            else:
+                return result
+        elif depth == 1:
+            result = self._get_filtered_tags_one_level(
+                parent_tag_value=parent_tag_value,
+                search_term=search_term,
+                include_counts=include_counts,
+            )
+            if excluded_values:
+                return result.exclude(value__in=excluded_values)
+            else:
+                return result
+        elif depth is None or depth == TAXONOMY_MAX_DEPTH:
+            return self._get_filtered_tags_deep(
+                parent_tag_value=parent_tag_value,
+                search_term=search_term,
+                include_counts=include_counts,
+                excluded_values=excluded_values,
+            )
+        else:
+            raise ValueError("Unsupported depth value for get_filtered_tags()")
 
-        if not search_in_all:
-            # If not search in all taxonomy, then apply parent filter.
-            tag_set = tag_set.filter(parent=parent_tag_id)
+    def _get_filtered_tags_free_text(
+        self,
+        search_term: str | None,
+        include_counts: bool,
+    ) -> TagDataQuerySet:
+        """
+        Implementation of get_filtered_tags() for free text taxonomies.
+        """
+        assert self.allow_free_text
+        qs: models.QuerySet = self.objecttag_set.all()
+        if search_term:
+            qs = qs.filter(_value__icontains=search_term)
+        # Rename "_value" to "value"
+        qs = qs.annotate(value=F('_value'))
+        # Add in all these fixed fields that don't really apply to free text tags, but we include for consistency:
+        qs = qs.annotate(
+            depth=Value(0),
+            child_count=Value(0),
+            external_id=Value(None, output_field=models.CharField()),
+            parent_value=Value(None, output_field=models.CharField()),
+            _id=Value(None, output_field=models.CharField()),
+        )
+        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("value")
+        if include_counts:
+            return qs.annotate(usage_count=models.Count("value"))
+        else:
+            return qs.distinct()
+
+    def _get_filtered_tags_one_level(
+        self,
+        parent_tag_value: str | None,
+        search_term: str | None,
+        include_counts: bool,
+    ) -> TagDataQuerySet:
+        """
+        Implementation of get_filtered_tags() for closed taxonomies, where
+        depth=1. When depth=1, we're only looking at a single "level" of the
+        taxononomy, like all root tags or all children of a specific tag.
+        """
+        # A closed, and possibly hierarchical taxonomy. We're just fetching a single "level" of tags.
+        if parent_tag_value:
+            parent_tag = self.tag_for_value(parent_tag_value)
+            qs: models.QuerySet = self.tag_set.filter(parent_id=parent_tag.pk)
+            qs = qs.annotate(depth=Value(parent_tag.depth + 1))
+            # Use parent_tag.value not parent_tag_value because they may differ in case
+            qs = qs.annotate(parent_value=Value(parent_tag.value))
+        else:
+            qs = self.tag_set.filter(parent=None).annotate(depth=Value(0))
+            qs = qs.annotate(parent_value=Value(None, output_field=models.CharField()))
+        qs = qs.annotate(child_count=models.Count("children"))
+        # Filter by search term:
+        if search_term:
+            qs = qs.filter(value__icontains=search_term)
+        qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
+        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("value")
+        if include_counts:
+            # We need to include the count of how many times this tag is used to tag objects.
+            # You'd think we could just use:
+            #     qs = qs.annotate(usage_count=models.Count("objecttag__pk"))
+            # but that adds another join which starts creating a cross product and the children and usage_count become
+            # intertwined and multiplied with each other. So we use a subquery.
+            obj_tags = ObjectTag.objects.filter(tag_id=models.OuterRef("pk")).order_by().annotate(
+                # We need to use Func() to get Count() without GROUP BY - see https://stackoverflow.com/a/69031027
+                count=models.Func(F('id'), function='Count')
+            )
+            qs = qs.annotate(usage_count=models.Subquery(obj_tags.values('count')))
+        return qs
+
+    def _get_filtered_tags_deep(
+        self,
+        parent_tag_value: str | None,
+        search_term: str | None,
+        include_counts: bool,
+        excluded_values: list[str] | None,
+    ) -> TagDataQuerySet:
+        """
+        Implementation of get_filtered_tags() for closed taxonomies, where
+        we're including tags from multiple levels of the hierarchy.
+        """
+        # All tags (possibly below a certain tag?) in the closed taxonomy, up to depth TAXONOMY_MAX_DEPTH
+        if parent_tag_value:
+            main_parent_id = self.tag_for_value(parent_tag_value).pk
+        else:
+            main_parent_id = None
+
+        assert TAXONOMY_MAX_DEPTH == 3  # If we change TAXONOMY_MAX_DEPTH we need to change this query code:
+        qs: models.QuerySet = self.tag_set.filter(
+            Q(parent_id=main_parent_id) |
+            Q(parent__parent_id=main_parent_id) |
+            Q(parent__parent__parent_id=main_parent_id)
+        )
 
         if search_term:
-            # Apply search filter
-            tag_set = tag_set.filter(value__icontains=search_term)
+            # We need to do an additional query to find all the tags that match the search term, then limit the
+            # search to those tags and their ancestors.
+            matching_tags = qs.filter(value__icontains=search_term).values(
+                'id', 'parent_id', 'parent__parent_id', 'parent__parent__parent_id'
+            )
+            if excluded_values:
+                matching_tags = matching_tags.exclude(value__in=excluded_values)
+            matching_ids = []
+            for row in matching_tags:
+                for pk in row.values():
+                    if pk is not None:
+                        matching_ids.append(pk)
+            qs = qs.filter(pk__in=matching_ids)
+        elif excluded_values:
+            raise NotImplementedError("Using excluded_values without search_term is not currently supported.")
+            # We could implement this in the future but I'd prefer to get rid of the "excluded_values" API altogether.
+            # It remains to be seen if it's useful to do that on the backend, or if we can do it better/simpler on the
+            # frontend.
 
-        return tag_set.order_by("value", "id")
+        qs = qs.annotate(child_count=models.Count("children"))
+        # Add the "depth" to each tag:
+        qs = Tag.annotate_depth(qs)
+        # Add the "lineage" as a field called "sort_key" to sort them in order correctly:
+        qs = qs.annotate(sort_key=Lower(Concat(
+            # For a root tag, we want sort_key="RootValue" and for a depth=1 tag
+            # we want sort_key="RootValue\tValue". The following does that, since
+            # ConcatNull(...) returns NULL if any argument is NULL.
+            ConcatNull(F("parent__parent__parent__value"), Value("\t")),
+            ConcatNull(F("parent__parent__value"), Value("\t")),
+            ConcatNull(F("parent__value"), Value("\t")),
+            F("value"),
+            Value("\t"),  # We also need the '\t' separator character at the end, or MySQL will sort things wrong
+            output_field=models.CharField(),
+        )))
+        # Add the parent value
+        qs = qs.annotate(parent_value=F("parent__value"))
+        qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
+        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("sort_key")
+        if include_counts:
+            # Including the counts is a bit tricky; see the comment above in _get_filtered_tags_one_level()
+            obj_tags = ObjectTag.objects.filter(tag_id=models.OuterRef("pk")).order_by().annotate(
+                # We need to use Func() to get Count() without GROUP BY - see https://stackoverflow.com/a/69031027
+                count=models.Func(F('id'), function='Count')
+            )
+            qs = qs.annotate(usage_count=models.Subquery(obj_tags.values('count')))
+        return qs
 
     def add_tag(
         self,

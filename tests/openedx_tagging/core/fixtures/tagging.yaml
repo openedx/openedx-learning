@@ -1,3 +1,24 @@
+# - Bacteria
+#    |- Archaebacteria
+#    |- Eubacteria
+# - Archaea
+#    |- DPANN
+#    |- Euryarchaeida
+#    |- Proteoarchaeota
+# - Eukaryota
+#    |- Animalia
+#    |   |- Arthropoda
+#    |   |- Chordata
+#    |   |   |- Mammalia
+#    |   |- Cnidaria
+#    |   |- Ctenophora
+#    |   |- Gastrotrich
+#    |   |- Placozoa
+#    |   |- Porifera
+#    |- Fungi
+#    |- Monera
+#    |- Plantae
+#    |- Protista
 - model: oel_tagging.tag
   pk: 1
   fields:

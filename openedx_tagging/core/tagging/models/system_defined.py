@@ -198,53 +198,6 @@ class LanguageTaxonomy(SystemDefinedTaxonomy):
     class Meta:
         proxy = True
 
-    def get_tags(
-        self,
-        tag_set: models.QuerySet[Tag] | None = None,
-    ) -> list[Tag]:
-        """
-        Returns a list of all the available Language Tags, annotated with ``depth`` = 0.
-        """
-        available_langs = self._get_available_languages()
-        tag_set = self.tag_set.filter(external_id__in=available_langs)
-        return super().get_tags(tag_set=tag_set)
-
-    def get_filtered_tags(
-        self,
-        tag_set: models.QuerySet[Tag] | None = None,
-        parent_tag_id: int | None = None,
-        search_term: str | None = None,
-        search_in_all: bool = False,
-    ) -> models.QuerySet[Tag]:
-        """
-        Returns a filtered QuerySet of available Language Tags.
-        By default returns all the available Language Tags.
-
-        `parent_tag_id` returns an empty result because all Language tags are root tags.
-
-        Use `search_term` to filter the results by values that contains `search_term`.
-        """
-        if parent_tag_id:
-            return self.tag_set.none()
-
-        available_langs = self._get_available_languages()
-        tag_set = self.tag_set.filter(external_id__in=available_langs)
-        return super().get_filtered_tags(
-            tag_set=tag_set,
-            search_term=search_term,
-            search_in_all=search_in_all,
-        )
-
-    @classmethod
-    def _get_available_languages(cls) -> set[str]:
-        """
-        Get available languages from Django LANGUAGE.
-        """
-        langs = set()
-        for django_lang in settings.LANGUAGES:
-            langs.add(django_lang[0])
-        return langs
-
     def validate_value(self, value: str):
         """
         Check if 'value' is part of this Taxonomy, based on the specified model.
