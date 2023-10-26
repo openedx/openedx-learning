@@ -179,15 +179,16 @@ def _get_last_import_task(taxonomy: Taxonomy) -> TagImportTask | None:
 
 def _import_validations(taxonomy: Taxonomy):
     """
-    Validates if the taxonomy is allowed to import or export tags
+    Validates if the taxonomy is allowed to import tags
     """
     taxonomy = taxonomy.cast()
     if taxonomy.allow_free_text:
-        raise NotImplementedError(
+        raise ValueError(
             _(
-                "Import for free-form taxonomies will be implemented in the future."
-            )
+                "Invalid taxonomy ({id}): You cannot import a free-form taxonomy."
+            ).format(id=taxonomy.id)
         )
+
     if taxonomy.system_defined:
         raise ValueError(
             _(
