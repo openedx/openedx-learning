@@ -75,7 +75,7 @@ def import_tags(
     in the file (regardless of action), then `tag_2` and `tag_3` will be deleted
     if `replace=True`
     """
-    _import_export_validations(taxonomy)
+    _import_validations(taxonomy)
 
     # Checks that exists only one task import in progress at a time per taxonomy
     if not _check_unique_import_task(taxonomy):
@@ -146,7 +146,6 @@ def export_tags(taxonomy: Taxonomy, output_format: ParserFormat) -> str:
     """
     Returns a string with all tag data of the given taxonomy
     """
-    _import_export_validations(taxonomy)
     parser = get_parser(output_format)
     return parser.export(taxonomy)
 
@@ -178,7 +177,7 @@ def _get_last_import_task(taxonomy: Taxonomy) -> TagImportTask | None:
     )
 
 
-def _import_export_validations(taxonomy: Taxonomy):
+def _import_validations(taxonomy: Taxonomy):
     """
     Validates if the taxonomy is allowed to import or export tags
     """
@@ -186,12 +185,12 @@ def _import_export_validations(taxonomy: Taxonomy):
     if taxonomy.allow_free_text:
         raise NotImplementedError(
             _(
-                "Import/export for free-form taxonomies will be implemented in the future."
+                "Import for free-form taxonomies will be implemented in the future."
             )
         )
     if taxonomy.system_defined:
         raise ValueError(
             _(
-                "Invalid taxonomy ({id}): You cannot import/export a system-defined taxonomy."
+                "Invalid taxonomy ({id}): You cannot import a system-defined taxonomy."
             ).format(id=taxonomy.id)
         )
