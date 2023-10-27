@@ -750,7 +750,7 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         ]
 
         # Delete "bacteria" from the taxonomy:
-        self.bacteria.delete()  # TODO: add an API method for this
+        api.delete_tags_from_taxonomy(self.taxonomy, ["Bacteria"], with_subtags=True)
 
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
             (self.archaea.value, False),
