@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
+from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin, one_to_one_related_model_html
 
 from .models import LearningPackage, PublishableEntity, Published, PublishLog, PublishLogRecord
 
@@ -77,7 +77,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     """
     Read-only admin view for Publishable Entities
     """
-    fields = (
+    list_display = [
         "key",
         "draft_version",
         "published_version",
@@ -85,23 +85,49 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         "learning_package",
         "created",
         "created_by",
-    )
-    readonly_fields = fields
-    list_display = fields
+    ]
     list_filter = ["learning_package"]
     search_fields = ["key", "uuid"]
+
+    fields = [
+        "key",
+        "draft_version",
+        "published_version",
+        "uuid",
+        "learning_package",
+        "created",
+        "created_by",
+        "see_also",
+    ]
+    readonly_fields = [
+        "key",
+        "draft_version",
+        "published_version",
+        "uuid",
+        "learning_package",
+        "created",
+        "created_by",
+        "see_also",
+    ]
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related(
-            "learning_package", "published__version", "draft__version"
+            "learning_package", "published__version",
         )
 
+    def see_also(self, entity):
+        return one_to_one_related_model_html(entity)
+
     def draft_version(self, entity):
-        return entity.draft.version.version_num
+        if entity.draft.version:
+            return entity.draft.version.version_num
+        return None
 
     def published_version(self, entity):
-        return entity.published.version.version_num
+        if entity.published.version:
+            return entity.published.version.version_num
+        return None
 
 
 @admin.register(Published)

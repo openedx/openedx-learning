@@ -93,9 +93,9 @@ def create_publishable_entity_version(
             created=created,
             created_by_id=created_by,
         )
-        Draft.objects.create(
+        Draft.objects.update_or_create(
             entity_id=entity_id,
-            version=version,
+            defaults={"version": version},
         )
     return version
 
@@ -178,6 +178,42 @@ def publish_from_drafts(
             )
 
     return publish_log
+
+
+def get_draft_version(publishable_entity_id: int) -> PublishableEntityVersion | None:
+    """
+    Return current draft PublishableEntityVersion for this PublishableEntity.
+
+    This function will return None if there is no current draft.
+    """
+    try:
+        draft = Draft.objects.select_related("version").get(
+            entity_id=publishable_entity_id
+        )
+    except Draft.DoesNotExist:
+        # No draft was ever created.
+        return None
+
+    # draft.version could be None if it was set that way by set_draft_version.
+    # Setting the Draft.version to None is how we show that we've "deleted" the
+    # content in Studio.
+    return draft.version
+
+
+def set_draft_version(publishable_entity_id: int, publishable_entity_version_pk: int | None) -> None:
+    """
+    Modify the Draft of a PublishableEntity to be a PublishableEntityVersion.
+
+    This would most commonly be used to set the Draft to point to a newly
+    created PublishableEntityVersion that was created in Studio (because someone
+    edited some content). Setting a Draft's version to None is like deleting it
+    from Studio's editing point of view. We don't actually delete the Draft row
+    because we'll need that for publishing purposes (i.e. to delete content from
+    the published branch).
+    """
+    draft = Draft.objects.get(entity_id=publishable_entity_id)
+    draft.version_id = publishable_entity_version_pk
+    draft.save()
 
 
 def register_content_models(

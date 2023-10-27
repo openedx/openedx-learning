@@ -8,7 +8,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from openedx_learning.core.publishing.api import create_learning_package
+from openedx_learning.core.publishing import api as publishing_api
 
 
 class CreateLearningPackageTestCase(TestCase):
@@ -22,7 +22,7 @@ class CreateLearningPackageTestCase(TestCase):
         key = "my_key"
         title = "My Excellent Title with Emoji 🔥"
         created = datetime(2023, 4, 2, 15, 9, 0, tzinfo=timezone.utc)
-        package = create_learning_package(key, title, created)
+        package = publishing_api.create_learning_package(key, title, created)
 
         assert package.key == "my_key"
         assert package.title == "My Excellent Title with Emoji 🔥"
@@ -41,7 +41,7 @@ class CreateLearningPackageTestCase(TestCase):
         """
         key = "my_key"
         title = "My Excellent Title with Emoji 🔥"
-        package = create_learning_package(key, title)
+        package = publishing_api.create_learning_package(key, title)
 
         assert package.key == "my_key"
         assert package.title == "My Excellent Title with Emoji 🔥"
@@ -62,7 +62,7 @@ class CreateLearningPackageTestCase(TestCase):
         Require UTC timezone for created.
         """
         with pytest.raises(ValidationError) as excinfo:
-            create_learning_package("my_key", "A Title", datetime(2023, 4, 2))
+            publishing_api.create_learning_package("my_key", "A Title", datetime(2023, 4, 2))
         message_dict = excinfo.value.message_dict
 
         # Both datetime fields should be marked as invalid
@@ -73,8 +73,49 @@ class CreateLearningPackageTestCase(TestCase):
         """
         Raises ValidationError for duplicate keys.
         """
-        create_learning_package("my_key", "Original")
+        publishing_api.create_learning_package("my_key", "Original")
         with pytest.raises(ValidationError) as excinfo:
-            create_learning_package("my_key", "Duplicate")
+            publishing_api.create_learning_package("my_key", "Duplicate")
         message_dict = excinfo.value.message_dict
         assert "key" in message_dict
+
+
+class DraftTestCase(TestCase):
+    """
+    Test basic operations with Drafts.
+    """
+
+    def test_draft_lifecycle(self):
+        """
+        Test basic lifecycle of a Draft.
+        """
+        created = datetime(2023, 4, 2, 15, 9, 0, tzinfo=timezone.utc)
+        package = publishing_api.create_learning_package(
+            "my_package_key",
+            "Draft Testing LearningPackage 🔥",
+            created=created,
+        )
+        entity = publishing_api.create_publishable_entity(
+            package.id,
+            "my_entity",
+            created,
+            created_by=None,
+        )
+        # Drafts are NOT created when a PublishableEntity is created, only when
+        # its first PublisahbleEntityVersion is.
+        assert publishing_api.get_draft_version(entity.id) is None
+
+        entity_version = publishing_api.create_publishable_entity_version(
+            entity_id=entity.id,
+            version_num=1,
+            title="An Entity 🌴",
+            created=created,
+            created_by=None,
+        )
+        assert entity_version == publishing_api.get_draft_version(entity.id)
+
+        # We never really remove rows from the table holding Drafts. We just
+        # mark the version as None.
+        publishing_api.set_draft_version(entity.id, None)
+        entity_version = publishing_api.get_draft_version(entity.id)
+        assert entity_version is None
