@@ -51,6 +51,7 @@ class Tag(models.Model):
     parent = models.ForeignKey(
         "self",
         null=True,
+        blank=True,
         default=None,
         on_delete=models.CASCADE,
         related_name="children",
@@ -148,6 +149,20 @@ class Tag(models.Model):
         if self.taxonomy and not self.taxonomy.allow_free_text:
             return self.taxonomy.tag_set.filter(parent=self).count()
         return 0
+
+    def clean(self):
+        """
+        Validate this tag before saving
+        """
+        # Don't allow leading or trailing whitespace:
+        self.value = self.value.strip()
+        if self.external_id:
+            self.external_id = self.external_id.strip()
+        # Don't allow \t (tab) character at all, as we use it for lineage in database queries
+        if "\t" in self.value:
+            raise ValidationError("Tags in a taxonomy cannot contain a TAB character.")
+        if self.external_id and "\t" in self.external_id:
+            raise ValidationError("Tag external ID cannot contain a TAB character.")
 
 
 class Taxonomy(models.Model):
@@ -534,6 +549,7 @@ class Taxonomy(models.Model):
         tag = Tag.objects.create(
             taxonomy=self, value=tag_value, parent=parent, external_id=external_id
         )
+        tag.full_clean()
 
         return tag
 

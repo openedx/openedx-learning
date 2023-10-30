@@ -210,6 +210,27 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
     def test_get_lineage(self, tag_attr, lineage):
         assert getattr(self, tag_attr).get_lineage() == lineage
 
+    def test_trailing_whitespace(self):
+        """
+        Test that tags automatically strip out trailing/leading whitespace
+        """
+        t = self.taxonomy.add_tag(" white space  ")
+        assert t.value == "white space"
+        # And via the API:
+        t2 = api.add_tag_to_taxonomy(self.taxonomy, "\t value\n")
+        assert t2.value == "value"
+
+    def test_no_tab(self):
+        """
+        Test that tags cannot contain a TAB character, which we use as a field
+        separator in the database when computing lineage.
+        """
+        with pytest.raises(ValidationError):
+            self.taxonomy.add_tag("has\ttab")
+        # And via the API:
+        with pytest.raises(ValidationError):
+            api.add_tag_to_taxonomy(self.taxonomy, "first\tsecond")
+
 
 @ddt.ddt
 class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
