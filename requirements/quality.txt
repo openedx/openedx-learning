@@ -78,7 +78,7 @@ coverage[toml]==7.3.2
     #   -r requirements/test.txt
     #   coverage
     #   pytest-cov
-cryptography==41.0.4
+cryptography==41.0.5
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -106,7 +106,7 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==4.2.0
     # via -r requirements/test.txt
-django-stubs==4.2.5
+django-stubs==4.2.6
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
@@ -138,7 +138,7 @@ edx-django-utils==5.7.0
     #   edx-drf-extensions
 edx-drf-extensions==8.12.0
     # via -r requirements/test.txt
-edx-lint==5.3.4
+edx-lint==5.3.6
     # via -r requirements/quality.in
 edx-opaque-keys==2.5.1
     # via
@@ -205,7 +205,6 @@ more-itertools==10.1.0
 mypy==1.6.1
     # via
     #   -r requirements/test.txt
-    #   django-stubs
     #   djangorestframework-stubs
 mypy-extensions==1.0.0
     # via
@@ -269,7 +268,7 @@ pylint==3.0.2
     #   pylint-plugin-utils
 pylint-celery==0.3
     # via edx-lint
-pylint-django==2.5.4
+pylint-django==2.5.5
     # via edx-lint
 pylint-plugin-utils==0.8.2
     # via
@@ -283,7 +282,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==7.4.2
+pytest==7.4.3
     # via
     #   -r requirements/test.txt
     #   pytest-cov
