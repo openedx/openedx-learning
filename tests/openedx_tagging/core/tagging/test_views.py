@@ -16,10 +16,11 @@ from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.import_export import api as import_export_api
 from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
-from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy, UserSystemDefinedTaxonomy
+from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
 from openedx_tagging.core.tagging.rest_api.paginators import TagsPagination
 from openedx_tagging.core.tagging.rules import can_change_object_tag_objectid, can_view_object_tag_objectid
 
+from .test_models import TestTagTaxonomyMixin
 from .utils import pretty_format_tags
 
 User = get_user_model()
@@ -178,7 +179,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     @ddt.unpack
     def test_detail_taxonomy(self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int):
         create_data = {"name": "taxonomy detail test", **taxonomy_data}
-        taxonomy = api.create_taxonomy(**create_data)
+        taxonomy = api.create_taxonomy(**create_data)  # type: ignore[arg-type]
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         if user_attr:
@@ -501,12 +502,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
 
 @ddt.ddt
-class TestObjectTagViewSet(APITestCase):
+class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
     """
     Testing various cases for the ObjectTagView.
     """
 
     def setUp(self):
+        super().setUp()
 
         def _change_object_permission(user, object_id: str) -> bool:
             """
@@ -526,66 +528,34 @@ class TestObjectTagViewSet(APITestCase):
 
             return can_view_object_tag_objectid(user, object_id)
 
-        super().setUp()
-
-        self.user = User.objects.create(
-            username="user",
-            email="user@example.com",
-        )
-
-        self.staff = User.objects.create(
-            username="staff",
-            email="staff@example.com",
-            is_staff=True,
-        )
-
-        # System-defined language taxonomy with valid ObjectTag
-        self.author_sys_taxonomy = api.create_taxonomy(taxonomy_class=UserSystemDefinedTaxonomy, name="Author")
-        # Tag the object "abc" with the tag for self.staff
-        api.tag_object(object_id="abc", taxonomy=self.author_sys_taxonomy, tags=[self.staff.username])
-
-        # Language system-defined language taxonomy
-        self.language_taxonomy = Taxonomy.objects.get(pk=LANGUAGE_TAXONOMY_ID)
-
-        # Closed Taxonomies created by taxonomy admins, each with 20 ObjectTags
-        self.enabled_taxonomy = api.create_taxonomy(name="Enabled Taxonomy", allow_multiple=False)
-        self.disabled_taxonomy = api.create_taxonomy(name="Disabled Taxonomy", enabled=False, allow_multiple=False)
-        self.multiple_taxonomy = api.create_taxonomy(name="Multiple Taxonomy", allow_multiple=True)
-        for i in range(20):
-            api.add_tag_to_taxonomy(taxonomy=self.enabled_taxonomy, tag=f"Tag {i}")
-            api.add_tag_to_taxonomy(taxonomy=self.disabled_taxonomy, tag=f"Tag {i}")
-            api.add_tag_to_taxonomy(taxonomy=self.multiple_taxonomy, tag=f"Tag {i}")
-        api.tag_object(object_id="abc", taxonomy=self.enabled_taxonomy, tags=["Tag 15"])
-        api.tag_object(object_id="abc", taxonomy=self.disabled_taxonomy, tags=["Tag 3"])
-        api.tag_object(object_id="abc", taxonomy=self.multiple_taxonomy, tags=["Tag 4", "Tag 7", "Tag 12"])
-
-        # Free-Text Taxonomies created by taxonomy admins, each linked
-        # to 10 ObjectTags
-        self.open_taxonomy_enabled = api.create_taxonomy(
-            name="Enabled Free-Text Taxonomy", allow_free_text=True, allow_multiple=False,
-        )
-        self.open_taxonomy_disabled = api.create_taxonomy(
-            name="Disabled Free-Text Taxonomy", allow_free_text=True, enabled=False, allow_multiple=False,
-        )
-        for i in range(10):
-            ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_enabled, _value=f"Free Text {i}")
-            ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_disabled, _value=f"Free Text {i}")
-
         # Override the object permission for the test
         rules.set_perm("oel_tagging.change_objecttag_objectid", _change_object_permission)
         rules.set_perm("oel_tagging.view_objecttag_objectid", _view_object_permission)
 
+        # Create a staff user:
+        self.staff = User.objects.create(username="staff", email="staff@example.com", is_staff=True)
+
+        # For this test, allow multiple "Life on Earth" tags:
+        self.taxonomy.allow_multiple = True
+        self.taxonomy.save()
+
     @ddt.data(
-        (None, status.HTTP_401_UNAUTHORIZED, None),
-        ("user", status.HTTP_200_OK, 26),
-        ("staff", status.HTTP_200_OK, 26),
+        (None, status.HTTP_401_UNAUTHORIZED),
+        ("user_1", status.HTTP_200_OK),
+        ("staff", status.HTTP_200_OK),
     )
     @ddt.unpack
-    def test_retrieve_object_tags(self, user_attr, expected_status, expected_count):
+    def test_retrieve_object_tags(self, user_attr, expected_status):
         """
         Test retrieving object tags
         """
-        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id="abc")
+        object_id = "problem15"
+
+        # Apply the object tags that we're about to retrieve:
+        api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
+        api.tag_object(object_id=object_id, taxonomy=self.user_taxonomy, tags=[self.user_1.username])
+
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -595,7 +565,101 @@ class TestObjectTagViewSet(APITestCase):
         assert response.status_code == expected_status
 
         if status.is_success(expected_status):
-            assert len(response.data) == expected_count
+            # Check the response, first converting from OrderedDict to regular dicts for simplicity.
+            assert response.data == {
+                # In the future, this API may allow retrieving tags for multiple objects at once, so it's grouped by
+                # object ID.
+                "problem15": {
+                    "taxonomies": [
+                        {
+                            "name": "Life on Earth",
+                            "taxonomy_id": 1,
+                            "editable": True,
+                            "tags": [
+                                # Note: based on tree order (Animalia before Fungi), this tag comes first even though it
+                                # starts with "M" and Fungi starts with "F"
+                                {
+                                    "value": "Mammalia",
+                                    "lineage": ["Eukaryota", "Animalia", "Chordata", "Mammalia"],
+                                },
+                                {
+                                    "value": "Fungi",
+                                    "lineage": ["Eukaryota", "Fungi"],
+                                },
+                            ]
+                        },
+                        {
+                            "name": "User Authors",
+                            "taxonomy_id": 3,
+                            "editable": False,
+                            "tags": [
+                                {
+                                    "value": "test_user_1",
+                                    "lineage": ["test_user_1"],
+                                },
+                            ],
+                        }
+                    ],
+                },
+            }
+
+    def test_retrieve_object_tags_sorted(self):
+        """
+        Test teh sort order of the object tags retrieved from the get object
+        tags API.
+        """
+        object_id = "problem7"
+
+        # Apply the object tags that we're about to retrieve:
+        taxonomy = self.create_sort_test_taxonomy()
+        api.tag_object(object_id=object_id, taxonomy=taxonomy, tags=[
+            "ANVIL",
+            "Android",
+            "azores islands",
+            "abstract",
+            "11111111",
+            "111",
+            "123",
+            "1 A",
+            "1111-grandchild",
+        ])
+        # Note: the full taxonomy looks like this, so this is the order we
+        # expect, although not all of these tags were included.
+        # 1
+        #   1 A
+        #   11
+        #   11111
+        #     1111-grandchild
+        #   2
+        # 111
+        #   11111111
+        #   123
+        # abstract
+        #   Andes
+        #   azores islands
+        # ALPHABET
+        #   aardvark
+        #   abacus
+        #   Android
+        #   ANVIL
+        #   azure
+
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+        self.client.force_authenticate(user=self.user_1)
+        response = self.client.get(url)
+        assert response.status_code == 200
+        assert response.data[object_id]["taxonomies"][0]["name"] == "Sort Test"
+        assert response.data[object_id]["taxonomies"][0]["tags"] == [
+            {"value": "1 A", "lineage": ["1", "1 A"]},
+            {"value": "1111-grandchild", "lineage": ["1", "11111", "1111-grandchild"]},
+            {"value": "111", "lineage": ["111"]},
+            {"value": "11111111", "lineage": ["111", "11111111"]},
+            {"value": "123", "lineage": ["111", "123"]},
+            {"value": "abstract", "lineage": ["abstract"]},
+            {"value": "azores islands", "lineage": ["abstract", "azores islands"]},
+            {"value": "Android", "lineage": ["ALPHABET", "Android"]},
+            {"value": "ANVIL", "lineage": ["ALPHABET", "ANVIL"]},
+        ]
 
     def test_retrieve_object_tags_unauthorized(self):
         """
@@ -607,34 +671,56 @@ class TestObjectTagViewSet(APITestCase):
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @ddt.data(
-        (None, "abc", status.HTTP_401_UNAUTHORIZED, None),
-        ("user", "abc", status.HTTP_200_OK, 1),
-        ("staff", "abc", status.HTTP_200_OK, 1),
+        (None, "abc", status.HTTP_401_UNAUTHORIZED),
+        ("user_1", "abc", status.HTTP_200_OK),
+        ("staff", "abc", status.HTTP_200_OK),
     )
     @ddt.unpack
     def test_retrieve_object_tags_taxonomy_queryparam(
-        self, user_attr, object_id, expected_status, expected_count
+        self, user_attr, object_id, expected_status,
     ):
         """
         Test retrieving object tags for specific taxonomies provided
         """
+        object_id = "html7"
+
+        # Apply the object tags that we're about to retrieve:
+        api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
+        api.tag_object(object_id=object_id, taxonomy=self.user_taxonomy, tags=[self.user_1.username])
+
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
         if user_attr:
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        response = self.client.get(url, {"taxonomy": self.enabled_taxonomy.pk})
+        response = self.client.get(url, {"taxonomy": self.user_taxonomy.pk})
         assert response.status_code == expected_status
         if status.is_success(expected_status):
-            assert len(response.data) == expected_count
-            for object_tag in response.data:
-                assert object_tag.get("is_deleted") is False
-                assert object_tag.get("taxonomy_id") == self.enabled_taxonomy.pk
+            assert response.data == {
+                # In the future, this API may allow retrieving tags for multiple objects at once, so it's grouped by
+                # object ID.
+                object_id: {
+                    "taxonomies": [
+                        # The "Life on Earth" tags are excluded here...
+                        {
+                            "name": "User Authors",
+                            "taxonomy_id": 3,
+                            "editable": False,
+                            "tags": [
+                                {
+                                    "value": "test_user_1",
+                                    "lineage": ["test_user_1"],
+                                },
+                            ],
+                        }
+                    ],
+                },
+            }
 
     @ddt.data(
         (None, "abc", status.HTTP_401_UNAUTHORIZED),
-        ("user", "abc", status.HTTP_400_BAD_REQUEST),
+        ("user_1", "abc", status.HTTP_400_BAD_REQUEST),
         ("staff", "abc", status.HTTP_400_BAD_REQUEST),
     )
     @ddt.unpack
@@ -656,9 +742,9 @@ class TestObjectTagViewSet(APITestCase):
         (None, "POST", status.HTTP_401_UNAUTHORIZED),
         (None, "PATCH", status.HTTP_401_UNAUTHORIZED),
         (None, "DELETE", status.HTTP_401_UNAUTHORIZED),
-        ("user", "POST", status.HTTP_405_METHOD_NOT_ALLOWED),
-        ("user", "PATCH", status.HTTP_405_METHOD_NOT_ALLOWED),
-        ("user", "DELETE", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("user_1", "POST", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("user_1", "PATCH", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("user_1", "DELETE", status.HTTP_405_METHOD_NOT_ALLOWED),
         ("staff", "POST", status.HTTP_405_METHOD_NOT_ALLOWED),
         ("staff", "PATCH", status.HTTP_405_METHOD_NOT_ALLOWED),
         ("staff", "DELETE", status.HTTP_405_METHOD_NOT_ALLOWED),
@@ -694,148 +780,102 @@ class TestObjectTagViewSet(APITestCase):
 
     @ddt.data(
         # Users and staff can add tags
-        (None, "language_taxonomy", ["Portuguese"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "language_taxonomy", ["Portuguese"], status.HTTP_200_OK),
-        ("staff", "language_taxonomy", ["Portuguese"], status.HTTP_200_OK),
-        # Users and staff can clear add tags
-        (None, "enabled_taxonomy", ["Tag 1"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "enabled_taxonomy", ["Tag 1"], status.HTTP_200_OK),
-        ("staff", "enabled_taxonomy", ["Tag 1"], status.HTTP_200_OK),
+        (None, "language_taxonomy", {}, ["Portuguese"], status.HTTP_401_UNAUTHORIZED),
+        ("user_1", "language_taxonomy", {}, ["Portuguese"], status.HTTP_200_OK),
+        ("staff", "language_taxonomy", {}, ["Portuguese"], status.HTTP_200_OK),
+        # user_1s and staff can clear add tags
+        (None, "taxonomy", {}, ["Fungi"], status.HTTP_401_UNAUTHORIZED),
+        ("user_1", "taxonomy", {}, ["Fungi"], status.HTTP_200_OK),
+        ("staff", "taxonomy", {}, ["Fungi"], status.HTTP_200_OK),
         # Nobody can add tag using a disabled taxonomy
-        (None, "disabled_taxonomy", ["Tag 1"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "disabled_taxonomy", ["Tag 1"], status.HTTP_403_FORBIDDEN),
-        ("staff", "disabled_taxonomy", ["Tag 1"], status.HTTP_403_FORBIDDEN),
-        # Users and staff can add a single tag using a allow_multiple=True taxonomy
-        (None, "multiple_taxonomy", ["Tag 1"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "multiple_taxonomy", ["Tag 1"], status.HTTP_200_OK),
-        ("staff", "multiple_taxonomy", ["Tag 1"], status.HTTP_200_OK),
-        # Users and staff can add tags using an open taxonomy
-        (None, "open_taxonomy_enabled", ["tag1"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "open_taxonomy_enabled", ["tag1"], status.HTTP_200_OK),
-        ("staff", "open_taxonomy_enabled", ["tag1"], status.HTTP_200_OK),
+        (None, "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_401_UNAUTHORIZED),
+        ("user_1", "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_403_FORBIDDEN),
+        ("staff", "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_403_FORBIDDEN),
+        # If allow_multiple=True, multiple tags can be added, but not if it's false:
+        ("user_1", "taxonomy", {"allow_multiple": True}, ["Mammalia", "Fungi"], status.HTTP_200_OK),
+        ("user_1", "taxonomy", {"allow_multiple": False}, ["Mammalia", "Fungi"], status.HTTP_400_BAD_REQUEST),
+        # user_1s and staff can add tags using an open taxonomy
+        (None, "free_text_taxonomy", {}, ["tag1"], status.HTTP_401_UNAUTHORIZED),
+        ("user_1", "free_text_taxonomy", {}, ["tag1", "tag2"], status.HTTP_200_OK),
+        ("staff", "free_text_taxonomy", {}, ["tag1", "tag4"], status.HTTP_200_OK),
         # Nobody can add tags using a disabled open taxonomy
-        (None, "open_taxonomy_disabled", ["tag1"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "open_taxonomy_disabled", ["tag1"], status.HTTP_403_FORBIDDEN),
-        ("staff", "open_taxonomy_disabled", ["tag1"], status.HTTP_403_FORBIDDEN),
+        (None, "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_401_UNAUTHORIZED),
+        ("user_1", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN),
+        ("staff", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN),
+        # Can't add invalid/nonexistent tags using a closed taxonomy
+        (None, "language_taxonomy", {}, ["Invalid"], status.HTTP_401_UNAUTHORIZED),
+        ("user_1", "language_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST),
+        ("staff", "language_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST),
+        ("staff", "taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST),
     )
     @ddt.unpack
-    def test_tag_object(self, user_attr, taxonomy_attr, tag_values, expected_status):
+    def test_tag_object(self, user_attr, taxonomy_attr, taxonomy_flags, tag_values, expected_status):
         if user_attr:
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
         taxonomy = getattr(self, taxonomy_attr)
+        if taxonomy_flags:
+            for (k, v) in taxonomy_flags.items():
+                setattr(taxonomy, k, v)
+            taxonomy.save()
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id="abc", taxonomy_id=taxonomy.pk)
+        object_id = "abc"
+
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
 
         response = self.client.put(url, {"tags": tag_values}, format="json")
         assert response.status_code == expected_status
         if status.is_success(expected_status):
-            assert len(response.data) == len(tag_values)
-            assert set(t["value"] for t in response.data) == set(tag_values)
-
-    @ddt.data(
-        # Can't add invalid tags using a closed taxonomy
-        (None, "language_taxonomy", ["Invalid"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "language_taxonomy", ["Invalid"], status.HTTP_400_BAD_REQUEST),
-        ("staff", "language_taxonomy", ["Invalid"], status.HTTP_400_BAD_REQUEST),
-        (None, "enabled_taxonomy", ["invalid"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "enabled_taxonomy", ["invalid"], status.HTTP_400_BAD_REQUEST),
-        ("staff", "enabled_taxonomy", ["invalid"], status.HTTP_400_BAD_REQUEST),
-        (None, "multiple_taxonomy", ["invalid"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "multiple_taxonomy", ["invalid"], status.HTTP_400_BAD_REQUEST),
-        ("staff", "multiple_taxonomy", ["invalid"], status.HTTP_400_BAD_REQUEST),
-        # Nobody can edit object tags using a disabled taxonomy.
-        (None, "disabled_taxonomy", ["invalid"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "disabled_taxonomy", ["invalid"], status.HTTP_403_FORBIDDEN),
-        ("staff", "disabled_taxonomy", ["invalid"], status.HTTP_403_FORBIDDEN),
-    )
-    @ddt.unpack
-    def test_tag_object_invalid(self, user_attr, taxonomy_attr, tag_values, expected_status):
-        if user_attr:
-            user = getattr(self, user_attr)
-            self.client.force_authenticate(user=user)
-
-        taxonomy = getattr(self, taxonomy_attr)
-
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id="abc", taxonomy_id=taxonomy.pk)
-
-        response = self.client.put(url, {"tags": tag_values}, format="json")
-        assert response.status_code == expected_status
-        assert not status.is_success(expected_status)  # No success cases here
+            assert [t["value"] for t in response.data[object_id]["taxonomies"][0]["tags"]] == tag_values
+            # And retrieving the object tags again should return an identical response:
+            assert response.data == self.client.get(OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)).data
 
     @ddt.data(
         # Users and staff can clear tags
-        (None, "enabled_taxonomy", [], status.HTTP_401_UNAUTHORIZED),
-        ("user", "enabled_taxonomy", [], status.HTTP_200_OK),
-        ("staff", "enabled_taxonomy", [], status.HTTP_200_OK),
-        # Users and staff can clear object tags using a allow_multiple=True taxonomy
-        (None, "multiple_taxonomy", [], status.HTTP_401_UNAUTHORIZED),
-        ("user", "multiple_taxonomy", [], status.HTTP_200_OK),
-        ("staff", "multiple_taxonomy", [], status.HTTP_200_OK),
+        (None, {}, status.HTTP_401_UNAUTHORIZED),
+        ("user_1", {}, status.HTTP_200_OK),
+        ("staff", {}, status.HTTP_200_OK),
         # Nobody can clear tags using a disabled taxonomy
-        (None, "disabled_taxonomy", [], status.HTTP_401_UNAUTHORIZED),
-        ("user", "disabled_taxonomy", [], status.HTTP_403_FORBIDDEN),
-        ("staff", "disabled_taxonomy", [], status.HTTP_403_FORBIDDEN),
-        (None, "open_taxonomy_disabled", [], status.HTTP_401_UNAUTHORIZED),
-        ("user", "open_taxonomy_disabled", [], status.HTTP_403_FORBIDDEN),
-        ("staff", "open_taxonomy_disabled", [], status.HTTP_403_FORBIDDEN),
+        (None, {"enabled": False}, status.HTTP_401_UNAUTHORIZED),
+        ("user_1", {"enabled": False}, status.HTTP_403_FORBIDDEN),
+        ("staff", {"enabled": False}, status.HTTP_403_FORBIDDEN),
+        # ... and it doesn't matter if it's free text or closed:
+        ("staff", {"enabled": False, "allow_free_text": False}, status.HTTP_403_FORBIDDEN),
     )
     @ddt.unpack
-    def test_tag_object_clear(self, user_attr, taxonomy_attr, tag_values, expected_status):
+    def test_tag_object_clear(self, user_attr, taxonomy_flags, expected_status):
+        """
+        Test that authorized users can *remove* tags using this API
+        """
+        object_id = "abc"
+
+        # First create an object tag:
+        api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Fungi"])
+
         if user_attr:
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        taxonomy = getattr(self, taxonomy_attr)
+        if taxonomy_flags:
+            for (k, v) in taxonomy_flags.items():
+                setattr(self.taxonomy, k, v)
+            self.taxonomy.save()
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id="abc", taxonomy_id=taxonomy.pk)
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=self.taxonomy.pk)
 
-        response = self.client.put(url, {"tags": tag_values}, format="json")
+        response = self.client.put(url, {"tags": []}, format="json")
         assert response.status_code == expected_status
         if status.is_success(expected_status):
-            assert len(response.data) == len(tag_values)
-            assert set(t["value"] for t in response.data) == set(tag_values)
-
-    @ddt.data(
-        # Users and staff can add multiple tags using a allow_multiple=True taxonomy
-        (None, "multiple_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "multiple_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_200_OK),
-        ("staff", "multiple_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_200_OK),
-        (None, "open_taxonomy_enabled", ["tag1", "tag2"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "open_taxonomy_enabled", ["tag1", "tag2"], status.HTTP_400_BAD_REQUEST),
-        ("staff", "open_taxonomy_enabled", ["tag1", "tag2"], status.HTTP_400_BAD_REQUEST),
-        # Users and staff can't add multple tags using a allow_multiple=False taxonomy
-        (None, "enabled_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "enabled_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_400_BAD_REQUEST),
-        ("staff", "enabled_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_400_BAD_REQUEST),
-        (None, "language_taxonomy", ["Portuguese", "English"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "language_taxonomy", ["Portuguese", "English"], status.HTTP_400_BAD_REQUEST),
-        ("staff", "language_taxonomy", ["Portuguese", "English"], status.HTTP_400_BAD_REQUEST),
-        # Nobody can edit tags using a disabled taxonomy.
-        (None, "disabled_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_401_UNAUTHORIZED),
-        ("user", "disabled_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_403_FORBIDDEN),
-        ("staff", "disabled_taxonomy", ["Tag 1", "Tag 2"], status.HTTP_403_FORBIDDEN),
-    )
-    @ddt.unpack
-    def test_tag_object_multiple(self, user_attr, taxonomy_attr, tag_values, expected_status):
-        if user_attr:
-            user = getattr(self, user_attr)
-            self.client.force_authenticate(user=user)
-
-        taxonomy = getattr(self, taxonomy_attr)
-
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id="abc", taxonomy_id=taxonomy.pk)
-
-        response = self.client.put(url, {"tags": tag_values}, format="json")
-        assert response.status_code == expected_status
-        if status.is_success(expected_status):
-            assert len(response.data) == len(tag_values)
-            assert set(t["value"] for t in response.data) == set(tag_values)
+            # Now there are no tags applied:
+            assert response.data[object_id]["taxonomies"] == []
+        else:
+            # Make sure the object tags are unchanged:
+            assert [ot.value for ot in api.get_object_tags(object_id=object_id)] == ["Fungi"]
 
     @ddt.data(
         (None, status.HTTP_401_UNAUTHORIZED),
-        ("user", status.HTTP_403_FORBIDDEN),
+        ("user_1", status.HTTP_403_FORBIDDEN),
         ("staff", status.HTTP_403_FORBIDDEN),
     )
     @ddt.unpack
@@ -844,7 +884,7 @@ class TestObjectTagViewSet(APITestCase):
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id="view_only", taxonomy_id=self.enabled_taxonomy.pk)
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id="view_only", taxonomy_id=self.taxonomy.pk)
 
         response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
         assert response.status_code == expected_status
@@ -855,13 +895,9 @@ class TestObjectTagViewSet(APITestCase):
         Checks if the limit of 100 tags per object is enforced
         """
         object_id = "limit_tag_count"
-        dummy_taxonomies = []
-        for i in range(100):
-            taxonomy = api.create_taxonomy(name=f"Dummy Taxonomy {i}", allow_free_text=True, allow_multiple=True)
-            api.tag_object(object_id=object_id, taxonomy=taxonomy, tags=["Dummy Tag"])
-            dummy_taxonomies.append(taxonomy)
+        dummy_taxonomies = self.create_100_taxonomies()
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=self.enabled_taxonomy.pk)
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=self.taxonomy.pk)
         self.client.force_authenticate(user=self.staff)
         response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
         # Can't add another tag because the object already has 100 tags

@@ -32,6 +32,7 @@ from ..paginators import TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
 from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
+    ObjectTagsByTaxonomySerializer,
     ObjectTagSerializer,
     ObjectTagUpdateBodySerializer,
     ObjectTagUpdateQueryParamsSerializer,
@@ -306,20 +307,20 @@ class ObjectTagView(
             taxonomy = taxonomy.cast()
             taxonomy_id = taxonomy.id
 
-        perm = "oel_tagging.view_objecttag"
-        perm_obj = ObjectTagPermissionItem(
-            taxonomy=taxonomy,
-            object_id=object_id,
-        )
-
-        if not self.request.user.has_perm(
-            perm,
-            # The obj arg expects a model, but we are passing an object
-            perm_obj,  # type: ignore[arg-type]
-        ):
-            raise PermissionDenied(
-                "You do not have permission to view object tags for this taxonomy or object_id."
-            )
+        if object_id.endswith("*") or "," in object_id:  # pylint: disable=no-else-raise
+            raise ValidationError("Retrieving tags from multiple objects is not yet supported.")
+            # Note: This API is actually designed so that in the future it can be extended to return tags for multiple
+            # objects, e.g. if object_id.endswith("*") then it results in a object_id__startswith query. However, for
+            # now we have no use case for that so we retrieve tags for one object at a time.
+        else:
+            if not self.request.user.has_perm(
+                "oel_tagging.view_objecttag",
+                # The obj arg expects a model, but we are passing an object
+                ObjectTagPermissionItem(taxonomy=taxonomy, object_id=object_id),  # type: ignore[arg-type]
+            ):
+                raise PermissionDenied(
+                    "You do not have permission to view object tags for this taxonomy or object_id."
+                )
 
         return get_object_tags(object_id, taxonomy_id)
 
@@ -334,9 +335,14 @@ class ObjectTagView(
         path and returns a it as a single result however that is not
         behavior we want.
         """
-        object_tags = self.filter_queryset(self.get_queryset())
-        serializer = ObjectTagSerializer(object_tags, many=True)
-        return Response(serializer.data)
+        object_tags = self.filter_queryset(self.get_queryset()).order_by("sort_key")
+        serializer = ObjectTagsByTaxonomySerializer(list(object_tags))
+        response_data = serializer.data
+        if self.kwargs["object_id"] not in response_data:
+            # For consistency, the key with the object_id should always be present in the response, even if there
+            # are no tags at all applied to this object.
+            response_data[self.kwargs["object_id"]] = {"taxonomies": []}
+        return Response(response_data)
 
     def update(self, request, *args, **kwargs) -> Response:
         """

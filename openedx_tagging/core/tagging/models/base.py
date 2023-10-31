@@ -108,18 +108,18 @@ class Tag(models.Model):
             lineage.insert(0, next_ancestor.value)
             next_ancestor = next_ancestor.get_next_ancestor()
         return lineage
-    
+
     def get_next_ancestor(self) -> Tag | None:
         """
         Fetch the parent of this Tag.
-        
+
         While doing so, preload several ancestors at the same time, so we can
         use fewer database queries than the basic approach of iterating through
         parent.parent.parent...
         """
         if self.parent_id is None:
             return None
-        if not Tag.parent.is_cached(self):
+        if not Tag.parent.is_cached(self):  # pylint: disable=no-member
             # Parent is not yet loaded. Retrieve our parent, grandparent, and great-grandparent in one query.
             # This is not actually changing the parent, just loading it and caching it.
             self.parent = Tag.objects.select_related("parent", "parent__parent").get(pk=self.parent_id)

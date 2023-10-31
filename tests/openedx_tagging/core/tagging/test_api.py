@@ -85,17 +85,19 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             enabled = list(tagging_api.get_taxonomies())
         assert enabled == [
             tax1,
+            self.free_text_taxonomy,
             tax3,
             self.language_taxonomy,
             self.taxonomy,
             self.system_taxonomy,
             self.user_taxonomy,
-        ] + self.dummy_taxonomies
+        ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
-        assert str(enabled[1]) == "<Taxonomy> (5) Import Taxonomy Test"
-        assert str(enabled[2]) == "<LanguageTaxonomy> (-1) Languages"
-        assert str(enabled[3]) == "<Taxonomy> (1) Life on Earth"
-        assert str(enabled[4]) == "<SystemDefinedTaxonomy> (4) System defined taxonomy"
+        assert str(enabled[1]) == "<Taxonomy> (6) Free Text"
+        assert str(enabled[2]) == "<Taxonomy> (5) Import Taxonomy Test"
+        assert str(enabled[3]) == "<LanguageTaxonomy> (-1) Languages"
+        assert str(enabled[4]) == "<Taxonomy> (1) Life on Earth"
+        assert str(enabled[5]) == "<SystemDefinedTaxonomy> (4) System defined taxonomy"
 
         with self.assertNumQueries(1):
             disabled = list(tagging_api.get_taxonomies(enabled=False))
@@ -107,12 +109,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert both == [
             tax2,
             tax1,
+            self.free_text_taxonomy,
             tax3,
             self.language_taxonomy,
             self.taxonomy,
             self.system_taxonomy,
             self.user_taxonomy,
-        ] + self.dummy_taxonomies
+        ]
 
     def test_get_tags(self) -> None:
         assert pretty_format_tags(tagging_api.get_tags(self.taxonomy), parent=False) == [
@@ -265,18 +268,18 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
             (self.archaea.value, False),
             (self.bacteria.value, False),
-            ("foo", False),
             ("bar", False),
+            ("foo", False),
         ]
 
         # Delete "bacteria" from the taxonomy:
-        self.bacteria.delete()  # TODO: add an API method for this
+        tagging_api.delete_tags_from_taxonomy(self.taxonomy, [self.bacteria.value], with_subtags=True)
 
         assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
             (self.archaea.value, False),
             (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
-            ("foo", False),
             ("bar", False),
+            ("foo", False),
         ]
 
         # Re-syncing the tags at this point does nothing:
@@ -293,8 +296,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
             (self.archaea.value, False),
             (self.bacteria.value, False),  # <--- not deleted
-            ("foo", False),
             ("bar", False),
+            ("foo", False),
         ]
 
         # Re-syncing the tags now does nothing:
@@ -311,12 +314,12 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 self.chordata,
             ],
             [
-                self.chordata,
                 self.archaebacteria,
+                self.chordata,
             ],
             [
-                self.archaebacteria,
                 self.archaea,
+                self.archaebacteria,
             ],
         ]
 
@@ -520,8 +523,9 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
         Test that the tagging limit is enforced.
         """
+        dummy_taxonomies = self.create_100_taxonomies()
         # The user can add up to 100 tags to a object
-        for taxonomy in self.dummy_taxonomies:
+        for taxonomy in dummy_taxonomies:
             tagging_api.tag_object(
                 taxonomy,
                 ["Dummy Tag"],
@@ -539,7 +543,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert "Cannot add more than 100 tags to" in str(exc.exception)
 
         # Updating existing tags should work
-        for taxonomy in self.dummy_taxonomies:
+        for taxonomy in dummy_taxonomies:
             tagging_api.tag_object(
                 taxonomy,
                 ["New Dummy Tag"],
@@ -547,7 +551,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             )
 
         # Updating existing tags adding a new one should fail
-        for taxonomy in self.dummy_taxonomies:
+        for taxonomy in dummy_taxonomies:
             with self.assertRaises(ValueError) as exc:
                 tagging_api.tag_object(
                     taxonomy,
@@ -558,15 +562,16 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert "Cannot add more than 100 tags to" in str(exc.exception)
 
     def test_get_object_tags(self) -> None:
-        # Alpha tag has no taxonomy
+        # Alpha tag has no taxonomy (as if the taxonomy had been deleted)
         alpha = ObjectTag(object_id="abc")
         alpha.name = self.taxonomy.name
-        alpha.value = self.mammalia.value
+        alpha.value = "alpha"
         alpha.save()
         # Beta tag has a closed taxonomy
         beta = ObjectTag.objects.create(
             object_id="abc",
             taxonomy=self.taxonomy,
+            tag=self.taxonomy.tag_set.get(value="Protista"),
         )
 
         # Fetch all the tags for a given object ID
