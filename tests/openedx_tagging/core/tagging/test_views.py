@@ -12,10 +12,11 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.import_export import api as import_export_api
 from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
-from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy
+from openedx_tagging.core.tagging.models.system_defined import SystemDefinedTaxonomy, UserSystemDefinedTaxonomy
 from openedx_tagging.core.tagging.rest_api.paginators import TagsPagination
 from openedx_tagging.core.tagging.rules import can_change_object_tag_objectid, can_view_object_tag_objectid
 
@@ -136,11 +137,11 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
     def test_list_taxonomy_pagination(self) -> None:
         url = TAXONOMY_LIST_URL
-        Taxonomy.objects.create(name="T1", enabled=True).save()
-        Taxonomy.objects.create(name="T2", enabled=True).save()
-        Taxonomy.objects.create(name="T3", enabled=False).save()
-        Taxonomy.objects.create(name="T4", enabled=False).save()
-        Taxonomy.objects.create(name="T5", enabled=False).save()
+        api.create_taxonomy(name="T1", enabled=True).save()
+        api.create_taxonomy(name="T2", enabled=True).save()
+        api.create_taxonomy(name="T3", enabled=False).save()
+        api.create_taxonomy(name="T4", enabled=False).save()
+        api.create_taxonomy(name="T5", enabled=False).save()
 
         self.client.force_authenticate(user=self.staff)
 
@@ -177,7 +178,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     @ddt.unpack
     def test_detail_taxonomy(self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int):
         create_data = {"name": "taxonomy detail test", **taxonomy_data}
-        taxonomy = Taxonomy.objects.create(**create_data)
+        taxonomy = api.create_taxonomy(**create_data)
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         if user_attr:
@@ -265,12 +266,11 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_update_taxonomy(self, user_attr, expected_status):
-        taxonomy = Taxonomy.objects.create(
+        taxonomy = api.create_taxonomy(
             name="test update taxonomy",
             description="taxonomy description",
             enabled=True,
         )
-        taxonomy.save()
 
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
@@ -303,10 +303,10 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Test that we can't update system_defined field
         """
-        taxonomy = Taxonomy.objects.create(name="test system taxonomy")
-        if system_defined:
-            taxonomy.taxonomy_class = SystemDefinedTaxonomy
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(
+            name="test system taxonomy",
+            taxonomy_class=SystemDefinedTaxonomy if system_defined else None,
+        )
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         self.client.force_authenticate(user=self.staff)
@@ -327,8 +327,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_patch_taxonomy(self, user_attr, expected_status):
-        taxonomy = Taxonomy.objects.create(name="test patch taxonomy", enabled=False)
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(name="test patch taxonomy", enabled=False)
 
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
@@ -360,10 +359,10 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Test that we can't patch system_defined field
         """
-        taxonomy = Taxonomy.objects.create(name="test system taxonomy")
-        if system_defined:
-            taxonomy.taxonomy_class = SystemDefinedTaxonomy
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(
+            name="test system taxonomy",
+            taxonomy_class=SystemDefinedTaxonomy if system_defined else None,
+        )
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         self.client.force_authenticate(user=self.staff)
@@ -384,8 +383,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_delete_taxonomy(self, user_attr, expected_status):
-        taxonomy = Taxonomy.objects.create(name="test delete taxonomy")
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(name="test delete taxonomy")
 
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
@@ -417,8 +415,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Tests if a user can export a taxonomy
         """
-        taxonomy = Taxonomy.objects.create(name="T1", enabled=True)
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(name="T1")
         for i in range(20):
             # Valid ObjectTags
             Tag.objects.create(taxonomy=taxonomy, value=f"Tag {i}").save()
@@ -445,11 +442,9 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Tests if a user can export a taxonomy with download option
         """
-        taxonomy = Taxonomy.objects.create(name="T1", enabled=True)
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(name="T1")
         for i in range(20):
-            # Valid ObjectTags
-            Tag.objects.create(taxonomy=taxonomy, value=f"Tag {i}").save()
+            api.add_tag_to_taxonomy(taxonomy=taxonomy, tag=f"Tag {i}")
 
         url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
 
@@ -469,8 +464,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Tests if a user can export a taxonomy using an invalid output_format param
         """
-        taxonomy = Taxonomy.objects.create(name="T1", enabled=True)
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(name="T1")
 
         url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
 
@@ -482,8 +476,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Tests if a user can export a taxonomy using an invalid output_format param
         """
-        taxonomy = Taxonomy.objects.create(name="T1", enabled=True)
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(name="T1")
 
         url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
 
@@ -496,8 +489,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         Tests if a user can export a taxonomy that he doesn't have authorization
         """
         # Only staff can view a disabled taxonomy
-        taxonomy = Taxonomy.objects.create(name="T1", enabled=False)
-        taxonomy.save()
+        taxonomy = api.create_taxonomy(name="T1", enabled=False)
 
         url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
 
@@ -548,58 +540,36 @@ class TestObjectTagViewSet(APITestCase):
         )
 
         # System-defined language taxonomy with valid ObjectTag
-        self.system_taxonomy = SystemDefinedTaxonomy.objects.create(name="System Taxonomy")
-        self.tag1 = Tag.objects.create(taxonomy=self.system_taxonomy, value="Tag 1")
-        ObjectTag.objects.create(object_id="abc", taxonomy=self.system_taxonomy, tag=self.tag1)
+        self.author_sys_taxonomy = api.create_taxonomy(taxonomy_class=UserSystemDefinedTaxonomy, name="Author")
+        # Tag the object "abc" with the tag for self.staff
+        api.tag_object(object_id="abc", taxonomy=self.author_sys_taxonomy, tags=[self.staff.username])
 
         # Language system-defined language taxonomy
         self.language_taxonomy = Taxonomy.objects.get(pk=LANGUAGE_TAXONOMY_ID)
 
         # Closed Taxonomies created by taxonomy admins, each with 20 ObjectTags
-        self.enabled_taxonomy = Taxonomy.objects.create(name="Enabled Taxonomy", allow_multiple=False)
-        self.disabled_taxonomy = Taxonomy.objects.create(name="Disabled Taxonomy", enabled=False, allow_multiple=False)
-        self.multiple_taxonomy = Taxonomy.objects.create(name="Multiple Taxonomy", allow_multiple=True)
+        self.enabled_taxonomy = api.create_taxonomy(name="Enabled Taxonomy", allow_multiple=False)
+        self.disabled_taxonomy = api.create_taxonomy(name="Disabled Taxonomy", enabled=False, allow_multiple=False)
+        self.multiple_taxonomy = api.create_taxonomy(name="Multiple Taxonomy", allow_multiple=True)
         for i in range(20):
-            # Valid ObjectTags
-            tag_enabled = Tag.objects.create(taxonomy=self.enabled_taxonomy, value=f"Tag {i}")
-            tag_disabled = Tag.objects.create(taxonomy=self.disabled_taxonomy, value=f"Tag {i}")
-            tag_multiple = Tag.objects.create(taxonomy=self.multiple_taxonomy, value=f"Tag {i}")
-            ObjectTag.objects.create(
-                object_id="abc", taxonomy=self.enabled_taxonomy, tag=tag_enabled, _value=tag_enabled.value
-            )
-            ObjectTag.objects.create(
-                object_id="abc", taxonomy=self.disabled_taxonomy, tag=tag_disabled, _value=tag_disabled.value
-            )
-            ObjectTag.objects.create(
-                object_id="abc", taxonomy=self.multiple_taxonomy, tag=tag_multiple, _value=tag_multiple.value
-            )
+            api.add_tag_to_taxonomy(taxonomy=self.enabled_taxonomy, tag=f"Tag {i}")
+            api.add_tag_to_taxonomy(taxonomy=self.disabled_taxonomy, tag=f"Tag {i}")
+            api.add_tag_to_taxonomy(taxonomy=self.multiple_taxonomy, tag=f"Tag {i}")
+        api.tag_object(object_id="abc", taxonomy=self.enabled_taxonomy, tags=["Tag 15"])
+        api.tag_object(object_id="abc", taxonomy=self.disabled_taxonomy, tags=["Tag 3"])
+        api.tag_object(object_id="abc", taxonomy=self.multiple_taxonomy, tags=["Tag 4", "Tag 7", "Tag 12"])
 
         # Free-Text Taxonomies created by taxonomy admins, each linked
         # to 10 ObjectTags
-        self.open_taxonomy_enabled = Taxonomy.objects.create(
+        self.open_taxonomy_enabled = api.create_taxonomy(
             name="Enabled Free-Text Taxonomy", allow_free_text=True, allow_multiple=False,
         )
-        self.open_taxonomy_disabled = Taxonomy.objects.create(
+        self.open_taxonomy_disabled = api.create_taxonomy(
             name="Disabled Free-Text Taxonomy", allow_free_text=True, enabled=False, allow_multiple=False,
         )
         for i in range(10):
             ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_enabled, _value=f"Free Text {i}")
             ObjectTag.objects.create(object_id="abc", taxonomy=self.open_taxonomy_disabled, _value=f"Free Text {i}")
-
-        self.dummy_taxonomies = []
-        for i in range(100):
-            taxonomy = Taxonomy.objects.create(
-                name=f"Dummy Taxonomy {i}",
-                allow_free_text=True,
-                allow_multiple=True
-            )
-            ObjectTag.objects.create(
-                object_id="limit_tag_count",
-                taxonomy=taxonomy,
-                _name=taxonomy.name,
-                _value="Dummy Tag"
-            )
-            self.dummy_taxonomies.append(taxonomy)
 
         # Override the object permission for the test
         rules.set_perm("oel_tagging.change_objecttag_objectid", _change_object_permission)
@@ -607,8 +577,8 @@ class TestObjectTagViewSet(APITestCase):
 
     @ddt.data(
         (None, status.HTTP_401_UNAUTHORIZED, None),
-        ("user", status.HTTP_200_OK, 81),
-        ("staff", status.HTTP_200_OK, 81),
+        ("user", status.HTTP_200_OK, 26),
+        ("staff", status.HTTP_200_OK, 26),
     )
     @ddt.unpack
     def test_retrieve_object_tags(self, user_attr, expected_status, expected_count):
@@ -638,8 +608,8 @@ class TestObjectTagViewSet(APITestCase):
 
     @ddt.data(
         (None, "abc", status.HTTP_401_UNAUTHORIZED, None),
-        ("user", "abc", status.HTTP_200_OK, 20),
-        ("staff", "abc", status.HTTP_200_OK, 20),
+        ("user", "abc", status.HTTP_200_OK, 1),
+        ("staff", "abc", status.HTTP_200_OK, 1),
     )
     @ddt.unpack
     def test_retrieve_object_tags_taxonomy_queryparam(
@@ -885,6 +855,12 @@ class TestObjectTagViewSet(APITestCase):
         Checks if the limit of 100 tags per object is enforced
         """
         object_id = "limit_tag_count"
+        dummy_taxonomies = []
+        for i in range(100):
+            taxonomy = api.create_taxonomy(name=f"Dummy Taxonomy {i}", allow_free_text=True, allow_multiple=True)
+            api.tag_object(object_id=object_id, taxonomy=taxonomy, tags=["Dummy Tag"])
+            dummy_taxonomies.append(taxonomy)
+
         url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=self.enabled_taxonomy.pk)
         self.client.force_authenticate(user=self.staff)
         response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
@@ -892,13 +868,13 @@ class TestObjectTagViewSet(APITestCase):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
         # The user can edit the tags that are already on the object
-        for taxonomy in self.dummy_taxonomies:
+        for taxonomy in dummy_taxonomies:
             url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
             response = self.client.put(url, {"tags": ["New Tag"]}, format="json")
             assert response.status_code == status.HTTP_200_OK
 
         # Editing tags adding another one will fail
-        for taxonomy in self.dummy_taxonomies:
+        for taxonomy in dummy_taxonomies:
             url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
             response = self.client.put(url, {"tags": ["New Tag 1", "New Tag 2"]}, format="json")
             assert response.status_code == status.HTTP_400_BAD_REQUEST
