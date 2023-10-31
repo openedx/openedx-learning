@@ -69,13 +69,16 @@ class ObjectTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = ObjectTag
         fields = [
+            # The taxonomy name
             "name",
             "value",
+            "lineage",
             "taxonomy_id",
             # If the Tag or Taxonomy has been deleted, this ObjectTag shouldn't be shown to users.
             "is_deleted",
         ]
 
+    lineage = serializers.ListField(child=serializers.CharField(), source="get_lineage")
 
 class ObjectTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """

@@ -101,16 +101,14 @@ class Tag(models.Model):
         Queries and returns the lineage of the current tag as a list of Tag.value strings.
 
         The root Tag.value is first, followed by its child.value, and on down to self.value.
-
-        Performance note: may perform as many as TAXONOMY_MAX_DEPTH select queries.
         """
-        lineage: Lineage = []
-        tag: Tag | None = self
-        depth = TAXONOMY_MAX_DEPTH
-        while tag and depth > 0:
-            lineage.insert(0, tag.value)
-            tag = tag.parent
-            depth -= 1
+        lineage: Lineage = [self.value]
+        if self.parent_id:
+            # Get parent, grandparent, and great-grandparent in one query:
+            next_ancestor = Tag.objects.select_related("parent", "parent__parent").get(pk=self.parent_id)
+            while next_ancestor:
+                lineage.insert(0, next_ancestor.value)
+                next_ancestor = next_ancestor.parent
         return lineage
 
     @cached_property

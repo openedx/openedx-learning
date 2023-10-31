@@ -203,8 +203,8 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         ("eubacteria", ["Bacteria", "Eubacteria"]),
         # Third level tags return three levels
         ("chordata", ["Eukaryota", "Animalia", "Chordata"]),
-        # Lineage beyond TAXONOMY_MAX_DEPTH won't trace back to the root
-        ("mammalia", ["Animalia", "Chordata", "Mammalia"]),
+        # Even fourth level tags work
+        ("mammalia", ["Eukaryota", "Animalia", "Chordata", "Mammalia"]),
     )
     @ddt.unpack
     def test_get_lineage(self, tag_attr, lineage):
