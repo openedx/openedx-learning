@@ -103,13 +103,27 @@ class Tag(models.Model):
         The root Tag.value is first, followed by its child.value, and on down to self.value.
         """
         lineage: Lineage = [self.value]
-        if self.parent_id:
-            # Get parent, grandparent, and great-grandparent in one query:
-            next_ancestor = Tag.objects.select_related("parent", "parent__parent").get(pk=self.parent_id)
-            while next_ancestor:
-                lineage.insert(0, next_ancestor.value)
-                next_ancestor = next_ancestor.parent
+        next_ancestor = self.get_next_ancestor()
+        while next_ancestor:
+            lineage.insert(0, next_ancestor.value)
+            next_ancestor = next_ancestor.get_next_ancestor()
         return lineage
+    
+    def get_next_ancestor(self) -> Tag | None:
+        """
+        Fetch the parent of this Tag.
+        
+        While doing so, preload several ancestors at the same time, so we can
+        use fewer database queries than the basic approach of iterating through
+        parent.parent.parent...
+        """
+        if self.parent_id is None:
+            return None
+        if not Tag.parent.is_cached(self):
+            # Parent is not yet loaded. Retrieve our parent, grandparent, and great-grandparent in one query.
+            # This is not actually changing the parent, just loading it and caching it.
+            self.parent = Tag.objects.select_related("parent", "parent__parent").get(pk=self.parent_id)
+        return self.parent
 
     @cached_property
     def depth(self) -> int:
