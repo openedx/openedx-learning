@@ -167,7 +167,9 @@ def get_object_tags(
     filters = {"taxonomy_id": taxonomy_id} if taxonomy_id else {}
     tags = (
         object_tag_class.objects.filter(object_id=object_id, **filters)
+        # Preload related objects, including data for the "get_lineage" method on ObjectTag/Tag:
         .select_related("taxonomy", "tag", "tag__parent", "tag__parent__parent")
+        # Sort the tags within each taxonomy in "tree order". See Taxonomy._get_filtered_tags_deep for details on this:
         .annotate(sort_key=Lower(Concat(
             ConcatNull(F("tag__parent__parent__parent__value"), Value("\t")),
             ConcatNull(F("tag__parent__parent__value"), Value("\t")),
@@ -177,6 +179,7 @@ def get_object_tags(
             output_field=models.CharField(),
         )))
         .annotate(taxonomy_name=Coalesce(F("taxonomy__name"), F("_name")))
+        # Sort first by taxonomy name, then by tag value in tree order:
         .order_by("taxonomy_name", "sort_key")
     )
     return tags
