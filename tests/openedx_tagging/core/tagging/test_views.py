@@ -32,6 +32,7 @@ TAXONOMY_TAGS_URL = "/tagging/rest_api/v1/taxonomies/{pk}/tags/"
 
 
 OBJECT_TAGS_RETRIEVE_URL = "/tagging/rest_api/v1/object_tags/{object_id}/"
+OBJECT_TAG_COUNTS_URL = "/tagging/rest_api/v1/object_tag_counts/{object_id_pattern}/"
 OBJECT_TAGS_UPDATE_URL = "/tagging/rest_api/v1/object_tags/{object_id}/?taxonomy={taxonomy_id}"
 
 LANGUAGE_TAXONOMY_ID = -1
@@ -914,6 +915,61 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
             response = self.client.put(url, {"tags": ["New Tag 1", "New Tag 2"]}, format="json")
             assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+class TestObjectTagCountsViewSet(TestTagTaxonomyMixin, APITestCase):
+    """
+    Testing various cases for counting how many tags are applied to several objects.
+    """
+
+    def test_get_counts(self):
+        """
+        Test retrieving the counts of tags applied to various content objects.
+
+        This API does NOT bother doing any permission checks as the "# of tags" is not considered sensitive information.
+        """
+        # Course 2
+        api.tag_object(object_id="course02-unit01-problem01", taxonomy=self.free_text_taxonomy, tags=["other"])
+        # Course 7 Unit 1
+        api.tag_object(object_id="course07-unit01-problem01", taxonomy=self.free_text_taxonomy, tags=["a", "b", "c"])
+        api.tag_object(object_id="course07-unit01-problem02", taxonomy=self.free_text_taxonomy, tags=["a", "b"])
+        # Course 7 Unit 2
+        api.tag_object(object_id="course07-unit02-problem01", taxonomy=self.free_text_taxonomy, tags=["b"])
+        api.tag_object(object_id="course07-unit02-problem02", taxonomy=self.free_text_taxonomy, tags=["c", "d"])
+        api.tag_object(object_id="course07-unit02-problem03", taxonomy=self.free_text_taxonomy, tags=["N", "M", "x"])
+
+        def check(object_id_pattern: str):
+            result = self.client.get(OBJECT_TAG_COUNTS_URL.format(object_id_pattern=object_id_pattern))
+            assert result.status_code == status.HTTP_200_OK
+            return result.data
+
+        with self.assertNumQueries(1):
+            assert check(object_id_pattern="course02-*") == {
+                "course02-unit01-problem01": 1,
+            }
+        with self.assertNumQueries(1):
+            assert check(object_id_pattern="course07-unit01-*") == {
+                "course07-unit01-problem01": 3,
+                "course07-unit01-problem02": 2,
+            }
+        with self.assertNumQueries(1):
+            assert check(object_id_pattern="course07-unit*") == {
+                "course07-unit01-problem01": 3,
+                "course07-unit01-problem02": 2,
+                "course07-unit02-problem01": 1,
+                "course07-unit02-problem02": 2,
+                "course07-unit02-problem03": 3,
+            }
+        # Can also use a comma to separate explicit object IDs:
+        with self.assertNumQueries(1):
+            assert check(object_id_pattern="course07-unit01-problem01") == {
+                "course07-unit01-problem01": 3,
+            }
+        with self.assertNumQueries(1):
+            assert check(object_id_pattern="course07-unit01-problem01,course07-unit02-problem02") == {
+                "course07-unit01-problem01": 3,
+                "course07-unit02-problem02": 2,
+            }
 
 
 class TestTaxonomyTagsView(TestTaxonomyViewMixin):

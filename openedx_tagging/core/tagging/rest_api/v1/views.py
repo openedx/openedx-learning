@@ -3,6 +3,8 @@ Tagging API Views
 """
 from __future__ import annotations
 
+from typing import Any
+
 from django.db import models
 from django.http import Http404, HttpResponse
 from rest_framework import mixins, status
@@ -26,7 +28,7 @@ from ...api import (
 from ...data import TagDataQuerySet
 from ...import_export.api import export_tags
 from ...import_export.parsers import ParserFormat
-from ...models import Taxonomy
+from ...models import ObjectTag, Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
 from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
@@ -266,10 +268,6 @@ class ObjectTagView(
         * 400 - Invalid query parameter
         * 403 - Permission denied
 
-    **Create Query Returns**
-        * 403 - Permission denied
-        * 405 - Method not allowed
-
     **Update Parameters**
         * object_id (required): - The Object ID to add ObjectTags for.
 
@@ -409,6 +407,52 @@ class ObjectTagView(
             raise ValidationError from e
 
         return self.retrieve(request, object_id)
+
+
+@view_auth_classes
+class ObjectTagCountsView(
+    mixins.RetrieveModelMixin,
+    GenericViewSet,
+):
+    """
+    View to retrieve the count of ObjectTags for all matching object IDs.
+
+    This API does NOT bother doing any permission checks as the "# of tags" is not considered sensitive information.
+
+    **Retrieve Parameters**
+        * object_id_pattern (required): - The Object ID to retrieve ObjectTags for. Can contain '*' at the end
+          for wildcard matching, or use ',' to separate multiple object IDs.
+
+    **Retrieve Example Requests**
+        GET api/tagging/v1/object_tag_counts/:object_id_pattern
+
+    **Retrieve Query Returns**
+        * 200 - Success
+    """
+
+    serializer_class = ObjectTagSerializer
+    lookup_field = "object_id_pattern"
+
+    def retrieve(self, request, *args, **kwargs) -> Response:
+        """
+        Retrieve the counts of object tags that belong to a given object_id pattern
+
+        Note: We override `retrieve` here instead of `list` because we are
+        passing in the Object ID (object_id) in the path (as opposed to passing
+        it in as a query_param) to retrieve the ObjectTag counts.
+        """
+        # This API does NOT bother doing any permission checks as the # of tags is not considered sensitive information.
+        object_id_pattern = self.kwargs["object_id_pattern"]
+        qs: Any = ObjectTag.objects
+        if object_id_pattern.endswith("*"):
+            qs = qs.filter(object_id__startswith=object_id_pattern[0:len(object_id_pattern) - 1])
+        elif "*" in object_id_pattern:
+            raise ValidationError("Wildcard matches are only supported if the * is at the end.")
+        else:
+            qs = qs.filter(object_id__in=object_id_pattern.split(","))
+
+        qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
+        return Response({row["object_id"]: row["num_tags"] for row in qs})
 
 
 @view_auth_classes
