@@ -93,7 +93,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.user_taxonomy,
         ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
-        assert str(enabled[1]) == "<Taxonomy> (6) Free Text"
+        assert str(enabled[1]) == f"<Taxonomy> ({self.free_text_taxonomy.id}) Free Text"
         assert str(enabled[2]) == "<Taxonomy> (5) Import Taxonomy Test"
         assert str(enabled[3]) == "<LanguageTaxonomy> (-1) Languages"
         assert str(enabled[4]) == "<Taxonomy> (1) Life on Earth"
