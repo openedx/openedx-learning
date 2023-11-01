@@ -8,6 +8,7 @@ from rest_framework.reverse import reverse
 
 from openedx_tagging.core.tagging.data import TagData
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
 
 
 class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -175,3 +176,33 @@ class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disabl
         child=serializers.CharField(), required=True
     )
     with_subtags = serializers.BooleanField(required=False)
+
+
+class TaxonomyImportBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Import action
+    """
+    taxonomy_name = serializers.CharField(required=True)
+    taxonomy_description = serializers.CharField(default="")
+    file = serializers.FileField(required=True)
+
+    def get_parser_format(self, obj):
+        """
+        Returns the ParserFormat based on the file extension
+        """
+        filename = obj["file"].name
+        ext = filename.split('.')[-1]
+        if ext.lower() == 'csv':
+            return ParserFormat.CSV
+        elif ext.lower() == 'json':
+            return ParserFormat.JSON
+        else:
+            raise serializers.ValidationError(f'File type not supported: ${ext.lower()}')
+
+    def to_internal_value(self, data):
+        """
+        Adds the parser_format to the validated data
+        """
+        validated_data = super().to_internal_value(data)
+        validated_data['parser_format'] = self.get_parser_format(data)
+        return validated_data
