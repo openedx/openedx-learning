@@ -767,31 +767,31 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
 
         # At first, none of these will be deleted:
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            ("bar", False),
+            ("foo", False),
+            ("tribble", False),
             (self.archaea.value, False),
             (self.bacteria.value, False),
-            ("foo", False),
-            ("bar", False),
-            ("tribble", False),
         ]
 
         # Delete "bacteria" from the taxonomy:
         api.delete_tags_from_taxonomy(self.taxonomy, ["Bacteria"], with_subtags=True)
 
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            ("bar", False),
+            ("foo", False),
+            ("tribble", False),
             (self.archaea.value, False),
             (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
-            ("foo", False),
-            ("bar", False),
-            ("tribble", False),
         ]
 
         # Then delete the whole free text taxonomy
         self.free_text_taxonomy.delete()
 
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            ("bar", True),  # <--- Deleted, but the value is preserved
+            ("foo", True),  # <--- Deleted, but the value is preserved
+            ("tribble", True),  # <--- Deleted, but the value is preserved
             (self.archaea.value, False),
             (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
-            ("foo", True),  # <--- Deleted, but the value is preserved
-            ("bar", True),  # <--- Deleted, but the value is preserved
-            ("tribble", True),  # <--- Deleted, but the value is preserved
         ]

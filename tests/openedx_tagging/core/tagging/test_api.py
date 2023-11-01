@@ -266,20 +266,20 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # At first, none of these will be deleted:
         assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
-            (self.archaea.value, False),
-            (self.bacteria.value, False),
             ("bar", False),
             ("foo", False),
+            (self.archaea.value, False),
+            (self.bacteria.value, False),
         ]
 
         # Delete "bacteria" from the taxonomy:
         tagging_api.delete_tags_from_taxonomy(self.taxonomy, [self.bacteria.value], with_subtags=True)
 
         assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
-            (self.archaea.value, False),
-            (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
             ("bar", False),
             ("foo", False),
+            (self.archaea.value, False),
+            (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
         ]
 
         # Re-syncing the tags at this point does nothing:
@@ -294,10 +294,10 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Now the tag is not deleted:
         assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
-            (self.archaea.value, False),
-            (self.bacteria.value, False),  # <--- not deleted
             ("bar", False),
             ("foo", False),
+            (self.archaea.value, False),
+            (self.bacteria.value, False),  # <--- not deleted
         ]
 
         # Re-syncing the tags now does nothing:

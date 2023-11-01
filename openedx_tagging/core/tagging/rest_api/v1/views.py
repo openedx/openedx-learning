@@ -333,7 +333,7 @@ class ObjectTagView(
         path and returns a it as a single result however that is not
         behavior we want.
         """
-        object_tags = self.filter_queryset(self.get_queryset()).order_by("sort_key")
+        object_tags = self.filter_queryset(self.get_queryset())
         serializer = ObjectTagsByTaxonomySerializer(list(object_tags))
         response_data = serializer.data
         if self.kwargs["object_id"] not in response_data:

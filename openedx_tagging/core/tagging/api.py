@@ -176,7 +176,8 @@ def get_object_tags(
             Value("\t"),
             output_field=models.CharField(),
         )))
-        .order_by("sort_key")
+        .annotate(taxonomy_name=Coalesce(F("taxonomy__name"), F("_name")))
+        .order_by("taxonomy_name", "sort_key")
     )
     return tags
 
