@@ -7,8 +7,8 @@ from rest_framework import serializers
 from rest_framework.reverse import reverse
 
 from openedx_tagging.core.tagging.data import TagData
-from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
+from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 
 
 class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method

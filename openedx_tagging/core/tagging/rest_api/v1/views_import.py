@@ -10,9 +10,7 @@ from rest_framework.request import Request
 from rest_framework.views import APIView
 
 from ...import_export import api
-from .serializers import (
-    TaxonomyImportBodySerializer,
-)
+from .serializers import TaxonomyImportBodySerializer
 
 
 class TemplateView(APIView):
