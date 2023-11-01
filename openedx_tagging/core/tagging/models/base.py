@@ -818,6 +818,9 @@ class ObjectTag(models.Model):
                 raise ValidationError("Invalid _value - empty string")
         if self.taxonomy and self.taxonomy.name != self._name:
             raise ValidationError("ObjectTag's _name is out of sync with Taxonomy.name")
+        if "," in self.object_id or "*" in self.object_id:
+            # Some APIs may use these characters to allow wildcard matches or multiple matches in the future.
+            raise ValidationError("Object ID contains invalid characters")
 
     def get_lineage(self) -> Lineage:
         """

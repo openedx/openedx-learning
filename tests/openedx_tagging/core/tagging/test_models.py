@@ -751,6 +751,18 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
                     tag=self.chordata,
                 ).save()
 
+    def test_invalid_id(self):
+        """
+        Test attempting to create object tags with invalid characters in the object ID
+        """
+        open_taxonomy = Taxonomy.objects.create(name="Freetext", allow_free_text=True, allow_multiple=True)
+        args = {"tags": ["test"], "taxonomy": open_taxonomy}
+        with pytest.raises(ValidationError):
+            api.tag_object(object_id="wildcard*", **args)
+        with pytest.raises(ValidationError):
+            api.tag_object(object_id="one,two,three", **args)
+        api.tag_object(object_id="valid", **args)
+
     def test_is_deleted(self):
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
