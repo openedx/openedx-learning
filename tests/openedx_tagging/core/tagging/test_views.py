@@ -604,16 +604,13 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                 },
             }
 
-    def test_retrieve_object_tags_sorted(self):
+    def prepare_for_sort_test(self) -> tuple[str, list[str]]:
         """
-        Test teh sort order of the object tags retrieved from the get object
-        tags API.
+        Tag an object with tags from the "sort test" taxonomy
         """
         object_id = "problem7"
-
-        # Apply the object tags that we're about to retrieve:
-        taxonomy = self.create_sort_test_taxonomy()
-        api.tag_object(object_id=object_id, taxonomy=taxonomy, tags=[
+        # Some selected tags to use, from the taxonomy create by self.create_sort_test_taxonomy()
+        sort_test_tags = [
             "ANVIL",
             "Android",
             "azores islands",
@@ -623,8 +620,14 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             "123",
             "1 A",
             "1111-grandchild",
-        ])
-        # Note: the full taxonomy looks like this, so this is the order we
+        ]
+
+        # Apply the object tags:
+        taxonomy = self.create_sort_test_taxonomy()
+        api.tag_object(object_id=object_id, taxonomy=taxonomy, tags=sort_test_tags)
+
+        # The result we expect to see when retrieving the object tags, after applying the list above.
+        # Note: the full taxonomy looks like the following, so this is the order we
         # expect, although not all of these tags were included.
         # 1
         #   1 A
@@ -644,13 +647,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         #   Android
         #   ANVIL
         #   azure
-
-        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
-        self.client.force_authenticate(user=self.user_1)
-        response = self.client.get(url)
-        assert response.status_code == 200
-        assert response.data[object_id]["taxonomies"][0]["name"] == "Sort Test"
-        assert response.data[object_id]["taxonomies"][0]["tags"] == [
+        sort_test_applied_result = [
             {"value": "1 A", "lineage": ["1", "1 A"]},
             {"value": "1111-grandchild", "lineage": ["1", "11111", "1111-grandchild"]},
             {"value": "111", "lineage": ["111"]},
@@ -661,6 +658,34 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             {"value": "Android", "lineage": ["ALPHABET", "Android"]},
             {"value": "ANVIL", "lineage": ["ALPHABET", "ANVIL"]},
         ]
+        return object_id, sort_test_applied_result
+
+    def test_retrieve_object_tags_sorted(self):
+        """
+        Test teh sort order of the object tags retrieved from the get object
+        tags API.
+        """
+        object_id, sort_test_applied_result = self.prepare_for_sort_test()
+
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+        self.client.force_authenticate(user=self.user_1)
+        response = self.client.get(url)
+        assert response.status_code == 200
+        assert response.data[object_id]["taxonomies"][0]["name"] == "Sort Test"
+        assert response.data[object_id]["taxonomies"][0]["tags"] == sort_test_applied_result
+
+    def test_retrieve_object_tags_query_count(self):
+        """
+        Test how many queries are used when retrieving object tags
+        """
+        object_id, sort_test_applied_result = self.prepare_for_sort_test()
+
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+        self.client.force_authenticate(user=self.user_1)
+        with self.assertNumQueries(1):
+            response = self.client.get(url)
+            assert response.status_code == 200
+            assert response.data[object_id]["taxonomies"][0]["tags"] == sort_test_applied_result
 
     def test_retrieve_object_tags_unauthorized(self):
         """
