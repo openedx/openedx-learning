@@ -51,6 +51,7 @@ class Tag(models.Model):
     parent = models.ForeignKey(
         "self",
         null=True,
+        blank=True,
         default=None,
         on_delete=models.CASCADE,
         related_name="children",
@@ -100,17 +101,29 @@ class Tag(models.Model):
         Queries and returns the lineage of the current tag as a list of Tag.value strings.
 
         The root Tag.value is first, followed by its child.value, and on down to self.value.
-
-        Performance note: may perform as many as TAXONOMY_MAX_DEPTH select queries.
         """
-        lineage: Lineage = []
-        tag: Tag | None = self
-        depth = TAXONOMY_MAX_DEPTH
-        while tag and depth > 0:
-            lineage.insert(0, tag.value)
-            tag = tag.parent
-            depth -= 1
+        lineage: Lineage = [self.value]
+        next_ancestor = self.get_next_ancestor()
+        while next_ancestor:
+            lineage.insert(0, next_ancestor.value)
+            next_ancestor = next_ancestor.get_next_ancestor()
         return lineage
+
+    def get_next_ancestor(self) -> Tag | None:
+        """
+        Fetch the parent of this Tag.
+
+        While doing so, preload several ancestors at the same time, so we can
+        use fewer database queries than the basic approach of iterating through
+        parent.parent.parent...
+        """
+        if self.parent_id is None:
+            return None
+        if not Tag.parent.is_cached(self):  # pylint: disable=no-member
+            # Parent is not yet loaded. Retrieve our parent, grandparent, and great-grandparent in one query.
+            # This is not actually changing the parent, just loading it and caching it.
+            self.parent = Tag.objects.select_related("parent", "parent__parent").get(pk=self.parent_id)
+        return self.parent
 
     @cached_property
     def depth(self) -> int:
@@ -148,6 +161,20 @@ class Tag(models.Model):
         if self.taxonomy and not self.taxonomy.allow_free_text:
             return self.taxonomy.tag_set.filter(parent=self).count()
         return 0
+
+    def clean(self):
+        """
+        Validate this tag before saving
+        """
+        # Don't allow leading or trailing whitespace:
+        self.value = self.value.strip()
+        if self.external_id:
+            self.external_id = self.external_id.strip()
+        # Don't allow \t (tab) character at all, as we use it for lineage in database queries
+        if "\t" in self.value:
+            raise ValidationError("Tags in a taxonomy cannot contain a TAB character.")
+        if self.external_id and "\t" in self.external_id:
+            raise ValidationError("Tag external ID cannot contain a TAB character.")
 
 
 class Taxonomy(models.Model):
@@ -534,6 +561,7 @@ class Taxonomy(models.Model):
         tag = Tag.objects.create(
             taxonomy=self, value=tag_value, parent=parent, external_id=external_id
         )
+        tag.full_clean()
 
         return tag
 
@@ -802,6 +830,9 @@ class ObjectTag(models.Model):
                 raise ValidationError("Invalid _value - empty string")
         if self.taxonomy and self.taxonomy.name != self._name:
             raise ValidationError("ObjectTag's _name is out of sync with Taxonomy.name")
+        if "," in self.object_id or "*" in self.object_id:
+            # Some APIs may use these characters to allow wildcard matches or multiple matches in the future.
+            raise ValidationError("Object ID contains invalid characters")
 
     def get_lineage(self) -> Lineage:
         """

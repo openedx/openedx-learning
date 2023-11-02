@@ -33,12 +33,14 @@ class TestTagTaxonomyMixin:
 
     def setUp(self):
         super().setUp()
+        # Core pre-defined taxonomies for testing:
         self.taxonomy = Taxonomy.objects.get(name="Life on Earth")
-        self.system_taxonomy = Taxonomy.objects.get(
-            name="System defined taxonomy"
-        )
+        self.system_taxonomy = Taxonomy.objects.get(name="System defined taxonomy")
         self.language_taxonomy = LanguageTaxonomy.objects.get(name="Languages")
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
+        self.free_text_taxonomy = Taxonomy.objects.create(name="Free Text", allow_free_text=True)
+
+        # References to some tags:
         self.archaea = get_tag("Archaea")
         self.archaebacteria = get_tag("Archaebacteria")
         self.bacteria = get_tag("Bacteria")
@@ -73,7 +75,41 @@ class TestTagTaxonomyMixin:
             get_tag("System Tag 4"),
         ]
 
-        self.dummy_taxonomies = []
+    def create_sort_test_taxonomy(self) -> Taxonomy:
+        """
+        Helper method to create a taxonomy that's difficult to sort correctly in tree order.
+        """
+        # pylint: disable=unused-variable
+        taxonomy = api.create_taxonomy("Sort Test")
+
+        root1 = Tag.objects.create(taxonomy=taxonomy, value="1")
+        child1_1 = Tag.objects.create(taxonomy=taxonomy, value="11", parent=root1)
+        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="2", parent=root1)
+        child1_3 = Tag.objects.create(taxonomy=taxonomy, value="1 A", parent=root1)
+        child1_4 = Tag.objects.create(taxonomy=taxonomy, value="11111", parent=root1)
+        grandchild1_4_1 = Tag.objects.create(taxonomy=taxonomy, value="1111-grandchild", parent=child1_4)
+
+        root2 = Tag.objects.create(taxonomy=taxonomy, value="111")
+        child2_1 = Tag.objects.create(taxonomy=taxonomy, value="11111111", parent=root2)
+        child2_2 = Tag.objects.create(taxonomy=taxonomy, value="123", parent=root2)
+
+        root1 = Tag.objects.create(taxonomy=taxonomy, value="ALPHABET")
+        child1_1 = Tag.objects.create(taxonomy=taxonomy, value="Android", parent=root1)
+        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="abacus", parent=root1)
+        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="azure", parent=root1)
+        child1_3 = Tag.objects.create(taxonomy=taxonomy, value="aardvark", parent=root1)
+        child1_4 = Tag.objects.create(taxonomy=taxonomy, value="ANVIL", parent=root1)
+
+        root2 = Tag.objects.create(taxonomy=taxonomy, value="abstract")
+        child2_1 = Tag.objects.create(taxonomy=taxonomy, value="Andes", parent=root2)
+        child2_2 = Tag.objects.create(taxonomy=taxonomy, value="azores islands", parent=root2)
+        return taxonomy
+
+    def create_100_taxonomies(self):
+        """
+        Helper method to create 100 taxonomies and to apply a tag from each to an object
+        """
+        dummy_taxonomies = []
         for i in range(100):
             taxonomy = Taxonomy.objects.create(
                 name=f"ZZ Dummy Taxonomy {i:03}",
@@ -86,7 +122,8 @@ class TestTagTaxonomyMixin:
                 _name=taxonomy.name,
                 _value="Dummy Tag",
             )
-            self.dummy_taxonomies.append(taxonomy)
+            dummy_taxonomies.append(taxonomy)
+        return dummy_taxonomies
 
 
 class TaxonomyTestSubclassA(Taxonomy):
@@ -203,12 +240,33 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         ("eubacteria", ["Bacteria", "Eubacteria"]),
         # Third level tags return three levels
         ("chordata", ["Eukaryota", "Animalia", "Chordata"]),
-        # Lineage beyond TAXONOMY_MAX_DEPTH won't trace back to the root
-        ("mammalia", ["Animalia", "Chordata", "Mammalia"]),
+        # Even fourth level tags work
+        ("mammalia", ["Eukaryota", "Animalia", "Chordata", "Mammalia"]),
     )
     @ddt.unpack
     def test_get_lineage(self, tag_attr, lineage):
         assert getattr(self, tag_attr).get_lineage() == lineage
+
+    def test_trailing_whitespace(self):
+        """
+        Test that tags automatically strip out trailing/leading whitespace
+        """
+        t = self.taxonomy.add_tag(" white space  ")
+        assert t.value == "white space"
+        # And via the API:
+        t2 = api.add_tag_to_taxonomy(self.taxonomy, "\t value\n")
+        assert t2.value == "value"
+
+    def test_no_tab(self):
+        """
+        Test that tags cannot contain a TAB character, which we use as a field
+        separator in the database when computing lineage.
+        """
+        with pytest.raises(ValidationError):
+            self.taxonomy.add_tag("has\ttab")
+        # And via the API:
+        with pytest.raises(ValidationError):
+            api.add_tag_to_taxonomy(self.taxonomy, "first\tsecond")
 
 
 @ddt.ddt
@@ -444,22 +502,13 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "Bacteria (None) (used: 3, children: 2)",
         ]
 
-    def test_pathological_tree_sort(self) -> None:
+    def test_tree_sort(self) -> None:
         """
-        Check for bugs in how tree sorting happens, if the tag names are very
-        similar.
+        Verify that taxonomies can be sorted correctly in tree orer (case insensitive).
+
+        The taxonomy used contains values that are tricky to sort correctly unless the tree sort algorithm is correct.
         """
-        # pylint: disable=unused-variable
-        taxonomy = api.create_taxonomy("Sort Test")
-        root1 = Tag.objects.create(taxonomy=taxonomy, value="1")
-        child1_1 = Tag.objects.create(taxonomy=taxonomy, value="11", parent=root1)
-        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="2", parent=root1)
-        child1_3 = Tag.objects.create(taxonomy=taxonomy, value="1 A", parent=root1)
-        child1_4 = Tag.objects.create(taxonomy=taxonomy, value="11111", parent=root1)
-        grandchild1_4_1 = Tag.objects.create(taxonomy=taxonomy, value="1111-grandchild", parent=child1_4)
-        root2 = Tag.objects.create(taxonomy=taxonomy, value="111")
-        child2_1 = Tag.objects.create(taxonomy=taxonomy, value="11111111", parent=root2)
-        child2_2 = Tag.objects.create(taxonomy=taxonomy, value="123", parent=root2)
+        taxonomy = self.create_sort_test_taxonomy()
         result = pretty_format_tags(taxonomy.get_filtered_tags())
         assert result == [
             "1 (None) (children: 4)",
@@ -471,41 +520,10 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "111 (None) (children: 2)",
             "  11111111 (111) (children: 0)",
             "  123 (111) (children: 0)",
-        ]
-
-    def test_case_insensitive_sort(self) -> None:
-        """
-        Make sure the sorting is case-insensitive
-        """
-        # pylint: disable=unused-variable
-        taxonomy = api.create_taxonomy("Sort Test")
-        root1 = Tag.objects.create(taxonomy=taxonomy, value="ALPHABET")
-        child1_1 = Tag.objects.create(taxonomy=taxonomy, value="Android", parent=root1)
-        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="abacus", parent=root1)
-        child1_2 = Tag.objects.create(taxonomy=taxonomy, value="azure", parent=root1)
-        child1_3 = Tag.objects.create(taxonomy=taxonomy, value="aardvark", parent=root1)
-        child1_4 = Tag.objects.create(taxonomy=taxonomy, value="ANVIL", parent=root1)
-
-        root2 = Tag.objects.create(taxonomy=taxonomy, value="abstract")
-        child2_1 = Tag.objects.create(taxonomy=taxonomy, value="Andes", parent=root2)
-        child2_2 = Tag.objects.create(taxonomy=taxonomy, value="azores islands", parent=root2)
-
-        result = pretty_format_tags(taxonomy.get_filtered_tags())
-        assert result == [
             "abstract (None) (children: 2)",
             "  Andes (abstract) (children: 0)",
             "  azores islands (abstract) (children: 0)",
             "ALPHABET (None) (children: 5)",
-            "  aardvark (ALPHABET) (children: 0)",
-            "  abacus (ALPHABET) (children: 0)",
-            "  Android (ALPHABET) (children: 0)",
-            "  ANVIL (ALPHABET) (children: 0)",
-            "  azure (ALPHABET) (children: 0)",
-        ]
-
-        # And it's case insensitive when getting only a single level:
-        result = pretty_format_tags(taxonomy.get_filtered_tags(parent_tag_value="ALPHABET", depth=1))
-        assert result == [
             "  aardvark (ALPHABET) (children: 0)",
             "  abacus (ALPHABET) (children: 0)",
             "  Android (ALPHABET) (children: 0)",
@@ -669,16 +687,13 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         assert object_tag.get_lineage() == ["Another tag"]
 
     def test_validate_value_free_text(self):
-        open_taxonomy = Taxonomy.objects.create(
-            name="Freetext Life",
-            allow_free_text=True,
-        )
+        assert self.free_text_taxonomy.allow_free_text
         # An empty string or other non-string is not valid in a free-text taxonomy
-        assert open_taxonomy.validate_value("") is False
-        assert open_taxonomy.validate_value(None) is False
-        assert open_taxonomy.validate_value(True) is False
+        assert self.free_text_taxonomy.validate_value("") is False
+        assert self.free_text_taxonomy.validate_value(None) is False
+        assert self.free_text_taxonomy.validate_value(True) is False
         # But any other string value is valid:
-        assert open_taxonomy.validate_value("Any text we want") is True
+        assert self.free_text_taxonomy.validate_value("Any text we want") is True
 
     def test_validate_value_closed(self):
         """
@@ -730,43 +745,53 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
                     tag=self.chordata,
                 ).save()
 
+    def test_invalid_id(self):
+        """
+        Test attempting to create object tags with invalid characters in the object ID
+        """
+        args = {"tags": ["test"], "taxonomy": self.free_text_taxonomy}
+        with pytest.raises(ValidationError):
+            api.tag_object(object_id="wildcard*", **args)
+        with pytest.raises(ValidationError):
+            api.tag_object(object_id="one,two,three", **args)
+        api.tag_object(object_id="valid", **args)
+
     def test_is_deleted(self):
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
-        open_taxonomy = Taxonomy.objects.create(name="Freetext Life", allow_free_text=True, allow_multiple=True)
 
         object_id = "obj1"
         # Create some tags:
         api.tag_object(self.taxonomy, [self.archaea.value, self.bacteria.value], object_id)  # Regular tags
-        api.tag_object(open_taxonomy, ["foo", "bar", "tribble"], object_id)  # Free text tags
+        api.tag_object(self.free_text_taxonomy, ["foo", "bar", "tribble"], object_id)  # Free text tags
 
         # At first, none of these will be deleted:
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            ("bar", False),
+            ("foo", False),
+            ("tribble", False),
             (self.archaea.value, False),
             (self.bacteria.value, False),
-            ("foo", False),
-            ("bar", False),
-            ("tribble", False),
         ]
 
         # Delete "bacteria" from the taxonomy:
-        self.bacteria.delete()  # TODO: add an API method for this
+        api.delete_tags_from_taxonomy(self.taxonomy, ["Bacteria"], with_subtags=True)
 
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            ("bar", False),
+            ("foo", False),
+            ("tribble", False),
             (self.archaea.value, False),
             (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
-            ("foo", False),
-            ("bar", False),
-            ("tribble", False),
         ]
 
         # Then delete the whole free text taxonomy
-        open_taxonomy.delete()
+        self.free_text_taxonomy.delete()
 
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id)] == [
+            ("bar", True),  # <--- Deleted, but the value is preserved
+            ("foo", True),  # <--- Deleted, but the value is preserved
+            ("tribble", True),  # <--- Deleted, but the value is preserved
             (self.archaea.value, False),
             (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
-            ("foo", True),  # <--- Deleted, but the value is preserved
-            ("bar", True),  # <--- Deleted, but the value is preserved
-            ("tribble", True),  # <--- Deleted, but the value is preserved
         ]

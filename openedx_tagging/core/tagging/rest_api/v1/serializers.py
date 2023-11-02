@@ -3,6 +3,8 @@ API Serializers for taxonomies
 """
 from __future__ import annotations
 
+from typing import Any
+
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
@@ -61,20 +63,59 @@ class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: dis
     )
 
 
-class ObjectTagSerializer(serializers.ModelSerializer):
+class ObjectTagMinimalSerializer(serializers.ModelSerializer):
     """
-    Serializer for the ObjectTag model.
+    Minimal serializer for the ObjectTag model.
     """
 
     class Meta:
         model = ObjectTag
-        fields = [
+        fields = ["value", "lineage"]
+
+    lineage = serializers.ListField(child=serializers.CharField(), source="get_lineage", read_only=True)
+
+
+class ObjectTagSerializer(ObjectTagMinimalSerializer):
+    """
+    Serializer for the ObjectTag model.
+    """
+    class Meta:
+        model = ObjectTag
+        fields = ObjectTagMinimalSerializer.Meta.fields + [
+            # The taxonomy name
             "name",
-            "value",
             "taxonomy_id",
             # If the Tag or Taxonomy has been deleted, this ObjectTag shouldn't be shown to users.
             "is_deleted",
         ]
+
+
+class ObjectTagsByTaxonomySerializer(serializers.ModelSerializer):
+    """
+    Serialize a group of ObjectTags, grouped by taxonomy
+    """
+    def to_representation(self, instance: list[ObjectTag]) -> dict:
+        """
+        Convert this list of ObjectTags to the serialized dictionary, grouped by Taxonomy
+        """
+        by_object: dict[str, dict[str, Any]] = {}
+        for obj_tag in instance:
+            if obj_tag.object_id not in by_object:
+                by_object[obj_tag.object_id] = {
+                    "taxonomies": []
+                }
+            taxonomies = by_object[obj_tag.object_id]["taxonomies"]
+            tax_entry = next((t for t in taxonomies if t["taxonomy_id"] == obj_tag.taxonomy_id), None)
+            if tax_entry is None:
+                tax_entry = {
+                    "name": obj_tag.name,
+                    "taxonomy_id": obj_tag.taxonomy_id,
+                    "editable": (not obj_tag.taxonomy.cast().system_defined) if obj_tag.taxonomy else False,
+                    "tags": []
+                }
+                taxonomies.append(tax_entry)
+            tax_entry["tags"].append(ObjectTagMinimalSerializer(obj_tag).data)
+        return by_object
 
 
 class ObjectTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
