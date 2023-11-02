@@ -103,9 +103,9 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_list_taxonomy_queryparams(self, enabled, expected_status: int, expected_count: int | None):
-        Taxonomy.objects.create(name="Taxonomy enabled 1", enabled=True).save()
-        Taxonomy.objects.create(name="Taxonomy enabled 2", enabled=True).save()
-        Taxonomy.objects.create(name="Taxonomy disabled", enabled=False).save()
+        api.create_taxonomy(name="Taxonomy enabled 1", enabled=True)
+        api.create_taxonomy(name="Taxonomy enabled 2", enabled=True)
+        api.create_taxonomy(name="Taxonomy disabled", enabled=False)
 
         url = TAXONOMY_LIST_URL
 
@@ -139,11 +139,11 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
     def test_list_taxonomy_pagination(self) -> None:
         url = TAXONOMY_LIST_URL
-        api.create_taxonomy(name="T1", enabled=True).save()
-        api.create_taxonomy(name="T2", enabled=True).save()
-        api.create_taxonomy(name="T3", enabled=False).save()
-        api.create_taxonomy(name="T4", enabled=False).save()
-        api.create_taxonomy(name="T5", enabled=False).save()
+        api.create_taxonomy(name="T1", enabled=True)
+        api.create_taxonomy(name="T2", enabled=True)
+        api.create_taxonomy(name="T3", enabled=False)
+        api.create_taxonomy(name="T4", enabled=False)
+        api.create_taxonomy(name="T5", enabled=False)
 
         self.client.force_authenticate(user=self.staff)
 
@@ -604,7 +604,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                 },
             }
 
-    def prepare_for_sort_test(self) -> tuple[str, list[str]]:
+    def prepare_for_sort_test(self) -> tuple[str, list[dict]]:
         """
         Tag an object with tags from the "sort test" taxonomy
         """
@@ -662,7 +662,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
     def test_retrieve_object_tags_sorted(self):
         """
-        Test teh sort order of the object tags retrieved from the get object
+        Test the sort order of the object tags retrieved from the get object
         tags API.
         """
         object_id, sort_test_applied_result = self.prepare_for_sort_test()
@@ -697,13 +697,13 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @ddt.data(
-        (None, "abc", status.HTTP_401_UNAUTHORIZED),
-        ("user_1", "abc", status.HTTP_200_OK),
-        ("staff", "abc", status.HTTP_200_OK),
+        (None, status.HTTP_401_UNAUTHORIZED),
+        ("user_1", status.HTTP_200_OK),
+        ("staff", status.HTTP_200_OK),
     )
     @ddt.unpack
     def test_retrieve_object_tags_taxonomy_queryparam(
-        self, user_attr, object_id, expected_status,
+        self, user_attr, expected_status,
     ):
         """
         Test retrieving object tags for specific taxonomies provided

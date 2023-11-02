@@ -72,7 +72,7 @@ class ObjectTagMinimalSerializer(serializers.ModelSerializer):
         model = ObjectTag
         fields = ["value", "lineage"]
 
-    lineage = serializers.ListField(child=serializers.CharField(), source="get_lineage")
+    lineage = serializers.ListField(child=serializers.CharField(), source="get_lineage", read_only=True)
 
 
 class ObjectTagSerializer(ObjectTagMinimalSerializer):
@@ -80,6 +80,7 @@ class ObjectTagSerializer(ObjectTagMinimalSerializer):
     Serializer for the ObjectTag model.
     """
     class Meta:
+        model = ObjectTag
         fields = ObjectTagMinimalSerializer.Meta.fields + [
             # The taxonomy name
             "name",
