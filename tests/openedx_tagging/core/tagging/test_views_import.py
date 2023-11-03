@@ -45,12 +45,33 @@ class TestTemplateView(APITestCase):
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
 
+@ddt.ddt
 class TestImportView(APITestCase):
     """
     Tests the import taxonomy view.
     """
 
-    def test_import(self):
+    def _get_file(self, tags: list, file_format: str) -> SimpleUploadedFile:
+        """
+        Returns a file for the given format.
+        """
+        if file_format == "csv":
+            csv_data = "id,value"
+            for tag in tags:
+                csv_data += f"\n{tag['id']},{tag['value']}"
+            return SimpleUploadedFile("taxonomy.csv", csv_data.encode(), content_type="text/csv")
+        else:  # json
+            json_data = {"tags": tags}
+            return SimpleUploadedFile("taxonomy.json", json.dumps(json_data).encode(), content_type="application/json")
+
+    @ddt.data(
+        "csv",
+        "json",
+    )
+    def test_import(self, file_format: str) -> None:
+        """
+        Tests importing a valid taxonomy file.
+        """
         url = TAXONOMY_IMPORT_URL
         new_tags = [
             {"id": "tag_1", "value": "Tag 1"},
@@ -58,15 +79,14 @@ class TestImportView(APITestCase):
             {"id": "tag_3", "value": "Tag 3"},
             {"id": "tag_4", "value": "Tag 4"},
         ]
-        json_data = {"tags": new_tags}
-        file = SimpleUploadedFile("taxonomy.json", json.dumps(json_data).encode(), content_type="application/json")
+        file = self._get_file(new_tags, file_format)
 
         response = self.client.post(
             url,
             {
                 "taxonomy_name": "Imported Taxonomy name",
                 "taxonomy_description": "Imported Taxonomy description",
-                "file": file
+                "file": file,
             },
             format="multipart"
         )
@@ -81,3 +101,80 @@ class TestImportView(APITestCase):
         assert len(tags) == len(new_tags)
         for i, tag in enumerate(tags):
             assert tag.value == new_tags[i]["value"]
+
+    def test_import_no_file(self) -> None:
+        """
+        Tests importing a taxonomy without a file.
+        """
+        url = TAXONOMY_IMPORT_URL
+        response = self.client.post(
+            url,
+            {
+                "taxonomy_name": "Imported Taxonomy name",
+                "taxonomy_description": "Imported Taxonomy description",
+            },
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["file"][0] == "No file was submitted."
+
+    @ddt.data(
+        "csv",
+        "json",
+    )
+    def test_import_no_name(self, file_format) -> None:
+        """
+        Tests importing a taxonomy without specifing a name.
+        """
+        url = TAXONOMY_IMPORT_URL
+        file = SimpleUploadedFile(f"taxonomy.{file_format}", b"invalid file content")
+        response = self.client.post(
+            url,
+            {
+                "taxonomy_description": "Imported Taxonomy description",
+                "file": file,
+            },
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["taxonomy_name"][0] == "This field is required."
+
+    def test_import_invalid_format(self) -> None:
+        """
+        Tests importing a taxonomy with an invalid file format.
+        """
+        url = TAXONOMY_IMPORT_URL
+        file = SimpleUploadedFile("taxonomy.invalid", b"invalid file content")
+        response = self.client.post(
+            url,
+            {
+                "taxonomy_name": "Imported Taxonomy name",
+                "taxonomy_description": "Imported Taxonomy description",
+                "file": file,
+            },
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["file"][0] == "File type not supported: invalid"
+
+    @ddt.data(
+        "csv",
+        "json",
+    )
+    def test_import_invalid_content(self, file_format) -> None:
+        """
+        Tests importing a taxonomy with an invalid file content.
+        """
+        url = TAXONOMY_IMPORT_URL
+        file = SimpleUploadedFile(f"taxonomy.{file_format}", b"invalid file content")
+        response = self.client.post(
+            url,
+            {
+                "taxonomy_name": "Imported Taxonomy name",
+                "taxonomy_description": "Imported Taxonomy description",
+                "file": file,
+            },
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.content == b"Error importing taxonomy"

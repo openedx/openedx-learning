@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import os
 
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
@@ -95,4 +95,4 @@ class ImportView(APIView):
         if import_success:
             return HttpResponse(status=200)
         else:
-            return HttpResponse(status=400)
+            return HttpResponseBadRequest("Error importing taxonomy")
