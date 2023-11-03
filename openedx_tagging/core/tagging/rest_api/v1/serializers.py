@@ -192,10 +192,9 @@ class TaxonomyImportBodySerializer(serializers.Serializer):  # pylint: disable=a
         """
         filename = obj["file"].name
         ext = filename.split('.')[-1]
-        if ext.lower() == 'csv':
-            return ParserFormat.CSV
-        elif ext.lower() == 'json':
-            return ParserFormat.JSON
+        parser_format = getattr(ParserFormat, ext.upper(), None)
+        if parser_format:
+            return parser_format
         else:
             raise serializers.ValidationError(f'File type not supported: ${ext.lower()}')
 
