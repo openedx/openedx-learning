@@ -45,7 +45,7 @@ cffi==1.16.0
     #   -r requirements/test.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.3.1
+charset-normalizer==3.3.2
     # via
     #   -r requirements/test.txt
     #   requests
@@ -84,7 +84,7 @@ cryptography==41.0.5
     #   pyjwt
 ddt==1.6.0
     # via -r requirements/test.txt
-django==3.2.22
+django==3.2.23
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
@@ -137,11 +137,11 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==5.7.0
+edx-django-utils==5.8.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==8.12.0
+edx-drf-extensions==8.13.0
     # via -r requirements/test.txt
 edx-opaque-keys==2.5.1
     # via
@@ -161,7 +161,7 @@ idna==3.4
     #   requests
 imagesize==1.4.1
     # via sphinx
-import-linter==1.12.0
+import-linter==1.12.1
     # via -r requirements/test.txt
 importlib-metadata==6.8.0
     # via sphinx
@@ -228,7 +228,7 @@ pycparser==2.21
     # via
     #   -r requirements/test.txt
     #   cffi
-pydata-sphinx-theme==0.14.2
+pydata-sphinx-theme==0.14.3
     # via sphinx-book-theme
 pygments==2.16.1
     # via
@@ -258,7 +258,7 @@ pytest==7.4.3
     #   pytest-django
 pytest-cov==4.1.0
     # via -r requirements/test.txt
-pytest-django==4.5.2
+pytest-django==4.6.0
     # via -r requirements/test.txt
 python-dateutil==2.8.2
     # via
@@ -385,13 +385,13 @@ urllib3==2.0.7
     #   -r requirements/test.txt
     #   requests
     #   types-requests
-vine==5.0.0
+vine==5.1.0
     # via
     #   -r requirements/test.txt
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.8
+wcwidth==0.2.9
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
