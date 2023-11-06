@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
@@ -77,6 +78,11 @@ class ImportView(APIView):
         """
         Imports the taxonomy from the uploaded file.
         """
+        perm = "oel_tagging.import_taxonomy"
+        if not request.user.has_perm(perm):
+            raise PermissionDenied("You do not have permission to import taxonomies")
+
+
         body = TaxonomyImportBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
