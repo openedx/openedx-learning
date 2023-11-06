@@ -18,6 +18,7 @@ TAXONOMY_IMPORT_URL = "/tagging/rest_api/v1/import/"
 
 User = get_user_model()
 
+
 @ddt.ddt
 class TestTemplateView(APITestCase):
     """
@@ -65,7 +66,6 @@ class TestImportView(APITestCase):
             email="staff@example.com",
             is_staff=True,
         )
-
 
     def _get_file(self, tags: list, file_format: str) -> SimpleUploadedFile:
         """

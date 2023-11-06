@@ -82,7 +82,6 @@ class ImportView(APIView):
         if not request.user.has_perm(perm):
             raise PermissionDenied("You do not have permission to import taxonomies")
 
-
         body = TaxonomyImportBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
