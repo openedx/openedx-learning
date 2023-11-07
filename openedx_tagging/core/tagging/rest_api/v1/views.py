@@ -282,14 +282,17 @@ class TaxonomyView(ModelViewSet):
         parser_format = body.validated_data["parser_format"]
 
         taxonomy = create_taxonomy(taxonomy_name, taxonomy_description)
-        import_success = import_tags(taxonomy, file, parser_format)
+        try:
+            import_success = import_tags(taxonomy, file, parser_format)
 
-        if import_success:
-            return HttpResponse(status=200)
-        else:
-            import_error = "Error importing taxonomy"  # ToDo: Get actual error message
-            taxonomy.delete()
-            return HttpResponseBadRequest(import_error)
+            if import_success:
+                return HttpResponse(status=200)
+            else:
+                import_error = "Error importing taxonomy"  # ToDo: Get actual error message
+                taxonomy.delete()
+                return HttpResponseBadRequest(import_error)
+        except ValueError as e:
+            return HttpResponseBadRequest(e)
 
     @action(detail=True, url_path="tags/import", methods=["put"])
     def update_import(self, request: Request, **_kwargs) -> HttpResponse:
@@ -307,13 +310,16 @@ class TaxonomyView(ModelViewSet):
         parser_format = body.validated_data["parser_format"]
 
         taxonomy = self.get_object()
-        import_success = import_tags(taxonomy, file, parser_format)
+        try:
+            import_success = import_tags(taxonomy, file, parser_format)
 
-        if import_success:
-            return HttpResponse(status=200)
-        else:
-            import_error = "Error importing taxonomy"  # ToDo: Get actual error message
-            return HttpResponseBadRequest(import_error)
+            if import_success:
+                return HttpResponse(status=200)
+            else:
+                import_error = "Error importing taxonomy"  # ToDo: Get actual error message
+                return HttpResponseBadRequest(import_error)
+        except ValueError as e:
+            return HttpResponseBadRequest(e)
 
 
 @view_auth_classes
