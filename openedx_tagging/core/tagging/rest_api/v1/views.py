@@ -25,7 +25,7 @@ from ...api import (
     update_tag_in_taxonomy,
 )
 from ...data import TagDataQuerySet
-from ...import_export.api import export_tags, import_tags
+from ...import_export.api import export_tags, get_last_import_log, import_tags
 from ...import_export.parsers import ParserFormat
 from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
@@ -288,7 +288,7 @@ class TaxonomyView(ModelViewSet):
             if import_success:
                 return HttpResponse(status=200)
             else:
-                import_error = "Error importing taxonomy"  # ToDo: Get actual error message
+                import_error = get_last_import_log(taxonomy)
                 taxonomy.delete()
                 return HttpResponseBadRequest(import_error)
         except ValueError as e:
@@ -316,7 +316,7 @@ class TaxonomyView(ModelViewSet):
             if import_success:
                 return HttpResponse(status=200)
             else:
-                import_error = "Error importing taxonomy"  # ToDo: Get actual error message
+                import_error = get_last_import_log(taxonomy)
                 return HttpResponseBadRequest(import_error)
         except ValueError as e:
             return HttpResponseBadRequest(e)

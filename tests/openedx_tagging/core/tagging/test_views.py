@@ -2012,7 +2012,7 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
             format="multipart"
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.content == b"Error importing taxonomy"
+        assert f"Invalid '.{file_format}' format:".encode() in response.content
 
         # Check if the taxonomy was not created
         assert not Taxonomy.objects.filter(name="Imported Taxonomy name").exists()
@@ -2163,7 +2163,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
             format="multipart"
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.content == b"Error importing taxonomy"
+        assert f"Invalid '.{file_format}' format:".encode() in response.content
 
         # Check if the taxonomy was not changed
         tags = list(Tag.objects.filter(taxonomy=self.taxonomy))
