@@ -184,18 +184,19 @@ class TaxonomyImportBodySerializer(serializers.Serializer):  # pylint: disable=a
     """
     file = serializers.FileField(required=True)
 
-    def validate(self, data):
+    def validate(self, attrs):
         """
         Validates the file extension and add parser_format to the data
         """
-        filename = data["file"].name
+        filename = attrs["file"].name
         ext = filename.split('.')[-1]
         parser_format = getattr(ParserFormat, ext.upper(), None)
         if not parser_format:
             raise serializers.ValidationError({"file": f'File type not supported: {ext.lower()}'}, 'file')
 
-        data['parser_format'] = parser_format
-        return data
+        attrs['parser_format'] = parser_format
+        return attrs
+
 
 class TaxonomyImportNewBodySerializer(TaxonomyImportBodySerializer):  # pylint: disable=abstract-method
     """
