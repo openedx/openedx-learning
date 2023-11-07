@@ -182,8 +182,6 @@ class TaxonomyImportBodySerializer(serializers.Serializer):  # pylint: disable=a
     """
     Serializer of the body for the Taxonomy Import action
     """
-    taxonomy_name = serializers.CharField(required=True)
-    taxonomy_description = serializers.CharField(default="")
     file = serializers.FileField(required=True)
 
     def validate(self, data):
@@ -198,3 +196,10 @@ class TaxonomyImportBodySerializer(serializers.Serializer):  # pylint: disable=a
 
         data['parser_format'] = parser_format
         return data
+
+class TaxonomyImportNewBodySerializer(TaxonomyImportBodySerializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Create and Import action
+    """
+    taxonomy_name = serializers.CharField(required=True)
+    taxonomy_description = serializers.CharField(default="")

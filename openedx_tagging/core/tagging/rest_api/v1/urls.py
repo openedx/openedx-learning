@@ -23,9 +23,4 @@ urlpatterns = [
         views_import.TemplateView.as_view(),
         name="taxonomy-import-template",
     ),
-    path(
-        "import/",
-        views_import.ImportView.as_view(),
-        name="taxonomy-import",
-    ),
 ]

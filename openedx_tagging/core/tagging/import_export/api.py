@@ -48,30 +48,10 @@ from io import BytesIO
 
 from django.utils.translation import gettext as _
 
-from .. import api as taxonomy_api
 from ..models import TagImportTask, TagImportTaskState, Taxonomy
 from .exceptions import TagImportError
 from .import_plan import TagImportPlan, TagImportTask
 from .parsers import ParserFormat, get_parser
-
-
-def create_taxonomy_and_import_tags(
-    taxonomy_name: str,
-    taxonomy_description: str,
-    file: BytesIO,
-    parser_format: ParserFormat
-) -> bool:
-    """
-    Create a taxonomy and import the tags from `file`
-    """
-    taxonomy = taxonomy_api.create_taxonomy(taxonomy_name, taxonomy_description)
-
-    import_success = import_tags(taxonomy, file, parser_format)
-
-    if not import_success:
-        taxonomy.delete()
-
-    return import_success
 
 
 def import_tags(

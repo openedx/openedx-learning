@@ -5,13 +5,9 @@ from __future__ import annotations
 
 import os
 
-from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest
-from rest_framework.exceptions import PermissionDenied
+from django.http import FileResponse, Http404
 from rest_framework.request import Request
 from rest_framework.views import APIView
-
-from ...import_export import api
-from .serializers import TaxonomyImportBodySerializer
 
 
 class TemplateView(APIView):
@@ -53,51 +49,3 @@ class TemplateView(APIView):
         response = FileResponse(fh, content_type=content_type)
         response['Content-Disposition'] = content_disposition
         return response
-
-
-class ImportView(APIView):
-    """
-    View to import taxonomies
-
-    **Example Requests**
-        POST /tagging/rest_api/v1/import/
-        {
-            "taxonomy_name": "Taxonomy Name",
-            "taxonomy_description": "This is a description",
-            "file": <file>,
-        }
-
-    **Query Returns**
-        * 200 - Success
-        * 400 - Bad request
-        * 405 - Method not allowed
-    """
-    http_method_names = ['post']
-
-    def post(self, request: Request, *args, **kwargs) -> HttpResponse:
-        """
-        Imports the taxonomy from the uploaded file.
-        """
-        perm = "oel_tagging.import_taxonomy"
-        if not request.user.has_perm(perm):
-            raise PermissionDenied("You do not have permission to import taxonomies")
-
-        body = TaxonomyImportBodySerializer(data=request.data)
-        body.is_valid(raise_exception=True)
-
-        taxonomy_name = body.validated_data["taxonomy_name"]
-        taxonomy_description = body.validated_data["taxonomy_description"]
-        file = body.validated_data["file"].file
-        parser_format = body.validated_data["parser_format"]
-
-        import_success = api.create_taxonomy_and_import_tags(
-            taxonomy_name=taxonomy_name,
-            taxonomy_description=taxonomy_description,
-            file=file,
-            parser_format=parser_format,
-        )
-
-        if import_success:
-            return HttpResponse(status=200)
-        else:
-            return HttpResponseBadRequest("Error importing taxonomy")
