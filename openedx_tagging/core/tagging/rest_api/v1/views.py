@@ -55,7 +55,7 @@ from .utils import view_auth_classes
 @view_auth_classes
 class TaxonomyView(ModelViewSet):
     """
-    View to list, create, retrieve, update, delete or export Taxonomies.
+    View to list, create, retrieve, update, delete, export or import Taxonomies.
 
     **List Query Parameters**
         * enabled (optional) - Filter by enabled status. Valid values: true,
