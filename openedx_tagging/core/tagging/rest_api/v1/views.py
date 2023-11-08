@@ -3,6 +3,8 @@ Tagging API Views
 """
 from __future__ import annotations
 
+from typing import Any
+
 from django.db import models
 from django.http import Http404, HttpResponse
 from rest_framework import mixins, status
@@ -27,12 +29,13 @@ from ...api import (
 from ...data import TagDataQuerySet
 from ...import_export.api import export_tags, get_last_import_log, import_tags
 from ...import_export.parsers import ParserFormat
-from ...models import Taxonomy
+from ...models import ObjectTag, Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
 from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
+    ObjectTagsByTaxonomySerializer,
     ObjectTagSerializer,
     ObjectTagUpdateBodySerializer,
     ObjectTagUpdateQueryParamsSerializer,
@@ -338,10 +341,6 @@ class ObjectTagView(
         * 400 - Invalid query parameter
         * 403 - Permission denied
 
-    **Create Query Returns**
-        * 403 - Permission denied
-        * 405 - Method not allowed
-
     **Update Parameters**
         * object_id (required): - The Object ID to add ObjectTags for.
 
@@ -379,20 +378,20 @@ class ObjectTagView(
             taxonomy = taxonomy.cast()
             taxonomy_id = taxonomy.id
 
-        perm = "oel_tagging.view_objecttag"
-        perm_obj = ObjectTagPermissionItem(
-            taxonomy=taxonomy,
-            object_id=object_id,
-        )
-
-        if not self.request.user.has_perm(
-            perm,
-            # The obj arg expects a model, but we are passing an object
-            perm_obj,  # type: ignore[arg-type]
-        ):
-            raise PermissionDenied(
-                "You do not have permission to view object tags for this taxonomy or object_id."
-            )
+        if object_id.endswith("*") or "," in object_id:  # pylint: disable=no-else-raise
+            raise ValidationError("Retrieving tags from multiple objects is not yet supported.")
+            # Note: This API is actually designed so that in the future it can be extended to return tags for multiple
+            # objects, e.g. if object_id.endswith("*") then it results in a object_id__startswith query. However, for
+            # now we have no use case for that so we retrieve tags for one object at a time.
+        else:
+            if not self.request.user.has_perm(
+                "oel_tagging.view_objecttag",
+                # The obj arg expects a model, but we are passing an object
+                ObjectTagPermissionItem(taxonomy=taxonomy, object_id=object_id),  # type: ignore[arg-type]
+            ):
+                raise PermissionDenied(
+                    "You do not have permission to view object tags for this taxonomy or object_id."
+                )
 
         return get_object_tags(object_id, taxonomy_id)
 
@@ -408,8 +407,13 @@ class ObjectTagView(
         behavior we want.
         """
         object_tags = self.filter_queryset(self.get_queryset())
-        serializer = ObjectTagSerializer(object_tags, many=True)
-        return Response(serializer.data)
+        serializer = ObjectTagsByTaxonomySerializer(list(object_tags))
+        response_data = serializer.data
+        if self.kwargs["object_id"] not in response_data:
+            # For consistency, the key with the object_id should always be present in the response, even if there
+            # are no tags at all applied to this object.
+            response_data[self.kwargs["object_id"]] = {"taxonomies": []}
+        return Response(response_data)
 
     def update(self, request, *args, **kwargs) -> Response:
         """
@@ -476,6 +480,52 @@ class ObjectTagView(
             raise ValidationError from e
 
         return self.retrieve(request, object_id)
+
+
+@view_auth_classes
+class ObjectTagCountsView(
+    mixins.RetrieveModelMixin,
+    GenericViewSet,
+):
+    """
+    View to retrieve the count of ObjectTags for all matching object IDs.
+
+    This API does NOT bother doing any permission checks as the "# of tags" is not considered sensitive information.
+
+    **Retrieve Parameters**
+        * object_id_pattern (required): - The Object ID to retrieve ObjectTags for. Can contain '*' at the end
+          for wildcard matching, or use ',' to separate multiple object IDs.
+
+    **Retrieve Example Requests**
+        GET api/tagging/v1/object_tag_counts/:object_id_pattern
+
+    **Retrieve Query Returns**
+        * 200 - Success
+    """
+
+    serializer_class = ObjectTagSerializer
+    lookup_field = "object_id_pattern"
+
+    def retrieve(self, request, *args, **kwargs) -> Response:
+        """
+        Retrieve the counts of object tags that belong to a given object_id pattern
+
+        Note: We override `retrieve` here instead of `list` because we are
+        passing in the Object ID (object_id) in the path (as opposed to passing
+        it in as a query_param) to retrieve the ObjectTag counts.
+        """
+        # This API does NOT bother doing any permission checks as the # of tags is not considered sensitive information.
+        object_id_pattern = self.kwargs["object_id_pattern"]
+        qs: Any = ObjectTag.objects
+        if object_id_pattern.endswith("*"):
+            qs = qs.filter(object_id__startswith=object_id_pattern[0:len(object_id_pattern) - 1])
+        elif "*" in object_id_pattern:
+            raise ValidationError("Wildcard matches are only supported if the * is at the end.")
+        else:
+            qs = qs.filter(object_id__in=object_id_pattern.split(","))
+
+        qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
+        return Response({row["object_id"]: row["num_tags"] for row in qs})
 
 
 @view_auth_classes

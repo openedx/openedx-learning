@@ -35,7 +35,7 @@ cffi==1.16.0
     #   -r requirements/base.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.3.1
+charset-normalizer==3.3.2
     # via
     #   -r requirements/base.txt
     #   requests
@@ -113,11 +113,11 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
-edx-django-utils==5.7.0
+edx-django-utils==5.8.0
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
-edx-drf-extensions==8.12.0
+edx-drf-extensions==8.13.0
     # via -r requirements/base.txt
 edx-opaque-keys==2.5.1
     # via
@@ -131,7 +131,7 @@ idna==3.4
     # via
     #   -r requirements/base.txt
     #   requests
-import-linter==1.12.0
+import-linter==1.12.1
     # via -r requirements/test.in
 iniconfig==2.0.0
     # via pytest
@@ -198,7 +198,7 @@ pytest==7.4.3
     #   pytest-django
 pytest-cov==4.1.0
     # via -r requirements/test.in
-pytest-django==4.5.2
+pytest-django==4.6.0
     # via -r requirements/test.in
 python-dateutil==2.8.2
     # via
@@ -278,13 +278,13 @@ urllib3==2.0.7
     #   -r requirements/base.txt
     #   requests
     #   types-requests
-vine==5.0.0
+vine==5.1.0
     # via
     #   -r requirements/base.txt
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.8
+wcwidth==0.2.9
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit
