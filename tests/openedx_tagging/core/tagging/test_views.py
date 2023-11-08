@@ -211,6 +211,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         if status.is_success(expected_status):
             check_taxonomy(response.data, taxonomy.pk, **create_data)
 
+    def test_detail_system_taxonomy(self):
+        url = TAXONOMY_DETAIL_URL.format(pk=LANGUAGE_TAXONOMY_ID)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
     def test_detail_taxonomy_404(self) -> None:
         url = TAXONOMY_DETAIL_URL.format(pk=123123)
 
