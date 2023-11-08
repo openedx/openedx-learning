@@ -237,9 +237,6 @@ class TaxonomyView(ModelViewSet):
         Export a taxonomy.
         """
         taxonomy = self.get_object()
-        perm = "oel_tagging.export_taxonomy"
-        if not request.user.has_perm(perm, taxonomy):
-            raise PermissionDenied("You do not have permission to export this taxonomy.")
         query_params = TaxonomyExportQueryParamsSerializer(
             data=request.query_params.dict()
         )
@@ -267,12 +264,8 @@ class TaxonomyView(ModelViewSet):
     @action(detail=False, url_path="import", methods=["post"])
     def create_import(self, request: Request, **_kwargs) -> HttpResponse:
         """
-        Create a new taxonomy and imports the tags from the uploaded file.
+        Creates a new taxonomy and imports the tags from the uploaded file.
         """
-        perm = "oel_tagging.import_taxonomy"
-        if not request.user.has_perm(perm):
-            raise PermissionDenied("You do not have permission to import taxonomies")
-
         body = TaxonomyImportNewBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
@@ -299,10 +292,6 @@ class TaxonomyView(ModelViewSet):
         """
         Imports tags from the uploaded file to an already created taxonomy.
         """
-        perm = "oel_tagging.import_taxonomy"
-        if not request.user.has_perm(perm):
-            raise PermissionDenied("You do not have permission to import taxonomies")
-
         body = TaxonomyImportBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
