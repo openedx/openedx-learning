@@ -4,7 +4,7 @@ Tagging API Views
 from __future__ import annotations
 
 from django.db import models
-from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse
 from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
@@ -262,7 +262,7 @@ class TaxonomyView(ModelViewSet):
         return HttpResponse(tags, content_type=content_type)
 
     @action(detail=False, url_path="import", methods=["post"])
-    def create_import(self, request: Request, **_kwargs) -> HttpResponse:
+    def create_import(self, request: Request, **_kwargs) -> Response:
         """
         Creates a new taxonomy and imports the tags from the uploaded file.
         """
@@ -279,16 +279,17 @@ class TaxonomyView(ModelViewSet):
             import_success = import_tags(taxonomy, file, parser_format)
 
             if import_success:
-                return HttpResponse(status=200)
+                serializer = self.get_serializer(taxonomy)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
                 import_error = get_last_import_log(taxonomy)
                 taxonomy.delete()
-                return HttpResponseBadRequest(import_error)
+                return Response(import_error, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as e:
-            return HttpResponseBadRequest(e)
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, url_path="tags/import", methods=["put"])
-    def update_import(self, request: Request, **_kwargs) -> HttpResponse:
+    def update_import(self, request: Request, **_kwargs) -> Response:
         """
         Imports tags from the uploaded file to an already created taxonomy.
         """
@@ -303,12 +304,13 @@ class TaxonomyView(ModelViewSet):
             import_success = import_tags(taxonomy, file, parser_format)
 
             if import_success:
-                return HttpResponse(status=200)
+                serializer = self.get_serializer(taxonomy)
+                return Response(serializer.data)
             else:
                 import_error = get_last_import_log(taxonomy)
-                return HttpResponseBadRequest(import_error)
+                return Response(import_error, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as e:
-            return HttpResponseBadRequest(e)
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
 @view_auth_classes

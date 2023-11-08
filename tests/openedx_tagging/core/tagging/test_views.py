@@ -1912,14 +1912,15 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
             },
             format="multipart"
         )
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_201_CREATED
 
         # Check if the taxonomy was created
-        taxonomy = Taxonomy.objects.get(name="Imported Taxonomy name")
-        assert taxonomy.description == "Imported Taxonomy description"
+        taxonomy = response.data
+        assert taxonomy["name"] == "Imported Taxonomy name"
+        assert taxonomy["description"] == "Imported Taxonomy description"
 
         # Check if the tags were created
-        tags = list(Tag.objects.filter(taxonomy=taxonomy))
+        tags = list(Tag.objects.filter(taxonomy_id=taxonomy["id"]))
         assert len(tags) == len(new_tags)
         for i, tag in enumerate(tags):
             assert tag.value == new_tags[i]["value"]
@@ -2012,7 +2013,7 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
             format="multipart"
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert f"Invalid '.{file_format}' format:".encode() in response.content
+        assert f"Invalid '.{file_format}' format:" in response.data
 
         # Check if the taxonomy was not created
         assert not Taxonomy.objects.filter(name="Imported Taxonomy name").exists()
@@ -2163,7 +2164,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
             format="multipart"
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert f"Invalid '.{file_format}' format:".encode() in response.content
+        assert f"Invalid '.{file_format}' format:" in response.data
 
         # Check if the taxonomy was not changed
         tags = list(Tag.objects.filter(taxonomy=self.taxonomy))
@@ -2198,8 +2199,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        error_msg = f"Invalid taxonomy ({self.taxonomy.id}): You cannot import a free-form taxonomy."
-        assert response.content == error_msg.encode()
+        assert response.data == f"Invalid taxonomy ({self.taxonomy.id}): You cannot import a free-form taxonomy."
 
     def test_import_no_perm(self) -> None:
         """
