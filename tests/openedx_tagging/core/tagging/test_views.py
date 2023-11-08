@@ -1920,10 +1920,12 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
         assert taxonomy["description"] == "Imported Taxonomy description"
 
         # Check if the tags were created
-        tags = list(Tag.objects.filter(taxonomy_id=taxonomy["id"]))
+        url = TAXONOMY_TAGS_URL.format(pk=taxonomy["id"])
+        response = self.client.get(url)
+        tags = response.data["results"]
         assert len(tags) == len(new_tags)
         for i, tag in enumerate(tags):
-            assert tag.value == new_tags[i]["value"]
+            assert tag["value"] == new_tags[i]["value"]
 
     def test_import_no_file(self) -> None:
         """
@@ -2096,11 +2098,13 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_200_OK
 
         # Check if the tags were created
-        tags = list(Tag.objects.filter(taxonomy=self.taxonomy))
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
         all_tags = [{"value": tag.value} for tag in self.old_tags] + new_tags
         assert len(tags) == len(all_tags)
         for i, tag in enumerate(tags):
-            assert tag.value == all_tags[i]["value"]
+            assert tag["value"] == all_tags[i]["value"]
 
     def test_import_no_file(self) -> None:
         """
@@ -2117,10 +2121,12 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.data["file"][0] == "No file was submitted."
 
         # Check if the taxonomy was not changed
-        tags = list(Tag.objects.filter(taxonomy=self.taxonomy))
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
         assert len(tags) == len(self.old_tags)
         for i, tag in enumerate(tags):
-            assert tag.value == self.old_tags[i].value
+            assert tag["value"] == self.old_tags[i].value
 
     def test_import_invalid_format(self) -> None:
         """
@@ -2138,10 +2144,12 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.data["file"][0] == "File type not supported: invalid"
 
         # Check if the taxonomy was not changed
-        tags = list(Tag.objects.filter(taxonomy=self.taxonomy))
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
         assert len(tags) == len(self.old_tags)
         for i, tag in enumerate(tags):
-            assert tag.value == self.old_tags[i].value
+            assert tag["value"] == self.old_tags[i].value
 
     @ddt.data(
         "csv",
@@ -2167,10 +2175,12 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert f"Invalid '.{file_format}' format:" in response.data
 
         # Check if the taxonomy was not changed
-        tags = list(Tag.objects.filter(taxonomy=self.taxonomy))
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
         assert len(tags) == len(self.old_tags)
         for i, tag in enumerate(tags):
-            assert tag.value == self.old_tags[i].value
+            assert tag["value"] == self.old_tags[i].value
 
     @ddt.data(
         "csv",
@@ -2201,6 +2211,12 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data == f"Invalid taxonomy ({self.taxonomy.id}): You cannot import a free-form taxonomy."
 
+        # Check if the taxonomy was no tags, since it is free text
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == 0
+
     def test_import_no_perm(self) -> None:
         """
         Tests importing a taxonomy using a user without permission.
@@ -2227,7 +2243,9 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
         # Check if the taxonomy was not changed
-        tags = list(Tag.objects.filter(taxonomy=self.taxonomy))
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
         assert len(tags) == len(self.old_tags)
         for i, tag in enumerate(tags):
-            assert tag.value == self.old_tags[i].value
+            assert tag["value"] == self.old_tags[i].value
