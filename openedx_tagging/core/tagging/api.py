@@ -159,6 +159,7 @@ def resync_object_tags(object_tags: QuerySet | None = None) -> int:
 def get_object_tags(
     object_id: str,
     taxonomy_id: int | None = None,
+    include_deleted: bool = False,
     object_tag_class: type[ObjectTag] = ObjectTag
 ) -> QuerySet[ObjectTag]:
     """
@@ -167,8 +168,16 @@ def get_object_tags(
     Pass taxonomy_id to limit the returned object_tags to a specific taxonomy.
     """
     filters = {"taxonomy_id": taxonomy_id} if taxonomy_id else {}
+    base_qs = (
+        object_tag_class.objects
+        .filter(object_id=object_id, **filters)
+        .exclude(taxonomy__enabled=False)  # Exclude if the whole taxonomy is disabled
+    )
+    if not include_deleted:
+        base_qs = base_qs.exclude(taxonomy_id=None)  # Exclude if the whole taxonomy was deleted
+        base_qs = base_qs.exclude(tag_id=None, taxonomy__allow_free_text=False)  # Exclude if just the tag is deleted
     tags = (
-        object_tag_class.objects.filter(object_id=object_id, **filters)
+        base_qs
         # Preload related objects, including data for the "get_lineage" method on ObjectTag/Tag:
         .select_related("taxonomy", "tag", "tag__parent", "tag__parent__parent")
         # Sort the tags within each taxonomy in "tree order". See Taxonomy._get_filtered_tags_deep for details on this:
@@ -192,7 +201,11 @@ def get_object_tag_counts(object_id_pattern: str) -> dict[str, int]:
     Given an object ID, a "starts with" glob pattern like
     "course-v1:foo+bar+baz@*", or a list of "comma,separated,IDs", return a
     dict of matching object IDs and how many tags each object has.
+
+    Deleted tags and disabled taxonomies are excluded from the counts, even if
+    ObjectTag data about them is present.
     """
+    # Note: in the future we may add an option to exclude system taxonomies from the count.
     qs: Any = ObjectTag.objects
     if object_id_pattern.endswith("*"):
         qs = qs.filter(object_id__startswith=object_id_pattern[0:len(object_id_pattern) - 1])
@@ -200,7 +213,10 @@ def get_object_tag_counts(object_id_pattern: str) -> dict[str, int]:
         raise ValueError("Wildcard matches are only supported if the * is at the end.")
     else:
         qs = qs.filter(object_id__in=object_id_pattern.split(","))
-
+    # Don't include deleted tags or disabled taxonomies:
+    qs = qs.exclude(taxonomy_id=None)  # The whole taxonomy was deleted
+    qs = qs.exclude(taxonomy__enabled=False)  # The whole taxonomy is disabled
+    qs = qs.exclude(tag_id=None, taxonomy__allow_free_text=False)  # The taxonomy exists but the tag is deleted
     qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
     return {row["object_id"]: row["num_tags"] for row in qs}
 

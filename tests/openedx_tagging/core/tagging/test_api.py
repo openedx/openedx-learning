@@ -265,7 +265,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tagging_api.tag_object(open_taxonomy, ["foo", "bar"], object_id)  # Free text tags
 
         # At first, none of these will be deleted:
-        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
+        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id, include_deleted=True)] == [
             ("bar", False),
             ("foo", False),
             (self.archaea.value, False),
@@ -275,7 +275,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         # Delete "bacteria" from the taxonomy:
         tagging_api.delete_tags_from_taxonomy(self.taxonomy, [self.bacteria.value], with_subtags=True)
 
-        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
+        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id, include_deleted=True)] == [
             ("bar", False),
             ("foo", False),
             (self.archaea.value, False),
@@ -293,7 +293,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert changed == 1
 
         # Now the tag is not deleted:
-        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id)] == [
+        assert [(t.value, t.is_deleted) for t in tagging_api.get_object_tags(object_id, include_deleted=True)] == [
             ("bar", False),
             ("foo", False),
             (self.archaea.value, False),
@@ -342,19 +342,21 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.name == self.taxonomy.name
                 assert object_tag.object_id == "biology101"
 
-    def test_tag_object_free_text(self):
-        self.taxonomy.allow_free_text = True
+    def test_tag_object_free_text(self) -> None:
+        """
+        Test tagging an object using a free text taxonomy
+        """
         tagging_api.tag_object(
-            self.taxonomy,
-            ["Eukaryota Xenomorph"],
-            "biology101",
+            object_id="biology101",
+            taxonomy=self.free_text_taxonomy,
+            tags=["Eukaryota Xenomorph"],
         )
         object_tags = tagging_api.get_object_tags("biology101")
         assert len(object_tags) == 1
         object_tag = object_tags[0]
         object_tag.full_clean()  # Should not raise any ValidationErrors
-        assert object_tag.taxonomy == self.taxonomy
-        assert object_tag.name == self.taxonomy.name
+        assert object_tag.taxonomy == self.free_text_taxonomy
+        assert object_tag.name == self.free_text_taxonomy.name
         assert object_tag._value == "Eukaryota Xenomorph"  # pylint: disable=protected-access
         assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
         assert object_tag.object_id == "biology101"
@@ -561,32 +563,42 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert exc.exception
             assert "Cannot add more than 100 tags to" in str(exc.exception)
 
-    def test_get_object_tags(self) -> None:
-        # Alpha tag has no taxonomy (as if the taxonomy had been deleted)
-        alpha = ObjectTag(object_id="abc")
-        alpha.name = self.taxonomy.name
-        alpha.value = "alpha"
-        alpha.save()
-        # Beta tag has a closed taxonomy
-        beta = ObjectTag.objects.create(
-            object_id="abc",
-            taxonomy=self.taxonomy,
-            tag=self.taxonomy.tag_set.get(value="Protista"),
-        )
+    def test_get_object_tags_deleted_disabled(self) -> None:
+        """
+        Test that get_object_tags doesn't return tags from disabled taxonomies
+        or tags that have been deleted or taxonomies that have been deleted.
+        """
+        obj_id = "object_id1"
+        self.taxonomy.allow_multiple = True
+        self.taxonomy.save()
+        disabled_taxonomy = tagging_api.create_taxonomy("Disabled Taxonomy", allow_free_text=True)
+        tagging_api.tag_object(object_id=obj_id, taxonomy=self.taxonomy, tags=["DPANN", "Chordata"])
+        tagging_api.tag_object(object_id=obj_id, taxonomy=self.language_taxonomy, tags=["English"])
+        tagging_api.tag_object(object_id=obj_id, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
+        tagging_api.tag_object(object_id=obj_id, taxonomy=disabled_taxonomy, tags=["disabled tag"])
 
-        # Fetch all the tags for a given object ID
-        assert list(
-            tagging_api.get_object_tags(object_id="abc")
-        ) == [
-            alpha,
-            beta,
+        def get_object_tags():
+            return [f"{ot.name}: {'>'.join(ot.get_lineage())}" for ot in tagging_api.get_object_tags(obj_id)]
+
+        # Before deleting/disabling:
+        assert get_object_tags() == [
+            "Disabled Taxonomy: disabled tag",
+            "Free Text: has a notochord",
+            "Languages: English",
+            "Life on Earth: Archaea>DPANN",
+            "Life on Earth: Eukaryota>Animalia>Chordata",
         ]
 
-        # Fetch all the tags for a given object ID + taxonomy
-        assert list(
-            tagging_api.get_object_tags(object_id="abc", taxonomy_id=self.taxonomy.pk)
-        ) == [
-            beta,
+        # Now delete and disable things:
+        disabled_taxonomy.enabled = False
+        disabled_taxonomy.save()
+        self.free_text_taxonomy.delete()
+        tagging_api.delete_tags_from_taxonomy(self.taxonomy, ["DPANN"], with_subtags=False)
+
+        # Now retrieve the tags again:
+        assert get_object_tags() == [
+            "Languages: English",
+            "Life on Earth: Eukaryota>Animalia>Chordata",
         ]
 
     @ddt.data(
@@ -676,7 +688,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     def test_get_object_tag_counts(self) -> None:
         """
-        Smoke test of get_object_tag_counts
+        Basic test of get_object_tag_counts
         """
         obj1 = "object_id1"
         obj2 = "object_id2"
@@ -691,3 +703,33 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert tagging_api.get_object_tag_counts(obj2) == {obj2: 2}
         assert tagging_api.get_object_tag_counts(f"{obj1},{obj2}") == {obj1: 1, obj2: 2}
         assert tagging_api.get_object_tag_counts("object_*") == {obj1: 1, obj2: 2}
+
+    def test_get_object_tag_counts_deleted_disabled(self) -> None:
+        """
+        Test that get_object_tag_counts doesn't "count" disabled taxonomies or
+        deleted tags.
+        """
+        obj1 = "object_id1"
+        obj2 = "object_id2"
+        # Give each object 2 tags:
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.taxonomy, tags=["DPANN"])
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.language_taxonomy, tags=["English"])
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
+
+        # Before we delete tags / disable taxonomies, the counts are two each:
+        assert tagging_api.get_object_tag_counts("object_*") == {obj1: 2, obj2: 2}
+        # Delete the "DPANN" tag from self.taxonomy:
+        tagging_api.delete_tags_from_taxonomy(self.taxonomy, tags=["DPANN"], with_subtags=False)
+        assert tagging_api.get_object_tag_counts("object_*") == {obj1: 1, obj2: 2}
+        # Disable the free text taxonomy:
+        self.free_text_taxonomy.enabled = False
+        self.free_text_taxonomy.save()
+        assert tagging_api.get_object_tag_counts("object_*") == {obj1: 1, obj2: 1}
+
+        # But, by the way, if we re-enable the taxonomy and restore the tag, the counts return:
+        self.free_text_taxonomy.enabled = True
+        self.free_text_taxonomy.save()
+        assert tagging_api.get_object_tag_counts("object_*") == {obj1: 1, obj2: 2}
+        tagging_api.add_tag_to_taxonomy(self.taxonomy, "DPANN", parent_tag_value="Archaea")
+        assert tagging_api.get_object_tag_counts("object_*") == {obj1: 2, obj2: 2}

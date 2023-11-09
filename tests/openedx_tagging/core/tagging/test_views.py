@@ -926,6 +926,9 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             assert response.data[object_id]["taxonomies"] == []
         else:
             # Make sure the object tags are unchanged:
+            if not self.taxonomy.enabled:  # The taxonomy has to be enabled for us to see the tags though:
+                self.taxonomy.enabled = True
+                self.taxonomy.save()
             assert [ot.value for ot in api.get_object_tags(object_id=object_id)] == ["Fungi"]
 
     @ddt.data(
