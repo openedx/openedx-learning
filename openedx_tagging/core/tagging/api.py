@@ -12,6 +12,8 @@ are stored in this app.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from django.db import models, transaction
 from django.db.models import F, QuerySet, Value
 from django.db.models.functions import Coalesce, Concat, Lower
@@ -183,6 +185,24 @@ def get_object_tags(
         .order_by("taxonomy_name", "sort_key")
     )
     return tags
+
+
+def get_object_tag_counts(object_id_pattern: str) -> dict[str, int]:
+    """
+    Given an object ID, a "starts with" glob pattern like
+    "course-v1:foo+bar+baz@*", or a list of "comma,separated,IDs", return a
+    dict of matching object IDs and how many tags each object has.
+    """
+    qs: Any = ObjectTag.objects
+    if object_id_pattern.endswith("*"):
+        qs = qs.filter(object_id__startswith=object_id_pattern[0:len(object_id_pattern) - 1])
+    elif "*" in object_id_pattern:
+        raise ValueError("Wildcard matches are only supported if the * is at the end.")
+    else:
+        qs = qs.filter(object_id__in=object_id_pattern.split(","))
+
+    qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
+    return {row["object_id"]: row["num_tags"] for row in qs}
 
 
 def delete_object_tags(object_id: str):

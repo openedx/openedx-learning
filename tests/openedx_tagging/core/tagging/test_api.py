@@ -673,3 +673,21 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             # "Bacteria (children: 2)",  # does not contain "cha" but a child does
             # "  Archaebacteria (children: 0)",
         ]
+
+    def test_get_object_tag_counts(self) -> None:
+        """
+        Smoke test of get_object_tag_counts
+        """
+        obj1 = "object_id1"
+        obj2 = "object_id2"
+        other = "other_object"
+        # Give each object 1-2 tags:
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.taxonomy, tags=["DPANN"])
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
+        tagging_api.tag_object(object_id=other, taxonomy=self.free_text_taxonomy, tags=["other"])
+
+        assert tagging_api.get_object_tag_counts(obj1) == {obj1: 1}
+        assert tagging_api.get_object_tag_counts(obj2) == {obj2: 2}
+        assert tagging_api.get_object_tag_counts(f"{obj1},{obj2}") == {obj1: 1, obj2: 2}
+        assert tagging_api.get_object_tag_counts("object_*") == {obj1: 1, obj2: 2}

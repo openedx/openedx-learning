@@ -3,8 +3,6 @@ Tagging API Views
 """
 from __future__ import annotations
 
-from typing import Any
-
 from django.db import models
 from django.http import Http404, HttpResponse
 from rest_framework import mixins, status
@@ -20,6 +18,7 @@ from ...api import (
     add_tag_to_taxonomy,
     create_taxonomy,
     delete_tags_from_taxonomy,
+    get_object_tag_counts,
     get_object_tags,
     get_taxonomies,
     get_taxonomy,
@@ -29,7 +28,7 @@ from ...api import (
 from ...data import TagDataQuerySet
 from ...import_export.api import export_tags, get_last_import_log, import_tags
 from ...import_export.parsers import ParserFormat
-from ...models import ObjectTag, Taxonomy
+from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
 from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
@@ -517,16 +516,10 @@ class ObjectTagCountsView(
         """
         # This API does NOT bother doing any permission checks as the # of tags is not considered sensitive information.
         object_id_pattern = self.kwargs["object_id_pattern"]
-        qs: Any = ObjectTag.objects
-        if object_id_pattern.endswith("*"):
-            qs = qs.filter(object_id__startswith=object_id_pattern[0:len(object_id_pattern) - 1])
-        elif "*" in object_id_pattern:
-            raise ValidationError("Wildcard matches are only supported if the * is at the end.")
-        else:
-            qs = qs.filter(object_id__in=object_id_pattern.split(","))
-
-        qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
-        return Response({row["object_id"]: row["num_tags"] for row in qs})
+        try:
+            return Response(get_object_tag_counts(object_id_pattern))
+        except ValueError as err:
+            raise ValidationError(err.args[0]) from err
 
 
 @view_auth_classes

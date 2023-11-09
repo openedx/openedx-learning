@@ -1025,6 +1025,14 @@ class TestObjectTagCountsViewSet(TestTagTaxonomyMixin, APITestCase):
                 "course07-unit02-problem02": 2,
             }
 
+    def test_get_counts_invalid_spec(self):
+        """
+        Test handling of an invalid object tag pattern
+        """
+        result = self.client.get(OBJECT_TAG_COUNTS_URL.format(object_id_pattern="abc*def"))
+        assert result.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Wildcard matches are only supported if the * is at the end." in str(result.content)
+
 
 class TestTaxonomyTagsView(TestTaxonomyViewMixin):
     """
