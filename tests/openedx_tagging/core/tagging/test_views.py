@@ -2281,7 +2281,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
     )
     def test_import_free_text(self, file_format) -> None:
         """
-        Tests importing a taxonomy with an invalid file content.
+        Tests that importing tags into a free text taxonomy is not allowed.
         """
         self.taxonomy.allow_free_text = True
         self.taxonomy.save()

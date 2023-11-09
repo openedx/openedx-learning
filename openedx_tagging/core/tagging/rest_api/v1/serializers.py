@@ -221,7 +221,7 @@ class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disabl
 
 class TaxonomyImportBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
-    Serializer of the body for the Taxonomy Import action
+    Serializer of the body for the Taxonomy Import request
     """
     file = serializers.FileField(required=True)
 
@@ -241,7 +241,7 @@ class TaxonomyImportBodySerializer(serializers.Serializer):  # pylint: disable=a
 
 class TaxonomyImportNewBodySerializer(TaxonomyImportBodySerializer):  # pylint: disable=abstract-method
     """
-    Serializer of the body for the Taxonomy Create and Import action
+    Serializer of the body for the Taxonomy Create and Import request
     """
     taxonomy_name = serializers.CharField(required=True)
     taxonomy_description = serializers.CharField(default="")
