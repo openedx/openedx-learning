@@ -227,6 +227,7 @@ class Taxonomy(models.Model):
             "Taxonomy subclass used to instantiate this instance; must be a fully-qualified module and class name."
             " If the module/class cannot be imported, an error is logged and the base Taxonomy class is used instead."
         ),
+        blank=True,
     )
 
     class Meta:

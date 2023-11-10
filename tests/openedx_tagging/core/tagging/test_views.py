@@ -169,6 +169,24 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_language_taxonomy(self):
+        """
+        Test the "Language" taxonomy that's included.
+        """
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(TAXONOMY_LIST_URL)
+        assert response.status_code == status.HTTP_200_OK
+        taxonomy_list = response.data["results"]
+        assert len(taxonomy_list) == 1
+        check_taxonomy(
+            taxonomy_list[0],
+            taxonomy_id=LANGUAGE_TAXONOMY_ID,
+            name="Languages",
+            description="Languages that are enabled on this system.",
+            allow_multiple=False,  # We may change this in the future to allow multiple language tags
+            system_defined=True,
+        )
+
     @ddt.data(
         (None, {"enabled": True}, status.HTTP_401_UNAUTHORIZED),
         (None, {"enabled": False}, status.HTTP_401_UNAUTHORIZED),
@@ -192,6 +210,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         if status.is_success(expected_status):
             check_taxonomy(response.data, taxonomy.pk, **create_data)
+
+    def test_detail_system_taxonomy(self):
+        url = TAXONOMY_DETAIL_URL.format(pk=LANGUAGE_TAXONOMY_ID)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
 
     def test_detail_taxonomy_404(self) -> None:
         url = TAXONOMY_DETAIL_URL.format(pk=123123)

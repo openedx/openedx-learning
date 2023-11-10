@@ -170,7 +170,8 @@ class TaxonomyView(ModelViewSet):
 
     """
 
-    lookup_value_regex = r"\d+"
+    # System taxonomies use negative numbers for their primary keys
+    lookup_value_regex = r'-?\d+'
     serializer_class = TaxonomySerializer
     permission_classes = [TaxonomyObjectPermissions]
 
