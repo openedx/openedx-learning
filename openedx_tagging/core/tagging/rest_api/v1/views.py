@@ -11,6 +11,7 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
@@ -26,7 +27,7 @@ from ...api import (
     update_tag_in_taxonomy,
 )
 from ...data import TagDataQuerySet
-from ...import_export.api import export_tags
+from ...import_export.api import export_tags, get_last_import_log, import_tags
 from ...import_export.parsers import ParserFormat
 from ...models import ObjectTag, Taxonomy
 from ...rules import ObjectTagPermissionItem
@@ -40,6 +41,8 @@ from .serializers import (
     ObjectTagUpdateQueryParamsSerializer,
     TagDataSerializer,
     TaxonomyExportQueryParamsSerializer,
+    TaxonomyImportBodySerializer,
+    TaxonomyImportNewBodySerializer,
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
     TaxonomyTagCreateBodySerializer,
@@ -52,7 +55,7 @@ from .utils import view_auth_classes
 @view_auth_classes
 class TaxonomyView(ModelViewSet):
     """
-    View to list, create, retrieve, update, delete or export Taxonomies.
+    View to list, create, retrieve, update, delete, export or import Taxonomies.
 
     **List Query Parameters**
         * enabled (optional) - Filter by enabled status. Valid values: true,
@@ -167,7 +170,29 @@ class TaxonomyView(ModelViewSet):
         * 400 - Invalid query parameter
         * 403 - Permission denied
 
+    **Import/Create Taxonomy Example Requests**
+        POST /tagging/rest_api/v1/taxonomy/import/
+        {
+            "taxonomy_name": "Taxonomy Name",
+            "taxonomy_description": "This is a description",
+            "file": <file>,
+        }
 
+    **Import/Create Taxonomy Query Returns**
+        * 200 - Success
+        * 400 - Bad request
+        * 403 - Permission denied
+
+    **Import/Update Taxonomy Example Requests**
+        PUT /tagging/rest_api/v1/taxonomy/:pk/tags/import/
+        {
+            "file": <file>,
+        }
+
+    **Import/Update Taxonomy Query Returns**
+        * 200 - Success
+        * 400 - Bad request
+        * 403 - Permission denied
     """
 
     # System taxonomies use negative numbers for their primary keys
@@ -216,9 +241,6 @@ class TaxonomyView(ModelViewSet):
         Export a taxonomy.
         """
         taxonomy = self.get_object()
-        perm = "oel_tagging.export_taxonomy"
-        if not request.user.has_perm(perm, taxonomy):
-            raise PermissionDenied("You do not have permission to export this taxonomy.")
         query_params = TaxonomyExportQueryParamsSerializer(
             data=request.query_params.dict()
         )
@@ -242,6 +264,57 @@ class TaxonomyView(ModelViewSet):
             return response
 
         return HttpResponse(tags, content_type=content_type)
+
+    @action(detail=False, url_path="import", methods=["post"])
+    def create_import(self, request: Request, **_kwargs) -> Response:
+        """
+        Creates a new taxonomy and imports the tags from the uploaded file.
+        """
+        body = TaxonomyImportNewBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        taxonomy_name = body.validated_data["taxonomy_name"]
+        taxonomy_description = body.validated_data["taxonomy_description"]
+        file = body.validated_data["file"].file
+        parser_format = body.validated_data["parser_format"]
+
+        taxonomy = create_taxonomy(taxonomy_name, taxonomy_description)
+        try:
+            import_success = import_tags(taxonomy, file, parser_format)
+
+            if import_success:
+                serializer = self.get_serializer(taxonomy)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                import_error = get_last_import_log(taxonomy)
+                taxonomy.delete()
+                return Response(import_error, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as e:
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, url_path="tags/import", methods=["put"])
+    def update_import(self, request: Request, **_kwargs) -> Response:
+        """
+        Imports tags from the uploaded file to an already created taxonomy.
+        """
+        body = TaxonomyImportBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        file = body.validated_data["file"].file
+        parser_format = body.validated_data["parser_format"]
+
+        taxonomy = self.get_object()
+        try:
+            import_success = import_tags(taxonomy, file, parser_format)
+
+            if import_success:
+                serializer = self.get_serializer(taxonomy)
+                return Response(serializer.data)
+            else:
+                import_error = get_last_import_log(taxonomy)
+                return Response(import_error, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as e:
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
 @view_auth_classes

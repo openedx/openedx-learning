@@ -9,6 +9,7 @@ from rest_framework import serializers
 from rest_framework.reverse import reverse
 
 from openedx_tagging.core.tagging.data import TagData
+from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 
 
@@ -216,3 +217,31 @@ class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disabl
         child=serializers.CharField(), required=True
     )
     with_subtags = serializers.BooleanField(required=False)
+
+
+class TaxonomyImportBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Import request
+    """
+    file = serializers.FileField(required=True)
+
+    def validate(self, attrs):
+        """
+        Validates the file extension and add parser_format to the data
+        """
+        filename = attrs["file"].name
+        ext = filename.split('.')[-1]
+        parser_format = getattr(ParserFormat, ext.upper(), None)
+        if not parser_format:
+            raise serializers.ValidationError({"file": f'File type not supported: {ext.lower()}'}, 'file')
+
+        attrs['parser_format'] = parser_format
+        return attrs
+
+
+class TaxonomyImportNewBodySerializer(TaxonomyImportBodySerializer):  # pylint: disable=abstract-method
+    """
+    Serializer of the body for the Taxonomy Create and Import request
+    """
+    taxonomy_name = serializers.CharField(required=True)
+    taxonomy_description = serializers.CharField(default="")
