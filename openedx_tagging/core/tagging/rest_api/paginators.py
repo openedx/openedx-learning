@@ -5,10 +5,7 @@ Paginators uses by the REST API
 from edx_rest_framework_extensions.paginators import DefaultPagination  # type: ignore[import]
 
 # From this point, the tags begin to be paginated
-TAGS_THRESHOLD = 1000
-
-# From this point, search tags begin to be paginated
-SEARCH_TAGS_THRESHOLD = 200
+MAX_FULL_DEPTH_THRESHOLD = 10_000
 
 
 class TagsPagination(DefaultPagination):
@@ -29,5 +26,5 @@ class DisabledTagsPagination(DefaultPagination):
     It should be used if the number of tags within
     the taxonomy does not exceed `TAGS_THRESHOLD`.
     """
-    page_size = TAGS_THRESHOLD
-    max_page_size = TAGS_THRESHOLD + 1
+    page_size = MAX_FULL_DEPTH_THRESHOLD
+    max_page_size = MAX_FULL_DEPTH_THRESHOLD + 1

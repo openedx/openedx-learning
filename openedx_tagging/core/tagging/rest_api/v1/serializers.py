@@ -4,6 +4,7 @@ API Serializers for taxonomies
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlencode
 
 from rest_framework import serializers
 from rest_framework.reverse import reverse
@@ -162,12 +163,17 @@ class TagDataSerializer(serializers.Serializer):
         child_count = obj.child_count if isinstance(obj, Tag) else obj["child_count"]
         if child_count > 0 and "taxonomy_id" in self.context:
             value = obj.value if isinstance(obj, Tag) else obj["value"]
-            query_params = f"?parent_tag={value}"
             request = self.context["request"]
+            query_params = request.query_params
+            new_query_params = {"parent_tag": value}
+            if "full_depth_threshold" in query_params:
+                new_query_params["full_depth_threshold"] = query_params["full_depth_threshold"]
+            if "search_term" in query_params:
+                new_query_params["search_term"] = query_params["search_term"]
             url_namespace = request.resolver_match.namespace  # get the namespace, usually "oel_tagging"
             url = (
                 reverse(f"{url_namespace}:taxonomy-tags", args=[str(self.context["taxonomy_id"])])
-                + query_params
+                + "?" + urlencode(new_query_params)
             )
             return request.build_absolute_uri(url)
         return None

@@ -30,7 +30,7 @@ from ...import_export.api import export_tags, get_last_import_log, import_tags
 from ...import_export.parsers import ParserFormat
 from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
-from ..paginators import TAGS_THRESHOLD, DisabledTagsPagination, TagsPagination
+from ..paginators import MAX_FULL_DEPTH_THRESHOLD, DisabledTagsPagination, TagsPagination
 from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
@@ -527,24 +527,29 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
     """
     View to list/create/update/delete tags of a taxonomy.
 
-    If you specify ?root_only or ?parent_tag_value=..., only one "level" of the
-    hierachy will be returned. Otherwise, several levels will be returned, in
-    tree order, up to the maximum supported depth. Additional levels/depth can
-    be retrieved by using ?parent_tag_value to load more data.
+    **List Request Details**
 
-    Note: If the taxonomy is particularly large (> 1,000 tags), ?root_only is
-    automatically set true by default and cannot be disabled. This way, users
-    can more easily select which tags they want to expand in the tree, and load
-    just that subset of the tree as needed. This may be changed in the future.
+    By default, only one "level" of the hierachy will be returned. But for more efficient handling of small taxonomies,
+    you can set ?full_depth_threshold=1000 which means that if there are fewer than 1,000 tags in the result set, they
+    will be returned in a single page of results that has all the tags in tree order up to the maximum supported depth.
+
+    Additional levels/depth can be retrieved recursively by using the "sub_tags_url" field of any returned tag, or
+    using the ?parent_tag=value parameter manually.
 
     **List Query Parameters**
         * id (required) - The ID of the taxonomy to retrieve tags.
+        * search_term (optional) - Only return tags matching this term, plus their ancestors. Case insensitive.
+          Note that currently the "children" counts in the result do not reflect the filtering from the search term.
         * parent_tag (optional) - Retrieve children of the tag with this value.
-        * root_only (optional) - If specified, only root tags are returned.
-        * include_counts (optional) - Include the count of how many times each
-          tag has been used.
+        * full_depth_threshold (optional) - If there are fewer than this many results, return the full (sub)tree of
+          results, up to maximum supported depth, in a single giant page of results. By default this is disabled
+          (equivalent to full_depth_threshold=0), which provides a more consistent and predictable response.
+          Using full_depth_threshold=1000 is recommended in general, but use lower values during development to ensure
+          compatibility with both large and small result sizes.
+        * include_counts (optional) - Include the count of how many times each tag has been used.
         * page (optional) - Page number (default: 1)
-        * page_size (optional) - Number of items per page (default: 10)
+        * page_size (optional) - Number of items per page (default: 30). Ignored when there are fewer tags than
+          specified by ?full_depth_threshold.
 
     **List Example Requests**
         GET api/tagging/v1/taxonomy/:id/tags                                        - Get tags of taxonomy
@@ -654,34 +659,34 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         taxonomy_id = int(self.kwargs.get("pk"))
         taxonomy = self.get_taxonomy(taxonomy_id)
         parent_tag_value = self.request.query_params.get("parent_tag", None)
-        root_only = "root_only" in self.request.query_params
         include_counts = "include_counts" in self.request.query_params
         search_term = self.request.query_params.get("search_term", None)
+        full_depth_threshold = int(self.request.query_params.get("full_depth_threshold", 0))
+        if full_depth_threshold < 0 or full_depth_threshold > MAX_FULL_DEPTH_THRESHOLD:
+            raise ValidationError("Invalid full_depth_threshold")
 
-        if parent_tag_value:
-            # Fetching tags below a certain parent is always paginated and only returns the direct children
-            depth = 1
-            if root_only:
-                raise ValidationError("?root_only and ?parent_tag cannot be used together")
-        else:
-            if root_only:
-                depth = 1  # User Explicitly requested to load only the root tags for now
-            elif search_term:
-                depth = None  # For search, default to maximum depth but use normal pagination
-            elif taxonomy.tag_set.count() > TAGS_THRESHOLD:
-                # This is a very large taxonomy. Only load the root tags at first, so users can choose what to load.
-                depth = 1
-            else:
-                # We can load and display all the tags in the taxonomy at once:
-                self.pagination_class = DisabledTagsPagination
-                depth = None  # Maximum depth
+        # If full_depth_threshold is set, default to maximum depth and later prune to a depth=1 if needed.
+        # Otherwise (default), load a single level of results only.
+        depth = None if full_depth_threshold else 1
 
-        return taxonomy.get_filtered_tags(
+        results = taxonomy.get_filtered_tags(
             parent_tag_value=parent_tag_value,
             search_term=search_term,
             depth=depth,
             include_counts=include_counts,
         )
+        if depth == 1:
+            # We're already returning just a single level. It will be paginated normally.
+            return results
+        elif full_depth_threshold and len(results) < full_depth_threshold:
+            # We can load and display all the tags in this (sub)tree at once:
+            self.pagination_class = DisabledTagsPagination
+            return results
+        else:
+            # We had to do a deep query, but since the result was so large, we will only return one level of results.
+            # It will be paginated normally.
+            min_depth = 0 if parent_tag_value is None else results[0]["depth"]
+            return results.filter(depth=min_depth)
 
     def post(self, request, *args, **kwargs):
         """
