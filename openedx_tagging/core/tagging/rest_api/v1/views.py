@@ -294,7 +294,8 @@ class TaxonomyView(ModelViewSet):
     @action(detail=True, url_path="tags/import", methods=["put"])
     def update_import(self, request: Request, **_kwargs) -> Response:
         """
-        Imports tags from the uploaded file to an already created taxonomy.
+        Imports tags from the uploaded file to an already created taxonomy,
+        overwriting any existing tags.
         """
         body = TaxonomyImportBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
@@ -304,7 +305,7 @@ class TaxonomyView(ModelViewSet):
 
         taxonomy = self.get_object()
         try:
-            import_success = import_tags(taxonomy, file, parser_format)
+            import_success = import_tags(taxonomy, file, parser_format, replace=True)
 
             if import_success:
                 serializer = self.get_serializer(taxonomy)
