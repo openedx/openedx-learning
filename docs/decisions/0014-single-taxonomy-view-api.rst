@@ -4,10 +4,7 @@
 Context
 --------
 
-This view returns tags of a closed taxonomy (for MVP has not been implemented yet
-for open taxonomies). It is necessary to make a decision about what structure the tags are going 
-to have, how the pagination is going to work and how will the search for tags be implemented.
-It was taken into account that taxonomies commonly have the following characteristics:
+This view returns tags of a taxonomy (works with closed, open, and system-defined). It is necessary to make a decision about what structure the tags are going to have, how the pagination is going to work and how will the search for tags be implemented. It was taken into account that taxonomies commonly have the following characteristics:
 
 - It has few root tags.
 - It may a very large number of children for each tag.
@@ -17,16 +14,18 @@ For the decisions, the following use cases were taken into account:
 
 - As a taxonomy administrator, I want to see all the tags available for use with a closed taxonomy,
   so that I can see the taxonomy's structure in the management interface.
-    - As a taxonomy administrator, I want to see the available tags as a lits of root tags
-      that can be expanded to show children tags.
-    - As a taxonomy administrator, I want to sort the list of root tags alphabetically: A-Z (default) and Z-A.
-    - As a taxonomy administrator, I want to expand all root tags to see all children tags.
-    - As a taxonomy administrator, I want to search for tags, so I can find root and children tags more easily.
+
+  - As a taxonomy administrator, I want to see the available tags as a lits of root tags
+    that can be expanded to show children tags.
+  - As a taxonomy administrator, I want to sort the list of root tags alphabetically: A-Z (default) and Z-A.
+  - As a taxonomy administrator, I want to expand all root tags to see all children tags.
+  - As a taxonomy administrator, I want to search for tags, so I can find root and children tags more easily.
 - As a course author, when I am editing the tags of a component, I want to see all the tags available
   from a particular taxonomy that I can use.
-    - As a course author, I want to see the available tags as a lits of root tags
-      that can be expanded to show children tags.
-    - As a course author, I want to search for tags, so I can find root and children tags more easily.
+
+  - As a course author, I want to see the available tags as a lits of root tags
+    that can be expanded to show children tags.
+  - As a course author, I want to search for tags, so I can find root and children tags more easily.
 
 Excluded use cases:
 
@@ -41,107 +40,59 @@ Decision
 Views & Pagination
 ~~~~~~~~~~~~~~~~~~~
 
-Make one view:
+We will have one REST API endpoint that can handle these use cases:
 
-**get_matching_tags(parent_tag_id: str = None, search_term: str = None)**
+**/tagging/rest_api/v1/taxonomies/:id/tags/?parent_tag=...**
 
 that can handle this cases:
 
-- Get the root tags of the taxonomy. If ``parent_tag_id`` is ``None``.
+- Get the root tags of the taxonomy. If ``parent_tag`` is omitted.
 - Get the children of a tag. Called each time the user expands a parent tag to see its children.
-  If ``parent_tag_id`` is not ``None``.
+  In this case, ``parent_tag`` is set to the value of the parent tag.
 
 In both cases the results are paginated. In addition to the common pagination metadata, it is necessary to return:
 
 - Total number of pages.
-- Total number of root/children tags.
+- Total number of tags in the result.
 - Range index of current page, Ex. Page 1: 1-12, Page 2: 13-24.
 - Total number of children of each tag.
 
 The pagination of root tags and child tags are independent.
-In order to be able to fulfill the functionality of "Expand-all" in a scalable way,
-the following has been agreed:
 
-- Create a ``TAGS_THRESHOLD`` (default: 1000).
-- If ``taxonomy.tags.count < TAGS_THRESHOLD``, then ``get_matching_tags()`` will return all tags on the taxonomy,
-  roots and children.
-- Otherwise, ``get_matching_tags()`` will only return paginated root tags, and it will be necessary
-  to use ``get_matching_tags()`` to return paginated children. Also the "Expand-all" functionality will be disabled.
+**Optional full-depth response**
 
-For search you can see the next section (Search tags)
+In order to be able to fulfill the functionality of "Expand-all" in a scalable way, and allow users to quickly browse taxonomies that have lots of small branches, the API will accept an optional parameter ``?full_depth_threshold``. If specified (e.g. ``?full_depth_threshold=1000``) and there are fewer results than this threshold, the full tree of tags will be returned a a single giant page, including all tags up to three levels deep.
 
 **Pros**
 
-- It is the simplest way.
+- This approach is simple and flexible.
 - Paging both root tags and children mitigates the huge number of tags that can be found in large taxonomies.
 
 Search tags
 ~~~~~~~~~~~~
 
-Support tag search on the backend. Return a subset of matching tags.
-We will use the same view to perform a search with the same logic:
+The same API endpoint will support an optional ``?search_term=...`` parameter to support searching/filtering tags by keyword.
 
-**get_matching_tags(parent_tag_id: str = None, search_term: str = None)**
-
-We can use ``search_term`` to perform a search on all taxonomy tags or children tags depending of ``parent_tag_id``.
-The result will be a pruned tree with the necessary tags to be able to reach the results from a root tag. 
-Ex. if in the result there may be a child tag of ``depth=2``, but the parents are not found in the result.
-In this case, it is necessary to add the parent and the parent of the parent (root tag) to be able to show
-the child tag that is in the result.
-
-For the search, ``SEARCH_TAGS_THRESHOLD`` will be used. (It is recommended that it be 20% of ``TAGS_THRESHOLD``).
-It will work in the following way:
-
-- If ``search_result.count() < SEARCH_TAGS_THRESHOLD``, then it will return all tags on the result tree without pagination.
-- Otherwise, it will return the roots of the result tree with pagination. Each root will have the entire pruned branch.
-
-It will work in the same way of ``TAGS_THRESHOLD`` (see Views & Pagination)
-
-**Pros**
-
-- It is the most scalable way.
+The API endpoint will work exactly as described above (returning a single level of tags by default, paginated, optionally listing only the tags below a specific parent tag, optionally returning a deep tree if the results are small enough) - BUT only tags that match the keyword OR their ancestor tags will be returned. We return their ancestor tags (even if the ancestors themselves don't match the keyword) so that the tree of tags that do match can be displayed correctly. This also allows the UI to load the matching tags one layer at a time, paginated, if desired.
 
 Tag representation
 ~~~~~~~~~~~~~~~~~~~
 
-Return a list of root tags and within a link to obtain the children tags
-or the complete list of children tags depending of ``TAGS_THRESHOLD`` or ``SEARCH_TAGS_THRESHOLD``. 
-The list of root tags will be ordered alphabetically. If it has child tags, they must also
-be ordered alphabetically.
+Return a list of root tags and within a link to obtain the children tags or the complete list of children tags depending on the requested ``?full_depth_threshold`` and the number of results.
+The list of tags will be ordered in tree order (and alphabetically). If it has child tags, they must also be ordered alphabetically.
 
-**(taxonomy.tags.count < *_THRESHOLD)**::
+**Example**::
 
   {
     "count": 100,
     "tags": [
         {
-            "id": "tag_1",
             "value": "Tag 1",
-            "taxonomy_id": "1",
-            "sub_tags": [
-                {
-                    "id": "tag_2",
-                    "value": "Tag 2",
-                    "taxonomy_id": "1",
-                    "sub_tags": [
-                        (....)
-                    ]
-                },
-                (....)
-            ]
-  }
-
-
-**Otherwise**::
-
-  {
-    "count": 100,
-    "tags": [
-        {
-            "id": "tag_1",
-            "value": "Tag 1",
-            "taxonomy_id": "1",
-            "sub_tags_link": "http//api-call-to-get-children.com"
+            "depth": 0,
+            "external_id": None,
+            "child_count": 15,
+            "parent_value": None,
+            "sub_tags_url": "http//api-call-to-get-children.com"
         },
         (....)
     ]
@@ -153,6 +104,12 @@ be ordered alphabetically.
 - The edX's interfaces show the tags in the form of a tree.
 - The frontend needs no further processing as it is in a displayable format.
 - It is kept as a simple implementation.
+
+
+Backend Python API
+~~~~~~~~~~~~~~~~~~
+
+On the backend, a very flexible API is available as ``Taxonomy.get_filtered_tags()`` which can cover all of the same use cases as the REST API endpoint (listing tags, shallow or deep, filtering on search term). However, the Python API returns a ``QuerySet`` of tag data dictionaries, rather than a JSON response.
 
 
 Rejected Options
