@@ -1233,6 +1233,39 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("num_pages") == 1
         assert data.get("current_page") == 1
 
+    def test_small_search_shallow(self):
+        """
+        Test performing a search without full_depth_threshold
+        """
+        search_term = 'eU'
+        url = f"{self.small_taxonomy_url}?search_term={search_term}"
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+        assert pretty_format_tags(data["results"], parent=False) == [
+            "Archaea (children: 3)",  # No match in this tag, but a child matches so it's included
+            "Bacteria (children: 2)",  # No match in this tag, but a child matches so it's included
+            "Eukaryota (children: 5)",
+        ]
+
+        # Checking pagination values
+        assert data.get("next") is None
+        assert data.get("previous") is None
+        assert data.get("count") == 3
+        assert data.get("num_pages") == 1
+        assert data.get("current_page") == 1
+
+        # And we can load the sub_tags_url to "drill down" into the search:
+        sub_tags_response = self.client.get(data["results"][0]["sub_tags_url"])
+        assert sub_tags_response.status_code == status.HTTP_200_OK
+
+        assert pretty_format_tags(sub_tags_response.data["results"], parent=False) == [
+            # This tag maches our search results and is a child of the previously returned Archaea tag:
+            "  Euryarchaeida (children: 0)",
+        ]
+
     def test_large_taxonomy(self):
         """
         Test listing the tags in a large taxonomy (~7,000 tags).

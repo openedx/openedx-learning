@@ -665,9 +665,13 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         if full_depth_threshold < 0 or full_depth_threshold > MAX_FULL_DEPTH_THRESHOLD:
             raise ValidationError("Invalid full_depth_threshold")
 
-        # If full_depth_threshold is set, default to maximum depth and later prune to a depth=1 if needed.
-        # Otherwise (default), load a single level of results only.
-        depth = None if full_depth_threshold else 1
+        if full_depth_threshold or search_term:
+            # If full_depth_threshold is set, default to maximum depth and later prune to depth=1 if needed.
+            # We also need to do a deep search if there is a search term, to ensure we return parent items with children
+            # that match.
+            depth = None
+        else:
+            depth = 1  # Otherwise (default), load a single level of results only.
 
         results = taxonomy.get_filtered_tags(
             parent_tag_value=parent_tag_value,
@@ -683,7 +687,9 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
             self.pagination_class = DisabledTagsPagination
             return results
         else:
-            # We had to do a deep query, but since the result was so large, we will only return one level of results.
+            # We had to do a deep query, but we will only return one level of results.
+            # This is because the user did not request a deep response (via full_depth_threshold) or the result was too
+            # large (larger than the threshold).
             # It will be paginated normally.
             min_depth = 0 if parent_tag_value is None else results[0]["depth"]
             return results.filter(depth=min_depth)
