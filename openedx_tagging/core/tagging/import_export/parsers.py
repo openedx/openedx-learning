@@ -6,7 +6,8 @@ from __future__ import annotations
 import csv
 import json
 from enum import Enum
-from io import BytesIO, StringIO, TextIOWrapper
+from io import StringIO, TextIOWrapper
+from typing import BinaryIO
 
 from django.utils.translation import gettext as _
 
@@ -51,7 +52,7 @@ class Parser:
     inital_row = 1
 
     @classmethod
-    def parse_import(cls, file: BytesIO) -> tuple[list[TagItem], list[TagParserError]]:
+    def parse_import(cls, file: BinaryIO) -> tuple[list[TagItem], list[TagParserError]]:
         """
         Parse tags in file an returns tags ready for use in TagImportPlan
 
@@ -79,7 +80,7 @@ class Parser:
         return cls._export_data(tags, taxonomy)
 
     @classmethod
-    def _load_data(cls, file: BytesIO) -> tuple[list[dict], list[TagParserError]]:
+    def _load_data(cls, file: BinaryIO) -> tuple[list[dict], list[TagParserError]]:
         """
         Each parser implements this function according to its format.
         This function reads the file and returns a list with the values of each tag.
@@ -206,7 +207,7 @@ class JSONParser(Parser):
     inital_row = 0
 
     @classmethod
-    def _load_data(cls, file: BytesIO) -> tuple[list[dict], list[TagParserError]]:
+    def _load_data(cls, file: BinaryIO) -> tuple[list[dict], list[TagParserError]]:
         """
         Read a .json file and validates the root structure of the json
         """
@@ -259,7 +260,7 @@ class CSVParser(Parser):
     inital_row = 2
 
     @classmethod
-    def _load_data(cls, file: BytesIO) -> tuple[list[dict], list[TagParserError]]:
+    def _load_data(cls, file: BinaryIO) -> tuple[list[dict], list[TagParserError]]:
         """
         Read a .csv file and validates the header fields
         """

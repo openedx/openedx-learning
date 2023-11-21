@@ -44,19 +44,18 @@ TODO for next versions
 """
 from __future__ import annotations
 
-from io import BytesIO
+from typing import BinaryIO
 
 from django.utils.translation import gettext as _
 
 from ..models import TagImportTask, TagImportTaskState, Taxonomy
-from .exceptions import TagImportError
 from .import_plan import TagImportPlan, TagImportTask
 from .parsers import ParserFormat, get_parser
 
 
 def import_tags(
     taxonomy: Taxonomy,
-    file: BytesIO,
+    file: BinaryIO,
     parser_format: ParserFormat,
     replace=False,
 ) -> bool:
@@ -116,7 +115,7 @@ def import_tags(
         tag_import_plan.execute(task)
         task.end_success()
         return True
-    except (TagImportError, ValueError) as exception:
+    except Exception as exception:  # pylint: disable=broad-exception-caught
         # Log any exception
         task.log_exception(exception)
         return False
