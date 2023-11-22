@@ -691,8 +691,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
             # This is because the user did not request a deep response (via full_depth_threshold) or the result was too
             # large (larger than the threshold).
             # It will be paginated normally.
-            min_depth = 0 if parent_tag_value is None else results[0]["depth"]
-            return results.filter(depth=min_depth)
+            return results.filter(parent_value=parent_tag_value)
 
     def post(self, request, *args, **kwargs):
         """

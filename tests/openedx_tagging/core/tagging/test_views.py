@@ -1266,6 +1266,28 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "  Euryarchaeida (children: 0)",
         ]
 
+    def test_empty_results(self):
+        """
+        Test that various queries return an empty list
+        """
+        self.client.force_authenticate(user=self.staff)
+
+        def assert_empty(url):
+            response = self.client.get(url)
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data["results"] == []
+            assert response.data["count"] == 0
+
+        # Search terms that won't match any tags:
+        assert_empty(f"{self.small_taxonomy_url}?search_term=foobar")
+        assert_empty(f"{self.small_taxonomy_url}?search_term=foobar&full_depth_threshold=1000")
+        # Requesting children of leaf tags is always an empty result.
+        # Prior versions of the code would sometimes throw an exception when trying to handle these.
+        assert_empty(f"{self.small_taxonomy_url}?parent_tag=Fungi")
+        assert_empty(f"{self.small_taxonomy_url}?parent_tag=Fungi&full_depth_threshold=1000")
+        assert_empty(f"{self.small_taxonomy_url}?search_term=eu&parent_tag=Euryarchaeida")
+        assert_empty(f"{self.small_taxonomy_url}?search_term=eu&parent_tag=Euryarchaeida&full_depth_threshold=1000")
+
     def test_large_taxonomy(self):
         """
         Test listing the tags in a large taxonomy (~7,000 tags).
