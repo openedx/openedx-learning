@@ -193,11 +193,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_search_tags(self) -> None:
         result = tagging_api.search_tags(self.taxonomy, search_term='eU')
         assert pretty_format_tags(result, parent=False) == [
-            'Archaea (children: 3)',  # Doesn't match 'eU' but is included because a child is included
+            'Archaea (children: 1)',  # Doesn't match 'eU' but is included because a child is included
             '  Euryarchaeida (children: 0)',
-            'Bacteria (children: 2)',  # Doesn't match 'eU' but is included because a child is included
+            'Bacteria (children: 1)',  # Doesn't match 'eU' but is included because a child is included
             '  Eubacteria (children: 0)',
-            'Eukaryota (children: 5)',
+            'Eukaryota (children: 0)',
         ]
 
     @override_settings(LANGUAGES=test_languages)
@@ -603,30 +603,30 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     @ddt.data(
         ("ChA", [
-            "Archaea (used: 1, children: 3)",
+            "Archaea (used: 1, children: 2)",
             "  Euryarchaeida (used: 0, children: 0)",
             "  Proteoarchaeota (used: 0, children: 0)",
-            "Bacteria (used: 0, children: 2)",  # does not contain "cha" but a child does
+            "Bacteria (used: 0, children: 1)",  # does not contain "cha" but a child does
             "  Archaebacteria (used: 1, children: 0)",
         ]),
         ("ar", [
-            "Archaea (used: 1, children: 3)",
+            "Archaea (used: 1, children: 2)",
             "  Euryarchaeida (used: 0, children: 0)",
             "  Proteoarchaeota (used: 0, children: 0)",
-            "Bacteria (used: 0, children: 2)",  # does not contain "ar" but a child does
+            "Bacteria (used: 0, children: 1)",  # does not contain "ar" but a child does
             "  Archaebacteria (used: 1, children: 0)",
-            "Eukaryota (used: 0, children: 5)",
-            "  Animalia (used: 1, children: 7)",  # does not contain "ar" but a child does
+            "Eukaryota (used: 0, children: 1)",
+            "  Animalia (used: 1, children: 2)",  # does not contain "ar" but a child does
             "    Arthropoda (used: 1, children: 0)",
             "    Cnidaria (used: 0, children: 0)",
         ]),
         ("aE", [
-            "Archaea (used: 1, children: 3)",
+            "Archaea (used: 1, children: 2)",
             "  Euryarchaeida (used: 0, children: 0)",
             "  Proteoarchaeota (used: 0, children: 0)",
-            "Bacteria (used: 0, children: 2)",  # does not contain "ae" but a child does
+            "Bacteria (used: 0, children: 1)",  # does not contain "ae" but a child does
             "  Archaebacteria (used: 1, children: 0)",
-            "Eukaryota (used: 0, children: 5)",  # does not contain "ae" but a child does
+            "Eukaryota (used: 0, children: 1)",  # does not contain "ae" but a child does
             "  Plantae (used: 1, children: 0)",
         ]),
         ("a", [
@@ -637,11 +637,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Bacteria (used: 0, children: 2)",
             "  Archaebacteria (used: 1, children: 0)",
             "  Eubacteria (used: 0, children: 0)",
-            "Eukaryota (used: 0, children: 5)",
+            "Eukaryota (used: 0, children: 4)",
             "  Animalia (used: 1, children: 7)",
             "    Arthropoda (used: 1, children: 0)",
-            "    Chordata (used: 0, children: 1)",
-            "    Cnidaria (used: 0, children: 0)",
+            "    Chordata (used: 0, children: 0)",  # <<< Chordata has a matching child but we only support searching
+            "    Cnidaria (used: 0, children: 0)",  # 3 levels deep at once for now.
             "    Ctenophora (used: 0, children: 0)",
             "    Gastrotrich (used: 1, children: 0)",
             "    Placozoa (used: 1, children: 0)",
@@ -678,11 +678,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tagging_api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Archaebacteria"])
         result = tagging_api.search_tags(self.taxonomy, "ChA", exclude_object_id=object_id)
         assert pretty_format_tags(result, parent=False) == [
-            "Archaea (children: 3)",
+            "Archaea (children: 2)",
             "  Euryarchaeida (children: 0)",
             "  Proteoarchaeota (children: 0)",
             # These results are no longer included because of exclude_object_id:
-            # "Bacteria (children: 2)",  # does not contain "cha" but a child does
+            # "Bacteria (children: 1)",  # does not contain "cha" but a child does
             # "  Archaebacteria (children: 0)",
         ]
 

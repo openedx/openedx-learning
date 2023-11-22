@@ -539,7 +539,6 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
     **List Query Parameters**
         * id (required) - The ID of the taxonomy to retrieve tags.
         * search_term (optional) - Only return tags matching this term, plus their ancestors. Case insensitive.
-          Note that currently the "children" counts in the result do not reflect the filtering from the search term.
         * parent_tag (optional) - Retrieve children of the tag with this value.
         * full_depth_threshold (optional) - If there are fewer than this many results, return the full (sub)tree of
           results, up to maximum supported depth, in a single giant page of results. By default this is disabled

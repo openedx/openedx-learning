@@ -1219,11 +1219,11 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         data = response.data
         assert pretty_format_tags(data["results"], parent=False) == [
-            "Archaea (children: 3)",  # No match in this tag, but a child matches so it's included
+            "Archaea (children: 1)",  # No match in this tag, but a child matches so it's included
             "  Euryarchaeida (children: 0)",
-            "Bacteria (children: 2)",  # No match in this tag, but a child matches so it's included
+            "Bacteria (children: 1)",  # No match in this tag, but a child matches so it's included
             "  Eubacteria (children: 0)",
-            "Eukaryota (children: 5)",
+            "Eukaryota (children: 0)",
         ]
 
         # Checking pagination values
@@ -1245,9 +1245,9 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         data = response.data
         assert pretty_format_tags(data["results"], parent=False) == [
-            "Archaea (children: 3)",  # No match in this tag, but a child matches so it's included
-            "Bacteria (children: 2)",  # No match in this tag, but a child matches so it's included
-            "Eukaryota (children: 5)",
+            "Archaea (children: 1)",  # No match in this tag, but a child matches so it's included
+            "Bacteria (children: 1)",  # No match in this tag, but a child matches so it's included
+            "Eukaryota (children: 0)",
         ]
 
         # Checking pagination values
@@ -1378,10 +1378,12 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data = response.data
         results = data["results"]
         assert pretty_format_tags(results)[:20] == [
-            "Tag 0 (None) (children: 12)",  # First 2 results don't match but have children that match
-            "  Tag 1 (Tag 0) (children: 12)",
+            "Tag 0 (None) (children: 3)",  # First 2 results don't match but have children that match
+            # Note the count here ---^ is not the total number of matching descendants, just the number of children
+            # once we filter the tree to include only matches and their ancestors.
+            "  Tag 1 (Tag 0) (children: 1)",
             "    Tag 11 (Tag 1) (children: 0)",
-            "  Tag 105 (Tag 0) (children: 12)",  # Non-match but children match
+            "  Tag 105 (Tag 0) (children: 8)",  # Non-match but children match
             "    Tag 110 (Tag 105) (children: 0)",
             "    Tag 111 (Tag 105) (children: 0)",
             "    Tag 112 (Tag 105) (children: 0)",
@@ -1390,9 +1392,9 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "    Tag 115 (Tag 105) (children: 0)",
             "    Tag 116 (Tag 105) (children: 0)",
             "    Tag 117 (Tag 105) (children: 0)",
-            "  Tag 118 (Tag 0) (children: 12)",
+            "  Tag 118 (Tag 0) (children: 1)",
             "    Tag 119 (Tag 118) (children: 0)",
-            "Tag 1099 (None) (children: 12)",
+            "Tag 1099 (None) (children: 9)",
             "  Tag 1100 (Tag 1099) (children: 12)",
             "    Tag 1101 (Tag 1100) (children: 0)",
             "    Tag 1102 (Tag 1100) (children: 0)",
@@ -1414,16 +1416,16 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         results2 = data2["results"]
         assert pretty_format_tags(results2) == [
             # Notice that none of these root tags directly match the search query, but their children/grandchildren do
-            "Tag 0 (None) (children: 12)",
-            "Tag 1099 (None) (children: 12)",
-            "Tag 1256 (None) (children: 12)",
-            "Tag 1413 (None) (children: 12)",
-            "Tag 157 (None) (children: 12)",
-            "Tag 1570 (None) (children: 12)",
-            "Tag 1727 (None) (children: 12)",
-            "Tag 1884 (None) (children: 12)",
-            "Tag 2041 (None) (children: 12)",
-            "Tag 2198 (None) (children: 12)",
+            "Tag 0 (None) (children: 3)",
+            "Tag 1099 (None) (children: 9)",
+            "Tag 1256 (None) (children: 2)",
+            "Tag 1413 (None) (children: 1)",
+            "Tag 157 (None) (children: 2)",
+            "Tag 1570 (None) (children: 2)",
+            "Tag 1727 (None) (children: 1)",
+            "Tag 1884 (None) (children: 2)",
+            "Tag 2041 (None) (children: 1)",
+            "Tag 2198 (None) (children: 2)",
         ]
         assert data2.get("count") == 51
         assert data2.get("num_pages") == 6
@@ -1436,9 +1438,9 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data3 = response3.data
         # Now the number of results is below our threshold (100), so the subtree gets returned as a single page:
         assert pretty_format_tags(data3["results"]) == [
-            "  Tag 1 (Tag 0) (children: 12)",  # Non-match but children match
+            "  Tag 1 (Tag 0) (children: 1)",  # Non-match but children match
             "    Tag 11 (Tag 1) (children: 0)",  # Matches '11'
-            "  Tag 105 (Tag 0) (children: 12)",  # Non-match but children match
+            "  Tag 105 (Tag 0) (children: 8)",  # Non-match but children match
             "    Tag 110 (Tag 105) (children: 0)",  # Matches '11'
             "    Tag 111 (Tag 105) (children: 0)",
             "    Tag 112 (Tag 105) (children: 0)",
@@ -1447,7 +1449,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "    Tag 115 (Tag 105) (children: 0)",
             "    Tag 116 (Tag 105) (children: 0)",
             "    Tag 117 (Tag 105) (children: 0)",
-            "  Tag 118 (Tag 0) (children: 12)",
+            "  Tag 118 (Tag 0) (children: 1)",
             "    Tag 119 (Tag 118) (children: 0)",
         ]
 

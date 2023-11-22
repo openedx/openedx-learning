@@ -417,10 +417,10 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="ARCH"))
         assert result == [
-            "Archaea (None) (children: 3)",  # Matches the value of this root tag, ARCHaea
+            "Archaea (None) (children: 2)",  # Matches the value of this root tag, ARCHaea
             "  Euryarchaeida (Archaea) (children: 0)",  # Matches the value of this child tag
             "  Proteoarchaeota (Archaea) (children: 0)",  # Matches the value of this child tag
-            "Bacteria (None) (children: 2)",  # Does not match this tag but matches a descendant:
+            "Bacteria (None) (children: 1)",  # Does not match this tag but matches a descendant:
             "  Archaebacteria (Bacteria) (children: 0)",  # Matches the value of this child tag
         ]
 
@@ -431,9 +431,25 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="chordata"))
         assert result == [
-            "Eukaryota (None) (children: 5)",
-            "  Animalia (Eukaryota) (children: 7)",
-            "    Chordata (Animalia) (children: 1)",  # this is the matching tag.
+            "Eukaryota (None) (children: 1)",  # Has one child that matches
+            "  Animalia (Eukaryota) (children: 1)",
+            "    Chordata (Animalia) (children: 0)",  # this is the matching tag.
+        ]
+
+    def test_search_3(self) -> None:
+        """
+        Another search test, that matches a tag deeper in the taxonomy to check
+        that the correct child_count is returned by the search.
+        """
+        result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="RO"))
+        assert result == [
+            "Archaea (None) (children: 1)",
+            "  Proteoarchaeota (Archaea) (children: 0)",
+            "Eukaryota (None) (children: 2)",  # Note the "children: 2" is correct - 2 direct children are in the result
+            "  Animalia (Eukaryota) (children: 2)",
+            "    Arthropoda (Animalia) (children: 0)",  # match
+            "    Gastrotrich (Animalia) (children: 0)",  # match
+            "  Protista (Eukaryota) (children: 0)",  # match
         ]
 
     def test_tags_deep(self) -> None:
