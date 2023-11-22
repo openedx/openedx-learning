@@ -15,7 +15,7 @@ For the decisions, the following use cases were taken into account:
 - As a taxonomy administrator, I want to see all the tags available for use with a closed taxonomy,
   so that I can see the taxonomy's structure in the management interface.
 
-  - As a taxonomy administrator, I want to see the available tags as a lits of root tags
+  - As a taxonomy administrator, I want to see the available tags as a list of root tags
     that can be expanded to show children tags.
   - As a taxonomy administrator, I want to sort the list of root tags alphabetically: A-Z (default) and Z-A.
   - As a taxonomy administrator, I want to expand all root tags to see all children tags.
@@ -23,7 +23,7 @@ For the decisions, the following use cases were taken into account:
 - As a course author, when I am editing the tags of a component, I want to see all the tags available
   from a particular taxonomy that I can use.
 
-  - As a course author, I want to see the available tags as a lits of root tags
+  - As a course author, I want to see the available tags as a list of root tags
     that can be expanded to show children tags.
   - As a course author, I want to search for tags, so I can find root and children tags more easily.
 

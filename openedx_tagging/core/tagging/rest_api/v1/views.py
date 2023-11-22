@@ -660,7 +660,10 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         parent_tag_value = self.request.query_params.get("parent_tag", None)
         include_counts = "include_counts" in self.request.query_params
         search_term = self.request.query_params.get("search_term", None)
-        full_depth_threshold = int(self.request.query_params.get("full_depth_threshold", 0))
+        try:
+            full_depth_threshold = int(self.request.query_params.get("full_depth_threshold", 0))
+        except ValueError:
+            full_depth_threshold = -1
         if full_depth_threshold < 0 or full_depth_threshold > MAX_FULL_DEPTH_THRESHOLD:
             raise ValidationError("Invalid full_depth_threshold")
 
