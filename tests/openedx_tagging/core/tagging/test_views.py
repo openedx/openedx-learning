@@ -4,7 +4,7 @@ Tests tagging rest api views
 from __future__ import annotations
 
 import json
-from urllib.parse import parse_qs, quote, quote_plus, urlparse
+from urllib.parse import parse_qs, quote_plus, urlparse
 
 import ddt  # type: ignore[import]
 # typing support in rules depends on https://github.com/dfunckt/django-rules/pull/177
@@ -1105,7 +1105,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         Test explicitly requesting only the root tags of a small taxonomy.
         """
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(self.small_taxonomy_url + "?root_only&include_counts")
+        response = self.client.get(self.small_taxonomy_url + "?include_counts")
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
@@ -1142,7 +1142,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         Test loading all the tags of a small taxonomy at once.
         """
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(self.small_taxonomy_url)
+        response = self.client.get(self.small_taxonomy_url + "?full_depth_threshold=1000")
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
@@ -1182,22 +1182,20 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         Test loading only the first few of the tags of a small taxonomy.
         """
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(self.small_taxonomy_url + "?page_size=5")
+        response = self.client.get(self.small_taxonomy_url + "?page_size=2")
         assert response.status_code == status.HTTP_200_OK
         data = response.data
+        # When pagination is active, we only load a single "layer" at a time:
         assert pretty_format_tags(data["results"]) == [
             "Archaea (None) (children: 3)",
-            "  DPANN (Archaea) (children: 0)",
-            "  Euryarchaeida (Archaea) (children: 0)",
-            "  Proteoarchaeota (Archaea) (children: 0)",
             "Bacteria (None) (children: 2)",
         ]
 
         # Checking pagination values
         assert data.get("next") is not None
         assert data.get("previous") is None
-        assert data.get("count") == 20
-        assert data.get("num_pages") == 4
+        assert data.get("count") == 3
+        assert data.get("num_pages") == 2
         assert data.get("current_page") == 1
 
         # Get the next page:
@@ -1205,17 +1203,39 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert next_response.status_code == status.HTTP_200_OK
         next_data = next_response.data
         assert pretty_format_tags(next_data["results"]) == [
-            "  Archaebacteria (Bacteria) (children: 0)",
-            "  Eubacteria (Bacteria) (children: 0)",
             "Eukaryota (None) (children: 5)",
-            "  Animalia (Eukaryota) (children: 7)",
-            "    Arthropoda (Animalia) (children: 0)",
         ]
         assert next_data.get("current_page") == 2
 
     def test_small_search(self):
         """
         Test performing a search
+        """
+        search_term = 'eU'
+        url = f"{self.small_taxonomy_url}?search_term={search_term}&full_depth_threshold=100"
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+        assert pretty_format_tags(data["results"], parent=False) == [
+            "Archaea (children: 1)",  # No match in this tag, but a child matches so it's included
+            "  Euryarchaeida (children: 0)",
+            "Bacteria (children: 1)",  # No match in this tag, but a child matches so it's included
+            "  Eubacteria (children: 0)",
+            "Eukaryota (children: 0)",
+        ]
+
+        # Checking pagination values
+        assert data.get("next") is None
+        assert data.get("previous") is None
+        assert data.get("count") == 5
+        assert data.get("num_pages") == 1
+        assert data.get("current_page") == 1
+
+    def test_small_search_shallow(self):
+        """
+        Test performing a search without full_depth_threshold
         """
         search_term = 'eU'
         url = f"{self.small_taxonomy_url}?search_term={search_term}"
@@ -1225,19 +1245,48 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         data = response.data
         assert pretty_format_tags(data["results"], parent=False) == [
-            "Archaea (children: 3)",  # No match in this tag, but a child matches so it's included
-            "  Euryarchaeida (children: 0)",
-            "Bacteria (children: 2)",  # No match in this tag, but a child matches so it's included
-            "  Eubacteria (children: 0)",
-            "Eukaryota (children: 5)",
+            "Archaea (children: 1)",  # No match in this tag, but a child matches so it's included
+            "Bacteria (children: 1)",  # No match in this tag, but a child matches so it's included
+            "Eukaryota (children: 0)",
         ]
 
         # Checking pagination values
         assert data.get("next") is None
         assert data.get("previous") is None
-        assert data.get("count") == 5
+        assert data.get("count") == 3
         assert data.get("num_pages") == 1
         assert data.get("current_page") == 1
+
+        # And we can load the sub_tags_url to "drill down" into the search:
+        sub_tags_response = self.client.get(data["results"][0]["sub_tags_url"])
+        assert sub_tags_response.status_code == status.HTTP_200_OK
+
+        assert pretty_format_tags(sub_tags_response.data["results"], parent=False) == [
+            # This tag maches our search results and is a child of the previously returned Archaea tag:
+            "  Euryarchaeida (children: 0)",
+        ]
+
+    def test_empty_results(self):
+        """
+        Test that various queries return an empty list
+        """
+        self.client.force_authenticate(user=self.staff)
+
+        def assert_empty(url):
+            response = self.client.get(url)
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data["results"] == []
+            assert response.data["count"] == 0
+
+        # Search terms that won't match any tags:
+        assert_empty(f"{self.small_taxonomy_url}?search_term=foobar")
+        assert_empty(f"{self.small_taxonomy_url}?search_term=foobar&full_depth_threshold=1000")
+        # Requesting children of leaf tags is always an empty result.
+        # Prior versions of the code would sometimes throw an exception when trying to handle these.
+        assert_empty(f"{self.small_taxonomy_url}?parent_tag=Fungi")
+        assert_empty(f"{self.small_taxonomy_url}?parent_tag=Fungi&full_depth_threshold=1000")
+        assert_empty(f"{self.small_taxonomy_url}?search_term=eu&parent_tag=Euryarchaeida")
+        assert_empty(f"{self.small_taxonomy_url}?search_term=eu&parent_tag=Euryarchaeida&full_depth_threshold=1000")
 
     def test_large_taxonomy(self):
         """
@@ -1251,8 +1300,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data = response.data
         results = data["results"]
 
-        # Even though we didn't specify root_only, only the root tags will have
-        # been returned, because of the taxonomy's size.
         assert pretty_format_tags(results) == [
             "Tag 0 (None) (used: 0, children: 12)",
             "Tag 1099 (None) (used: 0, children: 12)",
@@ -1276,7 +1323,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert results[0].get("sub_tags_url") == (
             "http://testserver/tagging/"
             f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
-            f"/tags/?parent_tag={quote(results[0]['value'])}"
+            f"/tags/?parent_tag={quote_plus(results[0]['value'])}"
         )
 
         # Checking pagination values
@@ -1320,43 +1367,90 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         Test searching in a large taxonomy
         """
         self._build_large_taxonomy()
-        search_term = '11'
-        url = f"{self.large_taxonomy_url}?search_term={search_term}"
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(url)
+
+        # Perform the search with full_depth_threshold=1000, which will give us the full tree of results, since
+        # there are less than 1000 matches:
+        search_term = '11'
+        response = self.client.get(f"{self.large_taxonomy_url}?search_term={search_term}&full_depth_threshold=1000")
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
         results = data["results"]
-        assert pretty_format_tags(results) == [
-            "Tag 0 (None) (children: 12)",  # First 2 results don't match but have children that match
-            "  Tag 1 (Tag 0) (children: 12)",
+        assert pretty_format_tags(results)[:20] == [
+            "Tag 0 (None) (children: 3)",  # First 2 results don't match but have children that match
+            # Note the count here ---^ is not the total number of matching descendants, just the number of children
+            # once we filter the tree to include only matches and their ancestors.
+            "  Tag 1 (Tag 0) (children: 1)",
             "    Tag 11 (Tag 1) (children: 0)",
-            "  Tag 105 (Tag 0) (children: 12)",  # Non-match but children match
+            "  Tag 105 (Tag 0) (children: 8)",  # Non-match but children match
             "    Tag 110 (Tag 105) (children: 0)",
             "    Tag 111 (Tag 105) (children: 0)",
             "    Tag 112 (Tag 105) (children: 0)",
             "    Tag 113 (Tag 105) (children: 0)",
             "    Tag 114 (Tag 105) (children: 0)",
             "    Tag 115 (Tag 105) (children: 0)",
-        ]
-        assert data.get("count") == 362
-        assert data.get("num_pages") == 37
-        assert data.get("current_page") == 1
-        # Get the next page:
-        next_response = self.client.get(response.data.get("next"))
-        assert next_response.status_code == status.HTTP_200_OK
-        assert pretty_format_tags(next_response.data["results"]) == [
             "    Tag 116 (Tag 105) (children: 0)",
             "    Tag 117 (Tag 105) (children: 0)",
-            "  Tag 118 (Tag 0) (children: 12)",
+            "  Tag 118 (Tag 0) (children: 1)",
             "    Tag 119 (Tag 118) (children: 0)",
-            "Tag 1099 (None) (children: 12)",
+            "Tag 1099 (None) (children: 9)",
             "  Tag 1100 (Tag 1099) (children: 12)",
             "    Tag 1101 (Tag 1100) (children: 0)",
             "    Tag 1102 (Tag 1100) (children: 0)",
             "    Tag 1103 (Tag 1100) (children: 0)",
             "    Tag 1104 (Tag 1100) (children: 0)",
+        ]
+        expected_num_results = 362
+        assert data.get("count") == expected_num_results
+        assert len(results) == expected_num_results
+        assert data.get("num_pages") == 1
+        assert data.get("current_page") == 1
+
+        # Now, perform the search with full_depth_threshold=100, which will give us paginated results, since there are
+        # more than 100 matches:
+        response2 = self.client.get(f"{self.large_taxonomy_url}?search_term={search_term}&full_depth_threshold=100")
+        assert response2.status_code == status.HTTP_200_OK
+
+        data2 = response2.data
+        results2 = data2["results"]
+        assert pretty_format_tags(results2) == [
+            # Notice that none of these root tags directly match the search query, but their children/grandchildren do
+            "Tag 0 (None) (children: 3)",
+            "Tag 1099 (None) (children: 9)",
+            "Tag 1256 (None) (children: 2)",
+            "Tag 1413 (None) (children: 1)",
+            "Tag 157 (None) (children: 2)",
+            "Tag 1570 (None) (children: 2)",
+            "Tag 1727 (None) (children: 1)",
+            "Tag 1884 (None) (children: 2)",
+            "Tag 2041 (None) (children: 1)",
+            "Tag 2198 (None) (children: 2)",
+        ]
+        assert data2.get("count") == 51
+        assert data2.get("num_pages") == 6
+        assert data2.get("current_page") == 1
+
+        # Now load the results that are in the subtree of the root tag 'Tag 0'
+        tag_0_subtags_url = results2[0]["sub_tags_url"]
+        assert "full_depth_threshold=100" in tag_0_subtags_url
+        response3 = self.client.get(tag_0_subtags_url)
+        data3 = response3.data
+        # Now the number of results is below our threshold (100), so the subtree gets returned as a single page:
+        assert pretty_format_tags(data3["results"]) == [
+            "  Tag 1 (Tag 0) (children: 1)",  # Non-match but children match
+            "    Tag 11 (Tag 1) (children: 0)",  # Matches '11'
+            "  Tag 105 (Tag 0) (children: 8)",  # Non-match but children match
+            "    Tag 110 (Tag 105) (children: 0)",  # Matches '11'
+            "    Tag 111 (Tag 105) (children: 0)",
+            "    Tag 112 (Tag 105) (children: 0)",
+            "    Tag 113 (Tag 105) (children: 0)",
+            "    Tag 114 (Tag 105) (children: 0)",
+            "    Tag 115 (Tag 105) (children: 0)",
+            "    Tag 116 (Tag 105) (children: 0)",
+            "    Tag 117 (Tag 105) (children: 0)",
+            "  Tag 118 (Tag 0) (children: 1)",
+            "    Tag 119 (Tag 118) (children: 0)",
         ]
 
     def test_get_children(self):
@@ -1385,7 +1479,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert results[0].get("sub_tags_url") == (
             "http://testserver/tagging/"
             f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
-            f"/tags/?parent_tag={quote(tag.value)}"
+            f"/tags/?parent_tag={quote_plus(tag.value)}"
         )
 
         # Checking pagination values
@@ -1400,23 +1494,59 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("current_page") == 1
 
     def test_get_leaves(self):
-        # Get tags depth=2
+        """
+        Test getting the tags at depth=2, using "full_depth_threshold=1000" to
+        load the whole subtree.
+        """
+        # Get tags at depth=2
         self.client.force_authenticate(user=self.staff)
         parent_tag = Tag.objects.get(value="Animalia")
 
         # Build url to get tags depth=2
-        url = f"{self.small_taxonomy_url}?parent_tag={parent_tag.value}"
+        url = f"{self.small_taxonomy_url}?parent_tag={parent_tag.value}&full_depth_threshold=1000"
         response = self.client.get(url)
         results = response.data["results"]
 
-        # Even though we didn't specify root_only, only the root tags will have
-        # been returned, because of the taxonomy's size.
+        # Because the result is small, the result includes the complete tree below this one.
         assert pretty_format_tags(results) == [
             "    Arthropoda (Animalia) (children: 0)",
             "    Chordata (Animalia) (children: 1)",
+            "      Mammalia (Chordata) (children: 0)",
             "    Cnidaria (Animalia) (children: 0)",
             "    Ctenophora (Animalia) (children: 0)",
             "    Gastrotrich (Animalia) (children: 0)",
+            "    Placozoa (Animalia) (children: 0)",
+            "    Porifera (Animalia) (children: 0)",
+        ]
+        assert response.data.get("next") is None
+
+    def test_get_leaves_paginated(self):
+        """
+        Test getting depth=2 entries, disabling the feature to return the whole
+        subtree if the result is small enough.
+        """
+        # Get tags at depth=2
+        self.client.force_authenticate(user=self.staff)
+        parent_tag = Tag.objects.get(value="Animalia")
+
+        # Build url to get tags depth=2
+        url = f"{self.small_taxonomy_url}?parent_tag={parent_tag.value}&page_size=5"
+        response = self.client.get(url)
+        results = response.data["results"]
+
+        # Because the result is small, the result includes the complete tree below this one.
+        assert pretty_format_tags(results) == [
+            "    Arthropoda (Animalia) (children: 0)",
+            "    Chordata (Animalia) (children: 1)",  # Note the child is not included
+            "    Cnidaria (Animalia) (children: 0)",
+            "    Ctenophora (Animalia) (children: 0)",
+            "    Gastrotrich (Animalia) (children: 0)",
+        ]
+        next_url = response.data.get("next")
+        assert next_url is not None
+        response2 = self.client.get(next_url)
+        results2 = response2.data["results"]
+        assert pretty_format_tags(results2) == [
             "    Placozoa (Animalia) (children: 0)",
             "    Porifera (Animalia) (children: 0)",
         ]
