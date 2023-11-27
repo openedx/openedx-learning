@@ -24,7 +24,7 @@ billiard==4.2.0
     # via
     #   -r requirements/base.txt
     #   celery
-celery==5.3.5
+celery==5.3.6
     # via -r requirements/base.txt
 certifi==2023.11.17
     # via
@@ -124,11 +124,11 @@ edx-opaque-keys==2.5.1
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
-exceptiongroup==1.1.3
+exceptiongroup==1.2.0
     # via pytest
 grimp==3.1
     # via import-linter
-idna==3.4
+idna==3.6
     # via
     #   -r requirements/base.txt
     #   requests
@@ -146,7 +146,7 @@ markupsafe==2.1.3
     # via jinja2
 mock==5.1.0
     # via -r requirements/test.in
-mypy==1.7.0
+mypy==1.7.1
     # via
     #   -r requirements/test.in
     #   djangorestframework-stubs
@@ -285,7 +285,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.10
+wcwidth==0.2.12
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit

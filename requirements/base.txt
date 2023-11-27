@@ -16,7 +16,7 @@ backports-zoneinfo[tzdata]==0.2.1
     #   kombu
 billiard==4.2.0
     # via celery
-celery==5.3.5
+celery==5.3.6
     # via -r requirements/base.in
 certifi==2023.11.17
     # via requests
@@ -71,7 +71,7 @@ edx-drf-extensions==8.13.1
     # via -r requirements/base.in
 edx-opaque-keys==2.5.1
     # via edx-drf-extensions
-idna==3.4
+idna==3.6
     # via requests
 kombu==5.3.4
     # via celery
@@ -130,5 +130,5 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.10
+wcwidth==0.2.12
     # via prompt-toolkit
