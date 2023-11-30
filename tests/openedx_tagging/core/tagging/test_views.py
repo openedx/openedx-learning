@@ -164,7 +164,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "tags_count": 0,
                 },
                 {
-                    "id": 1,
+                    "id": taxonomy.id,
                     "name": "Taxonomy enabled 1",
                     "description": "",
                     "enabled": True,
