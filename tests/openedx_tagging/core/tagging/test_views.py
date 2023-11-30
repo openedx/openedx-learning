@@ -126,12 +126,20 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             assert len(response.data["results"]) == expected_count
 
     @ddt.data(
-        (None, status.HTTP_401_UNAUTHORIZED),
-        ("user", status.HTTP_200_OK),
-        ("staff", status.HTTP_200_OK),
+        (None, status.HTTP_401_UNAUTHORIZED, 0),
+        ("user", status.HTTP_200_OK, 10),
+        ("staff", status.HTTP_200_OK, 20),
     )
     @ddt.unpack
-    def test_list_taxonomy(self, user_attr: str | None, expected_status: int):
+    def test_list_taxonomy(self, user_attr: str | None, expected_status: int, tags_count: int):
+        taxonomy = api.create_taxonomy(name="Taxonomy enabled 1", enabled=True)
+        for i in range(tags_count):
+            tag = Tag(
+                taxonomy=taxonomy,
+                value=f"Tag {i}",
+            )
+            tag.save()
+
         url = TAXONOMY_LIST_URL
 
         if user_attr:
@@ -140,6 +148,33 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         response = self.client.get(url)
         assert response.status_code == expected_status
+
+        # Check results
+        if tags_count:
+            assert response.data["results"] == [
+                {
+                    "id": -1,
+                    "name": "Languages",
+                    "description": "Languages that are enabled on this system.",
+                    "enabled": True,
+                    "allow_multiple": False,
+                    "allow_free_text": False,
+                    "system_defined": True,
+                    "visible_to_authors": True,
+                    "tags_count": 0,
+                },
+                {
+                    "id": taxonomy.id,
+                    "name": "Taxonomy enabled 1",
+                    "description": "",
+                    "enabled": True,
+                    "allow_multiple": True,
+                    "allow_free_text": False,
+                    "system_defined": False,
+                    "visible_to_authors": True,
+                    "tags_count": tags_count,
+                },
+            ]
 
     def test_list_taxonomy_pagination(self) -> None:
         url = TAXONOMY_LIST_URL

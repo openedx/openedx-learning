@@ -34,6 +34,8 @@ class TaxonomySerializer(serializers.ModelSerializer):
     """
     Serializer for the Taxonomy model.
     """
+    tags_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Taxonomy
         fields = [
@@ -45,6 +47,7 @@ class TaxonomySerializer(serializers.ModelSerializer):
             "allow_free_text",
             "system_defined",
             "visible_to_authors",
+            "tags_count",
         ]
 
     def to_representation(self, instance):
@@ -53,6 +56,9 @@ class TaxonomySerializer(serializers.ModelSerializer):
         """
         instance = instance.cast()
         return super().to_representation(instance)
+
+    def get_tags_count(self, instance):
+        return instance.tag_set.count()
 
 
 class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
