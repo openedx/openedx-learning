@@ -373,8 +373,7 @@ class DeleteTag(ImportAction):
     """
 
     def __str__(self) -> str:
-        taxonomy_tag = self._get_tag()
-        return str(_("Delete tag (external_id={external_id})").format(external_id=taxonomy_tag.external_id))
+        return str(_("Delete tag (external_id={external_id})").format(external_id=self.tag.id))
 
     name = "delete"
 
@@ -397,8 +396,11 @@ class DeleteTag(ImportAction):
         """
         Delete a tag
         """
-        taxonomy_tag = self._get_tag()
-        taxonomy_tag.delete()
+        try:
+            taxonomy_tag = self._get_tag()
+            taxonomy_tag.delete()
+        except Tag.DoesNotExist:
+            pass  # The tag may be already cascade deleted if the parent tag was deleted
 
 
 class WithoutChanges(ImportAction):

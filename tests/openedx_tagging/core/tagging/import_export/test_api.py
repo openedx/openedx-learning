@@ -8,7 +8,7 @@ from django.test.testcases import TestCase
 
 import openedx_tagging.core.tagging.import_export.api as import_export_api
 from openedx_tagging.core.tagging.import_export import ParserFormat
-from openedx_tagging.core.tagging.models import LanguageTaxonomy, TagImportTask, TagImportTaskState, Taxonomy
+from openedx_tagging.core.tagging.models import LanguageTaxonomy, Tag, TagImportTask, TagImportTaskState, Taxonomy
 
 from .mixins import TestImportExportMixin
 
@@ -197,3 +197,42 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
                 if tag.parent:
                     assert new_tag.parent
                     assert tag.parent.external_id == new_tag.parent.external_id
+
+    def test_import_removing_with_childs(self) -> None:
+        """
+        Test import need to remove childs with parents that will also be removed
+        """
+        new_taxonomy = Taxonomy(name="New taxonomy")
+        new_taxonomy.save()
+        level2 = Tag.objects.create(
+            id=1000,
+            external_id="tag_2",
+            value="Tag 2",
+            taxonomy=new_taxonomy,
+        )
+        level1 = Tag.objects.create(
+            id=1001,
+            external_id="tag_1",
+            value="Tag 1",
+            taxonomy=new_taxonomy,
+        )
+        level3 = Tag.objects.create(
+            id=1002,
+            external_id="tag_3",
+            value="Tag 3",
+            taxonomy=new_taxonomy,
+        )
+        level2.parent = level1
+        level2.save()
+
+        level3.parent = level3
+        level3.save()
+
+        # Import with empty tags, to remove all tags
+        importFile = BytesIO(json.dumps({"tags": []}).encode())
+        assert import_export_api.import_tags(
+            new_taxonomy,
+            importFile,
+            ParserFormat.JSON,
+            replace=True,
+        )
