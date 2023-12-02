@@ -24,7 +24,7 @@ The underlying data models live in the openedx-learning repo. The most relevant 
 Key takeaways about how this data is stored:
 
 * Assets are associated and versioned with Components, where a Component is typically an XBlock. So you don't ask for "version 5 of /static/fig1.webp", you ask for "the /static/fig1.webp associated with version 5 of this block".
-* This initial MVP would be to serve assets for v2 content libraries, where all static assets are associated with a particular component XBlock. Later on, we'll want to allow courses to port their existing files and uploads into this system in a backwards compatible way. We will probably do this by creating a non-XBlock, filesystem Component type that can treat the entire course as a Component. The specifics for how that is modeled on the backend are out of scope for this ADR, but this general approach is meant to work for both use cases.
+* This initial MVP would be to serve assets for v2 content libraries, where all static assets are associated with a particular component XBlock. Later on, we'll want to allow courses to port their existing files and uploads into this system in a backwards compatible way. We will probably do this by creating a non-XBlock, filesystem Component type that can treat the entire course's uploads as a Component. The specifics for how that is modeled on the backend are out of scope for this ADR, but this general approach is meant to work for both use cases.
 * The actual raw asset data is stored in django-storages using its hash value as the file name. This makes it cheap to make many references to the same asset data under different names and versions, but it means that we cannot simply give direct links to the raw file data to the browser (see the next section for details).
 
 The Difficulty with Direct Links to Raw Data Files
@@ -109,20 +109,9 @@ Django View Implemenation
 
 The LMS and Studio will each have one or two apps that implement view endpoints by extending a view that will be provided by the Learning Core. These views will only respond to requests that come via the asset domains (i.e. they will not work if you request the same paths using the LMS or Studio domains).
 
-Django is poorly suited to serving large static assets, particularly when deployed using WSGI. Instead of streaming the actual file data, the Django views serving assets will make use of the ``X-Accel-Redirect`` header. This header is supported by both Caddy and Nginx, and will cause them to fetch the data from the specified URI to send to the user. This redirect happens internally in the proxy and does *not* change the browser address. In most cases, the Django view will send a signed URL to a file in an object store.
+Django is poorly suited to serving large static assets, particularly when deployed using WSGI. Instead of streaming the actual file data, the Django views serving assets will make use of the ``X-Accel-Redirect`` header. This header is supported by both Caddy and Nginx, and will cause them to fetch the data from the specified URI to send to the user. This redirect happens internally in the proxy and does *not* change the browser address. For sites using an object store like S3, the Django view will generate and send a signed URL to the asset. For sites using file-based Django media storage, the view will send a URL that Caddy or Nginx knows how to load from the file system.
 
 The Django view will also be responsible for setting other important header information, such as size, content type, and caching information.
-
-Object Store Requirement
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-**This is the first major piece of courseware functionality that would *require* an object store to work correctly.** It does not require that you configure *all* your media files to go to an object store, but it would require that all new assets in this system go there.
-
-It is possible to add support for a file-backed storages option for this, but there are major drawbacks:
-
-#. To be secure, it would either require sharing the asset raw data files between Studio/LMS and the asset server containers, or it would require serving the assets through Django itself (significantly adding to server load).
-#. Starting with a file-based system would make a transition to object store difficult.
-#. It would increase testing burden and complexity.
 
 Permissions
 ~~~~~~~~~~~
