@@ -93,14 +93,16 @@ class TagImportPlan:
                 # Verify if there is not a parent update before
                 if not self._search_parent_update(child.external_id, tag.external_id):
                     # Change parent to avoid delete childs
-                    self._build_action(
-                        UpdateParentTag,
-                        TagItem(
-                            id=child.external_id,
-                            value=child.value,
-                            parent_id=None,
-                        ),
-                    )
+                    if child.external_id not in tags:
+                        # Only update parent if the child is not going to be deleted
+                        self._build_action(
+                            UpdateParentTag,
+                            TagItem(
+                                id=child.external_id,
+                                value=child.value,
+                                parent_id=None,
+                            ),
+                        )
 
             # Delete action
             self._build_action(

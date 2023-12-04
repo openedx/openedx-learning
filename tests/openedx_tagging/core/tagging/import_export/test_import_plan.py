@@ -60,23 +60,15 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         assert len(self.import_plan.errors) == 0
 
         # Check actions in order
-        # #1 Update parent of 'tag_2'
-        assert self.import_plan.actions[0].name == 'update_parent'
-        assert self.import_plan.actions[0].tag.id == 'tag_2'
-        assert self.import_plan.actions[0].tag.parent_id is None
-        # #2 Delete 'tag_1'
+        # #1 Delete 'tag_1'
+        assert self.import_plan.actions[0].name == 'delete'
+        assert self.import_plan.actions[0].tag.id == 'tag_1'
+        # #2 Delete 'tag_2'
         assert self.import_plan.actions[1].name == 'delete'
-        assert self.import_plan.actions[1].tag.id == 'tag_1'
-        # #3 Delete 'tag_2'
+        assert self.import_plan.actions[1].tag.id == 'tag_2'
+        # #3 Delete 'tag_3'
         assert self.import_plan.actions[2].name == 'delete'
-        assert self.import_plan.actions[2].tag.id == 'tag_2'
-        # #4 Update parent of 'tag_4'
-        assert self.import_plan.actions[3].name == 'update_parent'
-        assert self.import_plan.actions[3].tag.id == 'tag_4'
-        assert self.import_plan.actions[3].tag.parent_id is None
-        # #5 Delete 'tag_3'
-        assert self.import_plan.actions[4].name == 'delete'
-        assert self.import_plan.actions[4].tag.id == 'tag_3'
+        assert self.import_plan.actions[2].tag.id == 'tag_3'
 
     @ddt.data(
         # Test valid actions
@@ -192,10 +184,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
                 {
                     'name': 'without_changes',
                     'id': 'tag_4',
-                },
-                {
-                    'name': 'update_parent',
-                    'id': 'tag_2',
                 },
                 {
                     'name': 'delete',
@@ -330,13 +318,11 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             "Import plan for Import Taxonomy Test\n"
             "--------------------------------\n"
             "#1: No changes needed for tag (external_id=tag_4)\n"
-            "#2: Update the parent of tag (external_id=tag_2) from parent (external_id=tag_1) "
+            "#2: Delete tag (external_id=tag_1)\n"
+            "#3: Delete tag (external_id=tag_2)\n"
+            "#4: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
             "to parent (external_id=None).\n"
-            "#3: Delete tag (external_id=tag_1)\n"
-            "#4: Delete tag (external_id=tag_2)\n"
-            "#5: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
-            "to parent (external_id=None).\n"
-            "#6: Delete tag (external_id=tag_3)\n"
+            "#5: Delete tag (external_id=tag_3)\n"
         ),
     )
     @ddt.unpack
