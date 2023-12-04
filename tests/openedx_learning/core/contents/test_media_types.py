@@ -14,14 +14,15 @@ class MediaTypeCachingTestCase(TestCase):
         assert contents_api.get_media_type_id.cache_info().currsize == 0
 
         mime_type_str = "application/vnd.openedx.xblock.v1.problem+xml"
-        contents_api.get_media_type_id(mime_type_str)
+        media_type_id = contents_api.get_media_type_id(mime_type_str)
 
         # Now it should be loaded in the cache
         assert contents_api.get_media_type_id.cache_info().currsize == 1
 
         # Second call pulls from cache instead of the database
         with self.assertNumQueries(0):
-            contents_api.get_media_type_id(mime_type_str)
+            # Should also return the same thing it did last time.
+            assert media_type_id == contents_api.get_media_type_id(mime_type_str)
 
     def test_media_query_caching_reset(self):
         """
