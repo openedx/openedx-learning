@@ -117,6 +117,7 @@ def get_component_version_content(
     """
     return ComponentVersionRawContent.objects.select_related(
         "raw_content",
+        "raw_content__media_type",
         "component_version",
         "component_version__component",
         "component_version__component__learning_package",

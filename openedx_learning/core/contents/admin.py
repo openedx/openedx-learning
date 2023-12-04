@@ -18,14 +18,14 @@ class RawContentAdmin(ReadOnlyModelAdmin):
         "hash_digest",
         "file_link",
         "learning_package",
-        "mime_type",
+        "media_type",
         "size",
         "created",
     ]
     fields = [
         "learning_package",
         "hash_digest",
-        "mime_type",
+        "media_type",
         "size",
         "created",
         "file_link",
@@ -34,13 +34,13 @@ class RawContentAdmin(ReadOnlyModelAdmin):
     readonly_fields = [
         "learning_package",
         "hash_digest",
-        "mime_type",
+        "media_type",
         "size",
         "created",
         "file_link",
         "text_preview",
     ]
-    list_filter = ("mime_type", "learning_package")
+    list_filter = ("media_type", "learning_package")
     search_fields = ("hash_digest",)
 
     def file_link(self, raw_content):

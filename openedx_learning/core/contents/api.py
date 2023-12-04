@@ -12,9 +12,10 @@ from datetime import datetime
 from django.core.files.base import ContentFile
 from django.db.transaction import atomic
 
+from openedx_learning.lib.cache import lru_cache
 from openedx_learning.lib.fields import create_hash_digest
 
-from .models import RawContent, TextContent
+from .models import MediaType, RawContent, TextContent
 
 
 def create_raw_content(
@@ -28,9 +29,10 @@ def create_raw_content(
     Create a new RawContent instance and persist it to storage.
     """
     hash_digest = hash_digest or create_hash_digest(data_bytes)
+
     raw_content = RawContent.objects.create(
         learning_package_id=learning_package_id,
-        mime_type=mime_type,
+        media_type_id=get_media_type_id(mime_type),
         hash_digest=hash_digest,
         size=len(data_bytes),
         created=created,
@@ -53,6 +55,37 @@ def create_text_from_raw_content(raw_content: RawContent, encoding="utf-8-sig") 
         length=len(text),
     )
 
+@lru_cache(maxsize=128)
+def get_media_type_id(mime_type: str) -> int:
+    """
+    Return the MediaType.id for the desired mime_type string.
+
+    If it is not found in the database, a new entry will be created for it. This
+    lazy-writing means that MediaType entry IDs will *not* be the same across
+    different server instances, and apps should not assume that will be the
+    case. Even if we were to preload a bunch of common ones, we can't anticipate
+    the different XBlocks that will be installed in different server instances,
+    each of which will use their own MediaType.
+
+    This will typically only be called when create_raw_content is calling it to
+    lookup the media_type_id it should use for a new RawContent. If you already
+    have a RawContent instance, it makes much more sense to access its
+    media_type relation.
+    """
+    if "+" in mime_type:
+        base, suffix = mime_type.split("+")
+    else:
+        base = mime_type
+        suffix = ""
+
+    main_type, sub_type = base.split("/")
+    mt, _created = MediaType.objects.get_or_create(
+        type=main_type,
+        sub_type=sub_type,
+        suffix=suffix,
+    )
+
+    return mt.id
 
 def get_or_create_raw_content(
     learning_package_id: int,

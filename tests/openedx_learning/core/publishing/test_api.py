@@ -6,9 +6,9 @@ from uuid import UUID
 
 import pytest
 from django.core.exceptions import ValidationError
-from django.test import TestCase
 
 from openedx_learning.core.publishing import api as publishing_api
+from openedx_learning.lib.test_utils import TestCase
 
 
 class CreateLearningPackageTestCase(TestCase):
