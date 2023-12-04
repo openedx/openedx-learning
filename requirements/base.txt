@@ -39,7 +39,7 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==41.0.5
+cryptography==41.0.7
     # via pyjwt
 django==3.2.23
     # via
@@ -65,9 +65,9 @@ djangorestframework==3.14.0
     #   edx-drf-extensions
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==5.8.0
+edx-django-utils==5.9.0
     # via edx-drf-extensions
-edx-drf-extensions==8.13.1
+edx-drf-extensions==9.0.0
     # via -r requirements/base.in
 edx-opaque-keys==2.5.1
     # via edx-drf-extensions
