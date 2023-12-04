@@ -55,6 +55,7 @@ def create_text_from_raw_content(raw_content: RawContent, encoding="utf-8-sig") 
         length=len(text),
     )
 
+
 @lru_cache(maxsize=128)
 def get_media_type_id(mime_type: str) -> int:
     """
@@ -86,6 +87,7 @@ def get_media_type_id(mime_type: str) -> int:
     )
 
     return mt.id
+
 
 def get_or_create_raw_content(
     learning_package_id: int,

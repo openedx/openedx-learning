@@ -12,6 +12,7 @@ import functools
 # List of functions that have our
 _lru_cached_fns = []
 
+
 def lru_cache(*args, **kwargs):
     """
     Thin wrapper over functools.lru_cache that lets us clear all caches later.
@@ -21,6 +22,7 @@ def lru_cache(*args, **kwargs):
         _lru_cached_fns.append(wrapped_fn)
         return wrapped_fn
     return decorator
+
 
 def clear_lru_caches():
     """
