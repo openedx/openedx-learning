@@ -78,7 +78,7 @@ coverage[toml]==7.3.2
     #   -r requirements/test.txt
     #   coverage
     #   pytest-cov
-cryptography==41.0.5
+cryptography==41.0.7
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -138,11 +138,11 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==5.8.0
+edx-django-utils==5.9.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==8.13.1
+edx-drf-extensions==9.0.0
     # via -r requirements/test.txt
 edx-opaque-keys==2.5.1
     # via
@@ -164,7 +164,7 @@ imagesize==1.4.1
     # via sphinx
 import-linter==1.12.1
     # via -r requirements/test.txt
-importlib-metadata==6.8.0
+importlib-metadata==7.0.0
     # via sphinx
 iniconfig==2.0.0
     # via
@@ -229,7 +229,7 @@ pycparser==2.21
     # via
     #   -r requirements/test.txt
     #   cffi
-pydata-sphinx-theme==0.14.3
+pydata-sphinx-theme==0.14.4
     # via sphinx-book-theme
 pygments==2.17.2
     # via
