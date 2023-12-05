@@ -3,10 +3,9 @@ Tests related to the Component models
 """
 from datetime import datetime, timezone
 
-from django.test.testcases import TestCase
-
 from openedx_learning.core.components.api import create_component_and_version
 from openedx_learning.core.publishing.api import LearningPackage, create_learning_package, publish_all_drafts
+from openedx_learning.lib.test_utils import TestCase
 
 
 class TestModelVersioningQueries(TestCase):

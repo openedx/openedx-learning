@@ -158,7 +158,7 @@ def content_preview(cvc_obj: ComponentVersionRawContent) -> SafeText:
     """
     raw_content_obj = cvc_obj.raw_content
 
-    if raw_content_obj.mime_type.startswith("image/"):
+    if raw_content_obj.media_type.type == "image":
         return format_html(
             '<img src="{}" style="max-width: 100%;" />',
             # TODO: configure with settings value:

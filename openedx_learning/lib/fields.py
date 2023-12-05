@@ -121,6 +121,16 @@ def hash_field() -> models.CharField:
 
     Use the create_hash_digest function to generate data suitable for this
     field.
+
+    There are a couple of ways that we could have stored this more efficiently,
+    but we don't at this time:
+
+    1. A BinaryField would be the most space efficient, but Django doesn't
+       support indexing a BinaryField in a MySQL database.
+    2. We could make the field case-sensitive and run it through a URL-safe
+       base64 encoding. But the amount of space this saves vs. the complexity
+       didn't seem worthwhile, particularly the possibility of case-sensitivity
+       related bugs.
     """
     return models.CharField(
         max_length=40,

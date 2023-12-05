@@ -3,6 +3,8 @@ These models are the most basic pieces of content we support. Think of them as
 the simplest building blocks to store data with. They need to be composed into
 more intelligent data models to be useful.
 """
+from functools import cached_property
+
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.validators import MaxValueValidator
@@ -16,6 +18,81 @@ from openedx_learning.lib.fields import (
 )
 
 from ..publishing.models import LearningPackage
+
+
+class MediaType(models.Model):
+    """
+    Stores Media types for use by RawContent models.
+
+    This is the same as MIME types (the IANA renamed MIME Types to Media Types).
+    We don't pre-populate this table, so APIs that add RawContent must ensure
+    that the desired Media Type exists.
+
+    Media types are written as {type}/{sub_type}+{suffix}, where suffixes are
+    seldom used.
+
+    * application/json
+    * text/css
+    * image/svg+xml
+    * application/vnd.openedx.xblock.v1.problem+xml
+
+    We have this as a separate model (instead of a field on RawContent) because:
+
+    1. We can save a lot on storage and indexing for RawContent if we're just
+       storing foreign key references there, rather than the entire content
+       string to be indexed. This is especially relevant for our (long) custom
+       types like "application/vnd.openedx.xblock.v1.problem+xml".
+    2. These values can occasionally change. For instance, "text/javascript" vs.
+       "application/javascript". Also, we will be using a fair number of "vnd."
+       style of custom content types, and we may want the flexibility of
+       changing that without having to worry about migrating millions of rows of
+       RawContent.
+    """
+    # We're going to have many foreign key references from RawContent into this
+    # model, and we don't need to store those as 8-byte BigAutoField, as is the
+    # default for this app. It's likely that a SmallAutoField would work, but I
+    # can just barely imagine using more than 32K Media types if we have a bunch
+    # of custom "vnd." entries, or start tracking suffixes and parameters. Which
+    # is how we end up at the 4-byte AutoField.
+    id = models.AutoField(primary_key=True)
+
+    # Media types are denoted as {type}/{sub_type}+{suffix}. We currently do not
+    # support parameters.
+
+    # Media type, e.g. "application", "text", "image". Per RFC 4288, this can be
+    # at most 127 chars long and is case insensitive. In practice, it's almost
+    # always written in lowercase.
+    type = case_insensitive_char_field(max_length=127, blank=False, null=False)
+
+    # Media sub-type, e.g. "json", "css", "png". Per RFC 4288, this can be at
+    # most 127 chars long and is case insensitive. In practice, it's almost
+    # always written in lowercase.
+    sub_type = case_insensitive_char_field(max_length=127, blank=False, null=False)
+
+    # Suffix, usually just "xml" (e.g. "image/svg+xml"). Usually blank. I
+    # couldn't find an RFC description of the length limit, and 127 is probably
+    # excessive. But this table should be small enough where it doesn't really
+    # matter.
+    suffix = case_insensitive_char_field(max_length=127, blank=True, null=False)
+
+    class Meta:
+        constraints = [
+            # Make sure all (type + sub_type + suffix) combinations are unique.
+            models.UniqueConstraint(
+                fields=[
+                    "type",
+                    "sub_type",
+                    "suffix",
+                ],
+                name="oel_contents_uniq_t_st_sfx",
+            ),
+        ]
+
+    def __str__(self):
+        base = f"{self.type}/{self.sub_type}"
+        if self.suffix:
+            return f"{base}+{self.suffix}"
+        return base
 
 
 class RawContent(models.Model):  # type: ignore[django-manager-missing]
@@ -77,15 +154,8 @@ class RawContent(models.Model):  # type: ignore[django-manager-missing]
     # openedx.lib.fields module.
     hash_digest = hash_field()
 
-    # MIME type, such as "text/html", "image/png", etc. Per RFC 4288, MIME type
-    # and sub-type may each be 127 chars, making a max of 255 (including the "/"
-    # in between). Also, while MIME types are almost always written in lowercase
-    # as a matter of convention, by spec they are NOT case sensitive.
-    #
-    # DO NOT STORE parameters here, e.g. "charset=". We can make a new field if
-    # that becomes necessary. If we do decide to store parameters and values
-    # later, note that those *may be* case sensitive.
-    mime_type = case_insensitive_char_field(max_length=255, blank=False)
+    # What is the Media type (a.k.a. MIME type) of this data?
+    media_type = models.ForeignKey(MediaType, on_delete=models.PROTECT)
 
     # This is the size of the raw data file in bytes. This can be different than
     # the character length, since UTF-8 encoding can use anywhere between 1-4
@@ -107,6 +177,10 @@ class RawContent(models.Model):  # type: ignore[django-manager-missing]
         storage=settings.OPENEDX_LEARNING.get("STORAGE", default_storage),  # type: ignore
     )
 
+    @cached_property
+    def mime_type(self):
+        return str(self.media_type)
+
     class Meta:
         constraints = [
             # Make sure we don't store duplicates of this raw data within the
@@ -114,21 +188,21 @@ class RawContent(models.Model):  # type: ignore[django-manager-missing]
             models.UniqueConstraint(
                 fields=[
                     "learning_package",
-                    "mime_type",
+                    "media_type",
                     "hash_digest",
                 ],
-                name="oel_content_uniq_lc_mime_type_hash_digest",
+                name="oel_content_uniq_lc_media_type_hash_digest",
             ),
         ]
         indexes = [
-            # LearningPackage MIME type Index:
+            # LearningPackage Media type Index:
             #   * Break down Content counts by type/subtype with in a
             #     LearningPackage.
             #   * Find all the Content in a LearningPackage that matches a
             #     certain MIME type (e.g. "image/png", "application/pdf".
             models.Index(
-                fields=["learning_package", "mime_type"],
-                name="oel_content_idx_lp_mime_type",
+                fields=["learning_package", "media_type"],
+                name="oel_content_idx_lp_media_type",
             ),
             # LearningPackage (reverse) Size Index:
             #   * Find largest Content in a LearningPackage.
