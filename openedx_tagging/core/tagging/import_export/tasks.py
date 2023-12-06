@@ -1,6 +1,8 @@
 """
 Import and export celery tasks
 """
+from __future__ import annotations
+
 from io import BytesIO
 
 from celery import shared_task  # type: ignore[import]
@@ -8,6 +10,7 @@ from celery import shared_task  # type: ignore[import]
 import openedx_tagging.core.tagging.import_export.api as import_export_api
 
 from ..models import Taxonomy
+from .import_plan import TagImportPlan, TagImportTask
 from .parsers import ParserFormat
 
 
@@ -17,7 +20,7 @@ def import_tags_task(
     file: BytesIO,
     parser_format: ParserFormat,
     replace=False,
-) -> bool:
+) -> tuple[bool, TagImportTask, TagImportPlan | None]:
     """
     Runs import on a celery task
     """

@@ -32,6 +32,7 @@ TAXONOMY_DETAIL_URL = "/tagging/rest_api/v1/taxonomies/{pk}/"
 TAXONOMY_EXPORT_URL = "/tagging/rest_api/v1/taxonomies/{pk}/export/"
 TAXONOMY_TAGS_URL = "/tagging/rest_api/v1/taxonomies/{pk}/tags/"
 TAXONOMY_TAGS_IMPORT_URL = "/tagging/rest_api/v1/taxonomies/{pk}/tags/import/"
+TAXONOMY_TAGS_IMPORT_PLAN_URL = "/tagging/rest_api/v1/taxonomies/{pk}/tags/import/plan/"
 TAXONOMY_CREATE_IMPORT_URL = "/tagging/rest_api/v1/taxonomies/import/"
 
 
@@ -2399,6 +2400,39 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         for i, tag in enumerate(tags):
             assert tag["value"] == new_tags[i]["value"]
 
+    @ddt.data(
+        "csv",
+        "json",
+    )
+    def test_import_plan(self, file_format: str) -> None:
+        """
+        Tests planning import a valid taxonomy file.
+        """
+        url = TAXONOMY_TAGS_IMPORT_PLAN_URL.format(pk=self.taxonomy.id)
+        new_tags = [
+            {"id": "tag_1", "value": "Tag 1"},
+            {"id": "tag_2", "value": "Tag 2"},
+            {"id": "tag_3", "value": "Tag 3"},
+            {"id": "tag_4", "value": "Tag 4"},
+        ]
+        file = self._get_file(new_tags, file_format)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.put(
+            url,
+            {"file": file},
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check if the taxonomy was not changed
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == len(self.old_tags)
+        for i, tag in enumerate(tags):
+            assert tag["value"] == self.old_tags[i].value
+
     def test_import_no_file(self) -> None:
         """
         Tests importing a taxonomy without a file.
@@ -2421,11 +2455,56 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         for i, tag in enumerate(tags):
             assert tag["value"] == self.old_tags[i].value
 
+    def test_import_plan_no_file(self) -> None:
+        """
+        Tests planning impprt a taxonomy without a file.
+        """
+        url = TAXONOMY_TAGS_IMPORT_PLAN_URL.format(pk=self.taxonomy.id)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.put(
+            url,
+            {},
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["file"][0] == "No file was submitted."
+
+        # Check if the taxonomy was not changed
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == len(self.old_tags)
+        for i, tag in enumerate(tags):
+            assert tag["value"] == self.old_tags[i].value
+
     def test_import_invalid_format(self) -> None:
         """
         Tests importing a taxonomy with an invalid file format.
         """
         url = TAXONOMY_TAGS_IMPORT_URL.format(pk=self.taxonomy.id)
+        file = SimpleUploadedFile("taxonomy.invalid", b"invalid file content")
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.put(
+            url,
+            {"file": file},
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["file"][0] == "File type not supported: invalid"
+
+        # Check if the taxonomy was not changed
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == len(self.old_tags)
+        for i, tag in enumerate(tags):
+            assert tag["value"] == self.old_tags[i].value
+
+    def test_import_plan_invalid_format(self) -> None:
+        """
+        Tests planning import a taxonomy with an invalid file format.
+        """
+        url = TAXONOMY_TAGS_IMPORT_PLAN_URL.format(pk=self.taxonomy.id)
         file = SimpleUploadedFile("taxonomy.invalid", b"invalid file content")
         self.client.force_authenticate(user=self.staff)
         response = self.client.put(
@@ -2479,6 +2558,37 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         "csv",
         "json",
     )
+    def test_import_plan_invalid_content(self, file_format) -> None:
+        """
+        Tests planning import a taxonomy with an invalid file content.
+        """
+        url = TAXONOMY_TAGS_IMPORT_PLAN_URL.format(pk=self.taxonomy.id)
+        file = SimpleUploadedFile(f"taxonomy.{file_format}", b"invalid file content")
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.put(
+            url,
+            {
+                "taxonomy_name": "Imported Taxonomy name",
+                "taxonomy_description": "Imported Taxonomy description",
+                "file": file,
+            },
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert f"Invalid '.{file_format}' format:" in response.data["error"]
+
+        # Check if the taxonomy was not changed
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == len(self.old_tags)
+        for i, tag in enumerate(tags):
+            assert tag["value"] == self.old_tags[i].value
+
+    @ddt.data(
+        "csv",
+        "json",
+    )
     def test_import_free_text(self, file_format) -> None:
         """
         Tests that importing tags into a free text taxonomy is not allowed.
@@ -2510,11 +2620,80 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         tags = response.data["results"]
         assert len(tags) == 0
 
+    @ddt.data(
+        "csv",
+        "json",
+    )
+    def test_import_plan_free_text(self, file_format) -> None:
+        """
+        Tests that planning import tags into a free text taxonomy is not allowed.
+        """
+        self.taxonomy.allow_free_text = True
+        self.taxonomy.save()
+        url = TAXONOMY_TAGS_IMPORT_PLAN_URL.format(pk=self.taxonomy.id)
+        new_tags = [
+            {"id": "tag_1", "value": "Tag 1"},
+            {"id": "tag_2", "value": "Tag 2"},
+            {"id": "tag_3", "value": "Tag 3"},
+            {"id": "tag_4", "value": "Tag 4"},
+        ]
+        file = self._get_file(new_tags, file_format)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.put(
+            url,
+            {"file": file},
+            format="multipart"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        expected_message = f"Invalid taxonomy ({self.taxonomy.id}): You cannot import a free-form taxonomy."
+        assert response.data["error"] == expected_message
+
+        # Check if the taxonomy was no tags, since it is free text
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == 0
+
     def test_import_no_perm(self) -> None:
         """
         Tests importing a taxonomy using a user without permission.
         """
         url = TAXONOMY_TAGS_IMPORT_URL.format(pk=self.taxonomy.id)
+        new_tags = [
+            {"id": "tag_1", "value": "Tag 1"},
+            {"id": "tag_2", "value": "Tag 2"},
+            {"id": "tag_3", "value": "Tag 3"},
+            {"id": "tag_4", "value": "Tag 4"},
+        ]
+        file = self._get_file(new_tags, "json")
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.put(
+            url,
+            {
+                "taxonomy_name": "Imported Taxonomy name",
+                "taxonomy_description": "Imported Taxonomy description",
+                "file": file,
+            },
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+        # Check if the taxonomy was not changed
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == len(self.old_tags)
+        for i, tag in enumerate(tags):
+            assert tag["value"] == self.old_tags[i].value
+
+    def test_import_plan_no_perm(self) -> None:
+        """
+        Tests planning import a taxonomy using a user without permission.
+        """
+        url = TAXONOMY_TAGS_IMPORT_PLAN_URL.format(pk=self.taxonomy.id)
         new_tags = [
             {"id": "tag_1", "value": "Tag 1"},
             {"id": "tag_2", "value": "Tag 2"},

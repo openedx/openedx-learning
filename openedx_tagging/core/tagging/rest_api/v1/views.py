@@ -26,7 +26,7 @@ from ...api import (
     update_tag_in_taxonomy,
 )
 from ...data import TagDataQuerySet
-from ...import_export.api import export_tags, get_last_import_log, import_tags
+from ...import_export.api import export_tags, import_tags
 from ...import_export.parsers import ParserFormat
 from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
@@ -42,6 +42,7 @@ from .serializers import (
     TaxonomyExportQueryParamsSerializer,
     TaxonomyImportBodySerializer,
     TaxonomyImportNewBodySerializer,
+    TaxonomyImportPlanResponseSerializer,
     TaxonomyListQueryParamsSerializer,
     TaxonomySerializer,
     TaxonomyTagCreateBodySerializer,
@@ -192,6 +193,17 @@ class TaxonomyView(ModelViewSet):
         * 200 - Success
         * 400 - Bad request
         * 403 - Permission denied
+
+    **Plan Import/Update Taxonomy Example Requests**
+        PUT /tagging/rest_api/v1/taxonomy/:pk/tags/import/plan
+        {
+            "file": <file>,
+        }
+
+    **Plan Import/Update Taxonomy Query Returns**
+        * 200 - Success
+        * 400 - Bad request
+        * 403 - Permission denied
     """
 
     # System taxonomies use negative numbers for their primary keys
@@ -279,15 +291,14 @@ class TaxonomyView(ModelViewSet):
 
         taxonomy = create_taxonomy(taxonomy_name, taxonomy_description)
         try:
-            import_success = import_tags(taxonomy, file, parser_format)
+            import_success, task, _plan = import_tags(taxonomy, file, parser_format)
 
             if import_success:
                 serializer = self.get_serializer(taxonomy)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
-                import_error = get_last_import_log(taxonomy)
                 taxonomy.delete()
-                return Response(import_error, status=status.HTTP_400_BAD_REQUEST)
+                return Response(task.log, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
@@ -305,16 +316,41 @@ class TaxonomyView(ModelViewSet):
 
         taxonomy = self.get_object()
         try:
-            import_success = import_tags(taxonomy, file, parser_format, replace=True)
+            import_success, task, _plan = import_tags(taxonomy, file, parser_format, replace=True)
 
             if import_success:
                 serializer = self.get_serializer(taxonomy)
                 return Response(serializer.data)
             else:
-                import_error = get_last_import_log(taxonomy)
-                return Response(import_error, status=status.HTTP_400_BAD_REQUEST)
+                return Response(task.log, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, url_path="tags/import/plan", methods=["put"])
+    def plan_update_import(self, request: Request, **_kwargs) -> Response:
+        """
+        Plan import tags from the uploaded file to an already created taxonomy,
+        overwriting any existing tags.
+        """
+        body = TaxonomyImportBodySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        file = body.validated_data["file"].file
+        parser_format = body.validated_data["parser_format"]
+
+        taxonomy = self.get_object()
+        try:
+            import_success, task, plan = import_tags(taxonomy, file, parser_format, replace=True, plan_only=True)
+
+            if import_success:
+                serializer = TaxonomyImportPlanResponseSerializer({"task": task, "plan": plan})
+                return Response(serializer.data)
+            else:
+                serializer = TaxonomyImportPlanResponseSerializer({"task": task, "plan": plan, "error": task.log})
+                return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as e:
+            serializer = TaxonomyImportPlanResponseSerializer({"error": str(e)})
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @view_auth_classes

@@ -23,9 +23,11 @@ class TestImportExportCeleryTasks(TestImportExportMixin, TestCase):
         replace = True
 
         with patch('openedx_tagging.core.tagging.import_export.api.import_tags') as mock_import_tags:
-            mock_import_tags.return_value = True
+            mock_import_tags.return_value = (True, None, None)
 
-            result = import_export_tasks.import_tags_task(self.taxonomy, file, parser_format, replace)
+            result, _result_task, _result_plan = import_export_tasks.import_tags_task(
+                self.taxonomy, file, parser_format, replace
+            )
 
             self.assertTrue(result)
             mock_import_tags.assert_called_once_with(self.taxonomy, file, parser_format, replace)

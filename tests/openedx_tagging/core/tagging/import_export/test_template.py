@@ -41,12 +41,13 @@ class TestImportTemplate(TestImportExportMixin, TestCase):
     @ddt.unpack
     def test_import_template(self, template_file, parser_format):
         with self.open_template_file(template_file) as import_file:
-            assert import_api.import_tags(
+            result, _task, _plan = import_api.import_tags(
                 self.taxonomy,
                 import_file,
                 parser_format,
                 replace=True,
-            ), import_api.get_last_import_log(self.taxonomy)
+            )
+            assert result, import_api.get_last_import_log(self.taxonomy)
 
         assert pretty_format_tags(get_tags(self.taxonomy), external_id=True) == [
             'Electronic instruments (ELECTRIC) (None) (children: 2)',
