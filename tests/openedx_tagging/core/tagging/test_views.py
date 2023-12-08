@@ -2349,6 +2349,17 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
     """
     Tests the taxonomy import tags action.
     """
+    def _check_taxonomy_not_changed(self) -> None:
+        """
+        Checks if the self.taxonomy have the original tags.
+        """
+        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == len(self.old_tags)
+        for i, tag in enumerate(tags):
+            assert tag["value"] == self.old_tags[i].value
+
     def setUp(self):
         ImportTaxonomyMixin.setUp(self)
 
@@ -2425,13 +2436,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         )
         assert response.status_code == status.HTTP_200_OK
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
 
     def test_import_no_file(self) -> None:
         """
@@ -2447,13 +2452,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data["file"][0] == "No file was submitted."
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
 
     def test_import_plan_no_file(self) -> None:
         """
@@ -2469,13 +2468,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data["file"][0] == "No file was submitted."
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
 
     def test_import_invalid_format(self) -> None:
         """
@@ -2492,13 +2485,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data["file"][0] == "File type not supported: invalid"
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
 
     def test_import_plan_invalid_format(self) -> None:
         """
@@ -2515,13 +2502,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data["file"][0] == "File type not supported: invalid"
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
 
     @ddt.data(
         "csv",
@@ -2546,13 +2527,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert f"Invalid '.{file_format}' format:" in response.data
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
 
     @ddt.data(
         "csv",
@@ -2577,13 +2552,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert f"Invalid '.{file_format}' format:" in response.data["error"]
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
 
     @ddt.data(
         "csv",
@@ -2681,13 +2650,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
 
     def test_import_plan_no_perm(self) -> None:
         """
@@ -2714,10 +2677,5 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-        # Check if the taxonomy was not changed
-        url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
-        response = self.client.get(url)
-        tags = response.data["results"]
-        assert len(tags) == len(self.old_tags)
-        for i, tag in enumerate(tags):
-            assert tag["value"] == self.old_tags[i].value
+        self._check_taxonomy_not_changed()
+
