@@ -44,17 +44,12 @@ def create_collection(
         collection.full_clean()
         collection.save()
 
-        # We always create a CollectionChangeSet for the initial Collection
-        # creation, even if we don't put anything into it.
-        change_set = CollectionChangeSet.objects.create(
-            collection=collection,
-            version_num=1,
-        )
+        # add_to_collection is what creates our initial CollectionChangeSet, so
+        # we always call it, even if we're just creating an empty Collection.
+        if pub_entities_qset is None:
+            pub_entities_qset = PublishEntity.objects.none
 
-        if pub_entities_qset:
-            add_to_collection(
-                collection.id, pub_entities_qset, change_set=change_set
-            )
+        add_to_collection(collection.id, pub_entities_qset, created=created)
 
     return collection
 
@@ -66,23 +61,22 @@ def get_collection(collection_id: int) -> Collection:
 def add_to_collection(
     collection_id: int,
     pub_entities_qset: QuerySet,
-    change_set: CollectionChangeSet | None = None,
     created: datetime | None = None
 )-> CollectionChangeSet:
-    if not change_set:
-        last_change_set = CollectionChangeSet.objects \
-                              .filter(collection_id=collection_id) \
-                              .order_by('-version_num') \
-                              .first()
-        if last_change_set:
-            next_version_num = last_change_set.version_num + 1
-        else:
-            next_version_num = 1
+    last_change_set = CollectionChangeSet.objects \
+                            .filter(collection_id=collection_id) \
+                            .order_by('-version_num') \
+                            .first()
+    if last_change_set:
+        next_version_num = last_change_set.version_num + 1
+    else:
+        next_version_num = 1
 
-        change_set = CollectionChangeSet.objects.create(
-            collection_id=collection_id,
-            version_num=next_version_num,
-        )
+    change_set = CollectionChangeSet.objects.create(
+        collection_id=collection_id,
+        version_num=next_version_num,
+        created=created,
+    )
 
     # Add the joins so we can efficiently query what the published versions are.
     qset = pub_entities_qset.select_related('published', 'published__version')
