@@ -2457,7 +2457,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
 
     def test_import_plan_no_file(self) -> None:
         """
-        Tests planning impprt a taxonomy without a file.
+        Tests planning import a taxonomy without a file.
         """
         url = TAXONOMY_TAGS_IMPORT_PLAN_URL.format(pk=self.taxonomy.id)
         self.client.force_authenticate(user=self.staff)
