@@ -2689,4 +2689,3 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
         self._check_taxonomy_not_changed()
-
