@@ -105,11 +105,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==4.2.0
     # via -r requirements/test.txt
-django-stubs==4.2.6
+django-stubs==4.2.7
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==4.2.5
+django-stubs-ext==4.2.7
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -123,7 +123,7 @@ djangorestframework==3.14.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.14.4
+djangorestframework-stubs==3.14.5
     # via -r requirements/test.txt
 doc8==1.1.1
     # via -r requirements/doc.in
@@ -142,7 +142,7 @@ edx-django-utils==5.9.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==9.0.0
+edx-drf-extensions==9.0.1
     # via -r requirements/test.txt
 edx-opaque-keys==2.5.1
     # via
@@ -186,20 +186,18 @@ markupsafe==2.1.3
 mock==5.1.0
     # via -r requirements/test.txt
 mypy==1.7.1
-    # via
-    #   -r requirements/test.txt
-    #   djangorestframework-stubs
+    # via -r requirements/test.txt
 mypy-extensions==1.0.0
     # via
     #   -r requirements/test.txt
     #   mypy
 mysqlclient==2.2.0
     # via -r requirements/test.txt
-newrelic==9.2.0
+newrelic==9.3.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-nh3==0.2.14
+nh3==0.2.15
     # via readme-renderer
 packaging==23.2
     # via
@@ -363,7 +361,7 @@ types-requests==2.31.0.10
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-typing-extensions==4.8.0
+typing-extensions==4.9.0
     # via
     #   -r requirements/test.txt
     #   asgiref
