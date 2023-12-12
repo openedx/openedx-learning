@@ -78,46 +78,46 @@ def add_to_collection(
     else:
         next_version_num = 1
 
-    change_set = CollectionChangeSet.objects.create(
-        collection_id=collection_id,
-        version_num=next_version_num,
-        created=created,
-    )
-
-    # Add the joins so we can efficiently query what the published versions are.
-    qset = pub_entities_qset.select_related('published', 'published__version')
-
-    # We're going to build our relationship models into big lists and then use
-    # bulk_create on them in order to reduce the number of queries required for
-    # this as the size of Collections grow. This should be reasonable for up to
-    # hundreds of PublishableEntities, but we may have to look into more complex
-    # chunking and async processing if we go beyond that.
-    change_set_adds = []
-    collection_pub_entities = []
-    for pub_ent in qset.all():
-        if hasattr(pub_ent, 'published'):
-            published_version = pub_ent.published
-        else:
-            published_version = None
-
-        # These will be associated with the ChangeSet for history tracking.
-        change_set_adds.append(
-            AddToCollection(
-                change_set=change_set,
-                entity=pub_ent,
-                published_version=published_version,
-            )
-        )
-
-        # These are the direct Collection <-> PublishableEntity M2M mappings
-        collection_pub_entities.append(
-            CollectionPublishableEntity(
-                collection_id=collection_id,
-                entity_id=pub_ent.id,
-            )
-        )
-
     with atomic():
+        change_set = CollectionChangeSet.objects.create(
+            collection_id=collection_id,
+            version_num=next_version_num,
+            created=created,
+        )
+
+        # Add the joins so we can efficiently query what the published versions are.
+        qset = pub_entities_qset.select_related('published', 'published__version')
+
+        # We're going to build our relationship models into big lists and then use
+        # bulk_create on them in order to reduce the number of queries required for
+        # this as the size of Collections grow. This should be reasonable for up to
+        # hundreds of PublishableEntities, but we may have to look into more complex
+        # chunking and async processing if we go beyond that.
+        change_set_adds = []
+        collection_pub_entities = []
+        for pub_ent in qset.all():
+            if hasattr(pub_ent, 'published'):
+                published_version = pub_ent.published
+            else:
+                published_version = None
+
+            # These will be associated with the ChangeSet for history tracking.
+            change_set_adds.append(
+                AddToCollection(
+                    change_set=change_set,
+                    entity=pub_ent,
+                    published_version=published_version,
+                )
+            )
+
+            # These are the direct Collection <-> PublishableEntity M2M mappings
+            collection_pub_entities.append(
+                CollectionPublishableEntity(
+                    collection_id=collection_id,
+                    entity_id=pub_ent.id,
+                )
+            )
+
         AddToCollection.objects.bulk_create(change_set_adds)
         CollectionPublishableEntity.objects.bulk_create(collection_pub_entities)
 
