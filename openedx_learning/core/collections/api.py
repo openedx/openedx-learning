@@ -97,7 +97,7 @@ def add_to_collection(
         collection_pub_entities = []
         for pub_ent in qset.all():
             if hasattr(pub_ent, 'published'):
-                published_version = pub_ent.published
+                published_version = pub_ent.published.version
             else:
                 published_version = None
 
