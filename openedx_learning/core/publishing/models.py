@@ -140,7 +140,11 @@ class PublishableEntity(models.Model):
     """
 
     uuid = immutable_uuid_field()
-    learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+    learning_package = models.ForeignKey(
+        LearningPackage,
+        on_delete=models.CASCADE,
+        related_name="publishable_entities",
+    )
     key = key_field()
     created = manual_date_time_field()
     created_by = models.ForeignKey(

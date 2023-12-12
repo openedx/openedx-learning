@@ -101,6 +101,14 @@ class Collection(models.Model):
         blank=True,
     )
 
+    publishable_entities: models.ManyToManyField[
+            PublishableEntity, CollectionPublishableEntity
+        ] = models.ManyToManyField(
+        PublishableEntity,
+        through="CollectionPublishableEntity",
+        related_name="collections",
+    )
+
     class Meta:
         constraints = [
             # The version_num must be unique for any given Collection.
@@ -113,6 +121,9 @@ class Collection(models.Model):
             )
         ]
 
+    def __str__(self):
+        return f"Collection {self.key} ({self.uuid})"
+
 
 class CollectionPublishableEntity(models.Model):
     """
@@ -121,7 +132,6 @@ class CollectionPublishableEntity(models.Model):
     collection = models.ForeignKey(
         Collection,
         on_delete=models.CASCADE,
-        related_name="publishable_entities"
     )
     entity = models.ForeignKey(
         PublishableEntity,
@@ -152,7 +162,9 @@ class CollectionChangeSet(models.Model):
     2. PublishableEntities are removed (RemoveFromCollection)
     3. The published version of a PublishableEntity changes (PublishLogRecord)
     """
-    collection = models.ForeignKey(Collection, on_delete=models.CASCADE)
+    collection = models.ForeignKey(
+        Collection, on_delete=models.CASCADE, related_name="change_sets"
+    )
     version_num = models.PositiveBigIntegerField(
         null=False,
         validators=[MinValueValidator(1)],
@@ -204,6 +216,9 @@ class AddToCollection(models.Model):
                 name="oel_collections_aetc_uniq_cs_ent",
             )
         ]
+
+    def __str__(self):
+        return f"Add {self.entity_id} in changeset {self.change_set_id}"
 
 
 class RemoveFromCollection(models.Model):

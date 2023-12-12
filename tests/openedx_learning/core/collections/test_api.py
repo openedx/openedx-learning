@@ -62,7 +62,7 @@ class CollectionsTestCase(TestCase):
             created_by=None,
         )
 
-    def test_bootstrap_only_published(self) -> None:  # Note: we must specify '-> None' to opt in to type checking
+    def test_bootstrap_only_published(self) -> None:
         """
         Normal flow with no errors.
         """
@@ -72,5 +72,11 @@ class CollectionsTestCase(TestCase):
             title="Test Bootstrap 🦃 Only Published Collection",
             pub_entities_qset=PublishableEntity.objects.filter(
                 id=self.published_entity.id
-            )
+            ),
+            created=self.created,
         )
+        print(list(collection.change_sets.all()))
+
+        entities = list(collection.publishable_entities.all())
+        print(entities)
+        assert len(entities) == 1

@@ -112,7 +112,7 @@ def publish_all_drafts(
     message="",
     published_at: datetime | None = None,
     published_by: int | None = None
-):
+) -> None:
     """
     Publish everything that is a Draft and is not already published.
     """

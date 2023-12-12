@@ -3,7 +3,10 @@ API to manipulate Collections.
 
 This API sacrifices some power in order to try to keep things simpler. For
 instance, ``add_to_collection`` and ``remove_from_collection`` each create a
-new CollectionChangeSet when they're invoked. The data model supports having
+new CollectionChangeSet when they're invoked. The data model supports doing
+multiple operations at the same time–in theory you could publish some entities,
+add some entities, and delete them in the same operation. But then we could
+bring
 
 """
 from __future__ import annotations
@@ -55,7 +58,10 @@ def create_collection(
 
 
 def get_collection(collection_id: int) -> Collection:
-    pass
+    """
+    Get a Collection by ID.
+    """
+    return Collection.objects.get(id=collection_id)
 
 
 def add_to_collection(
@@ -80,23 +86,40 @@ def add_to_collection(
 
     # Add the joins so we can efficiently query what the published versions are.
     qset = pub_entities_qset.select_related('published', 'published__version')
-    adds = (
-        AddToCollection(
-            change_set=change_set,
-            entity=pub_ent,
-            published_version=pub_ent.published.version,
+
+    # We're going to build our relationship models into big lists and then use
+    # bulk_create on them in order to reduce the number of queries required for
+    # this as the size of Collections grow. This should be reasonable for up to
+    # hundreds of PublishableEntities, but we may have to look into more complex
+    # chunking and async processing if we go beyond that.
+    change_set_adds = []
+    collection_pub_entities = []
+    for pub_ent in qset.all():
+        if hasattr(pub_ent, 'published'):
+            published_version = pub_ent.published
+        else:
+            published_version = None
+
+        # These will be associated with the ChangeSet for history tracking.
+        change_set_adds.append(
+            AddToCollection(
+                change_set=change_set,
+                entity=pub_ent,
+                published_version=published_version,
+            )
         )
-        for pub_ent in qset.all()
-    )
-    # bulk_create will cast ``adds`` into a list and fully evaluate it.
-    # This will likely be okay to start, and if Collections stay in the
-    # hundreds. When it gets bigger, we might want to switch to
-    # something fancier that only reads in chunks.
-    #
-    # We don't need to use atomic() here because bulk_create already works
-    # atomically. If we got fancier with processing these in chunks, we'd need
-    # to wrap it in an atomic() context.
-    AddToCollection.objects.bulk_create(adds)
+
+        # These are the direct Collection <-> PublishableEntity M2M mappings
+        collection_pub_entities.append(
+            CollectionPublishableEntity(
+                collection_id=collection_id,
+                entity_id=pub_ent.id,
+            )
+        )
+
+    with atomic():
+        AddToCollection.objects.bulk_create(change_set_adds)
+        CollectionPublishableEntity.objects.bulk_create(collection_pub_entities)
 
     return change_set
 
