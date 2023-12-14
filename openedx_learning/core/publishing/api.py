@@ -22,6 +22,7 @@ from .models import (
     PublishLog,
     PublishLogRecord,
 )
+from .signals import PUBLISHED_PRE_COMMIT
 
 
 def create_learning_package(
@@ -176,6 +177,14 @@ def publish_from_drafts(
                     "publish_log_record": publish_log_record,
                 },
             )
+
+        # We are intentionally using ``send`` instead of ``send_robust`` here,
+        # because we want to allow listeners to throw an exception and rollback
+        # the publish transaction if necessary. If you replace this with more
+        # sophisticated error catching and reporting later, please remember that
+        # exceptions should generally be caught outside of the atomic() block:
+        # https://docs.djangoproject.com/en/4.2/topics/db/transactions/#controlling-transactions-explicitly
+        PUBLISHED_PRE_COMMIT.send(PublishLogRecord, publish_log=publish_log)
 
     return publish_log
 

@@ -20,6 +20,7 @@ from .models import (
     Collection, CollectionPublishableEntity, CollectionChangeSet,
     AddToCollection, RemoveFromCollection, PublishEntity,
 )
+from ..publishing.signals import PUBLISHED_PRE_COMMIT
 
 
 def create_collection(

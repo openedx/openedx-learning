@@ -18,7 +18,10 @@ class CollectionsConfig(AppConfig):
         """
         Register the ComponentCollection, ComponentCollectionVersion relation.
         """
-        #from ..publishing.api import register_content_models  # pylint: disable=import-outside-toplevel
-        #from .models import ComponentCollection, ComponentCollectionVersion  # pylint: disable=import-outside-toplevel
+        from ..publishing.signals import PUBLISHED_PRE_COMMIT
+        from . import handlers
 
-        #register_content_models(ComponentCollection, ComponentCollectionVersion)
+        PUBLISHED_PRE_COMMIT.connect(
+            handlers.update_collections_from_publish,
+            dispatch_uid="oel__collections__update_collections_from_publish",
+        )
