@@ -704,6 +704,29 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert tagging_api.get_object_tag_counts(f"{obj1},{obj2}") == {obj1: 1, obj2: 2}
         assert tagging_api.get_object_tag_counts("object_*") == {obj1: 1, obj2: 2}
 
+    def test_get_object_tag_counts_implicit(self) -> None:
+        """
+        Basic test of get_object_tag_counts, including implicit (parent) tags
+
+        Note that:
+            - "DPANN" is "Archaea > DPANN" (2 tags, 1 implicit), and
+            - "Chordata" is "Eukaryota > Animalia > Chordata" (3 tags, 2 implicit)
+        """
+        obj1 = "object_id1"
+        obj2 = "object_id2"
+        other = "other_object"
+        # Give each object 1-2 tags:
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.taxonomy, tags=["DPANN"])
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
+        tagging_api.tag_object(object_id=other, taxonomy=self.free_text_taxonomy, tags=["other"])
+
+        assert tagging_api.get_object_tag_counts(obj1, count_implicit=True) == {obj1: 2}
+        assert tagging_api.get_object_tag_counts(obj2, count_implicit=True) == {obj2: 4}
+        assert tagging_api.get_object_tag_counts(f"{obj1},{obj2}", count_implicit=True) == {obj1: 2, obj2: 4}
+        assert tagging_api.get_object_tag_counts("object_*", count_implicit=True) == {obj1: 2, obj2: 4}
+        assert tagging_api.get_object_tag_counts(other, count_implicit=True) == {other: 1}
+
     def test_get_object_tag_counts_deleted_disabled(self) -> None:
         """
         Test that get_object_tag_counts doesn't "count" disabled taxonomies or
@@ -726,6 +749,9 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         self.free_text_taxonomy.enabled = False
         self.free_text_taxonomy.save()
         assert tagging_api.get_object_tag_counts("object_*") == {obj1: 1, obj2: 1}
+        # Also check the result with count_implicit:
+        # "English" has no implicit tags but "Chordata" has two, so we expect these totals:
+        assert tagging_api.get_object_tag_counts("object_*", count_implicit=True) == {obj1: 1, obj2: 3}
 
         # But, by the way, if we re-enable the taxonomy and restore the tag, the counts return:
         self.free_text_taxonomy.enabled = True

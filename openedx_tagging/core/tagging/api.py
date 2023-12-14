@@ -196,7 +196,7 @@ def get_object_tags(
     return tags
 
 
-def get_object_tag_counts(object_id_pattern: str) -> dict[str, int]:
+def get_object_tag_counts(object_id_pattern: str, count_implicit=False) -> dict[str, int]:
     """
     Given an object ID, a "starts with" glob pattern like
     "course-v1:foo+bar+baz@*", or a list of "comma,separated,IDs", return a
@@ -217,8 +217,17 @@ def get_object_tag_counts(object_id_pattern: str) -> dict[str, int]:
     qs = qs.exclude(taxonomy_id=None)  # The whole taxonomy was deleted
     qs = qs.exclude(taxonomy__enabled=False)  # The whole taxonomy is disabled
     qs = qs.exclude(tag_id=None, taxonomy__allow_free_text=False)  # The taxonomy exists but the tag is deleted
-    qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
-    return {row["object_id"]: row["num_tags"] for row in qs}
+    if count_implicit:
+        tags = Tag.annotate_depth(Tag.objects.filter(pk=models.OuterRef("tag_id")))
+        qs = qs.annotate(tag_depth=models.Subquery(tags.values('depth')))
+        qs = qs.values("object_id").annotate(
+            num_tags=models.Count("id"),
+            num_implicit_tags=models.Sum("tag_depth"),
+        ).order_by("object_id")
+        return {row["object_id"]: row["num_tags"] + (row["num_implicit_tags"] or 0) for row in qs}
+    else:
+        qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
+        return {row["object_id"]: row["num_tags"] for row in qs}
 
 
 def delete_object_tags(object_id: str):
