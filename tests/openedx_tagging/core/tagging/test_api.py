@@ -711,20 +711,27 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         Note that:
             - "DPANN" is "Archaea > DPANN" (2 tags, 1 implicit), and
             - "Chordata" is "Eukaryota > Animalia > Chordata" (3 tags, 2 implicit)
+            - "Arthropoda" is "Eukaryota > Animalia > Arthropoda" (same)
         """
-        obj1 = "object_id1"
-        obj2 = "object_id2"
+        self.taxonomy.allow_multiple = True
+        self.taxonomy.save()
+        obj1, obj2, obj3 = "object_id1", "object_id2", "object_id3"
         other = "other_object"
         # Give each object 1-2 tags:
         tagging_api.tag_object(object_id=obj1, taxonomy=self.taxonomy, tags=["DPANN"])
         tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
         tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
+        tagging_api.tag_object(object_id=obj3, taxonomy=self.taxonomy, tags=["Chordata", "Arthropoda"])
         tagging_api.tag_object(object_id=other, taxonomy=self.free_text_taxonomy, tags=["other"])
 
         assert tagging_api.get_object_tag_counts(obj1, count_implicit=True) == {obj1: 2}
         assert tagging_api.get_object_tag_counts(obj2, count_implicit=True) == {obj2: 4}
         assert tagging_api.get_object_tag_counts(f"{obj1},{obj2}", count_implicit=True) == {obj1: 2, obj2: 4}
-        assert tagging_api.get_object_tag_counts("object_*", count_implicit=True) == {obj1: 2, obj2: 4}
+        assert tagging_api.get_object_tag_counts("object_*", count_implicit=True) == {
+            obj1: 2,
+            obj2: 4,
+            obj3: 4,  # obj3 has 2 explicit tags and 2 implicit tags (not 4 because the implicit tags are the same)
+        }
         assert tagging_api.get_object_tag_counts(other, count_implicit=True) == {other: 1}
 
     def test_get_object_tag_counts_deleted_disabled(self) -> None:
