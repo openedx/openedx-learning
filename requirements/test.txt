@@ -63,7 +63,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==1.5.0
     # via -r requirements/test.in
-coverage[toml]==7.3.2
+coverage[toml]==7.3.3
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -98,7 +98,7 @@ django-stubs==4.2.7
     #   djangorestframework-stubs
 django-stubs-ext==4.2.7
     # via django-stubs
-django-waffle==4.0.0
+django-waffle==4.1.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
@@ -150,7 +150,7 @@ mypy==1.7.1
     # via -r requirements/test.in
 mypy-extensions==1.0.0
     # via mypy
-mysqlclient==2.2.0
+mysqlclient==2.2.1
     # via -r requirements/test.in
 newrelic==9.3.0
     # via
@@ -164,11 +164,11 @@ pbr==6.0.0
     #   stevedore
 pluggy==1.3.0
     # via pytest
-prompt-toolkit==3.0.41
+prompt-toolkit==3.0.43
     # via
     #   -r requirements/base.txt
     #   click-repl
-psutil==5.9.6
+psutil==5.9.7
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
