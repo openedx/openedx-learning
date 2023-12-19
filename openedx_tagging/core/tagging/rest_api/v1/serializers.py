@@ -11,7 +11,7 @@ from rest_framework.reverse import reverse
 
 from openedx_tagging.core.tagging.data import TagData
 from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
-from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.models import ObjectTag, Tag, TagImportTask, Taxonomy
 
 
 class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -257,3 +257,42 @@ class TaxonomyImportNewBodySerializer(TaxonomyImportBodySerializer):  # pylint: 
     """
     taxonomy_name = serializers.CharField(required=True)
     taxonomy_description = serializers.CharField(default="")
+
+
+class TagImportTaskSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the TagImportTask model.
+    """
+    class Meta:
+        model = TagImportTask
+        fields = [
+            "id",
+            "log",
+            "status",
+            "creation_date",
+        ]
+
+
+class TaxonomyImportPlanResponseSerializer(serializers.Serializer):
+    """
+    Serializer for the response of the Taxonomy Import Plan request
+    """
+    task = TagImportTaskSerializer()
+    plan = serializers.SerializerMethodField()
+    error = serializers.CharField(required=False, allow_null=True)
+
+    def get_plan(self, obj):
+        """
+        Returns the plan of the import
+        """
+        plan = obj.get("plan", None)
+        if plan:
+            return plan.plan()
+
+        return None
+
+    def update(self, instance, validated_data):
+        raise RuntimeError('`update()` is not supported by the TagImportTask serializer.')
+
+    def create(self, validated_data):
+        raise RuntimeError('`create()` is not supported by the TagImportTask serializer.')

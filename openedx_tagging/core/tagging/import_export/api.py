@@ -58,7 +58,8 @@ def import_tags(
     file: BinaryIO,
     parser_format: ParserFormat,
     replace=False,
-) -> bool:
+    plan_only=False,
+) -> tuple[bool, TagImportTask, TagImportPlan | None]:
     """
     Execute the necessary actions to import the tags from `file`
 
@@ -73,6 +74,8 @@ def import_tags(
     Ex. Given a taxonomy with `tag_1`, `tag_2` and `tag_3`. If there is only `tag_1`
     in the file (regardless of action), then `tag_2` and `tag_3` will be deleted
     if `replace=True`
+
+    Set `plan_only` to True to only generate the actions and not execute them.
     """
     _import_validations(taxonomy)
 
@@ -97,7 +100,7 @@ def import_tags(
         # Check if there are errors in the parse
         if errors:
             task.handle_parser_errors(errors)
-            return False
+            return False, task, None
 
         task.log_parser_end()
 
@@ -109,16 +112,19 @@ def import_tags(
 
         if tag_import_plan.errors:
             task.handle_plan_errors()
-            return False
+            return False, task, tag_import_plan
 
-        task.log_start_execute()
-        tag_import_plan.execute(task)
+        if not plan_only:
+            task.log_start_execute()
+            tag_import_plan.execute(task)
+
         task.end_success()
-        return True
-    except Exception as exception:
+
+        return True, task, tag_import_plan
+    except Exception as exception:  # pylint: disable=broad-exception-caught
         # Log any exception
         task.log_exception(exception)
-        return False
+        return False, task, None
 
 
 def get_last_import_status(taxonomy: Taxonomy) -> TagImportTaskState:

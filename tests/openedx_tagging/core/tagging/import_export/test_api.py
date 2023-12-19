@@ -91,37 +91,46 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_with_python_error(self) -> None:
         self.file.close()
-        assert not import_export_api.import_tags(
+        result, task, _plan = import_export_api.import_tags(
             self.taxonomy,
             self.file,
             self.parser_format,
         )
+        assert not result
         status = import_export_api.get_last_import_status(self.taxonomy)
         log = import_export_api.get_last_import_log(self.taxonomy)
+        assert status == TagImportTaskState(task.status)
         assert status == TagImportTaskState.ERROR
+        assert log == task.log
         assert "ValueError('I/O operation on closed file.')" in log
 
     def test_with_parser_error(self) -> None:
-        assert not import_export_api.import_tags(
+        result, task, _plan = import_export_api.import_tags(
             self.taxonomy,
             self.invalid_parser_file,
             self.parser_format,
         )
+        assert not result
         status = import_export_api.get_last_import_status(self.taxonomy)
         log = import_export_api.get_last_import_log(self.taxonomy)
+        assert status == TagImportTaskState(task.status)
         assert status == TagImportTaskState.ERROR
+        assert log == task.log
         assert "Starting to load data from file" in log
         assert "Invalid '.json' format" in log
 
     def test_with_plan_errors(self) -> None:
-        assert not import_export_api.import_tags(
+        result, task, _plan = import_export_api.import_tags(
             self.taxonomy,
             self.invalid_plan_file,
             self.parser_format,
         )
+        assert not result
         status = import_export_api.get_last_import_status(self.taxonomy)
         log = import_export_api.get_last_import_log(self.taxonomy)
+        assert status == TagImportTaskState(task.status)
         assert status == TagImportTaskState.ERROR
+        assert log == task.log
         assert "Starting to load data from file" in log
         assert "Load data finished" in log
         assert "Starting plan actions" in log
@@ -129,15 +138,18 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         assert "Conflict with 'create'" in log
 
     def test_valid(self) -> None:
-        assert import_export_api.import_tags(
+        result, task, _plan = import_export_api.import_tags(
             self.taxonomy,
             self.file,
             self.parser_format,
             replace=True,
         )
+        assert result
         status = import_export_api.get_last_import_status(self.taxonomy)
         log = import_export_api.get_last_import_log(self.taxonomy)
+        assert status == TagImportTaskState(task.status)
         assert status == TagImportTaskState.SUCCESS
+        assert log == task.log
         assert "Starting to load data from file" in log
         assert "Load data finished" in log
         assert "Starting plan actions" in log
@@ -146,33 +158,37 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         assert "Execution finished" in log
 
     def test_start_task_after_error(self) -> None:
-        assert not import_export_api.import_tags(
+        result, _task, _plan = import_export_api.import_tags(
             self.taxonomy,
             self.invalid_parser_file,
             self.parser_format,
         )
-        assert import_export_api.import_tags(
+        assert not result
+        result, _task, _plan = import_export_api.import_tags(
             self.taxonomy,
             self.file,
             self.parser_format,
         )
+        assert result
 
     def test_start_task_after_success(self) -> None:
-        assert import_export_api.import_tags(
+        result, _task, _plan = import_export_api.import_tags(
             self.taxonomy,
             self.file,
             self.parser_format,
         )
+        assert result
 
         # Opening again the file
         json_data = {"tags": self.tags}
         self.file = BytesIO(json.dumps(json_data).encode())
 
-        assert import_export_api.import_tags(
+        result, _task, _plan = import_export_api.import_tags(
             self.taxonomy,
             self.file,
             self.parser_format,
         )
+        assert result
 
     def test_import_with_export_output(self) -> None:
         for parser_format in ParserFormat:
@@ -183,11 +199,12 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
             file = BytesIO(output.encode())
             new_taxonomy = Taxonomy(name="New taxonomy")
             new_taxonomy.save()
-            assert import_export_api.import_tags(
+            result, _task, _plan = import_export_api.import_tags(
                 new_taxonomy,
                 file,
                 parser_format,
             )
+            assert result
             old_tags = self.taxonomy.tag_set.all()
             assert len(old_tags) == new_taxonomy.tag_set.count()
 
