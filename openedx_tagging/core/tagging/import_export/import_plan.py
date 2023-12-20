@@ -136,7 +136,7 @@ class TagImportPlan:
 
         if replace:
             tags_for_delete = {
-                tag.external_id: tag for tag in self.taxonomy.tag_set.all()
+                tag.external_id or tag.id: tag for tag in self.taxonomy.tag_set.all()
             }
 
         for tag in tags:
