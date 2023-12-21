@@ -259,6 +259,16 @@ class UpdateParentTag(ImportAction):
     def __str__(self) -> str:
         taxonomy_tag = self._get_tag()
 
+        if taxonomy_tag.external_id:
+            prefix_str = _("Update the parent of tag (external_id={external_id})").format(
+                external_id=taxonomy_tag.external_id
+            )
+        else:
+            prefix_str = ""
+            prefix_str = _("Update the parent of tag (value={value})").format(
+                value=taxonomy_tag.value
+            )
+
         if not taxonomy_tag.parent:
             from_str = _("from empty parent")
         else:
@@ -270,17 +280,6 @@ class UpdateParentTag(ImportAction):
                 from_str = _("from parent (value={value})").format(
                     value=taxonomy_tag.parent.value
                 )
-                from_str = ""
-
-        if taxonomy_tag.external_id:
-            prefix_str = _("Update the parent of tag (external_id={external_id})").format(
-                external_id=taxonomy_tag.external_id
-            )
-        else:
-            prefix_str = ""
-            prefix_str = _("Update the parent of tag (value={value})").format(
-                value=taxonomy_tag.value
-            )
 
         return str(
             _(
