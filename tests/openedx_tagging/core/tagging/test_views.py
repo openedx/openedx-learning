@@ -1029,10 +1029,14 @@ class TestObjectTagCountsViewSet(TestTagTaxonomyMixin, APITestCase):
         # Course 7 Unit 2
         api.tag_object(object_id="course07-unit02-problem01", taxonomy=self.free_text_taxonomy, tags=["b"])
         api.tag_object(object_id="course07-unit02-problem02", taxonomy=self.free_text_taxonomy, tags=["c", "d"])
-        api.tag_object(object_id="course07-unit02-problem03", taxonomy=self.free_text_taxonomy, tags=["N", "M", "x"])
+        api.tag_object(object_id="course07-unit02-problem03", taxonomy=self.free_text_taxonomy, tags=["N", "M"])
+        api.tag_object(object_id="course07-unit02-problem03", taxonomy=self.taxonomy, tags=["Mammalia"])
 
-        def check(object_id_pattern: str):
-            result = self.client.get(OBJECT_TAG_COUNTS_URL.format(object_id_pattern=object_id_pattern))
+        def check(object_id_pattern: str, count_implicit=False):
+            url = OBJECT_TAG_COUNTS_URL.format(object_id_pattern=object_id_pattern)
+            if count_implicit:
+                url += "?count_implicit"
+            result = self.client.get(url)
             assert result.status_code == status.HTTP_200_OK
             return result.data
 
@@ -1044,6 +1048,20 @@ class TestObjectTagCountsViewSet(TestTagTaxonomyMixin, APITestCase):
             assert check(object_id_pattern="course07-unit01-*") == {
                 "course07-unit01-problem01": 3,
                 "course07-unit01-problem02": 2,
+            }
+        with self.assertNumQueries(1):
+            assert check(object_id_pattern="course07-unit02-*") == {
+                "course07-unit02-problem01": 1,
+                "course07-unit02-problem02": 2,
+                "course07-unit02-problem03": 3,
+            }
+        with self.assertNumQueries(1):
+            assert check(object_id_pattern="course07-unit02-*", count_implicit=True) == {
+                "course07-unit02-problem01": 1,
+                "course07-unit02-problem02": 2,
+                # "Mammalia" includes 1 explicit + 3 implicit tags: "Eukaryota > Animalia > Chordata > Mammalia"
+                # so problem03 has 2 free text tags and "4" life on earth tags:
+                "course07-unit02-problem03": 6,
             }
         with self.assertNumQueries(1):
             assert check(object_id_pattern="course07-unit*") == {
