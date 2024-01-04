@@ -144,7 +144,7 @@ class ObjectTagUpdateQueryParamsSerializer(serializers.Serializer):  # pylint: d
     )
 
 
-class TagDataSerializer(serializers.Serializer):
+class TagDataSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for TagData dicts. Also can serialize Tag instances.
 
@@ -193,12 +193,6 @@ class TagDataSerializer(serializers.Serializer):
             data["_id"] = instance.pk  # The ID field won't otherwise be detected.
             data["parent_value"] = instance.parent.value if instance.parent else None
         return data
-
-    def update(self, instance, validated_data):
-        raise RuntimeError('`update()` is not supported by the TagData serializer.')
-
-    def create(self, validated_data):
-        raise RuntimeError('`create()` is not supported by the TagData serializer.')
 
 
 class TaxonomyTagCreateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -273,7 +267,7 @@ class TagImportTaskSerializer(serializers.ModelSerializer):
         ]
 
 
-class TaxonomyImportPlanResponseSerializer(serializers.Serializer):
+class TaxonomyImportPlanResponseSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for the response of the Taxonomy Import Plan request
     """
@@ -290,9 +284,3 @@ class TaxonomyImportPlanResponseSerializer(serializers.Serializer):
             return plan.plan()
 
         return None
-
-    def update(self, instance, validated_data):
-        raise RuntimeError('`update()` is not supported by the TagImportTask serializer.')
-
-    def create(self, validated_data):
-        raise RuntimeError('`create()` is not supported by the TagImportTask serializer.')
