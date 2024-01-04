@@ -444,7 +444,7 @@ class ObjectTagView(
         behavior we want.
         """
         object_tags = self.filter_queryset(self.get_queryset())
-        serializer = ObjectTagsByTaxonomySerializer(list(object_tags))
+        serializer = ObjectTagsByTaxonomySerializer(list(object_tags), context=self.get_serializer_context())
         response_data = serializer.data
         if self.kwargs["object_id"] not in response_data:
             # For consistency, the key with the object_id should always be present in the response, even if there

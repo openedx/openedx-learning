@@ -53,6 +53,7 @@ def check_taxonomy(
     allow_free_text=False,
     system_defined=False,
     visible_to_authors=True,
+    user_permissions=None,
 ):
     """
     Check taxonomy data
@@ -65,6 +66,7 @@ def check_taxonomy(
     assert data["allow_free_text"] == allow_free_text
     assert data["system_defined"] == system_defined
     assert data["visible_to_authors"] == visible_to_authors
+    assert data["user_permissions"] == user_permissions
 
 
 class TestTaxonomyViewMixin(APITestCase):
@@ -129,10 +131,10 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     @ddt.data(
         (None, status.HTTP_401_UNAUTHORIZED, 0),
         ("user", status.HTTP_200_OK, 10),
-        ("staff", status.HTTP_200_OK, 20),
+        ("staff", status.HTTP_200_OK, 20, True),
     )
     @ddt.unpack
-    def test_list_taxonomy(self, user_attr: str | None, expected_status: int, tags_count: int):
+    def test_list_taxonomy(self, user_attr: str | None, expected_status: int, tags_count: int, is_admin=False):
         taxonomy = api.create_taxonomy(name="Taxonomy enabled 1", enabled=True)
         for i in range(tags_count):
             tag = Tag(
@@ -163,6 +165,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "system_defined": True,
                     "visible_to_authors": True,
                     "tags_count": 0,
+                    # System taxonomy cannot be modified
+                    "user_permissions": {
+                        "can_add": False,
+                        "can_view": True,
+                        "can_change": False,
+                        "can_delete": False,
+                    },
                 },
                 {
                     "id": taxonomy.id,
@@ -174,6 +183,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "system_defined": False,
                     "visible_to_authors": True,
                     "tags_count": tags_count,
+                    # Enabled taxonomy can be modified by staff
+                    "user_permissions": {
+                        "can_add": is_admin,
+                        "can_view": True,
+                        "can_change": is_admin,
+                        "can_delete": is_admin,
+                    },
                 },
             ]
 
@@ -225,6 +241,12 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             description="Languages that are enabled on this system.",
             allow_multiple=False,  # We may change this in the future to allow multiple language tags
             system_defined=True,
+            user_permissions={
+                "can_add": False,
+                "can_view": True,
+                "can_change": False,
+                "can_delete": False,
+            },
         )
 
     @ddt.data(
@@ -232,11 +254,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         (None, {"enabled": False}, status.HTTP_401_UNAUTHORIZED),
         ("user", {"enabled": True}, status.HTTP_200_OK),
         ("user", {"enabled": False}, status.HTTP_404_NOT_FOUND),
-        ("staff", {"enabled": True}, status.HTTP_200_OK),
-        ("staff", {"enabled": False}, status.HTTP_200_OK),
+        ("staff", {"enabled": True}, status.HTTP_200_OK, True),
+        ("staff", {"enabled": False}, status.HTTP_200_OK, True),
     )
     @ddt.unpack
-    def test_detail_taxonomy(self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int):
+    def test_detail_taxonomy(
+        self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int, is_admin=False,
+    ):
         create_data = {"name": "taxonomy detail test", **taxonomy_data}
         taxonomy = api.create_taxonomy(**create_data)  # type: ignore[arg-type]
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
@@ -249,7 +273,14 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         assert response.status_code == expected_status
 
         if status.is_success(expected_status):
-            check_taxonomy(response.data, taxonomy.pk, **create_data)
+            expected_data = create_data
+            expected_data["user_permissions"] = {
+                "can_add": is_admin,
+                "can_view": True,
+                "can_change": is_admin,
+                "can_delete": is_admin,
+            }
+            check_taxonomy(response.data, taxonomy.pk, **expected_data)
 
     def test_detail_system_taxonomy(self):
         url = TAXONOMY_DETAIL_URL.format(pk=LANGUAGE_TAXONOMY_ID)
@@ -297,11 +328,18 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         # If we were able to create the taxonomy, check if it was created
         if status.is_success(expected_status):
-            check_taxonomy(response.data, response.data["id"], **create_data)
+            expected_data = create_data
+            expected_data["user_permissions"] = {
+                "can_add": True,
+                "can_view": True,
+                "can_change": True,
+                "can_delete": True,
+            }
+            check_taxonomy(response.data, response.data["id"], **expected_data)
             url = TAXONOMY_DETAIL_URL.format(pk=response.data["id"])
 
             response = self.client.get(url)
-            check_taxonomy(response.data, response.data["id"], **create_data)
+            check_taxonomy(response.data, response.data["id"], **expected_data)
 
     @ddt.data(
         {},
@@ -358,6 +396,12 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "name": "new name",
                     "description": "taxonomy description",
                     "enabled": True,
+                    "user_permissions": {
+                        "can_add": True,
+                        "can_view": True,
+                        "can_change": True,
+                        "can_delete": True,
+                    },
                 },
             )
 
@@ -414,6 +458,12 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                 **{
                     "name": "new name",
                     "enabled": True,
+                    "user_permissions": {
+                        "can_add": True,
+                        "can_view": True,
+                        "can_change": True,
+                        "can_delete": True,
+                    },
                 },
             )
 
@@ -580,7 +630,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             """
             For testing, let everyone have edit object permission on object_id "abc" and "limit_tag_count"
             """
-            if object_id in ("abc", "limit_tag_count"):
+            if object_id in ("abc", "limit_tag_count", "problem7", "problem15", "html7"):
                 return True
 
             return can_change_object_tag_objectid(user, object_id)
@@ -647,10 +697,22 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "Mammalia",
                                     "lineage": ["Eukaryota", "Animalia", "Chordata", "Mammalia"],
+                                    "user_permissions": {
+                                        "can_add": True,
+                                        "can_view": True,
+                                        "can_change": True,
+                                        "can_delete": True,
+                                    },
                                 },
                                 {
                                     "value": "Fungi",
                                     "lineage": ["Eukaryota", "Fungi"],
+                                    "user_permissions": {
+                                        "can_add": True,
+                                        "can_view": True,
+                                        "can_change": True,
+                                        "can_delete": True,
+                                    },
                                 },
                             ]
                         },
@@ -662,6 +724,12 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
+                                    "user_permissions": {
+                                        "can_add": True,
+                                        "can_view": True,
+                                        "can_change": True,
+                                        "can_delete": True,
+                                    },
                                 },
                             ],
                         }
@@ -686,6 +754,15 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             "1 A",
             "1111-grandchild",
         ]
+
+        shared_props = {
+            "user_permissions": {
+                "can_add": True,
+                "can_view": True,
+                "can_change": True,
+                "can_delete": True,
+            },
+        }
 
         # Apply the object tags:
         taxonomy = self.create_sort_test_taxonomy()
@@ -713,15 +790,15 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         #   ANVIL
         #   azure
         sort_test_applied_result = [
-            {"value": "1 A", "lineage": ["1", "1 A"]},
-            {"value": "1111-grandchild", "lineage": ["1", "11111", "1111-grandchild"]},
-            {"value": "111", "lineage": ["111"]},
-            {"value": "11111111", "lineage": ["111", "11111111"]},
-            {"value": "123", "lineage": ["111", "123"]},
-            {"value": "abstract", "lineage": ["abstract"]},
-            {"value": "azores islands", "lineage": ["abstract", "azores islands"]},
-            {"value": "Android", "lineage": ["ALPHABET", "Android"]},
-            {"value": "ANVIL", "lineage": ["ALPHABET", "ANVIL"]},
+            {"value": "1 A", "lineage": ["1", "1 A"], **shared_props},
+            {"value": "1111-grandchild", "lineage": ["1", "11111", "1111-grandchild"], **shared_props},
+            {"value": "111", "lineage": ["111"], **shared_props},
+            {"value": "11111111", "lineage": ["111", "11111111"], **shared_props},
+            {"value": "123", "lineage": ["111", "123"], **shared_props},
+            {"value": "abstract", "lineage": ["abstract"], **shared_props},
+            {"value": "azores islands", "lineage": ["abstract", "azores islands"], **shared_props},
+            {"value": "Android", "lineage": ["ALPHABET", "Android"], **shared_props},
+            {"value": "ANVIL", "lineage": ["ALPHABET", "ANVIL"], **shared_props},
         ]
         return object_id, sort_test_applied_result
 
@@ -802,6 +879,12 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
+                                    "user_permissions": {
+                                        "can_add": True,
+                                        "can_view": True,
+                                        "can_change": True,
+                                        "can_delete": True,
+                                    },
                                 },
                             ],
                         }
