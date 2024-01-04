@@ -532,9 +532,11 @@ class ObjectTagCountsView(
     **Retrieve Parameters**
         * object_id_pattern (required): - The Object ID to retrieve ObjectTags for. Can contain '*' at the end
           for wildcard matching, or use ',' to separate multiple object IDs.
+        * count_implicit (optional): If present, implicit parent/grandparent tags will be included in the counts
 
     **Retrieve Example Requests**
         GET api/tagging/v1/object_tag_counts/:object_id_pattern
+        GET api/tagging/v1/object_tag_counts/:object_id_pattern?count_implicit
 
     **Retrieve Query Returns**
         * 200 - Success
@@ -553,8 +555,9 @@ class ObjectTagCountsView(
         """
         # This API does NOT bother doing any permission checks as the # of tags is not considered sensitive information.
         object_id_pattern = self.kwargs["object_id_pattern"]
+        count_implicit = "count_implicit" in request.query_params
         try:
-            return Response(get_object_tag_counts(object_id_pattern))
+            return Response(get_object_tag_counts(object_id_pattern, count_implicit=count_implicit))
         except ValueError as err:
             raise ValidationError(err.args[0]) from err
 

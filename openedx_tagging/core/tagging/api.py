@@ -21,7 +21,7 @@ from django.utils.translation import gettext as _
 
 from .data import TagDataQuerySet
 from .models import ObjectTag, Tag, Taxonomy
-from .models.utils import ConcatNull
+from .models.utils import ConcatNull, StringAgg
 
 # Export this as part of the API
 TagDoesNotExist = Tag.DoesNotExist
@@ -196,7 +196,7 @@ def get_object_tags(
     return tags
 
 
-def get_object_tag_counts(object_id_pattern: str) -> dict[str, int]:
+def get_object_tag_counts(object_id_pattern: str, count_implicit=False) -> dict[str, int]:
     """
     Given an object ID, a "starts with" glob pattern like
     "course-v1:foo+bar+baz@*", or a list of "comma,separated,IDs", return a
@@ -217,8 +217,36 @@ def get_object_tag_counts(object_id_pattern: str) -> dict[str, int]:
     qs = qs.exclude(taxonomy_id=None)  # The whole taxonomy was deleted
     qs = qs.exclude(taxonomy__enabled=False)  # The whole taxonomy is disabled
     qs = qs.exclude(tag_id=None, taxonomy__allow_free_text=False)  # The taxonomy exists but the tag is deleted
-    qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
-    return {row["object_id"]: row["num_tags"] for row in qs}
+    if count_implicit:
+        # Counting the implicit tags is tricky, because if two "grandchild" tags have the same implicit parent tag, we
+        # need to count that parent tag only once. To do that, we collect all the ancestor tag IDs into an aggregate
+        # string, and then count the unique values using python
+        qs = qs.values("object_id").annotate(
+            num_tags=models.Count("id"),
+            tag_ids_str_1=StringAgg("tag_id"),
+            tag_ids_str_2=StringAgg("tag__parent_id"),
+            tag_ids_str_3=StringAgg("tag__parent__parent_id"),
+            tag_ids_str_4=StringAgg("tag__parent__parent__parent_id"),
+        ).order_by("object_id")
+        result = {}
+        for row in qs:
+            # ObjectTags for free text taxonomies will be included in "num_tags" count, but not "tag_ids_str_1" since
+            # they have no tag ID. We can compute how many free text tags each object has now:
+            if row["tag_ids_str_1"]:
+                num_free_text_tags = row["num_tags"] - len(row["tag_ids_str_1"].split(","))
+            else:
+                num_free_text_tags = row["num_tags"]
+            # Then we count the total number of *unique* Tags for this object, both implicit and explicit:
+            other_tag_ids = set()
+            for field in ("tag_ids_str_1", "tag_ids_str_2", "tag_ids_str_3", "tag_ids_str_4"):
+                if row[field] is not None:
+                    for tag_id in row[field].split(","):
+                        other_tag_ids.add(int(tag_id))
+            result[row["object_id"]] = num_free_text_tags + len(other_tag_ids)
+        return result
+    else:
+        qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
+        return {row["object_id"]: row["num_tags"] for row in qs}
 
 
 def delete_object_tags(object_id: str):
