@@ -75,8 +75,5 @@ class CollectionsTestCase(TestCase):
             ),
             created=self.created,
         )
-        print(list(collection.change_sets.all()))
-
         entities = list(collection.publishable_entities.all())
-        print(entities)
         assert len(entities) == 1

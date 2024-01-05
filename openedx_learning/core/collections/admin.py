@@ -10,23 +10,23 @@ from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 
 from ..publishing.models import PublishableEntity
 from .models import (
-    AddToCollection,
+    AddEntity,
     Collection,
-    CollectionChangeSet,
+    ChangeSet,
     CollectionPublishableEntity,
-    PublishEntity,
-    RemoveFromCollection
+    UpdateEntities,
+    RemoveEntity
 )
 
 
 class CollectionChangeSetTabularInline(admin.TabularInline):
-    model = CollectionChangeSet
+    model = ChangeSet
     fields = ["version_num", "created"]
     readonly_fields = ["version_num", "created"]
 
 
 class PublishableEntityInline(admin.TabularInline):
-    model = Collection.publishable_entities.through
+    model = Collection.entities.through
 
 
 @admin.register(Collection)
@@ -47,18 +47,18 @@ class CollectionAdmin(ReadOnlyModelAdmin):
 
 
 class AddToCollectionTabularInline(admin.TabularInline):
-    model = AddToCollection
+    model = AddEntity
 
 
 class RemoveFromCollectionTabularInline(admin.TabularInline):
-    model = RemoveFromCollection
+    model = RemoveEntity
 
 
 class PublishEntityTabularInline(admin.TabularInline):
-    model = PublishEntity
+    model = UpdateEntities
 
 
-@admin.register(CollectionChangeSet)
+@admin.register(ChangeSet)
 class CollectionChangeSetAdmin(ReadOnlyModelAdmin):
     inlines = [
         AddToCollectionTabularInline,

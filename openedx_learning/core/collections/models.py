@@ -73,7 +73,7 @@ from ..publishing.models import (
     LearningPackage,
     PublishableEntity,
     PublishableEntityVersion,
-    PublishLogRecord,
+    PublishLog,
 )
 
 from openedx_learning.lib.fields import (
@@ -101,9 +101,7 @@ class Collection(models.Model):
         blank=True,
     )
 
-    publishable_entities: models.ManyToManyField[
-            PublishableEntity, CollectionPublishableEntity
-        ] = models.ManyToManyField(
+    entities = models.ManyToManyField(
         PublishableEntity,
         through="CollectionPublishableEntity",
         related_name="collections",
@@ -152,7 +150,7 @@ class CollectionPublishableEntity(models.Model):
         ]
 
 
-class CollectionChangeSet(models.Model):
+class ChangeSet(models.Model):
     """
     Represents an atomic set of changes to a Collection.
 
@@ -161,6 +159,9 @@ class CollectionChangeSet(models.Model):
     1. PublishableEntities are added (AddToCollection)
     2. PublishableEntities are removed (RemoveFromCollection)
     3. The published version of a PublishableEntity changes (PublishLogRecord)
+
+    TODO: Does this need a reverse index on collection -version_num, since we're
+    so often reaching for the most recent?
     """
     collection = models.ForeignKey(
         Collection, on_delete=models.CASCADE, related_name="change_sets"
@@ -184,7 +185,7 @@ class CollectionChangeSet(models.Model):
         ]
 
 
-class AddToCollection(models.Model):
+class AddEntity(models.Model):
     """
     A record for when a PublishableEntity is added to a Collection.
 
@@ -195,7 +196,7 @@ class AddToCollection(models.Model):
     Note that something may be removed from a Collection and then re-added at a
     later time.
     """
-    change_set = models.ForeignKey(CollectionChangeSet, on_delete=models.CASCADE)
+    change_set = models.ForeignKey(ChangeSet, on_delete=models.CASCADE)
     entity = models.ForeignKey(PublishableEntity, on_delete=models.CASCADE)
 
     # We want to capture the published version of the entity at the time it's
@@ -221,14 +222,14 @@ class AddToCollection(models.Model):
         return f"Add {self.entity_id} in changeset {self.change_set_id}"
 
 
-class RemoveFromCollection(models.Model):
+class RemoveEntity(models.Model):
     """
     A record for when a PublishableEntity is removed from a Collection.
 
     Note that something may be removed from a Collection, re-added at a later
     time, and then removed again.
     """
-    change_set = models.ForeignKey(CollectionChangeSet, on_delete=models.CASCADE)
+    change_set = models.ForeignKey(ChangeSet, on_delete=models.CASCADE)
     entity = models.ForeignKey(PublishableEntity, on_delete=models.CASCADE)
 
     class Meta:
@@ -244,12 +245,31 @@ class RemoveFromCollection(models.Model):
         ]
 
 
-class PublishEntity(models.Model):
+class UpdateEntities(models.Model):
     """
-    A record for when the published version of a PublishableEntity changes.
+    A record for when the published version of PublishableEntites changes.
+
+    We store a reference to the PublishLog where the publishes happen instead of
+    storing each PublishLogRecord because many PublishableEntities may get
+    published at the same time, and they may exist in many Collections. That
+    would mean that we'd have to create (Collections X PublishableEntities) rows
+    worth of UpdateEntities for the Collections and PublishableEntities that
+    were affected. By tying it to the PublishLog, we at least reduce that to the
+    number of Collections affected.
+
+    If you need to find out which things were published, you can query for the
+    intersection of the PublishableEntities from the PublishLogRecords tied to
+    the PublishLog and the PublishableEntities in the Collection. This isn't
+    completely accurate, since it would not return results for any
+    PublishableEntities that were removed from the Collection between the time
+    that the publish happened and you did the query. But this is not a query
+    pattern that we're optimizing for. It's technically possible to still
+    extract this information by replaying all the RemoveEntity entries between
+    the UpdateEntities and the time the query is being done, but that's not an
+    expected use case.
     """
-    change_set = models.ForeignKey(CollectionChangeSet, on_delete=models.CASCADE)
-    log_record = models.ForeignKey(PublishLogRecord, on_delete=models.CASCADE)
+    change_set = models.ForeignKey(ChangeSet, on_delete=models.CASCADE)
+    publish_log = models.ForeignKey(PublishLog, on_delete=models.CASCADE)
 
     class Meta:
         constraints = [
@@ -258,8 +278,8 @@ class PublishEntity(models.Model):
             models.UniqueConstraint(
                 fields=[
                     "change_set",
-                    "log_record",
+                    "publish_log",
                 ],
-                name="oel_collections_pe_uniq_cs_lr",
+                name="oel_collections_pe_uniq_cs_pl",
             )
         ]

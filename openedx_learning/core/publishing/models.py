@@ -366,7 +366,11 @@ class PublishLogRecord(models.Model):
     and ``new_version`` field values.
     """
 
-    publish_log = models.ForeignKey(PublishLog, on_delete=models.CASCADE)
+    publish_log = models.ForeignKey(
+        PublishLog,
+        on_delete=models.CASCADE,
+        related_name="records",
+    )
     entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
     old_version = models.ForeignKey(
         PublishableEntityVersion,
