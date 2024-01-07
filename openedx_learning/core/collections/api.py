@@ -5,15 +5,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from django.db.models import F, QuerySet
+from django.db.models import QuerySet
 from django.db.transaction import atomic
 
 from ..publishing.models import PublishableEntity
 from .models import (
     Collection, CollectionPublishableEntity, ChangeSet,
-    AddEntity, RemoveEntity, UpdateEntities,
+    AddEntity, UpdateEntities,
 )
-from ..publishing.signals import PUBLISHED_PRE_COMMIT
 
 
 def create_collection(
@@ -163,3 +162,5 @@ def remove_from_collection(
             version_num=next_version_num,
             created=created,
         )
+
+    return change_set

@@ -2,9 +2,7 @@
 Tests of the Collection app's python API
 """
 from datetime import datetime, timezone
-from uuid import UUID
 
-from django.core.exceptions import ValidationError
 
 from openedx_learning.core.collections import api as collections_api
 from openedx_learning.core.publishing import api as publishing_api

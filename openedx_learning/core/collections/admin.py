@@ -8,12 +8,10 @@ from django.contrib import admin
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 
-from ..publishing.models import PublishableEntity
 from .models import (
     AddEntity,
     Collection,
     ChangeSet,
-    CollectionPublishableEntity,
     UpdateEntities,
     RemoveEntity
 )
