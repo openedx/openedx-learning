@@ -167,7 +167,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "tags_count": 0,
                     # System taxonomy cannot be modified
                     "user_permissions": {
-                        "can_add": False,
+                        "can_add": is_admin,
                         "can_view": True,
                         "can_change": False,
                         "can_delete": False,

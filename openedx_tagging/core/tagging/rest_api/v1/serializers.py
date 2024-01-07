@@ -61,6 +61,8 @@ class UserPermissionsSerializer(serializers.Serializer):  # pylint: disable=abst
         request = self.context.get('request')
         assert request and request.user
 
+        if action == 'add':
+            instance = None
         permission = f"oel_tagging.{action}_{model}"
         return request.user.has_perm(permission, instance)
 
