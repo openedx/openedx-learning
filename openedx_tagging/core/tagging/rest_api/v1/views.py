@@ -30,7 +30,7 @@ from ...import_export.api import export_tags, import_tags
 from ...import_export.parsers import ParserFormat
 from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
-from ..paginators import MAX_FULL_DEPTH_THRESHOLD, DisabledTagsPagination, TagsPagination
+from ..paginators import MAX_FULL_DEPTH_THRESHOLD, DisabledTagsPagination, TagsPagination, TaxonomyPagination
 from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
@@ -210,6 +210,7 @@ class TaxonomyView(ModelViewSet):
     lookup_value_regex = r'-?\d+'
     serializer_class = TaxonomySerializer
     permission_classes = [TaxonomyObjectPermissions]
+    pagination_class = TaxonomyPagination
 
     def get_object(self) -> Taxonomy:
         """
