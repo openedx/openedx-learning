@@ -194,7 +194,6 @@ class ObjectTagsByTaxonomySerializer(serializers.ModelSerializer):
                 tax_entry = {
                     "name": obj_tag.name,
                     "taxonomy_id": obj_tag.taxonomy_id,
-                    "editable": (not obj_tag.taxonomy.cast().system_defined) if obj_tag.taxonomy else False,
                     "tags": []
                 }
                 taxonomies.append(tax_entry)
