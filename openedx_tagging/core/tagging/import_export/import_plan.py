@@ -22,6 +22,14 @@ class TagItem:
     index: int | None = 0
     parent_id: str | None = None
 
+    def __str__(self):
+        """
+        User-facing string representation of a Tag.
+        """
+        if self.id:
+            return f"<{self.__class__.__name__}> ({self.id} / {self.value})"
+        return f"<{self.__class__.__name__}> ({self.value})"
+
 
 class TagImportPlan:
     """

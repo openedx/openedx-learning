@@ -73,8 +73,11 @@ class ImportAction:
         Returns the respective tag of this actions
         """
         if self.tag.id:
-            return self.taxonomy.tag_set.get(external_id=self.tag.id)
-        return self.taxonomy.tag_set.get(value=self.tag.value)
+            try:
+                return self.taxonomy.tag_set.get(external_id=self.tag.id)
+            except Tag.DoesNotExist:
+                pass
+        return self.taxonomy.tag_set.get(value=self.tag.value, external_id=None)
 
     def _search_action(
         self,
@@ -259,34 +262,13 @@ class UpdateParentTag(ImportAction):
     def __str__(self) -> str:
         taxonomy_tag = self._get_tag()
 
-        if taxonomy_tag.external_id:
-            prefix_str = _("Update the parent of tag (external_id={external_id})").format(
-                external_id=taxonomy_tag.external_id
-            )
-        else:
-            prefix_str = ""
-            prefix_str = _("Update the parent of tag (value={value})").format(
-                value=taxonomy_tag.value
-            )
-
-        if not taxonomy_tag.parent:
-            from_str = _("from empty parent")
-        else:
-            if taxonomy_tag.parent.external_id:
-                from_str = _("from parent (external_id={external_id})").format(
-                    external_id=taxonomy_tag.parent.external_id
-                )
-            else:
-                from_str = _("from parent (value={value})").format(
-                    value=taxonomy_tag.parent.value
-                )
-
-        return str(
-            _(
-                "{prefix_str} "
-                "{from_str} to parent (external_id={parent_id})."
-            ).format(prefix_str=prefix_str, from_str=from_str, parent_id=self.tag.parent_id)
+        description_str = _("Update the parent of {tag} from parent {old_parent} to {new_parent}").format(
+            tag=taxonomy_tag,
+            old_parent=taxonomy_tag.parent,
+            new_parent=self.tag.parent_id,
         )
+
+        return str(description_str)
 
     @classmethod
     def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -343,19 +325,12 @@ class RenameTag(ImportAction):
 
     def __str__(self) -> str:
         taxonomy_tag = self._get_tag()
-        if taxonomy_tag.external_id:
-            prefix_str = _("Rename tag value of tag (external_id={external_id})").format(
-                external_id=taxonomy_tag.external_id
-            )
-        else:
-            prefix_str = _("Rename tag value of tag (id={id})").format(id=taxonomy_tag.id)
-
-        return str(
-            _(
-                "{prefix_str} "
-                "from '{from_value}' to '{to_value}'"
-            ).format(prefix_str=prefix_str, from_value=taxonomy_tag.value, to_value=self.tag.value)
+        description_str = _("Rename tag value of {tag} to '{new_value}'").format(
+            tag=taxonomy_tag,
+            new_value=self.tag.value,
         )
+
+        return str(description_str)
 
     @classmethod
     def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:
@@ -442,9 +417,7 @@ class WithoutChanges(ImportAction):
     name = "without_changes"
 
     def __str__(self) -> str:
-        if self.tag.id:
-            return str(_("No changes needed for tag (external_id={external_id})").format(external_id=self.tag.id))
-        return str(_("No changes needed for tag (value={value})").format(value=self.tag.value))
+        return str(_("No changes needed for {tag}").format(tag=self.tag))
 
     @classmethod
     def applies_for(cls, taxonomy: Taxonomy, tag) -> bool:

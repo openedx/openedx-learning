@@ -94,7 +94,9 @@ class Tag(models.Model):
         """
         User-facing string representation of a Tag.
         """
-        return f"<{self.__class__.__name__}> ({self.id}) {self.value}"
+        if self.external_id:
+            return f"<{self.__class__.__name__}> ({self.id} / {self.external_id} / {self.value})"
+        return f"<{self.__class__.__name__}> ({self.id} / {self.value})"
 
     def get_lineage(self) -> Lineage:
         """

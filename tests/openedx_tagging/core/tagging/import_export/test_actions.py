@@ -283,16 +283,16 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             "tag_4",
             "tag_3",
             (
-                "Update the parent of tag (external_id=tag_4) from parent "
-                "(external_id=tag_3) to parent (external_id=tag_3)."
+                "Update the parent of <Tag> (29 / tag_4 / Tag 4) "
+                "from parent <Tag> (28 / tag_3 / Tag 3) to tag_3"
             )
         ),
         (
             "tag_3",
             "tag_2",
             (
-                "Update the parent of tag (external_id=tag_3) from empty parent "
-                "to parent (external_id=tag_2)."
+                "Update the parent of <Tag> (28 / tag_3 / Tag 3) "
+                "from parent None to tag_2"
             )
         ),
     )
@@ -333,8 +333,8 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             index=100,
         )
         expected = (
-            "Update the parent of tag (value=Tag 6) from parent (value=Tag 5)"
-            " to parent (external_id=tag_3)."
+            "Update the parent of <Tag> (31 / Tag 6) "
+            "from parent <Tag> (30 / Tag 5) to tag_3"
         )
         assert str(action) == expected
 
