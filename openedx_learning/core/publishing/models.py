@@ -16,6 +16,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from openedx_learning.lib.fields import (
+    MultiCollationTextField,
     case_insensitive_char_field,
     immutable_uuid_field,
     key_field,
@@ -32,6 +33,20 @@ class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
     uuid = immutable_uuid_field()
     key = key_field()
     title = case_insensitive_char_field(max_length=500, blank=False)
+    description = MultiCollationTextField(
+        blank=True,
+        null=False,
+        default="",
+        max_length=10_000,
+        # We don't really expect to ever sort by the text column, but we may
+        # want to do case-insensitive searches, so it's useful to have a case
+        # and accent insensitive collation.
+        db_collations={
+            "sqlite": "NOCASE",
+            "mysql": "utf8mb4_unicode_ci",
+        }
+    )
+
     created = manual_date_time_field()
     updated = manual_date_time_field()
 
@@ -140,7 +155,11 @@ class PublishableEntity(models.Model):
     """
 
     uuid = immutable_uuid_field()
-    learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+    learning_package = models.ForeignKey(
+        LearningPackage,
+        on_delete=models.CASCADE,
+        related_name="publishable_entities",
+    )
     key = key_field()
     created = manual_date_time_field()
     created_by = models.ForeignKey(
@@ -219,7 +238,7 @@ class PublishableEntityVersion(models.Model):
     # users to refer to than a hash or UUID value. It also helps us catch race
     # conditions on save, by setting a unique constraint on the entity and
     # version_num.
-    version_num = models.PositiveBigIntegerField(
+    version_num = models.PositiveIntegerField(
         null=False,
         validators=[MinValueValidator(1)],
     )
@@ -362,7 +381,11 @@ class PublishLogRecord(models.Model):
     and ``new_version`` field values.
     """
 
-    publish_log = models.ForeignKey(PublishLog, on_delete=models.CASCADE)
+    publish_log = models.ForeignKey(
+        PublishLog,
+        on_delete=models.CASCADE,
+        related_name="records",
+    )
     entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
     old_version = models.ForeignKey(
         PublishableEntityVersion,
