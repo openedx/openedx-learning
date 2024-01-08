@@ -9,7 +9,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db import models
 from django.db.models.query import QuerySet
 
-from .models import Draft, PublishableEntity, PublishableEntityVersion, Published
+from .models import PublishableEntity, PublishableEntityVersion
 
 
 class PublishableEntityMixin(models.Model):
@@ -25,7 +25,12 @@ class PublishableEntityMixin(models.Model):
 
     class PublishableEntityMixinManager(models.Manager):
         def get_queryset(self) -> QuerySet:
-            return super().get_queryset().select_related("publishable_entity")
+            return super().get_queryset() \
+                          .select_related(
+                              "publishable_entity",
+                              "publishable_entity__published",
+                              "publishable_entity__draft",
+                          )
 
     objects: models.Manager[PublishableEntityMixin] = PublishableEntityMixinManager()
 
@@ -102,7 +107,7 @@ class PublishableEntityMixin(models.Model):
 
             # You need to manually refetch it from the database to see the new
             # publish status:
-            component = get_component_by_pk(component.pk)
+            component = get_component(component.pk)
 
             # Now this will work:
             assert component.versioning.published == component_version
@@ -129,59 +134,110 @@ class PublishableEntityMixin(models.Model):
             # get the reverse related field name so that we can use that later.
             self.related_name = field_to_pev.related_query_name()
 
+        def _content_obj_version(self, pub_ent_version: PublishableEntityVersion | None):
+            """
+            PublishableEntityVersion -> Content object version
+
+            Given a reference to a PublishableEntityVersion, return the version
+            of the content object that we've been mixed into.
+            """
+            if pub_ent_version is None:
+                return None
+            return getattr(pub_ent_version, self.related_name)
+
         @property
         def draft(self):
             """
             Return the content version object that is the current draft.
+
+            So if you mix ``PublishableEntityMixin`` into ``Component``, then
+            ``component.versioning.draft`` will return you the
+            ``ComponentVersion`` that is the current draft (not the underlying
+            ``PublishableEntityVersion``).
+
+            If this is causing many queries, it might be the case that you need
+            to add ``select_related('publishable_entity__draft__version')`` to
+            the queryset.
             """
-            try:
-                draft = Draft.objects.get(
-                    entity_id=self.content_obj.publishable_entity_id
-                )
-            except Draft.DoesNotExist:
-                # If no Draft object exists at all, then no
-                # PublishableEntityVersion was ever created (just the
-                # PublishableEntity).
-                return None
+            # Check if there's an entry in Drafts, i.e. has there ever been a
+            # draft version of this PublishableEntity?
+            if hasattr(self.content_obj.publishable_entity, 'draft'):
+                # This can still be None if a draft existed at one point, but
+                # was then "deleted". When deleting, the Draft row stays, but
+                # the version it points to becomes None.
+                draft_pub_ent_version = self.content_obj.publishable_entity.draft.version
+            else:
+                draft_pub_ent_version = None
 
-            draft_pub_ent_version = draft.version
+            # The Draft.version points to a PublishableEntityVersion, so convert
+            # that over to the class we actually want (were mixed into), e.g.
+            # a ComponentVersion.
+            return self._content_obj_version(draft_pub_ent_version)
 
-            # There is an entry for this Draft, but the entry is None. This means
-            # there was a Draft at some point, but it's been "deleted" (though the
-            # actual history is still preserved).
-            if draft_pub_ent_version is None:
-                return None
+        @property
+        def latest(self):
+            """
+            Return the most recently created version for this content object.
 
-            # If we've gotten this far, then draft_pub_ent_version points to an
-            # actual PublishableEntityVersion, but we want to follow that and go to
-            # the matching content version model.
-            return getattr(draft_pub_ent_version, self.related_name)
+            This can be None if no versions have been created.
+
+            This is often the same as the draft version, but can differ if the
+            content object was soft deleted or the draft was reverted.
+            """
+            return self.versions.order_by('-publishable_entity_version__version_num').first()
 
         @property
         def published(self):
             """
             Return the content version object that is currently published.
+
+            So if you mix ``PublishableEntityMixin`` into ``Component``, then
+            ``component.versioning.published`` will return you the
+            ``ComponentVersion`` that is currently published (not the underlying
+            ``PublishableEntityVersion``).
+
+            If this is causing many queries, it might be the case that you need
+            to add ``select_related('publishable_entity__published__version')``
+            to the queryset.
             """
-            try:
-                published = Published.objects.get(
-                    entity_id=self.content_obj.publishable_entity_id
-                )
-            except Published.DoesNotExist:
-                # This means it's never been published.
-                return None
+            # Check if there's an entry in Published, i.e. has there ever been a
+            # published version of this PublishableEntity?
+            if hasattr(self.content_obj.publishable_entity, 'published'):
+                # This can still be None if something was published and then
+                # later "deleted". When deleting, the Published row stays, but
+                # the version it points to becomes None.
+                published_pub_ent_version = self.content_obj.publishable_entity.published.version
+            else:
+                published_pub_ent_version = None
 
-            published_pub_ent_version = published.version
+            # The Published.version points to a PublishableEntityVersion, so
+            # convert that over to the class we actually want (were mixed into),
+            # e.g. a ComponentVersion.
+            return self._content_obj_version(published_pub_ent_version)
 
-            # There is a Published entry, but the entry is None. This means that
-            # it was published at some point, but it's been "deleted" or
-            # unpublished (though the actual history is still preserved).
-            if published_pub_ent_version is None:
-                return None
+        @property
+        def has_unpublished_changes(self):
+            """
+            Do we have unpublished changes?
 
-            # If we've gotten this far, then published_pub_ent_version points to an
-            # actual PublishableEntityVersion, but we want to follow that and go to
-            # the matching content version model.
-            return getattr(published_pub_ent_version, self.related_name)
+            The simplest way to implement this would be to check self.published
+            vs. self.draft, but that would cause unnecessary queries. This
+            implementation should require no extra queries provided that the
+            model was instantiated using a queryset that used a select related
+            that has at least ``publishable_entity__draft`` and
+            ``publishable_entity__published``.
+            """
+            pub_entity = self.content_obj.publishable_entity
+            if hasattr(pub_entity, 'draft'):
+                draft_version_id = pub_entity.draft.version_id
+            else:
+                draft_version_id = None
+            if hasattr(pub_entity, 'published'):
+                published_version_id = pub_entity.published.version_id
+            else:
+                published_version_id = None
+
+            return draft_version_id != published_version_id
 
         @property
         def versions(self):

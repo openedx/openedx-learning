@@ -15,10 +15,10 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 
-from ..publishing.api import create_publishable_entity, create_publishable_entity_version
+from ..publishing import api as publishing_api
 from .models import Component, ComponentVersion, ComponentVersionRawContent
 
 
@@ -35,7 +35,7 @@ def create_component(
     """
     key = f"{namespace}:{type}@{local_key}"
     with atomic():
-        publishable_entity = create_publishable_entity(
+        publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id, key, created, created_by
         )
         component = Component.objects.create(
@@ -59,7 +59,7 @@ def create_component_version(
     Create a new ComponentVersion
     """
     with atomic():
-        publishable_entity_version = create_publishable_entity_version(
+        publishable_entity_version = publishing_api.create_publishable_entity_version(
             entity_id=component_pk,
             version_num=version_num,
             title=title,
@@ -73,6 +73,72 @@ def create_component_version(
     return component_version
 
 
+def create_next_version(
+    component_pk: int,
+    title: str,
+    content_to_replace: dict[str: int],
+    created: datetime,
+    created_by: int | None = None,
+):
+    """
+    Create a new ComponentVersion based on the most recent version.
+
+    A very common pattern for making a new ComponentVersion is going to be "make
+    it just like the last version, except changing these one or two things".
+    Before calling this, you should create any new contents via the contents
+    API, since ``content_to_replace`` needs RawContent IDs for the values.
+
+    TODO: Have to add learning_downloadable info to this when it comes time to
+          support static asset download.
+    """
+    # This needs to grab the highest version_num for this Publishable Entity.
+    # This will often be the Draft version, but not always. For instance, if
+    # an entity was soft-deleted, the draft would be None, but the version_num
+    # should pick up from the last edited version. Likewise, a Draft might get
+    # reverted to an earlier version, but we want the latest version_num when
+    # creating the next version.
+    component = Component.objects.get(pk=component_pk)
+    last_version = component.versioning.latest
+    if last_version is None:
+        next_version_num = 1
+    else:
+        next_version_num = last_version.version_num + 1
+
+    with atomic():
+        publishable_entity_version = publishing_api.create_publishable_entity_version(
+            entity_id=component_pk,
+            version_num=next_version_num,
+            title=title,
+            created=created,
+            created_by=created_by,
+        )
+        component_version = ComponentVersion.objects.create(
+            publishable_entity_version=publishable_entity_version,
+            component_id=component_pk,
+        )
+        # First copy the new stuff over...
+        for key, raw_content_pk in content_to_replace.items():
+            ComponentVersionRawContent.objects.create(
+                raw_content_id=raw_content_pk,
+                component_version=component_version,
+                key=key,
+                learner_downloadable=False,
+            )
+        # Now copy any old associations that existed, as long as they don't
+        # conflict with the new stuff.
+        last_version_content_mapping = ComponentVersionRawContent.objects \
+                                           .filter(component_version=component_version) \
+                                           .all()
+        for cvrc in last_version_content_mapping:
+            if cvrc.key not in content_to_replace:
+                ComponentVersionRawContent.objects.create(
+                    raw_content_id=cvrc.raw_content_pk,
+                    component_version=component_version,
+                    key=cvrc.key,
+                    learner_downloadable=cvrc.learner_downloadable,
+                )
+
+
 def create_component_and_version(
     learning_package_id: int,
     namespace: str,
@@ -80,7 +146,7 @@ def create_component_and_version(
     local_key: str,
     title: str,
     created: datetime,
-    created_by: int | None,
+    created_by: int | None = None,
 ):
     """
     Create a Component and associated ComponentVersion atomically
@@ -98,10 +164,84 @@ def create_component_and_version(
         )
         return (component, component_version)
 
+def get_component(component_pk: int) -> Component:
+    """
+    Get Component by its primary key.
 
-def get_component_by_pk(component_pk: int) -> Component:
-    return Component.objects.get(pk=component_pk)
+    This is the same as the PublishableEntity's ID primary key.
+    """
+    return Component.with_publishing_relations.get(pk=component_pk)
 
+def get_component_by_key(
+    learning_package_id: int,
+    namespace: str,
+    type: str,  # pylint: disable=redefined-builtin
+    local_key: str,
+):
+    """
+    Get Componet by it unique namespace/type/local_key tuple.
+    """
+    return Component.with_publishing_relations \
+                    .get(
+                        learning_package_id=learning_package_id,
+                        namespace=namespace,
+                        type=type,
+                        local_key=local_key,
+                    )
+
+def component_exists_by_key(
+    learning_package_id: int,
+    namespace: str,
+    type: str,  # pylint: disable=redefined-builtin
+    local_key: str
+):
+    """
+    Return True/False for whether a Component exists.
+
+    Note that a Component still exists even if it's been soft-deleted (there's
+    no current Draft version for it), or if it's been unpublished.
+    """
+    try:
+        _component = Component.objects.only('pk').get(
+            learning_package_id=learning_package_id,
+            namespace=namespace,
+            type=type,
+            local_key=local_key,
+        )
+        return True
+    except Component.DoesNotExist:
+        return False
+
+def get_components(
+    learning_package_id: int,
+    draft: bool | None = None,
+    published: bool | None = None,
+    namespace: str | None = None,
+    types: list[str] | None = None,
+    title: str | None = None,
+) -> QuerySet:
+    """
+    Fetch a QuerySet of Components for a LearningPackage using various filters.
+
+    This method will pre-load all the relations that we need in order to get
+    info from the Component's draft and published versions, since we'll be
+    referencing these a lot.
+    """
+    qset = Component.with_publishing_relations \
+                    .filter(learning_package_id=learning_package_id) \
+                    .order_by('pk')
+    if draft is not None:
+        qset = qset.filter(publishable_entity__draft__version__isnull = not draft)
+    if published is not None:
+        qset = qset.filter(publishable_entity__published__version__isnull = not published)
+    if namespace is not None:
+        qset = qset.filter(namespace=namespace)
+    if types is not None:
+        qset = qset.filter(type__in=types)
+    if title is not None:
+        qset = qset.filter(publishable_entity__draft__version__title__icontains=title)
+
+    return qset
 
 def get_component_version_content(
     learning_package_key: str,
@@ -118,6 +258,7 @@ def get_component_version_content(
     return ComponentVersionRawContent.objects.select_related(
         "raw_content",
         "raw_content__media_type",
+        "raw_content__textcontent",
         "component_version",
         "component_version__component",
         "component_version__component__learning_package",

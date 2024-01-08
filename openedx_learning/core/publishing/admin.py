@@ -149,7 +149,9 @@ class PublishedAdmin(ReadOnlyModelAdmin):
         )
 
     def version_num(self, published_obj):
-        return published_obj.version.version_num
+        if published_obj.version:
+            return published_obj.version.version_num
+        return None
 
     def previous(self, published_obj):
         """

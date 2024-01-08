@@ -20,7 +20,12 @@ from __future__ import annotations
 
 from django.db import models
 
-from openedx_learning.lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
+from openedx_learning.lib.fields import (
+    case_sensitive_char_field,
+    immutable_uuid_field,
+    key_field,
+)
+from openedx_learning.lib.managers import WithRelationsManager
 
 from ..contents.models import RawContent
 from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
@@ -43,6 +48,9 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     ComponentVersions are associated with.
 
     A Component belongs to exactly one LearningPackage.
+
+    A Component's is 1:1 with the same primary key values as the
+    PublishableEntity it uses for draft/publishing operations.
 
     Identifiers
     -----------
@@ -69,6 +77,14 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     # It's actually PublishableEntityMixinManager, but that has the exact same
     # interface as the base manager class.
     objects: models.Manager[Component]
+
+    with_publishing_relations = WithRelationsManager(
+        'publishable_entity',
+        'publishable_entity__draft__version',
+        'publishable_entity__draft__version__componentversion',
+        'publishable_entity__published__version',
+        'publishable_entity__published__version__componentversion',
+    )
 
     # This foreign key is technically redundant because we're already locked to
     # a single LearningPackage through our publishable_entity relation. However, having

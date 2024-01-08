@@ -22,7 +22,13 @@ class CreateLearningPackageTestCase(TestCase):
         key = "my_key"
         title = "My Excellent Title with Emoji 🔥"
         created = datetime(2023, 4, 2, 15, 9, 0, tzinfo=timezone.utc)
-        package = publishing_api.create_learning_package(key, title, created)
+        description = "A fun Description!"
+        package = publishing_api.create_learning_package(
+            key=key,
+            title=title,
+            description=description,
+            created=created
+        )
 
         assert package.key == "my_key"
         assert package.title == "My Excellent Title with Emoji 🔥"
@@ -62,7 +68,11 @@ class CreateLearningPackageTestCase(TestCase):
         Require UTC timezone for created.
         """
         with pytest.raises(ValidationError) as excinfo:
-            publishing_api.create_learning_package("my_key", "A Title", datetime(2023, 4, 2))
+            publishing_api.create_learning_package(
+                key="my_key",
+                title="A Title",
+                created=datetime(2023, 4, 2)
+            )
         message_dict = excinfo.value.message_dict
 
         # Both datetime fields should be marked as invalid
