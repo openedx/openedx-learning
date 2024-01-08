@@ -20,6 +20,7 @@ from .models import MediaType, RawContent, TextContent
 
 def create_raw_content(
     learning_package_id: int,
+    /,
     data_bytes: bytes,
     mime_type: str,
     created: datetime,
@@ -91,6 +92,7 @@ def get_media_type_id(mime_type: str) -> int:
 
 def get_or_create_raw_content(
     learning_package_id: int,
+    /,
     data_bytes: bytes,
     mime_type: str,
     created: datetime,
@@ -117,6 +119,7 @@ def get_or_create_raw_content(
 
 def get_or_create_text_content_from_bytes(
     learning_package_id: int,
+    /,
     data_bytes: bytes,
     mime_type: str,
     created: datetime,

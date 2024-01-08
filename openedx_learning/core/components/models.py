@@ -21,6 +21,7 @@ from __future__ import annotations
 from django.db import models
 
 from openedx_learning.lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
+from openedx_learning.lib.managers import WithRelationsManager
 
 from ..contents.models import RawContent
 from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
@@ -43,6 +44,12 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     ComponentVersions are associated with.
 
     A Component belongs to exactly one LearningPackage.
+
+    A Component is 1:1 with PublishableEntity and has matching primary key
+    values. More specifically, ``Component.pk`` maps to
+    ``Component.publishable_entity_id``, and any place where the Publishing API
+    module expects to get a ``PublishableEntity.id``, you can use a
+    ``Component.pk`` instead.
 
     Identifiers
     -----------
@@ -70,9 +77,17 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     # interface as the base manager class.
     objects: models.Manager[Component]
 
+    with_publishing_relations = WithRelationsManager(
+        'publishable_entity',
+        'publishable_entity__draft__version',
+        'publishable_entity__draft__version__componentversion',
+        'publishable_entity__published__version',
+        'publishable_entity__published__version__componentversion',
+    )
+
     # This foreign key is technically redundant because we're already locked to
-    # a single LearningPackage through our publishable_entity relation. However, having
-    # this foreign key directly allows us to make indexes that efficiently
+    # a single LearningPackage through our publishable_entity relation. However,
+    # having this foreign key directly allows us to make indexes that efficiently
     # query by other Component fields within a given LearningPackage, which is
     # going to be a common use case (and we can't make a compound index using
     # columns from different tables).
