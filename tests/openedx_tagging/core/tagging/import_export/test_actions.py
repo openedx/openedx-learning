@@ -333,7 +333,7 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             index=100,
         )
         expected = (
-            "Update the parent of <Tag> (31 / Tag 6) "
+            f"Update the parent of <Tag> ({tag_2.id} / Tag 6) "
             f"from parent <Tag> ({tag_1.id} / Tag 5) to tag_3"
         )
         assert str(action) == expected
