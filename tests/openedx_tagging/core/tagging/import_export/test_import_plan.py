@@ -182,10 +182,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             0,
             [
                 {
-                    'name': 'without_changes',
-                    'id': 'tag_4',
-                },
-                {
                     'name': 'delete',
                     'id': 'tag_1',
                 },
@@ -200,6 +196,10 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
                 {
                     'name': 'delete',
                     'id': 'tag_3',
+                },
+                {
+                    'name': 'without_changes',
+                    'id': 'tag_4',
                 },
             ]
         )
@@ -315,14 +315,18 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
                 },
             ],
             True,
+            # ToDo: Change the lines below when https://github.com/openedx/openedx-learning/pull/135 is merged
             "Import plan for Import Taxonomy Test\n"
             "--------------------------------\n"
-            "#1: No changes needed for tag (external_id=tag_4)\n"
-            "#2: Delete tag (external_id=tag_1)\n"
-            "#3: Delete tag (external_id=tag_2)\n"
-            "#4: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
+            "#1: Delete tag (external_id=tag_1)\n"
+            "#2: Delete tag (external_id=tag_2)\n"
+            "#3: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
             "to parent (external_id=None).\n"
-            "#5: Delete tag (external_id=tag_3)\n"
+            # "#3: Update the parent of <Tag> (29 / tag_4 / Tag 4) from parent "
+            # "<Tag> (28 / tag_3 / Tag 3) to None\n"
+            "#4: Delete tag (external_id=tag_3)\n"
+            "#5: No changes needed for tag (external_id=tag_4)\n"
+            # "#5: No changes needed for <TagItem> (tag_4 / Tag 4)\n"
         ),
     )
     @ddt.unpack
@@ -336,7 +340,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         tags = [TagItem(**tag) for tag in tags]
         self.import_plan.generate_actions(tags=tags, replace=replace)
         plan = self.import_plan.plan()
-        print(plan)
         assert plan == expected
 
     @ddt.data(

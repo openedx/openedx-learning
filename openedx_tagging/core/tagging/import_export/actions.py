@@ -117,38 +117,48 @@ class ImportAction:
         actions
         """
         try:
-            # Validates if exists a tag with the same value on the Taxonomy
-            taxonomy_tag = self.taxonomy.tag_set.get(value=self.tag.value)
-            return ImportActionError(
-                action=self,
-                message=_(
-                    "Duplicated tag value with tag in database (external_id={external_id})."
-                ).format(external_id=taxonomy_tag.external_id)
-            )
+            is_deleted_tag_value = any(
+                self.tag.value == action.tag.value
+                for action in indexed_actions["delete"]
+            ) if "delete" in indexed_actions else False
+
+            # If the tag will be deleted, skip the Database validation
+            if not is_deleted_tag_value:
+                # Validates if exists a tag with the same value on the Taxonomy
+                taxonomy_tag = self.taxonomy.tag_set.get(value=self.tag.value)
+                return ImportActionError(
+                    action=self,
+                    message=_(
+                        "Duplicated tag value with tag in database (external_id={external_id})."
+                    ).format(external_id=taxonomy_tag.external_id)
+                )
         except Tag.DoesNotExist:
-            # Validates value duplication on create actions
+            pass
+
+        # Validates value duplication on create actions
+        action = self._search_action(
+            indexed_actions,
+            CreateTag.name,
+            "value",
+            self.tag.value,
+        )
+
+        if not action:
+            # Validates value duplication on rename actions
             action = self._search_action(
                 indexed_actions,
-                CreateTag.name,
+                RenameTag.name,
                 "value",
                 self.tag.value,
             )
 
-            if not action:
-                # Validates value duplication on rename actions
-                action = self._search_action(
-                    indexed_actions,
-                    RenameTag.name,
-                    "value",
-                    self.tag.value,
-                )
+        if action:
+            return ImportActionConflict(
+                action=self,
+                conflict_action_index=action.index,
+                message=_("Duplicated tag value."),
+            )
 
-            if action:
-                return ImportActionConflict(
-                    action=self,
-                    conflict_action_index=action.index,
-                    message=_("Duplicated tag value."),
-                )
         return None
 
 

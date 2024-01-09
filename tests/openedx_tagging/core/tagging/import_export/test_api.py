@@ -253,3 +253,25 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
             ParserFormat.JSON,
             replace=True,
         )
+
+    def test_import_same_value_without_external_id(self) -> None:
+        new_taxonomy = Taxonomy(name="New taxonomy")
+        new_taxonomy.save()
+
+        # Tag with no external_id
+        Tag.objects.create(
+            value="same_value",
+            taxonomy=new_taxonomy,
+        )
+
+        # Import with one tag with the same value
+        importFile = BytesIO(json.dumps({"tags": [{"id": "imported_tag", "value": "same_value"}]}).encode())
+
+        result, _tasks, _plan = import_export_api.import_tags(
+            new_taxonomy,
+            importFile,
+            ParserFormat.JSON,
+            replace=True,
+        )
+
+        assert result
