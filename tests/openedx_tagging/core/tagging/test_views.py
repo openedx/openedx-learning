@@ -2457,12 +2457,12 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         assert response.data["task"]["status"] == "success"
         expected_plan = "Import plan for Test import taxonomy\n" \
             + "--------------------------------\n" \
-            + "#1: Create a new tag with values (external_id=tag_1, value=Tag 1, parent_id=None).\n" \
-            + "#2: Create a new tag with values (external_id=tag_2, value=Tag 2, parent_id=None).\n" \
-            + "#3: Create a new tag with values (external_id=tag_3, value=Tag 3, parent_id=None).\n" \
-            + "#4: Create a new tag with values (external_id=tag_4, value=Tag 4, parent_id=None).\n" \
-            + "#5: Delete tag (external_id=old_tag_1)\n" \
-            + "#6: Delete tag (external_id=old_tag_2)\n"
+            + "#1: Delete tag (external_id=old_tag_1)\n" \
+            + "#2: Delete tag (external_id=old_tag_2)\n" \
+            + "#3: Create a new tag with values (external_id=tag_1, value=Tag 1, parent_id=None).\n" \
+            + "#4: Create a new tag with values (external_id=tag_2, value=Tag 2, parent_id=None).\n" \
+            + "#5: Create a new tag with values (external_id=tag_3, value=Tag 3, parent_id=None).\n" \
+            + "#6: Create a new tag with values (external_id=tag_4, value=Tag 4, parent_id=None).\n"
         assert response.data["plan"] == expected_plan
 
         self._check_taxonomy_not_changed()
