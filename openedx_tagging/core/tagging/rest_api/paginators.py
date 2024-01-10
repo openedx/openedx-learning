@@ -12,12 +12,12 @@ from openedx_tagging.core.tagging.models import Tag, Taxonomy
 MAX_FULL_DEPTH_THRESHOLD = 10_000
 
 
-class ModelPermissionsPaginationMixin:
+class CanAddPermissionMixin:
     """
-    Inserts model permissions data into the top level of the paginated response.
+    Inserts a field into the top level of the paginated response indicating whether the request user has permission to
+    add new instances of the current model.
     """
-    permission_field_name = 'user_permissions'
-    permission_actions = ('add', 'view', 'change', 'delete')
+    field_name = 'can_add'
 
     def get_model(self) -> Type:
         """
@@ -25,34 +25,32 @@ class ModelPermissionsPaginationMixin:
         """
         raise NotImplementedError  # pragma: no cover
 
-    def get_model_permissions(self) -> dict:
+    def get_can_add(self) -> bool:
         """
-        Returns a dict containing the request user's permissions for the current model.
-
-        The dict contains keys named `can_<action>`, mapped to a boolean flag.
+        Returns True if the current user can add models.
         """
         user = self.request.user  # type: ignore[attr-defined]
         model = self.get_model()
         app_label = model._meta.app_label
         model_name = model._meta.model_name
-        return {
-            f'can_{action}': user.has_perm(f'{app_label}.{action}_{model_name}')
-            for action in self.permission_actions
-        }
+        return user.has_perm(f'{app_label}.add_{model_name}')
 
     def get_paginated_response(self, data) -> Response:
         """
         Injects the user's model-level permissions into the paginated response.
         """
         response_data = super().get_paginated_response(data).data  # type: ignore[misc]
-        response_data[self.permission_field_name] = self.get_model_permissions()
+        response_data[self.field_name] = self.get_can_add()
         return Response(response_data)
 
 
-class TaxonomyPagination(ModelPermissionsPaginationMixin, DefaultPagination):
+class TaxonomyPagination(CanAddPermissionMixin, DefaultPagination):
     """
     Inserts permissions data for Taxonomies into the top level of the paginated response.
     """
+    page_size = 500
+    max_page_size = 500
+
     def get_model(self) -> Type:
         """
         Returns the model that is being paginated.
@@ -60,7 +58,7 @@ class TaxonomyPagination(ModelPermissionsPaginationMixin, DefaultPagination):
         return Taxonomy
 
 
-class TagsPagination(ModelPermissionsPaginationMixin, DefaultPagination):
+class TagsPagination(CanAddPermissionMixin, DefaultPagination):
     """
     Custom pagination configuration for taxonomies
     with a large number of tags. Used on the get tags API view.
@@ -75,7 +73,7 @@ class TagsPagination(ModelPermissionsPaginationMixin, DefaultPagination):
         return Tag
 
 
-class DisabledTagsPagination(ModelPermissionsPaginationMixin, DefaultPagination):
+class DisabledTagsPagination(CanAddPermissionMixin, DefaultPagination):
     """
     Custom pagination configuration for taxonomies
     with a small number of tags. Used on the get tags API view

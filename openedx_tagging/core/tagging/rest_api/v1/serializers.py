@@ -36,8 +36,6 @@ class UserPermissionsSerializer(serializers.Serializer):  # pylint: disable=abst
 
     Requires the current request to be passed into the serializer context, or all permissions will return False.
     """
-    can_add = serializers.SerializerMethodField()
-    can_view = serializers.SerializerMethodField()
     can_change = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
 
@@ -47,8 +45,9 @@ class UserPermissionsSerializer(serializers.Serializer):  # pylint: disable=abst
 
         Uses the current request as passed into the serializer context.
         """
-        assert action in ("add", "change", "view", "delete")
+        assert action in ("change", "delete")
 
+        # We can't just use the instance._meta.model_name, because of subclasses.
         if isinstance(instance, Taxonomy):
             model = 'taxonomy'
         elif isinstance(instance, Tag):
@@ -61,28 +60,14 @@ class UserPermissionsSerializer(serializers.Serializer):  # pylint: disable=abst
         request = self.context.get('request')
         assert request and request.user
 
-        if action == 'add':
-            instance = None
         permission = f"oel_tagging.{action}_{model}"
         return request.user.has_perm(permission, instance)
-
-    def get_can_add(self, instance) -> bool:
-        """
-        Returns True if the current user is allowed to create new instances.
-        """
-        return self._check_permission('add', instance)
 
     def get_can_change(self, instance) -> bool:
         """
         Returns True if the current user is allowed to change this instance.
         """
         return self._check_permission('change', instance)
-
-    def get_can_view(self, instance) -> bool:
-        """
-        Returns True if the current user is allowed to view this instance.
-        """
-        return self._check_permission('view', instance)
 
     def get_can_delete(self, instance) -> bool:
         """
