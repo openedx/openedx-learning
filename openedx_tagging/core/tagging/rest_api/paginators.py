@@ -4,36 +4,31 @@ Paginators uses by the REST API
 from typing import Type
 
 from edx_rest_framework_extensions.paginators import DefaultPagination  # type: ignore[import]
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from openedx_tagging.core.tagging.models import Tag, Taxonomy
+
+from .utils import UserPermissionsHelper
 
 # From this point, the tags begin to be paginated
 MAX_FULL_DEPTH_THRESHOLD = 10_000
 
 
-class CanAddPermissionMixin:
+class CanAddPermissionMixin(UserPermissionsHelper):  # pylint: disable=abstract-method
     """
-    Inserts a field into the top level of the paginated response indicating whether the request user has permission to
-    add new instances of the current model.
+    This mixin inserts a boolean "can_add" field at the top level of the paginated response.
+
+    The value of the field indicates whether request user may create new instances of the current model.
     """
     field_name = 'can_add'
 
-    def get_model(self) -> Type:
+    @property
+    def _request(self) -> Request:
         """
-        Returns the model that is being paginated.
+        Returns the current request.
         """
-        raise NotImplementedError  # pragma: no cover
-
-    def get_can_add(self) -> bool:
-        """
-        Returns True if the current user can add models.
-        """
-        user = self.request.user  # type: ignore[attr-defined]
-        model = self.get_model()
-        app_label = model._meta.app_label
-        model_name = model._meta.model_name
-        return user.has_perm(f'{app_label}.add_{model_name}')
+        return self.request  # type: ignore[attr-defined]
 
     def get_paginated_response(self, data) -> Response:
         """
@@ -51,7 +46,8 @@ class TaxonomyPagination(CanAddPermissionMixin, DefaultPagination):
     page_size = 500
     max_page_size = 500
 
-    def get_model(self) -> Type:
+    @property
+    def _model(self) -> Type:
         """
         Returns the model that is being paginated.
         """
@@ -66,7 +62,8 @@ class TagsPagination(CanAddPermissionMixin, DefaultPagination):
     page_size = 10
     max_page_size = 300
 
-    def get_model(self) -> Type:
+    @property
+    def _model(self) -> Type:
         """
         Returns the model that is being paginated.
         """
@@ -85,7 +82,8 @@ class DisabledTagsPagination(CanAddPermissionMixin, DefaultPagination):
     page_size = MAX_FULL_DEPTH_THRESHOLD
     max_page_size = MAX_FULL_DEPTH_THRESHOLD + 1
 
-    def get_model(self) -> Type:
+    @property
+    def _model(self) -> Type:
         """
         Returns the model that is being paginated.
         """

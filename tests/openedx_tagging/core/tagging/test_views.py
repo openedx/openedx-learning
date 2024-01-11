@@ -53,7 +53,8 @@ def check_taxonomy(
     allow_free_text=False,
     system_defined=False,
     visible_to_authors=True,
-    user_permissions=None,
+    can_change=False,
+    can_delete=False,
 ):
     """
     Check taxonomy data
@@ -66,7 +67,8 @@ def check_taxonomy(
     assert data["allow_free_text"] == allow_free_text
     assert data["system_defined"] == system_defined
     assert data["visible_to_authors"] == visible_to_authors
-    assert data.get("user_permissions") == user_permissions
+    assert data["can_change"] == can_change
+    assert data["can_delete"] == can_delete
 
 
 class TestTaxonomyViewMixin(APITestCase):
@@ -166,10 +168,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "visible_to_authors": True,
                     "tags_count": 0,
                     # System taxonomy cannot be modified
-                    "user_permissions": {
-                        "can_change": False,
-                        "can_delete": False,
-                    },
+                    "can_change": False,
+                    "can_delete": False,
                 },
                 {
                     "id": taxonomy.id,
@@ -182,10 +182,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "visible_to_authors": True,
                     "tags_count": tags_count,
                     # Enabled taxonomy can be modified by staff
-                    "user_permissions": {
-                        "can_change": is_admin,
-                        "can_delete": is_admin,
-                    },
+                    "can_change": is_admin,
+                    "can_delete": is_admin,
                 },
             ]
             assert response.data.get("can_add") == is_admin
@@ -268,10 +266,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             description="Languages that are enabled on this system.",
             allow_multiple=False,  # We may change this in the future to allow multiple language tags
             system_defined=True,
-            user_permissions={
-                "can_change": False,
-                "can_delete": False,
-            },
+            can_change=False,
+            can_delete=False,
         )
         assert not response.data.get("can_add")
 
@@ -300,10 +296,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         if status.is_success(expected_status):
             expected_data = create_data
-            expected_data["user_permissions"] = {
-                "can_change": is_admin,
-                "can_delete": is_admin,
-            }
+            expected_data["can_change"] = is_admin
+            expected_data["can_delete"] = is_admin
             check_taxonomy(response.data, taxonomy.pk, **expected_data)
 
     def test_detail_system_taxonomy(self):
@@ -353,10 +347,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         # If we were able to create the taxonomy, check if it was created
         if status.is_success(expected_status):
             expected_data = create_data
-            expected_data["user_permissions"] = {
-                "can_change": True,
-                "can_delete": True,
-            }
+            expected_data["can_change"] = True
+            expected_data["can_delete"] = True
             check_taxonomy(response.data, response.data["id"], **expected_data)
             url = TAXONOMY_DETAIL_URL.format(pk=response.data["id"])
 
@@ -418,10 +410,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "name": "new name",
                     "description": "taxonomy description",
                     "enabled": True,
-                    "user_permissions": {
-                        "can_change": True,
-                        "can_delete": True,
-                    },
+                    "can_change": True,
+                    "can_delete": True,
                 },
             )
 
@@ -478,10 +468,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                 **{
                     "name": "new name",
                     "enabled": True,
-                    "user_permissions": {
-                        "can_change": True,
-                        "can_delete": True,
-                    },
+                    "can_change": True,
+                    "can_delete": True,
                 },
             )
 
@@ -714,18 +702,14 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "Mammalia",
                                     "lineage": ["Eukaryota", "Animalia", "Chordata", "Mammalia"],
-                                    "user_permissions": {
-                                        "can_change": True,
-                                        "can_delete": True,
-                                    },
+                                    "can_change": True,
+                                    "can_delete": True,
                                 },
                                 {
                                     "value": "Fungi",
                                     "lineage": ["Eukaryota", "Fungi"],
-                                    "user_permissions": {
-                                        "can_change": True,
-                                        "can_delete": True,
-                                    },
+                                    "can_change": True,
+                                    "can_delete": True,
                                 },
                             ]
                         },
@@ -736,10 +720,8 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
-                                    "user_permissions": {
-                                        "can_change": True,
-                                        "can_delete": True,
-                                    },
+                                    "can_change": True,
+                                    "can_delete": True,
                                 },
                             ],
                         }
@@ -766,10 +748,8 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         ]
 
         shared_props = {
-            "user_permissions": {
-                "can_change": True,
-                "can_delete": True,
-            },
+            "can_change": True,
+            "can_delete": True,
         }
 
         # Apply the object tags:
@@ -887,10 +867,8 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
-                                    "user_permissions": {
-                                        "can_change": True,
-                                        "can_delete": True,
-                                    },
+                                    "can_change": True,
+                                    "can_delete": True,
                                 },
                             ],
                         }

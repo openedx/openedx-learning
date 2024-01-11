@@ -3,15 +3,18 @@ API Serializers for taxonomies
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Type
 from urllib.parse import urlencode
 
 from rest_framework import serializers
+from rest_framework.request import Request
 from rest_framework.reverse import reverse
 
 from openedx_tagging.core.tagging.data import TagData
 from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, TagImportTask, Taxonomy
+
+from ..utils import UserPermissionsHelper
 
 
 class TaxonomyListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -30,58 +33,43 @@ class TaxonomyExportQueryParamsSerializer(serializers.Serializer):  # pylint: di
     output_format = serializers.RegexField(r"(?i)^(json|csv)$", allow_blank=False)
 
 
-class UserPermissionsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+class UserPermissionsSerializerMixin(UserPermissionsHelper):
     """
-    Serializer for the permissions on tagging instances granted to the current user.
+    Provides methods for serializing user permissions.
 
-    Requires the current request to be passed into the serializer context, or all permissions will return False.
+    To use this mixin:
+
+    1. Add it to your serializer's list of subclasses
+    2. Add `can_<action>` fields for each permission/action you want to serialize.
+
+    and this mixin will take care of the rest.
+
+    Notes:
+    * Assumes the serialized model should be used to check permissions (override _model to change).
+    * Requires the current request to be passed into the serializer context (override _request to change).
     """
-    can_change = serializers.SerializerMethodField()
-    can_delete = serializers.SerializerMethodField()
-
-    def _check_permission(self, action, instance) -> bool:
+    @property
+    def _model(self) -> Type:
         """
-        Returns True if the current `request.user` may perform the given `action` on the `instance` object.
-
-        Uses the current request as passed into the serializer context.
+        Returns the model that is being serialized
         """
-        assert action in ("change", "delete")
+        return self.Meta.model  # type: ignore[attr-defined]
 
-        # We can't just use the instance._meta.model_name, because of subclasses.
-        if isinstance(instance, Taxonomy):
-            model = 'taxonomy'
-        elif isinstance(instance, Tag):
-            model = 'tag'
-        elif isinstance(instance, ObjectTag):
-            model = 'objecttag'
-        else:
-            return False
-
-        request = self.context.get('request')
-        assert request and request.user
-
-        permission = f"oel_tagging.{action}_{model}"
-        return request.user.has_perm(permission, instance)
-
-    def get_can_change(self, instance) -> bool:
+    @property
+    def _request(self) -> Request:
         """
-        Returns True if the current user is allowed to change this instance.
+        Returns the current request from the serialize context.
         """
-        return self._check_permission('change', instance)
-
-    def get_can_delete(self, instance) -> bool:
-        """
-        Returns True if the current user is allowed to delete this instance.
-        """
-        return self._check_permission('delete', instance)
+        return self.context.get('request')  # type: ignore[attr-defined]
 
 
-class TaxonomySerializer(serializers.ModelSerializer):
+class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerializer):
     """
     Serializer for the Taxonomy model.
     """
     tags_count = serializers.SerializerMethodField()
-    user_permissions = serializers.SerializerMethodField()
+    can_change = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
 
     class Meta:
         model = Taxonomy
@@ -95,7 +83,8 @@ class TaxonomySerializer(serializers.ModelSerializer):
             "system_defined",
             "visible_to_authors",
             "tags_count",
-            "user_permissions",
+            "can_change",
+            "can_delete",
         ]
 
     def to_representation(self, instance):
@@ -108,13 +97,6 @@ class TaxonomySerializer(serializers.ModelSerializer):
     def get_tags_count(self, instance):
         return instance.tag_set.count()
 
-    def get_user_permissions(self, instance):
-        """
-        Returns the serialized user permissions on the given instance.
-        """
-        permissions = UserPermissionsSerializer(instance, context=self.context)
-        return permissions.to_representation(instance)
-
 
 class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
@@ -126,24 +108,18 @@ class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: dis
     )
 
 
-class ObjectTagMinimalSerializer(serializers.ModelSerializer):
+class ObjectTagMinimalSerializer(UserPermissionsSerializerMixin, serializers.ModelSerializer):
     """
     Minimal serializer for the ObjectTag model.
     """
 
     class Meta:
         model = ObjectTag
-        fields = ["value", "lineage", "user_permissions"]
+        fields = ["value", "lineage", "can_change", "can_delete"]
 
     lineage = serializers.ListField(child=serializers.CharField(), source="get_lineage", read_only=True)
-    user_permissions = serializers.SerializerMethodField()
-
-    def get_user_permissions(self, instance):
-        """
-        Returns the serialized user permissions on the given instance.
-        """
-        permissions = UserPermissionsSerializer(instance, context=self.context)
-        return permissions.to_representation(instance)
+    can_change = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
 
 
 class ObjectTagSerializer(ObjectTagMinimalSerializer):
@@ -206,7 +182,7 @@ class ObjectTagUpdateQueryParamsSerializer(serializers.Serializer):  # pylint: d
     )
 
 
-class TagDataSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for TagData dicts. Also can serialize Tag instances.
 
@@ -223,7 +199,8 @@ class TagDataSerializer(serializers.Serializer):  # pylint: disable=abstract-met
     _id = serializers.IntegerField(allow_null=True)
 
     sub_tags_url = serializers.SerializerMethodField()
-    user_permissions = serializers.SerializerMethodField()
+    can_change = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
 
     def get_sub_tags_url(self, obj: TagData | Tag):
         """
@@ -247,12 +224,32 @@ class TagDataSerializer(serializers.Serializer):  # pylint: disable=abstract-met
             return request.build_absolute_uri(url)
         return None
 
-    def get_user_permissions(self, instance):
+    @property
+    def _model(self) -> Type:
         """
-        Returns the serialized user permissions on the given instance.
+        Returns the model used when checking permissions.
         """
-        permissions = UserPermissionsSerializer(instance, context=self.context)
-        return permissions.to_representation(instance)
+        return Tag
+
+    def get_can_change(self, instance) -> bool:
+        """
+        Returns True if the current user is allowed to edit/change this Tag instance.
+
+        Returns False for all TagData instances.
+        """
+        if isinstance(instance, Tag):
+            return super()._can('change', instance)
+        return False
+
+    def get_can_delete(self, instance) -> bool:
+        """
+        Returns True if the current user is allowed to delete this Tag instance.
+
+        Returns False for all TagData instances.
+        """
+        if isinstance(instance, Tag):
+            return super()._can('delete', instance)
+        return False
 
     def to_representation(self, instance: TagData | Tag) -> dict:
         """

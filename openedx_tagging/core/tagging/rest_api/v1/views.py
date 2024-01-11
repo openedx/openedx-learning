@@ -31,6 +31,7 @@ from ...import_export.parsers import ParserFormat
 from ...models import Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import MAX_FULL_DEPTH_THRESHOLD, DisabledTagsPagination, TagsPagination, TaxonomyPagination
+from ..utils import view_auth_classes
 from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
@@ -49,7 +50,6 @@ from .serializers import (
     TaxonomyTagDeleteBodySerializer,
     TaxonomyTagUpdateBodySerializer,
 )
-from .utils import view_auth_classes
 
 
 @view_auth_classes
