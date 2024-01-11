@@ -116,8 +116,8 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
         model = self._model
         app_label = model._meta.app_label
         perm_name = f'{app_label}.add_objecttag'
-        perm_object = ObjectTagPermissionItem(taxonomy=instance, object_id=None)
-        return request.user.has_perm(perm_name, perm_object)
+        perm_object = ObjectTagPermissionItem(taxonomy=instance, object_id="")
+        return request.user.has_perm(perm_name, perm_object)  # type: ignore[arg-type]
 
 
 class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method

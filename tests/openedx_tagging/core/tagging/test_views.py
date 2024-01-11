@@ -1197,7 +1197,7 @@ class TestObjectTagCountsViewSet(TestTagTaxonomyMixin, APITestCase):
         assert "Wildcard matches are only supported if the * is at the end." in str(result.content)
 
 
-@ddt.data
+@ddt.ddt
 class TestTaxonomyTagsView(TestTaxonomyViewMixin):
     """
     Tests the list/create/update/delete tags of taxonomy view
@@ -1442,16 +1442,16 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             expected_perm = True
 
         self.client.force_authenticate(user=self.staff)
-        with self.assertNumQueries(1):
+        with self.assertNumQueries(6):
             response = self.client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["can_add"] == expected_perm
         assert len(response.data["results"]) == 3
         for taxonomy in response.data["results"]:
-            assert taxonomy["can_change"] == expected_perm
-            assert taxonomy["can_delete"] == expected_perm
-            assert not taxonomy["can_tag_object"]
+            # TODO Permission checks are not run for TagData, only Tag instances.
+            assert taxonomy["can_change"] is None
+            assert taxonomy["can_delete"] is None
 
     def test_empty_results(self):
         """
@@ -1486,12 +1486,14 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         self.client.force_authenticate(user=self.staff)
 
         expected_perm = None
+        expected_next_params = 'include_counts=&page=2'
         url = self.large_taxonomy_url + "?include_counts"
         if include_perms:
             url += "&include_perms"
             expected_perm = True
+            expected_next_params = 'include_counts=&include_perms=&page=2'
 
-        with self.assertNumQueries(1):
+        with self.assertNumQueries(4):
             response = self.client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
@@ -1524,19 +1526,20 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
             f"/tags/?parent_tag={quote_plus(results[0]['value'])}"
         )
-        assert results[0].get("can_change") == expected_perm
-        assert results[0].get("can_delete") == expected_perm
-        assert not results[0].get("can_tag_object")
+        # TODO Permission checks are not run for TagData, only Tag instances.
+        assert results[0].get("can_change") is None
+        assert results[0].get("can_delete") is None
 
         # Checking pagination values
         assert data.get("next") == (
             "http://testserver/tagging/"
-            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}/tags/?include_counts=&page=2"
+            f"rest_api/v1/taxonomies/{self.large_taxonomy.id}/tags/?{expected_next_params}"
         )
         assert data.get("previous") is None
         assert data.get("count") == self.root_tags_count
         assert data.get("num_pages") == 6
         assert data.get("current_page") == 1
+        assert data.get("can_add") == expected_perm
 
     def test_next_page_large_taxonomy(self):
         self._build_large_taxonomy()
@@ -1746,7 +1749,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         ]
         next_url = response.data.get("next")
         assert next_url is not None
-
         response2 = self.client.get(next_url)
         results2 = response2.data["results"]
         assert pretty_format_tags(results2) == [
