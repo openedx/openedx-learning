@@ -137,10 +137,13 @@ class ObjectTagSerializer(ObjectTagMinimalSerializer):
         ]
 
 
-class ObjectTagsByTaxonomySerializer(serializers.ModelSerializer):
+class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerializer):
     """
     Serialize a group of ObjectTags, grouped by taxonomy
     """
+    class Meta:
+        model = ObjectTag
+
     def to_representation(self, instance: list[ObjectTag]) -> dict:
         """
         Convert this list of ObjectTags to the serialized dictionary, grouped by Taxonomy
@@ -157,6 +160,7 @@ class ObjectTagsByTaxonomySerializer(serializers.ModelSerializer):
                 tax_entry = {
                     "name": obj_tag.name,
                     "taxonomy_id": obj_tag.taxonomy_id,
+                    "can_tag_object": self._can('add', obj_tag),
                     "tags": []
                 }
                 taxonomies.append(tax_entry)

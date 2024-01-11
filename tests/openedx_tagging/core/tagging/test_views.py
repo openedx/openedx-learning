@@ -696,6 +696,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                         {
                             "name": "Life on Earth",
                             "taxonomy_id": 1,
+                            "can_tag_object": True,
                             "tags": [
                                 # Note: based on tree order (Animalia before Fungi), this tag comes first even though it
                                 # starts with "M" and Fungi starts with "F"
@@ -716,6 +717,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                         {
                             "name": "User Authors",
                             "taxonomy_id": 3,
+                            "can_tag_object": True,
                             "tags": [
                                 {
                                     "value": "test_user_1",
@@ -863,6 +865,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                         {
                             "name": "User Authors",
                             "taxonomy_id": 3,
+                            "can_tag_object": None,
                             "tags": [
                                 {
                                     "value": "test_user_1",
