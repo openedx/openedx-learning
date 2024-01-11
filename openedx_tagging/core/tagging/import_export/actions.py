@@ -273,8 +273,8 @@ class UpdateParentTag(ImportAction):
         taxonomy_tag = self._get_tag()
 
         description_str = _("Update the parent of {tag} from parent {old_parent} to {new_parent}").format(
-            tag=taxonomy_tag,
-            old_parent=taxonomy_tag.parent,
+            tag=taxonomy_tag.display_str(),
+            old_parent=taxonomy_tag.parent.display_str() if taxonomy_tag.parent else None,
             new_parent=self.tag.parent_id,
         )
 
@@ -336,7 +336,7 @@ class RenameTag(ImportAction):
     def __str__(self) -> str:
         taxonomy_tag = self._get_tag()
         description_str = _("Rename tag value of {tag} to '{new_value}'").format(
-            tag=taxonomy_tag,
+            tag=taxonomy_tag.display_str(),
             new_value=self.tag.value,
         )
 
@@ -385,9 +385,7 @@ class DeleteTag(ImportAction):
     """
 
     def __str__(self) -> str:
-        if self.tag.id:
-            return str(_("Delete tag (external_id={external_id})").format(external_id=self.tag.id))
-        return str(_("Delete tag (value={value})").format(value=self.tag.value))
+        return str(_("Delete tag {tag}").format(tag=self.tag))
 
     name = "delete"
 

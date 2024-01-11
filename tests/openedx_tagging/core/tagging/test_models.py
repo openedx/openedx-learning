@@ -178,7 +178,7 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
             == repr(self.language_taxonomy)
             == "<LanguageTaxonomy> (-1) Languages"
         )
-        assert str(self.bacteria) == repr(self.bacteria) == "<Tag> (1 / Bacteria)"
+        assert str(self.bacteria) == repr(self.bacteria) == "<Tag> (1) Bacteria"
 
     def test_taxonomy_cast(self):
         for subclass in (
