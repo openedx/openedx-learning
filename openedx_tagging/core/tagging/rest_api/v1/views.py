@@ -366,8 +366,6 @@ class ObjectTagView(
 
     **Retrieve Parameters**
         * object_id (required): - The Object ID to retrieve ObjectTags for.
-
-    **Retrieve Query Parameters**
         * taxonomy (optional) - PK of taxonomy to filter ObjectTags for.
 
     **Retrieve Example Requests**
@@ -378,6 +376,28 @@ class ObjectTagView(
         * 200 - Success
         * 400 - Invalid query parameter
         * 403 - Permission denied
+
+        Response:
+          {
+            ${object_id}: {
+              taxonomies: [
+                {
+                  taxonomy_id: str,
+                  can_tag_object: bool,
+                  tags: [
+                    {
+                      value: str,
+                      lineage: list[str],
+                      can_change: bool, // TODO: when/will free text tags are editable
+                      can_delete: bool,
+                    },
+                  ]
+                },
+                ...
+              ],
+            },
+            ...
+          }
 
     **Update Parameters**
         * object_id (required): - The Object ID to add ObjectTags for.
@@ -587,6 +607,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
           Using full_depth_threshold=1000 is recommended in general, but use lower values during development to ensure
           compatibility with both large and small result sizes.
         * include_counts (optional) - Include the count of how many times each tag has been used.
+        * include_perms (optional) - Run permission checks (can_change, can_delete) and include in response.
         * page (optional) - Page number (default: 1)
         * page_size (optional) - Number of items per page (default: 30). Ignored when there are fewer tags than
           specified by ?full_depth_threshold.
@@ -600,6 +621,24 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         * 400 - Invalid query parameter
         * 403 - Permission denied
         * 404 - Taxonomy not found
+
+        Response:
+
+          [
+            {
+              value: str,
+              external_id: str,
+              child_count: int,
+              depth: int,
+              parent_value: str,
+              usage_count: int,
+              _id: int,
+              sub_tags_url: str,
+              can_change: bool|null,
+              can_delete: bool|null,
+            },
+            ...
+          ],
 
     **Create Query Parameters**
         * id (required) - The ID of the taxonomy to create a Tag for

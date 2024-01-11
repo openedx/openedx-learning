@@ -1,7 +1,7 @@
 """
 Utilities for the API
 """
-from typing import Type
+from typing import Optional, Type
 
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication  # type: ignore[import]
 from edx_rest_framework_extensions.auth.session.authentication import (  # type: ignore[import]
@@ -45,13 +45,31 @@ class UserPermissionsHelper:
         """
         raise NotImplementedError  # pragma: no cover
 
-    def _can(self, action: str, instance=None) -> bool:
+    @property
+    def _include_perms(self) -> bool:
         """
-        Returns True if the current `request.user` may perform the given `action` on the `instance` object.
+        Are permission checks requested?
+
+        Returns True if ?include_perms found in the query string
+        Returns False by default.
         """
-        assert action in ("add", "view", "change", "delete")
+        return 'include_perms' in self._request.query_params
+
+    def _can(self, action: str, instance=None) -> Optional[bool]:
+        """
+        Can the current `request.user` perform the given `action` on the `instance` object?
+
+        Returns None if no permissions were requested.
+        Returns True if they may.
+        Returns False if they may not.
+        """
         request = self._request
         assert request and request.user
+        if not self._include_perms:
+            return None
+
+        assert action in ("add", "view", "change", "delete")
+
         model = self._model
         assert model
 
@@ -60,7 +78,7 @@ class UserPermissionsHelper:
         perm_name = f'{app_label}.{action}_{model_name}'
         return request.user.has_perm(perm_name, instance)
 
-    def get_can_add(self, _instance=None) -> bool:
+    def get_can_add(self, _instance=None) -> Optional[bool]:
         """
         Returns True if the current user is allowed to add new instances.
 
@@ -68,19 +86,19 @@ class UserPermissionsHelper:
         """
         return self._can('add')
 
-    def get_can_view(self, instance) -> bool:
+    def get_can_view(self, instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to view/see this instance.
         """
         return self._can('view', instance)
 
-    def get_can_change(self, instance) -> bool:
+    def get_can_change(self, instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to edit/change this instance.
         """
         return self._can('change', instance)
 
-    def get_can_delete(self, instance) -> bool:
+    def get_can_delete(self, instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to delete this instance.
         """

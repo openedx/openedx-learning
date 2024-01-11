@@ -3,7 +3,7 @@ API Serializers for taxonomies
 """
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any, Optional, Type
 from urllib.parse import urlencode
 
 from rest_framework import serializers
@@ -47,6 +47,8 @@ class UserPermissionsSerializerMixin(UserPermissionsHelper):
     Notes:
     * Assumes the serialized model should be used to check permissions (override _model to change).
     * Requires the current request to be passed into the serializer context (override _request to change).
+    * Requires '?include_perms` in the request, otherwise no permission checks are run, and
+      the `can_<action>` fields return None.
     """
     @property
     def _model(self) -> Type:
@@ -235,7 +237,7 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
         """
         return Tag
 
-    def get_can_change(self, instance) -> bool:
+    def get_can_change(self, instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to edit/change this Tag instance.
 
@@ -243,9 +245,9 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
         """
         if isinstance(instance, Tag):
             return super()._can('change', instance)
-        return False
+        return None
 
-    def get_can_delete(self, instance) -> bool:
+    def get_can_delete(self, instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to delete this Tag instance.
 
@@ -253,7 +255,7 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
         """
         if isinstance(instance, Tag):
             return super()._can('delete', instance)
-        return False
+        return None
 
     def to_representation(self, instance: TagData | Tag) -> dict:
         """

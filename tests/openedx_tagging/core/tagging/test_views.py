@@ -53,8 +53,8 @@ def check_taxonomy(
     allow_free_text=False,
     system_defined=False,
     visible_to_authors=True,
-    can_change=False,
-    can_delete=False,
+    can_change=None,
+    can_delete=None,
 ):
     """
     Check taxonomy data
@@ -145,7 +145,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             )
             tag.save()
 
-        url = TAXONOMY_LIST_URL
+        url = TAXONOMY_LIST_URL + '?include_perms'
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -209,8 +209,6 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         next_page = parse_qs(parsed_url.query).get("page", [""])[0]
         assert next_page == "3"
 
-        assert response.data.get("can_add")
-
     @ddt.data(
         ('user', False),
         ('staff', True),
@@ -222,7 +220,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         if language_taxonomy:
             language_taxonomy.delete()
 
-        url = TAXONOMY_LIST_URL
+        url = TAXONOMY_LIST_URL + '?include_perms'
         user = getattr(self, user_attr)
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format="json")
@@ -238,6 +236,33 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             "results": [],
             "can_add": expected_can_add,
         }
+
+    @ddt.data(
+        True, False
+    )
+    def test_list_taxonomy_query_count(self, include_perms):
+        """
+        Test how many queries are used when retrieving taxonomies and permissions
+        """
+        api.create_taxonomy(name="T1", enabled=True)
+        api.create_taxonomy(name="T2", enabled=True)
+
+        expected_perm = None
+        url = TAXONOMY_LIST_URL
+        if include_perms:
+            url += '?include_perms'
+            expected_perm = False
+
+        self.client.force_authenticate(user=self.user)
+        with self.assertNumQueries(5):
+            response = self.client.get(url)
+
+        assert response.status_code == 200
+        assert response.data["can_add"] == expected_perm
+        assert len(response.data["results"]) == 3
+        for taxonomy in response.data["results"]:
+            assert taxonomy["can_change"] == expected_perm
+            assert taxonomy["can_delete"] == expected_perm
 
     def test_list_invalid_page(self) -> None:
         url = TAXONOMY_LIST_URL
@@ -266,10 +291,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             description="Languages that are enabled on this system.",
             allow_multiple=False,  # We may change this in the future to allow multiple language tags
             system_defined=True,
-            can_change=False,
-            can_delete=False,
         )
-        assert not response.data.get("can_add")
 
     @ddt.data(
         (None, {"enabled": True}, status.HTTP_401_UNAUTHORIZED),
@@ -285,7 +307,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     ):
         create_data = {"name": "taxonomy detail test", **taxonomy_data}
         taxonomy = api.create_taxonomy(**create_data)  # type: ignore[arg-type]
-        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
+        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk) + '?include_perms'
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -346,14 +368,11 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         # If we were able to create the taxonomy, check if it was created
         if status.is_success(expected_status):
-            expected_data = create_data
-            expected_data["can_change"] = True
-            expected_data["can_delete"] = True
-            check_taxonomy(response.data, response.data["id"], **expected_data)
+            check_taxonomy(response.data, response.data["id"], **create_data)
             url = TAXONOMY_DETAIL_URL.format(pk=response.data["id"])
 
             response = self.client.get(url)
-            check_taxonomy(response.data, response.data["id"], **expected_data)
+            check_taxonomy(response.data, response.data["id"], **create_data)
 
     @ddt.data(
         {},
@@ -402,7 +421,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         # If we were able to update the taxonomy, check if the name changed
         if status.is_success(expected_status):
-            response = self.client.get(url)
+            response = self.client.get(url + '?include_perms')
             check_taxonomy(
                 response.data,
                 response.data["id"],
@@ -461,7 +480,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         # If we were able to update the taxonomy, check if the name changed
         if status.is_success(expected_status):
-            response = self.client.get(url)
+            response = self.client.get(url + '?include_perms')
             check_taxonomy(
                 response.data,
                 response.data["id"],
@@ -677,7 +696,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
         api.tag_object(object_id=object_id, taxonomy=self.user_taxonomy, tags=[self.user_1.username])
 
-        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id) + '?include_perms'
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -731,7 +750,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                 },
             }
 
-    def prepare_for_sort_test(self) -> tuple[str, list[dict]]:
+    def prepare_for_sort_test(self, expected_perm=None) -> tuple[str, list[dict]]:
         """
         Tag an object with tags from the "sort test" taxonomy
         """
@@ -749,14 +768,15 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             "1111-grandchild",
         ]
 
-        shared_props = {
-            "can_change": True,
-            "can_delete": True,
-        }
-
         # Apply the object tags:
         taxonomy = self.create_sort_test_taxonomy()
         api.tag_object(object_id=object_id, taxonomy=taxonomy, tags=sort_test_tags)
+
+        # Properties shared by all returned object tags
+        shared_props = {
+            "can_change": expected_perm,
+            "can_delete": expected_perm,
+        }
 
         # The result we expect to see when retrieving the object tags, after applying the list above.
         # Note: the full taxonomy looks like the following, so this is the order we
@@ -806,18 +826,26 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         assert response.data[object_id]["taxonomies"][0]["name"] == "Sort Test"
         assert response.data[object_id]["taxonomies"][0]["tags"] == sort_test_applied_result
 
-    def test_retrieve_object_tags_query_count(self):
+    @ddt.data(
+        True, False
+    )
+    def test_retrieve_object_tags_query_count(self, include_perms):
         """
-        Test how many queries are used when retrieving object tags
+        Test how many queries are used when retrieving object tags and permissions
         """
-        object_id, sort_test_applied_result = self.prepare_for_sort_test()
-
+        expected_perm = True if include_perms else None
+        object_id, sort_test_applied_result = self.prepare_for_sort_test(expected_perm)
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+        if include_perms:
+            url += '?include_perms'
+
         self.client.force_authenticate(user=self.user_1)
         with self.assertNumQueries(1):
             response = self.client.get(url)
 
         assert response.status_code == 200
+        assert len(response.data[object_id]["taxonomies"]) == 1
+        assert response.data[object_id]["taxonomies"][0]["can_tag_object"] == expected_perm
         assert response.data[object_id]["taxonomies"][0]["tags"] == sort_test_applied_result
 
     def test_retrieve_object_tags_unauthorized(self):
@@ -870,8 +898,8 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
-                                    "can_change": True,
-                                    "can_delete": True,
+                                    "can_change": None,
+                                    "can_delete": None,
                                 },
                             ],
                         }
@@ -1161,6 +1189,7 @@ class TestObjectTagCountsViewSet(TestTagTaxonomyMixin, APITestCase):
         assert "Wildcard matches are only supported if the * is at the end." in str(result.content)
 
 
+@ddt.data
 class TestTaxonomyTagsView(TestTaxonomyViewMixin):
     """
     Tests the list/create/update/delete tags of taxonomy view
@@ -1229,7 +1258,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         Test explicitly requesting only the root tags of a small taxonomy.
         """
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(self.small_taxonomy_url + "?include_counts")
+        response = self.client.get(self.small_taxonomy_url + "?include_counts&include_perms")
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
@@ -1301,7 +1330,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == len(results)
         assert data.get("num_pages") == 1
         assert data.get("current_page") == 1
-        assert data.get("can_add")
 
     def test_small_taxonomy_paged(self):
         """
@@ -1323,7 +1351,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == 3
         assert data.get("num_pages") == 2
         assert data.get("current_page") == 1
-        assert data.get("can_add")
 
         # Get the next page:
         next_response = self.client.get(data.get("next"))
@@ -1333,7 +1360,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "Eukaryota (None) (children: 5)",
         ]
         assert next_data.get("current_page") == 2
-        assert next_data.get("can_add")
 
     def test_small_search(self):
         """
@@ -1360,7 +1386,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == 5
         assert data.get("num_pages") == 1
         assert data.get("current_page") == 1
-        assert data.get("can_add")
 
     def test_small_search_shallow(self):
         """
@@ -1385,7 +1410,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == 3
         assert data.get("num_pages") == 1
         assert data.get("current_page") == 1
-        assert data.get("can_add")
 
         # And we can load the sub_tags_url to "drill down" into the search:
         sub_tags_response = self.client.get(data["results"][0]["sub_tags_url"])
@@ -1395,6 +1419,30 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             # This tag maches our search results and is a child of the previously returned Archaea tag:
             "  Euryarchaeida (children: 0)",
         ]
+
+    @ddt.data(
+        True, False
+    )
+    def test_small_query_count(self, include_perms):
+        """
+        Test how many queries are used when retrieving small taxonomies+tags and permissions
+        """
+        expected_perm = None
+        url = f"{self.small_taxonomy_url}?search_term=eU"
+        if include_perms:
+            url += '?include_perms'
+            expected_perm = True
+
+        self.client.force_authenticate(user=self.staff)
+        with self.assertNumQueries(1):
+            response = self.client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["can_add"] == expected_perm
+        assert len(response.data["results"]) == 3
+        for taxonomy in response.data["results"]:
+            assert taxonomy["can_change"] == expected_perm
+            assert taxonomy["can_delete"] == expected_perm
 
     def test_empty_results(self):
         """
@@ -1407,7 +1455,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             assert response.status_code == status.HTTP_200_OK
             assert response.data["results"] == []
             assert response.data["count"] == 0
-            assert response.data.get("can_add")
 
         # Search terms that won't match any tags:
         assert_empty(f"{self.small_taxonomy_url}?search_term=foobar")
@@ -1419,13 +1466,25 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert_empty(f"{self.small_taxonomy_url}?search_term=eu&parent_tag=Euryarchaeida")
         assert_empty(f"{self.small_taxonomy_url}?search_term=eu&parent_tag=Euryarchaeida&full_depth_threshold=1000")
 
-    def test_large_taxonomy(self):
+    @ddt.data(
+        True, False,
+    )
+    def test_large_taxonomy(self, include_perms):
         """
         Test listing the tags in a large taxonomy (~7,000 tags).
         """
         self._build_large_taxonomy()
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(self.large_taxonomy_url + "?include_counts")
+
+        expected_perm = None
+        url = self.large_taxonomy_url + "?include_counts"
+        if include_perms:
+            url += "&include_perms"
+            expected_perm = True
+
+        with self.assertNumQueries(1):
+            response = self.client.get(url)
+
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
@@ -1456,6 +1515,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
             f"/tags/?parent_tag={quote_plus(results[0]['value'])}"
         )
+        assert results[0].get("can_change") == expected_perm
+        assert results[0].get("can_delete") == expected_perm
 
         # Checking pagination values
         assert data.get("next") == (
@@ -1466,7 +1527,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == self.root_tags_count
         assert data.get("num_pages") == 6
         assert data.get("current_page") == 1
-        assert data.get("can_add")
 
     def test_next_page_large_taxonomy(self):
         self._build_large_taxonomy()
@@ -1493,7 +1553,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == self.root_tags_count
         assert data.get("num_pages") == 6
         assert data.get("current_page") == 2
-        assert data.get("can_add")
 
     def test_large_search(self):
         """
@@ -1539,7 +1598,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert len(results) == expected_num_results
         assert data.get("num_pages") == 1
         assert data.get("current_page") == 1
-        assert data.get("can_add")
 
         # Now, perform the search with full_depth_threshold=100, which will give us paginated results, since there are
         # more than 100 matches:
@@ -1564,7 +1622,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data2.get("count") == 51
         assert data2.get("num_pages") == 6
         assert data2.get("current_page") == 1
-        assert data2.get("can_add")
 
         # Now load the results that are in the subtree of the root tag 'Tag 0'
         tag_0_subtags_url = results2[0]["sub_tags_url"]
@@ -1587,7 +1644,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "  Tag 118 (Tag 0) (children: 1)",
             "    Tag 119 (Tag 118) (children: 0)",
         ]
-        assert data2.get("can_add")
 
     def test_get_children(self):
         self._build_large_taxonomy()
@@ -1628,7 +1684,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == self.children_tags_count[0]
         assert data.get("num_pages") == 2
         assert data.get("current_page") == 1
-        assert data.get("can_add")
 
     def test_get_leaves(self):
         """
@@ -1656,7 +1711,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "    Porifera (Animalia) (children: 0)",
         ]
         assert response.data.get("next") is None
-        assert response.data.get("can_add")
 
     def test_get_leaves_paginated(self):
         """
@@ -1682,7 +1736,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         ]
         next_url = response.data.get("next")
         assert next_url is not None
-        assert response.data.get("can_add")
 
         response2 = self.client.get(next_url)
         results2 = response2.data["results"]
@@ -1690,7 +1743,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "    Placozoa (Animalia) (children: 0)",
             "    Porifera (Animalia) (children: 0)",
         ]
-        assert response2.data.get("can_add")
 
     def test_next_children(self):
         self._build_large_taxonomy()
@@ -1725,7 +1777,6 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == self.children_tags_count[0]
         assert data.get("num_pages") == 2
         assert data.get("current_page") == 2
-        assert data.get("can_add")
 
     def test_create_tag_in_taxonomy_while_loggedout(self):
         new_tag_value = "New Tag"
