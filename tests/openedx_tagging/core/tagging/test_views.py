@@ -55,6 +55,7 @@ def check_taxonomy(
     visible_to_authors=True,
     can_change=None,
     can_delete=None,
+    can_tag_object=None,
 ):
     """
     Check taxonomy data
@@ -69,6 +70,7 @@ def check_taxonomy(
     assert data["visible_to_authors"] == visible_to_authors
     assert data["can_change"] == can_change
     assert data["can_delete"] == can_delete
+    assert data["can_tag_object"] == can_tag_object
 
 
 class TestTaxonomyViewMixin(APITestCase):
@@ -170,6 +172,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     # System taxonomy cannot be modified
                     "can_change": False,
                     "can_delete": False,
+                    "can_tag_object": False,
                 },
                 {
                     "id": taxonomy.id,
@@ -184,6 +187,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     # Enabled taxonomy can be modified by staff
                     "can_change": is_admin,
                     "can_delete": is_admin,
+                    "can_tag_object": False,
                 },
             ]
             assert response.data.get("can_add") == is_admin
@@ -263,6 +267,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         for taxonomy in response.data["results"]:
             assert taxonomy["can_change"] == expected_perm
             assert taxonomy["can_delete"] == expected_perm
+            assert taxonomy["can_tag_object"] == expected_perm
 
     def test_list_invalid_page(self) -> None:
         url = TAXONOMY_LIST_URL
@@ -320,6 +325,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             expected_data = create_data
             expected_data["can_change"] = is_admin
             expected_data["can_delete"] = is_admin
+            expected_data["can_tag_object"] = False
             check_taxonomy(response.data, taxonomy.pk, **expected_data)
 
     def test_detail_system_taxonomy(self):
@@ -431,6 +437,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "enabled": True,
                     "can_change": True,
                     "can_delete": True,
+                    "can_tag_object": False,
                 },
             )
 
@@ -489,6 +496,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "enabled": True,
                     "can_change": True,
                     "can_delete": True,
+                    "can_tag_object": False,
                 },
             )
 
@@ -1430,7 +1438,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         expected_perm = None
         url = f"{self.small_taxonomy_url}?search_term=eU"
         if include_perms:
-            url += '?include_perms'
+            url += '&include_perms'
             expected_perm = True
 
         self.client.force_authenticate(user=self.staff)
@@ -1443,6 +1451,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         for taxonomy in response.data["results"]:
             assert taxonomy["can_change"] == expected_perm
             assert taxonomy["can_delete"] == expected_perm
+            assert not taxonomy["can_tag_object"]
 
     def test_empty_results(self):
         """
@@ -1517,6 +1526,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         )
         assert results[0].get("can_change") == expected_perm
         assert results[0].get("can_delete") == expected_perm
+        assert not results[0].get("can_tag_object")
 
         # Checking pagination values
         assert data.get("next") == (

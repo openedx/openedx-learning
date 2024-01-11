@@ -13,6 +13,7 @@ from rest_framework.reverse import reverse
 from openedx_tagging.core.tagging.data import TagData
 from openedx_tagging.core.tagging.import_export.parsers import ParserFormat
 from openedx_tagging.core.tagging.models import ObjectTag, Tag, TagImportTask, Taxonomy
+from openedx_tagging.core.tagging.rules import ObjectTagPermissionItem
 
 from ..utils import UserPermissionsHelper
 
@@ -72,6 +73,7 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
     tags_count = serializers.SerializerMethodField()
     can_change = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
+    can_tag_object = serializers.SerializerMethodField()
 
     class Meta:
         model = Taxonomy
@@ -87,6 +89,7 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
             "tags_count",
             "can_change",
             "can_delete",
+            "can_tag_object",
         ]
 
     def to_representation(self, instance):
@@ -98,6 +101,23 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
 
     def get_tags_count(self, instance):
         return instance.tag_set.count()
+
+    def get_can_tag_object(self, instance) -> Optional[bool]:
+        """
+        Returns True if the current request user may create object tags on this taxonomy.
+
+        (The object_id test is necessarily skipped because we don't have an object_id to check.)
+        """
+        request = self._request
+        assert request and request.user
+        if not self._include_perms:
+            return None
+
+        model = self._model
+        app_label = model._meta.app_label
+        perm_name = f'{app_label}.add_objecttag'
+        perm_object = ObjectTagPermissionItem(taxonomy=instance, object_id=None)
+        return request.user.has_perm(perm_name, perm_object)
 
 
 class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
