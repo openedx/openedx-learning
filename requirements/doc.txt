@@ -82,7 +82,7 @@ cryptography==41.0.7
     # via
     #   -r requirements/test.txt
     #   pyjwt
-ddt==1.7.0
+ddt==1.7.1
     # via -r requirements/test.txt
 django==3.2.23
     # via
@@ -142,7 +142,7 @@ edx-django-utils==5.9.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==9.0.1
+edx-drf-extensions==9.1.1
     # via -r requirements/test.txt
 edx-opaque-keys==2.5.1
     # via
@@ -357,7 +357,7 @@ types-pyyaml==6.0.12.12
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.20231231
+types-requests==2.31.0.20240106
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
@@ -390,7 +390,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.12
+wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit

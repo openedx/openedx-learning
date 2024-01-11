@@ -57,7 +57,7 @@ class TagImportPlan:
         for action in available_actions:
             self.indexed_actions[action.name] = []
 
-    def _build_action(self, action_cls, tag: TagItem):
+    def _build_action(self, action_cls: type[ImportAction], tag: TagItem):
         """
         Build an action with `tag`.
 
@@ -159,6 +159,13 @@ class TagImportPlan:
                 self._get_tag_id(tag): tag for tag in self.taxonomy.tag_set.all()
             }
 
+            for tag in tags:
+                if tag.id in tags_for_delete:
+                    tags_for_delete.pop(tag.id)
+
+            # Delete all not readed tags
+            self._build_delete_actions(tags_for_delete)
+
         for tag in tags:
             has_action = False
 
@@ -171,13 +178,6 @@ class TagImportPlan:
             if not has_action:
                 # If it doesn't find an action, a "without changes" is added
                 self._build_action(WithoutChanges, tag)
-
-            if replace and tag.id in tags_for_delete:
-                tags_for_delete.pop(tag.id)
-
-        if replace:
-            # Delete all not readed tags
-            self._build_delete_actions(tags_for_delete)
 
     def plan(self) -> str:
         """
