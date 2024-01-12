@@ -2463,7 +2463,6 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
             + "#4: Create a new tag with values (external_id=tag_2, value=Tag 2, parent_id=None).\n" \
             + "#5: Create a new tag with values (external_id=tag_3, value=Tag 3, parent_id=None).\n" \
             + "#6: Create a new tag with values (external_id=tag_4, value=Tag 4, parent_id=None).\n"
-        print(response.data["plan"])
         assert response.data["plan"] == expected_plan
 
         self._check_taxonomy_not_changed()

@@ -336,7 +336,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         tags = [TagItem(**tag) for tag in tags]
         self.import_plan.generate_actions(tags=tags, replace=replace)
         plan = self.import_plan.plan()
-        print(plan)
         assert plan == expected
 
     @ddt.data(
