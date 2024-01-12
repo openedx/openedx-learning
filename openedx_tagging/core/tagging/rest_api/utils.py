@@ -32,6 +32,13 @@ class UserPermissionsHelper:
     Provides helper methods for serializing user permissions.
     """
     @property
+    def _request(self) -> Request:
+        """
+        Returns the current request.
+        """
+        raise NotImplementedError  # pragma: no cover
+
+    @property
     def _model(self) -> Type:
         """
         Returns the model used when checking permissions.
@@ -39,11 +46,18 @@ class UserPermissionsHelper:
         raise NotImplementedError  # pragma: no cover
 
     @property
-    def _request(self) -> Request:
+    def app_label(self) -> Type:
         """
-        Returns the current request.
+        Returns the app_label for the model used when checking permissions.
         """
-        raise NotImplementedError  # pragma: no cover
+        return self._model._meta.app_label
+
+    @property
+    def model_name(self) -> Type:
+        """
+        Returns the name of the model used when checking permissions.
+        """
+        return self._model._meta.model_name
 
     @property
     def _include_perms(self) -> bool:
@@ -70,12 +84,7 @@ class UserPermissionsHelper:
 
         assert action in ("add", "view", "change", "delete")
 
-        model = self._model
-        assert model
-
-        app_label = model._meta.app_label
-        model_name = model._meta.model_name
-        perm_name = f'{app_label}.{action}_{model_name}'
+        perm_name = f'{self.app_label}.{action}_{self.model_name}'
         return request.user.has_perm(perm_name, instance)
 
     def get_can_add(self, _instance=None) -> Optional[bool]:

@@ -17,12 +17,10 @@ MAX_FULL_DEPTH_THRESHOLD = 10_000
 
 class CanAddPermissionMixin(UserPermissionsHelper):  # pylint: disable=abstract-method
     """
-    This mixin inserts a boolean "can_add" field at the top level of the paginated response.
+    This mixin inserts a boolean "can_add_<model>" field at the top level of the paginated response.
 
     The value of the field indicates whether request user may create new instances of the current model.
     """
-    field_name = 'can_add'
-
     @property
     def _request(self) -> Request:
         """
@@ -35,7 +33,8 @@ class CanAddPermissionMixin(UserPermissionsHelper):  # pylint: disable=abstract-
         Injects the user's model-level permissions into the paginated response.
         """
         response_data = super().get_paginated_response(data).data  # type: ignore[misc]
-        response_data[self.field_name] = self.get_can_add()
+        field_name = f"can_add_{self.model_name}"
+        response_data[field_name] = self.get_can_add()
         return Response(response_data)
 
 

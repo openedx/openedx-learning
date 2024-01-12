@@ -28,7 +28,7 @@ from ...api import (
 from ...data import TagDataQuerySet
 from ...import_export.api import export_tags, import_tags
 from ...import_export.parsers import ParserFormat
-from ...models import Taxonomy
+from ...models import Tag, Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import MAX_FULL_DEPTH_THRESHOLD, DisabledTagsPagination, TagsPagination, TaxonomyPagination
 from ..utils import view_auth_classes
@@ -388,8 +388,7 @@ class ObjectTagView(
                     {
                       value: str,
                       lineage: list[str],
-                      can_change: bool, // TODO: when/will free text tags are editable
-                      can_delete: bool,
+                      can_delete_objecttag: bool,
                     },
                   ]
                 },
@@ -607,7 +606,8 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
           Using full_depth_threshold=1000 is recommended in general, but use lower values during development to ensure
           compatibility with both large and small result sizes.
         * include_counts (optional) - Include the count of how many times each tag has been used.
-        * include_perms (optional) - Run permission checks (can_change, can_delete) and include in response.
+        * include_perms (optional) - Include permission checks in response.
+          If omitted, permission fields (can_add_tag, can_change_tag, can_delete_tag) will be None.
         * page (optional) - Page number (default: 1)
         * page_size (optional) - Number of items per page (default: 30). Ignored when there are fewer tags than
           specified by ?full_depth_threshold.
@@ -624,7 +624,8 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
 
         Response:
 
-          [
+          can_add_tag: bool,
+          results: [
             {
               value: str,
               external_id: str,
@@ -634,8 +635,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
               usage_count: int,
               _id: int,
               sub_tags_url: str,
-              can_change: bool|null,
-              can_delete: bool|null,
+              can_delete_tag: bool|null,
             },
             ...
           ],
@@ -713,21 +713,45 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
     pagination_class = TagsPagination
     serializer_class = TagDataSerializer
 
-    def get_taxonomy(self, pk: int) -> Taxonomy:
+    def __init__(self, *args, **kwargs):
+        """
+        Initializes the local variables.
+        """
+        super().__init__(*args, **kwargs)
+        self._taxonomy = None
+
+    def get_taxonomy(self) -> Taxonomy:
         """
         Get the taxonomy from `pk` or raise 404.
+
+        The current taxonomy is cached in the view.
         """
-        taxonomy = get_taxonomy(pk)
-        if not taxonomy:
-            raise Http404("Taxonomy not found")
-        self.check_object_permissions(self.request, taxonomy)
-        return taxonomy
+        if not self._taxonomy:
+            taxonomy_id = int(self.kwargs["pk"])
+            taxonomy = get_taxonomy(taxonomy_id)
+            if not taxonomy:
+                raise Http404("Taxonomy not found")
+            self.check_object_permissions(self.request, taxonomy)
+            self._taxonomy = taxonomy
+        return self._taxonomy
 
     def get_serializer_context(self):
+        """
+        Passes data from the view to the serializer.
+        """
+        # Use our serializer to check permissions if requested -- requires a request in the context.
         context = super().get_serializer_context()
+        context['request'] = self.request
+        serializer = self.serializer_class(self, context=context)
+
+        # Instead of checking permissions for each TagData instance, we just check them once for the whole taxonomy
+        # (since that's currently how our rules work). This might change if Tag-specific permissions are needed.
+        taxonomy = self.get_taxonomy()
+        dummy_tag = Tag(taxonomy=taxonomy)
         context.update({
-            "request": self.request,
-            "taxonomy_id": int(self.kwargs["pk"]),
+            "taxonomy_id": taxonomy.id,
+            "can_change_tag": serializer.get_can_change(dummy_tag),
+            "can_delete_tag": serializer.get_can_delete(dummy_tag),
         })
         return context
 
@@ -735,8 +759,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         """
         Builds and returns the queryset to be paginated.
         """
-        taxonomy_id = int(self.kwargs.get("pk"))
-        taxonomy = self.get_taxonomy(taxonomy_id)
+        taxonomy = self.get_taxonomy()
         parent_tag_value = self.request.query_params.get("parent_tag", None)
         include_counts = "include_counts" in self.request.query_params
         search_term = self.request.query_params.get("search_term", None)
@@ -779,8 +802,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         """
         Creates new Tag in Taxonomy and returns the newly created Tag.
         """
-        pk = self.kwargs.get("pk")
-        taxonomy = self.get_taxonomy(pk)
+        taxonomy = self.get_taxonomy()
 
         body = TaxonomyTagCreateBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
@@ -809,8 +831,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         Updates a Tag that belongs to the Taxonomy and returns it.
         Currently only updating the Tag value is supported.
         """
-        pk = self.kwargs.get("pk")
-        taxonomy = self.get_taxonomy(pk)
+        taxonomy = self.get_taxonomy()
 
         body = TaxonomyTagUpdateBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
@@ -837,8 +858,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         the `with_subtags` is not set to `True` it will fail, otherwise
         the sub-tags will be deleted as well.
         """
-        pk = self.kwargs.get("pk")
-        taxonomy = self.get_taxonomy(pk)
+        taxonomy = self.get_taxonomy()
 
         body = TaxonomyTagDeleteBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)

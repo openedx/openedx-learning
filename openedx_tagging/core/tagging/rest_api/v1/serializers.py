@@ -71,8 +71,8 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
     Serializer for the Taxonomy model.
     """
     tags_count = serializers.SerializerMethodField()
-    can_change = serializers.SerializerMethodField()
-    can_delete = serializers.SerializerMethodField()
+    can_change_taxonomy = serializers.SerializerMethodField(method_name='get_can_change')
+    can_delete_taxonomy = serializers.SerializerMethodField(method_name='get_can_delete')
     can_tag_object = serializers.SerializerMethodField()
 
     class Meta:
@@ -87,8 +87,8 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
             "system_defined",
             "visible_to_authors",
             "tags_count",
-            "can_change",
-            "can_delete",
+            "can_change_taxonomy",
+            "can_delete_taxonomy",
             "can_tag_object",
         ]
 
@@ -108,16 +108,11 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
 
         (The object_id test is necessarily skipped because we don't have an object_id to check.)
         """
-        request = self._request
-        assert request and request.user
-        if not self._include_perms:
+        if not (self._request and self._include_perms):
             return None
-
-        model = self._model
-        app_label = model._meta.app_label
-        perm_name = f'{app_label}.add_objecttag'
+        perm_name = f'{self.app_label}.add_objecttag'
         perm_object = ObjectTagPermissionItem(taxonomy=instance, object_id="")
-        return request.user.has_perm(perm_name, perm_object)  # type: ignore[arg-type]
+        return self._request.user.has_perm(perm_name, perm_object)  # type: ignore[arg-type]
 
 
 class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -137,11 +132,11 @@ class ObjectTagMinimalSerializer(UserPermissionsSerializerMixin, serializers.Mod
 
     class Meta:
         model = ObjectTag
-        fields = ["value", "lineage", "can_change", "can_delete"]
+        fields = ["value", "lineage", "can_change_objecttag", "can_delete_objecttag"]
 
     lineage = serializers.ListField(child=serializers.CharField(), source="get_lineage", read_only=True)
-    can_change = serializers.SerializerMethodField()
-    can_delete = serializers.SerializerMethodField()
+    can_change_objecttag = serializers.SerializerMethodField(method_name='get_can_change')
+    can_delete_objecttag = serializers.SerializerMethodField(method_name='get_can_delete')
 
 
 class ObjectTagSerializer(ObjectTagMinimalSerializer):
@@ -225,8 +220,8 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
     _id = serializers.IntegerField(allow_null=True)
 
     sub_tags_url = serializers.SerializerMethodField()
-    can_change = serializers.SerializerMethodField()
-    can_delete = serializers.SerializerMethodField()
+    can_change_tag = serializers.SerializerMethodField()
+    can_delete_tag = serializers.SerializerMethodField()
 
     def get_sub_tags_url(self, obj: TagData | Tag):
         """
@@ -257,25 +252,22 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
         """
         return Tag
 
-    def get_can_change(self, instance) -> Optional[bool]:
+    def get_can_change_tag(self, _instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to edit/change this Tag instance.
 
-        Returns False for all TagData instances.
+        Because we're serializing TagData (not Tags), the view stores these permissions in the serializer
+        context.
         """
-        if isinstance(instance, Tag):
-            return super()._can('change', instance)
-        return None
+        return self.context.get('can_change_tag')
 
-    def get_can_delete(self, instance) -> Optional[bool]:
+    def get_can_delete_tag(self, _instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to delete this Tag instance.
 
-        Returns False for all TagData instances.
+        Because we're serializing TagData (not Tags), the view stores these permissions in the serializer
         """
-        if isinstance(instance, Tag):
-            return super()._can('delete', instance)
-        return None
+        return self.context.get('can_delete_tag')
 
     def to_representation(self, instance: TagData | Tag) -> dict:
         """
