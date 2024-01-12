@@ -6,7 +6,7 @@ from __future__ import annotations
 from attrs import define
 from django.db import transaction
 
-from ..models import TagImportTask, Taxonomy
+from ..models import Tag, TagImportTask, Taxonomy
 from .actions import DeleteTag, ImportAction, UpdateParentTag, WithoutChanges, available_actions
 from .exceptions import ImportActionError
 
@@ -21,6 +21,14 @@ class TagItem:
     value: str
     index: int | None = 0
     parent_id: str | None = None
+
+    def __str__(self):
+        """
+        User-facing string representation of a Tag.
+        """
+        if self.id:
+            return f"<{self.__class__.__name__}> ({self.id} / {self.value})"
+        return f"<{self.__class__.__name__}> ({self.value})"
 
 
 class TagImportPlan:
@@ -84,6 +92,18 @@ class TagImportPlan:
 
         return False
 
+    def _get_tag_id(self, tag: Tag) -> str:
+        """
+        Get the id used on the Tag model.
+
+        By default, the external_id is used for import and export,
+        but there are cases where taxonomies are created without external_id.
+        In those cases the tag id is used
+        """
+        if tag.external_id:
+            return tag.external_id
+        return str(tag.id)
+
     def _build_delete_actions(self, tags: dict):
         """
         Adds delete actions for `tags`
@@ -91,9 +111,9 @@ class TagImportPlan:
         for tag in tags.values():
             for child in tag.children.all():
                 # Verify if there is not a parent update before
-                if not self._search_parent_update(child.external_id, tag.external_id):
+                if not self._search_parent_update(self._get_tag_id(child), self._get_tag_id(tag)):
                     # Change parent to avoid delete childs
-                    if child.external_id not in tags:
+                    if self._get_tag_id(child) not in tags:
                         # Only update parent if the child is not going to be deleted
                         self._build_action(
                             UpdateParentTag,
@@ -136,7 +156,7 @@ class TagImportPlan:
 
         if replace:
             tags_for_delete = {
-                tag.external_id: tag for tag in self.taxonomy.tag_set.all()
+                self._get_tag_id(tag): tag for tag in self.taxonomy.tag_set.all()
             }
 
             for tag in tags:

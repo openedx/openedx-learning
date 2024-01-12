@@ -283,16 +283,16 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             "tag_4",
             "tag_3",
             (
-                "Update the parent of tag (external_id=tag_4) from parent "
-                "(external_id=tag_3) to parent (external_id=tag_3)."
+                "Update the parent of <Tag> (tag_4 / Tag 4) "
+                "from parent <Tag> (tag_3 / Tag 3) to tag_3"
             )
         ),
         (
             "tag_3",
             "tag_2",
             (
-                "Update the parent of tag (external_id=tag_3) from empty parent "
-                "to parent (external_id=tag_2)."
+                "Update the parent of <Tag> (tag_3 / Tag 3) "
+                "from parent None to tag_2"
             )
         ),
     )
@@ -307,6 +307,34 @@ class TestUpdateParentTag(TestImportActionMixin, TestCase):
             taxonomy=self.taxonomy,
             tag=tag_item,
             index=100,
+        )
+        assert str(action) == expected
+
+    def test_str_no_external_id(self):
+        tag_1 = Tag(
+            value="Tag 5",
+            taxonomy=self.taxonomy,
+        )
+        tag_1.save()
+        tag_2 = Tag(
+            value="Tag 6",
+            taxonomy=self.taxonomy,
+            parent=tag_1,
+        )
+        tag_2.save()
+        tag_item = TagItem(
+            id=None,
+            value='Tag 6',
+            parent_id='tag_3',
+        )
+        action = UpdateParentTag(
+            taxonomy=self.taxonomy,
+            tag=tag_item,
+            index=100,
+        )
+        expected = (
+            "Update the parent of <Tag> (Tag 6) "
+            "from parent <Tag> (Tag 5) to tag_3"
         )
         assert str(action) == expected
 
