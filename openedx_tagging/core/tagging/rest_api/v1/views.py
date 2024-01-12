@@ -508,22 +508,24 @@ class ObjectTagView(
         taxonomy = query_params.validated_data.get("taxonomy", None)
         taxonomy = taxonomy.cast()
 
-        perm = "oel_tagging.change_objecttag"
-
         object_id = kwargs.pop('object_id')
         perm_obj = ObjectTagPermissionItem(
             taxonomy=taxonomy,
             object_id=object_id,
         )
-
-        if not request.user.has_perm(
-            perm,
-            # The obj arg expects a model, but we are passing an object
-            perm_obj,  # type: ignore[arg-type]
-        ):
-            raise PermissionDenied(
-                "You do not have permission to change object tags for this taxonomy or object_id."
-            )
+        perms = [
+            "oel_tagging.add_objecttag",
+            "oel_tagging.delete_objecttag"
+        ]
+        for perm in perms:
+            if not request.user.has_perm(
+                perm,
+                # The obj arg expects a model, but we are passing an object
+                perm_obj,  # type: ignore[arg-type]
+            ):
+                raise PermissionDenied(
+                    "You do not have permission to change object tags for this taxonomy or object_id."
+                )
 
         body = ObjectTagUpdateBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
