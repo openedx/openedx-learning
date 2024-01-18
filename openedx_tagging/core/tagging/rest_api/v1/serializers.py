@@ -108,11 +108,9 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
 
         (The object_id test is necessarily skipped because we don't have an object_id to check.)
         """
-        if not (self._request and self._include_perms):
-            return None
-        perm_name = f'{self.app_label}.add_objecttag'
+        perm_name = f'{self.app_label}.can_tag_object'
         perm_object = ObjectTagPermissionItem(taxonomy=instance, object_id="")
-        return self._request.user.has_perm(perm_name, perm_object)  # type: ignore[arg-type]
+        return self._can(perm_name, perm_object)
 
 
 class ObjectTagListQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -165,6 +163,7 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
         """
         Convert this list of ObjectTags to the serialized dictionary, grouped by Taxonomy
         """
+        can_tag_object_perm = f"{self.app_label}.can_tag_object"
         by_object: dict[str, dict[str, Any]] = {}
         for obj_tag in instance:
             if obj_tag.object_id not in by_object:
@@ -177,7 +176,7 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
                 tax_entry = {
                     "name": obj_tag.name,
                     "taxonomy_id": obj_tag.taxonomy_id,
-                    "can_tag_object": self._can('add', obj_tag),
+                    "can_tag_object": self._can(can_tag_object_perm, obj_tag),
                     "tags": []
                 }
                 taxonomies.append(tax_entry)

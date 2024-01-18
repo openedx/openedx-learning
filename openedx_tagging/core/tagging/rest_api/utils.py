@@ -69,9 +69,16 @@ class UserPermissionsHelper:
         """
         return 'include_perms' in self._request.query_params
 
-    def _can(self, action: str, instance=None) -> Optional[bool]:
+    def _get_permission_name(self, action: str) -> str:
         """
-        Can the current `request.user` perform the given `action` on the `instance` object?
+        Returns the fully-qualified permission name corresponding to the current model and `action`.
+        """
+        assert action in ("add", "view", "change", "delete")
+        return f'{self.app_label}.{action}_{self.model_name}'
+
+    def _can(self, perm_name: str, instance=None) -> Optional[bool]:
+        """
+        Does the current `request.user` have the given `perm` on the `instance` object?
 
         Returns None if no permissions were requested.
         Returns True if they may.
@@ -81,10 +88,6 @@ class UserPermissionsHelper:
         assert request and request.user
         if not self._include_perms:
             return None
-
-        assert action in ("add", "view", "change", "delete")
-
-        perm_name = f'{self.app_label}.{action}_{self.model_name}'
         return request.user.has_perm(perm_name, instance)
 
     def get_can_add(self, _instance=None) -> Optional[bool]:
@@ -93,22 +96,26 @@ class UserPermissionsHelper:
 
         Note: we omit the actual instance from the permissions check; most tagging models prefer this.
         """
-        return self._can('add')
+        perm_name = self._get_permission_name('add')
+        return self._can(perm_name)
 
     def get_can_view(self, instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to view/see this instance.
         """
-        return self._can('view', instance)
+        perm_name = self._get_permission_name('view')
+        return self._can(perm_name, instance)
 
     def get_can_change(self, instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to edit/change this instance.
         """
-        return self._can('change', instance)
+        perm_name = self._get_permission_name('change')
+        return self._can(perm_name, instance)
 
     def get_can_delete(self, instance) -> Optional[bool]:
         """
         Returns True if the current user is allowed to delete this instance.
         """
-        return self._can('delete', instance)
+        perm_name = self._get_permission_name('change')
+        return self._can(perm_name, instance)

@@ -186,6 +186,8 @@ rules.add_perm("oel_tagging.add_objecttag", can_change_object_tag)
 rules.add_perm("oel_tagging.change_objecttag", can_change_object_tag)
 rules.add_perm("oel_tagging.delete_objecttag", can_change_object_tag)
 rules.add_perm("oel_tagging.view_objecttag", can_view_object_tag)
+# If a user "can tag object", they can delete or create ObjectTags using the given Taxonomy + object_id.
+rules.add_perm("oel_tagging.can_tag_object", can_change_object_tag)
 
 # Users can tag objects using tags from any taxonomy that they have permission to view
 rules.add_perm("oel_tagging.view_objecttag_objectid", can_view_object_tag_objectid)
