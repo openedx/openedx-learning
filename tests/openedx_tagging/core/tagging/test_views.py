@@ -187,6 +187,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     # Enabled taxonomy can be modified by taxonomy admins
                     "can_change_taxonomy": is_admin,
                     "can_delete_taxonomy": is_admin,
+                    # can_tag_object is False because we default to not allowing users to tag arbitrary objects.
+                    # But specific uses of this code (like content_tagging) will override this perm for their use cases.
                     "can_tag_object": False,
                 },
             ]
@@ -729,13 +731,11 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "Mammalia",
                                     "lineage": ["Eukaryota", "Animalia", "Chordata", "Mammalia"],
-                                    "can_change_objecttag": True,
                                     "can_delete_objecttag": True,
                                 },
                                 {
                                     "value": "Fungi",
                                     "lineage": ["Eukaryota", "Fungi"],
-                                    "can_change_objecttag": True,
                                     "can_delete_objecttag": True,
                                 },
                             ]
@@ -748,7 +748,6 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
-                                    "can_change_objecttag": True,
                                     "can_delete_objecttag": True,
                                 },
                             ],
@@ -781,7 +780,6 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
         # Properties shared by all returned object tags
         shared_props = {
-            "can_change_objecttag": expected_perm,
             "can_delete_objecttag": expected_perm,
         }
 
@@ -900,7 +898,6 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
-                                    "can_change_objecttag": True,
                                     "can_delete_objecttag": True,
                                 },
                             ],

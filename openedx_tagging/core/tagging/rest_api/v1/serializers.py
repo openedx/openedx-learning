@@ -3,7 +3,7 @@ API Serializers for taxonomies
 """
 from __future__ import annotations
 
-from typing import Any, Optional, Type
+from typing import Any, Type
 from urllib.parse import urlencode
 
 from rest_framework import serializers
@@ -100,7 +100,7 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
     def get_tags_count(self, instance):
         return instance.tag_set.count()
 
-    def get_can_tag_object(self, instance) -> Optional[bool]:
+    def get_can_tag_object(self, instance) -> bool | None:
         """
         Returns True if the current request user may create object tags on this taxonomy.
 
@@ -128,10 +128,9 @@ class ObjectTagMinimalSerializer(UserPermissionsSerializerMixin, serializers.Mod
 
     class Meta:
         model = ObjectTag
-        fields = ["value", "lineage", "can_change_objecttag", "can_delete_objecttag"]
+        fields = ["value", "lineage", "can_delete_objecttag"]
 
     lineage = serializers.ListField(child=serializers.CharField(), source="get_lineage", read_only=True)
-    can_change_objecttag = serializers.SerializerMethodField(method_name='get_can_change')
     can_delete_objecttag = serializers.SerializerMethodField(method_name='get_can_delete')
 
 
@@ -249,7 +248,7 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
         """
         return Tag
 
-    def get_can_change_tag(self, _instance) -> Optional[bool]:
+    def get_can_change_tag(self, _instance) -> bool | None:
         """
         Returns True if the current user is allowed to edit/change this Tag instance.
 
@@ -258,7 +257,7 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
         """
         return self.context.get('can_change_tag')
 
-    def get_can_delete_tag(self, _instance) -> Optional[bool]:
+    def get_can_delete_tag(self, _instance) -> bool | None:
         """
         Returns True if the current user is allowed to delete this Tag instance.
 
