@@ -606,8 +606,6 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
           Using full_depth_threshold=1000 is recommended in general, but use lower values during development to ensure
           compatibility with both large and small result sizes.
         * include_counts (optional) - Include the count of how many times each tag has been used.
-        * include_perms (optional) - Include permission checks in response.
-          If omitted, permission fields (can_add_tag, can_change_tag, can_delete_tag) will be None.
         * page (optional) - Page number (default: 1)
         * page_size (optional) - Number of items per page (default: 30). Ignored when there are fewer tags than
           specified by ?full_depth_threshold.

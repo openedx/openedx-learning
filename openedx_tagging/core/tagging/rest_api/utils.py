@@ -59,16 +59,6 @@ class UserPermissionsHelper:
         """
         return self._model._meta.model_name
 
-    @property
-    def _include_perms(self) -> bool:
-        """
-        Are permission checks requested?
-
-        Returns True if ?include_perms found in the query string
-        Returns False by default.
-        """
-        return 'include_perms' in self._request.query_params
-
     def _get_permission_name(self, action: str) -> str:
         """
         Returns the fully-qualified permission name corresponding to the current model and `action`.
@@ -86,8 +76,6 @@ class UserPermissionsHelper:
         """
         request = self._request
         assert request and request.user
-        if not self._include_perms:
-            return None
         return request.user.has_perm(perm_name, instance)
 
     def get_can_add(self, _instance=None) -> Optional[bool]:

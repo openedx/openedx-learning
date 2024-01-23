@@ -48,8 +48,6 @@ class UserPermissionsSerializerMixin(UserPermissionsHelper):
     Notes:
     * Assumes the serialized model should be used to check permissions (override _model to change).
     * Requires the current request to be passed into the serializer context (override _request to change).
-    * Requires '?include_perms` in the request, otherwise no permission checks are run, and
-      the `can_<action>` fields return None.
     """
     @property
     def _model(self) -> Type:
