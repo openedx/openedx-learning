@@ -65,7 +65,7 @@ djangorestframework==3.14.0
     #   edx-drf-extensions
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==5.9.0
+edx-django-utils==5.10.1
     # via edx-drf-extensions
 edx-drf-extensions==9.1.2
     # via -r requirements/base.in
@@ -81,7 +81,7 @@ pbr==6.0.0
     # via stevedore
 prompt-toolkit==3.0.43
     # via click-repl
-psutil==5.9.7
+psutil==5.9.8
     # via edx-django-utils
 pycparser==2.21
     # via cffi
