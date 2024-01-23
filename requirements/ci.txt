@@ -12,9 +12,9 @@ filelock==3.13.1
     # via
     #   tox
     #   virtualenv
-grimp==3.1
+grimp==3.2
     # via import-linter
-import-linter==1.12.1
+import-linter==2.0
     # via -r requirements/ci.in
 packaging==23.2
     # via tox

@@ -215,6 +215,37 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
                     assert new_tag.parent
                     assert tag.parent.external_id == new_tag.parent.external_id
 
+    def test_import_removing_no_external_id(self) -> None:
+        new_taxonomy = Taxonomy(name="New taxonomy")
+        new_taxonomy.save()
+        tag1 = Tag.objects.create(
+            id=1000,
+            value="Tag 1",
+            taxonomy=new_taxonomy,
+        )
+        tag2 = Tag.objects.create(
+            id=1001,
+            value="Tag 2",
+            taxonomy=new_taxonomy,
+        )
+        tag3 = Tag.objects.create(
+            id=1002,
+            value="Tag 3",
+            taxonomy=new_taxonomy,
+        )
+        tag1.save()
+        tag2.save()
+        tag3.save()
+        # Import with empty tags, to remove all tags
+        importFile = BytesIO(json.dumps({"tags": []}).encode())
+        result, _tasks, _plan = import_export_api.import_tags(
+            new_taxonomy,
+            importFile,
+            ParserFormat.JSON,
+            replace=True,
+        )
+        assert result
+
     def test_import_removing_with_childs(self) -> None:
         """
         Test import need to remove childs with parents that will also be removed
@@ -247,9 +278,70 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
         # Import with empty tags, to remove all tags
         importFile = BytesIO(json.dumps({"tags": []}).encode())
-        assert import_export_api.import_tags(
+        result, _tasks, _plan = import_export_api.import_tags(
             new_taxonomy,
             importFile,
             ParserFormat.JSON,
             replace=True,
         )
+        assert result
+
+    def test_import_removing_with_childs_no_external_id(self) -> None:
+        """
+        Test import need to remove childs with parents that will also be removed,
+        using tags without external_id
+        """
+        new_taxonomy = Taxonomy(name="New taxonomy")
+        new_taxonomy.save()
+        level2 = Tag.objects.create(
+            id=1000,
+            value="Tag 2",
+            taxonomy=new_taxonomy,
+        )
+        level1 = Tag.objects.create(
+            id=1001,
+            value="Tag 1",
+            taxonomy=new_taxonomy,
+        )
+        level3 = Tag.objects.create(
+            id=1002,
+            value="Tag 3",
+            taxonomy=new_taxonomy,
+        )
+        level2.parent = level1
+        level2.save()
+
+        level3.parent = level3
+        level3.save()
+
+        # Import with empty tags, to remove all tags
+        importFile = BytesIO(json.dumps({"tags": []}).encode())
+
+        result, _tasks, _plan = import_export_api.import_tags(
+            new_taxonomy,
+            importFile,
+            ParserFormat.JSON,
+            replace=True,
+        )
+        assert result
+
+    def test_import_same_value_without_external_id(self) -> None:
+        new_taxonomy = Taxonomy(name="New taxonomy")
+        new_taxonomy.save()
+
+        # Tag with no external_id
+        Tag.objects.create(
+            value="same_value",
+            taxonomy=new_taxonomy,
+        )
+
+        # Import with one tag with the same value
+        importFile = BytesIO(json.dumps({"tags": [{"id": "imported_tag", "value": "same_value"}]}).encode())
+
+        result, _tasks, _plan = import_export_api.import_tags(
+            new_taxonomy,
+            importFile,
+            ParserFormat.JSON,
+            replace=True,
+        )
+        assert result

@@ -67,15 +67,15 @@ drf-jwt==1.19.2
     # via edx-drf-extensions
 edx-django-utils==5.9.0
     # via edx-drf-extensions
-edx-drf-extensions==9.0.1
+edx-drf-extensions==9.1.2
     # via -r requirements/base.in
 edx-opaque-keys==2.5.1
     # via edx-drf-extensions
 idna==3.6
     # via requests
-kombu==5.3.4
+kombu==5.3.5
     # via celery
-newrelic==9.3.0
+newrelic==9.5.0
     # via edx-django-utils
 pbr==6.0.0
     # via stevedore
@@ -130,5 +130,5 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.12
+wcwidth==0.2.13
     # via prompt-toolkit

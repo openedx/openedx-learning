@@ -182,10 +182,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             0,
             [
                 {
-                    'name': 'without_changes',
-                    'id': 'tag_4',
-                },
-                {
                     'name': 'delete',
                     'id': 'tag_1',
                 },
@@ -200,6 +196,10 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
                 {
                     'name': 'delete',
                     'id': 'tag_3',
+                },
+                {
+                    'name': 'without_changes',
+                    'id': 'tag_4',
                 },
             ]
         )
@@ -251,13 +251,13 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             "--------------------------------\n"
             "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
             "#2: Create a new tag with values (external_id=tag_31, value=Tag 32, parent_id=None).\n"
-            "#3: Rename tag value of tag (external_id=tag_1) from 'Tag 1' to 'Tag 2'\n"
-            "#4: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
-            "to parent (external_id=tag_100).\n"
+            "#3: Rename tag value of <Tag> (tag_1 / Tag 1) to 'Tag 2'\n"
+            "#4: Update the parent of <Tag> (tag_4 / Tag 4) from parent "
+            "<Tag> (tag_3 / Tag 3) to tag_100\n"
             "#5: Create a new tag with values (external_id=tag_33, value=Tag 32, parent_id=None).\n"
-            "#6: Update the parent of tag (external_id=tag_2) from parent (external_id=tag_1) "
-            "to parent (external_id=None).\n"
-            "#7: Rename tag value of tag (external_id=tag_2) from 'Tag 2' to 'Tag 31'\n"
+            "#6: Update the parent of <Tag> (tag_2 / Tag 2) from parent "
+            "<Tag> (tag_1 / Tag 1) to None\n"
+            "#7: Rename tag value of <Tag> (tag_2 / Tag 2) to 'Tag 31'\n"
             "\nOutput errors\n"
             "--------------------------------\n"
             "Conflict with 'create' (#2) and action #1: Duplicated external_id tag.\n"
@@ -299,11 +299,11 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             "--------------------------------\n"
             "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
             "#2: Create a new tag with values (external_id=tag_32, value=Tag 32, parent_id=tag_1).\n"
-            "#3: Rename tag value of tag (external_id=tag_2) from 'Tag 2' to 'Tag 2 v2'\n"
-            "#4: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
-            "to parent (external_id=tag_1).\n"
-            "#5: Rename tag value of tag (external_id=tag_4) from 'Tag 4' to 'Tag 4 v2'\n"
-            "#6: No changes needed for tag (external_id=tag_1)\n"
+            "#3: Rename tag value of <Tag> (tag_2 / Tag 2) to 'Tag 2 v2'\n"
+            "#4: Update the parent of <Tag> (tag_4 / Tag 4) from parent "
+            "<Tag> (tag_3 / Tag 3) to tag_1\n"
+            "#5: Rename tag value of <Tag> (tag_4 / Tag 4) to 'Tag 4 v2'\n"
+            "#6: No changes needed for <TagItem> (tag_1 / Tag 1)\n"
         ),
         # Testing deletes (replace=True)
         (
@@ -317,12 +317,12 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             True,
             "Import plan for Import Taxonomy Test\n"
             "--------------------------------\n"
-            "#1: No changes needed for tag (external_id=tag_4)\n"
-            "#2: Delete tag (external_id=tag_1)\n"
-            "#3: Delete tag (external_id=tag_2)\n"
-            "#4: Update the parent of tag (external_id=tag_4) from parent (external_id=tag_3) "
-            "to parent (external_id=None).\n"
-            "#5: Delete tag (external_id=tag_3)\n"
+            "#1: Delete tag <TagItem> (tag_1 / Tag 1)\n"
+            "#2: Delete tag <TagItem> (tag_2 / Tag 2)\n"
+            "#3: Update the parent of <Tag> (tag_4 / Tag 4) from parent "
+            "<Tag> (tag_3 / Tag 3) to None\n"
+            "#4: Delete tag <TagItem> (tag_3 / Tag 3)\n"
+            "#5: No changes needed for <TagItem> (tag_4 / Tag 4)\n"
         ),
     )
     @ddt.unpack
@@ -336,7 +336,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         tags = [TagItem(**tag) for tag in tags]
         self.import_plan.generate_actions(tags=tags, replace=replace)
         plan = self.import_plan.plan()
-        print(plan)
         assert plan == expected
 
     @ddt.data(
