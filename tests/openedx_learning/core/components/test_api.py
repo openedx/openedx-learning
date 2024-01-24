@@ -3,7 +3,10 @@ Basic tests of the Components API.
 """
 from datetime import datetime, timezone
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from openedx_learning.core.components import api as components_api
+from openedx_learning.core.contents import api as contents_api
 from openedx_learning.core.publishing import api as publishing_api
 from openedx_learning.lib.test_utils import TestCase
 
@@ -235,3 +238,141 @@ class TestGetComponents(TestCase):
             self.unpublished_problem,
             self.unpublished_html,
         ]
+
+
+class TestComponentGetAndExists(TestCase):
+    """
+    Test getting a Component by primary key or key string.
+    """
+    @classmethod
+    def setUpTestData(cls) -> None:
+        """
+        Initialize our content data (all our tests are read only).
+
+        We don't actually need to add content to the ComponentVersions, since
+        for this we only care about the metadata on Compnents, their versions,
+        and the associated draft/publish status.
+        """
+        cls.learning_package = publishing_api.create_learning_package(
+            "components.TestComponentGetAndExists",
+            "Learning Package for Testing Getting a Component",
+        )
+        cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
+        cls.problem = components_api.create_component(
+            learning_package_id=cls.learning_package.id,
+            namespace='xblock.v1',
+            type='problem',
+            local_key='my_component',
+            created=cls.now,
+            created_by=None,
+        )
+        cls.html = components_api.create_component(
+            learning_package_id=cls.learning_package.id,
+            namespace='xblock.v1',
+            type='html',
+            local_key='my_component',
+            created=cls.now,
+            created_by=None,
+        )
+
+    def test_simple_get(self):
+        assert components_api.get_component(self.problem.pk) == self.problem
+        with self.assertRaises(ObjectDoesNotExist):
+            components_api.get_component(-1)
+
+    def test_get_by_key(self):
+        assert self.html == components_api.get_component_by_key(
+            self.learning_package.id,
+            namespace='xblock.v1',
+            type='html',
+            local_key='my_component',
+        )
+        with self.assertRaises(ObjectDoesNotExist):
+            components_api.get_component_by_key(
+                self.learning_package.id,
+                namespace='xblock.v1',
+                type='video',  # 'video' doesn't match anything we have
+                local_key='my_component',
+            )
+
+    def test_exists_by_key(self):
+        assert components_api.component_exists_by_key(
+            self.learning_package.id,
+            namespace='xblock.v1',
+            type='problem',
+            local_key='my_component',
+        )
+        assert not components_api.component_exists_by_key(
+            self.learning_package.id,
+            namespace='xblock.v1',
+            type='problem',
+            local_key='not_my_component',
+        )
+
+
+class TestCreateNextVersion(TestCase):
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.learning_package = publishing_api.create_learning_package(
+            "components.TestCreateNextVersion",
+            "Learning Package for Testing Next Version Creation",
+        )
+        cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
+        cls.problem = components_api.create_component(
+            learning_package_id=cls.learning_package.id,
+            namespace='xblock.v1',
+            type='problem',
+            local_key='my_component',
+            created=cls.now,
+            created_by=None,
+        )
+
+    def test_multiple_versions(self):
+        hello_content, _created = contents_api.get_or_create_text_content_from_bytes(
+            learning_package_id=self.learning_package.id,
+            data_bytes="Hello World!".encode('utf-8'),
+            mime_type="text/plain",
+            created=self.now,
+        )
+        goodbye_content, _created = contents_api.get_or_create_text_content_from_bytes(
+            learning_package_id=self.learning_package.id,
+            data_bytes="Goodbye World!".encode('utf-8'),
+            mime_type="text/plain",
+            created=self.now,
+        )
+        blank_content, _created = contents_api.get_or_create_text_content_from_bytes(
+            learning_package_id=self.learning_package.id,
+            data_bytes="".encode('utf-8'),
+            mime_type="text/plain",
+            created=self.now,
+        )
+        version_1 = components_api.create_next_version(
+            self.problem.pk,
+            title="Problem Version 1",
+            content_to_replace={
+                "hello.txt": hello_content.pk,
+            },
+            created=self.now,
+        )
+        assert version_1.version_num == 1
+        assert version_1.title == "Problem Version 1"
+        version_1_contents = list(version_1.raw_contents.all())
+        assert len(version_1_contents) == 1
+        assert version_1_contents[0].text_content == hello_content
+        # Probably need a better API for this later.
+        assert version_1.raw_contents \
+                        .filter(componentversionrawcontent__key="hello.txt") \
+                        .exists()
+
+        version_2 = components_api.create_next_version(
+            self.problem.pk,
+            title="Problem Version 2",
+            content_to_replace={
+                "hello.txt": blank_content.pk,
+                "goodbye.txt": goodbye_content.pk,
+                "blank.txt": blank_content.pk,
+            },
+            created=self.now,
+        )
+        assert version_2.version_num == 2

@@ -79,7 +79,7 @@ def create_next_version(
     content_to_replace: dict[str: int],
     created: datetime,
     created_by: int | None = None,
-):
+) -> ComponentVersion:
     """
     Create a new ComponentVersion based on the most recent version.
 
@@ -137,6 +137,8 @@ def create_next_version(
                     key=cvrc.key,
                     learner_downloadable=cvrc.learner_downloadable,
                 )
+
+        return component_version
 
 
 def create_component_and_version(
