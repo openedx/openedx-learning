@@ -310,7 +310,7 @@ class TestComponentGetAndExists(TestCase):
         )
 
 
-class TestCreateNextVersion(TestCase):
+class TestCreateNewVersions(TestCase):
 
     @classmethod
     def setUpTestData(cls) -> None:
@@ -327,6 +327,37 @@ class TestCreateNextVersion(TestCase):
             created=cls.now,
             created_by=None,
         )
+
+    def test_add(self):
+        new_version = components_api.create_component_version(
+            self.problem.pk,
+            version_num=1,
+            title="My Title",
+            created=self.now,
+            created_by=None,
+        )
+        new_content, _created = contents_api.get_or_create_raw_content(
+            self.learning_package.pk,
+            b"This is some data",
+            mime_type="text/plain",
+            created=self.now,
+        )
+        components_api.add_content_to_component_version(
+            new_version.pk,
+            raw_content_id=new_content.pk,
+            key="hello.txt",
+            learner_downloadable=False,
+        )
+        # re-fetch from the database to check to see if we wrote it correctly
+        new_version = components_api.get_component(self.problem.pk) \
+                                    .versions \
+                                    .get(publishable_entity_version__version_num=1)
+        assert (
+            new_content ==
+            new_version.raw_contents.get(componentversionrawcontent__key="hello.txt")
+        )
+
+
 
     def test_multiple_versions(self):
         hello_content, _created = contents_api.get_or_create_text_content_from_bytes(
@@ -347,32 +378,62 @@ class TestCreateNextVersion(TestCase):
             mime_type="text/plain",
             created=self.now,
         )
+
+        # Two text files, hello.txt and goodbye.txt
         version_1 = components_api.create_next_version(
             self.problem.pk,
             title="Problem Version 1",
             content_to_replace={
                 "hello.txt": hello_content.pk,
+                "goodbye.txt": goodbye_content.pk,
             },
             created=self.now,
         )
         assert version_1.version_num == 1
         assert version_1.title == "Problem Version 1"
         version_1_contents = list(version_1.raw_contents.all())
-        assert len(version_1_contents) == 1
-        assert version_1_contents[0].text_content == hello_content
-        # Probably need a better API for this later.
-        assert version_1.raw_contents \
-                        .filter(componentversionrawcontent__key="hello.txt") \
-                        .exists()
+        assert len(version_1_contents) == 2
+        assert (
+            hello_content ==
+            version_1.raw_contents
+                     .get(componentversionrawcontent__key="hello.txt")
+                     .text_content
+        )
+        assert (
+            goodbye_content ==
+            version_1.raw_contents
+                     .get(componentversionrawcontent__key="goodbye.txt")
+                     .text_content
+        )
 
+        # This should keep the old value for goodbye.txt, add blank.txt, and set
+        # hello.txt to be a new value (blank).
         version_2 = components_api.create_next_version(
             self.problem.pk,
             title="Problem Version 2",
             content_to_replace={
                 "hello.txt": blank_content.pk,
-                "goodbye.txt": goodbye_content.pk,
                 "blank.txt": blank_content.pk,
             },
             created=self.now,
         )
         assert version_2.version_num == 2
+        assert version_2.raw_contents.count() == 3
+        assert (
+            blank_content ==
+            version_2.raw_contents
+                     .get(componentversionrawcontent__key="hello.txt")
+                     .text_content
+        )
+        assert (
+            goodbye_content ==
+            version_2.raw_contents
+                     .get(componentversionrawcontent__key="goodbye.txt")
+                     .text_content
+        )
+        assert (
+            blank_content ==
+            version_2.raw_contents
+                     .get(componentversionrawcontent__key="blank.txt")
+                     .text_content
+        )

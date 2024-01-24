@@ -127,12 +127,12 @@ def create_next_version(
         # Now copy any old associations that existed, as long as they don't
         # conflict with the new stuff.
         last_version_content_mapping = ComponentVersionRawContent.objects \
-                                           .filter(component_version=component_version) \
+                                           .filter(component_version=last_version) \
                                            .all()
         for cvrc in last_version_content_mapping:
             if cvrc.key not in content_to_replace:
                 ComponentVersionRawContent.objects.create(
-                    raw_content_id=cvrc.raw_content_pk,
+                    raw_content_id=cvrc.raw_content_id,
                     component_version=component_version,
                     key=cvrc.key,
                     learner_downloadable=cvrc.learner_downloadable,
@@ -273,7 +273,7 @@ def get_component_version_content(
 
 
 def add_content_to_component_version(
-    component_version: ComponentVersion,
+    component_version_id: int,
     raw_content_id: int,
     key: str,
     learner_downloadable=False,
@@ -282,7 +282,7 @@ def add_content_to_component_version(
     Add a RawContent to the given ComponentVersion
     """
     cvrc, _created = ComponentVersionRawContent.objects.get_or_create(
-        component_version=component_version,
+        component_version_id=component_version_id,
         raw_content_id=raw_content_id,
         key=key,
         learner_downloadable=learner_downloadable,

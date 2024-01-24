@@ -67,6 +67,8 @@ OPENEDX_LEARNING = {
     "STORAGE": None,
 }
 
+MEDIA_ROOT = root("test_media")
+
 ######################### Django Rest Framework ########################
 
 REST_FRAMEWORK = {
