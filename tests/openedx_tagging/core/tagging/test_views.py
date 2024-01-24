@@ -53,6 +53,9 @@ def check_taxonomy(
     allow_free_text=False,
     system_defined=False,
     visible_to_authors=True,
+    can_change_taxonomy=None,
+    can_delete_taxonomy=None,
+    can_tag_object=None,
 ):
     """
     Check taxonomy data
@@ -65,6 +68,9 @@ def check_taxonomy(
     assert data["allow_free_text"] == allow_free_text
     assert data["system_defined"] == system_defined
     assert data["visible_to_authors"] == visible_to_authors
+    assert data["can_change_taxonomy"] == can_change_taxonomy
+    assert data["can_delete_taxonomy"] == can_delete_taxonomy
+    assert data["can_tag_object"] == can_tag_object
 
 
 class TestTaxonomyViewMixin(APITestCase):
@@ -129,10 +135,10 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     @ddt.data(
         (None, status.HTTP_401_UNAUTHORIZED, 0),
         ("user", status.HTTP_200_OK, 10),
-        ("staff", status.HTTP_200_OK, 20),
+        ("staff", status.HTTP_200_OK, 20, True),
     )
     @ddt.unpack
-    def test_list_taxonomy(self, user_attr: str | None, expected_status: int, tags_count: int):
+    def test_list_taxonomy(self, user_attr: str | None, expected_status: int, tags_count: int, is_admin=False):
         taxonomy = api.create_taxonomy(name="Taxonomy enabled 1", enabled=True)
         for i in range(tags_count):
             tag = Tag(
@@ -150,8 +156,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         response = self.client.get(url)
         assert response.status_code == expected_status
 
-        # Check results
-        if tags_count:
+        # Check response
+        if status.is_success(expected_status):
             assert response.data["results"] == [
                 {
                     "id": -1,
@@ -163,6 +169,10 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "system_defined": True,
                     "visible_to_authors": True,
                     "tags_count": 0,
+                    # System taxonomy cannot be modified
+                    "can_change_taxonomy": False,
+                    "can_delete_taxonomy": False,
+                    "can_tag_object": False,
                 },
                 {
                     "id": taxonomy.id,
@@ -174,8 +184,15 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "system_defined": False,
                     "visible_to_authors": True,
                     "tags_count": tags_count,
+                    # Enabled taxonomy can be modified by taxonomy admins
+                    "can_change_taxonomy": is_admin,
+                    "can_delete_taxonomy": is_admin,
+                    # can_tag_object is False because we default to not allowing users to tag arbitrary objects.
+                    # But specific uses of this code (like content_tagging) will override this perm for their use cases.
+                    "can_tag_object": False,
                 },
             ]
+            assert response.data.get("can_add_taxonomy") == is_admin
 
     def test_list_taxonomy_pagination(self) -> None:
         url = TAXONOMY_LIST_URL
@@ -197,6 +214,55 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         next_page = parse_qs(parsed_url.query).get("page", [""])[0]
         assert next_page == "3"
+
+    @ddt.data(
+        ('user', False),
+        ('staff', True),
+    )
+    @ddt.unpack
+    def test_list_taxonomy_empty(self, user_attr, expected_can_add) -> None:
+        # Delete the language taxonomy so we can get an empty list
+        language_taxonomy = api.get_taxonomy(LANGUAGE_TAXONOMY_ID)
+        if language_taxonomy:
+            language_taxonomy.delete()
+
+        url = TAXONOMY_LIST_URL
+        user = getattr(self, user_attr)
+        self.client.force_authenticate(user=user)
+        response = self.client.get(url, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {
+            "count": 0,
+            "current_page": 1,
+            "next": None,
+            "num_pages": 1,
+            "previous": None,
+            "start": 0,
+            "results": [],
+            "can_add_taxonomy": expected_can_add,
+        }
+
+    def test_list_taxonomy_query_count(self):
+        """
+        Test how many queries are used when retrieving taxonomies and permissions
+        """
+        api.create_taxonomy(name="T1", enabled=True)
+        api.create_taxonomy(name="T2", enabled=True)
+
+        url = TAXONOMY_LIST_URL
+
+        self.client.force_authenticate(user=self.user)
+        with self.assertNumQueries(5):
+            response = self.client.get(url)
+
+        assert response.status_code == 200
+        assert not response.data["can_add_taxonomy"]
+        assert len(response.data["results"]) == 3
+        for taxonomy in response.data["results"]:
+            assert not taxonomy["can_change_taxonomy"]
+            assert not taxonomy["can_delete_taxonomy"]
+            assert not taxonomy["can_tag_object"]
 
     def test_list_invalid_page(self) -> None:
         url = TAXONOMY_LIST_URL
@@ -225,6 +291,9 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             description="Languages that are enabled on this system.",
             allow_multiple=False,  # We may change this in the future to allow multiple language tags
             system_defined=True,
+            can_change_taxonomy=False,
+            can_delete_taxonomy=False,
+            can_tag_object=False,
         )
 
     @ddt.data(
@@ -232,11 +301,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         (None, {"enabled": False}, status.HTTP_401_UNAUTHORIZED),
         ("user", {"enabled": True}, status.HTTP_200_OK),
         ("user", {"enabled": False}, status.HTTP_404_NOT_FOUND),
-        ("staff", {"enabled": True}, status.HTTP_200_OK),
-        ("staff", {"enabled": False}, status.HTTP_200_OK),
+        ("staff", {"enabled": True}, status.HTTP_200_OK, True),
+        ("staff", {"enabled": False}, status.HTTP_200_OK, True),
     )
     @ddt.unpack
-    def test_detail_taxonomy(self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int):
+    def test_detail_taxonomy(
+        self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int, is_admin=False,
+    ):
         create_data = {"name": "taxonomy detail test", **taxonomy_data}
         taxonomy = api.create_taxonomy(**create_data)  # type: ignore[arg-type]
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
@@ -249,7 +320,11 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         assert response.status_code == expected_status
 
         if status.is_success(expected_status):
-            check_taxonomy(response.data, taxonomy.pk, **create_data)
+            expected_data = create_data
+            expected_data["can_change_taxonomy"] = is_admin
+            expected_data["can_delete_taxonomy"] = is_admin
+            expected_data["can_tag_object"] = False
+            check_taxonomy(response.data, taxonomy.pk, **expected_data)
 
     def test_detail_system_taxonomy(self):
         url = TAXONOMY_DETAIL_URL.format(pk=LANGUAGE_TAXONOMY_ID)
@@ -297,6 +372,9 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         # If we were able to create the taxonomy, check if it was created
         if status.is_success(expected_status):
+            create_data["can_change_taxonomy"] = True
+            create_data["can_delete_taxonomy"] = True
+            create_data["can_tag_object"] = False
             check_taxonomy(response.data, response.data["id"], **create_data)
             url = TAXONOMY_DETAIL_URL.format(pk=response.data["id"])
 
@@ -358,6 +436,9 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "name": "new name",
                     "description": "taxonomy description",
                     "enabled": True,
+                    "can_change_taxonomy": True,
+                    "can_delete_taxonomy": True,
+                    "can_tag_object": False,
                 },
             )
 
@@ -414,6 +495,9 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                 **{
                     "name": "new name",
                     "enabled": True,
+                    "can_change_taxonomy": True,
+                    "can_delete_taxonomy": True,
+                    "can_tag_object": False,
                 },
             )
 
@@ -580,7 +664,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             """
             For testing, let everyone have edit object permission on object_id "abc" and "limit_tag_count"
             """
-            if object_id in ("abc", "limit_tag_count"):
+            if object_id in ("abc", "limit_tag_count", "problem7", "problem15", "html7"):
                 return True
 
             return can_change_object_tag_objectid(user, object_id)
@@ -640,28 +724,31 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                         {
                             "name": "Life on Earth",
                             "taxonomy_id": 1,
-                            "editable": True,
+                            "can_tag_object": True,
                             "tags": [
                                 # Note: based on tree order (Animalia before Fungi), this tag comes first even though it
                                 # starts with "M" and Fungi starts with "F"
                                 {
                                     "value": "Mammalia",
                                     "lineage": ["Eukaryota", "Animalia", "Chordata", "Mammalia"],
+                                    "can_delete_objecttag": True,
                                 },
                                 {
                                     "value": "Fungi",
                                     "lineage": ["Eukaryota", "Fungi"],
+                                    "can_delete_objecttag": True,
                                 },
                             ]
                         },
                         {
                             "name": "User Authors",
                             "taxonomy_id": 3,
-                            "editable": False,
+                            "can_tag_object": True,
                             "tags": [
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
+                                    "can_delete_objecttag": True,
                                 },
                             ],
                         }
@@ -669,7 +756,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                 },
             }
 
-    def prepare_for_sort_test(self) -> tuple[str, list[dict]]:
+    def prepare_for_sort_test(self, expected_perm=False) -> tuple[str, list[dict]]:
         """
         Tag an object with tags from the "sort test" taxonomy
         """
@@ -690,6 +777,11 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         # Apply the object tags:
         taxonomy = self.create_sort_test_taxonomy()
         api.tag_object(object_id=object_id, taxonomy=taxonomy, tags=sort_test_tags)
+
+        # Properties shared by all returned object tags
+        shared_props = {
+            "can_delete_objecttag": expected_perm,
+        }
 
         # The result we expect to see when retrieving the object tags, after applying the list above.
         # Note: the full taxonomy looks like the following, so this is the order we
@@ -713,15 +805,15 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         #   ANVIL
         #   azure
         sort_test_applied_result = [
-            {"value": "1 A", "lineage": ["1", "1 A"]},
-            {"value": "1111-grandchild", "lineage": ["1", "11111", "1111-grandchild"]},
-            {"value": "111", "lineage": ["111"]},
-            {"value": "11111111", "lineage": ["111", "11111111"]},
-            {"value": "123", "lineage": ["111", "123"]},
-            {"value": "abstract", "lineage": ["abstract"]},
-            {"value": "azores islands", "lineage": ["abstract", "azores islands"]},
-            {"value": "Android", "lineage": ["ALPHABET", "Android"]},
-            {"value": "ANVIL", "lineage": ["ALPHABET", "ANVIL"]},
+            {"value": "1 A", "lineage": ["1", "1 A"], **shared_props},
+            {"value": "1111-grandchild", "lineage": ["1", "11111", "1111-grandchild"], **shared_props},
+            {"value": "111", "lineage": ["111"], **shared_props},
+            {"value": "11111111", "lineage": ["111", "11111111"], **shared_props},
+            {"value": "123", "lineage": ["111", "123"], **shared_props},
+            {"value": "abstract", "lineage": ["abstract"], **shared_props},
+            {"value": "azores islands", "lineage": ["abstract", "azores islands"], **shared_props},
+            {"value": "Android", "lineage": ["ALPHABET", "Android"], **shared_props},
+            {"value": "ANVIL", "lineage": ["ALPHABET", "ANVIL"], **shared_props},
         ]
         return object_id, sort_test_applied_result
 
@@ -730,7 +822,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         Test the sort order of the object tags retrieved from the get object
         tags API.
         """
-        object_id, sort_test_applied_result = self.prepare_for_sort_test()
+        object_id, sort_test_applied_result = self.prepare_for_sort_test(expected_perm=True)
 
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
         self.client.force_authenticate(user=self.user_1)
@@ -741,16 +833,20 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
     def test_retrieve_object_tags_query_count(self):
         """
-        Test how many queries are used when retrieving object tags
+        Test how many queries are used when retrieving object tags and permissions
         """
-        object_id, sort_test_applied_result = self.prepare_for_sort_test()
-
+        expected_perm = True
+        object_id, sort_test_applied_result = self.prepare_for_sort_test(expected_perm)
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
+
         self.client.force_authenticate(user=self.user_1)
         with self.assertNumQueries(1):
             response = self.client.get(url)
-            assert response.status_code == 200
-            assert response.data[object_id]["taxonomies"][0]["tags"] == sort_test_applied_result
+
+        assert response.status_code == 200
+        assert len(response.data[object_id]["taxonomies"]) == 1
+        assert response.data[object_id]["taxonomies"][0]["can_tag_object"] == expected_perm
+        assert response.data[object_id]["taxonomies"][0]["tags"] == sort_test_applied_result
 
     def test_retrieve_object_tags_unauthorized(self):
         """
@@ -797,11 +893,12 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                         {
                             "name": "User Authors",
                             "taxonomy_id": 3,
-                            "editable": False,
+                            "can_tag_object": True,
                             "tags": [
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
+                                    "can_delete_objecttag": True,
                                 },
                             ],
                         }
@@ -1190,6 +1287,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == root_count
         assert data.get("num_pages") == 1
         assert data.get("current_page") == 1
+        assert data.get("can_add_tag")
 
     def test_small_taxonomy(self):
         """
@@ -1320,6 +1418,23 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "  Euryarchaeida (children: 0)",
         ]
 
+    def test_small_query_count(self):
+        """
+        Test how many queries are used when retrieving small taxonomies+tags and permissions
+        """
+        url = f"{self.small_taxonomy_url}?search_term=eU"
+
+        self.client.force_authenticate(user=self.staff)
+        with self.assertNumQueries(5):
+            response = self.client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["can_add_tag"]
+        assert len(response.data["results"]) == 3
+        for taxonomy in response.data["results"]:
+            assert taxonomy["can_change_tag"]
+            assert taxonomy["can_delete_tag"]
+
     def test_empty_results(self):
         """
         Test that various queries return an empty list
@@ -1348,7 +1463,11 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         """
         self._build_large_taxonomy()
         self.client.force_authenticate(user=self.staff)
-        response = self.client.get(self.large_taxonomy_url + "?include_counts")
+
+        url = self.large_taxonomy_url + "?include_counts"
+        with self.assertNumQueries(3):
+            response = self.client.get(url)
+
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
@@ -1379,6 +1498,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             f"rest_api/v1/taxonomies/{self.large_taxonomy.id}"
             f"/tags/?parent_tag={quote_plus(results[0]['value'])}"
         )
+        assert results[0].get("can_change_tag")
+        assert results[0].get("can_delete_tag")
 
         # Checking pagination values
         assert data.get("next") == (
@@ -1389,6 +1510,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert data.get("count") == self.root_tags_count
         assert data.get("num_pages") == 6
         assert data.get("current_page") == 1
+        assert data.get("can_add_tag")
 
     def test_next_page_large_taxonomy(self):
         self._build_large_taxonomy()
