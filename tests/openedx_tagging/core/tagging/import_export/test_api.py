@@ -197,7 +197,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
                 parser_format,
             )
             file = BytesIO(output.encode())
-            new_taxonomy = Taxonomy(name="New taxonomy")
+            new_taxonomy = Taxonomy(name="New taxonomy", export_id=f"new_taxonomy_{parser_format}")
             new_taxonomy.save()
             result, _task, _plan = import_export_api.import_tags(
                 new_taxonomy,

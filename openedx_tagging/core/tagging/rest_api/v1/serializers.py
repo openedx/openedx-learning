@@ -88,7 +88,18 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
             "can_change_taxonomy",
             "can_delete_taxonomy",
             "can_tag_object",
+            "export_id",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.context['request'].method in ('PUT', 'PATCH'):
+            # Makes export_id field optional during update
+            self.fields['export_id'].required = False
+        elif self.context['request'].method == 'POST':
+            # Makes the export_id field mandatory during creation
+            self.fields['export_id'].required = True
 
     def to_representation(self, instance):
         """
@@ -332,6 +343,7 @@ class TaxonomyImportNewBodySerializer(TaxonomyImportBodySerializer):  # pylint: 
     """
     taxonomy_name = serializers.CharField(required=True)
     taxonomy_description = serializers.CharField(default="")
+    taxonomy_export_id = serializers.CharField(required=True)
 
 
 class TagImportTaskSerializer(serializers.ModelSerializer):

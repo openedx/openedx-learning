@@ -80,7 +80,7 @@ class TestTagTaxonomyMixin:
         Helper method to create a taxonomy that's difficult to sort correctly in tree order.
         """
         # pylint: disable=unused-variable
-        taxonomy = api.create_taxonomy("Sort Test")
+        taxonomy = api.create_taxonomy("Sort Test", "sort_test")
 
         root1 = Tag.objects.create(taxonomy=taxonomy, value="1")
         child1_1 = Tag.objects.create(taxonomy=taxonomy, value="11", parent=root1)
@@ -114,7 +114,8 @@ class TestTagTaxonomyMixin:
             taxonomy = Taxonomy.objects.create(
                 name=f"ZZ Dummy Taxonomy {i:03}",
                 allow_free_text=True,
-                allow_multiple=True
+                allow_multiple=True,
+                export_id=f"zz_dummy_taxonomy_{i:03}"
             )
             ObjectTag.objects.create(
                 object_id="limit_tag_count",
@@ -203,7 +204,7 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_taxonomy_cast_import_error(self):
         taxonomy = Taxonomy.objects.create(
-            name="Invalid cast", _taxonomy_class="not.a.class"
+            name="Invalid cast", export_id='invalid_cast', _taxonomy_class="not.a.class"
         )
         # Error is logged, but ignored.
         cast_taxonomy = taxonomy.cast()
@@ -267,6 +268,50 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         # And via the API:
         with pytest.raises(ValidationError):
             api.add_tag_to_taxonomy(self.taxonomy, "first\tsecond")
+
+    @ddt.data(
+        ("test"),
+        ("lightcast"),
+        ("lightcast-skills"),
+        ("io.lightcast.open-skills"),
+        ("-3_languages"),
+        ("LIGHTCAST_V17"),
+        ("liGhtCaST"),
+        ("日本"),
+        ("Québec"),
+        ("123456789"),
+    )
+    def test_export_id_format_valid(self, export_id):
+        self.taxonomy.export_id = export_id
+        self.taxonomy.full_clean()
+
+    @ddt.data(
+        ("LightCast Skills"),
+        ("One,Two,Three"),
+        (" "),
+        ("Foo:Bar"),
+        ("X;Y;Z"),
+        ('"quotes"'),
+        (" test"),
+    )
+    def test_export_id_format_invalid(self, export_id):
+        self.taxonomy.export_id = export_id
+        with pytest.raises(ValidationError):
+            self.taxonomy.full_clean()
+
+    def test_unique_export_id(self):
+        # Valid
+        self.taxonomy.export_id = 'test_1'
+        self.free_text_taxonomy.export_id = 'test_2'
+        self.taxonomy.save()
+        self.free_text_taxonomy.save()
+
+        # Invalid
+        self.taxonomy.export_id = 'test_1'
+        self.free_text_taxonomy.export_id = 'test_1'
+        self.taxonomy.save()
+        with pytest.raises(IntegrityError):
+            self.free_text_taxonomy.save()
 
 
 @ddt.ddt

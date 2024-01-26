@@ -3,6 +3,7 @@ Tagging API Views
 """
 from __future__ import annotations
 
+from django.core import exceptions
 from django.db import models
 from django.http import Http404, HttpResponse
 from rest_framework import mixins, status
@@ -57,6 +58,11 @@ class TaxonomyView(ModelViewSet):
     """
     View to list, create, retrieve, update, delete, export or import Taxonomies.
 
+    TODO: We need to add a perform_udate and call the api update function when is created.
+    This is because it is necessary to call the model validations. (`full_clean()`).
+    Currently those validations are not run, which means we could update `export_id` with any value
+    through this api.
+
     **List Query Parameters**
         * enabled (optional) - Filter by enabled status. Valid values: true,
           false, 1, 0, "true", "false", "1"
@@ -87,6 +93,8 @@ class TaxonomyView(ModelViewSet):
     **Create Parameters**
         * name (required): User-facing label used when applying tags from this
           taxonomy to Open edX objects.
+        * export_id (required): User-facing ID that is used on import/export.
+          Should only contain alphanumeric characters or '_' '-' '.'.
         * description (optional): Provides extra information for the user when
           applying tags from this taxonomy to an object.
         * enabled (optional): Only enabled taxonomies will be shown to authors
@@ -101,6 +109,7 @@ class TaxonomyView(ModelViewSet):
         POST api/tagging/v1/taxonomy               - Create a taxonomy
         {
             "name": "Taxonomy Name",
+            "export_id": "taxonomy_export_id",
             "description": "This is a description",
             "enabled": True,
             "allow_multiple": True,
@@ -117,6 +126,8 @@ class TaxonomyView(ModelViewSet):
     **Update Request Body**
         * name (optional): User-facing label used when applying tags from this
           taxonomy to Open edX objects.
+        * export_id (optional): User-facing ID that is used on import/export.
+          Should only contain alphanumeric characters or '_' '-' '.'.
         * description (optional): Provides extra information for the user when
           applying tags from this taxonomy to an object.
         * enabled (optional): Only enabled taxonomies will be shown to authors.
@@ -129,6 +140,7 @@ class TaxonomyView(ModelViewSet):
         PUT api/tagging/v1/taxonomy/:pk            - Update a taxonomy
         {
             "name": "Taxonomy New Name",
+            "export_id": "taxonomy_new_name",
             "description": "This is a new description",
             "enabled": False,
             "allow_multiple": False,
@@ -174,6 +186,7 @@ class TaxonomyView(ModelViewSet):
         POST /tagging/rest_api/v1/taxonomy/import/
         {
             "taxonomy_name": "Taxonomy Name",
+            "taxonomy_export_id": "this_is_the_export_id",
             "taxonomy_description": "This is a description",
             "file": <file>,
         }
@@ -245,7 +258,10 @@ class TaxonomyView(ModelViewSet):
         """
         Create a new taxonomy.
         """
-        serializer.instance = create_taxonomy(**serializer.validated_data)
+        try:
+            serializer.instance = create_taxonomy(**serializer.validated_data)
+        except exceptions.ValidationError as e:
+            raise ValidationError() from e
 
     @action(detail=True, methods=["get"])
     def export(self, request, **_kwargs) -> HttpResponse:
@@ -286,11 +302,12 @@ class TaxonomyView(ModelViewSet):
         body.is_valid(raise_exception=True)
 
         taxonomy_name = body.validated_data["taxonomy_name"]
+        taxonomy_export_id = body.validated_data["taxonomy_export_id"]
         taxonomy_description = body.validated_data["taxonomy_description"]
         file = body.validated_data["file"].file
         parser_format = body.validated_data["parser_format"]
 
-        taxonomy = create_taxonomy(taxonomy_name, taxonomy_description)
+        taxonomy = create_taxonomy(taxonomy_name, taxonomy_export_id, taxonomy_description)
         try:
             import_success, task, _plan = import_tags(taxonomy, file, parser_format)
 

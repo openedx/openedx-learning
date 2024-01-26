@@ -56,6 +56,7 @@ def check_taxonomy(
     can_change_taxonomy=None,
     can_delete_taxonomy=None,
     can_tag_object=None,
+    export_id=None,
 ):
     """
     Check taxonomy data
@@ -71,6 +72,16 @@ def check_taxonomy(
     assert data["can_change_taxonomy"] == can_change_taxonomy
     assert data["can_delete_taxonomy"] == can_delete_taxonomy
     assert data["can_tag_object"] == can_tag_object
+    assert data["export_id"] == export_id
+
+
+def create_taxonomy(name, description=None, enabled=True):
+    return api.create_taxonomy(
+        name,
+        export_id=name.lower().replace(" ", "_"),
+        description=description,
+        enabled=enabled,
+    )
 
 
 class TestTaxonomyViewMixin(APITestCase):
@@ -114,9 +125,9 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_list_taxonomy_queryparams(self, enabled, expected_status: int, expected_count: int | None):
-        api.create_taxonomy(name="Taxonomy enabled 1", enabled=True)
-        api.create_taxonomy(name="Taxonomy enabled 2", enabled=True)
-        api.create_taxonomy(name="Taxonomy disabled", enabled=False)
+        create_taxonomy(name="Taxonomy enabled 1", enabled=True)
+        create_taxonomy(name="Taxonomy enabled 2", enabled=True)
+        create_taxonomy(name="Taxonomy disabled", enabled=False)
 
         url = TAXONOMY_LIST_URL
 
@@ -139,7 +150,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_list_taxonomy(self, user_attr: str | None, expected_status: int, tags_count: int, is_admin=False):
-        taxonomy = api.create_taxonomy(name="Taxonomy enabled 1", enabled=True)
+        taxonomy = create_taxonomy(name="Taxonomy enabled 1", enabled=True)
         for i in range(tags_count):
             tag = Tag(
                 taxonomy=taxonomy,
@@ -173,6 +184,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "can_change_taxonomy": False,
                     "can_delete_taxonomy": False,
                     "can_tag_object": False,
+                    "export_id": "-1_languages",
                 },
                 {
                     "id": taxonomy.id,
@@ -190,17 +202,18 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     # can_tag_object is False because we default to not allowing users to tag arbitrary objects.
                     # But specific uses of this code (like content_tagging) will override this perm for their use cases.
                     "can_tag_object": False,
+                    "export_id": "taxonomy_enabled_1",
                 },
             ]
             assert response.data.get("can_add_taxonomy") == is_admin
 
     def test_list_taxonomy_pagination(self) -> None:
         url = TAXONOMY_LIST_URL
-        api.create_taxonomy(name="T1", enabled=True)
-        api.create_taxonomy(name="T2", enabled=True)
-        api.create_taxonomy(name="T3", enabled=False)
-        api.create_taxonomy(name="T4", enabled=False)
-        api.create_taxonomy(name="T5", enabled=False)
+        create_taxonomy(name="T1", enabled=True)
+        create_taxonomy(name="T2", enabled=True)
+        create_taxonomy(name="T3", enabled=False)
+        create_taxonomy(name="T4", enabled=False)
+        create_taxonomy(name="T5", enabled=False)
 
         self.client.force_authenticate(user=self.staff)
 
@@ -247,8 +260,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Test how many queries are used when retrieving taxonomies and permissions
         """
-        api.create_taxonomy(name="T1", enabled=True)
-        api.create_taxonomy(name="T2", enabled=True)
+        create_taxonomy(name="T1", enabled=True)
+        create_taxonomy(name="T2", enabled=True)
 
         url = TAXONOMY_LIST_URL
 
@@ -294,6 +307,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             can_change_taxonomy=False,
             can_delete_taxonomy=False,
             can_tag_object=False,
+            export_id='-1_languages',
         )
 
     @ddt.data(
@@ -308,7 +322,11 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     def test_detail_taxonomy(
         self, user_attr: str | None, taxonomy_data: dict[str, bool], expected_status: int, is_admin=False,
     ):
-        create_data = {"name": "taxonomy detail test", **taxonomy_data}
+        create_data = {
+            "name": "taxonomy detail test",
+            "export_id": "taxonomy_detail_test",
+            **taxonomy_data
+        }
         taxonomy = api.create_taxonomy(**create_data)  # type: ignore[arg-type]
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
@@ -361,6 +379,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             "description": "This is a description",
             "enabled": False,
             "allow_multiple": True,
+            "export_id": 'taxonomy_data_2',
         }
 
         if user_attr:
@@ -383,7 +402,9 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
     @ddt.data(
         {},
-        {"name": "Error taxonomy 3", "enabled": "Invalid value"},
+        {"name": "Error taxonomy"},  # Without export_id
+        {"name": "Error taxonomy 1", "export_id": "Invalid value"},  # Invalid export_id
+        {"name": "Error taxonomy 3", "export_id": "test", "enabled": "Invalid value"},
     )
     def test_create_taxonomy_error(self, create_data: dict[str, str]):
         url = TAXONOMY_LIST_URL
@@ -392,7 +413,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         response = self.client.post(url, create_data, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    @ddt.data({"name": "System defined taxonomy", "system_defined": True})
+    @ddt.data({"name": "System defined taxonomy", "export_id": "sd", "system_defined": True})
     def test_create_taxonomy_system_defined(self, create_data):
         """
         Cannont create a taxonomy with system_defined=true
@@ -411,7 +432,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_update_taxonomy(self, user_attr, expected_status):
-        taxonomy = api.create_taxonomy(
+        taxonomy = create_taxonomy(
             name="test update taxonomy",
             description="taxonomy description",
             enabled=True,
@@ -439,6 +460,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "can_change_taxonomy": True,
                     "can_delete_taxonomy": True,
                     "can_tag_object": False,
+                    "export_id": "test_update_taxonomy",
                 },
             )
 
@@ -453,6 +475,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         taxonomy = api.create_taxonomy(
             name="test system taxonomy",
+            export_id="test_system_taxonomy",
             taxonomy_class=SystemDefinedTaxonomy if system_defined else None,
         )
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
@@ -475,7 +498,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_patch_taxonomy(self, user_attr, expected_status):
-        taxonomy = api.create_taxonomy(name="test patch taxonomy", enabled=False)
+        taxonomy = create_taxonomy(name="test patch taxonomy", enabled=False)
 
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
@@ -498,6 +521,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "can_change_taxonomy": True,
                     "can_delete_taxonomy": True,
                     "can_tag_object": False,
+                    "export_id": 'test_patch_taxonomy',
                 },
             )
 
@@ -512,6 +536,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         taxonomy = api.create_taxonomy(
             name="test system taxonomy",
+            export_id="test_system_taxonomy",
             taxonomy_class=SystemDefinedTaxonomy if system_defined else None,
         )
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
@@ -534,7 +559,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_delete_taxonomy(self, user_attr, expected_status):
-        taxonomy = api.create_taxonomy(name="test delete taxonomy")
+        taxonomy = create_taxonomy(name="test delete taxonomy")
 
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
@@ -566,7 +591,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Tests if a user can export a taxonomy
         """
-        taxonomy = api.create_taxonomy(name="T1")
+        taxonomy = create_taxonomy(name="T1")
         for i in range(20):
             # Valid ObjectTags
             Tag.objects.create(taxonomy=taxonomy, value=f"Tag {i}").save()
@@ -593,7 +618,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Tests if a user can export a taxonomy with download option
         """
-        taxonomy = api.create_taxonomy(name="T1")
+        taxonomy = create_taxonomy(name="T1")
         for i in range(20):
             api.add_tag_to_taxonomy(taxonomy=taxonomy, tag=f"Tag {i}")
 
@@ -615,7 +640,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Tests if a user can export a taxonomy using an invalid output_format param
         """
-        taxonomy = api.create_taxonomy(name="T1")
+        taxonomy = create_taxonomy(name="T1")
 
         url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
 
@@ -627,7 +652,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         """
         Tests if a user can export a taxonomy using an invalid output_format param
         """
-        taxonomy = api.create_taxonomy(name="T1")
+        taxonomy = create_taxonomy(name="T1")
 
         url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
 
@@ -640,7 +665,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         Tests if a user can export a taxonomy that he doesn't have authorization
         """
         # Only staff can view a disabled taxonomy
-        taxonomy = api.create_taxonomy(name="T1", enabled=False)
+        taxonomy = create_taxonomy(name="T1", enabled=False)
 
         url = TAXONOMY_EXPORT_URL.format(pk=taxonomy.pk)
 
@@ -2343,6 +2368,7 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
             {
                 "taxonomy_name": "Imported Taxonomy name",
                 "taxonomy_description": "Imported Taxonomy description",
+                "taxonomy_export_id": "imported_taxonomy_export_id",
                 "file": file,
             },
             format="multipart"
@@ -2373,6 +2399,7 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
             {
                 "taxonomy_name": "Imported Taxonomy name",
                 "taxonomy_description": "Imported Taxonomy description",
+                "taxonomy_export_id": "imported_taxonomy_description",
             },
             format="multipart"
         )
@@ -2419,6 +2446,7 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
             {
                 "taxonomy_name": "Imported Taxonomy name",
                 "taxonomy_description": "Imported Taxonomy description",
+                "taxonomy_export_id": "imported_taxonomy_description",
                 "file": file,
             },
             format="multipart"
@@ -2445,6 +2473,7 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
             {
                 "taxonomy_name": "Imported Taxonomy name",
                 "taxonomy_description": "Imported Taxonomy description",
+                "taxonomy_export_id": "imported_taxonomy_export_id",
                 "file": file,
             },
             format="multipart"
@@ -2505,6 +2534,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
 
         self.taxonomy = Taxonomy.objects.create(
             name="Test import taxonomy",
+            export_id="test_import_taxonomy",
         )
         tag_1 = Tag.objects.create(
             taxonomy=self.taxonomy,

@@ -29,6 +29,7 @@ TagDoesNotExist = Tag.DoesNotExist
 
 def create_taxonomy(
     name: str,
+    export_id: str,
     description: str | None = None,
     enabled=True,
     allow_multiple=True,
@@ -44,9 +45,12 @@ def create_taxonomy(
         enabled=enabled,
         allow_multiple=allow_multiple,
         allow_free_text=allow_free_text,
+        export_id=export_id,
     )
     if taxonomy_class:
         taxonomy.taxonomy_class = taxonomy_class
+
+    taxonomy.full_clean()
     taxonomy.save()
     return taxonomy.cast()
 

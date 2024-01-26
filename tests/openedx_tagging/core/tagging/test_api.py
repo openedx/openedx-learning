@@ -56,6 +56,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "enabled": False,
             "allow_multiple": True,
             "allow_free_text": True,
+            "export_id": "difficulty",
         }
         taxonomy = tagging_api.create_taxonomy(**params)
         for param, value in params.items():
@@ -67,6 +68,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         with self.assertRaises(ValueError) as exc:
             tagging_api.create_taxonomy(
                 name="Bad class",
+                export_id="bad_class",
                 taxonomy_class=str,  # type: ignore[arg-type]
             )
         assert "<class 'str'> must be a subclass of Taxonomy" in str(exc.exception)
@@ -78,8 +80,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert no_tax is None
 
     def test_get_taxonomies(self) -> None:
-        tax1 = tagging_api.create_taxonomy("Enabled")
-        tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
+        tax1 = tagging_api.create_taxonomy("Enabled", "enabled")
+        tax2 = tagging_api.create_taxonomy("Disabled", "disabled", enabled=False)
         tax3 = Taxonomy.objects.get(name="Import Taxonomy Test")
         with self.assertNumQueries(1):
             enabled = list(tagging_api.get_taxonomies())
@@ -242,7 +244,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
         Calling get_children_tags on free text taxonomies gives an error.
         """
-        free_text_taxonomy = Taxonomy.objects.create(allow_free_text=True, name="FreeText")
+        free_text_taxonomy = Taxonomy.objects.create(
+            allow_free_text=True,
+            name="FreeText",
+            export_id="free_text"
+        )
         tagging_api.tag_object(object_id="obj1", taxonomy=free_text_taxonomy, tags=["some_tag"])
         with self.assertRaises(ValueError) as exc:
             tagging_api.get_children_tags(free_text_taxonomy, "some_tag")
@@ -257,7 +263,12 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_resync_object_tags(self) -> None:
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
-        open_taxonomy = Taxonomy.objects.create(name="Freetext Life", allow_free_text=True, allow_multiple=True)
+        open_taxonomy = Taxonomy.objects.create(
+            name="Freetext Life",
+            allow_free_text=True,
+            allow_multiple=True,
+            export_id='freetext_life',
+        )
 
         object_id = "obj1"
         # Create some tags:
@@ -571,7 +582,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         obj_id = "object_id1"
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
-        disabled_taxonomy = tagging_api.create_taxonomy("Disabled Taxonomy", allow_free_text=True)
+        disabled_taxonomy = tagging_api.create_taxonomy("Disabled Taxonomy", "disabled_taxonomy", allow_free_text=True)
         tagging_api.tag_object(object_id=obj_id, taxonomy=self.taxonomy, tags=["DPANN", "Chordata"])
         tagging_api.tag_object(object_id=obj_id, taxonomy=self.language_taxonomy, tags=["English"])
         tagging_api.tag_object(object_id=obj_id, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])

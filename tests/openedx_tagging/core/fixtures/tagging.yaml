@@ -230,6 +230,7 @@
     enabled: true
     allow_multiple: false
     allow_free_text: false
+    export_id: life_on_earth
 - model: oel_tagging.taxonomy
   pk: 3
   fields:
@@ -238,6 +239,7 @@
     enabled: true
     allow_multiple: false
     allow_free_text: false
+    export_id: user_authors
     _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.UserSystemDefinedTaxonomy
 - model: oel_tagging.taxonomy
   pk: 4
@@ -247,6 +249,7 @@
     enabled: true
     allow_multiple: false
     allow_free_text: false
+    export_id: system_defined_taxonomy
     _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.SystemDefinedTaxonomy
 - model: oel_tagging.taxonomy
   pk: 5
@@ -256,4 +259,4 @@
     enabled: true
     allow_multiple: false
     allow_free_text: false
-    
+    export_id: import_taxonomy_test

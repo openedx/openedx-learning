@@ -4,6 +4,7 @@ Tagging app base data models
 from __future__ import annotations
 
 import logging
+import re
 from typing import List
 
 from django.core.exceptions import ValidationError
@@ -228,6 +229,19 @@ class Taxonomy(models.Model):
             "Indicates whether this taxonomy should be visible to object authors."
         ),
     )
+    # External ID that should only be used on import/export.
+    # NOT use for any other purposes, you can use the numeric ID of the model instead;
+    # this id is editable.
+    export_id = models.CharField(
+        null=False,
+        blank=False,
+        max_length=255,
+        help_text=_(
+            "User-facing ID that is used on import/export."
+            " Should only contain alphanumeric characters or '_' '-' '.'"
+        ),
+        unique=True,
+    )
     _taxonomy_class = models.CharField(
         null=True,
         max_length=255,
@@ -300,6 +314,14 @@ class Taxonomy(models.Model):
         """
         return False
 
+    def clean(self):
+        super().clean()
+
+        if not re.match(r'^[\w\-.]+$', self.export_id):
+            raise ValidationError(
+                "The export_id should only contain alphanumeric characters or '_' '-' '.'"
+            )
+
     def cast(self):
         """
         Returns the current Taxonomy instance cast into its taxonomy_class.
@@ -336,6 +358,7 @@ class Taxonomy(models.Model):
         self.allow_multiple = taxonomy.allow_multiple
         self.allow_free_text = taxonomy.allow_free_text
         self.visible_to_authors = taxonomy.visible_to_authors
+        self.export_id = taxonomy.export_id
         self._taxonomy_class = taxonomy._taxonomy_class  # pylint: disable=protected-access
         return self
 
