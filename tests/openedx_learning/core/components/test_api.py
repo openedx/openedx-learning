@@ -141,7 +141,7 @@ class TestGetComponents(TestCase):
         """
         Test that we pull back everything, even unpublished or "deleted" items.
         """
-        all_components = components_api.get_components(self.learning_package.id).all()
+        all_components = components_api.get_components(self.learning_package.id)
         assert list(all_components) == [
             self.published_problem,
             self.published_html,
@@ -157,7 +157,7 @@ class TestGetComponents(TestCase):
         components_with_draft_version = components_api.get_components(
             self.learning_package.id,
             draft=True,
-        ).all()
+        )
         assert list(components_with_draft_version) == [
             self.published_problem,
             self.published_html,
@@ -168,7 +168,7 @@ class TestGetComponents(TestCase):
         components_without_draft_version = components_api.get_components(
             self.learning_package.id,
             draft=False,
-        ).all()
+        )
         assert list(components_without_draft_version) == [
             self.deleted_video
         ]
@@ -180,7 +180,7 @@ class TestGetComponents(TestCase):
         components_with_published_version = components_api.get_components(
             self.learning_package.id,
             published=True,
-        ).all()
+        )
         assert list(components_with_published_version) == [
             self.published_problem,
             self.published_html,
@@ -188,7 +188,7 @@ class TestGetComponents(TestCase):
         components_without_published_version = components_api.get_components(
             self.learning_package.id,
             published=False,
-        ).all()
+        )
         assert list(components_without_published_version) == [
             self.unpublished_problem,
             self.unpublished_html,
@@ -205,7 +205,7 @@ class TestGetComponents(TestCase):
         components_with_xblock_v2 = components_api.get_components(
             self.learning_package.id,
             namespace='xblock.v2',
-        ).all()
+        )
         assert list(components_with_xblock_v2) == [
             self.published_problem,
             self.unpublished_problem,
@@ -218,14 +218,14 @@ class TestGetComponents(TestCase):
         html_and_video_components =  components_api.get_components(
             self.learning_package.id,
             types=['html', 'video']
-        ).all()
+        )
         assert list(html_and_video_components) == [
             self.published_html,
             self.unpublished_html,
             self.deleted_video,
         ]
 
-    def test_title_filter(self):
+    def test_draft_title_filter(self):
         """
         Test the title filter.
 
@@ -233,14 +233,31 @@ class TestGetComponents(TestCase):
         """
         components = components_api.get_components(
             self.learning_package.id,
-            title="PUBLISHED"
-        ).all()
-        # These all have a title with "published" in it somewhere.
+            draft_title="PUBLISHED"
+        )
+        # These all have a draft title with "published" in it somewhere.
         assert list(components) == [
             self.published_problem,
             self.published_html,
             self.unpublished_problem,
             self.unpublished_html,
+        ]
+
+    def test_published_title_filter(self):
+        """
+        Test the title filter.
+
+        Note that this should be doing a case-insensitive match.
+        """
+        components = components_api.get_components(
+            self.learning_package.id,
+            published_title="problem"
+        )
+        # These all have a published title with "problem" in it somewhere,
+        # meaning that it won't pick up the components that only exist as
+        # drafts.
+        assert list(components) == [
+            self.published_problem,
         ]
 
 

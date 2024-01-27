@@ -217,7 +217,7 @@ def component_exists_by_key(
     namespace: str,
     type: str,  # pylint: disable=redefined-builtin
     local_key: str
-):
+) -> bool:
     """
     Return True/False for whether a Component exists.
 
@@ -241,7 +241,8 @@ def get_components(
     published: bool | None = None,
     namespace: str | None = None,
     types: list[str] | None = None,
-    title: str | None = None,
+    draft_title: str | None = None,
+    published_title: str | None = None,
 ) -> QuerySet:
     """
     Fetch a QuerySet of Components for a LearningPackage using various filters.
@@ -264,8 +265,14 @@ def get_components(
         qset = qset.filter(namespace=namespace)
     if types is not None:
         qset = qset.filter(type__in=types)
-    if title is not None:
-        qset = qset.filter(publishable_entity__draft__version__title__icontains=title)
+    if draft_title is not None:
+        qset = qset.filter(
+            publishable_entity__draft__version__title__icontains=draft_title
+        )
+    if published_title is not None:
+        qset = qset.filter(
+            publishable_entity__published__version__title__icontains=published_title
+        )
 
     return qset
 
