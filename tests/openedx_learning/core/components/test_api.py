@@ -442,3 +442,26 @@ class TestCreateNewVersions(TestCase):
                 .get(componentversionrawcontent__key="blank.txt")
                 .text_content
         )
+
+        # Now we're going to set "hello.txt" back to hello_content, but remove
+        # blank.txt, goodbye.txt, and an unknown "nothere.txt".
+        version_3 = components_api.create_next_version(
+            self.problem.pk,
+            title="Problem Version 3",
+            content_to_replace={
+                "hello.txt": hello_content.pk,
+                "blank.txt": None,
+                "goodbye.txt": None,
+                "nothere.txt": None,  # should not error
+            },
+            created=self.now,
+        )
+        assert version_3.version_num == 3
+        assert version_3.raw_contents.count() == 1
+        assert (
+            hello_content ==
+            version_3
+                .raw_contents
+                .get(componentversionrawcontent__key="hello.txt")
+                .text_content
+        )

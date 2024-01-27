@@ -88,6 +88,18 @@ def create_next_version(
     Before calling this, you should create any new contents via the contents
     API, since ``content_to_replace`` needs RawContent IDs for the values.
 
+    The ``content_to_replace`` dict is a mapping of strings representing the
+    local path/key for a file, to ``RawContent.id`` values. Using a `None` for
+    a value in this dict means to delete that key in the next version.
+
+    It is okay to mark entries for deletion that don't exist. For instance, if a
+    version has ``a.txt`` and ``b.txt``, sending a ``content_to_replace`` value
+    of ``{"a.txt": None, "c.txt": None}`` will remove ``a.txt`` from the next
+    version, leave ``b.txt`` alone, and will not error–even though there is no
+    ``c.txt`` in the previous version. This is to make it a little more
+    convenient to remove paths (e.g. due to deprecation) without having to
+    always check for its existence first.
+
     TODO: Have to add learning_downloadable info to this when it comes time to
           support static asset download.
     """
