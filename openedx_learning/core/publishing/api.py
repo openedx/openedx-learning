@@ -163,10 +163,13 @@ def learning_package_exists(key: str) -> bool:
 
 
 def get_last_publish(learning_package_id: int) -> PublishLog | None:
-    return PublishLog.objects \
-                     .filter(learning_package_id=learning_package_id) \
-                     .order_by('-id') \
-                     .first()
+    return (
+        PublishLog
+            .objects
+            .filter(learning_package_id=learning_package_id)
+            .order_by('-id')
+            .first()
+    )
 
 def get_all_drafts(learning_package_id: int):
     return Draft.objects.filter(
@@ -175,9 +178,12 @@ def get_all_drafts(learning_package_id: int):
     )
 
 def get_entities_with_unpublished_changes(learning_package_id: int):
-    return PublishableEntity.objects \
-               .filter(learning_package_id=learning_package_id) \
-               .exclude(draft__version=F('published__version'))
+    return (
+        PublishableEntity
+            .objects
+            .filter(learning_package_id=learning_package_id)
+            .exclude(draft__version=F('published__version'))
+    )
 
 def get_entities_with_unpublished_deletes(learning_package_id: int):
     """
@@ -185,13 +191,15 @@ def get_entities_with_unpublished_deletes(learning_package_id: int):
     not-null Published version. (If both are null, it means it's already been
     deleted in a previous publish, or it was never published.)
     """
-    return PublishableEntity.objects \
-               .filter(
-                   learning_package_id=learning_package_id,
-                   draft__version__isnull=True,
-                ) \
-               .exclude(published__version__isnull=True)
-
+    return (
+        PublishableEntity
+            .objects
+            .filter(
+                learning_package_id=learning_package_id,
+                draft__version__isnull=True,
+            )
+            .exclude(published__version__isnull=True)
+    )
 
 def publish_all_drafts(
     learning_package_id: int,
@@ -203,9 +211,11 @@ def publish_all_drafts(
     Publish everything that is a Draft and is not already published.
     """
     draft_qset = (
-        Draft.objects.select_related("entity__published")
-                     .filter(entity__learning_package_id=learning_package_id)
-                     .exclude(entity__published__version_id=F("version_id"))
+        Draft
+            .objects
+            .select_related("entity__published")
+            .filter(entity__learning_package_id=learning_package_id)
+            .exclude(entity__published__version_id=F("version_id"))
     )
     return publish_from_drafts(
         learning_package_id, draft_qset, message, published_at, published_by
@@ -317,16 +327,18 @@ def reset_drafts_to_published(learning_package_id: int) -> None:
     """
     # These are all the drafts that are different from the publisehd versions.
     draft_qset = (
-        Draft.objects.select_related("entity__published")
-        .filter(entity__learning_package_id=learning_package_id)
-        .exclude(entity__published__version_id=F("version_id"))
+        Draft
+            .objects
+            .select_related("entity__published")
+            .filter(entity__learning_package_id=learning_package_id)
+            .exclude(entity__published__version_id=F("version_id"))
     )
     # Note: We can't do an .update with a F() on a joined field in the ORM, so
     # we have to loop through the drafts individually to reset them. We can
     # rework this into a bulk update or custom SQL if it becomes a performance
     # issue.
     with atomic():
-        for draft in draft_qset.all():
+        for draft in draft_qset:
             if hasattr(draft.entity, 'published'):
                 draft.version_id = draft.entity.published.version_id
             else:

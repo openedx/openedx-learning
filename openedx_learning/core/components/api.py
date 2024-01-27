@@ -76,7 +76,7 @@ def create_component_version(
 def create_next_version(
     component_pk: int,
     title: str,
-    content_to_replace: dict[str: int],
+    content_to_replace: dict[str: int | None],
     created: datetime,
     created_by: int | None = None,
 ) -> ComponentVersion:
@@ -118,17 +118,23 @@ def create_next_version(
         )
         # First copy the new stuff over...
         for key, raw_content_pk in content_to_replace.items():
-            ComponentVersionRawContent.objects.create(
-                raw_content_id=raw_content_pk,
-                component_version=component_version,
-                key=key,
-                learner_downloadable=False,
-            )
+            # If the raw_content_pk is None, it means we want to remove the
+            # content represented by our key from the next version. Otherwise,
+            # we add our key->raw_content_pk mapping to the next version.
+            if raw_content_pk is not None:
+                ComponentVersionRawContent.objects.create(
+                    raw_content_id=raw_content_pk,
+                    component_version=component_version,
+                    key=key,
+                    learner_downloadable=False,
+                )
         # Now copy any old associations that existed, as long as they don't
         # conflict with the new stuff.
-        last_version_content_mapping = ComponentVersionRawContent.objects \
-                                           .filter(component_version=last_version) \
-                                           .all()
+        last_version_content_mapping = (
+            ComponentVersionRawContent
+                .objects
+                .filter(component_version=last_version)
+        )
         for cvrc in last_version_content_mapping:
             if cvrc.key not in content_to_replace:
                 ComponentVersionRawContent.objects.create(
@@ -229,9 +235,12 @@ def get_components(
     info from the Component's draft and published versions, since we'll be
     referencing these a lot.
     """
-    qset = Component.with_publishing_relations \
-                    .filter(learning_package_id=learning_package_id) \
-                    .order_by('pk')
+    qset = (
+        Component
+            .with_publishing_relations
+            .filter(learning_package_id=learning_package_id)
+            .order_by('pk')
+    )
     if draft is not None:
         qset = qset.filter(publishable_entity__draft__version__isnull = not draft)
     if published is not None:
@@ -257,20 +266,24 @@ def get_component_version_content(
     Can raise a django.core.exceptions.ObjectDoesNotExist error if there is no
     matching ComponentVersionRawContent.
     """
-    return ComponentVersionRawContent.objects.select_related(
-        "raw_content",
-        "raw_content__media_type",
-        "raw_content__textcontent",
-        "component_version",
-        "component_version__component",
-        "component_version__component__learning_package",
-    ).get(
-        Q(component_version__component__learning_package__key=learning_package_key)
-        & Q(component_version__component__publishable_entity__key=component_key)
-        & Q(component_version__publishable_entity_version__version_num=version_num)
-        & Q(key=key)
+    return (
+        ComponentVersionRawContent
+            .objects
+            .select_related(
+                "raw_content",
+                "raw_content__media_type",
+                "raw_content__textcontent",
+                "component_version",
+                "component_version__component",
+                "component_version__component__learning_package",
+            )
+            .get(
+                Q(component_version__component__learning_package__key=learning_package_key)
+                & Q(component_version__component__publishable_entity__key=component_key)
+                & Q(component_version__publishable_entity_version__version_num=version_num)
+                & Q(key=key)
+            )
     )
-
 
 def add_content_to_component_version(
     component_version_id: int,

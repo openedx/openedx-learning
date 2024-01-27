@@ -349,14 +349,16 @@ class TestCreateNewVersions(TestCase):
             learner_downloadable=False,
         )
         # re-fetch from the database to check to see if we wrote it correctly
-        new_version = components_api.get_component(self.problem.pk) \
-                                    .versions \
-                                    .get(publishable_entity_version__version_num=1)
+        new_version = (
+            components_api
+                .get_component(self.problem.pk)
+                .versions
+                .get(publishable_entity_version__version_num=1)
+        )
         assert (
             new_content ==
             new_version.raw_contents.get(componentversionrawcontent__key="hello.txt")
         )
-
 
 
     def test_multiple_versions(self):
@@ -421,19 +423,22 @@ class TestCreateNewVersions(TestCase):
         assert version_2.raw_contents.count() == 3
         assert (
             blank_content ==
-            version_2.raw_contents
-                     .get(componentversionrawcontent__key="hello.txt")
-                     .text_content
+            version_2
+                .raw_contents
+                .get(componentversionrawcontent__key="hello.txt")
+                .text_content
         )
         assert (
             goodbye_content ==
-            version_2.raw_contents
-                     .get(componentversionrawcontent__key="goodbye.txt")
-                     .text_content
+            version_2
+                .raw_contents
+                .get(componentversionrawcontent__key="goodbye.txt")
+                .text_content
         )
         assert (
             blank_content ==
-            version_2.raw_contents
-                     .get(componentversionrawcontent__key="blank.txt")
-                     .text_content
+            version_2
+                .raw_contents
+                .get(componentversionrawcontent__key="blank.txt")
+                .text_content
         )
