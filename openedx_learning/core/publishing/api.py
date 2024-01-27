@@ -149,7 +149,7 @@ def create_publishable_entity_version(
         )
     return version
 
-def get_publishable_entity_by_key(learning_package_id, key):
+def get_publishable_entity_by_key(learning_package_id, key) -> PublishableEntity:
     return PublishableEntity.objects.get(
         learning_package_id=learning_package_id,
         key=key,
@@ -171,13 +171,13 @@ def get_last_publish(learning_package_id: int) -> PublishLog | None:
             .first()
     )
 
-def get_all_drafts(learning_package_id: int):
+def get_all_drafts(learning_package_id: int) -> QuerySet[Draft]:
     return Draft.objects.filter(
         entity__learning_package_id=learning_package_id,
         version__isnull=False,
     )
 
-def get_entities_with_unpublished_changes(learning_package_id: int):
+def get_entities_with_unpublished_changes(learning_package_id: int) -> QuerySet[PublishableEntity]:
     return (
         PublishableEntity
             .objects
@@ -185,7 +185,7 @@ def get_entities_with_unpublished_changes(learning_package_id: int):
             .exclude(draft__version=F('published__version'))
     )
 
-def get_entities_with_unpublished_deletes(learning_package_id: int):
+def get_entities_with_unpublished_deletes(learning_package_id: int) -> QuerySet[PublishableEntity]:
     """
     Something will become "deleted" if it has a null Draft version but a
     not-null Published version. (If both are null, it means it's already been
@@ -206,7 +206,7 @@ def publish_all_drafts(
     message="",
     published_at: datetime | None = None,
     published_by: int | None = None
-):
+) -> PublishLog:
     """
     Publish everything that is a Draft and is not already published.
     """
@@ -312,7 +312,7 @@ def set_draft_version(publishable_entity_id: int, publishable_entity_version_pk:
     draft.save()
 
 
-def soft_delete_draft(publishable_entity_id: int):
+def soft_delete_draft(publishable_entity_id: int) -> None:
     draft = Draft.objects.get(entity_id=publishable_entity_id)
     draft.version_id = None
     draft.save()
@@ -349,7 +349,7 @@ def reset_drafts_to_published(learning_package_id: int) -> None:
 def register_content_models(
     content_model_cls: type[PublishableEntityMixin],
     content_version_model_cls: type[PublishableEntityVersionMixin],
-):
+) -> PublishableContentModelRegistry:
     """
     Register what content model maps to what content version model.
 

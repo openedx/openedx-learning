@@ -29,7 +29,7 @@ def create_component(
     local_key: str,
     created: datetime,
     created_by: int | None,
-):
+) -> Component:
     """
     Create a new Component (an entity like a Problem or Video)
     """
@@ -167,7 +167,7 @@ def create_component_and_version(
     title: str,
     created: datetime,
     created_by: int | None = None,
-):
+) -> (Component, ComponentVersion):
     """
     Create a Component and associated ComponentVersion atomically
     """
@@ -197,17 +197,20 @@ def get_component_by_key(
     namespace: str,
     type: str,  # pylint: disable=redefined-builtin
     local_key: str,
-):
+) -> Component:
     """
     Get Componet by it unique namespace/type/local_key tuple.
     """
-    return Component.with_publishing_relations \
-                    .get(
-                        learning_package_id=learning_package_id,
-                        namespace=namespace,
-                        type=type,
-                        local_key=local_key,
-                    )
+    return (
+        Component
+            .with_publishing_relations
+            .get(
+                learning_package_id=learning_package_id,
+                namespace=namespace,
+                type=type,
+                local_key=local_key,
+            )
+    )
 
 def component_exists_by_key(
     learning_package_id: int,
