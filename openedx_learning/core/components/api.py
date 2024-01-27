@@ -76,7 +76,7 @@ def create_component_version(
 def create_next_version(
     component_pk: int,
     title: str,
-    content_to_replace: dict[str: int | None],
+    content_to_replace: dict[str, int | None],
     created: datetime,
     created_by: int | None = None,
 ) -> ComponentVersion:

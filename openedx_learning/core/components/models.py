@@ -49,8 +49,11 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
 
     A Component belongs to exactly one LearningPackage.
 
-    A Component's is 1:1 with the same primary key values as the
-    PublishableEntity it uses for draft/publishing operations.
+    A Component is 1:1 with PublishableEntity and has matching primary key
+    values. More specifically, ``Component.pk`` maps to
+    ``Component.publishable_entity_id``, and any place where the Publishing API
+    module expects to get a ``PublishableEntity.id``, you can use a
+    ``Component.pk`` instead.
 
     Identifiers
     -----------

@@ -13,12 +13,16 @@ from openedx_learning.lib.test_utils import TestCase
 
 class TestPerformance(TestCase):
     """
-    Performance related tests to make sure we don't get n + 1 queries.
+    Performance related tests for Components.
+
+    These are mostly to ensure that when Components are fetched, they're fetched
+    with a select_related on the most commonly queried things; draft and
+    published version metadata.
     """
     @classmethod
     def setUpTestData(cls) -> None:
         """
-        Initialize our content data (all our tests are read only).
+        Initialize our base learning package.
 
         We don't actually need to add content to the ComponentVersions, since
         for this we only care about the metadata on Compnents, their versions,
