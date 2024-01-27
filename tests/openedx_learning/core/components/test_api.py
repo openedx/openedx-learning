@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from django.core.exceptions import ObjectDoesNotExist
 
 from openedx_learning.core.publishing.models import LearningPackage
-from openedx_learning.core.components.models import Component, ComponentVersion
+from openedx_learning.core.components.models import Component
 
 from openedx_learning.core.components import api as components_api
 from openedx_learning.core.contents import api as contents_api
