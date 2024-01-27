@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 
 from django.core.exceptions import ObjectDoesNotExist
 
+from openedx_learning.core.publishing.models import LearningPackage
+from openedx_learning.core.components.models import Component, ComponentVersion
+
 from openedx_learning.core.components import api as components_api
 from openedx_learning.core.contents import api as contents_api
 from openedx_learning.core.publishing import api as publishing_api
@@ -19,6 +22,9 @@ class TestPerformance(TestCase):
     with a select_related on the most commonly queried things; draft and
     published version metadata.
     """
+    learning_package: LearningPackage
+    now: datetime
+
     @classmethod
     def setUpTestData(cls) -> None:
         """
@@ -64,6 +70,13 @@ class TestGetComponents(TestCase):
     """
     Test grabbing a queryset of Components.
     """
+    learning_package: LearningPackage
+    now: datetime
+    published_problem: Component
+    published_html: Component
+    unpublished_problem: Component
+    unpublished_html: Component
+    deleted_video: Component
 
     @classmethod
     def setUpTestData(cls) -> None:
@@ -265,6 +278,11 @@ class TestComponentGetAndExists(TestCase):
     """
     Test getting a Component by primary key or key string.
     """
+    learning_package: LearningPackage
+    now: datetime
+    problem: Component
+    html: Component
+
     @classmethod
     def setUpTestData(cls) -> None:
         """
@@ -335,6 +353,9 @@ class TestCreateNewVersions(TestCase):
     """
     Create new ComponentVersions in various ways.
     """
+    learning_package: LearningPackage
+    now: datetime
+    problem: Component
 
     @classmethod
     def setUpTestData(cls) -> None:

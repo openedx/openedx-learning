@@ -167,7 +167,7 @@ def create_component_and_version(
     title: str,
     created: datetime,
     created_by: int | None = None,
-) -> (Component, ComponentVersion):
+) -> tuple[Component, ComponentVersion]:
     """
     Create a Component and associated ComponentVersion atomically
     """
