@@ -332,6 +332,9 @@ class TestComponentGetAndExists(TestCase):
 
 
 class TestCreateNewVersions(TestCase):
+    """
+    Create new ComponentVersions in various ways.
+    """
 
     @classmethod
     def setUpTestData(cls) -> None:
