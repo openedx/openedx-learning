@@ -14,7 +14,7 @@ from openedx_learning.core.publishing import api as publishing_api
 from openedx_learning.lib.test_utils import TestCase
 
 
-class TestPerformance(TestCase):
+class PerformanceTestCase(TestCase):
     """
     Performance related tests for Components.
 
@@ -66,7 +66,7 @@ class TestPerformance(TestCase):
             published = component.versioning.published
             assert draft.title == published.title
 
-class TestGetComponents(TestCase):
+class GetComponentsTestCase(TestCase):
     """
     Test grabbing a queryset of Components.
     """
@@ -274,7 +274,7 @@ class TestGetComponents(TestCase):
         ]
 
 
-class TestComponentGetAndExists(TestCase):
+class ComponentGetAndExistsTestCase(TestCase):
     """
     Test getting a Component by primary key or key string.
     """
@@ -349,7 +349,7 @@ class TestComponentGetAndExists(TestCase):
         )
 
 
-class TestCreateNewVersions(TestCase):
+class CreateNewVersionsTestCase(TestCase):
     """
     Create new ComponentVersions in various ways.
     """

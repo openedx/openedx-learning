@@ -8,6 +8,7 @@ import pytest
 from django.core.exceptions import ValidationError
 
 from openedx_learning.core.publishing import api as publishing_api
+from openedx_learning.core.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
 
 
@@ -94,21 +95,26 @@ class DraftTestCase(TestCase):
     """
     Test basic operations with Drafts.
     """
+    now: datetime
+    learning_package: LearningPackage
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.now = datetime(2024, 1, 28, 16, 45, 30, tzinfo=timezone.utc)
+        cls.learning_package = publishing_api.create_learning_package(
+            "my_package_key",
+            "Draft Testing LearningPackage 🔥",
+            created=cls.now,
+        )
 
     def test_draft_lifecycle(self):
         """
         Test basic lifecycle of a Draft.
         """
-        created = datetime(2023, 4, 2, 15, 9, 0, tzinfo=timezone.utc)
-        package = publishing_api.create_learning_package(
-            "my_package_key",
-            "Draft Testing LearningPackage 🔥",
-            created=created,
-        )
         entity = publishing_api.create_publishable_entity(
-            package.id,
+            self.learning_package.id,
             "my_entity",
-            created,
+            created=self.now,
             created_by=None,
         )
         # Drafts are NOT created when a PublishableEntity is created, only when
@@ -119,7 +125,7 @@ class DraftTestCase(TestCase):
             entity_id=entity.id,
             version_num=1,
             title="An Entity 🌴",
-            created=created,
+            created=self.now,
             created_by=None,
         )
         assert entity_version == publishing_api.get_draft_version(entity.id)
@@ -129,3 +135,12 @@ class DraftTestCase(TestCase):
         publishing_api.set_draft_version(entity.id, None)
         entity_version = publishing_api.get_draft_version(entity.id)
         assert entity_version is None
+
+    def test_reset_drafts_to_published(self):
+        """
+        Test throwing out Draft data and resetting to the Published versions.
+
+        One place this might turn up is if we've imported an older version of
+        the library and it causes a bunch of new versions to be created.
+        """
+

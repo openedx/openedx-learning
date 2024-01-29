@@ -12,7 +12,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, QuerySet
 from django.db.transaction import atomic
 
-from .model_mixins import PublishableContentModelRegistry, PublishableEntityMixin, PublishableEntityVersionMixin
+from .model_mixins import (
+    PublishableContentModelRegistry,
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 from .models import (
     Draft,
     LearningPackage,
@@ -296,16 +300,15 @@ def get_draft_version(publishable_entity_id: int) -> PublishableEntityVersion | 
     return draft.version
 
 
-def set_draft_version(publishable_entity_id: int, publishable_entity_version_pk: int) -> None:
+def set_draft_version(publishable_entity_id: int, publishable_entity_version_pk: int | None) -> None:
     """
     Modify the Draft of a PublishableEntity to be a PublishableEntityVersion.
 
     This would most commonly be used to set the Draft to point to a newly
     created PublishableEntityVersion that was created in Studio (because someone
     edited some content). Setting a Draft's version to None is like deleting it
-    from Studio's editing point of view. We don't actually delete the Draft row
-    because we'll need that for publishing purposes (i.e. to delete content from
-    the published branch).
+    from Studio's editing point of view (see ``soft_delete_draft`` for more
+    details).
     """
     draft = Draft.objects.get(entity_id=publishable_entity_id)
     draft.version_id = publishable_entity_version_pk
@@ -313,9 +316,16 @@ def set_draft_version(publishable_entity_id: int, publishable_entity_version_pk:
 
 
 def soft_delete_draft(publishable_entity_id: int) -> None:
-    draft = Draft.objects.get(entity_id=publishable_entity_id)
-    draft.version_id = None
-    draft.save()
+    """
+    Sets the Draft version to None.
+
+    This "deletes" the ``PublishableEntity`` from the point of an authoring
+    environment like Studio, but doesn't immediately remove the ``Published``
+    version. No version data is actually deleted, so restoring is just a matter
+    of pointing the Draft back to the most recent ``PublishableEntityVersion``
+    for a given ``PublishableEntity``.
+    """
+    return set_draft_version(publishable_entity_id, None)
 
 
 def reset_drafts_to_published(learning_package_id: int) -> None:
@@ -323,9 +333,27 @@ def reset_drafts_to_published(learning_package_id: int) -> None:
     Reset all Drafts to point to the most recently Published versions.
 
     This is a way to say "discard my unpublished changes" at the level of an
-    entire LearningPackage.
+    entire LearningPackage. Note that the ``PublishableEntityVersions`` that
+    were created in the mean time are not deleted.
+
+    Let's look at the example of a PublishableEntity where Draft and Published
+    both point to version 4.
+
+    * The PublishableEntity is then edited multiple times, creating a new
+      version with every save. Each new save also updates the the Draft to point
+      to it. After three such saves, Draft points at version 7.
+    * No new publishes have happened, so Published still points to version 4.
+    * ``reset_drafts_to_published`` is called. Draft now points to version 4 to
+      match Published.
+    * The PublishableEntity is edited again. This creates version 8, and Draft
+      now points to this new version.
+
+    So in the above example, versions 5-7 aren't discarded from the history, and
+    it's important that the code creating the "next" version_num looks at the
+    latest version created for a PublishableEntity (its ``latest`` attribute),
+    rather than basing it off of the version that Draft points to.
     """
-    # These are all the drafts that are different from the publisehd versions.
+    # These are all the drafts that are different from the published versions.
     draft_qset = (
         Draft
             .objects
