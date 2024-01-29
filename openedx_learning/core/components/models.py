@@ -20,11 +20,7 @@ from __future__ import annotations
 
 from django.db import models
 
-from openedx_learning.lib.fields import (
-    case_sensitive_char_field,
-    immutable_uuid_field,
-    key_field,
-)
+from openedx_learning.lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
 from openedx_learning.lib.managers import WithRelationsManager
 
 from ..contents.models import RawContent

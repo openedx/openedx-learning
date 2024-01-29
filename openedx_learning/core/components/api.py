@@ -78,7 +78,7 @@ def create_next_version(
     title: str,
     content_to_replace: dict[str, int | None],
     created: datetime,
-    created_by: int | None=None,
+    created_by: int | None = None,
 ) -> ComponentVersion:
     """
     Create a new ComponentVersion based on the most recent version.
@@ -163,7 +163,7 @@ def create_component_and_version(
     local_key: str,
     title: str,
     created: datetime,
-    created_by: int | None=None,
+    created_by: int | None = None,
 ) -> tuple[Component, ComponentVersion]:
     """
     Create a Component and associated ComponentVersion atomically
@@ -235,12 +235,12 @@ def component_exists_by_key(
 
 def get_components(
     learning_package_id: int,
-    draft: bool | None=None,
-    published: bool | None=None,
-    namespace: str | None=None,
-    types: list[str] | None=None,
-    draft_title: str | None=None,
-    published_title: str | None=None,
+    draft: bool | None = None,
+    published: bool | None = None,
+    namespace: str | None = None,
+    types: list[str] | None = None,
+    draft_title: str | None = None,
+    published_title: str | None = None,
 ) -> QuerySet:
     """
     Fetch a QuerySet of Components for a LearningPackage using various filters.
@@ -254,9 +254,9 @@ def get_components(
                     .order_by('pk')
 
     if draft is not None:
-        qset = qset.filter(publishable_entity__draft__version__isnull = not draft)
+        qset = qset.filter(publishable_entity__draft__version__isnull=not draft)
     if published is not None:
-        qset = qset.filter(publishable_entity__published__version__isnull = not published)
+        qset = qset.filter(publishable_entity__published__version__isnull=not published)
     if namespace is not None:
         qset = qset.filter(namespace=namespace)
     if types is not None:
@@ -299,8 +299,7 @@ def get_component_version_content(
                                          "component_version",
                                          "component_version__component",
                                          "component_version__component__learning_package",
-                                     ) \
-                                     .get(queries)
+                                     ).get(queries)
 
 
 def add_content_to_component_version(

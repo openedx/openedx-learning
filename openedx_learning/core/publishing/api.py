@@ -12,11 +12,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, QuerySet
 from django.db.transaction import atomic
 
-from .model_mixins import (
-    PublishableContentModelRegistry,
-    PublishableEntityMixin,
-    PublishableEntityVersionMixin,
-)
+from .model_mixins import PublishableContentModelRegistry, PublishableEntityMixin, PublishableEntityVersionMixin
 from .models import (
     Draft,
     LearningPackage,
@@ -45,7 +41,7 @@ def get_learning_package_by_key(key: str) -> LearningPackage:
 
 
 def create_learning_package(
-    key: str, title: str, description: str="", created: datetime | None=None
+    key: str, title: str, description: str = "", created: datetime | None = None
 ) -> LearningPackage:
     """
     Create a new LearningPackage.
@@ -74,10 +70,10 @@ def create_learning_package(
 
 def update_learning_package(
     learning_package_id: int,
-    key: str | None=None,
-    title: str | None=None,
-    description: str | None=None,
-    updated: datetime | None=None,
+    key: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    updated: datetime | None = None,
 ) -> LearningPackage:
     """
     Make an update to LearningPackage metadata.
@@ -205,15 +201,14 @@ def get_entities_with_unpublished_deletes(learning_package_id: int) -> QuerySet[
                             .filter(
                                 learning_package_id=learning_package_id,
                                 draft__version__isnull=True,
-                            ) \
-                            .exclude(published__version__isnull=True)
+                            ).exclude(published__version__isnull=True)
 
 
 def publish_all_drafts(
     learning_package_id: int,
     message="",
-    published_at: datetime | None=None,
-    published_by: int | None=None
+    published_at: datetime | None = None,
+    published_by: int | None = None
 ) -> PublishLog:
     """
     Publish everything that is a Draft and is not already published.
@@ -231,8 +226,8 @@ def publish_from_drafts(
     learning_package_id: int,  # LearningPackage.id
     draft_qset: QuerySet,
     message: str = "",
-    published_at: datetime | None=None,
-    published_by: int | None=None,  # User.id
+    published_at: datetime | None = None,
+    published_by: int | None = None,  # User.id
 ) -> PublishLog:
     """
     Publish the rows in the ``draft_model_qsets`` args passed in.
