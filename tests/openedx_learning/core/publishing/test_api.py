@@ -14,7 +14,7 @@ from openedx_learning.core.publishing.models import LearningPackage, Publishable
 from openedx_learning.lib.test_utils import TestCase
 
 
-class CreateLearningPackageTestCase(TestCase):
+class LearningPackageTestCase(TestCase):
     """
     Test creating a LearningPackage
     """
@@ -35,6 +35,7 @@ class CreateLearningPackageTestCase(TestCase):
 
         assert package.key == "my_key"
         assert package.title == "My Excellent Title with Emoji 🔥"
+        assert package.description == "A fun Description!"
         assert package.created == created
         assert package.updated == created
 
@@ -43,6 +44,19 @@ class CreateLearningPackageTestCase(TestCase):
 
         # Having an actual value here means we were persisted to the database.
         assert isinstance(package.id, int)
+
+        # Now test editing the fields.
+        updated_package = publishing_api.update_learning_package(
+            package.id,
+            key="new_key",
+            title="new title",
+            description="new description",
+        )
+        assert updated_package.key == "new_key"
+        assert updated_package.title == "new title"
+        assert updated_package.description == "new description"
+        assert updated_package.created == created
+        assert updated_package.updated != created  # new time would be auto-generated
 
     def test_auto_datetime(self) -> None:
         """

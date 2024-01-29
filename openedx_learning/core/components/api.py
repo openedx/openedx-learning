@@ -199,7 +199,7 @@ def get_component_by_key(
     local_key: str,
 ) -> Component:
     """
-    Get Componet by it unique namespace/type/local_key tuple.
+    Get a Component by its unique (namespace, type, local_key) tuple.
     """
     return (
         Component

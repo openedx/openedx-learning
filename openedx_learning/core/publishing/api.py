@@ -304,6 +304,11 @@ def get_draft_version(publishable_entity_id: int) -> PublishableEntityVersion | 
 
 
 def get_published_version(publishable_entity_id: int) -> PublishableEntityVersion | None:
+    """
+    Return current published PublishableEntityVersion for this PublishableEntity.
+
+    This function will return None if there is no current published version.
+    """
     try:
         published = Published.objects.select_related("version").get(
             entity_id=publishable_entity_id
