@@ -153,6 +153,9 @@ def create_publishable_entity_version(
         )
     return version
 
+def get_publishable_entity(publishable_entity_id: int) -> PublishableEntity:
+    return PublishableEntity.objects.get(id=publishable_entity_id)
+
 def get_publishable_entity_by_key(learning_package_id, key) -> PublishableEntity:
     return PublishableEntity.objects.get(
         learning_package_id=learning_package_id,
@@ -352,6 +355,9 @@ def reset_drafts_to_published(learning_package_id: int) -> None:
     it's important that the code creating the "next" version_num looks at the
     latest version created for a PublishableEntity (its ``latest`` attribute),
     rather than basing it off of the version that Draft points to.
+
+    Also, there is no current immutable record for when a reset happens. It's
+    not like a publish that leaves an entry in the ``PublishLog``.
     """
     # These are all the drafts that are different from the published versions.
     draft_qset = (
