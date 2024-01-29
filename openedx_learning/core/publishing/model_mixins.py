@@ -119,10 +119,8 @@ class PublishableEntityMixin(models.Model):
         def __init__(self, content_obj):
             self.content_obj = content_obj
 
-            self.content_version_model_cls = (
-                PublishableContentModelRegistry.get_versioned_model_cls(
-                    type(content_obj)
-                )
+            self.content_version_model_cls = PublishableContentModelRegistry.get_versioned_model_cls(
+                type(content_obj)
             )
             # Get the field that points from the *versioned* content model
             # (e.g. ComponentVersion) to the PublishableEntityVersion.

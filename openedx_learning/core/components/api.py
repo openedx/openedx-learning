@@ -142,11 +142,8 @@ def create_next_version(
                 )
         # Now copy any old associations that existed, as long as they don't
         # conflict with the new stuff.
-        last_version_content_mapping = (
-            ComponentVersionRawContent
-                .objects
-                .filter(component_version=last_version)
-        )
+        last_version_content_mapping = ComponentVersionRawContent.objects \
+                                                                 .filter(component_version=last_version)
         for cvrc in last_version_content_mapping:
             if cvrc.key not in content_to_replace:
                 ComponentVersionRawContent.objects.create(
@@ -184,6 +181,7 @@ def create_component_and_version(
         )
         return (component, component_version)
 
+
 def get_component(component_pk: int) -> Component:
     """
     Get Component by its primary key.
@@ -191,6 +189,7 @@ def get_component(component_pk: int) -> Component:
     This is the same as the PublishableEntity's ID primary key.
     """
     return Component.with_publishing_relations.get(pk=component_pk)
+
 
 def get_component_by_key(
     learning_package_id: int,
@@ -211,6 +210,7 @@ def get_component_by_key(
                 local_key=local_key,
             )
     )
+
 
 def component_exists_by_key(
     learning_package_id: int,
@@ -235,6 +235,7 @@ def component_exists_by_key(
     except Component.DoesNotExist:
         return False
 
+
 def get_components(
     learning_package_id: int,
     draft: bool | None = None,
@@ -251,12 +252,10 @@ def get_components(
     info from the Component's draft and published versions, since we'll be
     referencing these a lot.
     """
-    qset = (
-        Component
-            .with_publishing_relations
-            .filter(learning_package_id=learning_package_id)
-            .order_by('pk')
-    )
+    qset = Component.with_publishing_relations \
+                    .filter(learning_package_id=learning_package_id) \
+                    .order_by('pk')
+
     if draft is not None:
         qset = qset.filter(publishable_entity__draft__version__isnull = not draft)
     if published is not None:
@@ -275,6 +274,7 @@ def get_components(
         )
 
     return qset
+
 
 def get_component_version_content(
     learning_package_key: str,
@@ -306,6 +306,7 @@ def get_component_version_content(
                 & Q(key=key)
             )
     )
+
 
 def add_content_to_component_version(
     component_version_id: int,

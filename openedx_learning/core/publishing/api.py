@@ -34,6 +34,7 @@ def get_learning_package(learning_package_id: int) -> LearningPackage:
     """
     return LearningPackage.objects.get(id=learning_package_id)
 
+
 def get_learning_package_by_key(key: str) -> LearningPackage:
     """
     Get LearningPackage by key.
@@ -41,6 +42,7 @@ def get_learning_package_by_key(key: str) -> LearningPackage:
     Can throw a NotFoundError
     """
     return LearningPackage.objects.get(key=key)
+
 
 def create_learning_package(
     key: str, title: str, description: str = "", created: datetime | None = None
@@ -68,6 +70,7 @@ def create_learning_package(
     package.save()
 
     return package
+
 
 def update_learning_package(
     learning_package_id: int,
@@ -153,14 +156,17 @@ def create_publishable_entity_version(
         )
     return version
 
+
 def get_publishable_entity(publishable_entity_id: int) -> PublishableEntity:
     return PublishableEntity.objects.get(id=publishable_entity_id)
+
 
 def get_publishable_entity_by_key(learning_package_id, key) -> PublishableEntity:
     return PublishableEntity.objects.get(
         learning_package_id=learning_package_id,
         key=key,
     )
+
 
 def learning_package_exists(key: str) -> bool:
     """
@@ -178,19 +184,19 @@ def get_last_publish(learning_package_id: int) -> PublishLog | None:
             .first()
     )
 
+
 def get_all_drafts(learning_package_id: int) -> QuerySet[Draft]:
     return Draft.objects.filter(
         entity__learning_package_id=learning_package_id,
         version__isnull=False,
     )
 
+
 def get_entities_with_unpublished_changes(learning_package_id: int) -> QuerySet[PublishableEntity]:
-    return (
-        PublishableEntity
-            .objects
-            .filter(learning_package_id=learning_package_id)
-            .exclude(draft__version=F('published__version'))
-    )
+    return PublishableEntity.objects \
+                            .filter(learning_package_id=learning_package_id) \
+                            .exclude(draft__version=F('published__version'))
+
 
 def get_entities_with_unpublished_deletes(learning_package_id: int) -> QuerySet[PublishableEntity]:
     """
@@ -198,15 +204,13 @@ def get_entities_with_unpublished_deletes(learning_package_id: int) -> QuerySet[
     not-null Published version. (If both are null, it means it's already been
     deleted in a previous publish, or it was never published.)
     """
-    return (
-        PublishableEntity
-            .objects
-            .filter(
-                learning_package_id=learning_package_id,
-                draft__version__isnull=True,
-            )
-            .exclude(published__version__isnull=True)
-    )
+    return PublishableEntity.objects \
+                            .filter(
+                                learning_package_id=learning_package_id,
+                                draft__version__isnull=True,
+                            ) \
+                            .exclude(published__version__isnull=True)
+
 
 def publish_all_drafts(
     learning_package_id: int,
@@ -217,13 +221,10 @@ def publish_all_drafts(
     """
     Publish everything that is a Draft and is not already published.
     """
-    draft_qset = (
-        Draft
-            .objects
-            .select_related("entity__published")
-            .filter(entity__learning_package_id=learning_package_id)
-            .exclude(entity__published__version_id=F("version_id"))
-    )
+    draft_qset = Draft.objects \
+                      .select_related("entity__published") \
+                      .filter(entity__learning_package_id=learning_package_id) \
+                      .exclude(entity__published__version_id=F("version_id"))
     return publish_from_drafts(
         learning_package_id, draft_qset, message, published_at, published_by
     )
@@ -378,13 +379,11 @@ def reset_drafts_to_published(learning_package_id: int) -> None:
     not like a publish that leaves an entry in the ``PublishLog``.
     """
     # These are all the drafts that are different from the published versions.
-    draft_qset = (
-        Draft
-            .objects
-            .select_related("entity__published")
-            .filter(entity__learning_package_id=learning_package_id)
-            .exclude(entity__published__version_id=F("version_id"))
-    )
+    draft_qset = Draft.objects \
+                      .select_related("entity__published") \
+                      .filter(entity__learning_package_id=learning_package_id) \
+                      .exclude(entity__published__version_id=F("version_id"))
+
     # Note: We can't do an .update with a F() on a joined field in the ORM, so
     # we have to loop through the drafts individually to reset them. We can
     # rework this into a bulk update or custom SQL if it becomes a performance
