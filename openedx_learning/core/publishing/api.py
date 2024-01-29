@@ -45,7 +45,7 @@ def get_learning_package_by_key(key: str) -> LearningPackage:
 
 
 def create_learning_package(
-    key: str, title: str, description: str = "", created: datetime | None = None
+    key: str, title: str, description: str="", created: datetime | None=None
 ) -> LearningPackage:
     """
     Create a new LearningPackage.
@@ -74,10 +74,10 @@ def create_learning_package(
 
 def update_learning_package(
     learning_package_id: int,
-    key: str | None = None,
-    title: str | None = None,
-    description: str | None = None,
-    updated: datetime | None = None,
+    key: str | None=None,
+    title: str | None=None,
+    description: str | None=None,
+    updated: datetime | None=None,
 ) -> LearningPackage:
     """
     Make an update to LearningPackage metadata.
@@ -176,13 +176,10 @@ def learning_package_exists(key: str) -> bool:
 
 
 def get_last_publish(learning_package_id: int) -> PublishLog | None:
-    return (
-        PublishLog
-            .objects
-            .filter(learning_package_id=learning_package_id)
-            .order_by('-id')
-            .first()
-    )
+    return PublishLog.objects \
+                     .filter(learning_package_id=learning_package_id) \
+                     .order_by('-id') \
+                     .first()
 
 
 def get_all_drafts(learning_package_id: int) -> QuerySet[Draft]:
@@ -215,8 +212,8 @@ def get_entities_with_unpublished_deletes(learning_package_id: int) -> QuerySet[
 def publish_all_drafts(
     learning_package_id: int,
     message="",
-    published_at: datetime | None = None,
-    published_by: int | None = None
+    published_at: datetime | None=None,
+    published_by: int | None=None
 ) -> PublishLog:
     """
     Publish everything that is a Draft and is not already published.
@@ -234,8 +231,8 @@ def publish_from_drafts(
     learning_package_id: int,  # LearningPackage.id
     draft_qset: QuerySet,
     message: str = "",
-    published_at: datetime | None = None,
-    published_by: int | None = None,  # User.id
+    published_at: datetime | None=None,
+    published_by: int | None=None,  # User.id
 ) -> PublishLog:
     """
     Publish the rows in the ``draft_model_qsets`` args passed in.

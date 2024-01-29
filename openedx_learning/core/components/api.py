@@ -78,7 +78,7 @@ def create_next_version(
     title: str,
     content_to_replace: dict[str, int | None],
     created: datetime,
-    created_by: int | None = None,
+    created_by: int | None=None,
 ) -> ComponentVersion:
     """
     Create a new ComponentVersion based on the most recent version.
@@ -163,7 +163,7 @@ def create_component_and_version(
     local_key: str,
     title: str,
     created: datetime,
-    created_by: int | None = None,
+    created_by: int | None=None,
 ) -> tuple[Component, ComponentVersion]:
     """
     Create a Component and associated ComponentVersion atomically
@@ -200,16 +200,13 @@ def get_component_by_key(
     """
     Get a Component by its unique (namespace, type, local_key) tuple.
     """
-    return (
-        Component
-            .with_publishing_relations
-            .get(
-                learning_package_id=learning_package_id,
-                namespace=namespace,
-                type=type,
-                local_key=local_key,
-            )
-    )
+    return Component.with_publishing_relations \
+                    .get(
+                        learning_package_id=learning_package_id,
+                        namespace=namespace,
+                        type=type,
+                        local_key=local_key,
+                    )
 
 
 def component_exists_by_key(
@@ -238,12 +235,12 @@ def component_exists_by_key(
 
 def get_components(
     learning_package_id: int,
-    draft: bool | None = None,
-    published: bool | None = None,
-    namespace: str | None = None,
-    types: list[str] | None = None,
-    draft_title: str | None = None,
-    published_title: str | None = None,
+    draft: bool | None=None,
+    published: bool | None=None,
+    namespace: str | None=None,
+    types: list[str] | None=None,
+    draft_title: str | None=None,
+    published_title: str | None=None,
 ) -> QuerySet:
     """
     Fetch a QuerySet of Components for a LearningPackage using various filters.
@@ -288,24 +285,22 @@ def get_component_version_content(
     Can raise a django.core.exceptions.ObjectDoesNotExist error if there is no
     matching ComponentVersionRawContent.
     """
-    return (
-        ComponentVersionRawContent
-            .objects
-            .select_related(
-                "raw_content",
-                "raw_content__media_type",
-                "raw_content__textcontent",
-                "component_version",
-                "component_version__component",
-                "component_version__component__learning_package",
-            )
-            .get(
-                Q(component_version__component__learning_package__key=learning_package_key)
-                & Q(component_version__component__publishable_entity__key=component_key)
-                & Q(component_version__publishable_entity_version__version_num=version_num)
-                & Q(key=key)
-            )
+    queries = (
+        Q(component_version__component__learning_package__key=learning_package_key)
+        & Q(component_version__component__publishable_entity__key=component_key)
+        & Q(component_version__publishable_entity_version__version_num=version_num)
+        & Q(key=key)
     )
+    return ComponentVersionRawContent.objects \
+                                     .select_related(
+                                         "raw_content",
+                                         "raw_content__media_type",
+                                         "raw_content__textcontent",
+                                         "component_version",
+                                         "component_version__component",
+                                         "component_version__component__learning_package",
+                                     ) \
+                                     .get(queries)
 
 
 def add_content_to_component_version(

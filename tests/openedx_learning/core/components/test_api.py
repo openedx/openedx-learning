@@ -66,6 +66,7 @@ class PerformanceTestCase(TestCase):
             published = component.versioning.published
             assert draft.title == published.title
 
+
 class GetComponentsTestCase(TestCase):
     """
     Test grabbing a queryset of Components.
@@ -139,7 +140,7 @@ class GetComponentsTestCase(TestCase):
 
         # Component we're putting here to soft delete (this will remove the
         # Draft entry)
-        cls.deleted_video, _version =  components_api.create_component_and_version(
+        cls.deleted_video, _version = components_api.create_component_and_version(
             learning_package_id=cls.learning_package.id,
             namespace="xblock.v1",
             type="html",
@@ -228,7 +229,7 @@ class GetComponentsTestCase(TestCase):
         """
         Test the types filter.
         """
-        html_and_video_components =  components_api.get_components(
+        html_and_video_components = components_api.get_components(
             self.learning_package.id,
             types=['html', 'video']
         )
@@ -394,17 +395,13 @@ class CreateNewVersionsTestCase(TestCase):
             learner_downloadable=False,
         )
         # re-fetch from the database to check to see if we wrote it correctly
-        new_version = (
-            components_api
-                .get_component(self.problem.pk)
-                .versions
-                .get(publishable_entity_version__version_num=1)
-        )
+        new_version = components_api.get_component(self.problem.pk) \
+                                    .versions \
+                                    .get(publishable_entity_version__version_num=1)
         assert (
             new_content ==
             new_version.raw_contents.get(componentversionrawcontent__key="hello.txt")
         )
-
 
     def test_multiple_versions(self):
         hello_content, _created = contents_api.get_or_create_text_content_from_bytes(
@@ -468,24 +465,21 @@ class CreateNewVersionsTestCase(TestCase):
         assert version_2.raw_contents.count() == 3
         assert (
             blank_content ==
-            version_2
-                .raw_contents
-                .get(componentversionrawcontent__key="hello.txt")
-                .text_content
+            version_2.raw_contents
+                     .get(componentversionrawcontent__key="hello.txt")
+                     .text_content
         )
         assert (
             goodbye_content ==
-            version_2
-                .raw_contents
-                .get(componentversionrawcontent__key="goodbye.txt")
-                .text_content
+            version_2.raw_contents
+                     .get(componentversionrawcontent__key="goodbye.txt")
+                     .text_content
         )
         assert (
             blank_content ==
-            version_2
-                .raw_contents
-                .get(componentversionrawcontent__key="blank.txt")
-                .text_content
+            version_2.raw_contents
+                     .get(componentversionrawcontent__key="blank.txt")
+                     .text_content
         )
 
         # Now we're going to set "hello.txt" back to hello_content, but remove
@@ -505,8 +499,7 @@ class CreateNewVersionsTestCase(TestCase):
         assert version_3.raw_contents.count() == 1
         assert (
             hello_content ==
-            version_3
-                .raw_contents
-                .get(componentversionrawcontent__key="hello.txt")
-                .text_content
+            version_3.raw_contents
+                     .get(componentversionrawcontent__key="hello.txt")
+                     .text_content
         )
