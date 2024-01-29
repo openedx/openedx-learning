@@ -303,6 +303,19 @@ def get_draft_version(publishable_entity_id: int) -> PublishableEntityVersion | 
     return draft.version
 
 
+def get_published_version(publishable_entity_id: int) -> PublishableEntityVersion | None:
+    try:
+        published = Published.objects.select_related("version").get(
+            entity_id=publishable_entity_id
+        )
+    except Published.DoesNotExist:
+        return None
+
+    # published.version could be None if something was published at one point,
+    # had its draft soft deleted, and then was published again.
+    return published.version
+
+
 def set_draft_version(publishable_entity_id: int, publishable_entity_version_pk: int | None) -> None:
     """
     Modify the Draft of a PublishableEntity to be a PublishableEntityVersion.

@@ -134,9 +134,9 @@ class DraftTestCase(TestCase):
 
         # We never really remove rows from the table holding Drafts. We just
         # mark the version as None.
-        publishing_api.set_draft_version(entity.id, None)
-        entity_version = publishing_api.get_draft_version(entity.id)
-        assert entity_version is None
+        publishing_api.soft_delete_draft(entity.id)
+        deleted_entity_version = publishing_api.get_draft_version(entity.id)
+        assert deleted_entity_version is None
 
     def test_reset_drafts_to_published(self) -> None:
         """
@@ -220,7 +220,7 @@ class DraftTestCase(TestCase):
 
         # Soft-delete entity_with_pending_delete. After this, the Published
         # version is 1 and the Draft version is None.
-        publishing_api.soft_delete_draft(entity_with_pending_delete)
+        publishing_api.soft_delete_draft(entity_with_pending_delete.id)
 
         # Create a new entity that only exists in Draft form (no Published
         # version).
@@ -249,9 +249,8 @@ class DraftTestCase(TestCase):
         for entity, pub_version_num, draft_version_num in expected_pre_reset_state:
             # Make sure we grab a new copy from the database so we're not
             # getting stale cached values:
-            updated_entity = publishing_api.get_publishable_entity(entity.id)
-            assert pub_version_num == self._get_published_version_num(updated_entity)
-            assert draft_version_num == self._get_draft_version_num(updated_entity)
+            assert pub_version_num == self._get_published_version_num(entity)
+            assert draft_version_num == self._get_draft_version_num(entity)
 
         # Now reset to draft here!
         publishing_api.reset_drafts_to_published(self.learning_package.id)
@@ -265,19 +264,20 @@ class DraftTestCase(TestCase):
             (new_entity, None),
         ]
         for entity, pub_version_num in expected_post_reset_state:
-            updated_entity = publishing_api.get_publishable_entity(entity.id)
             assert (
-                self._get_published_version_num(updated_entity) ==
-                self._get_draft_version_num(updated_entity) ==
+                self._get_published_version_num(entity) ==
+                self._get_draft_version_num(entity) ==
                 pub_version_num
             )
 
     def _get_published_version_num(self, entity: PublishableEntity) -> int | None:
-        if hasattr(entity, 'published') and entity.published.version is not None:
-            return entity.published.version.version_num
+        published_version = publishing_api.get_published_version(entity.id)
+        if published_version is not None:
+            return published_version.version_num
         return None
 
-    def _get_draft_version_num(self, entity) -> int | None:
-        if hasattr(entity, 'draft') and entity.draft.version is not None:
-            return entity.draft.version.version_num
+    def _get_draft_version_num(self, entity: PublishableEntity) -> int | None:
+        draft_version = publishing_api.get_draft_version(entity.id)
+        if draft_version is not None:
+            return draft_version.version_num
         return None
