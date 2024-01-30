@@ -143,8 +143,8 @@ def create_next_version(
                     key=key,
                     learner_downloadable=False,
                 )
-        # Now copy any old associations that existed, as long as they don't
-        # conflict with the new stuff.
+        # Now copy any old associations that existed, as long as they aren't
+        # in conflict with the new stuff or marked for deletion.
         last_version_content_mapping = ComponentVersionRawContent.objects \
                                                                  .filter(component_version=last_version)
         for cvrc in last_version_content_mapping:
