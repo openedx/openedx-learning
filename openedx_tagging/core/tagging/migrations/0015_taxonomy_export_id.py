@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='taxonomy',
             name='export_id',
-            field=models.CharField(help_text='External ID that is used on import/export', max_length=255, null=True, unique=True),
+            field=models.CharField(help_text="User-facing ID that is used on import/export. Should only contain alphanumeric characters or '_' '-' '.'", max_length=255, null=True, unique=True),
         ),
         # Fill the field for created taxonomies
         migrations.RunPython(migrate_export_id, reverse),
@@ -32,6 +32,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='taxonomy',
             name='export_id',
-            field=models.CharField(help_text='External ID that is used on import/export', max_length=255, null=False, unique=True),
+            field=models.CharField(help_text="User-facing ID that is used on import/export. Should only contain alphanumeric characters or '_' '-' '.'", max_length=255, null=False, unique=True),
         ),
     ]
