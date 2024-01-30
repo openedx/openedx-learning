@@ -241,7 +241,7 @@ def get_components(
     types: list[str] | None = None,
     draft_title: str | None = None,
     published_title: str | None = None,
-) -> QuerySet:
+) -> QuerySet[Component]:
     """
     Fetch a QuerySet of Components for a LearningPackage using various filters.
 
