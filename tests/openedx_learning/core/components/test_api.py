@@ -44,7 +44,7 @@ class PerformanceTestCase(TestCase):
         Create a basic component and test that we fetch it back in 1 query.
         """
         component, _version = components_api.create_component_and_version(
-            learning_package_id=self.learning_package.id,
+            self.learning_package.id,
             namespace="xblock.v1",
             type="problem",
             local_key="Query Counting",
@@ -95,7 +95,7 @@ class GetComponentsTestCase(TestCase):
 
         # Components we're publishing...
         cls.published_problem, _version = components_api.create_component_and_version(
-            learning_package_id=cls.learning_package.id,
+            cls.learning_package.id,
             namespace="xblock.v2",
             type="problem",
             local_key="published_problem",
@@ -104,7 +104,7 @@ class GetComponentsTestCase(TestCase):
             created_by=None,
         )
         cls.published_html, _version = components_api.create_component_and_version(
-            learning_package_id=cls.learning_package.id,
+            cls.learning_package.id,
             namespace="xblock.v1",
             type="html",
             local_key="published_html",
@@ -119,7 +119,7 @@ class GetComponentsTestCase(TestCase):
 
         # Components that exist only as Drafts
         cls.unpublished_problem, _version = components_api.create_component_and_version(
-            learning_package_id=cls.learning_package.id,
+            cls.learning_package.id,
             namespace="xblock.v2",
             type="problem",
             local_key="unpublished_problem",
@@ -128,7 +128,7 @@ class GetComponentsTestCase(TestCase):
             created_by=None,
         )
         cls.unpublished_html, _version = components_api.create_component_and_version(
-            learning_package_id=cls.learning_package.id,
+            cls.learning_package.id,
             namespace="xblock.v1",
             type="html",
             local_key="unpublished_html",
@@ -140,7 +140,7 @@ class GetComponentsTestCase(TestCase):
         # Component we're putting here to soft delete (this will remove the
         # Draft entry)
         cls.deleted_video, _version = components_api.create_component_and_version(
-            learning_package_id=cls.learning_package.id,
+            cls.learning_package.id,
             namespace="xblock.v1",
             type="html",
             local_key="deleted_video",
@@ -298,7 +298,7 @@ class ComponentGetAndExistsTestCase(TestCase):
         )
         cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
         cls.problem = components_api.create_component(
-            learning_package_id=cls.learning_package.id,
+            cls.learning_package.id,
             namespace='xblock.v1',
             type='problem',
             local_key='my_component',
@@ -306,7 +306,7 @@ class ComponentGetAndExistsTestCase(TestCase):
             created_by=None,
         )
         cls.html = components_api.create_component(
-            learning_package_id=cls.learning_package.id,
+            cls.learning_package.id,
             namespace='xblock.v1',
             type='html',
             local_key='my_component',
@@ -365,7 +365,7 @@ class CreateNewVersionsTestCase(TestCase):
         )
         cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
         cls.problem = components_api.create_component(
-            learning_package_id=cls.learning_package.id,
+            cls.learning_package.id,
             namespace='xblock.v1',
             type='problem',
             local_key='my_component',
@@ -404,19 +404,19 @@ class CreateNewVersionsTestCase(TestCase):
 
     def test_multiple_versions(self):
         hello_content, _created = contents_api.get_or_create_text_content_from_bytes(
-            learning_package_id=self.learning_package.id,
+            self.learning_package.id,
             data_bytes="Hello World!".encode('utf-8'),
             mime_type="text/plain",
             created=self.now,
         )
         goodbye_content, _created = contents_api.get_or_create_text_content_from_bytes(
-            learning_package_id=self.learning_package.id,
+            self.learning_package.id,
             data_bytes="Goodbye World!".encode('utf-8'),
             mime_type="text/plain",
             created=self.now,
         )
         blank_content, _created = contents_api.get_or_create_text_content_from_bytes(
-            learning_package_id=self.learning_package.id,
+            self.learning_package.id,
             data_bytes="".encode('utf-8'),
             mime_type="text/plain",
             created=self.now,

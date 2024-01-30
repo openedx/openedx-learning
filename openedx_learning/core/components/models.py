@@ -86,8 +86,8 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     )
 
     # This foreign key is technically redundant because we're already locked to
-    # a single LearningPackage through our publishable_entity relation. However, having
-    # this foreign key directly allows us to make indexes that efficiently
+    # a single LearningPackage through our publishable_entity relation. However,
+    # having this foreign key directly allows us to make indexes that efficiently
     # query by other Component fields within a given LearningPackage, which is
     # going to be a common use case (and we can't make a compound index using
     # columns from different tables).

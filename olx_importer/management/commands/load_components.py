@@ -13,7 +13,7 @@ Open Question: If the data model is extensible, how do we know whether a change
 has really happened between what's currently stored/published for a particular
 item and the new value we want to set? For RawContent that's easy, because we
 have actual hashes of the data. But it's not clear how that would work for
-something like an ComponentVersion. We'd have to have some kind of mechanism where every 
+something like an ComponentVersion. We'd have to have some kind of mechanism where every
 pp that wants to attach data gets to answer the question of "has anything
 changed?" in order to decide if we really make a new ComponentVersion or not.
 """
@@ -35,7 +35,7 @@ from openedx_learning.core.publishing import api as publishing_api
 SUPPORTED_TYPES = ["problem", "video", "html"]
 logger = logging.getLogger(__name__)
 
- 
+
 class Command(BaseCommand):
     help = "Load sample Component data from course export"
 
@@ -95,7 +95,7 @@ class Command(BaseCommand):
                 self.import_block_type(block_type, now) #, publish_log_entry)
 
             publishing_api.publish_all_drafts(
-                self.learning_package.id, 
+                self.learning_package.id,
                 message="Initial Import from load_components script"
             )
 
@@ -117,7 +117,7 @@ class Command(BaseCommand):
             return  # Might as well bail if we can't find the file.
 
         raw_content, _created = contents_api.get_or_create_raw_content(
-            learning_package_id=self.learning_package.id,
+            self.learning_package.id,
             data_bytes=data_bytes,
             mime_type=mime_type,
             created=now,
@@ -153,10 +153,10 @@ class Command(BaseCommand):
                 logger.error(f"Parse error for {xml_file_path}: {err}")
                 components_skipped += 1
                 continue
-            
+
             display_name = block_root.attrib.get("display_name", "")
             _component, component_version = components_api.create_component_and_version(
-                learning_package_id=self.learning_package.id,
+                self.learning_package.id,
                 namespace=namespace,
                 type=block_type,
                 local_key=local_key,
@@ -168,7 +168,7 @@ class Command(BaseCommand):
             # Create the RawContent entry for the raw data...
             data_bytes = xml_file_path.read_bytes()
             text_content, _created = contents_api.get_or_create_text_content_from_bytes(
-                learning_package_id=self.learning_package.id,
+                self.learning_package.id,
                 data_bytes=data_bytes,
                 mime_type=f"application/vnd.openedx.xblock.v1.{block_type}+xml",
                 created=now,

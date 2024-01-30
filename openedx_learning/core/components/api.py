@@ -24,6 +24,7 @@ from .models import Component, ComponentVersion, ComponentVersionRawContent
 
 def create_component(
     learning_package_id: int,
+    /,
     namespace: str,
     type: str,  # pylint: disable=redefined-builtin
     local_key: str,
@@ -50,6 +51,7 @@ def create_component(
 
 def create_component_version(
     component_pk: int,
+    /,
     version_num: int,
     title: str,
     created: datetime,
@@ -60,7 +62,7 @@ def create_component_version(
     """
     with atomic():
         publishable_entity_version = publishing_api.create_publishable_entity_version(
-            entity_id=component_pk,
+            component_pk,
             version_num=version_num,
             title=title,
             created=created,
@@ -75,6 +77,7 @@ def create_component_version(
 
 def create_next_version(
     component_pk: int,
+    /,
     title: str,
     content_to_replace: dict[str, int | None],
     created: datetime,
@@ -118,7 +121,7 @@ def create_next_version(
 
     with atomic():
         publishable_entity_version = publishing_api.create_publishable_entity_version(
-            entity_id=component_pk,
+            component_pk,
             version_num=next_version_num,
             title=title,
             created=created,
@@ -158,6 +161,7 @@ def create_next_version(
 
 def create_component_and_version(
     learning_package_id: int,
+    /,
     namespace: str,
     type: str,  # pylint: disable=redefined-builtin
     local_key: str,
@@ -182,7 +186,7 @@ def create_component_and_version(
         return (component, component_version)
 
 
-def get_component(component_pk: int) -> Component:
+def get_component(component_pk: int, /) -> Component:
     """
     Get Component by its primary key.
 
@@ -193,6 +197,7 @@ def get_component(component_pk: int) -> Component:
 
 def get_component_by_key(
     learning_package_id: int,
+    /,
     namespace: str,
     type: str,  # pylint: disable=redefined-builtin
     local_key: str,
@@ -211,6 +216,7 @@ def get_component_by_key(
 
 def component_exists_by_key(
     learning_package_id: int,
+    /,
     namespace: str,
     type: str,  # pylint: disable=redefined-builtin
     local_key: str
@@ -235,6 +241,7 @@ def component_exists_by_key(
 
 def get_components(
     learning_package_id: int,
+    /,
     draft: bool | None = None,
     published: bool | None = None,
     namespace: str | None = None,
@@ -304,6 +311,7 @@ def get_component_version_content(
 
 def add_content_to_component_version(
     component_version_id: int,
+    /,
     raw_content_id: int,
     key: str,
     learner_downloadable=False,

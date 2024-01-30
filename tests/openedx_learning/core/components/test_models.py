@@ -25,7 +25,7 @@ class TestModelVersioningQueries(TestCase):
 
     def test_latest_version(self) -> None:
         component, component_version = create_component_and_version(
-            learning_package_id=self.learning_package.id,
+            self.learning_package.id,
             namespace="xblock.v1",
             type="problem",
             local_key="monty_hall",
