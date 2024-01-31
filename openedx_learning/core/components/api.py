@@ -18,15 +18,30 @@ from pathlib import Path
 from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 
+from ...lib.cache import lru_cache
 from ..publishing import api as publishing_api
-from .models import Component, ComponentVersion, ComponentVersionRawContent
+from .models import Component, ComponentType, ComponentVersion, ComponentVersionRawContent
+
+
+@lru_cache(maxsize=128)
+def get_or_create_component_type_id(namespace: str, name: str) -> int:
+    """
+    Get the ID of a ComponentType, and create if missing.
+
+    An example of
+    """
+    component_type, _created = ComponentType.objects.get_or_create(
+        namespace=namespace,
+        name=name,
+    )
+    return component_type.id
 
 
 def create_component(
     learning_package_id: int,
     /,
     namespace: str,
-    type: str,  # pylint: disable=redefined-builtin
+    type_name: str,
     local_key: str,
     created: datetime,
     created_by: int | None,
@@ -34,7 +49,7 @@ def create_component(
     """
     Create a new Component (an entity like a Problem or Video)
     """
-    key = f"{namespace}:{type}@{local_key}"
+    key = f"{namespace}:{type_name}@{local_key}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id, key, created, created_by
@@ -42,8 +57,7 @@ def create_component(
         component = Component.objects.create(
             publishable_entity=publishable_entity,
             learning_package_id=learning_package_id,
-            namespace=namespace,
-            type=type,
+            component_type_id=get_or_create_component_type_id(namespace, type_name),
             local_key=local_key,
         )
     return component
@@ -163,7 +177,7 @@ def create_component_and_version(
     learning_package_id: int,
     /,
     namespace: str,
-    type: str,  # pylint: disable=redefined-builtin
+    type_name: str,
     local_key: str,
     title: str,
     created: datetime,
@@ -174,7 +188,7 @@ def create_component_and_version(
     """
     with atomic():
         component = create_component(
-            learning_package_id, namespace, type, local_key, created, created_by
+            learning_package_id, namespace, type_name, local_key, created, created_by
         )
         component_version = create_component_version(
             component.pk,
@@ -199,7 +213,7 @@ def get_component_by_key(
     learning_package_id: int,
     /,
     namespace: str,
-    type: str,  # pylint: disable=redefined-builtin
+    type_name: str,
     local_key: str,
 ) -> Component:
     """
@@ -208,8 +222,8 @@ def get_component_by_key(
     return Component.with_publishing_relations \
                     .get(
                         learning_package_id=learning_package_id,
-                        namespace=namespace,
-                        type=type,
+                        component_type__namespace=namespace,
+                        component_type__name=type_name,
                         local_key=local_key,
                     )
 
@@ -218,7 +232,7 @@ def component_exists_by_key(
     learning_package_id: int,
     /,
     namespace: str,
-    type: str,  # pylint: disable=redefined-builtin
+    type_name: str,
     local_key: str
 ) -> bool:
     """
@@ -228,10 +242,10 @@ def component_exists_by_key(
     no current Draft version for it), or if it's been unpublished.
     """
     try:
-        _component = Component.objects.only('pk').get(
+        _component = Component.objects.only('pk', 'component_type').get(
             learning_package_id=learning_package_id,
-            namespace=namespace,
-            type=type,
+            component_type__namespace=namespace,
+            component_type__name=type_name,
             local_key=local_key,
         )
         return True
@@ -245,7 +259,7 @@ def get_components(
     draft: bool | None = None,
     published: bool | None = None,
     namespace: str | None = None,
-    types: list[str] | None = None,
+    type_names: list[str] | None = None,
     draft_title: str | None = None,
     published_title: str | None = None,
 ) -> QuerySet[Component]:
@@ -265,9 +279,9 @@ def get_components(
     if published is not None:
         qset = qset.filter(publishable_entity__published__version__isnull=not published)
     if namespace is not None:
-        qset = qset.filter(namespace=namespace)
-    if types is not None:
-        qset = qset.filter(type__in=types)
+        qset = qset.filter(component_type__namespace=namespace)
+    if type_names is not None:
+        qset = qset.filter(component_type__name__in=type_names)
     if draft_title is not None:
         qset = qset.filter(
             publishable_entity__draft__version__title__icontains=draft_title

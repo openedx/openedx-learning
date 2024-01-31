@@ -35,16 +35,15 @@ class ComponentAdmin(ReadOnlyModelAdmin):
     """
     Django admin configuration for Component
     """
-    list_display = ("key", "uuid", "namespace", "type", "created")
+    list_display = ("key", "uuid", "component_type", "created")
     readonly_fields = [
         "learning_package",
         "uuid",
-        "namespace",
-        "type",
+        "component_type",
         "key",
         "created",
     ]
-    list_filter = ("type", "learning_package")
+    list_filter = ("component_type", "learning_package")
     search_fields = ["publishable_entity__uuid", "publishable_entity__key"]
     inlines = [ComponentVersionInline]
 
