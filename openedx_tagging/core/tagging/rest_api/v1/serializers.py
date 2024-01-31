@@ -208,6 +208,7 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
     value = serializers.CharField()
     external_id = serializers.CharField(allow_null=True)
     child_count = serializers.IntegerField()
+    descendant_count = serializers.IntegerField()
     depth = serializers.IntegerField()
     parent_value = serializers.CharField(allow_null=True)
     usage_count = serializers.IntegerField(required=False)

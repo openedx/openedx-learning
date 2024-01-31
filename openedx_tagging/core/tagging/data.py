@@ -21,6 +21,7 @@ class TagData(TypedDict):
     value: str
     external_id: str | None
     child_count: int
+    descendant_count: int
     depth: int
     parent_value: str | None
     # Note: usage_count may or may not be present, depending on the request.

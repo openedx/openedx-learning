@@ -126,8 +126,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Bacteria (children: 2)",
             "  Archaebacteria (children: 0)",
             "  Eubacteria (children: 0)",
-            "Eukaryota (children: 5)",
-            "  Animalia (children: 7)",
+            "Eukaryota (children: 5 + 8)",
+            "  Animalia (children: 7 + 1)",
             "    Arthropoda (children: 0)",
             "    Chordata (children: 1)",  # The child of this is excluded due to depth limit
             "    Cnidaria (children: 0)",
@@ -155,7 +155,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert pretty_format_tags(root_life_on_earth_tags, parent=False) == [
             'Archaea (children: 3)',
             'Bacteria (children: 2)',
-            'Eukaryota (children: 5)',
+            'Eukaryota (children: 5 + 8)',
         ]
 
     @override_settings(LANGUAGES=test_languages)
@@ -615,7 +615,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "  Proteoarchaeota (used: 0, children: 0)",
             "Bacteria (used: 0, children: 1)",  # does not contain "ar" but a child does
             "  Archaebacteria (used: 1, children: 0)",
-            "Eukaryota (used: 0, children: 1)",
+            "Eukaryota (used: 0, children: 1 + 2)",
             "  Animalia (used: 1, children: 2)",  # does not contain "ar" but a child does
             "    Arthropoda (used: 1, children: 0)",
             "    Cnidaria (used: 0, children: 0)",
@@ -637,7 +637,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Bacteria (used: 0, children: 2)",
             "  Archaebacteria (used: 1, children: 0)",
             "  Eubacteria (used: 0, children: 0)",
-            "Eukaryota (used: 0, children: 4)",
+            "Eukaryota (used: 0, children: 4 + 7)",
             "  Animalia (used: 1, children: 7)",
             "    Arthropoda (used: 1, children: 0)",
             "    Chordata (used: 0, children: 0)",  # <<< Chordata has a matching child but we only support searching
