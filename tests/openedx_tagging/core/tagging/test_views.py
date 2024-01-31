@@ -426,7 +426,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         response = self.client.post(url, create_data, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    @ddt.data({"name": "System defined taxonomy", "export_id": "sd", "system_defined": True})
+    @ddt.data({"name": "System defined taxonomy", "system_defined": True})
     def test_create_taxonomy_system_defined(self, create_data):
         """
         Cannont create a taxonomy with system_defined=true

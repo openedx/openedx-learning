@@ -78,7 +78,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         with self.assertRaises(ValueError) as exc:
             tagging_api.create_taxonomy(
                 name="Bad class",
-                export_id="bad_class",
                 taxonomy_class=str,  # type: ignore[arg-type]
             )
         assert "<class 'str'> must be a subclass of Taxonomy" in str(exc.exception)
