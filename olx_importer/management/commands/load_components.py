@@ -116,20 +116,20 @@ class Command(BaseCommand):
             logger.warning(f'  Static reference not found: "{real_path}"')
             return  # Might as well bail if we can't find the file.
 
-        raw_content, _created = contents_api.get_or_create_raw_content(
+        content = contents_api.get_or_create_file_content(
             self.learning_package.id,
-            data_bytes=data_bytes,
+            data=data_bytes,
             mime_type=mime_type,
             created=now,
         )
         components_api.add_content_to_component_version(
             component_version,
-            raw_content_id=raw_content.id,
+            content_id=content.id,
             key=key,
             learner_downloadable=True,
         )
 
-    def import_block_type(self, block_type, now): # , publish_log_entry):
+    def import_block_type(self, block_type_name, now): # , publish_log_entry):
         components_found = 0
         components_skipped = 0
 
@@ -138,8 +138,8 @@ class Command(BaseCommand):
         # not fool-proof as it will match static file references that are
         # outside of tag declarations as well.
         static_files_regex = re.compile(r"""['"]\/static\/(.+?)["'\?]""")
-        block_data_path = self.course_data_path / block_type
-        namespace="xblock.v1"
+        block_data_path = self.course_data_path / block_type_name
+        block_type = components_api.get_or_create_component_type("xblock.v1", block_type_name)
 
         for xml_file_path in block_data_path.glob("*.xml"):
             components_found += 1
@@ -157,8 +157,7 @@ class Command(BaseCommand):
             display_name = block_root.attrib.get("display_name", "")
             _component, component_version = components_api.create_component_and_version(
                 self.learning_package.id,
-                namespace=namespace,
-                type_name=block_type,
+                component_type=block_type,
                 local_key=local_key,
                 title=display_name,
                 created=now,
@@ -166,18 +165,18 @@ class Command(BaseCommand):
             )
 
             # Create the RawContent entry for the raw data...
-            data_bytes = xml_file_path.read_bytes()
-            text_content, _created = contents_api.get_or_create_text_content_from_bytes(
+            text = xml_file_path.read_text('utf-8')
+            text_content, _created = contents_api.get_or_create_text_content(
                 self.learning_package.id,
-                data_bytes=data_bytes,
-                mime_type=f"application/vnd.openedx.xblock.v1.{block_type}+xml",
+                text=text,
+                mime_type=f"application/vnd.openedx.xblock.v1.{block_type_name}+xml",
                 created=now,
             )
             # Add the OLX source text to the ComponentVersion
             components_api.add_content_to_component_version(
                 component_version,
-                raw_content_id=text_content.pk,
-                key="source.xml",
+                content_id=text_content.pk,
+                key="block.xml",
                 learner_downloadable=False
             )
 

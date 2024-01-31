@@ -18,28 +18,32 @@ from pathlib import Path
 from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 
-from ...lib.cache import lru_cache
 from ..publishing import api as publishing_api
-from .models import Component, ComponentType, ComponentVersion, ComponentVersionRawContent
+from .models import Component, ComponentType, ComponentVersion, ComponentVersionContent
 
 
-@lru_cache(maxsize=128)
-def get_or_create_component_type_id(namespace: str, name: str) -> int:
+def get_or_create_component_type(namespace: str, name: str) -> ComponentType:
     """
     Get the ID of a ComponentType, and create if missing.
+
+    Caching Warning: Be careful about putting any caching decorator around this
+    function (e.g. ``lru_cache``). It's possible that incorrect cache values
+    could leak out in the event of a rollback–e.g. new types are introduced in
+    a large import transaction which later fails. You can safely cache the
+    results that come back from this function with a local dict in your import
+    process instead.#
     """
     component_type, _created = ComponentType.objects.get_or_create(
         namespace=namespace,
         name=name,
     )
-    return component_type.id
+    return component_type
 
 
 def create_component(
     learning_package_id: int,
     /,
-    namespace: str,
-    type_name: str,
+    component_type: ComponentType,
     local_key: str,
     created: datetime,
     created_by: int | None,
@@ -47,7 +51,7 @@ def create_component(
     """
     Create a new Component (an entity like a Problem or Video)
     """
-    key = f"{namespace}:{type_name}@{local_key}"
+    key = f"{component_type.namespace}:{component_type.name}@{local_key}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id, key, created, created_by
@@ -55,7 +59,7 @@ def create_component(
         component = Component.objects.create(
             publishable_entity=publishable_entity,
             learning_package_id=learning_package_id,
-            component_type_id=get_or_create_component_type_id(namespace, type_name),
+            component_type=component_type,
             local_key=local_key,
         )
     return component
@@ -144,25 +148,25 @@ def create_next_version(
             component_id=component_pk,
         )
         # First copy the new stuff over...
-        for key, raw_content_pk in content_to_replace.items():
-            # If the raw_content_pk is None, it means we want to remove the
+        for key, content_pk in content_to_replace.items():
+            # If the content_pk is None, it means we want to remove the
             # content represented by our key from the next version. Otherwise,
-            # we add our key->raw_content_pk mapping to the next version.
-            if raw_content_pk is not None:
-                ComponentVersionRawContent.objects.create(
-                    raw_content_id=raw_content_pk,
+            # we add our key->content_pk mapping to the next version.
+            if content_pk is not None:
+                ComponentVersionContent.objects.create(
+                    content_id=content_pk,
                     component_version=component_version,
                     key=key,
                     learner_downloadable=False,
                 )
         # Now copy any old associations that existed, as long as they aren't
         # in conflict with the new stuff or marked for deletion.
-        last_version_content_mapping = ComponentVersionRawContent.objects \
+        last_version_content_mapping = ComponentVersionContent.objects \
                                                                  .filter(component_version=last_version)
         for cvrc in last_version_content_mapping:
             if cvrc.key not in content_to_replace:
-                ComponentVersionRawContent.objects.create(
-                    raw_content_id=cvrc.raw_content_id,
+                ComponentVersionContent.objects.create(
+                    content_id=cvrc.content_id,
                     component_version=component_version,
                     key=cvrc.key,
                     learner_downloadable=cvrc.learner_downloadable,
@@ -174,8 +178,7 @@ def create_next_version(
 def create_component_and_version(
     learning_package_id: int,
     /,
-    namespace: str,
-    type_name: str,
+    component_type: ComponentType,
     local_key: str,
     title: str,
     created: datetime,
@@ -186,7 +189,7 @@ def create_component_and_version(
     """
     with atomic():
         component = create_component(
-            learning_package_id, namespace, type_name, local_key, created, created_by
+            learning_package_id, component_type, local_key, created, created_by
         )
         component_version = create_component_version(
             component.pk,
@@ -297,9 +300,9 @@ def get_component_version_content(
     component_key: str,
     version_num: int,
     key: Path,
-) -> ComponentVersionRawContent:
+) -> ComponentVersionContent:
     """
-    Look up ComponentVersionRawContent by human readable keys.
+    Look up ComponentVersionContent by human readable keys.
 
     Can raise a django.core.exceptions.ObjectDoesNotExist error if there is no
     matching ComponentVersionRawContent.
@@ -310,11 +313,11 @@ def get_component_version_content(
         & Q(component_version__publishable_entity_version__version_num=version_num)
         & Q(key=key)
     )
-    return ComponentVersionRawContent.objects \
+    return ComponentVersionContent.objects \
                                      .select_related(
-                                         "raw_content",
-                                         "raw_content__media_type",
-                                         "raw_content__textcontent",
+                                         "content",
+                                         "content__media_type",
+                                         "content__textcontent",
                                          "component_version",
                                          "component_version__component",
                                          "component_version__component__learning_package",
@@ -324,16 +327,16 @@ def get_component_version_content(
 def add_content_to_component_version(
     component_version_id: int,
     /,
-    raw_content_id: int,
+    content_id: int,
     key: str,
     learner_downloadable=False,
-) -> ComponentVersionRawContent:
+) -> ComponentVersionContent:
     """
-    Add a RawContent to the given ComponentVersion
+    Add a Content to the given ComponentVersion
     """
-    cvrc, _created = ComponentVersionRawContent.objects.get_or_create(
+    cvrc, _created = ComponentVersionContent.objects.get_or_create(
         component_version_id=component_version_id,
-        raw_content_id=raw_content_id,
+        content_id=content_id,
         key=key,
         learner_downloadable=learner_downloadable,
     )

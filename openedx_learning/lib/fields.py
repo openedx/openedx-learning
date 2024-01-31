@@ -20,6 +20,18 @@ from .validators import validate_utc_datetime
 
 
 def create_hash_digest(data_bytes: bytes) -> str:
+    """
+    Create a 40-byte, lower-case hex string representation of a hash digest.
+
+    The hash digest itself is 20-bytes using BLAKE2b.
+
+    DON'T JUST MODIFY THIS HASH BEHAVIOR!!! We use hashing for de-duplication
+    purposes. If this hash function ever changes, that deduplication will fail
+    because the hashing behavior won't match what's already in the database.
+
+    If we want to change this representation one day, we should create a new
+    function for that and do the appropriate data migration.
+    """
     return hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
 
 

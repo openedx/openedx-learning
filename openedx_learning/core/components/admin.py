@@ -9,7 +9,7 @@ from django.utils.safestring import SafeText
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 
-from .models import Component, ComponentVersion, ComponentVersionRawContent
+from .models import Component, ComponentVersion, ComponentVersionContent
 
 
 class ComponentVersionInline(admin.TabularInline):
@@ -48,18 +48,18 @@ class ComponentAdmin(ReadOnlyModelAdmin):
     inlines = [ComponentVersionInline]
 
 
-class RawContentInline(admin.TabularInline):
+class ContentInline(admin.TabularInline):
     """
-    Django admin configuration for RawContent
+    Django admin configuration for Content
     """
-    model = ComponentVersion.raw_contents.through
+    model = ComponentVersion.contents.through
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related(
-            "raw_content",
-            "raw_content__learning_package",
-            "raw_content__text_content",
+            "content",
+            "content__learning_package",
+            "content__media_type",
             "component_version",
             "component_version__publishable_entity_version",
             "component_version__component",
@@ -73,7 +73,7 @@ class RawContentInline(admin.TabularInline):
         "rendered_data",
     ]
     readonly_fields = [
-        "raw_content",
+        "content",
         "format_key",
         "format_size",
         "rendered_data",
@@ -85,7 +85,7 @@ class RawContentInline(admin.TabularInline):
 
     @admin.display(description="Size")
     def format_size(self, cvc_obj):
-        return filesizeformat(cvc_obj.raw_content.size)
+        return filesizeformat(cvc_obj.content.size)
 
     @admin.display(description="Key")
     def format_key(self, cvc_obj):
@@ -108,7 +108,7 @@ class ComponentVersionAdmin(ReadOnlyModelAdmin):
         "title",
         "version_num",
         "created",
-        "raw_contents",
+        "contents",
     ]
     fields = [
         "component",
@@ -118,7 +118,7 @@ class ComponentVersionAdmin(ReadOnlyModelAdmin):
         "created",
     ]
     list_display = ["component", "version_num", "uuid", "created"]
-    inlines = [RawContentInline]
+    inlines = [ContentInline]
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -129,12 +129,12 @@ class ComponentVersionAdmin(ReadOnlyModelAdmin):
         )
 
 
-def link_for_cvc(cvc_obj: ComponentVersionRawContent) -> str:
+def link_for_cvc(cvc_obj: ComponentVersionContent) -> str:
     """
-    Get the download URL for the given ComponentVersionRawContent instance
+    Get the download URL for the given ComponentVersionContent instance
     """
     return "/media_server/component_asset/{}/{}/{}/{}".format(
-        cvc_obj.raw_content.learning_package.key,
+        cvc_obj.content.learning_package.key,
         cvc_obj.component_version.component.key,
         cvc_obj.component_version.version_num,
         cvc_obj.key,
@@ -151,27 +151,18 @@ def format_text_for_admin_display(text: str) -> SafeText:
     )
 
 
-def content_preview(cvc_obj: ComponentVersionRawContent) -> SafeText:
+def content_preview(cvc_obj: ComponentVersionContent) -> SafeText:
     """
-    Get the HTML to display a preview of the given ComponentVersionRawContent
+    Get the HTML to display a preview of the given ComponentVersionContent
     """
-    raw_content_obj = cvc_obj.raw_content
+    content_obj = cvc_obj.content
 
-    if raw_content_obj.media_type.type == "image":
+    if content_obj.media_type.type == "image":
         return format_html(
             '<img src="{}" style="max-width: 100%;" />',
-            # TODO: configure with settings value:
-            "/media_server/component_asset/{}/{}/{}/{}".format(
-                cvc_obj.raw_content.learning_package.key,
-                cvc_obj.component_version.component.key,
-                cvc_obj.component_version.version_num,
-                cvc_obj.key,
-            ),
+            content_obj.file_url(),
         )
 
-    if hasattr(raw_content_obj, "text_content"):
-        return format_text_for_admin_display(
-            raw_content_obj.text_content.text,
-        )
-
-    return format_html("This content type cannot be displayed.")
+    return format_text_for_admin_display(
+        content_obj.text,
+    )

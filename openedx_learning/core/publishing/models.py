@@ -30,6 +30,12 @@ class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
 
     Each PublishableEntity belongs to exactly one LearningPackage.
     """
+    # We do not expect to have more than 2 billion LearningPackages on a given
+    # site, but many, many things have foreign keys to this model and uniqueness
+    # indexes on those foreign keys + their own fields, so going from the
+    # app-default of 8-byte IDs to 4-byte IDs will add up over time.
+    id = models.AutoField(primary_key=True)
+
     uuid = immutable_uuid_field()
     key = key_field()
     title = case_insensitive_char_field(max_length=500, blank=False)
