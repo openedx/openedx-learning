@@ -158,7 +158,7 @@ class Command(BaseCommand):
             _component, component_version = components_api.create_component_and_version(
                 self.learning_package.id,
                 namespace=namespace,
-                type=block_type,
+                type_name=block_type,
                 local_key=local_key,
                 title=display_name,
                 created=now,

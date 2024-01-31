@@ -46,7 +46,7 @@ class PerformanceTestCase(TestCase):
         component, _version = components_api.create_component_and_version(
             self.learning_package.id,
             namespace="xblock.v1",
-            type="problem",
+            type_name="problem",
             local_key="Query Counting",
             title="Querying Counting Problem",
             created=self.now,
@@ -97,7 +97,7 @@ class GetComponentsTestCase(TestCase):
         cls.published_problem, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             namespace="xblock.v2",
-            type="problem",
+            type_name="problem",
             local_key="published_problem",
             title="Published Problem",
             created=cls.now,
@@ -106,7 +106,7 @@ class GetComponentsTestCase(TestCase):
         cls.published_html, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             namespace="xblock.v1",
-            type="html",
+            type_name="html",
             local_key="published_html",
             title="Published HTML",
             created=cls.now,
@@ -121,7 +121,7 @@ class GetComponentsTestCase(TestCase):
         cls.unpublished_problem, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             namespace="xblock.v2",
-            type="problem",
+            type_name="problem",
             local_key="unpublished_problem",
             title="Unpublished Problem",
             created=cls.now,
@@ -130,7 +130,7 @@ class GetComponentsTestCase(TestCase):
         cls.unpublished_html, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             namespace="xblock.v1",
-            type="html",
+            type_name="html",
             local_key="unpublished_html",
             title="Unpublished HTML",
             created=cls.now,
@@ -142,7 +142,7 @@ class GetComponentsTestCase(TestCase):
         cls.deleted_video, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             namespace="xblock.v1",
-            type="html",
+            type_name="html",
             local_key="deleted_video",
             title="Deleted Video",
             created=cls.now,
@@ -230,7 +230,7 @@ class GetComponentsTestCase(TestCase):
         """
         html_and_video_components = components_api.get_components(
             self.learning_package.id,
-            types=['html', 'video']
+            type_names=['html', 'video']
         )
         assert list(html_and_video_components) == [
             self.published_html,
@@ -300,7 +300,7 @@ class ComponentGetAndExistsTestCase(TestCase):
         cls.problem = components_api.create_component(
             cls.learning_package.id,
             namespace='xblock.v1',
-            type='problem',
+            type_name='problem',
             local_key='my_component',
             created=cls.now,
             created_by=None,
@@ -308,7 +308,7 @@ class ComponentGetAndExistsTestCase(TestCase):
         cls.html = components_api.create_component(
             cls.learning_package.id,
             namespace='xblock.v1',
-            type='html',
+            type_name='html',
             local_key='my_component',
             created=cls.now,
             created_by=None,
@@ -323,14 +323,14 @@ class ComponentGetAndExistsTestCase(TestCase):
         assert self.html == components_api.get_component_by_key(
             self.learning_package.id,
             namespace='xblock.v1',
-            type='html',
+            type_name='html',
             local_key='my_component',
         )
         with self.assertRaises(ObjectDoesNotExist):
             components_api.get_component_by_key(
                 self.learning_package.id,
                 namespace='xblock.v1',
-                type='video',  # 'video' doesn't match anything we have
+                type_name='video',  # 'video' doesn't match anything we have
                 local_key='my_component',
             )
 
@@ -338,13 +338,13 @@ class ComponentGetAndExistsTestCase(TestCase):
         assert components_api.component_exists_by_key(
             self.learning_package.id,
             namespace='xblock.v1',
-            type='problem',
+            type_name='problem',
             local_key='my_component',
         )
         assert not components_api.component_exists_by_key(
             self.learning_package.id,
             namespace='xblock.v1',
-            type='problem',
+            type_name='problem',
             local_key='not_my_component',
         )
 
@@ -367,7 +367,7 @@ class CreateNewVersionsTestCase(TestCase):
         cls.problem = components_api.create_component(
             cls.learning_package.id,
             namespace='xblock.v1',
-            type='problem',
+            type_name='problem',
             local_key='my_component',
             created=cls.now,
             created_by=None,
