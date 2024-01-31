@@ -27,8 +27,6 @@ from .models import Component, ComponentType, ComponentVersion, ComponentVersion
 def get_or_create_component_type_id(namespace: str, name: str) -> int:
     """
     Get the ID of a ComponentType, and create if missing.
-
-    An example of
     """
     component_type, _created = ComponentType.objects.get_or_create(
         namespace=namespace,
