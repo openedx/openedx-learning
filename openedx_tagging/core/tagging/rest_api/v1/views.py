@@ -307,7 +307,7 @@ class TaxonomyView(ModelViewSet):
         file = body.validated_data["file"].file
         parser_format = body.validated_data["parser_format"]
 
-        taxonomy = create_taxonomy(taxonomy_name, taxonomy_export_id, taxonomy_description)
+        taxonomy = create_taxonomy(taxonomy_name, taxonomy_description, export_id=taxonomy_export_id)
         try:
             import_success, task, _plan = import_tags(taxonomy, file, parser_format)
 

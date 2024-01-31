@@ -72,6 +72,7 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
     can_change_taxonomy = serializers.SerializerMethodField(method_name='get_can_change')
     can_delete_taxonomy = serializers.SerializerMethodField(method_name='get_can_delete')
     can_tag_object = serializers.SerializerMethodField()
+    export_id = serializers.CharField(required=False)
 
     class Meta:
         model = Taxonomy
@@ -90,16 +91,6 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
             "can_tag_object",
             "export_id",
         ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if self.context['request'].method in ('PUT', 'PATCH'):
-            # Makes export_id field optional during update
-            self.fields['export_id'].required = False
-        elif self.context['request'].method == 'POST':
-            # Makes the export_id field mandatory during creation
-            self.fields['export_id'].required = True
 
     def to_representation(self, instance):
         """

@@ -8,7 +8,7 @@ def migrate_export_id(apps, schema_editor):
     Taxonomy = apps.get_model("oel_tagging", "Taxonomy")
     for taxonomy in Taxonomy.objects.all():
         # Adds the id of the taxonomy to avoid duplicates
-        taxonomy.export_id = f"{taxonomy.id}_{slugify(taxonomy.name, allow_unicode=True)}"
+        taxonomy.export_id = f"{taxonomy.id}-{slugify(taxonomy.name, allow_unicode=True)}"
         taxonomy.save(update_fields=["export_id"])
 
 def reverse(app, schema_editor):

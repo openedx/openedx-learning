@@ -80,7 +80,7 @@ class TestTagTaxonomyMixin:
         Helper method to create a taxonomy that's difficult to sort correctly in tree order.
         """
         # pylint: disable=unused-variable
-        taxonomy = api.create_taxonomy("Sort Test", "sort_test")
+        taxonomy = api.create_taxonomy("Sort Test")
 
         root1 = Tag.objects.create(taxonomy=taxonomy, value="1")
         child1_1 = Tag.objects.create(taxonomy=taxonomy, value="11", parent=root1)

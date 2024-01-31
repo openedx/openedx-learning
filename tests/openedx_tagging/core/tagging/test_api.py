@@ -64,6 +64,16 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert not taxonomy.system_defined
         assert taxonomy.visible_to_authors
 
+    def test_create_taxonomy_without_export_id(self) -> None:
+        params: dict[str, Any] = {
+            "name": "Taxonomy Data: test 3",
+            "enabled": False,
+            "allow_multiple": True,
+            "allow_free_text": True,
+        }
+        taxonomy = tagging_api.create_taxonomy(**params)
+        assert taxonomy.export_id == "7-taxonomy-data-test-3"
+
     def test_bad_taxonomy_class(self) -> None:
         with self.assertRaises(ValueError) as exc:
             tagging_api.create_taxonomy(
@@ -80,8 +90,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert no_tax is None
 
     def test_get_taxonomies(self) -> None:
-        tax1 = tagging_api.create_taxonomy("Enabled", "enabled")
-        tax2 = tagging_api.create_taxonomy("Disabled", "disabled", enabled=False)
+        tax1 = tagging_api.create_taxonomy("Enabled")
+        tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
         tax3 = Taxonomy.objects.get(name="Import Taxonomy Test")
         with self.assertNumQueries(1):
             enabled = list(tagging_api.get_taxonomies())
@@ -582,7 +592,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         obj_id = "object_id1"
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
-        disabled_taxonomy = tagging_api.create_taxonomy("Disabled Taxonomy", "disabled_taxonomy", allow_free_text=True)
+        disabled_taxonomy = tagging_api.create_taxonomy("Disabled Taxonomy", allow_free_text=True)
         tagging_api.tag_object(object_id=obj_id, taxonomy=self.taxonomy, tags=["DPANN", "Chordata"])
         tagging_api.tag_object(object_id=obj_id, taxonomy=self.language_taxonomy, tags=["English"])
         tagging_api.tag_object(object_id=obj_id, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
