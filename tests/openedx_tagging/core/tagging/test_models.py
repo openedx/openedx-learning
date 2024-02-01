@@ -550,6 +550,37 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "  azure (ALPHABET) (children: 0)",
         ]
 
+    def test_descendant_counts(self) -> None:
+        """
+        Test getting the descendant count on a taxonomy known to cause aggregation
+        bugs unless the aggregations are correctly specified with distinct=True
+
+        https://docs.djangoproject.com/en/5.0/topics/db/aggregation/#combining-multiple-aggregations
+        """
+        taxonomy = api.create_taxonomy("ESDC Subset")
+        api.add_tag_to_taxonomy(taxonomy, "Interests")  # root tag
+        api.add_tag_to_taxonomy(taxonomy, "Holland Codes", parent_tag_value="Interests")  # child tag
+        # Create the grandchild tag:
+        g_tag = api.add_tag_to_taxonomy(taxonomy, "Interests - Holland Codes", parent_tag_value="Holland Codes")
+        # Create the 6 great-grandchild tags:
+        api.add_tag_to_taxonomy(taxonomy, "Artistic", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Conventional", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Enterprising", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Investigative", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Realistic", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Social", parent_tag_value=g_tag.value)
+
+        result = pretty_format_tags(taxonomy.get_filtered_tags(depth=1, include_counts=True))
+        assert result == [
+            "Interests (None) (used: 0, children: 1 + 7)",  # 1 child + (1 grandchild and 6 great grandchild tags)
+        ]
+        result2 = pretty_format_tags(taxonomy.get_filtered_tags(depth=None, include_counts=True))
+        assert result2 == [
+            "Interests (None) (used: 0, children: 1 + 7)",
+            "  Holland Codes (Interests) (used: 0, children: 1 + 6)",
+            "    Interests - Holland Codes (Holland Codes) (used: 0, children: 6)",
+        ]
+
 
 class TestFilteredTagsFreeTextTaxonomy(TestCase):
     """

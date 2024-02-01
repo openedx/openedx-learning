@@ -458,7 +458,7 @@ class Taxonomy(models.Model):
             qs = self.tag_set.filter(parent=None).annotate(depth=Value(0))
             qs = qs.annotate(parent_value=Value(None, output_field=models.CharField()))
         qs = qs.annotate(child_count=models.Count("children", distinct=True))
-        qs = qs.annotate(grandchild_count=models.Count("children__children"))
+        qs = qs.annotate(grandchild_count=models.Count("children__children", distinct=True))
         qs = qs.annotate(great_grandchild_count=models.Count("children__children__children"))
         qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
         # Filter by search term:
@@ -520,7 +520,9 @@ class Taxonomy(models.Model):
             qs = qs.filter(pk__in=matching_ids)
             qs = qs.annotate(
                 child_count=models.Count("children", filter=Q(children__pk__in=matching_ids), distinct=True),
-                grandchild_count=models.Count("children__children", filter=Q(children__children__pk__in=matching_ids)),
+                grandchild_count=models.Count(
+                    "children__children", filter=Q(children__children__pk__in=matching_ids), distinct=True,
+                ),
                 great_grandchild_count=models.Count(
                     "children__children__children",
                     filter=Q(children__children__children__pk__in=matching_ids),
@@ -534,7 +536,7 @@ class Taxonomy(models.Model):
             # frontend.
         else:
             qs = qs.annotate(child_count=models.Count("children", distinct=True))
-            qs = qs.annotate(grandchild_count=models.Count("children__children"))
+            qs = qs.annotate(grandchild_count=models.Count("children__children", distinct=True))
             qs = qs.annotate(great_grandchild_count=models.Count("children__children__children"))
             qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
 
