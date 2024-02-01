@@ -12,9 +12,8 @@ from datetime import datetime
 from django.core.files.base import ContentFile
 from django.db.transaction import atomic
 
-from openedx_learning.lib.cache import lru_cache
-from openedx_learning.lib.fields import create_hash_digest
-
+from ...lib.cache import lru_cache
+from ...lib.fields import create_hash_digest
 from .models import MediaType, RawContent, TextContent
 
 
@@ -33,7 +32,7 @@ def create_raw_content(
 
     raw_content = RawContent.objects.create(
         learning_package_id=learning_package_id,
-        media_type_id=get_media_type_id(mime_type),
+        media_type_id=get_or_create_media_type_id(mime_type),
         hash_digest=hash_digest,
         size=len(data_bytes),
         created=created,
@@ -58,7 +57,7 @@ def create_text_from_raw_content(raw_content: RawContent, encoding="utf-8-sig") 
 
 
 @lru_cache(maxsize=128)
-def get_media_type_id(mime_type: str) -> int:
+def get_or_create_media_type_id(mime_type: str) -> int:
     """
     Return the MediaType.id for the desired mime_type string.
 

@@ -27,7 +27,7 @@ class TestModelVersioningQueries(TestCase):
         component, component_version = create_component_and_version(
             self.learning_package.id,
             namespace="xblock.v1",
-            type="problem",
+            type_name="problem",
             local_key="monty_hall",
             title="Monty Hall Problem",
             created=self.now,
