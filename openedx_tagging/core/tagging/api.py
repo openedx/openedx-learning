@@ -17,6 +17,7 @@ from typing import Any
 from django.db import models, transaction
 from django.db.models import F, QuerySet, Value
 from django.db.models.functions import Coalesce, Concat, Lower
+from django.utils.text import slugify
 from django.utils.translation import gettext as _
 
 from .data import TagDataQuerySet
@@ -34,19 +35,26 @@ def create_taxonomy(
     allow_multiple=True,
     allow_free_text=False,
     taxonomy_class: type[Taxonomy] | None = None,
+    export_id: str | None = None,
 ) -> Taxonomy:
     """
     Creates, saves, and returns a new Taxonomy with the given attributes.
     """
+    if not export_id:
+        export_id = f"{Taxonomy.objects.count() + 1}-{slugify(name, allow_unicode=True)}"
+
     taxonomy = Taxonomy(
         name=name,
         description=description or "",
         enabled=enabled,
         allow_multiple=allow_multiple,
         allow_free_text=allow_free_text,
+        export_id=export_id,
     )
     if taxonomy_class:
         taxonomy.taxonomy_class = taxonomy_class
+
+    taxonomy.full_clean()
     taxonomy.save()
     return taxonomy.cast()
 

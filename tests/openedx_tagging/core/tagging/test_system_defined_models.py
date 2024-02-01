@@ -93,12 +93,14 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
             taxonomy_class=LPTaxonomyTest,
             name="LearningPackage Taxonomy",
             allow_multiple=True,
+            export_id="learning_package_taxonomy",
         )
         # Also create an "Author" taxonomy that can tag any object using user IDs/usernames:
         cls.author_taxonomy = UserSystemDefinedTaxonomy.objects.create(
             taxonomy_class=UserSystemDefinedTaxonomy,
             name="Authors",
             allow_multiple=True,
+            export_id="authors",
         )
 
     def test_lp_taxonomy_validation(self):
@@ -169,6 +171,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
             taxonomy_class=CaseInsensitiveTitleLPTaxonomy,
             name="LearningPackage Title Taxonomy",
             allow_multiple=True,
+            export_id="learning_package_title_taxonomy",
         )
         api.tag_object(taxonomy, ["LEARNING PACKAGE 1"], object1_id)
         api.tag_object(taxonomy, ["Learning Package 1", "LEARNING PACKAGE 2"], object2_id)
@@ -184,6 +187,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
             taxonomy_class=UserSystemDefinedTaxonomy,
             name="Reviewer",
             allow_multiple=True,
+            export_id="reviewer",
         )
         pr_1_id, pr_2_id = "pull_request_1", "pull_request_2"
 

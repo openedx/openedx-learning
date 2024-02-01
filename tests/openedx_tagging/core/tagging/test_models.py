@@ -38,7 +38,7 @@ class TestTagTaxonomyMixin:
         self.system_taxonomy = Taxonomy.objects.get(name="System defined taxonomy")
         self.language_taxonomy = LanguageTaxonomy.objects.get(name="Languages")
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
-        self.free_text_taxonomy = Taxonomy.objects.create(name="Free Text", allow_free_text=True)
+        self.free_text_taxonomy = api.create_taxonomy(name="Free Text", allow_free_text=True)
 
         # References to some tags:
         self.archaea = get_tag("Archaea")
@@ -111,10 +111,10 @@ class TestTagTaxonomyMixin:
         """
         dummy_taxonomies = []
         for i in range(100):
-            taxonomy = Taxonomy.objects.create(
+            taxonomy = api.create_taxonomy(
                 name=f"ZZ Dummy Taxonomy {i:03}",
                 allow_free_text=True,
-                allow_multiple=True
+                allow_multiple=True,
             )
             ObjectTag.objects.create(
                 object_id="limit_tag_count",
@@ -203,7 +203,7 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_taxonomy_cast_import_error(self):
         taxonomy = Taxonomy.objects.create(
-            name="Invalid cast", _taxonomy_class="not.a.class"
+            name="Invalid cast", export_id='invalid_cast', _taxonomy_class="not.a.class"
         )
         # Error is logged, but ignored.
         cast_taxonomy = taxonomy.cast()
@@ -267,6 +267,50 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         # And via the API:
         with pytest.raises(ValidationError):
             api.add_tag_to_taxonomy(self.taxonomy, "first\tsecond")
+
+    @ddt.data(
+        ("test"),
+        ("lightcast"),
+        ("lightcast-skills"),
+        ("io.lightcast.open-skills"),
+        ("-3_languages"),
+        ("LIGHTCAST_V17"),
+        ("liGhtCaST"),
+        ("日本"),
+        ("Québec"),
+        ("123456789"),
+    )
+    def test_export_id_format_valid(self, export_id):
+        self.taxonomy.export_id = export_id
+        self.taxonomy.full_clean()
+
+    @ddt.data(
+        ("LightCast Skills"),
+        ("One,Two,Three"),
+        (" "),
+        ("Foo:Bar"),
+        ("X;Y;Z"),
+        ('"quotes"'),
+        (" test"),
+    )
+    def test_export_id_format_invalid(self, export_id):
+        self.taxonomy.export_id = export_id
+        with pytest.raises(ValidationError):
+            self.taxonomy.full_clean()
+
+    def test_unique_export_id(self):
+        # Valid
+        self.taxonomy.export_id = 'test_1'
+        self.free_text_taxonomy.export_id = 'test_2'
+        self.taxonomy.save()
+        self.free_text_taxonomy.save()
+
+        # Invalid
+        self.taxonomy.export_id = 'test_1'
+        self.free_text_taxonomy.export_id = 'test_1'
+        self.taxonomy.save()
+        with pytest.raises(IntegrityError):
+            self.free_text_taxonomy.save()
 
 
 @ddt.ddt
@@ -557,7 +601,7 @@ class TestFilteredTagsFreeTextTaxonomy(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.taxonomy = Taxonomy.objects.create(allow_free_text=True, name="FreeText")
+        self.taxonomy = api.create_taxonomy(allow_free_text=True, name="FreeText")
         # The "triple" tag will be applied to three objects, "double" to two, and "solo" to one:
         api.tag_object(object_id="obj1", taxonomy=self.taxonomy, tags=["triple"])
         api.tag_object(object_id="obj2", taxonomy=self.taxonomy, tags=["triple", "double"])

@@ -72,6 +72,7 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
     can_change_taxonomy = serializers.SerializerMethodField(method_name='get_can_change')
     can_delete_taxonomy = serializers.SerializerMethodField(method_name='get_can_delete')
     can_tag_object = serializers.SerializerMethodField()
+    export_id = serializers.CharField(required=False)
 
     class Meta:
         model = Taxonomy
@@ -88,6 +89,7 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
             "can_change_taxonomy",
             "can_delete_taxonomy",
             "can_tag_object",
+            "export_id",
         ]
 
     def to_representation(self, instance):
@@ -332,6 +334,7 @@ class TaxonomyImportNewBodySerializer(TaxonomyImportBodySerializer):  # pylint: 
     """
     taxonomy_name = serializers.CharField(required=True)
     taxonomy_description = serializers.CharField(default="")
+    taxonomy_export_id = serializers.CharField(required=True)
 
 
 class TagImportTaskSerializer(serializers.ModelSerializer):
