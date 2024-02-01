@@ -253,10 +253,9 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
         Calling get_children_tags on free text taxonomies gives an error.
         """
-        free_text_taxonomy = Taxonomy.objects.create(
-            allow_free_text=True,
+        free_text_taxonomy = tagging_api.create_taxonomy(
             name="FreeText",
-            export_id="free_text"
+            allow_free_text=True,
         )
         tagging_api.tag_object(object_id="obj1", taxonomy=free_text_taxonomy, tags=["some_tag"])
         with self.assertRaises(ValueError) as exc:
@@ -272,11 +271,10 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_resync_object_tags(self) -> None:
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
-        open_taxonomy = Taxonomy.objects.create(
+        open_taxonomy = tagging_api.create_taxonomy(
             name="Freetext Life",
             allow_free_text=True,
             allow_multiple=True,
-            export_id='freetext_life',
         )
 
         object_id = "obj1"

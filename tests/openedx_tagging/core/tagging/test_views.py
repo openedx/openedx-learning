@@ -2544,10 +2544,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
     def setUp(self):
         ImportTaxonomyMixin.setUp(self)
 
-        self.taxonomy = Taxonomy.objects.create(
-            name="Test import taxonomy",
-            export_id="test_import_taxonomy",
-        )
+        self.taxonomy = api.create_taxonomy(name="Test import taxonomy")
         tag_1 = Tag.objects.create(
             taxonomy=self.taxonomy,
             external_id="old_tag_1",

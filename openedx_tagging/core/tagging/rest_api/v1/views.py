@@ -58,7 +58,7 @@ class TaxonomyView(ModelViewSet):
     """
     View to list, create, retrieve, update, delete, export or import Taxonomies.
 
-    TODO: We need to add a perform_udate and call the api update function when is created.
+    TODO: We need to add a perform_update and call the api update function when is created.
     This is because it is necessary to call the model validations. (`full_clean()`).
     Currently those validations are not run, which means we could update `export_id` with any value
     through this api.

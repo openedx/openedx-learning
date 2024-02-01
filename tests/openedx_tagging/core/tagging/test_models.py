@@ -38,7 +38,7 @@ class TestTagTaxonomyMixin:
         self.system_taxonomy = Taxonomy.objects.get(name="System defined taxonomy")
         self.language_taxonomy = LanguageTaxonomy.objects.get(name="Languages")
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
-        self.free_text_taxonomy = Taxonomy.objects.create(name="Free Text", allow_free_text=True)
+        self.free_text_taxonomy = api.create_taxonomy(name="Free Text", allow_free_text=True)
 
         # References to some tags:
         self.archaea = get_tag("Archaea")
@@ -111,11 +111,10 @@ class TestTagTaxonomyMixin:
         """
         dummy_taxonomies = []
         for i in range(100):
-            taxonomy = Taxonomy.objects.create(
+            taxonomy = api.create_taxonomy(
                 name=f"ZZ Dummy Taxonomy {i:03}",
                 allow_free_text=True,
                 allow_multiple=True,
-                export_id=f"zz_dummy_taxonomy_{i:03}"
             )
             ObjectTag.objects.create(
                 object_id="limit_tag_count",
@@ -602,7 +601,7 @@ class TestFilteredTagsFreeTextTaxonomy(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.taxonomy = Taxonomy.objects.create(allow_free_text=True, name="FreeText")
+        self.taxonomy = api.create_taxonomy(allow_free_text=True, name="FreeText")
         # The "triple" tag will be applied to three objects, "double" to two, and "solo" to one:
         api.tag_object(object_id="obj1", taxonomy=self.taxonomy, tags=["triple"])
         api.tag_object(object_id="obj2", taxonomy=self.taxonomy, tags=["triple", "double"])
