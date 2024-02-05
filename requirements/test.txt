@@ -26,7 +26,7 @@ billiard==4.2.0
     #   celery
 celery==5.3.6
     # via -r requirements/base.txt
-certifi==2023.11.17
+certifi==2024.2.2
     # via
     #   -r requirements/base.txt
     #   requests
@@ -61,13 +61,13 @@ click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
-code-annotations==1.5.0
+code-annotations==1.6.0
     # via -r requirements/test.in
 coverage[toml]==7.4.1
     # via
     #   -r requirements/test.in
     #   pytest-cov
-cryptography==42.0.1
+cryptography==42.0.2
     # via
     #   -r requirements/base.txt
     #   pyjwt
@@ -90,7 +90,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-django-debug-toolbar==4.2.0
+django-debug-toolbar==4.3.0
     # via -r requirements/test.in
 django-stubs==4.2.7
     # via
@@ -118,7 +118,7 @@ edx-django-utils==5.10.1
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
-edx-drf-extensions==10.0.0
+edx-drf-extensions==10.1.0
     # via -r requirements/base.txt
 edx-opaque-keys==2.5.1
     # via
@@ -142,7 +142,7 @@ kombu==5.3.5
     # via
     #   -r requirements/base.txt
     #   celery
-markupsafe==2.1.4
+markupsafe==2.1.5
     # via jinja2
 mock==5.1.0
     # via -r requirements/test.in
@@ -150,7 +150,7 @@ mypy==1.8.0
     # via -r requirements/test.in
 mypy-extensions==1.0.0
     # via mypy
-mysqlclient==2.2.1
+mysqlclient==2.2.3
     # via -r requirements/test.in
 newrelic==9.6.0
     # via
@@ -197,15 +197,15 @@ pytest==8.0.0
     #   pytest-django
 pytest-cov==4.1.0
     # via -r requirements/test.in
-pytest-django==4.7.0
+pytest-django==4.8.0
     # via -r requirements/test.in
 python-dateutil==2.8.2
     # via
     #   -r requirements/base.txt
     #   celery
-python-slugify==8.0.2
+python-slugify==8.0.3
     # via code-annotations
-pytz==2023.3.post1
+pytz==2024.1
     # via
     #   -r requirements/base.txt
     #   django
@@ -247,7 +247,7 @@ tomli==2.0.1
     #   import-linter
     #   mypy
     #   pytest
-types-pytz==2023.3.1.1
+types-pytz==2024.1.0.20240203
     # via django-stubs
 types-pyyaml==6.0.12.12
     # via
@@ -272,7 +272,7 @@ tzdata==2023.4
     #   -r requirements/base.txt
     #   backports-zoneinfo
     #   celery
-urllib3==2.1.0
+urllib3==2.2.0
     # via
     #   -r requirements/base.txt
     #   requests
