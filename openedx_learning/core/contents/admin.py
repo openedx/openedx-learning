@@ -21,6 +21,7 @@ class ContentAdmin(ReadOnlyModelAdmin):
         "media_type",
         "size",
         "created",
+        "has_file",
     ]
     fields = [
         "learning_package",
@@ -30,6 +31,7 @@ class ContentAdmin(ReadOnlyModelAdmin):
         "created",
         "file_link",
         "text_preview",
+        "has_file",
     ]
     list_filter = ("media_type", "learning_package")
     search_fields = ("hash_digest",)
