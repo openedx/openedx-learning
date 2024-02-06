@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from functools import cached_property
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.base import File
 from django.core.files.storage import default_storage, Storage

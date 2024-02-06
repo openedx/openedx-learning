@@ -39,6 +39,11 @@ class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
     uuid = immutable_uuid_field()
     key = key_field()
     title = case_insensitive_char_field(max_length=500, blank=False)
+
+    # TODO: We should probably defer this field, since many things pull back
+    # LearningPackage as select_related. Usually those relations only care about
+    # the UUID and key, so maybe it makes sense to separate the model at some
+    # point.
     description = MultiCollationTextField(
         blank=True,
         null=False,
