@@ -73,7 +73,7 @@ def get_or_create_text_content(
     media_type_id: int,
     text: str,
     created: datetime,
-    create_file: bool=False,
+    create_file: bool = False,
 ) -> Content:
     """
     Get or create a Content entry with text data stored in the database.

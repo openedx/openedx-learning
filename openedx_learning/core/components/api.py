@@ -162,7 +162,7 @@ def create_next_version(
         # Now copy any old associations that existed, as long as they aren't
         # in conflict with the new stuff or marked for deletion.
         last_version_content_mapping = ComponentVersionContent.objects \
-                                                                 .filter(component_version=last_version)
+                                                              .filter(component_version=last_version)
         for cvrc in last_version_content_mapping:
             if cvrc.key not in content_to_replace:
                 ComponentVersionContent.objects.create(
@@ -314,14 +314,14 @@ def get_component_version_content(
         & Q(key=key)
     )
     return ComponentVersionContent.objects \
-                                     .select_related(
-                                         "content",
-                                         "content__media_type",
-                                         "content__textcontent",
-                                         "component_version",
-                                         "component_version__component",
-                                         "component_version__component__learning_package",
-                                     ).get(queries)
+                                  .select_related(
+                                      "content",
+                                      "content__media_type",
+                                      "content__textcontent",
+                                      "component_version",
+                                      "component_version__component",
+                                      "component_version__component__learning_package",
+                                  ).get(queries)
 
 
 def add_content_to_component_version(

@@ -164,5 +164,5 @@ def content_preview(cvc_obj: ComponentVersionContent) -> SafeText:
         )
 
     return format_text_for_admin_display(
-        content_obj.text,
+        content_obj.text or ""
     )
