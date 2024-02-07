@@ -105,10 +105,10 @@ def create_next_version(
     A very common pattern for making a new ComponentVersion is going to be "make
     it just like the last version, except changing these one or two things".
     Before calling this, you should create any new contents via the contents
-    API, since ``content_to_replace`` needs RawContent IDs for the values.
+    API, since ``content_to_replace`` needs Content IDs for the values.
 
     The ``content_to_replace`` dict is a mapping of strings representing the
-    local path/key for a file, to ``RawContent.id`` values. Using a `None` for
+    local path/key for a file, to ``Content.id`` values. Using a `None` for
     a value in this dict means to delete that key in the next version.
 
     It is okay to mark entries for deletion that don't exist. For instance, if a
@@ -305,7 +305,7 @@ def get_component_version_content(
     Look up ComponentVersionContent by human readable keys.
 
     Can raise a django.core.exceptions.ObjectDoesNotExist error if there is no
-    matching ComponentVersionRawContent.
+    matching ComponentVersionContent.
     """
     queries = (
         Q(component_version__component__learning_package__key=learning_package_key)
@@ -317,7 +317,6 @@ def get_component_version_content(
                                   .select_related(
                                       "content",
                                       "content__media_type",
-                                      "content__textcontent",
                                       "component_version",
                                       "component_version__component",
                                       "component_version__component__learning_package",

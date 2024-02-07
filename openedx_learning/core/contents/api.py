@@ -26,11 +26,6 @@ def get_or_create_media_type(mime_type: str) -> MediaType:
     the different XBlocks that will be installed in different server instances,
     each of which will use their own MediaType.
 
-    This will typically only be called when create_raw_content is calling it to
-    lookup the media_type_id it should use for a new RawContent. If you already
-    have a RawContent instance, it makes much more sense to access its
-    media_type relation.
-
     Caching Warning: Be careful about putting any caching decorator around this
     function (e.g. ``lru_cache``). It's possible that incorrect cache values
     could leak out in the event of a rollback–e.g. new types are introduced in

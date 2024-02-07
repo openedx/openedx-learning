@@ -11,7 +11,7 @@ are intended to use openedx-learning in the longer term.
 
 Open Question: If the data model is extensible, how do we know whether a change
 has really happened between what's currently stored/published for a particular
-item and the new value we want to set? For RawContent that's easy, because we
+item and the new value we want to set? For Content that's easy, because we
 have actual hashes of the data. But it's not clear how that would work for
 something like an ComponentVersion. We'd have to have some kind of mechanism where every
 pp that wants to attach data gets to answer the question of "has anything
@@ -164,7 +164,7 @@ class Command(BaseCommand):
                 created_by=None,
             )
 
-            # Create the RawContent entry for the raw data...
+            # Create the Content entry for the raw data...
             text = xml_file_path.read_text('utf-8')
             text_content, _created = contents_api.get_or_create_text_content(
                 self.learning_package.id,

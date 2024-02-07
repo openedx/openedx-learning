@@ -57,7 +57,7 @@ class MediaType(models.Model):
        "application/javascript". Also, we will be using a fair number of "vnd."
        style of custom content types, and we may want the flexibility of
        changing that without having to worry about migrating millions of rows of
-       RawContent.
+       Content.
     """
     # We're going to have many foreign key references from Content into this
     # model, and we don't need to store those as 8-byte BigAutoField, as is the
@@ -123,7 +123,7 @@ class Content(models.Model):
     least one of these methods, but can use both if it's appropriate.
 
     Use the ``text`` field when:
-    * the content is a relatively small (< 10K, often much less) piece of text
+    * the content is a relatively small (< 50K, usually much less) piece of text
     * you want to do be able to query up update across many rows at once
     * low, predictable latency is important
 
@@ -218,7 +218,9 @@ class Content(models.Model):
     )
 
     # This hash value may be calculated using create_hash_digest from the
-    # openedx.lib.fields module. Note that even TextContent needs to use this
+    # openedx.lib.fields module. When storing text, we hash the UTF-8
+    # encoding of that text value, regardless of whether we also write it to a
+    # file or not.
     hash_digest = hash_field()
 
     # Do we have file data stored for this Content in our file storage backend?

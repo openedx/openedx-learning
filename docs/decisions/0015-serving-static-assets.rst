@@ -18,7 +18,7 @@ Data Storage Implementation
 
 The underlying data models live in the openedx-learning repo. The most relevant models are:
 
-* `RawContent in contents/models.py <https://github.com/openedx/openedx-learning/blob/main/openedx_learning/core/contents/models.py>`_
+* `Content in contents/models.py <https://github.com/openedx/openedx-learning/blob/main/openedx_learning/core/contents/models.py>`_
 * `Component and ComponentVersion in components/models.py <https://github.com/openedx/openedx-learning/blob/main/openedx_learning/core/components/models.py>`_
 
 Key takeaways about how this data is stored:

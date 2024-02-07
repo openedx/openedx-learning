@@ -18,6 +18,6 @@ Architecture Guidelines
 
 * We're keeping nearly unlimited history, so per-version metadata (i.e. the space/time cost of making a new version) must be kept low.
 * Do not assume that all Components will be XBlocks.
-* Encourage other apps to make models that join to (and add their own metadata to) Component, ComponentVersion, RawContent, TextContent etc. But it should be done in such a way that this app is not aware of them.
+* Encourage other apps to make models that join to (and add their own metadata to) Component, ComponentVersion, Content, etc. But it should be done in such a way that this app is not aware of them.
 * Always preserve the most raw version of the data possible, e.g. OLX, even if XBlocks then extend that with more sophisticated data models. At some point those XBlocks will get deprecated/removed, and we will still want to be able to export the raw data.
 * Exports should be fast and *not* require the invocation of plugin code.
