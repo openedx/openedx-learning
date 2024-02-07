@@ -110,31 +110,33 @@ class Content(models.Model):
     This is the most primitive piece of content data.
 
     This model serves to lookup, de-duplicate, and store text and files. A piece
-    of Content is identified purely by its content, media type, and the
+    of Content is identified purely by its data, the media type, and the
     LearningPackage it is associated with. It has no version or file name
     metadata associated with it. It exists to be a dumb blob of data that higher
     level models like ComponentVersions can assemble together.
 
-    # Text vs. File
+    # In-model Text vs. File
 
     That being said, the Content model does have some complexity to accomodate
     different access patterns that we have in our app. In particular, it can
-    store data in two ways: ``text`` and ``file``. A Content object must use at
-    least one of these methods, but can use both if it's appropriate.
+    store data in two ways: the ``text`` field and a file (``has_file=True``)
+    A Content object must use at least one of these methods, but can use both if
+    it's appropriate.
 
     Use the ``text`` field when:
     * the content is a relatively small (< 50K, usually much less) piece of text
     * you want to do be able to query up update across many rows at once
     * low, predictable latency is important
 
-    Use ``file`` when:
+    Use file storage when:
     * the content is large, or not text-based
     * you want to be able to serve the file content directly to the browser
 
     The high level tradeoff is that ``text`` will give you faster access, and
-    ``file`` will give you a much more scalable storage backend. The backend
-    used for ``file`` will also allow direct browser download access, whereas
-    ``text`` will not. But again, you can use both at the same time if needed.
+    file storage will give you a much more affordable and scalable backend. The
+    backend used for files will also eventually allow direct browser download
+    access, whereas the ``text`` field will not. But again, you can use both at
+    the same time if needed.
 
     # Association with a LearningPackage
 
@@ -149,17 +151,21 @@ class Content(models.Model):
     # Media Types, and file duplication
 
     Content is almost 1:1 with the files that it pushes to a storage backend,
-    but not quite. The file names are generated purely as a product of the
-    LearningPackage UUID and the Content's hash_digest, but Content also takes
-    into account the media_type.
+    but not quite. The file locations are generated purely as a product of the
+    LearningPackage UUID and the Content's ``hash_digest``, but Content also
+    takes into account the ``media_type``.
 
-    For example, say we had a Content with the text:
+    For example, say we had a Content with the following data:
 
         ["hello", "world"]
 
     That is legal syntax for both JSON and YAML. If you want to attach some
     YAML-specific metadata in a new model, you could make it 1:1 with the
-    Content that matched the correct media type.
+    Content that matched the "application/yaml" media type. The YAML and JSON
+    versions of this data would be two separate Content rows that would share
+    the same ``hash_digest`` value. If they both stored a file, they would be
+    pointing to the same file location. If they only used the ``text`` field,
+    then that value would be duplicated across the two separate Content rows.
 
     The alternative would have been to associate media types at the level where
     this data was being added to a ComponentVersion, but that would have added
@@ -171,8 +177,9 @@ class Content(models.Model):
     like this will happen in practice is with blank files. It also means that
     using this table to measure disk usage may be slightly inaccurate when used
     in a LearningPackage with collisions–though we expect to use numbers like
-    that mostly to get a broad sense of usage, rather than for byte-level
-    accuracy.
+    that mostly to get a broad sense of usage and look for major outliers,
+    rather than for byte-level accuracy (it wouldn't account for the non-trivial
+    indexing storage costs either).
 
     # Immutability
 
