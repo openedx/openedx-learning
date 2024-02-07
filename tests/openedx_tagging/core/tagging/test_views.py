@@ -257,7 +257,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.user)
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(3):
             response = self.client.get(url)
 
         assert response.status_code == 200
