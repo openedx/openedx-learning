@@ -252,7 +252,7 @@ class TaxonomyView(ModelViewSet):
         query_params.is_valid(raise_exception=True)
         enabled = query_params.data.get("enabled", None)
 
-        return get_taxonomies(enabled)
+        return get_taxonomies(enabled).prefetch_related('tag_set')
 
     def perform_create(self, serializer) -> None:
         """
