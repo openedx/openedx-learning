@@ -252,7 +252,9 @@ class TaxonomyView(ModelViewSet):
         query_params.is_valid(raise_exception=True)
         enabled = query_params.data.get("enabled", None)
 
-        return get_taxonomies(enabled).prefetch_related('tag_set')
+        qs = get_taxonomies(enabled)
+        qs = qs.annotate(tags_count=models.Count("tag", distinct=True))
+        return qs
 
     def perform_create(self, serializer) -> None:
         """
