@@ -21,10 +21,50 @@ from __future__ import annotations
 from django.db import models
 
 from openedx_learning.lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
+from openedx_learning.lib.managers import WithRelationsManager
 
 from ..contents.models import RawContent
 from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
 from ..publishing.models import LearningPackage
+
+
+class ComponentType(models.Model):
+    """
+    Normalized representation of a type of Component.
+
+    The only namespace being used initially will be 'xblock.v1', but we will
+    probably add a few others over time, such as a component type to represent
+    packages of files for things like Files and Uploads or python_lib.zip files.
+
+    Make a ForeignKey against this table if you have to set policy based on the
+    type of Components–e.g. marking certain types of XBlocks as approved vs.
+    experimental for use in libraries.
+    """
+    id = models.AutoField(primary_key=True)
+
+    # namespace and name work together to help figure out what Component needs
+    # to handle this data. A namespace is *required*. The namespace for XBlocks
+    # is "xblock.v1" (to match the setup.py entrypoint naming scheme).
+    namespace = case_sensitive_char_field(max_length=100, blank=False)
+
+    # name is a way to help sub-divide namespace if that's convenient. This
+    # field cannot be null, but it can be blank if it's not necessary. For an
+    # XBlock, this corresponds to tag, e.g. "video". It's also the block_type in
+    # the UsageKey.
+    name = case_sensitive_char_field(max_length=100, blank=True)
+
+    constraints = [
+        models.UniqueConstraint(
+            fields=[
+                "namespace",
+                "name",
+            ],
+            name="oel_component_type_uniq_ns_n",
+        ),
+    ]
+
+    def __str__(self):
+        return f"{self.namespace}:{self.name}"
 
 
 class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
@@ -44,6 +84,12 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
 
     A Component belongs to exactly one LearningPackage.
 
+    A Component is 1:1 with PublishableEntity and has matching primary key
+    values. More specifically, ``Component.pk`` maps to
+    ``Component.publishable_entity_id``, and any place where the Publishing API
+    module expects to get a ``PublishableEntity.id``, you can use a
+    ``Component.pk`` instead.
+
     Identifiers
     -----------
 
@@ -56,7 +102,7 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     -----------------
 
     The ``key`` field on Component's ``publishable_entity`` is dervied from the
-    ``(namespace, type, local_key)`` fields in this model. We don't support
+    ``component_type`` and ``local_key`` fields in this model. We don't support
     changing the keys yet, but if we do, those values need to be kept in sync.
 
     How build on this model
@@ -68,63 +114,64 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     # Tell mypy what type our objects manager has.
     # It's actually PublishableEntityMixinManager, but that has the exact same
     # interface as the base manager class.
-    objects: models.Manager[Component]
+    objects: models.Manager[Component] = WithRelationsManager(
+        'component_type'
+    )
+
+    with_publishing_relations: models.Manager[Component] = WithRelationsManager(
+        'component_type',
+        'publishable_entity',
+        'publishable_entity__draft__version',
+        'publishable_entity__draft__version__componentversion',
+        'publishable_entity__published__version',
+        'publishable_entity__published__version__componentversion',
+    )
 
     # This foreign key is technically redundant because we're already locked to
-    # a single LearningPackage through our publishable_entity relation. However, having
-    # this foreign key directly allows us to make indexes that efficiently
+    # a single LearningPackage through our publishable_entity relation. However,
+    # having this foreign key directly allows us to make indexes that efficiently
     # query by other Component fields within a given LearningPackage, which is
     # going to be a common use case (and we can't make a compound index using
     # columns from different tables).
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
 
-    # namespace and type work together to help figure out what Component needs
-    # to handle this data. A namespace is *required*. The namespace for XBlocks
-    # is "xblock.v1" (to match the setup.py entrypoint naming scheme).
-    namespace = case_sensitive_char_field(max_length=100, blank=False)
+    # What kind of Component are we? This will usually represent a specific
+    # XBlock block_type, but we want it to be more flexible in the long term.
+    component_type = models.ForeignKey(ComponentType, on_delete=models.PROTECT)
 
-    # type is a way to help sub-divide namespace if that's convenient. This
-    # field cannot be null, but it can be blank if it's not necessary. For an
-    # XBlock, type corresponds to tag, e.g. "video". It's also the block_type in
-    # the UsageKey.
-    type = case_sensitive_char_field(max_length=100, blank=True)
-
-    # local_key is an identifier that is local to the (namespace, type).  The
-    # publishable.key should be calculated as a combination of (namespace, type,
-    # local_key).
+    # local_key is an identifier that is local to the learning_package and
+    # component_type.  The publishable.key should be calculated as a
+    # combination of component_type and local_key.
     local_key = key_field()
 
     class Meta:
         constraints = [
-            # The combination of (namespace, type, local_key) is unique within
+            # The combination of (component_type, local_key) is unique within
             # a given LearningPackage. Note that this means it is possible to
-            # have two Components that have the exact same local_key. An XBlock
-            # would be modeled as namespace="xblock.v1" with the type as the
-            # block_type, so the local_key would only be the block_id (the
-            # very last part of the UsageKey).
+            # have two Components in the same LearningPackage to have the same
+            # local_key if the component_types are different. So for example,
+            # you could have a ProblemBlock and VideoBlock that both have the
+            # local_key "week_1".
             models.UniqueConstraint(
                 fields=[
                     "learning_package",
-                    "namespace",
-                    "type",
+                    "component_type",
                     "local_key",
                 ],
-                name="oel_component_uniq_lc_ns_t_lk",
+                name="oel_component_uniq_lc_ct_lk",
             ),
         ]
         indexes = [
-            # Global Namespace/Type/Local-Key Index:
+            # Global Component-Type/Local-Key Index:
             #   * Search by the different Components fields across all Learning
             #     Packages on the site. This would be a support-oriented tool
             #     from Django Admin.
             models.Index(
                 fields=[
-                    "learning_package",
-                    "namespace",
-                    "type",
+                    "component_type",
                     "local_key",
                 ],
-                name="oel_component_idx_lc_ns_t_lk",
+                name="oel_component_idx_ct_lk",
             ),
         ]
 
@@ -133,7 +180,7 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
         verbose_name_plural = "Components"
 
     def __str__(self):
-        return f"{self.namespace}:{self.type}:{self.local_key}"
+        return f"{self.component_type.namespace}:{self.component_type.name}:{self.local_key}"
 
 
 class ComponentVersion(PublishableEntityVersionMixin):

@@ -69,3 +69,6 @@ venv/
 
 # Media files (for uploads)
 media/
+
+# Media files generated during test runs
+test_media/

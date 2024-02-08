@@ -121,7 +121,7 @@ def import_tags(
         task.end_success()
 
         return True, task, tag_import_plan
-    except Exception as exception:  # pylint: disable=broad-exception-caught
+    except Exception as exception:
         # Log any exception
         task.log_exception(exception)
         return False, task, None

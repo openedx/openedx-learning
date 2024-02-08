@@ -56,12 +56,23 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "enabled": False,
             "allow_multiple": True,
             "allow_free_text": True,
+            "export_id": "difficulty",
         }
         taxonomy = tagging_api.create_taxonomy(**params)
         for param, value in params.items():
             assert getattr(taxonomy, param) == value
         assert not taxonomy.system_defined
         assert taxonomy.visible_to_authors
+
+    def test_create_taxonomy_without_export_id(self) -> None:
+        params: dict[str, Any] = {
+            "name": "Taxonomy Data: test 3",
+            "enabled": False,
+            "allow_multiple": True,
+            "allow_free_text": True,
+        }
+        taxonomy = tagging_api.create_taxonomy(**params)
+        assert taxonomy.export_id == "7-taxonomy-data-test-3"
 
     def test_bad_taxonomy_class(self) -> None:
         with self.assertRaises(ValueError) as exc:
@@ -242,7 +253,10 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
         Calling get_children_tags on free text taxonomies gives an error.
         """
-        free_text_taxonomy = Taxonomy.objects.create(allow_free_text=True, name="FreeText")
+        free_text_taxonomy = tagging_api.create_taxonomy(
+            name="FreeText",
+            allow_free_text=True,
+        )
         tagging_api.tag_object(object_id="obj1", taxonomy=free_text_taxonomy, tags=["some_tag"])
         with self.assertRaises(ValueError) as exc:
             tagging_api.get_children_tags(free_text_taxonomy, "some_tag")
@@ -257,7 +271,11 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_resync_object_tags(self) -> None:
         self.taxonomy.allow_multiple = True
         self.taxonomy.save()
-        open_taxonomy = Taxonomy.objects.create(name="Freetext Life", allow_free_text=True, allow_multiple=True)
+        open_taxonomy = tagging_api.create_taxonomy(
+            name="Freetext Life",
+            allow_free_text=True,
+            allow_multiple=True,
+        )
 
         object_id = "obj1"
         # Create some tags:
