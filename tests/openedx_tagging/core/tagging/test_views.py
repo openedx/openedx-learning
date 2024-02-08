@@ -1343,8 +1343,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "Bacteria (None) (children: 2)",
             "  Archaebacteria (Bacteria) (children: 0)",
             "  Eubacteria (Bacteria) (children: 0)",
-            "Eukaryota (None) (children: 5)",
-            "  Animalia (Eukaryota) (children: 7)",
+            "Eukaryota (None) (children: 5 + 8)",
+            "  Animalia (Eukaryota) (children: 7 + 1)",
             "    Arthropoda (Animalia) (children: 0)",
             "    Chordata (Animalia) (children: 1)",
             "    Cnidaria (Animalia) (children: 0)",
@@ -1391,7 +1391,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         assert next_response.status_code == status.HTTP_200_OK
         next_data = next_response.data
         assert pretty_format_tags(next_data["results"]) == [
-            "Eukaryota (None) (children: 5)",
+            "Eukaryota (None) (children: 5 + 8)",
         ]
         assert next_data.get("current_page") == 2
 
@@ -1510,16 +1510,16 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         results = data["results"]
 
         assert pretty_format_tags(results) == [
-            "Tag 0 (None) (used: 0, children: 12)",
-            "Tag 1099 (None) (used: 0, children: 12)",
-            "Tag 1256 (None) (used: 0, children: 12)",
-            "Tag 1413 (None) (used: 0, children: 12)",
-            "Tag 157 (None) (used: 0, children: 12)",
-            "Tag 1570 (None) (used: 0, children: 12)",
-            "Tag 1727 (None) (used: 0, children: 12)",
-            "Tag 1884 (None) (used: 0, children: 12)",
-            "Tag 2041 (None) (used: 0, children: 12)",
-            "Tag 2198 (None) (used: 0, children: 12)",
+            "Tag 0 (None) (used: 0, children: 12 + 144)",
+            "Tag 1099 (None) (used: 0, children: 12 + 144)",
+            "Tag 1256 (None) (used: 0, children: 12 + 144)",
+            "Tag 1413 (None) (used: 0, children: 12 + 144)",
+            "Tag 157 (None) (used: 0, children: 12 + 144)",
+            "Tag 1570 (None) (used: 0, children: 12 + 144)",
+            "Tag 1727 (None) (used: 0, children: 12 + 144)",
+            "Tag 1884 (None) (used: 0, children: 12 + 144)",
+            "Tag 2041 (None) (used: 0, children: 12 + 144)",
+            "Tag 2198 (None) (used: 0, children: 12 + 144)",
             # ... there are 41 more root tags but they're excluded from this first result page.
         ]
 
@@ -1590,7 +1590,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         data = response.data
         results = data["results"]
         assert pretty_format_tags(results)[:20] == [
-            "Tag 0 (None) (children: 3)",  # First 2 results don't match but have children that match
+            "Tag 0 (None) (children: 3 + 10)",  # First 2 results don't match but have children that match
             # Note the count here ---^ is not the total number of matching descendants, just the number of children
             # once we filter the tree to include only matches and their ancestors.
             "  Tag 1 (Tag 0) (children: 1)",
@@ -1606,7 +1606,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "    Tag 117 (Tag 105) (children: 0)",
             "  Tag 118 (Tag 0) (children: 1)",
             "    Tag 119 (Tag 118) (children: 0)",
-            "Tag 1099 (None) (children: 9)",
+            "Tag 1099 (None) (children: 9 + 93)",
             "  Tag 1100 (Tag 1099) (children: 12)",
             "    Tag 1101 (Tag 1100) (children: 0)",
             "    Tag 1102 (Tag 1100) (children: 0)",
@@ -1628,16 +1628,16 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         results2 = data2["results"]
         assert pretty_format_tags(results2) == [
             # Notice that none of these root tags directly match the search query, but their children/grandchildren do
-            "Tag 0 (None) (children: 3)",
-            "Tag 1099 (None) (children: 9)",
-            "Tag 1256 (None) (children: 2)",
-            "Tag 1413 (None) (children: 1)",
-            "Tag 157 (None) (children: 2)",
-            "Tag 1570 (None) (children: 2)",
-            "Tag 1727 (None) (children: 1)",
-            "Tag 1884 (None) (children: 2)",
-            "Tag 2041 (None) (children: 1)",
-            "Tag 2198 (None) (children: 2)",
+            "Tag 0 (None) (children: 3 + 10)",
+            "Tag 1099 (None) (children: 9 + 93)",
+            "Tag 1256 (None) (children: 2 + 2)",
+            "Tag 1413 (None) (children: 1 + 1)",
+            "Tag 157 (None) (children: 2 + 2)",
+            "Tag 1570 (None) (children: 2 + 2)",
+            "Tag 1727 (None) (children: 1 + 1)",
+            "Tag 1884 (None) (children: 2 + 1)",
+            "Tag 2041 (None) (children: 1 + 10)",
+            "Tag 2198 (None) (children: 2 + 2)",
         ]
         assert data2.get("count") == 51
         assert data2.get("num_pages") == 6

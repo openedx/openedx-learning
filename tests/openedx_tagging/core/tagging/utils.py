@@ -21,6 +21,11 @@ def pretty_format_tags(result, parent=True, external_id=False) -> list[str]:
         line += "("
         if "usage_count" in t:
             line += f"used: {t['usage_count']}, "
-        line += f"children: {t['child_count']})"
+        line += f"children: {t['child_count']}"
+        # In addition to the direct children, how many total descendants are there?
+        deeper_descendants = t['descendant_count'] - t['child_count']
+        if deeper_descendants != 0:
+            line += f" + {deeper_descendants}"
+        line += ")"
         pretty_results.append(line)
     return pretty_results

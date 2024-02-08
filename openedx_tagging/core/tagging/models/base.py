@@ -171,6 +171,18 @@ class Tag(models.Model):
             return self.taxonomy.tag_set.filter(parent=self).count()
         return 0
 
+    @cached_property
+    def descendant_count(self) -> int:
+        """
+        How many descendant tags this tag has in the taxonomy.
+        """
+        if self.taxonomy and not self.taxonomy.allow_free_text:
+            return self.taxonomy.tag_set.filter(
+                Q(parent__parent=self) |
+                Q(parent__parent__parent=self)
+            ).count() + self.child_count
+        return 0
+
     def clean(self):
         """
         Validate this tag before saving
@@ -442,6 +454,7 @@ class Taxonomy(models.Model):
         qs = qs.annotate(
             depth=Value(0),
             child_count=Value(0),
+            descendant_count=Value(0),
             external_id=Value(None, output_field=models.CharField()),
             parent_value=Value(None, output_field=models.CharField()),
             _id=Value(None, output_field=models.CharField()),
@@ -473,12 +486,16 @@ class Taxonomy(models.Model):
         else:
             qs = self.tag_set.filter(parent=None).annotate(depth=Value(0))
             qs = qs.annotate(parent_value=Value(None, output_field=models.CharField()))
-        qs = qs.annotate(child_count=models.Count("children"))
+        qs = qs.annotate(child_count=models.Count("children", distinct=True))
+        qs = qs.annotate(grandchild_count=models.Count("children__children", distinct=True))
+        qs = qs.annotate(great_grandchild_count=models.Count("children__children__children"))
+        qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
         # Filter by search term:
         if search_term:
             qs = qs.filter(value__icontains=search_term)
         qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
-        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("value")
+        qs = qs.values("value", "child_count", "descendant_count", "depth", "parent_value", "external_id", "_id")
+        qs = qs.order_by("value")
         if include_counts:
             # We need to include the count of how many times this tag is used to tag objects.
             # You'd think we could just use:
@@ -530,14 +547,27 @@ class Taxonomy(models.Model):
                     if pk is not None:
                         matching_ids.append(pk)
             qs = qs.filter(pk__in=matching_ids)
-            qs = qs.annotate(child_count=models.Count("children", filter=Q(children__pk__in=matching_ids)))
+            qs = qs.annotate(
+                child_count=models.Count("children", filter=Q(children__pk__in=matching_ids), distinct=True),
+                grandchild_count=models.Count(
+                    "children__children", filter=Q(children__children__pk__in=matching_ids), distinct=True,
+                ),
+                great_grandchild_count=models.Count(
+                    "children__children__children",
+                    filter=Q(children__children__children__pk__in=matching_ids),
+                ),
+            )
+            qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
         elif excluded_values:
             raise NotImplementedError("Using excluded_values without search_term is not currently supported.")
             # We could implement this in the future but I'd prefer to get rid of the "excluded_values" API altogether.
             # It remains to be seen if it's useful to do that on the backend, or if we can do it better/simpler on the
             # frontend.
         else:
-            qs = qs.annotate(child_count=models.Count("children"))
+            qs = qs.annotate(child_count=models.Count("children", distinct=True))
+            qs = qs.annotate(grandchild_count=models.Count("children__children", distinct=True))
+            qs = qs.annotate(great_grandchild_count=models.Count("children__children__children"))
+            qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
 
         # Add the "depth" to each tag:
         qs = Tag.annotate_depth(qs)
@@ -556,7 +586,8 @@ class Taxonomy(models.Model):
         # Add the parent value
         qs = qs.annotate(parent_value=F("parent__value"))
         qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
-        qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("sort_key")
+        qs = qs.values("value", "child_count", "descendant_count", "depth", "parent_value", "external_id", "_id")
+        qs = qs.order_by("sort_key")
         if include_counts:
             # Including the counts is a bit tricky; see the comment above in _get_filtered_tags_one_level()
             obj_tags = ObjectTag.objects.filter(tag_id=models.OuterRef("pk")).order_by().annotate(

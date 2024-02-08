@@ -329,9 +329,9 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the root tags, in alphabetical order:
-            {"value": "Archaea", "child_count": 3, **common_fields},
-            {"value": "Bacteria", "child_count": 2, **common_fields},
-            {"value": "Eukaryota", "child_count": 5, **common_fields},
+            {"value": "Archaea", "child_count": 3, "descendant_count": 3, **common_fields},
+            {"value": "Bacteria", "child_count": 2, "descendant_count": 2, **common_fields},
+            {"value": "Eukaryota", "child_count": 5, "descendant_count": 13, **common_fields},
         ]
 
     def test_get_child_tags_one_level(self) -> None:
@@ -345,11 +345,11 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
-            {"value": "Animalia", "child_count": 7, **common_fields},
-            {"value": "Fungi", "child_count": 0, **common_fields},
-            {"value": "Monera", "child_count": 0, **common_fields},
-            {"value": "Plantae", "child_count": 0, **common_fields},
-            {"value": "Protista", "child_count": 0, **common_fields},
+            {"value": "Animalia", "child_count": 7, "descendant_count": 8, **common_fields},
+            {"value": "Fungi", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Monera", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Plantae", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Protista", "child_count": 0, "descendant_count": 0, **common_fields},
         ]
 
     def test_get_grandchild_tags_one_level(self) -> None:
@@ -363,13 +363,13 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
-            {"value": "Arthropoda", "child_count": 0, **common_fields},
-            {"value": "Chordata", "child_count": 1, **common_fields},
-            {"value": "Cnidaria", "child_count": 0, **common_fields},
-            {"value": "Ctenophora", "child_count": 0, **common_fields},
-            {"value": "Gastrotrich", "child_count": 0, **common_fields},
-            {"value": "Placozoa", "child_count": 0, **common_fields},
-            {"value": "Porifera", "child_count": 0, **common_fields},
+            {"value": "Arthropoda", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Chordata", "child_count": 1, "descendant_count": 1, **common_fields},
+            {"value": "Cnidaria", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Ctenophora", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Gastrotrich", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Placozoa", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Porifera", "child_count": 0, "descendant_count": 0, **common_fields},
         ]
 
     def test_get_depth_1_search_term(self) -> None:
@@ -381,6 +381,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             {
                 "value": "Archaea",
                 "child_count": 3,
+                "descendant_count": 3,
                 "depth": 0,
                 "usage_count": 0,
                 "parent_value": None,
@@ -399,6 +400,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             {
                 "value": "Archaebacteria",
                 "child_count": 0,
+                "descendant_count": 0,
                 "depth": 1,
                 "parent_value": "Bacteria",
                 "external_id": None,
@@ -439,8 +441,8 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "Bacteria (None) (children: 2)",
             "  Archaebacteria (Bacteria) (children: 0)",
             "  Eubacteria (Bacteria) (children: 0)",
-            "Eukaryota (None) (children: 5)",
-            "  Animalia (Eukaryota) (children: 7)",
+            "Eukaryota (None) (children: 5 + 8)",
+            "  Animalia (Eukaryota) (children: 7 + 1)",
             "    Arthropoda (Animalia) (children: 0)",
             "    Chordata (Animalia) (children: 1)",  # note this has a child but the child is not included
             "    Cnidaria (Animalia) (children: 0)",
@@ -475,7 +477,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="chordata"))
         assert result == [
-            "Eukaryota (None) (children: 1)",  # Has one child that matches
+            "Eukaryota (None) (children: 1 + 1)",  # Has one child that matches, plus one additional matching descendant
             "  Animalia (Eukaryota) (children: 1)",
             "    Chordata (Animalia) (children: 0)",  # this is the matching tag.
         ]
@@ -489,7 +491,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         assert result == [
             "Archaea (None) (children: 1)",
             "  Proteoarchaeota (Archaea) (children: 0)",
-            "Eukaryota (None) (children: 2)",  # Note the "children: 2" is correct - 2 direct children are in the result
+            "Eukaryota (None) (children: 2 + 2)",  # 2 direct matching children, 2 additional matching descendants
             "  Animalia (Eukaryota) (children: 2)",
             "    Arthropoda (Animalia) (children: 0)",  # match
             "    Gastrotrich (Animalia) (children: 0)",  # match
@@ -508,6 +510,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 "depth": 3,
                 "usage_count": 0,
                 "child_count": 0,
+                "descendant_count": 0,
                 "external_id": None,
                 "_id": 21,  # These IDs are hard-coded in the test fixture file
             }
@@ -571,7 +574,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         taxonomy = self.create_sort_test_taxonomy()
         result = pretty_format_tags(taxonomy.get_filtered_tags())
         assert result == [
-            "1 (None) (children: 4)",
+            "1 (None) (children: 4 + 1)",
             "  1 A (1) (children: 0)",
             "  11 (1) (children: 0)",
             "  11111 (1) (children: 1)",
@@ -589,6 +592,37 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "  Android (ALPHABET) (children: 0)",
             "  ANVIL (ALPHABET) (children: 0)",
             "  azure (ALPHABET) (children: 0)",
+        ]
+
+    def test_descendant_counts(self) -> None:
+        """
+        Test getting the descendant count on a taxonomy known to cause aggregation
+        bugs unless the aggregations are correctly specified with distinct=True
+
+        https://docs.djangoproject.com/en/5.0/topics/db/aggregation/#combining-multiple-aggregations
+        """
+        taxonomy = api.create_taxonomy("ESDC Subset")
+        api.add_tag_to_taxonomy(taxonomy, "Interests")  # root tag
+        api.add_tag_to_taxonomy(taxonomy, "Holland Codes", parent_tag_value="Interests")  # child tag
+        # Create the grandchild tag:
+        g_tag = api.add_tag_to_taxonomy(taxonomy, "Interests - Holland Codes", parent_tag_value="Holland Codes")
+        # Create the 6 great-grandchild tags:
+        api.add_tag_to_taxonomy(taxonomy, "Artistic", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Conventional", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Enterprising", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Investigative", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Realistic", parent_tag_value=g_tag.value)
+        api.add_tag_to_taxonomy(taxonomy, "Social", parent_tag_value=g_tag.value)
+
+        result = pretty_format_tags(taxonomy.get_filtered_tags(depth=1, include_counts=True))
+        assert result == [
+            "Interests (None) (used: 0, children: 1 + 7)",  # 1 child + (1 grandchild and 6 great grandchild tags)
+        ]
+        result2 = pretty_format_tags(taxonomy.get_filtered_tags(depth=None, include_counts=True))
+        assert result2 == [
+            "Interests (None) (used: 0, children: 1 + 7)",
+            "  Holland Codes (Interests) (used: 0, children: 1 + 6)",
+            "    Interests - Holland Codes (Holland Codes) (used: 0, children: 6)",
         ]
 
 
