@@ -4,7 +4,7 @@ Tagging permissions
 import rules  # type: ignore[import]
 from rest_framework.permissions import DjangoObjectPermissions
 
-from ...models import Tag
+from ...models import Tag, Taxonomy
 
 
 class TaxonomyObjectPermissions(DjangoObjectPermissions):
@@ -58,3 +58,23 @@ class TagObjectPermissions(DjangoObjectPermissions):
         """
         obj = obj.taxonomy if isinstance(obj, Tag) else obj
         return rules.has_perm("oel_tagging.list_tag", request.user, obj)
+
+    def has_permission(self, request, view):
+        """
+        Returns True if the request user is allowed the given view on the Taxonomy model.
+
+        We override this method to avoid calling our view's get_queryset(), which performs database queries.
+        """
+        # Workaround to ensure DjangoModelPermissions are not applied
+        # to the root view when using DefaultRouter.
+        if getattr(view, '_ignore_model_permissions', False):
+            return True
+
+        if not request.user or (
+           not request.user.is_authenticated and self.authenticated_users_only):
+            return False
+
+        queryset = Taxonomy.objects
+        perms = self.get_required_permissions(request.method, queryset.model)
+
+        return request.user.has_perms(perms)
