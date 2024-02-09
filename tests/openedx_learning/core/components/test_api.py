@@ -100,7 +100,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.published_problem, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=v2_problem_type,
-            local_key="published_problem",
+            local_key="pp_lk",
             title="Published Problem",
             created=cls.now,
             created_by=None,
@@ -108,7 +108,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.published_html, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=cls.html_type,
-            local_key="published_html",
+            local_key="ph_lk",
             title="Published HTML",
             created=cls.now,
             created_by=None,
@@ -122,7 +122,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.unpublished_problem, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=v2_problem_type,
-            local_key="unpublished_problem",
+            local_key="upp_lk",
             title="Unpublished Problem",
             created=cls.now,
             created_by=None,
@@ -130,7 +130,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.unpublished_html, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=cls.html_type,
-            local_key="unpublished_html",
+            local_key="uph_lk",
             title="Unpublished HTML",
             created=cls.now,
             created_by=None,
@@ -141,7 +141,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.deleted_video, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=cls.video_type,
-            local_key="deleted_video",
+            local_key="dv_lk",
             title="Deleted Video",
             created=cls.now,
             created_by=None,
@@ -369,13 +369,13 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         )
         new_content = contents_api.get_or_create_text_content(
             self.learning_package.pk,
-            media_type_id=self.text_media_type.id,
+            self.text_media_type.id,
             text="This is some data",
             created=self.now,
         )
-        components_api.add_content_to_component_version(
+        components_api.create_component_version_content(
             new_version.pk,
-            content_id=new_content.pk,
+            new_content.pk,
             key="hello.txt",
             learner_downloadable=False,
         )
@@ -391,19 +391,19 @@ class CreateNewVersionsTestCase(ComponentTestCase):
     def test_multiple_versions(self):
         hello_content = contents_api.get_or_create_text_content(
             self.learning_package.id,
-            media_type_id=self.text_media_type.id,
+            self.text_media_type.id,
             text="Hello World!",
             created=self.now,
         )
         goodbye_content = contents_api.get_or_create_text_content(
             self.learning_package.id,
-            media_type_id=self.text_media_type.id,
+            self.text_media_type.id,
             text="Goodbye World!",
             created=self.now,
         )
         blank_content = contents_api.get_or_create_text_content(
             self.learning_package.id,
-            media_type_id=self.text_media_type.id,
+            self.text_media_type.id,
             text="",
             created=self.now,
         )

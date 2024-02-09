@@ -64,8 +64,8 @@ def get_content(content_id: int, /) -> Content:
 
 def get_or_create_text_content(
     learning_package_id: int,
-    /,
     media_type_id: int,
+    /,
     text: str,
     created: datetime,
     create_file: bool = False,
@@ -86,10 +86,6 @@ def get_or_create_text_content(
     If you want to create a large text file, or want to create a text file that
     doesn't need to be stored in the database, call ``create_file_content``
     instead of this function.
-
-    The `hash_digest` is included as an optional argument because a very common
-    pattern is going to be "I have this data, let's see if a Content already
-    exists for it."
     """
     text_as_bytes = text.encode('utf-8')
     hash_digest = create_hash_digest(text_as_bytes)
@@ -122,8 +118,8 @@ def get_or_create_text_content(
 
 def get_or_create_file_content(
     learning_package_id: int,
-    /,
     media_type_id: int,
+    /,
     data: bytes,
     created: datetime,
 ) -> Content:
@@ -131,9 +127,10 @@ def get_or_create_file_content(
     Get or create a Content with data stored in a file storage backend.
 
     Use this function to store non-text data, large data, or data where low
-    latency access is not necessary. Also use this function to store any Content
-    that you want to be downloadable by browsers in the LMS since the static
-    asset serving system will only work with file-backed Content.
+    latency access is not necessary. Also use this function (or
+    ``get_or_create_text_content`` with ``create_file=True``) to store any
+    Content that you want to be downloadable by browsers in the LMS, since the
+    static asset serving system will only work with file-backed Content.
     """
     hash_digest = create_hash_digest(data)
     with atomic():

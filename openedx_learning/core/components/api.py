@@ -285,17 +285,19 @@ def get_components(
         qset = qset.filter(component_type__name__in=type_names)
     if draft_title is not None:
         qset = qset.filter(
-            publishable_entity__draft__version__title__icontains=draft_title
+            Q(publishable_entity__draft__version__title__icontains=draft_title) |
+            Q(local_key__icontains=draft_title)
         )
     if published_title is not None:
         qset = qset.filter(
-            publishable_entity__published__version__title__icontains=published_title
+            Q(publishable_entity__published__version__title__icontains=published_title) |
+            Q(local_key__icontains=published_title)
         )
 
     return qset
 
 
-def get_component_version_content(
+def look_up_component_version_content(
     learning_package_key: str,
     component_key: str,
     version_num: int,
@@ -323,10 +325,10 @@ def get_component_version_content(
                                   ).get(queries)
 
 
-def add_content_to_component_version(
+def create_component_version_content(
     component_version_id: int,
-    /,
     content_id: int,
+    /,
     key: str,
     learner_downloadable=False,
 ) -> ComponentVersionContent:

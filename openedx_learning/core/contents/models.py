@@ -18,7 +18,7 @@ from ...lib.managers import WithRelationsManager
 from ..publishing.models import LearningPackage
 
 
-def get_storage_class() -> Storage:
+def get_storage() -> Storage:
     """
     Return the Storage instance for our Content file persistence.
 
@@ -227,7 +227,7 @@ class Content(models.Model):
     # This hash value may be calculated using create_hash_digest from the
     # openedx.lib.fields module. When storing text, we hash the UTF-8
     # encoding of that text value, regardless of whether we also write it to a
-    # file or not.
+    # file or not. When storing just a file, we hash the bytes in the file.
     hash_digest = hash_field()
 
     # Do we have file data stored for this Content in our file storage backend?
@@ -263,17 +263,28 @@ class Content(models.Model):
     created = manual_date_time_field()
 
     @cached_property
-    def mime_type(self):
+    def mime_type(self) -> str:
+        """
+        The IANA media type (a.k.a. MIME type) of the Content, in string form.
+
+        MIME types reference:
+          https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+        """
         return str(self.media_type)
 
     def file_path(self):
+        """
+        Path at which this content is stored (or would be stored).
+
+        This path is relative to configured storage root.
+        """
         return f"{self.learning_package.uuid}/{self.hash_digest}"
 
-    def write_file(self, file: File):
+    def write_file(self, file: File) -> None:
         """
         Write file contents to the file storage backend.
         """
-        storage = get_storage_class()
+        storage = get_storage()
         file_path = self.file_path()
 
         # There are two reasons why a file might already exist even if the the
@@ -290,11 +301,11 @@ class Content(models.Model):
         if not storage.exists(file_path):
             storage.save(file_path, file)
 
-    def file_url(self):
+    def file_url(self) -> str:
         """
         This will sometimes be a time-limited signed URL.
         """
-        return get_storage_class().url(self.file_path())
+        return get_storage().url(self.file_path())
 
     def clean(self):
         """

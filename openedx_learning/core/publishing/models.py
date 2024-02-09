@@ -30,10 +30,11 @@ class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
 
     Each PublishableEntity belongs to exactly one LearningPackage.
     """
+    # Explictly declare a 4-byte ID instead of using the app-default 8-byte ID.
     # We do not expect to have more than 2 billion LearningPackages on a given
-    # site, but many, many things have foreign keys to this model and uniqueness
-    # indexes on those foreign keys + their own fields, so going from the
-    # app-default of 8-byte IDs to 4-byte IDs will add up over time.
+    # site. Furthermore, many, many things have foreign keys to this model and
+    # uniqueness indexes on those foreign keys + their own fields, so the 4
+    # bytes saved will add up over time.
     id = models.AutoField(primary_key=True)
 
     uuid = immutable_uuid_field()
@@ -366,6 +367,21 @@ class PublishLog(models.Model):
     Open question: Empty publishes are allowed at this time, and might be useful
     for "fake" publishes that are necessary to invoke other post-publish
     actions. It's not clear at this point how useful this will actually be.
+
+    The absence of a ``version_num`` field in this model is intentional, because
+    having one would potentially cause write contention/locking issues when
+    there are many people working on different entities in a very large library.
+    We already see some contention issues occuring in ModuleStore for courses,
+    and we want to support Libraries that are far larger.
+
+    If you need a LearningPackage-wide indicator for version and the only thing
+    you care about is "has *something* changed?", you can make a foreign key to
+    the most recent PublishLog, or use the most recent PublishLog's primary key.
+    This should be monotonically increasing, though there will be large gaps in
+    values, e.g. (5, 190, 1291, etc.). Be warned that this value will not port
+    across sites. If you need site-portability, the UUIDs for this model are a
+    safer bet, though there's a lot about import/export that we haven't fully
+    mapped out yet.
     """
 
     uuid = immutable_uuid_field()
