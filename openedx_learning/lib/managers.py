@@ -13,8 +13,12 @@ class WithRelationsManager(models.Manager):
     into some of its relations and you want to avoid unnecessary extra database
     calls.
 
-    Use this to create a distinctly named manager on your model class, instead
-    of overwriting ``objects``. So for example::
+    You can override the default ``objects`` manager with this one if you have
+    a model that should basically always called with a ``select_related``. For
+    example, if you have a small lookup type-model that is frequently accessed.
+
+    For more complex joins, use this class to create a distinctly named manager
+    on your model class, instead of overwriting ``objects``. So for example::
 
       class Component(models.Model):
           with_publishing_relations = WithRelationsManager(

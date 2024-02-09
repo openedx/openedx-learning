@@ -60,13 +60,6 @@ SECRET_KEY = "insecure-secret-key"
 
 USE_TZ = True
 
-# openedx-learning required configuration
-OPENEDX_LEARNING = {
-    # Custom file storage, though this is better done through Django's
-    # STORAGES setting in Django >= 4.2
-    "STORAGE": None,
-}
-
 MEDIA_ROOT = root("test_media")
 
 ######################### Django Rest Framework ########################

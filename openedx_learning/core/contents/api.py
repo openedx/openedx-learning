@@ -6,58 +6,16 @@ are stored in this app.
 """
 from __future__ import annotations
 
-import codecs
 from datetime import datetime
 
 from django.core.files.base import ContentFile
 from django.db.transaction import atomic
 
-from ...lib.cache import lru_cache
 from ...lib.fields import create_hash_digest
-from .models import MediaType, RawContent, TextContent
+from .models import Content, MediaType
 
 
-def create_raw_content(
-    learning_package_id: int,
-    /,
-    data_bytes: bytes,
-    mime_type: str,
-    created: datetime,
-    hash_digest: str | None = None,
-) -> RawContent:
-    """
-    Create a new RawContent instance and persist it to storage.
-    """
-    hash_digest = hash_digest or create_hash_digest(data_bytes)
-
-    raw_content = RawContent.objects.create(
-        learning_package_id=learning_package_id,
-        media_type_id=get_or_create_media_type_id(mime_type),
-        hash_digest=hash_digest,
-        size=len(data_bytes),
-        created=created,
-    )
-    raw_content.file.save(
-        f"{raw_content.learning_package.uuid}/{hash_digest}",
-        ContentFile(data_bytes),
-    )
-    return raw_content
-
-
-def create_text_from_raw_content(raw_content: RawContent, encoding="utf-8-sig") -> TextContent:
-    """
-    Create a new TextContent instance for the given RawContent.
-    """
-    text = codecs.decode(raw_content.file.open().read(), encoding)
-    return TextContent.objects.create(
-        raw_content=raw_content,
-        text=text,
-        length=len(text),
-    )
-
-
-@lru_cache(maxsize=128)
-def get_or_create_media_type_id(mime_type: str) -> int:
+def get_or_create_media_type(mime_type: str) -> MediaType:
     """
     Return the MediaType.id for the desired mime_type string.
 
@@ -68,10 +26,12 @@ def get_or_create_media_type_id(mime_type: str) -> int:
     the different XBlocks that will be installed in different server instances,
     each of which will use their own MediaType.
 
-    This will typically only be called when create_raw_content is calling it to
-    lookup the media_type_id it should use for a new RawContent. If you already
-    have a RawContent instance, it makes much more sense to access its
-    media_type relation.
+    Caching Warning: Be careful about putting any caching decorator around this
+    function (e.g. ``lru_cache``). It's possible that incorrect cache values
+    could leak out in the event of a rollback–e.g. new types are introduced in
+    a large import transaction which later fails. You can safely cache the
+    results that come back from this function with a local dict in your import
+    process instead.
     """
     if "+" in mime_type:
         base, suffix = mime_type.split("+")
@@ -80,69 +40,119 @@ def get_or_create_media_type_id(mime_type: str) -> int:
         suffix = ""
 
     main_type, sub_type = base.split("/")
-    mt, _created = MediaType.objects.get_or_create(
+    media_type, _created = MediaType.objects.get_or_create(
         type=main_type,
         sub_type=sub_type,
         suffix=suffix,
     )
 
-    return mt.id
+    return media_type
 
 
-def get_or_create_raw_content(
+def get_content(content_id: int, /) -> Content:
+    """
+    Get a single Content object by its ID.
+
+    Content is always attached to something when it's created, like to a
+    ComponentVersion. That means the "right" way to access a Content is almost
+    always going to be via those relations and not via this function. But I
+    include this function anyway because it's tiny to write and it's better than
+    someone using a get_or_create_* function when they really just want to get.
+    """
+    return Content.objects.get(id=content_id)
+
+
+def get_or_create_text_content(
     learning_package_id: int,
+    media_type_id: int,
     /,
-    data_bytes: bytes,
-    mime_type: str,
+    text: str,
     created: datetime,
-    hash_digest: str | None = None,
-) -> tuple[RawContent, bool]:
+    create_file: bool = False,
+) -> Content:
     """
-    Get the RawContent in the given learning package with the specified data,
-    or create it if it doesn't exist.
-    """
-    hash_digest = hash_digest or create_hash_digest(data_bytes)
-    try:
-        raw_content = RawContent.objects.get(
-            learning_package_id=learning_package_id, hash_digest=hash_digest
-        )
-        was_created = False
-    except RawContent.DoesNotExist:
-        raw_content = create_raw_content(
-            learning_package_id, data_bytes, mime_type, created, hash_digest
-        )
-        was_created = True
+    Get or create a Content entry with text data stored in the database.
 
-    return raw_content, was_created
+    Use this when you want to create relatively small chunks of text that need
+    to be accessed quickly, especially if you're pulling back multiple rows at
+    once. For example, this is the function to call when storing OLX for a
+    component XBlock like a ProblemBlock.
 
+    This function will *always* create a text entry in the database. In addition
+    to this, if you specify ``create_file=True``, it will also save a copy of
+    that text data to the file storage backend. This is useful if we want to let
+    that file be downloadable by browsers in the LMS at some point.
 
-def get_or_create_text_content_from_bytes(
-    learning_package_id: int,
-    /,
-    data_bytes: bytes,
-    mime_type: str,
-    created: datetime,
-    hash_digest: str | None = None,
-    encoding: str = "utf-8-sig",
-):
+    If you want to create a large text file, or want to create a text file that
+    doesn't need to be stored in the database, call ``create_file_content``
+    instead of this function.
     """
-    Get the TextContent in the given learning package with the specified data,
-    or create it if it doesn't exist.
-    """
+    text_as_bytes = text.encode('utf-8')
+    hash_digest = create_hash_digest(text_as_bytes)
+
     with atomic():
-        raw_content, rc_created = get_or_create_raw_content(
-            learning_package_id, data_bytes, mime_type, created, hash_digest
-        )
-        if rc_created or not hasattr(raw_content, "text_content"):
-            text = codecs.decode(data_bytes, encoding)
-            text_content = TextContent.objects.create(
-                raw_content=raw_content,
-                text=text,
-                length=len(text),
+        try:
+            content = Content.objects.get(
+                learning_package_id=learning_package_id,
+                media_type_id=media_type_id,
+                hash_digest=hash_digest,
             )
-            tc_created = True
-        else:
-            text_content = raw_content.text_content
-            tc_created = False
+        except Content.DoesNotExist:
+            content = Content(
+                learning_package_id=learning_package_id,
+                media_type_id=media_type_id,
+                hash_digest=hash_digest,
+                created=created,
+                size=len(text_as_bytes),
+                text=text,
+                has_file=create_file,
+            )
+            content.full_clean()
+            content.save()
 
-        return (text_content, tc_created)
+            if create_file:
+                content.write_file(ContentFile(text_as_bytes))
+
+        return content
+
+
+def get_or_create_file_content(
+    learning_package_id: int,
+    media_type_id: int,
+    /,
+    data: bytes,
+    created: datetime,
+) -> Content:
+    """
+    Get or create a Content with data stored in a file storage backend.
+
+    Use this function to store non-text data, large data, or data where low
+    latency access is not necessary. Also use this function (or
+    ``get_or_create_text_content`` with ``create_file=True``) to store any
+    Content that you want to be downloadable by browsers in the LMS, since the
+    static asset serving system will only work with file-backed Content.
+    """
+    hash_digest = create_hash_digest(data)
+    with atomic():
+        try:
+            content = Content.objects.get(
+                learning_package_id=learning_package_id,
+                media_type_id=media_type_id,
+                hash_digest=hash_digest,
+            )
+        except Content.DoesNotExist:
+            content = Content(
+                learning_package_id=learning_package_id,
+                media_type_id=media_type_id,
+                hash_digest=hash_digest,
+                created=created,
+                size=len(data),
+                text=None,
+                has_file=True,
+            )
+            content.full_clean()
+            content.save()
+
+            content.write_file(ContentFile(data))
+
+        return content

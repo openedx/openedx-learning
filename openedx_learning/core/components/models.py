@@ -1,5 +1,5 @@
 """
-The model hierarchy is Component -> ComponentVersion -> RawContent.
+The model hierarchy is Component -> ComponentVersion -> Content.
 
 A Component is an entity like a Problem or Video. It has enough information to
 identify the Component and determine what the handler should be (e.g. XBlock
@@ -10,20 +10,18 @@ that Component. Managing the publishing of these versions is handled through the
 publishing app. Component maps 1:1 to PublishableEntity and ComponentVersion
 maps 1:1 to PublishableEntityVersion.
 
-Multiple pieces of RawContent may be associated with a ComponentVersion, through
-the ComponentVersionRawContent model. ComponentVersionRawContent allows to
-specify a ComponentVersion-local identifier. We're using this like a file path
-by convention, but it's possible we might want to have special identifiers
-later.
+Multiple pieces of Content may be associated with a ComponentVersion, through
+the ComponentVersionContent model. ComponentVersionContent allows to specify a
+ComponentVersion-local identifier. We're using this like a file path by
+convention, but it's possible we might want to have special identifiers later.
 """
 from __future__ import annotations
 
 from django.db import models
 
-from openedx_learning.lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
-from openedx_learning.lib.managers import WithRelationsManager
-
-from ..contents.models import RawContent
+from ...lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
+from ...lib.managers import WithRelationsManager
+from ..contents.models import Content
 from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
 from ..publishing.models import LearningPackage
 
@@ -40,6 +38,10 @@ class ComponentType(models.Model):
     type of Components–e.g. marking certain types of XBlocks as approved vs.
     experimental for use in libraries.
     """
+    # We don't need the app default of 8-bytes for this primary key, but there
+    # is just a tiny chance that we'll use ComponentType in a novel, user-
+    # customizable way that will require more than 32K entries. So let's use a
+    # 4-byte primary key.
     id = models.AutoField(primary_key=True)
 
     # namespace and name work together to help figure out what Component needs
@@ -79,7 +81,7 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     Problem), but little beyond that.
 
     A Component will have many ComponentVersions over time, and most metadata is
-    associated with the ComponentVersion model and the RawContent that
+    associated with the ComponentVersion model and the Content that
     ComponentVersions are associated with.
 
     A Component belongs to exactly one LearningPackage.
@@ -187,8 +189,8 @@ class ComponentVersion(PublishableEntityVersionMixin):
     """
     A particular version of a Component.
 
-    This holds the content using a M:M relationship with RawContent via
-    ComponentVersionRawContent.
+    This holds the content using a M:M relationship with Content via
+    ComponentVersionContent.
     """
     # Tell mypy what type our objects manager has.
     # It's actually PublishableEntityVersionMixinManager, but that has the exact
@@ -202,11 +204,11 @@ class ComponentVersion(PublishableEntityVersionMixin):
         Component, on_delete=models.CASCADE, related_name="versions"
     )
 
-    # The raw_contents hold the actual interesting data associated with this
+    # The contents hold the actual interesting data associated with this
     # ComponentVersion.
-    raw_contents: models.ManyToManyField[RawContent, ComponentVersionRawContent] = models.ManyToManyField(
-        RawContent,
-        through="ComponentVersionRawContent",
+    contents: models.ManyToManyField[Content, ComponentVersionContent] = models.ManyToManyField(
+        Content,
+        through="ComponentVersionContent",
         related_name="component_versions",
     )
 
@@ -215,32 +217,31 @@ class ComponentVersion(PublishableEntityVersionMixin):
         verbose_name_plural = "Component Versions"
 
 
-class ComponentVersionRawContent(models.Model):
+class ComponentVersionContent(models.Model):
     """
-    Determines the RawContent for a given ComponentVersion.
+    Determines the Content for a given ComponentVersion.
 
     An ComponentVersion may be associated with multiple pieces of binary data.
     For instance, a Video ComponentVersion might be associated with multiple
     transcripts in different languages.
 
-    When RawContent is associated with an ComponentVersion, it has some local
+    When Content is associated with an ComponentVersion, it has some local
     key that is unique within the the context of that ComponentVersion. This
     allows the ComponentVersion to do things like store an image file and
     reference it by a "path" key.
 
-    RawContent is immutable and sharable across multiple ComponentVersions and
-    even across LearningPackages.
+    Content is immutable and sharable across multiple ComponentVersions.
     """
 
-    raw_content = models.ForeignKey(RawContent, on_delete=models.RESTRICT)
     component_version = models.ForeignKey(ComponentVersion, on_delete=models.CASCADE)
+    content = models.ForeignKey(Content, on_delete=models.RESTRICT)
 
     uuid = immutable_uuid_field()
     key = key_field()
 
     # Long explanation for the ``learner_downloadable`` field:
     #
-    # Is this RawContent downloadable during the learning experience? This is
+    # Is this Content downloadable during the learning experience? This is
     # NOT about public vs. private permissions on course assets, as that will be
     # a policy that can be changed independently of new versions of the content.
     # For instance, a course team could decide to flip their course assets from
@@ -282,16 +283,16 @@ class ComponentVersionRawContent(models.Model):
             # with two different identifiers, that is permitted.
             models.UniqueConstraint(
                 fields=["component_version", "key"],
-                name="oel_cvrawcontent_uniq_cv_key",
+                name="oel_cvcontent_uniq_cv_key",
             ),
         ]
         indexes = [
             models.Index(
-                fields=["raw_content", "component_version"],
-                name="oel_cvrawcontent_c_cv",
+                fields=["content", "component_version"],
+                name="oel_cvcontent_c_cv",
             ),
             models.Index(
-                fields=["component_version", "raw_content"],
-                name="oel_cvrawcontent_cv_d",
+                fields=["component_version", "content"],
+                name="oel_cvcontent_cv_d",
             ),
         ]

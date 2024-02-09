@@ -1,7 +1,7 @@
 Media Server App
 ================
 
-The ``media_server`` app exists to serve media files that are ultimately backed by the RawContent model, *for development purposes and for sites with light-to-moderate traffic*. It also provides an API that can be used by CDNs for high traffic sites.
+The ``media_server`` app exists to serve media files that are ultimately backed by the Content model, *for development purposes and for sites with light-to-moderate traffic*. It also provides an API that can be used by CDNs for high traffic sites.
 
 Motivation
 ----------
