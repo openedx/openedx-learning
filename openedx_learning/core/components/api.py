@@ -51,7 +51,7 @@ def create_component(
     """
     Create a new Component (an entity like a Problem or Video)
     """
-    key = f"{component_type.namespace}:{component_type.name}@{local_key}"
+    key = f"{component_type.namespace}:{component_type.name}:{local_key}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id, key, created, created_by
