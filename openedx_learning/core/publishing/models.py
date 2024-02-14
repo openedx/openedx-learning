@@ -38,7 +38,14 @@ class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
     id = models.AutoField(primary_key=True)
 
     uuid = immutable_uuid_field()
-    key = key_field()
+
+    # "key" is a reserved word for MySQL, so we're temporarily using the column
+    # name of "_key" to avoid breaking downstream tooling. There's an open
+    # question as to whether this field needs to exist at all, or whether the
+    # top level library key it's currently used for should be entirely in the
+    # LibraryContent model.
+    key = key_field(db_column="_key")
+
     title = case_insensitive_char_field(max_length=500, blank=False)
 
     # TODO: We should probably defer this field, since many things pull back
@@ -172,7 +179,12 @@ class PublishableEntity(models.Model):
         on_delete=models.CASCADE,
         related_name="publishable_entities",
     )
-    key = key_field()
+
+    # "key" is a reserved word for MySQL, so we're temporarily using the column
+    # name of "_key" to avoid breaking downstream tooling. Consider renaming
+    # this later.
+    key = key_field(db_column="_key")
+
     created = manual_date_time_field()
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -109,7 +109,7 @@ def immutable_uuid_field() -> models.UUIDField:
     )
 
 
-def key_field() -> MultiCollationCharField:
+def key_field(**kwargs) -> MultiCollationCharField:
     """
     Externally created Identifier fields.
 
@@ -120,7 +120,7 @@ def key_field() -> MultiCollationCharField:
     Other apps should *not* make references to these values directly, since
     these values may in theory change (even if this is rare in practice).
     """
-    return case_sensitive_char_field(max_length=500, blank=False)
+    return case_sensitive_char_field(max_length=500, blank=False, **kwargs)
 
 
 def hash_field() -> models.CharField:

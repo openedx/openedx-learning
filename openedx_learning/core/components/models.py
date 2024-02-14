@@ -237,7 +237,13 @@ class ComponentVersionContent(models.Model):
     content = models.ForeignKey(Content, on_delete=models.RESTRICT)
 
     uuid = immutable_uuid_field()
-    key = key_field()
+
+    # "key" is a reserved word for MySQL, so we're temporarily using the column
+    # name of "_key" to avoid breaking downstream tooling. A possible
+    # alternative name for this would be "path", since it's most often used as
+    # an internal file path. However, we might also want to put special
+    # identifiers that don't map as cleanly to file paths at some point.
+    key = key_field(db_column="_key")
 
     # Long explanation for the ``learner_downloadable`` field:
     #
