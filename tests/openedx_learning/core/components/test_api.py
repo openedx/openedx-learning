@@ -310,6 +310,10 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
         with self.assertRaises(ObjectDoesNotExist):
             components_api.get_component(-1)
 
+    def test_publishing_entity_key_convention(self):
+        """Our mapping convention is {namespace}:{component_type}:{local_key}"""
+        assert self.problem.key == "xblock.v1:problem:my_component"
+
     def test_get_by_key(self):
         assert self.html == components_api.get_component_by_key(
             self.learning_package.id,
