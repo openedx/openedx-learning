@@ -37,9 +37,9 @@ class ObjectTagObjectPermissions(DjangoObjectPermissions):
     }
 
 
-class TagObjectPermissions(DjangoObjectPermissions):
+class TaxonomyTagsObjectPermissions(DjangoObjectPermissions):
     """
-    Maps each REST API methods to its corresponding Tag permission.
+    Maps each REST API methods to its corresponding Taxonomy permission.
     """
     perms_map = {
         "GET": ["%(app_label)s.view_%(model_name)s"],
@@ -59,22 +59,10 @@ class TagObjectPermissions(DjangoObjectPermissions):
         obj = obj.taxonomy if isinstance(obj, Tag) else obj
         return rules.has_perm("oel_tagging.list_tag", request.user, obj)
 
-    def has_permission(self, request, view):
+    def _queryset(self, view):
         """
-        Returns True if the request user is allowed the given view on the Taxonomy model.
+        Returns the queryset to use when checking model and object permissions.
 
-        We override this method to avoid calling our view's get_queryset(), which performs database queries.
+        The base class method calls view.get_queryset(), but that method performs database queries, so we override it.
         """
-        # Workaround to ensure DjangoModelPermissions are not applied
-        # to the root view when using DefaultRouter.
-        if getattr(view, '_ignore_model_permissions', False):
-            return True
-
-        if not request.user or (
-           not request.user.is_authenticated and self.authenticated_users_only):
-            return False
-
-        queryset = Taxonomy.objects
-        perms = self.get_required_permissions(request.method, queryset.model)
-
-        return request.user.has_perms(perms)
+        return Taxonomy.objects
