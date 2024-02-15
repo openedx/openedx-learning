@@ -6,13 +6,13 @@ from django.utils.html import format_html
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 
-from .models import RawContent
+from .models import Content
 
 
-@admin.register(RawContent)
-class RawContentAdmin(ReadOnlyModelAdmin):
+@admin.register(Content)
+class ContentAdmin(ReadOnlyModelAdmin):
     """
-    Django admin for RawContent model
+    Django admin for Content model
     """
     list_display = [
         "hash_digest",
@@ -21,6 +21,7 @@ class RawContentAdmin(ReadOnlyModelAdmin):
         "media_type",
         "size",
         "created",
+        "has_file",
     ]
     fields = [
         "learning_package",
@@ -30,30 +31,22 @@ class RawContentAdmin(ReadOnlyModelAdmin):
         "created",
         "file_link",
         "text_preview",
-    ]
-    readonly_fields = [
-        "learning_package",
-        "hash_digest",
-        "media_type",
-        "size",
-        "created",
-        "file_link",
-        "text_preview",
+        "has_file",
     ]
     list_filter = ("media_type", "learning_package")
     search_fields = ("hash_digest",)
 
-    def file_link(self, raw_content):
+    def file_link(self, content: Content):
+        if not content.has_file:
+            return ""
+
         return format_html(
             '<a href="{}">Download</a>',
-            raw_content.file.url,
+            content.file_url(),
         )
 
-    def text_preview(self, raw_content):
-        if not hasattr(raw_content, "text_content"):
-            return "(not available)"
-
+    def text_preview(self, content: Content):
         return format_html(
             '<pre style="white-space: pre-wrap;">\n{}\n</pre>',
-            raw_content.text_content.text,
+            content.text,
         )

@@ -20,6 +20,18 @@ from .validators import validate_utc_datetime
 
 
 def create_hash_digest(data_bytes: bytes) -> str:
+    """
+    Create a 40-byte, lower-case hex string representation of a hash digest.
+
+    The hash digest itself is 20-bytes using BLAKE2b.
+
+    DON'T JUST MODIFY THIS HASH BEHAVIOR!!! We use hashing for de-duplication
+    purposes. If this hash function ever changes, that deduplication will fail
+    because the hashing behavior won't match what's already in the database.
+
+    If we want to change this representation one day, we should create a new
+    function for that and do the appropriate data migration.
+    """
     return hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
 
 
@@ -97,7 +109,7 @@ def immutable_uuid_field() -> models.UUIDField:
     )
 
 
-def key_field() -> MultiCollationCharField:
+def key_field(**kwargs) -> MultiCollationCharField:
     """
     Externally created Identifier fields.
 
@@ -108,7 +120,7 @@ def key_field() -> MultiCollationCharField:
     Other apps should *not* make references to these values directly, since
     these values may in theory change (even if this is rare in practice).
     """
-    return case_sensitive_char_field(max_length=500, blank=False)
+    return case_sensitive_char_field(max_length=500, blank=False, **kwargs)
 
 
 def hash_field() -> models.CharField:

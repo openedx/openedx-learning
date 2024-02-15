@@ -8,7 +8,7 @@ from pathlib import Path
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.http import FileResponse, Http404
 
-from openedx_learning.core.components.api import get_component_version_content
+from openedx_learning.core.components.api import look_up_component_version_content
 
 
 def component_asset(
@@ -28,7 +28,7 @@ def component_asset(
     * Serving from a different domain than the rest of the service
     """
     try:
-        cvc = get_component_version_content(
+        cvc = look_up_component_version_content(
             learning_package_key, component_key, version_num, asset_path
         )
     except ObjectDoesNotExist:

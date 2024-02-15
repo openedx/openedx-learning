@@ -3,42 +3,53 @@ These models are the most basic pieces of content we support. Think of them as
 the simplest building blocks to store data with. They need to be composed into
 more intelligent data models to be useful.
 """
+from __future__ import annotations
+
 from functools import cached_property
 
-from django.conf import settings
-from django.core.files.storage import default_storage
+from django.core.exceptions import ValidationError
+from django.core.files.base import File
+from django.core.files.storage import Storage, default_storage
 from django.core.validators import MaxValueValidator
 from django.db import models
 
-from openedx_learning.lib.fields import (
-    MultiCollationTextField,
-    case_insensitive_char_field,
-    hash_field,
-    manual_date_time_field,
-)
-
+from ...lib.fields import MultiCollationTextField, case_insensitive_char_field, hash_field, manual_date_time_field
+from ...lib.managers import WithRelationsManager
 from ..publishing.models import LearningPackage
+
+
+def get_storage() -> Storage:
+    """
+    Return the Storage instance for our Content file persistence.
+
+    For right now, we're still only storing inline text and not static assets in
+    production, so just return the default_storage. We're also going through a
+    transition between Django 3.2 -> 4.2, where storage configuration has moved.
+
+    Make this work properly as part of adding support for static assets.
+    """
+    return default_storage
 
 
 class MediaType(models.Model):
     """
-    Stores Media types for use by RawContent models.
+    Stores Media types for use by Content models.
 
     This is the same as MIME types (the IANA renamed MIME Types to Media Types).
-    We don't pre-populate this table, so APIs that add RawContent must ensure
-    that the desired Media Type exists.
+    We don't pre-populate this table, so APIs that add Content must ensure that
+    the desired Media Type exists.
 
     Media types are written as {type}/{sub_type}+{suffix}, where suffixes are
-    seldom used.
+    seldom used. Examples:
 
     * application/json
     * text/css
     * image/svg+xml
     * application/vnd.openedx.xblock.v1.problem+xml
 
-    We have this as a separate model (instead of a field on RawContent) because:
+    We have this as a separate model (instead of a field on Content) because:
 
-    1. We can save a lot on storage and indexing for RawContent if we're just
+    1. We can save a lot on storage and indexing for Content if we're just
        storing foreign key references there, rather than the entire content
        string to be indexed. This is especially relevant for our (long) custom
        types like "application/vnd.openedx.xblock.v1.problem+xml".
@@ -46,9 +57,9 @@ class MediaType(models.Model):
        "application/javascript". Also, we will be using a fair number of "vnd."
        style of custom content types, and we may want the flexibility of
        changing that without having to worry about migrating millions of rows of
-       RawContent.
+       Content.
     """
-    # We're going to have many foreign key references from RawContent into this
+    # We're going to have many foreign key references from Content into this
     # model, and we don't need to store those as 8-byte BigAutoField, as is the
     # default for this app. It's likely that a SmallAutoField would work, but I
     # can just barely imagine using more than 32K Media types if we have a bunch
@@ -69,10 +80,9 @@ class MediaType(models.Model):
     # always written in lowercase.
     sub_type = case_insensitive_char_field(max_length=127, blank=False, null=False)
 
-    # Suffix, usually just "xml" (e.g. "image/svg+xml"). Usually blank. I
-    # couldn't find an RFC description of the length limit, and 127 is probably
-    # excessive. But this table should be small enough where it doesn't really
-    # matter.
+    # Suffix, like "xml" (e.g. "image/svg+xml"). Usually blank. I couldn't find
+    # an RFC description of the length limit, and 127 is probably excessive. But
+    # this table should be small enough where it doesn't really matter.
     suffix = case_insensitive_char_field(max_length=127, blank=True, null=False)
 
     class Meta:
@@ -95,91 +105,221 @@ class MediaType(models.Model):
         return base
 
 
-class RawContent(models.Model):  # type: ignore[django-manager-missing]
+class Content(models.Model):
     """
-    This is the most basic piece of raw content data, with no version metadata.
+    This is the most primitive piece of content data.
 
-    RawContent stores data using the "file" field. This data is not
-    auto-normalized in any way, meaning that pieces of content that are
-    semantically equivalent (e.g. differently spaced/sorted JSON) may result in
-    new entries. This model is intentionally ignorant of what these things mean,
-    because it expects supplemental data models to build on top of it.
+    This model serves to lookup, de-duplicate, and store text and files. A piece
+    of Content is identified purely by its data, the media type, and the
+    LearningPackage it is associated with. It has no version or file name
+    metadata associated with it. It exists to be a dumb blob of data that higher
+    level models like ComponentVersions can assemble together.
 
-    Two RawContent instances _can_ have the same hash_digest if they are of
-    different MIME types. For instance, an empty text file and an empty SRT file
-    will both hash the same way, but be considered different entities.
+    # In-model Text vs. File
 
-    The other fields on RawContent are for data that is intrinsic to the file
-    data itself (e.g. the size). Any smart parsing of the contents into more
-    structured metadata should happen in other models that hang off of
-    RawContent.
+    That being said, the Content model does have some complexity to accomodate
+    different access patterns that we have in our app. In particular, it can
+    store data in two ways: the ``text`` field and a file (``has_file=True``)
+    A Content object must use at least one of these methods, but can use both if
+    it's appropriate.
 
-    RawContent models are not versioned in any way. The concept of versioning
-    only exists at a higher level.
+    Use the ``text`` field when:
+    * the content is a relatively small (< 50K, usually much less) piece of text
+    * you want to do be able to query up update across many rows at once
+    * low, predictable latency is important
 
-    RawContent is optimized for cheap storage, not low latency. It stores
-    content in a FileField. If you need faster text access across multiple rows,
-    add a TextContent entry that corresponds to the relevant RawContent.
+    Use file storage when:
+    * the content is large, or not text-based
+    * you want to be able to serve the file content directly to the browser
 
-    If you need to transform this RawContent into more structured data for your
-    application, create a model with a OneToOneField(primary_key=True)
-    relationship to RawContent. Just remember that *you should always create the
-    RawContent entry* first, to ensure content is always exportable, even if
-    your app goes away in the future.
+    The high level tradeoff is that ``text`` will give you faster access, and
+    file storage will give you a much more affordable and scalable backend. The
+    backend used for files will also eventually allow direct browser download
+    access, whereas the ``text`` field will not. But again, you can use both at
+    the same time if needed.
 
-    Operational Notes
-    -----------------
+    # Association with a LearningPackage
 
-    RawContent stores data using a FileField, which you'd typically want to back
-    with something like S3 when running in a production environment. That file
-    storage backend will not support rollback, meaning that if you start the
-    import process and things break halfway through, the RawContent model rows
-    will be rolled back, but the uploaded files will still remain on your file
-    storage system. The files are based on a hash of the contents though, so it
-    should still work later on when the import succeeds (it'll just have to
-    upload fewer files).
+    Content is associated with a specific LearningPackage. Doing so allows us to
+    more easily query for how much storge space a specific LearningPackage
+    (likely a library) is using, and to clean up unused data.
 
-    TODO: Write about cleaning up accidental uploads of really large/unnecessary
-    files. Pruning of unreferenced (never published, or currently unused)
-    component versions and assets, and how that ties in?
+    When we get to borrowing Content across LearningPackages, it's likely that
+    we will want to copy them. That way, even if the originating LearningPackage
+    is deleted, it won't break other LearningPackages that are making use if it.
+
+    # Media Types, and file duplication
+
+    Content is almost 1:1 with the files that it pushes to a storage backend,
+    but not quite. The file locations are generated purely as a product of the
+    LearningPackage UUID and the Content's ``hash_digest``, but Content also
+    takes into account the ``media_type``.
+
+    For example, say we had a Content with the following data:
+
+        ["hello", "world"]
+
+    That is legal syntax for both JSON and YAML. If you want to attach some
+    YAML-specific metadata in a new model, you could make it 1:1 with the
+    Content that matched the "application/yaml" media type. The YAML and JSON
+    versions of this data would be two separate Content rows that would share
+    the same ``hash_digest`` value. If they both stored a file, they would be
+    pointing to the same file location. If they only used the ``text`` field,
+    then that value would be duplicated across the two separate Content rows.
+
+    The alternative would have been to associate media types at the level where
+    this data was being added to a ComponentVersion, but that would have added
+    more complexity. Right now, you could make an ImageContent 1:1 model that
+    analyzed images and created metatdata entries for them (dimensions, GPS)
+    without having to understand how ComponentVerisons work.
+
+    This is definitely an edge case, and it's likely the only time collisions
+    like this will happen in practice is with blank files. It also means that
+    using this table to measure disk usage may be slightly inaccurate when used
+    in a LearningPackage with collisions–though we expect to use numbers like
+    that mostly to get a broad sense of usage and look for major outliers,
+    rather than for byte-level accuracy (it wouldn't account for the non-trivial
+    indexing storage costs either).
+
+    # Immutability
+
+    From the outside, Content should appear immutable. Since the Content is
+    looked up by a hash of its data, a change in the data means that we should
+    look up the hash value of that new data and create a new Content if we don't
+    find a match.
+
+    That being said, the Content model has different ways of storing that data,
+    and that is mutable. We could decide that a certain type of Content should
+    be optimized to store its text in the table. Or that a content type that we
+    had previously only stored as text now also needs to be stored on in the
+    file storage backend so that it can be made available to be downloaded.
+    These operations would be done as data migrations.
+
+    # Extensibility
+
+    Third-party apps are encouraged to create models that have a OneToOneField
+    relationship with Content. For instance, an ImageContent model might join
+    1:1 with all Content that has image/* media types, and provide additional
+    metadata for that data.
     """
-
-    # 50 MB is our current limit, based on the current Open edX Studio file
-    # upload size limit.
+    # Max size of the file.
     MAX_FILE_SIZE = 50_000_000
 
-    learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+    # 50K is our limit for text data, like OLX. This means 50K *characters*,
+    # not bytes. Since UTF-8 encodes characters using as many as 4 bytes, this
+    # could be as much as 200K of data if we had nothing but emojis.
+    MAX_TEXT_LENGTH = 50_000
 
-    # This hash value may be calculated using create_hash_digest from the
-    # openedx.lib.fields module.
-    hash_digest = hash_field()
+    objects: models.Manager[Content] = WithRelationsManager('media_type')
+
+    learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
 
     # What is the Media type (a.k.a. MIME type) of this data?
     media_type = models.ForeignKey(MediaType, on_delete=models.PROTECT)
 
-    # This is the size of the raw data file in bytes. This can be different than
-    # the character length, since UTF-8 encoding can use anywhere between 1-4
-    # bytes to represent any given character.
+    # This is the size of the file in bytes. This can be different than the
+    # character length of a text file, since UTF-8 encoding can use anywhere
+    # between 1-4 bytes to represent any given character.
     size = models.PositiveBigIntegerField(
         validators=[MaxValueValidator(MAX_FILE_SIZE)],
     )
 
-    # This should be manually set so that multiple RawContent rows being set in
+    # This hash value may be calculated using create_hash_digest from the
+    # openedx.lib.fields module. When storing text, we hash the UTF-8
+    # encoding of that text value, regardless of whether we also write it to a
+    # file or not. When storing just a file, we hash the bytes in the file.
+    hash_digest = hash_field()
+
+    # Do we have file data stored for this Content in our file storage backend?
+    has_file = models.BooleanField()
+
+    # The ``text`` field contains the text representation of the Content, if
+    # it is available. A blank value means means that we are storing text for
+    # this Content, and that text happens to be an empty string. A null value
+    # here means that we are not storing any text here, and the Content exists
+    # only in file form. It is an error for ``text`` to be None and ``has_file``
+    # to be False, since that would mean we haven't stored data anywhere at all.
+    #
+    # We annotate this because mypy doesn't recognize that ``text`` should be
+    # nullable when using MultiCollationTextField, but does the right thing for
+    # TextField. For more info, see:
+    #   https://github.com/openedx/openedx-learning/issues/152
+    text: models.TextField[str | None, str | None] = MultiCollationTextField(
+        blank=True,
+        null=True,
+        max_length=MAX_TEXT_LENGTH,
+        # We don't really expect to ever sort by the text column, but we may
+        # want to do case-insensitive searches, so it's useful to have a case
+        # and accent insensitive collation.
+        db_collations={
+            "sqlite": "NOCASE",
+            "mysql": "utf8mb4_unicode_ci",
+        }
+    )
+
+    # This should be manually set so that multiple Content rows being set in
     # the same transaction are created with the same timestamp. The timestamp
     # should be UTC.
     created = manual_date_time_field()
 
-    # All content for the LearningPackage should be stored in files. See model
-    # docstring for more details on how to store this data in supplementary data
-    # models that offer better latency guarantees.
-    file = models.FileField(
-        null=True,
-        storage=settings.OPENEDX_LEARNING.get("STORAGE", default_storage),  # type: ignore
-    )
-
     @cached_property
-    def mime_type(self):
+    def mime_type(self) -> str:
+        """
+        The IANA media type (a.k.a. MIME type) of the Content, in string form.
+
+        MIME types reference:
+          https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+        """
         return str(self.media_type)
+
+    def file_path(self):
+        """
+        Path at which this content is stored (or would be stored).
+
+        This path is relative to configured storage root.
+        """
+        return f"{self.learning_package.uuid}/{self.hash_digest}"
+
+    def write_file(self, file: File) -> None:
+        """
+        Write file contents to the file storage backend.
+        """
+        storage = get_storage()
+        file_path = self.file_path()
+
+        # There are two reasons why a file might already exist even if the the
+        # Content row is new:
+        #
+        # 1. We tried adding the file earlier, but an error rolled back the
+        # state of the database. The file storage system isn't covered by any
+        # sort of transaction semantics, so it won't get rolled back.
+        #
+        # 2. The Content is of a different MediaType. The same exact bytes can
+        # be two logically separate Content entries if they are different file
+        # types. This lets other models add data to Content via 1:1 relations by
+        # ContentType (e.g. all SRT files). This is definitely an edge case.
+        if not storage.exists(file_path):
+            storage.save(file_path, file)
+
+    def file_url(self) -> str:
+        """
+        This will sometimes be a time-limited signed URL.
+        """
+        return get_storage().url(self.file_path())
+
+    def clean(self):
+        """
+        Make sure we're actually storing *something*.
+
+        If this Content has neither a file or text data associated with it,
+        it's in a broken/useless state and shouldn't be saved.
+        """
+        if (not self.has_file) and (self.text is None):
+            raise ValidationError(
+                f"Content {self.pk} with hash {self.hash_digest} must either "
+                "set a string value for 'text', or it must set has_file=True "
+                "(or both)."
+            )
 
     class Meta:
         constraints = [
@@ -195,71 +335,12 @@ class RawContent(models.Model):  # type: ignore[django-manager-missing]
             ),
         ]
         indexes = [
-            # LearningPackage Media type Index:
-            #   * Break down Content counts by type/subtype with in a
-            #     LearningPackage.
-            #   * Find all the Content in a LearningPackage that matches a
-            #     certain MIME type (e.g. "image/png", "application/pdf".
-            models.Index(
-                fields=["learning_package", "media_type"],
-                name="oel_content_idx_lp_media_type",
-            ),
             # LearningPackage (reverse) Size Index:
-            #   * Find largest Content in a LearningPackage.
-            #   * Find the sum of Content size for a given LearningPackage.
+            #   * Find the largest Content entries.
             models.Index(
                 fields=["learning_package", "-size"],
                 name="oel_content_idx_lp_rsize",
             ),
-            # LearningPackage (reverse) Created Index:
-            #   * Find most recently added Content.
-            models.Index(
-                fields=["learning_package", "-created"],
-                name="oel_content_idx_lp_rcreated",
-            ),
         ]
-        verbose_name = "Raw Content"
-        verbose_name_plural = "Raw Contents"
-
-
-class TextContent(models.Model):
-    """
-    TextContent supplements RawContent to give an in-table text copy.
-
-    This model exists so that we can have lower-latency access to this data,
-    particularly if we're pulling back multiple rows at once.
-
-    Apps are encouraged to create their own data models that further extend this
-    one with a more intelligent, parsed data model. For example, individual
-    XBlocks might parse the OLX in this model into separate data models for
-    VideoBlock, ProblemBlock, etc. You can do this by making your supplementary
-    model linked to this model via OneToOneField with primary_key=True.
-
-    The reason this is built directly into the Learning Core data model is
-    because we want to be able to easily access and browse this data even if the
-    app-extended models get deleted (e.g. if they are deprecated and removed).
-    """
-
-    # 100K is our limit for text data, like OLX. This means 100K *characters*,
-    # not bytes. Since UTF-8 encodes characters using as many as 4 bytes, this
-    # could be as much as 400K of data if we had nothing but emojis.
-    MAX_TEXT_LENGTH = 100_000
-
-    raw_content = models.OneToOneField(
-        RawContent,
-        on_delete=models.CASCADE,
-        primary_key=True,
-        related_name="text_content",
-    )
-    text = MultiCollationTextField(
-        blank=True,
-        max_length=MAX_TEXT_LENGTH,
-        # We don't really expect to ever sort by the text column, but we may
-        # want to do case-insensitive searches, so it's useful to have a case
-        # and accent insensitive collation.
-        db_collations={
-            "sqlite": "NOCASE",
-            "mysql": "utf8mb4_unicode_ci",
-        }
-    )
-    length = models.PositiveIntegerField(null=False)
+        verbose_name = "Content"
+        verbose_name_plural = "Contents"

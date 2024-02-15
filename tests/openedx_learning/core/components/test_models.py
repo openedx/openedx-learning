@@ -3,7 +3,12 @@ Tests related to the Component models
 """
 from datetime import datetime, timezone
 
-from openedx_learning.core.components.api import create_component_and_version, get_component
+from openedx_learning.core.components.api import (
+    create_component_and_version,
+    get_component,
+    get_or_create_component_type,
+)
+from openedx_learning.core.components.models import ComponentType
 from openedx_learning.core.publishing.api import LearningPackage, create_learning_package, publish_all_drafts
 from openedx_learning.lib.test_utils import TestCase
 
@@ -14,6 +19,7 @@ class TestModelVersioningQueries(TestCase):
     """
     learning_package: LearningPackage
     now: datetime
+    problem_type: ComponentType
 
     @classmethod
     def setUpTestData(cls) -> None:  # Note: we must specify '-> None' to opt in to type checking
@@ -22,12 +28,12 @@ class TestModelVersioningQueries(TestCase):
             "Learning Package for Testing Component Versioning",
         )
         cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
+        cls.problem_type = get_or_create_component_type("xblock.v1", "problem")
 
     def test_latest_version(self) -> None:
         component, component_version = create_component_and_version(
             self.learning_package.id,
-            namespace="xblock.v1",
-            type_name="problem",
+            component_type=self.problem_type,
             local_key="monty_hall",
             title="Monty Hall Problem",
             created=self.now,

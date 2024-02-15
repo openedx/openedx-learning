@@ -84,7 +84,7 @@ cryptography==42.0.2
     #   pyjwt
 ddt==1.7.1
     # via -r requirements/test.txt
-django==3.2.23
+django==3.2.24
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -c requirements/constraints.txt
@@ -142,7 +142,7 @@ edx-django-utils==5.10.1
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==10.1.0
+edx-drf-extensions==10.2.0
     # via -r requirements/test.txt
 edx-opaque-keys==2.5.1
     # via
@@ -191,7 +191,7 @@ mypy-extensions==1.0.0
     # via
     #   -r requirements/test.txt
     #   mypy
-mysqlclient==2.2.3
+mysqlclient==2.2.4
     # via -r requirements/test.txt
 newrelic==9.6.0
     # via
@@ -263,7 +263,7 @@ python-dateutil==2.8.2
     # via
     #   -r requirements/test.txt
     #   celery
-python-slugify==8.0.3
+python-slugify==8.0.4
     # via
     #   -r requirements/test.txt
     #   code-annotations
@@ -374,7 +374,7 @@ typing-extensions==4.9.0
     #   kombu
     #   mypy
     #   pydata-sphinx-theme
-tzdata==2023.4
+tzdata==2024.1
     # via
     #   -r requirements/test.txt
     #   backports-zoneinfo

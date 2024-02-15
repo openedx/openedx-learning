@@ -6,14 +6,39 @@ from datetime import datetime, timezone
 from django.core.exceptions import ObjectDoesNotExist
 
 from openedx_learning.core.components import api as components_api
-from openedx_learning.core.components.models import Component
+from openedx_learning.core.components.models import Component, ComponentType
 from openedx_learning.core.contents import api as contents_api
+from openedx_learning.core.contents.models import MediaType
 from openedx_learning.core.publishing import api as publishing_api
 from openedx_learning.core.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
 
 
-class PerformanceTestCase(TestCase):
+class ComponentTestCase(TestCase):
+    """
+    Base-class for setting up commonly used test data.
+    """
+    learning_package: LearningPackage
+    now: datetime
+
+    # XBlock Component Types
+    html_type: ComponentType
+    problem_type: ComponentType
+    video_type: ComponentType
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.learning_package = publishing_api.create_learning_package(
+            key="ComponentTestCase-test-key",
+            title="Components Test Case Learning Package",
+        )
+        cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
+        cls.html_type = components_api.get_or_create_component_type("xblock.v1", "html")
+        cls.problem_type = components_api.get_or_create_component_type("xblock.v1", "problem")
+        cls.video_type = components_api.get_or_create_component_type("xblock.v1", "video")
+
+
+class PerformanceTestCase(ComponentTestCase):
     """
     Performance related tests for Components.
 
@@ -24,29 +49,13 @@ class PerformanceTestCase(TestCase):
     learning_package: LearningPackage
     now: datetime
 
-    @classmethod
-    def setUpTestData(cls) -> None:
-        """
-        Initialize our base learning package.
-
-        We don't actually need to add content to the ComponentVersions, since
-        for this we only care about the metadata on Compnents, their versions,
-        and the associated draft/publish status.
-        """
-        cls.learning_package = publishing_api.create_learning_package(
-            "components.TestPerformance",
-            "Learning Package for Testing Performance (measured by DB queries)",
-        )
-        cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
-
     def test_component_num_queries(self) -> None:
         """
         Create a basic component and test that we fetch it back in 1 query.
         """
         component, _version = components_api.create_component_and_version(
             self.learning_package.id,
-            namespace="xblock.v1",
-            type_name="problem",
+            component_type=self.problem_type,
             local_key="Query Counting",
             title="Querying Counting Problem",
             created=self.now,
@@ -66,12 +75,10 @@ class PerformanceTestCase(TestCase):
             assert draft.title == published.title
 
 
-class GetComponentsTestCase(TestCase):
+class GetComponentsTestCase(ComponentTestCase):
     """
     Test grabbing a queryset of Components.
     """
-    learning_package: LearningPackage
-    now: datetime
     published_problem: Component
     published_html: Component
     unpublished_problem: Component
@@ -87,27 +94,21 @@ class GetComponentsTestCase(TestCase):
         for this we only care about the metadata on Compnents, their versions,
         and the associated draft/publish status.
         """
-        cls.learning_package = publishing_api.create_learning_package(
-            "components.TestGetComponents",
-            "Learning Package for Testing Getting & Filtering Components",
-        )
-        cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
+        super().setUpTestData()
+        v2_problem_type = components_api.get_or_create_component_type("xblock.v2", "problem")
 
-        # Components we're publishing...
         cls.published_problem, _version = components_api.create_component_and_version(
             cls.learning_package.id,
-            namespace="xblock.v2",
-            type_name="problem",
-            local_key="published_problem",
+            component_type=v2_problem_type,
+            local_key="pp_lk",
             title="Published Problem",
             created=cls.now,
             created_by=None,
         )
         cls.published_html, _version = components_api.create_component_and_version(
             cls.learning_package.id,
-            namespace="xblock.v1",
-            type_name="html",
-            local_key="published_html",
+            component_type=cls.html_type,
+            local_key="ph_lk",
             title="Published HTML",
             created=cls.now,
             created_by=None,
@@ -120,18 +121,16 @@ class GetComponentsTestCase(TestCase):
         # Components that exist only as Drafts
         cls.unpublished_problem, _version = components_api.create_component_and_version(
             cls.learning_package.id,
-            namespace="xblock.v2",
-            type_name="problem",
-            local_key="unpublished_problem",
+            component_type=v2_problem_type,
+            local_key="upp_lk",
             title="Unpublished Problem",
             created=cls.now,
             created_by=None,
         )
         cls.unpublished_html, _version = components_api.create_component_and_version(
             cls.learning_package.id,
-            namespace="xblock.v1",
-            type_name="html",
-            local_key="unpublished_html",
+            component_type=cls.html_type,
+            local_key="uph_lk",
             title="Unpublished HTML",
             created=cls.now,
             created_by=None,
@@ -141,9 +140,8 @@ class GetComponentsTestCase(TestCase):
         # Draft entry)
         cls.deleted_video, _version = components_api.create_component_and_version(
             cls.learning_package.id,
-            namespace="xblock.v1",
-            type_name="html",
-            local_key="deleted_video",
+            component_type=cls.video_type,
+            local_key="dv_lk",
             title="Deleted Video",
             created=cls.now,
             created_by=None,
@@ -274,12 +272,10 @@ class GetComponentsTestCase(TestCase):
         ]
 
 
-class ComponentGetAndExistsTestCase(TestCase):
+class ComponentGetAndExistsTestCase(ComponentTestCase):
     """
     Test getting a Component by primary key or key string.
     """
-    learning_package: LearningPackage
-    now: datetime
     problem: Component
     html: Component
 
@@ -292,23 +288,18 @@ class ComponentGetAndExistsTestCase(TestCase):
         for this we only care about the metadata on Compnents, their versions,
         and the associated draft/publish status.
         """
-        cls.learning_package = publishing_api.create_learning_package(
-            "components.TestComponentGetAndExists",
-            "Learning Package for Testing Getting a Component",
-        )
-        cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
+        super().setUpTestData()
+
         cls.problem = components_api.create_component(
             cls.learning_package.id,
-            namespace='xblock.v1',
-            type_name='problem',
+            component_type=cls.problem_type,
             local_key='my_component',
             created=cls.now,
             created_by=None,
         )
         cls.html = components_api.create_component(
             cls.learning_package.id,
-            namespace='xblock.v1',
-            type_name='html',
+            component_type=cls.html_type,
             local_key='my_component',
             created=cls.now,
             created_by=None,
@@ -318,6 +309,10 @@ class ComponentGetAndExistsTestCase(TestCase):
         assert components_api.get_component(self.problem.pk) == self.problem
         with self.assertRaises(ObjectDoesNotExist):
             components_api.get_component(-1)
+
+    def test_publishing_entity_key_convention(self):
+        """Our mapping convention is {namespace}:{component_type}:{local_key}"""
+        assert self.problem.key == "xblock.v1:problem:my_component"
 
     def test_get_by_key(self):
         assert self.html == components_api.get_component_by_key(
@@ -349,29 +344,24 @@ class ComponentGetAndExistsTestCase(TestCase):
         )
 
 
-class CreateNewVersionsTestCase(TestCase):
+class CreateNewVersionsTestCase(ComponentTestCase):
     """
     Create new ComponentVersions in various ways.
     """
-    learning_package: LearningPackage
-    now: datetime
     problem: Component
+    text_media_type: MediaType
 
     @classmethod
     def setUpTestData(cls) -> None:
-        cls.learning_package = publishing_api.create_learning_package(
-            "components.TestCreateNextVersion",
-            "Learning Package for Testing Next Version Creation",
-        )
-        cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
+        super().setUpTestData()
         cls.problem = components_api.create_component(
             cls.learning_package.id,
-            namespace='xblock.v1',
-            type_name='problem',
+            component_type=cls.problem_type,
             local_key='my_component',
             created=cls.now,
             created_by=None,
         )
+        cls.text_media_type = contents_api.get_or_create_media_type("text/plain")
 
     def test_add(self):
         new_version = components_api.create_component_version(
@@ -381,15 +371,15 @@ class CreateNewVersionsTestCase(TestCase):
             created=self.now,
             created_by=None,
         )
-        new_content, _created = contents_api.get_or_create_raw_content(
+        new_content = contents_api.get_or_create_text_content(
             self.learning_package.pk,
-            b"This is some data",
-            mime_type="text/plain",
+            self.text_media_type.id,
+            text="This is some data",
             created=self.now,
         )
-        components_api.add_content_to_component_version(
+        components_api.create_component_version_content(
             new_version.pk,
-            raw_content_id=new_content.pk,
+            new_content.pk,
             key="hello.txt",
             learner_downloadable=False,
         )
@@ -399,26 +389,26 @@ class CreateNewVersionsTestCase(TestCase):
                                     .get(publishable_entity_version__version_num=1)
         assert (
             new_content ==
-            new_version.raw_contents.get(componentversionrawcontent__key="hello.txt")
+            new_version.contents.get(componentversioncontent__key="hello.txt")
         )
 
     def test_multiple_versions(self):
-        hello_content, _created = contents_api.get_or_create_text_content_from_bytes(
+        hello_content = contents_api.get_or_create_text_content(
             self.learning_package.id,
-            data_bytes="Hello World!".encode('utf-8'),
-            mime_type="text/plain",
+            self.text_media_type.id,
+            text="Hello World!",
             created=self.now,
         )
-        goodbye_content, _created = contents_api.get_or_create_text_content_from_bytes(
+        goodbye_content = contents_api.get_or_create_text_content(
             self.learning_package.id,
-            data_bytes="Goodbye World!".encode('utf-8'),
-            mime_type="text/plain",
+            self.text_media_type.id,
+            text="Goodbye World!",
             created=self.now,
         )
-        blank_content, _created = contents_api.get_or_create_text_content_from_bytes(
+        blank_content = contents_api.get_or_create_text_content(
             self.learning_package.id,
-            data_bytes="".encode('utf-8'),
-            mime_type="text/plain",
+            self.text_media_type.id,
+            text="",
             created=self.now,
         )
 
@@ -434,19 +424,17 @@ class CreateNewVersionsTestCase(TestCase):
         )
         assert version_1.version_num == 1
         assert version_1.title == "Problem Version 1"
-        version_1_contents = list(version_1.raw_contents.all())
+        version_1_contents = list(version_1.contents.all())
         assert len(version_1_contents) == 2
         assert (
             hello_content ==
-            version_1.raw_contents
-                     .get(componentversionrawcontent__key="hello.txt")
-                     .text_content
+            version_1.contents
+                     .get(componentversioncontent__key="hello.txt")
         )
         assert (
             goodbye_content ==
-            version_1.raw_contents
-                     .get(componentversionrawcontent__key="goodbye.txt")
-                     .text_content
+            version_1.contents
+                     .get(componentversioncontent__key="goodbye.txt")
         )
 
         # This should keep the old value for goodbye.txt, add blank.txt, and set
@@ -461,24 +449,21 @@ class CreateNewVersionsTestCase(TestCase):
             created=self.now,
         )
         assert version_2.version_num == 2
-        assert version_2.raw_contents.count() == 3
+        assert version_2.contents.count() == 3
         assert (
             blank_content ==
-            version_2.raw_contents
-                     .get(componentversionrawcontent__key="hello.txt")
-                     .text_content
+            version_2.contents
+                     .get(componentversioncontent__key="hello.txt")
         )
         assert (
             goodbye_content ==
-            version_2.raw_contents
-                     .get(componentversionrawcontent__key="goodbye.txt")
-                     .text_content
+            version_2.contents
+                     .get(componentversioncontent__key="goodbye.txt")
         )
         assert (
             blank_content ==
-            version_2.raw_contents
-                     .get(componentversionrawcontent__key="blank.txt")
-                     .text_content
+            version_2.contents
+                     .get(componentversioncontent__key="blank.txt")
         )
 
         # Now we're going to set "hello.txt" back to hello_content, but remove
@@ -495,10 +480,9 @@ class CreateNewVersionsTestCase(TestCase):
             created=self.now,
         )
         assert version_3.version_num == 3
-        assert version_3.raw_contents.count() == 1
+        assert version_3.contents.count() == 1
         assert (
             hello_content ==
-            version_3.raw_contents
-                     .get(componentversionrawcontent__key="hello.txt")
-                     .text_content
+            version_3.contents
+                     .get(componentversioncontent__key="hello.txt")
         )
