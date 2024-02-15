@@ -4,7 +4,7 @@ Tagging permissions
 import rules  # type: ignore[import]
 from rest_framework.permissions import DjangoObjectPermissions
 
-from ...models import Tag
+from ...models import Tag, Taxonomy
 
 
 class TaxonomyObjectPermissions(DjangoObjectPermissions):
@@ -37,9 +37,9 @@ class ObjectTagObjectPermissions(DjangoObjectPermissions):
     }
 
 
-class TagObjectPermissions(DjangoObjectPermissions):
+class TaxonomyTagsObjectPermissions(DjangoObjectPermissions):
     """
-    Maps each REST API methods to its corresponding Tag permission.
+    Maps each REST API methods to its corresponding Taxonomy permission.
     """
     perms_map = {
         "GET": ["%(app_label)s.view_%(model_name)s"],
@@ -58,3 +58,11 @@ class TagObjectPermissions(DjangoObjectPermissions):
         """
         obj = obj.taxonomy if isinstance(obj, Tag) else obj
         return rules.has_perm("oel_tagging.list_tag", request.user, obj)
+
+    def _queryset(self, view):
+        """
+        Returns the queryset to use when checking model and object permissions.
+
+        The base class method calls view.get_queryset(), but that method performs database queries, so we override it.
+        """
+        return Taxonomy.objects

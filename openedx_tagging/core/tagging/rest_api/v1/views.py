@@ -33,7 +33,7 @@ from ...models import Tag, Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import MAX_FULL_DEPTH_THRESHOLD, DisabledTagsPagination, TagsPagination, TaxonomyPagination
 from ..utils import view_auth_classes
-from .permissions import ObjectTagObjectPermissions, TagObjectPermissions, TaxonomyObjectPermissions
+from .permissions import ObjectTagObjectPermissions, TaxonomyObjectPermissions, TaxonomyTagsObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
     ObjectTagsByTaxonomySerializer,
@@ -252,7 +252,9 @@ class TaxonomyView(ModelViewSet):
         query_params.is_valid(raise_exception=True)
         enabled = query_params.data.get("enabled", None)
 
-        return get_taxonomies(enabled)
+        qs = get_taxonomies(enabled)
+        qs = qs.annotate(tags_count=models.Count("tag", distinct=True))
+        return qs
 
     def perform_create(self, serializer) -> None:
         """
@@ -724,7 +726,7 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
 
     """
 
-    permission_classes = [TagObjectPermissions]
+    permission_classes = [TaxonomyTagsObjectPermissions]
     pagination_class = TagsPagination
     serializer_class = TagDataSerializer
 

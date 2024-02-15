@@ -372,6 +372,12 @@ class Taxonomy(models.Model):
         self.visible_to_authors = taxonomy.visible_to_authors
         self.export_id = taxonomy.export_id
         self._taxonomy_class = taxonomy._taxonomy_class  # pylint: disable=protected-access
+
+        # Copy Django's internal prefetch_related cache to reduce queries required on the casted taxonomy.
+        if hasattr(taxonomy, '_prefetched_objects_cache'):
+            # pylint: disable=protected-access,attribute-defined-outside-init
+            self._prefetched_objects_cache: dict = taxonomy._prefetched_objects_cache
+
         return self
 
     def get_filtered_tags(

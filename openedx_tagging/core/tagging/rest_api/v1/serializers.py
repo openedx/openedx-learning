@@ -100,6 +100,13 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
         return super().to_representation(instance)
 
     def get_tags_count(self, instance):
+        """
+        Return the "tags_count" annotation if present.
+
+        Or just count the taxonomy's tags.
+        """
+        if hasattr(instance, 'tags_count'):
+            return instance.tags_count
         return instance.tag_set.count()
 
     def get_can_tag_object(self, instance) -> bool | None:

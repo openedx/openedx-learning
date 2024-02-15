@@ -257,7 +257,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.user)
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(3):
             response = self.client.get(url)
 
         assert response.status_code == 200
@@ -1461,7 +1461,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         url = f"{self.small_taxonomy_url}?search_term=eU"
 
         self.client.force_authenticate(user=self.staff)
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(4):
             response = self.client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
