@@ -156,3 +156,14 @@ def get_or_create_file_content(
             content.write_file(ContentFile(data))
 
         return content
+
+
+def prune_unused_content(learning_package_id: int, /,):
+    """
+    Delete all Content that isn't referenced any longer.
+    """
+    learning_package_content_ids = Content.objects.filter(
+        learning_package_id=learning_package_id
+    )
+
+    # Use configuration to get an exclusion list?
