@@ -90,7 +90,7 @@ coverage[toml]==7.4.1
     #   -r requirements/quality.txt
     #   coverage
     #   pytest-cov
-cryptography==42.0.2
+cryptography==42.0.3
     # via
     #   -r requirements/quality.txt
     #   pyjwt
@@ -289,7 +289,7 @@ pbr==6.0.0
     # via
     #   -r requirements/quality.txt
     #   stevedore
-pip-tools==7.3.0
+pip-tools==7.4.0
     # via -r requirements/pip-tools.txt
 pkginfo==1.9.6
     # via
@@ -374,7 +374,8 @@ pyproject-hooks==1.0.0
     # via
     #   -r requirements/pip-tools.txt
     #   build
-pytest==8.0.0
+    #   pip-tools
+pytest==8.0.1
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -494,7 +495,7 @@ types-pyyaml==6.0.12.12
     #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.20240125
+types-requests==2.31.0.20240218
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
@@ -519,7 +520,7 @@ tzdata==2024.1
     #   -r requirements/quality.txt
     #   backports-zoneinfo
     #   celery
-urllib3==2.2.0
+urllib3==2.2.1
     # via
     #   -r requirements/quality.txt
     #   requests
