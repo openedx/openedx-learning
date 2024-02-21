@@ -3,7 +3,7 @@ Tests of the Publishing app's python API
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone, tzinfo
+from datetime import datetime, timezone
 from uuid import UUID
 
 import pytest
@@ -72,7 +72,7 @@ class LearningPackageTestCase(TestCase):
         # Auto-generated datetime checking...
         assert isinstance(package.created, datetime)
         assert package.created == package.updated
-        assert package.created.tzinfo == timezone.utc
+        assert datetime(2023, 4, 2, 15, 9, 0, tzinfo=timezone.utc) == timezone.utc
 
         # Should be auto-generated
         assert isinstance(package.uuid, UUID)
