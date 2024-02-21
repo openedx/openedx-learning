@@ -816,10 +816,10 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         Test that the object_id is case sensitive.
         """
         # Tag with object_id with lower case
-        api.tag_object(self.taxonomy, [self.chordata.value], object_id="case:id:2")
+        api.tag_object("case:id:2", self.taxonomy, [self.chordata.value])
 
         # Tag with object_id with upper case should not trigger IntegrityError
-        api.tag_object(self.taxonomy, [self.chordata.value], object_id="CASE:id:2")
+        api.tag_object("CASE:id:2", self.taxonomy, [self.chordata.value])
 
         # Create another ObjectTag with lower case object_id should trigger IntegrityError
         with transaction.atomic():
@@ -856,8 +856,8 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
 
         object_id = "obj1"
         # Create some tags:
-        api.tag_object(self.taxonomy, [self.archaea.value, self.bacteria.value], object_id)  # Regular tags
-        api.tag_object(self.free_text_taxonomy, ["foo", "bar", "tribble"], object_id)  # Free text tags
+        api.tag_object(object_id, self.taxonomy, [self.archaea.value, self.bacteria.value])  # Regular tags
+        api.tag_object(object_id, self.free_text_taxonomy, ["foo", "bar", "tribble"])  # Free text tags
 
         # At first, none of these will be deleted:
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id, include_deleted=True)] == [

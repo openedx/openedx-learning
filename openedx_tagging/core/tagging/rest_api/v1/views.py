@@ -549,7 +549,7 @@ class ObjectTagView(
 
         tags = body.data.get("tags", [])
         try:
-            tag_object(taxonomy, tags, object_id)
+            tag_object(object_id, taxonomy, tags)
         except TagDoesNotExist as e:
             raise ValidationError from e
         except ValueError as e:
