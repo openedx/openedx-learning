@@ -3,7 +3,7 @@ Tests of the Publishing app's python API
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from uuid import UUID
 
 import pytest
