@@ -88,6 +88,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         no_tax = tagging_api.get_taxonomy(200)
         assert no_tax is None
 
+    def test_get_taxonomy_by_export_id(self) -> None:
+        tax1 = tagging_api.get_taxonomy_by_export_id("life_on_earth")
+        assert tax1 == self.taxonomy
+
+        no_tax = tagging_api.get_taxonomy_by_export_id("nope")
+        assert no_tax is None
+
     def test_get_taxonomies(self) -> None:
         tax1 = tagging_api.create_taxonomy("Enabled")
         tax2 = tagging_api.create_taxonomy("Disabled", enabled=False)
