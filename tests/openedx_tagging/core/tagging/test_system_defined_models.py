@@ -150,8 +150,8 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         Test applying tags to an object.
         """
         object1_id, object2_id = "obj1", "obj2"
-        api.tag_object(self.lp_taxonomy, ["p1"], object1_id)
-        api.tag_object(self.lp_taxonomy, ["p1", "p2"], object2_id)
+        api.tag_object(object1_id, self.lp_taxonomy, ["p1"])
+        api.tag_object(object2_id, self.lp_taxonomy, ["p1", "p2"])
         assert [t.value for t in api.get_object_tags(object1_id)] == ["p1"]
         assert [t.value for t in api.get_object_tags(object2_id)] == ["p1", "p2"]
 
@@ -160,7 +160,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         Trying to apply an invalid tag raises TagDoesNotExist
         """
         with pytest.raises(api.TagDoesNotExist):
-            api.tag_object(self.lp_taxonomy, ["nonexistent"], "obj1")
+            api.tag_object("obj1", self.lp_taxonomy, ["nonexistent"])
 
     def test_case_insensitive_values(self):
         """
@@ -173,8 +173,8 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
             allow_multiple=True,
             export_id="learning_package_title_taxonomy",
         )
-        api.tag_object(taxonomy, ["LEARNING PACKAGE 1"], object1_id)
-        api.tag_object(taxonomy, ["Learning Package 1", "LEARNING PACKAGE 2"], object2_id)
+        api.tag_object(object1_id, taxonomy, ["LEARNING PACKAGE 1"])
+        api.tag_object(object2_id, taxonomy, ["Learning Package 1", "LEARNING PACKAGE 2"])
         # But they always get normalized to the case used on the actual model:
         assert [t.value for t in api.get_object_tags(object1_id)] == ["Learning Package 1"]
         assert [t.value for t in api.get_object_tags(object2_id)] == ["Learning Package 1", "Learning Package 2"]
@@ -192,12 +192,12 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         pr_1_id, pr_2_id = "pull_request_1", "pull_request_2"
 
         # Tag PR 1 as having "Author: user1, user2; Reviewer: user2"
-        api.tag_object(self.author_taxonomy, [self.user_1.username, self.user_2.username], pr_1_id)
-        api.tag_object(reviewer_taxonomy, [self.user_2.username], pr_1_id)
+        api.tag_object(pr_1_id, self.author_taxonomy, [self.user_1.username, self.user_2.username])
+        api.tag_object(pr_1_id, reviewer_taxonomy, [self.user_2.username])
 
         # Tag PR 2 as having "Author: user2, reviewer: user1"
-        api.tag_object(self.author_taxonomy, [self.user_2.username], pr_2_id)
-        api.tag_object(reviewer_taxonomy, [self.user_1.username], pr_2_id)
+        api.tag_object(pr_2_id, self.author_taxonomy, [self.user_2.username])
+        api.tag_object(pr_2_id, reviewer_taxonomy, [self.user_1.username])
 
         # Check the results:
         assert [f"{t.taxonomy.name}:{t.value}" for t in api.get_object_tags(pr_1_id)] == [
@@ -217,8 +217,8 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         # Tag two objects with "Author: user_1"
         object1_id, object2_id, other_obj_id = "obj1", "obj2", "other"
-        api.tag_object(self.author_taxonomy, [self.user_1.username], object1_id)
-        api.tag_object(self.author_taxonomy, [self.user_1.username], object2_id)
+        api.tag_object(object1_id, self.author_taxonomy, [self.user_1.username])
+        api.tag_object(object2_id, self.author_taxonomy, [self.user_1.username])
         initial_object_tags = api.get_object_tags(object1_id)
         assert [t.value for t in initial_object_tags] == [self.user_1.username]
         assert not list(api.get_object_tags(other_obj_id))
@@ -227,7 +227,7 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         self.user_1.username = new_username
         self.user_1.save()
         # Now we update the tags on just one of the objects:
-        api.tag_object(self.author_taxonomy, [new_username], object1_id)
+        api.tag_object(object1_id, self.author_taxonomy, [new_username])
         assert [t.value for t in api.get_object_tags(object1_id)] == [new_username]
         # But because this will have updated the shared Tag instance, object2 will also be updated as a side effect.
         # This is good - all the objects throughout the system with this tag now show the new value.
@@ -241,12 +241,12 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         # Tag an object with "Author: user_1"
         object_id = "obj123"
-        api.tag_object(self.author_taxonomy, [self.user_1.username], object_id)
+        api.tag_object(object_id, self.author_taxonomy, [self.user_1.username])
         assert [t.value for t in api.get_object_tags(object_id)] == [self.user_1.username]
         # Test after delete user
         self.user_1.delete()
         with self.assertRaises(api.TagDoesNotExist):
-            api.tag_object(self.author_taxonomy, [self.user_1.username], object_id)
+            api.tag_object(object_id, self.author_taxonomy, [self.user_1.username])
 
 
 @ddt.ddt

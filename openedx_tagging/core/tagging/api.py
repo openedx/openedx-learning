@@ -266,11 +266,10 @@ def delete_object_tags(object_id: str):
     tags.delete()
 
 
-# TODO: a function called "tag_object" should take "object_id" as its first parameter, not taxonomy
 def tag_object(
+    object_id: str,
     taxonomy: Taxonomy,
     tags: list[str],
-    object_id: str,
     object_tag_class: type[ObjectTag] = ObjectTag,
 ) -> None:
     """
