@@ -12,7 +12,7 @@ asgiref==3.7.2
     # via
     #   -r requirements/test.txt
     #   django
-astroid==3.0.3
+astroid==3.1.0
     # via
     #   pylint
     #   pylint-celery
@@ -21,7 +21,6 @@ attrs==23.2.0
 backports-zoneinfo[tzdata]==0.2.1
     # via
     #   -r requirements/test.txt
-    #   backports-zoneinfo
     #   celery
     #   kombu
 billiard==4.2.0
@@ -73,12 +72,11 @@ code-annotations==1.6.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.4.1
+coverage[toml]==7.4.3
     # via
     #   -r requirements/test.txt
-    #   coverage
     #   pytest-cov
-cryptography==42.0.3
+cryptography==42.0.5
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -163,7 +161,7 @@ importlib-metadata==7.0.1
     # via
     #   keyring
     #   twine
-importlib-resources==6.1.1
+importlib-resources==6.1.2
     # via keyring
 iniconfig==2.0.0
     # via
@@ -211,7 +209,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.6.0
+newrelic==9.7.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -258,8 +256,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-    #   pyjwt
-pylint==3.0.3
+pylint==3.1.0
     # via
     #   edx-lint
     #   pylint-celery
@@ -281,7 +278,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.0.1
+pytest==8.0.2
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -342,7 +339,7 @@ sqlparse==0.4.4
     #   -r requirements/test.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.1.0
+stevedore==5.2.0
     # via
     #   -r requirements/test.txt
     #   code-annotations
@@ -378,7 +375,7 @@ types-requests==2.31.0.20240218
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-typing-extensions==4.9.0
+typing-extensions==4.10.0
     # via
     #   -r requirements/test.txt
     #   asgiref
