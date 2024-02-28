@@ -167,3 +167,9 @@ def prune_unused_content(learning_package_id: int, /,):
     )
 
     # Use configuration to get an exclusion list?
+
+    # These we can just straight-up delete without worrying aobut file system
+    # cleanup.
+    db_only_content_ids = learning_package_content_ids.filter(
+        has_file=False
+    )
