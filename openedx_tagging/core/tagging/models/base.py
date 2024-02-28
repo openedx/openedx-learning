@@ -241,7 +241,7 @@ class Taxonomy(models.Model):
             "Indicates whether this taxonomy should be visible to object authors."
         ),
     )
-    # Export ID that should only be used on import/export.
+    # External ID that should only be used on import/export.
     # NOT use for any other purposes, you can use the numeric ID of the model instead;
     # this id is editable.
     export_id = models.CharField(
