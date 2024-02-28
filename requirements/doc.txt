@@ -22,7 +22,7 @@ babel==2.14.0
     # via
     #   pydata-sphinx-theme
     #   sphinx
-backports-zoneinfo[tzdata]==0.2.1; python_version < '3.9'
+backports-zoneinfo[tzdata]==0.2.1
     # via
     #   -r requirements/test.txt
     #   celery

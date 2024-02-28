@@ -14,7 +14,7 @@ asgiref==3.7.2
     #   django
 attrs==23.2.0
     # via -r requirements/base.txt
-backports-zoneinfo[tzdata]==0.2.1; python_version < '3.9'
+backports-zoneinfo[tzdata]==0.2.1
     # via
     #   -r requirements/base.txt
     #   celery
@@ -62,11 +62,19 @@ click-repl==0.3.0
     #   celery
 code-annotations==1.6.0
     # via -r requirements/test.in
+<<<<<<< HEAD
+coverage[toml]==7.4.2
+    # via
+    #   -r requirements/test.in
+    #   pytest-cov
+cryptography==42.0.4
+=======
 coverage[toml]==7.4.3
     # via
     #   -r requirements/test.in
     #   pytest-cov
 cryptography==42.0.5
+>>>>>>> upstream/main
     # via
     #   -r requirements/base.txt
     #   pyjwt
