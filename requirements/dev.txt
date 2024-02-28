@@ -12,13 +12,18 @@ asgiref==3.7.2
     # via
     #   -r requirements/quality.txt
     #   django
-astroid==3.0.3
+astroid==3.1.0
     # via
     #   -r requirements/quality.txt
     #   pylint
     #   pylint-celery
 attrs==23.2.0
     # via -r requirements/quality.txt
+backports-zoneinfo[tzdata]==0.2.1
+    # via
+    #   -r requirements/quality.txt
+    #   celery
+    #   kombu
 billiard==4.2.0
     # via
     #   -r requirements/quality.txt
@@ -79,11 +84,11 @@ code-annotations==1.6.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
-coverage[toml]==7.4.2
+coverage[toml]==7.4.3
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
-cryptography==42.0.4
+cryptography==42.0.5
     # via
     #   -r requirements/quality.txt
     #   pyjwt
@@ -186,6 +191,10 @@ importlib-metadata==7.0.1
     # via
     #   -r requirements/quality.txt
     #   twine
+importlib-resources==6.1.2
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
 iniconfig==2.0.0
     # via
     #   -r requirements/quality.txt
@@ -243,7 +252,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/quality.txt
-newrelic==9.6.0
+newrelic==9.7.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -317,7 +326,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.0.3
+pylint==3.1.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -350,7 +359,7 @@ pyproject-hooks==1.0.0
     #   -r requirements/pip-tools.txt
     #   build
     #   pip-tools
-pytest==8.0.1
+pytest==8.0.2
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -422,7 +431,7 @@ sqlparse==0.4.4
     #   -r requirements/quality.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.1.0
+stevedore==5.2.0
     # via
     #   -r requirements/quality.txt
     #   code-annotations
@@ -455,7 +464,7 @@ types-requests==2.31.0.20240218
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-typing-extensions==4.9.0
+typing-extensions==4.10.0
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -482,7 +491,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.25.0
+virtualenv==20.25.1
     # via
     #   -r requirements/ci.txt
     #   tox

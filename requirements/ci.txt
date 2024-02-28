@@ -30,9 +30,9 @@ tox==3.28.0
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/ci.in
-typing-extensions==4.9.0
+typing-extensions==4.10.0
     # via
     #   grimp
     #   import-linter
-virtualenv==20.25.0
+virtualenv==20.25.1
     # via tox
