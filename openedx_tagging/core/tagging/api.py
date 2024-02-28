@@ -67,6 +67,14 @@ def get_taxonomy(taxonomy_id: int) -> Taxonomy | None:
     return taxonomy.cast() if taxonomy else None
 
 
+def get_taxonomy_by_export_id(taxonomy_export_id: str) -> Taxonomy | None:
+    """
+    Returns a Taxonomy cast to the appropriate subclass which has the given export ID.
+    """
+    taxonomy = Taxonomy.objects.filter(export_id=taxonomy_export_id).first()
+    return taxonomy.cast() if taxonomy else None
+
+
 def get_taxonomies(enabled=True) -> QuerySet[Taxonomy]:
     """
     Returns a queryset containing the enabled taxonomies, sorted by name.
