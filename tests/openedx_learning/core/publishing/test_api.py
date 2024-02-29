@@ -72,7 +72,7 @@ class LearningPackageTestCase(TestCase):
         # Auto-generated datetime checking...
         assert isinstance(package.created, datetime)
         assert package.created == package.updated
-        # assert package.created.tzinfo == timezone.utc
+        assert package.created.tzinfo == timezone.utc
 
         # Should be auto-generated
         assert isinstance(package.uuid, UUID)
