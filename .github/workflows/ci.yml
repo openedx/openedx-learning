@@ -13,6 +13,7 @@ jobs:
     name: tests
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]  # Add macos-latest later?
         python-version: ['3.8','3.12']
