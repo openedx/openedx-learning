@@ -94,6 +94,7 @@ cryptography==42.0.5
     # via
     #   -r requirements/quality.txt
     #   pyjwt
+    #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
 diff-cover==8.0.3

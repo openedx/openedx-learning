@@ -82,6 +82,7 @@ cryptography==42.0.5
     # via
     #   -r requirements/test.txt
     #   pyjwt
+    #   secretstorage
 ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.3.8
