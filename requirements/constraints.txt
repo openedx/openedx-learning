@@ -9,11 +9,11 @@
 # linking to it here is good.
 
 # Common constraints for edx repos
--c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
+# -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
 
 # tox>4.0.0 isn't yet compatible with many tox plugins, causing CI failures in almost all repos.
 # Details can be found in this discussion: https://github.com/tox-dev/tox/discussions/1810
 tox<4.0.0
 
-# Develop primarily on Django 3.2, but we'll want to start testing against 4.2
-Django<4.0
+Django<5.0
+backports-zoneinfo[tzdata]; python_version < '3.9'
