@@ -70,7 +70,7 @@ cryptography==42.0.5
     # via
     #   -r requirements/base.txt
     #   pyjwt
-ddt==1.7.1
+ddt==1.7.2
     # via -r requirements/test.in
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
@@ -188,7 +188,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-pytest==8.0.2
+pytest==8.1.0
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -197,7 +197,7 @@ pytest-cov==4.1.0
     # via -r requirements/test.in
 pytest-django==4.8.0
     # via -r requirements/test.in
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
     # via
     #   -r requirements/base.txt
     #   celery
