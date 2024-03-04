@@ -24,12 +24,13 @@ backports-zoneinfo[tzdata]==0.2.1 ; python_version < "3.9"
     #   -c requirements/constraints.txt
     #   -r requirements/quality.txt
     #   celery
+    #   django
     #   kombu
 billiard==4.2.0
     # via
     #   -r requirements/quality.txt
     #   celery
-build==1.0.3
+build==1.1.1
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
@@ -105,9 +106,8 @@ distlib==0.3.8
     # via
     #   -r requirements/ci.txt
     #   virtualenv
-django==3.2.24
+django==4.2.10
     # via
-    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -c requirements/constraints.txt
     #   -r requirements/quality.txt
     #   django-crum
@@ -284,7 +284,7 @@ pbr==6.0.0
     #   stevedore
 pip-tools==7.4.0
     # via -r requirements/pip-tools.txt
-pkginfo==1.9.6
+pkginfo==1.10.0
     # via
     #   -r requirements/quality.txt
     #   twine
@@ -367,7 +367,7 @@ pyproject-hooks==1.0.0
     #   -r requirements/pip-tools.txt
     #   build
     #   pip-tools
-pytest==8.0.2
+pytest==8.1.0
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -376,7 +376,7 @@ pytest-cov==4.1.0
     # via -r requirements/quality.txt
 pytest-django==4.8.0
     # via -r requirements/quality.txt
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
     # via
     #   -r requirements/quality.txt
     #   celery
@@ -387,7 +387,6 @@ python-slugify==8.0.4
 pytz==2024.1
     # via
     #   -r requirements/quality.txt
-    #   django
     #   djangorestframework
 pyyaml==6.0.1
     # via
@@ -413,7 +412,7 @@ rfc3986==2.0.0
     # via
     #   -r requirements/quality.txt
     #   twine
-rich==13.7.0
+rich==13.7.1
     # via
     #   -r requirements/quality.txt
     #   twine

@@ -14,6 +14,7 @@ backports-zoneinfo[tzdata]==0.2.1 ; python_version < "3.9"
     # via
     #   -c requirements/constraints.txt
     #   celery
+    #   django
     #   kombu
 billiard==4.2.0
     # via celery
@@ -42,9 +43,8 @@ click-repl==0.3.0
     # via celery
 cryptography==42.0.5
     # via pyjwt
-django==3.2.24
+django==4.2.10
     # via
-    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -c requirements/constraints.txt
     #   -r requirements/base.in
     #   django-crum
@@ -94,12 +94,10 @@ pymongo==3.13.0
     # via edx-opaque-keys
 pynacl==1.5.0
     # via edx-django-utils
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
     # via celery
 pytz==2024.1
-    # via
-    #   django
-    #   djangorestframework
+    # via djangorestframework
 requests==2.31.0
     # via edx-drf-extensions
 rules==3.3
