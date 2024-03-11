@@ -16,7 +16,7 @@ grimp==3.2
     # via import-linter
 import-linter==2.0
     # via -r requirements/ci.in
-packaging==23.2
+packaging==24.0
     # via tox
 platformdirs==4.2.0
     # via virtualenv
