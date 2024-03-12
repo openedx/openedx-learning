@@ -84,7 +84,7 @@ cryptography==42.0.5
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==4.2.10
+django==4.2.11
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
@@ -137,7 +137,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==5.10.1
+edx-django-utils==5.11.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -163,7 +163,7 @@ imagesize==1.4.1
     # via sphinx
 import-linter==2.0
     # via -r requirements/test.txt
-importlib-metadata==7.0.1
+importlib-metadata==7.0.2
     # via sphinx
 iniconfig==2.0.0
     # via
@@ -184,7 +184,7 @@ markupsafe==2.1.5
     #   jinja2
 mock==5.1.0
     # via -r requirements/test.txt
-mypy==1.8.0
+mypy==1.9.0
     # via -r requirements/test.txt
 mypy-extensions==1.0.0
     # via
@@ -198,7 +198,7 @@ newrelic==9.7.0
     #   edx-django-utils
 nh3==0.2.15
     # via readme-renderer
-packaging==23.2
+packaging==24.0
     # via
     #   -r requirements/test.txt
     #   pydata-sphinx-theme
@@ -248,7 +248,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.1.0
+pytest==8.1.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -354,7 +354,7 @@ types-pyyaml==6.0.12.12
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.20240218
+types-requests==2.31.0.20240310
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
