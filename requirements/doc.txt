@@ -28,6 +28,7 @@ backports-zoneinfo[tzdata]==0.2.1 ; python_version < "3.9"
     #   -r requirements/test.txt
     #   celery
     #   django
+    #   djangorestframework
     #   kombu
 beautifulsoup4==4.12.3
     # via pydata-sphinx-theme
@@ -72,9 +73,9 @@ click-repl==0.3.0
     # via
     #   -r requirements/test.txt
     #   celery
-code-annotations==1.6.0
+code-annotations==1.7.0
     # via -r requirements/test.txt
-coverage[toml]==7.4.3
+coverage[toml]==7.4.4
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -117,7 +118,7 @@ django-waffle==4.1.0
     #   -r requirements/test.txt
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.14.0
+djangorestframework==3.15.0
     # via
     #   -r requirements/test.txt
     #   drf-jwt
@@ -192,7 +193,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.7.0
+newrelic==9.7.1
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -266,10 +267,7 @@ python-slugify==8.0.4
     #   -r requirements/test.txt
     #   code-annotations
 pytz==2024.1
-    # via
-    #   -r requirements/test.txt
-    #   babel
-    #   djangorestframework
+    # via babel
 pyyaml==6.0.1
     # via
     #   -r requirements/test.txt
@@ -349,12 +347,12 @@ types-pytz==2024.1.0.20240203
     # via
     #   -r requirements/test.txt
     #   django-stubs
-types-pyyaml==6.0.12.12
+types-pyyaml==6.0.12.20240311
     # via
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.20240310
+types-requests==2.31.0.20240311
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
@@ -391,5 +389,5 @@ wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-zipp==3.17.0
+zipp==3.18.1
     # via importlib-metadata
