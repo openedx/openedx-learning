@@ -425,3 +425,67 @@ def register_content_models(
     return PublishableContentModelRegistry.register(
         content_model_cls, content_version_model_cls
     )
+
+
+def prune_versions(publishable_entity_id: int, num_versions_to_keep: int):
+    """
+    Delete old PublishableEntityVersions that are no longer needed.
+
+    We use this function to remove old data that we no longer need. This
+    function only deletes PublishableEntityVersions, and relies on other models
+    to cascade those deletions when that happens.
+
+    When pruning, we will preserve the following:
+
+    1. The current Draft version.
+    2. Every PublishableEntityVersions that has ever been published.
+    3. PublishableEntityVersions that were created on or after the ``before``
+       argument.
+
+    The hard part about pruning is determining which Content are safe to delete.
+
+    Say we have this list of PublishableEntityVersions.
+    - Components knows how to prune unused Content for Content that it has
+      associations with, but other things might use that same content. Esp. if
+      we model large collections of files as someting other than Components.
+
+    If we're willing to allow Content pruning to be slow, we can have a
+    pluggable thing where multiple apps get to contribute querysets to exclude
+    from pruning.
+
+    So Content pruning would do this:
+    * Get a queryset for all content in a LearningPackage
+    * but exclude a pluggable list of querysets
+    * Components would be the first one to implement it. But FileSystems could
+      as well. In any event, it's a contents-level concern.
+
+    So this prune gets called more periodically, say after a publish.
+
+    """
+    current_draft_version_id = Draft.objects \
+                                    .values('version_id') \
+                                    .get(entity_id=publishable_entity_id) \
+
+    # Note: This is a qset, not a list.
+    published_version_ids = PublishLogRecord.objects \
+                                            .filter(entity_id=publishable_entity_id) \
+                                            .values('new_version_id')
+
+    # These are all the PublishableEntityVersions that are considered safe to
+    # prune from the system point of view, i.e. it won't include versions that
+    # are the current draft or have ever been live.
+    prunable_versions = PublishableEntityVersion \
+                            .objects \
+                            .filter(
+                                publishable_entity_id=publishable_entity_id,
+                            ).exclude(
+                                id=current_draft_version_id,
+                                id__in=published_version_ids,
+                            )
+
+    # This is where we decide how many prunable versions we're going to keep for
+    # backup purposes. Having information like this is (rarely) used to revert
+    # to an older version when content gets accidentally deleted or corrupted.
+    versions_to_prune = prunable_versions.order_by('-id')[num_versions_to_keep:]
+
+    versions_to_prune.delete()
