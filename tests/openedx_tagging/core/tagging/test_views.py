@@ -774,7 +774,8 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                     "lineage": ["Eukaryota", "Fungi"],
                                     "can_delete_objecttag": True,
                                 },
-                            ]
+                            ],
+                            "export_id": "life_on_earth"
                         },
                         {
                             "name": "User Authors",
@@ -787,6 +788,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                     "can_delete_objecttag": True,
                                 },
                             ],
+                            "export_id": "user_authors"
                         }
                     ],
                 },
@@ -937,6 +939,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                     "can_delete_objecttag": True,
                                 },
                             ],
+                            "export_id": "user_authors",
                         }
                     ],
                 },

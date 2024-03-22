@@ -775,6 +775,7 @@ class ObjectTag(models.Model):
     taxonomy = models.ForeignKey(
         Taxonomy,
         null=True,
+        blank=True,
         default=None,
         on_delete=models.SET_NULL,
         help_text=_(
@@ -792,11 +793,11 @@ class ObjectTag(models.Model):
             "Tag associated with this object tag. Provides the tag's 'value' if set."
         ),
     )
-    _name = case_insensitive_char_field(
+    _export_id = case_insensitive_char_field(
         max_length=255,
         help_text=_(
             "User-facing label used for this tag, stored in case taxonomy is (or becomes) null."
-            " If the taxonomy field is set, then taxonomy.name takes precedence over this field."
+            " If the taxonomy field is set, then taxonomy.export_id takes precedence over this field."
         ),
     )
     _value = case_insensitive_char_field(
@@ -821,9 +822,9 @@ class ObjectTag(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.pk:  # This is a new instance:
-            # Set _name and _value automatically on creation, if they weren't set:
-            if not self._name and self.taxonomy:
-                self._name = self.taxonomy.name
+            # Set _export_id and _value automatically on creation, if they weren't set:
+            if not self._export_id and self.taxonomy:
+                self._export_id = self.taxonomy.export_id
             if not self._value and self.tag:
                 self._value = self.tag.value
 
@@ -837,24 +838,28 @@ class ObjectTag(models.Model):
         """
         User-facing string representation of an ObjectTag.
         """
-        return f"<{self.__class__.__name__}> {self.object_id}: {self.name}={self.value}"
+        if self.taxonomy:
+            name = self.taxonomy.name
+        else:
+            name = self.export_id
+        return f"<{self.__class__.__name__}> {self.object_id}: {name}={self.value}"
 
     @property
-    def name(self) -> str:
+    def export_id(self) -> str:
         """
         Returns this tag's name/label.
 
         If taxonomy is set, then returns its name.
-        Otherwise, returns the cached _name field.
+        Otherwise, returns the cached _export_id field.
         """
-        return self.taxonomy.name if self.taxonomy else self._name
+        return self.taxonomy.export_id if self.taxonomy else self._export_id
 
-    @name.setter
-    def name(self, name: str):
+    @export_id.setter
+    def export_id(self, export_id: str):
         """
-        Stores to the _name field.
+        Stores to the _export_id field.
         """
-        self._name = name
+        self._export_id = export_id
 
     @property
     def value(self) -> str:
@@ -899,8 +904,8 @@ class ObjectTag(models.Model):
             # was deleted, but we still preserve this _value here in case the Taxonomy or Tag get re-created in future.
             if self._value == "":
                 raise ValidationError("Invalid _value - empty string")
-        if self.taxonomy and self.taxonomy.name != self._name:
-            raise ValidationError("ObjectTag's _name is out of sync with Taxonomy.name")
+        if self.taxonomy and self.taxonomy.export_id != self._export_id:
+            raise ValidationError("ObjectTag's _export_id is out of sync with Taxonomy.name")
         if "," in self.object_id or "*" in self.object_id:
             # Some APIs may use these characters to allow wildcard matches or multiple matches in the future.
             raise ValidationError("Object ID contains invalid characters")
@@ -930,10 +935,17 @@ class ObjectTag(models.Model):
         # We used to have code here that would try to find a new taxonomy if the current taxonomy has been deleted.
         # But for now that's removed, as it risks things like linking a tag to the wrong org's taxonomy.
 
-        # Sync the stored _name with the taxonomy.name
-        if self.taxonomy and self._name != self.taxonomy.name:
-            self.name = self.taxonomy.name
+        # Sync the stored _export_id with the taxonomy.name
+        if self.taxonomy and self._export_id != self.taxonomy.export_id:
+            self.export_id = self.taxonomy.export_id
             changed = True
+
+        # Sync taxonomy with matching _export_id
+        if not self.taxonomy:
+            taxonomy = Taxonomy.objects.filter(export_id=self.export_id).first()
+            if taxonomy:
+                self.taxonomy = taxonomy
+                changed = True
 
         # Closed taxonomies require a tag matching _value
         if self.taxonomy and not self.taxonomy.allow_free_text and not self.tag_id:
@@ -965,5 +977,5 @@ class ObjectTag(models.Model):
         self.taxonomy = object_tag.taxonomy
         self.object_id = object_tag.object_id
         self._value = object_tag._value  # pylint: disable=protected-access
-        self._name = object_tag._name  # pylint: disable=protected-access
+        self._export_id = object_tag._export_id  # pylint: disable=protected-access
         return self

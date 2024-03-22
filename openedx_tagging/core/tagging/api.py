@@ -153,14 +153,21 @@ def get_children_tags(
     return taxonomy.cast().get_filtered_tags(parent_tag_value=parent_tag_value, depth=1)
 
 
-def resync_object_tags(object_tags: QuerySet | None = None) -> int:
+def resync_object_tags(
+    object_tags: QuerySet | None = None,
+    taxonomy: Taxonomy | None = None,
+) -> int:
     """
     Reconciles ObjectTag entries with any changes made to their associated taxonomies and tags.
 
-    By default, we iterate over all ObjectTags. Pass a filtered ObjectTags queryset to limit which tags are resynced.
+    By default, we iterate over all ObjectTags.
+    Pass a filtered ObjectTags queryset or `taxonomy` to limit which tags are resynced.
     """
     if not object_tags:
         object_tags = ObjectTag.objects.select_related("tag", "taxonomy")
+
+    if taxonomy:
+        object_tags = object_tags.filter(taxonomy=taxonomy)
 
     num_changed = 0
     for object_tag in object_tags:
@@ -205,7 +212,7 @@ def get_object_tags(
             Value("\t"),
             output_field=models.CharField(),
         )))
-        .annotate(taxonomy_name=Coalesce(F("taxonomy__name"), F("_name")))
+        .annotate(taxonomy_name=Coalesce(F("taxonomy__name"), F("_export_id")))
         # Sort first by taxonomy name, then by tag value in tree order:
         .order_by("taxonomy_name", "sort_key")
     )
@@ -274,11 +281,58 @@ def delete_object_tags(object_id: str):
     tags.delete()
 
 
+def _check_new_tag_count(
+    new_tag_count: int,
+    taxonomy: Taxonomy,
+    object_id: str,
+    taxonomy_export_id: str | None = None,
+) -> None:
+    """
+    Checks if the new count of tags for the object is equal or less than 100
+    """
+    # Exclude to avoid counting the tags that are going to be updated
+    if taxonomy:
+        current_count = ObjectTag.objects.filter(object_id=object_id).exclude(taxonomy_id=taxonomy.id).count()
+    else:
+        current_count = ObjectTag.objects.filter(object_id=object_id).exclude(_export_id=taxonomy_export_id).count()
+
+    if current_count + new_tag_count > 100:
+        raise ValueError(
+            _("Cannot add more than 100 tags to ({object_id}).").format(object_id=object_id)
+        )
+
+
+def _get_current_tags(
+    taxonomy: Taxonomy,
+    tags: list[str],
+    object_id: str,
+    object_tag_class: type[ObjectTag] = ObjectTag,
+    taxonomy_export_id: str | None = None,
+) -> list[ObjectTag]:
+    """
+    Returns the current object tags of the related object_id with taxonomy
+    """
+    ObjectTagClass = object_tag_class
+    if taxonomy:
+        if not taxonomy.allow_multiple and len(tags) > 1:
+            raise ValueError(_("Taxonomy ({name}) only allows one tag per object.").format(name=taxonomy.name))
+        current_tags = list(
+           ObjectTagClass.objects.filter(taxonomy=taxonomy, object_id=object_id)
+        )
+    else:
+        current_tags = list(
+            ObjectTagClass.objects.filter(_export_id=taxonomy_export_id, object_id=object_id)
+        )
+    return current_tags
+
+
 def tag_object(
     object_id: str,
     taxonomy: Taxonomy,
     tags: list[str],
     object_tag_class: type[ObjectTag] = ObjectTag,
+    create_invalid: bool = False,
+    taxonomy_export_id: str | None = None,
 ) -> None:
     """
     Replaces the existing ObjectTag entries for the given taxonomy + object_id
@@ -292,37 +346,29 @@ def tag_object(
     Raised Tag.DoesNotExist if the proposed tags are invalid for this taxonomy.
     Preserves existing (valid) tags, adds new (valid) tags, and removes omitted
     (or invalid) tags.
+
+    TODO: Add comments about export_id
     """
-
-    def _check_new_tag_count(new_tag_count: int) -> None:
-        """
-        Checks if the new count of tags for the object is equal or less than 100
-        """
-        # Exclude self.id to avoid counting the tags that are going to be updated
-        current_count = ObjectTag.objects.filter(object_id=object_id).exclude(taxonomy_id=taxonomy.id).count()
-
-        if current_count + new_tag_count > 100:
-            raise ValueError(
-                _("Cannot add more than 100 tags to ({object_id}).").format(object_id=object_id)
-            )
-
     if not isinstance(tags, list):
         raise ValueError(_("Tags must be a list, not {type}.").format(type=type(tags).__name__))
 
     ObjectTagClass = object_tag_class
-    taxonomy = taxonomy.cast()  # Make sure we're using the right subclass. This is a no-op if we are already.
     tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
 
-    _check_new_tag_count(len(tags))
+    if taxonomy:
+        taxonomy = taxonomy.cast()  # Make sure we're using the right subclass. This is a no-op if we are already.
 
-    if not taxonomy.allow_multiple and len(tags) > 1:
-        raise ValueError(_("Taxonomy ({name}) only allows one tag per object.").format(name=taxonomy.name))
-
-    current_tags = list(
-        ObjectTagClass.objects.filter(taxonomy=taxonomy, object_id=object_id)
+    _check_new_tag_count(len(tags), taxonomy, object_id, taxonomy_export_id)
+    current_tags = _get_current_tags(
+        taxonomy,
+        tags,
+        object_id,
+        object_tag_class,
+        taxonomy_export_id
     )
+
     updated_tags = []
-    if taxonomy.allow_free_text:
+    if taxonomy and taxonomy.allow_free_text:
         for tag_value in tags:
             object_tag_index = next((i for (i, t) in enumerate(current_tags) if t.value == tag_value), -1)
             if object_tag_index >= 0:
@@ -334,18 +380,45 @@ def tag_object(
     else:
         # Handle closed taxonomies:
         for tag_value in tags:
-            tag = taxonomy.tag_for_value(tag_value)  # Will raise Tag.DoesNotExist if the value is invalid.
-            object_tag_index = next((i for (i, t) in enumerate(current_tags) if t.tag_id == tag.id), -1)
-            if object_tag_index >= 0:
-                # This tag is already applied.
-                object_tag = current_tags.pop(object_tag_index)
-                if object_tag._value != tag.value:  # pylint: disable=protected-access
-                    # The ObjectTag's cached '_value' is out of sync with the Tag, so update it:
-                    object_tag._value = tag.value  # pylint: disable=protected-access
+            tag = None
+            # When export, sometimes, the value has a space at the beginning and end.
+            tag_value = tag_value.strip()
+            if taxonomy:
+                try:
+                    tag = taxonomy.tag_for_value(tag_value)  # Will raise Tag.DoesNotExist if the value is invalid.
+                except Tag.DoesNotExist as e:
+                    if not create_invalid:
+                        raise e
+
+            if tag:
+                # Tag exists in the taxonomy
+                object_tag_index = next((i for (i, t) in enumerate(current_tags) if t.tag_id == tag.id), -1)
+                if object_tag_index >= 0:
+                    # This tag is already applied.
+                    object_tag = current_tags.pop(object_tag_index)
+                    if object_tag._value != tag.value:  # pylint: disable=protected-access
+                        # The ObjectTag's cached '_value' is out of sync with the Tag, so update it:
+                        object_tag._value = tag.value  # pylint: disable=protected-access
+                        updated_tags.append(object_tag)
+                else:
+                    # We are newly applying this tag:
+                    object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, tag=tag)
                     updated_tags.append(object_tag)
+            elif taxonomy:
+                # Tag doesn't exist in the taxonomy and `create_invalid` is True
+                object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, _value=tag_value)
+                updated_tags.append(object_tag)
             else:
-                # We are newly applying this tag:
-                object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, tag=tag)
+                # Taxonomy is None (also tag doesn't exist)
+                if taxonomy_export_id:
+                    object_tag = ObjectTagClass(
+                        taxonomy=None,
+                        object_id=object_id,
+                        _value=tag_value,
+                        _export_id=taxonomy_export_id
+                    )
+                else:
+                    raise ValueError(_("`taxonomy_export_id` can't be None if `taxonomy` is None"))
                 updated_tags.append(object_tag)
 
     # Save all updated tags at once to avoid partial updates

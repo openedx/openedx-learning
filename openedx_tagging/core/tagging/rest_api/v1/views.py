@@ -25,6 +25,7 @@ from ...api import (
     get_taxonomy,
     tag_object,
     update_tag_in_taxonomy,
+    resync_object_tags,
 )
 from ...data import TagDataQuerySet
 from ...import_export.api import export_tags, import_tags
@@ -340,6 +341,7 @@ class TaxonomyView(ModelViewSet):
 
             if import_success:
                 serializer = self.get_serializer(taxonomy)
+                resync_object_tags(taxonomy=taxonomy)
                 return Response(serializer.data)
             else:
                 return Response(task.log, status=status.HTTP_400_BAD_REQUEST)

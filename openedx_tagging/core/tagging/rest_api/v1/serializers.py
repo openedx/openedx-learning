@@ -180,10 +180,11 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
             tax_entry = next((t for t in taxonomies if t["taxonomy_id"] == obj_tag.taxonomy_id), None)
             if tax_entry is None:
                 tax_entry = {
-                    "name": obj_tag.name,
+                    "name": obj_tag.taxonomy.name if obj_tag.taxonomy else None,
                     "taxonomy_id": obj_tag.taxonomy_id,
                     "can_tag_object": self._can(can_tag_object_perm, obj_tag),
-                    "tags": []
+                    "tags": [],
+                    "export_id": obj_tag.export_id,
                 }
                 taxonomies.append(tax_entry)
             tax_entry["tags"].append(ObjectTagMinimalSerializer(obj_tag, context=self.context).data)

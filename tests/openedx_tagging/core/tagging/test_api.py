@@ -364,7 +364,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.tag_id == tag_list[index].id
                 assert object_tag._value == tag_list[index].value  # pylint: disable=protected-access
                 assert object_tag.taxonomy == self.taxonomy
-                assert object_tag.name == self.taxonomy.name
+                assert object_tag.export_id == self.taxonomy.export_id
                 assert object_tag.object_id == "biology101"
 
     def test_tag_object_free_text(self) -> None:
@@ -381,7 +381,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         object_tag = object_tags[0]
         object_tag.full_clean()  # Should not raise any ValidationErrors
         assert object_tag.taxonomy == self.free_text_taxonomy
-        assert object_tag.name == self.free_text_taxonomy.name
+        assert object_tag.export_id == self.free_text_taxonomy.export_id
         assert object_tag._value == "Eukaryota Xenomorph"  # pylint: disable=protected-access
         assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
         assert object_tag.object_id == "biology101"
@@ -505,7 +505,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.value == tags[index]
                 assert not object_tag.is_deleted
                 assert object_tag.taxonomy == self.language_taxonomy
-                assert object_tag.name == self.language_taxonomy.name
+                assert object_tag.export_id == self.language_taxonomy.export_id
                 assert object_tag.object_id == "biology101"
 
     @override_settings(LANGUAGES=test_languages)
@@ -538,7 +538,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 assert object_tag.tag.value == user.username
                 assert not object_tag.is_deleted
                 assert object_tag.taxonomy == self.user_taxonomy
-                assert object_tag.name == self.user_taxonomy.name
+                assert object_tag.export_id == self.user_taxonomy.export_id
                 assert object_tag.object_id == "biology101"
 
     def test_tag_object_model_system_taxonomy_invalid(self) -> None:
@@ -603,15 +603,15 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tagging_api.tag_object(object_id=obj_id, taxonomy=disabled_taxonomy, tags=["disabled tag"])
 
         def get_object_tags():
-            return [f"{ot.name}: {'>'.join(ot.get_lineage())}" for ot in tagging_api.get_object_tags(obj_id)]
+            return [f"{ot.export_id}: {'>'.join(ot.get_lineage())}" for ot in tagging_api.get_object_tags(obj_id)]
 
         # Before deleting/disabling:
         assert get_object_tags() == [
-            "Disabled Taxonomy: disabled tag",
-            "Free Text: has a notochord",
-            "Languages: English",
-            "Life on Earth: Archaea>DPANN",
-            "Life on Earth: Eukaryota>Animalia>Chordata",
+            "7-disabled-taxonomy: disabled tag",
+            "6-free-text: has a notochord",
+            "-1-languages: English",
+            "life_on_earth: Archaea>DPANN",
+            "life_on_earth: Eukaryota>Animalia>Chordata"
         ]
 
         # Now delete and disable things:
@@ -622,8 +622,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Now retrieve the tags again:
         assert get_object_tags() == [
-            "Languages: English",
-            "Life on Earth: Eukaryota>Animalia>Chordata",
+            "-1-languages: English",
+            "life_on_earth: Eukaryota>Animalia>Chordata",
         ]
 
     @ddt.data(

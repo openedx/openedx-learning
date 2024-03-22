@@ -119,7 +119,7 @@ class TestTagTaxonomyMixin:
             ObjectTag.objects.create(
                 object_id="limit_tag_count",
                 taxonomy=taxonomy,
-                _name=taxonomy.name,
+                _export_id=taxonomy.export_id,
                 _value="Dummy Tag",
             )
             dummy_taxonomies.append(taxonomy)
@@ -725,20 +725,20 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             == "<ObjectTagTestSubclass> object:id:1: Life on Earth=Bacteria"
         )
 
-    def test_object_tag_name(self):
-        # ObjectTag's name defaults to its taxonomy's name
-        assert self.object_tag.name == self.taxonomy.name
+    def test_object_tag_export_id(self):
+        # ObjectTag's export_id defaults to its taxonomy's export_id
+        assert self.object_tag.export_id == self.taxonomy.export_id
 
-        # Even if we overwrite the name, it still uses the taxonomy's name
-        self.object_tag.name = "Another tag"
-        assert self.object_tag.name == self.taxonomy.name
+        # Even if we overwrite the export_id, it still uses the taxonomy's export_id
+        self.object_tag.export_id = "another-taxonomy"
+        assert self.object_tag.export_id == self.taxonomy.export_id
         self.object_tag.save()
-        assert self.object_tag.name == self.taxonomy.name
+        assert self.object_tag.export_id == self.taxonomy.export_id
 
-        # But if the taxonomy is deleted, then the object_tag's name reverts to our cached name
+        # But if the taxonomy is deleted, then the object_tag's export_id reverts to our cached export_id
         self.taxonomy.delete()
         self.object_tag.refresh_from_db()
-        assert self.object_tag.name == "Another tag"
+        assert self.object_tag.export_id == "another-taxonomy"
 
     def test_object_tag_value(self):
         # ObjectTag's value defaults to its tag's value
