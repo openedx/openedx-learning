@@ -153,21 +153,14 @@ def get_children_tags(
     return taxonomy.cast().get_filtered_tags(parent_tag_value=parent_tag_value, depth=1)
 
 
-def resync_object_tags(
-    object_tags: QuerySet | None = None,
-    taxonomy: Taxonomy | None = None,
-) -> int:
+def resync_object_tags(object_tags: QuerySet | None = None) -> int:
     """
     Reconciles ObjectTag entries with any changes made to their associated taxonomies and tags.
 
-    By default, we iterate over all ObjectTags.
-    Pass a filtered ObjectTags queryset or `taxonomy` to limit which tags are resynced.
+    By default, we iterate over all ObjectTags. Pass a filtered ObjectTags queryset to limit which tags are resynced.
     """
     if not object_tags:
         object_tags = ObjectTag.objects.select_related("tag", "taxonomy")
-
-    if taxonomy:
-        object_tags = object_tags.filter(taxonomy=taxonomy)
 
     num_changed = 0
     for object_tag in object_tags:
@@ -357,6 +350,8 @@ def tag_object(
 
     if taxonomy:
         taxonomy = taxonomy.cast()  # Make sure we're using the right subclass. This is a no-op if we are already.
+    elif not taxonomy_export_id:
+        raise ValueError(_("`taxonomy_export_id` can't be None if `taxonomy` is None"))
 
     _check_new_tag_count(len(tags), taxonomy, object_id, taxonomy_export_id)
     current_tags = _get_current_tags(
@@ -411,15 +406,15 @@ def tag_object(
             else:
                 # Taxonomy is None (also tag doesn't exist)
                 if taxonomy_export_id:
+                    # This will always be true, since it is verified at the beginning of the function.
+                    # This condition is placed by the type checks.
                     object_tag = ObjectTagClass(
                         taxonomy=None,
                         object_id=object_id,
                         _value=tag_value,
                         _export_id=taxonomy_export_id
                     )
-                else:
-                    raise ValueError(_("`taxonomy_export_id` can't be None if `taxonomy` is None"))
-                updated_tags.append(object_tag)
+                    updated_tags.append(object_tag)
 
     # Save all updated tags at once to avoid partial updates
     with transaction.atomic():

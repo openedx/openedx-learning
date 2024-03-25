@@ -316,6 +316,8 @@ class TaxonomyView(ModelViewSet):
 
             if import_success:
                 serializer = self.get_serializer(taxonomy)
+                # We need to resync all object tags because, there may be tags that do not have a taxonomy.
+                resync_object_tags()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
                 taxonomy.delete()
@@ -341,7 +343,8 @@ class TaxonomyView(ModelViewSet):
 
             if import_success:
                 serializer = self.get_serializer(taxonomy)
-                resync_object_tags(taxonomy=taxonomy)
+                # We need to resync all object tags because, there may be tags that do not have a taxonomy.
+                resync_object_tags()
                 return Response(serializer.data)
             else:
                 return Response(task.log, status=status.HTTP_400_BAD_REQUEST)
