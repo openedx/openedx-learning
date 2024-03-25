@@ -23,9 +23,9 @@ from ...api import (
     get_object_tags,
     get_taxonomies,
     get_taxonomy,
+    resync_object_tags,
     tag_object,
     update_tag_in_taxonomy,
-    resync_object_tags,
 )
 from ...data import TagDataQuerySet
 from ...import_export.api import export_tags, import_tags
