@@ -276,7 +276,7 @@ def delete_object_tags(object_id: str):
 
 def _check_new_tag_count(
     new_tag_count: int,
-    taxonomy: Taxonomy,
+    taxonomy: Taxonomy | None,
     object_id: str,
     taxonomy_export_id: str | None = None,
 ) -> None:
@@ -296,7 +296,7 @@ def _check_new_tag_count(
 
 
 def _get_current_tags(
-    taxonomy: Taxonomy,
+    taxonomy: Taxonomy | None,
     tags: list[str],
     object_id: str,
     object_tag_class: type[ObjectTag] = ObjectTag,
@@ -321,7 +321,7 @@ def _get_current_tags(
 
 def tag_object(
     object_id: str,
-    taxonomy: Taxonomy,
+    taxonomy: Taxonomy | None,
     tags: list[str],
     object_tag_class: type[ObjectTag] = ObjectTag,
     create_invalid: bool = False,
@@ -339,8 +339,11 @@ def tag_object(
     Raised Tag.DoesNotExist if the proposed tags are invalid for this taxonomy.
     Preserves existing (valid) tags, adds new (valid) tags, and removes omitted
     (or invalid) tags.
+    create_invalid: You can create invalid tags and avoid the previous behavior using.
 
-    TODO: Add comments about export_id
+    taxonomy_export_id: You can create object tags without taxonomy using this param
+    and `taxonomy` as None. You need to use the taxonomy.export_id, so you can resycn
+    this object tag if the taxonomy is created in the future.
     """
     if not isinstance(tags, list):
         raise ValueError(_("Tags must be a list, not {type}.").format(type=type(tags).__name__))

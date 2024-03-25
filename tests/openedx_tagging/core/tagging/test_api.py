@@ -10,7 +10,7 @@ import pytest
 from django.test import TestCase, override_settings
 
 import openedx_tagging.core.tagging.api as tagging_api
-from openedx_tagging.core.tagging.models import ObjectTag, Taxonomy
+from openedx_tagging.core.tagging.models import ObjectTag, Tag, Taxonomy
 
 from .test_models import TestTagTaxonomyMixin, get_tag
 from .utils import pretty_format_tags
@@ -329,6 +329,73 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         changed = tagging_api.resync_object_tags()
         assert changed == 0
 
+    def test_resync_object_tags_without_tag(self) -> None:
+        # Create object tag with an invalid tag
+        tag_value = "Eukaryota Xenomorph"
+        tagging_api.tag_object(
+            object_id="biology101",
+            taxonomy=self.taxonomy,
+            tags=[tag_value],
+            create_invalid=True,
+        )
+
+        object_tags = tagging_api.get_object_tags("biology101")
+        assert len(object_tags) == 0
+
+        # Create tag
+        tag = Tag(
+            taxonomy=self.taxonomy,
+            value=tag_value,
+        )
+        tag.save()
+
+        # Resync object tags
+        changed = tagging_api.resync_object_tags()
+        assert changed == 1
+
+        object_tags = tagging_api.get_object_tags("biology101")
+        assert len(object_tags) == 1
+        object_tag = object_tags[0]
+        assert object_tag.taxonomy == self.taxonomy
+        assert object_tag.tag == tag
+
+    def test_resync_object_tags_without_taxonomy(self) -> None:
+        # Create object tag with an invalid taxonomy
+        tag_value = "Eukaryota Xenomorph"
+        tagging_api.tag_object(
+            object_id="biology101",
+            taxonomy=None,
+            tags=[tag_value],
+            create_invalid=True,
+            taxonomy_export_id='taxonomy_test'
+        )
+
+        object_tags = tagging_api.get_object_tags("biology101")
+        assert len(object_tags) == 0
+
+        # Create taxonomy
+        new_taxonomy = tagging_api.create_taxonomy(
+            'Taxonomy_test',
+            export_id='taxonomy_test'
+        )
+        new_taxonomy.save()
+        # Create tag
+        tag = Tag(
+            taxonomy=new_taxonomy,
+            value=tag_value,
+        )
+        tag.save()
+
+        # Resync object tags
+        changed = tagging_api.resync_object_tags()
+        assert changed == 1
+
+        object_tags = tagging_api.get_object_tags("biology101")
+        assert len(object_tags) == 1
+        object_tag = object_tags[0]
+        assert object_tag.taxonomy == new_taxonomy
+        assert object_tag.tag == tag
+
     def test_tag_object(self):
         self.taxonomy.allow_multiple = True
 
@@ -395,6 +462,61 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         with pytest.raises(tagging_api.TagDoesNotExist) as excinfo:
             tagging_api.tag_object("biology101", self.taxonomy, ["Eukaryota Xenomorph"])
         assert "Tag matching query does not exist." in str(excinfo.value)
+
+    def test_tag_object_create_without_tag(self):
+        tagging_api.tag_object(
+            object_id="biology101",
+            taxonomy=self.taxonomy,
+            tags=["Eukaryota Xenomorph"],
+            create_invalid=True,
+        )
+        object_tags = tagging_api.get_object_tags(
+            "biology101",
+            include_deleted=True,
+        )
+        assert len(object_tags) == 1
+        object_tag = object_tags[0]
+        object_tag.full_clean()  # Should not raise any ValidationErrors
+        assert object_tag.taxonomy == self.taxonomy
+        assert object_tag.export_id == self.taxonomy.export_id
+        assert object_tag.tag is None
+        assert object_tag._value == "Eukaryota Xenomorph"  # pylint: disable=protected-access
+        assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
+        assert object_tag.object_id == "biology101"
+
+    def test_tag_object_create_without_taxonomy(self):
+        tagging_api.tag_object(
+            object_id="biology101",
+            taxonomy=None,
+            tags=["Eukaryota Xenomorph"],
+            create_invalid=True,
+            taxonomy_export_id='test_taxonomy'
+        )
+        object_tags = tagging_api.get_object_tags(
+            "biology101",
+            include_deleted=True,
+        )
+        assert len(object_tags) == 1
+        object_tag = object_tags[0]
+        object_tag.full_clean()  # Should not raise any ValidationErrors
+        assert object_tag.taxonomy is None
+        assert object_tag.export_id == 'test_taxonomy'
+        assert object_tag.tag is None
+        assert object_tag._value == "Eukaryota Xenomorph"  # pylint: disable=protected-access
+        assert object_tag.get_lineage() == ["Eukaryota Xenomorph"]
+        assert object_tag.object_id == "biology101"
+
+    def test_tag_object_taxonomy_export_error(self):
+        with self.assertRaises(ValueError) as exc:
+            tagging_api.tag_object(
+                object_id="biology101",
+                taxonomy=None,
+                tags=["Eukaryota Xenomorph"],
+                create_invalid=True,
+                taxonomy_export_id=None
+            )
+            assert exc.exception
+            assert "`taxonomy_export_id` can't be None if `taxonomy` is None" in str(exc.exception)
 
     def test_tag_object_string(self) -> None:
         with self.assertRaises(ValueError) as exc:
