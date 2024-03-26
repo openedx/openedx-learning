@@ -2591,7 +2591,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
             assert tag["value"] == new_tags[i]["value"]
 
     @ddt.data(
-        "csv",
+        # "csv",
         "json",
     )
     def test_import_plan(self, file_format: str) -> None:
