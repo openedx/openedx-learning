@@ -6,7 +6,7 @@
 #
 amqp==5.2.0
     # via kombu
-asgiref==3.7.2
+asgiref==3.8.1
     # via django
 attrs==23.2.0
     # via -r requirements/base.in
@@ -15,6 +15,7 @@ backports-zoneinfo[tzdata]==0.2.1 ; python_version < "3.9"
     #   -c requirements/constraints.txt
     #   celery
     #   django
+    #   djangorestframework
     #   kombu
 billiard==4.2.0
     # via celery
@@ -35,7 +36,7 @@ click==8.1.7
     #   click-plugins
     #   click-repl
     #   edx-django-utils
-click-didyoumean==0.3.0
+click-didyoumean==0.3.1
     # via celery
 click-plugins==1.1.1
     # via celery
@@ -76,7 +77,7 @@ idna==3.6
     # via requests
 kombu==5.3.5
     # via celery
-newrelic==9.7.0
+newrelic==9.7.1
     # via edx-django-utils
 pbr==6.0.0
     # via stevedore
@@ -96,8 +97,6 @@ pynacl==1.5.0
     # via edx-django-utils
 python-dateutil==2.9.0.post0
     # via celery
-pytz==2024.1
-    # via djangorestframework
 requests==2.31.0
     # via edx-drf-extensions
 rules==3.3
