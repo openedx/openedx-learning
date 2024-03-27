@@ -268,6 +268,13 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         with pytest.raises(ValidationError):
             api.add_tag_to_taxonomy(self.taxonomy, "first\tsecond")
 
+    def test_no_csv_character(self):
+        with pytest.raises(ValidationError):
+            self.taxonomy.add_tag("tag 1; tag 2;")
+        # And via the API:
+        with pytest.raises(ValidationError):
+            api.add_tag_to_taxonomy(self.taxonomy, "tag 3; tag 4;")
+
     @ddt.data(
         ("test"),
         ("lightcast"),
@@ -799,7 +806,7 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         with pytest.raises(api.TagDoesNotExist):
             self.taxonomy.tag_for_value("Foobarensia")
 
-    def test_clean(self):
+    def test_clean_tag_in_taxonomy(self):
         # ObjectTags in a closed taxonomy require a tag in that taxonomy
         object_tag = ObjectTag(taxonomy=self.taxonomy, tag=Tag.objects.create(
             taxonomy=self.system_taxonomy,  # Different taxonomy
@@ -809,6 +816,22 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             object_tag.full_clean()
         object_tag.tag = self.tag
         object_tag._value = self.tag.value  # pylint: disable=protected-access
+        object_tag.full_clean()
+
+    def test_clean_invalid_value(self):
+        object_tag = ObjectTag(taxonomy=self.taxonomy, _value="")
+        with self.assertRaises(ValidationError) as exc:
+            object_tag.full_clean()
+            assert exc.exception
+            assert "Invalid _value - empty string" in str(exc.exception)
+
+        object_tag = ObjectTag(taxonomy=self.taxonomy, _value="tag 1; tag2; tag3")
+        with self.assertRaises(ValidationError) as exc:
+            object_tag.full_clean()
+            assert exc.exception
+            assert "Invalid _value - ';' it's not allowed" in str(exc.exception)
+
+        object_tag = ObjectTag(taxonomy=self.taxonomy, _value="tag 1")
         object_tag.full_clean()
 
     def test_tag_case(self) -> None:
