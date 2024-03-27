@@ -14,8 +14,25 @@ def migrate_export_id(apps, schema_editor):
             object_tag.save(update_fields=["_export_id"])
 
 
-def reverse(apps, schema_editor):
+def reverse_export_id(apps, schema_editor):
     pass
+
+
+def migrate_language_export_id(apps, schema_editor):
+    Taxonomy = apps.get_model("oel_tagging", "Taxonomy")
+    language_taxonomy = Taxonomy.objects.get(id=-1)
+    language_taxonomy.export_id = 'languages-v1'
+    language_taxonomy.save(update_fields=["export_id"])
+
+
+def reverse_language_export_id(apps, schema_editor):
+    """
+    Return to old export_id
+    """
+    Taxonomy = apps.get_model("oel_tagging", "Taxonomy")
+    language_taxonomy = Taxonomy.objects.get(id=-1)
+    language_taxonomy.export_id = '-1-languages'
+    language_taxonomy.save(update_fields=["export_id"])
 
 
 class Migration(migrations.Migration):
@@ -30,7 +47,7 @@ class Migration(migrations.Migration):
             old_name='_name',
             new_name='_export_id',
         ),
-        migrations.RunPython(migrate_export_id, reverse),
+        migrations.RunPython(migrate_export_id, reverse_export_id),
         migrations.AlterField(
             model_name='objecttag',
             name='taxonomy',
@@ -41,4 +58,5 @@ class Migration(migrations.Migration):
             name='_export_id',
             field=openedx_learning.lib.fields.MultiCollationCharField(db_collations={'mysql': 'utf8mb4_unicode_ci', 'sqlite': 'NOCASE'}, help_text='User-facing label used for this tag, stored in case taxonomy is (or becomes) null. If the taxonomy field is set, then taxonomy.export_id takes precedence over this field.', max_length=255),
         ),
+        migrations.RunPython(migrate_language_export_id, reverse_language_export_id),
     ]

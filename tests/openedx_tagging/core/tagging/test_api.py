@@ -731,7 +731,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert get_object_tags() == [
             "7-disabled-taxonomy: disabled tag",
             "6-free-text: has a notochord",
-            "-1-languages: English",
+            "languages-v1: English",
             "life_on_earth: Archaea>DPANN",
             "life_on_earth: Eukaryota>Animalia>Chordata"
         ]
@@ -744,7 +744,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Now retrieve the tags again:
         assert get_object_tags() == [
-            "-1-languages: English",
+            "languages-v1: English",
             "life_on_earth: Eukaryota>Animalia>Chordata",
         ]
 

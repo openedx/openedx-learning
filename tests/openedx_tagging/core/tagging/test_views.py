@@ -175,7 +175,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "can_change_taxonomy": False,
                     "can_delete_taxonomy": False,
                     "can_tag_object": False,
-                    "export_id": "-1-languages",
+                    "export_id": "languages-v1",
                 },
                 {
                     "id": taxonomy.id,
@@ -298,7 +298,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             can_change_taxonomy=False,
             can_delete_taxonomy=False,
             can_tag_object=False,
-            export_id='-1-languages',
+            export_id='languages-v1',
         )
 
     @ddt.data(
