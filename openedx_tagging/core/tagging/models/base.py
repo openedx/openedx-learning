@@ -19,7 +19,7 @@ from typing_extensions import Self  # Until we upgrade to python 3.11
 from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field, case_sensitive_char_field
 
 from ..data import TagDataQuerySet
-from .utils import TAGS_CSV_SEPARATOR, ConcatNull
+from .utils import RESERVED_TAG_CHARS, ConcatNull
 
 log = logging.getLogger(__name__)
 
@@ -191,11 +191,11 @@ class Tag(models.Model):
         self.value = self.value.strip()
         if self.external_id:
             self.external_id = self.external_id.strip()
-        # Don't allow \t (tab) character at all, as we use it for lineage in database queries
-        if "\t" in self.value:
-            raise ValidationError("Tags in a taxonomy cannot contain a TAB character.")
-        if TAGS_CSV_SEPARATOR in self.value:
-            raise ValidationError(f"Tags cannot contain a '{TAGS_CSV_SEPARATOR}' character.")
+
+        for reserved_char in RESERVED_TAG_CHARS:
+            if reserved_char in self.value:
+                raise ValidationError(f"Tags cannot contain a '{reserved_char}' character.")
+
         if self.external_id and "\t" in self.external_id:
             raise ValidationError("Tag external ID cannot contain a TAB character.")
 
@@ -906,8 +906,9 @@ class ObjectTag(models.Model):
             # was deleted, but we still preserve this _value here in case the Taxonomy or Tag get re-created in future.
             if self._value == "":
                 raise ValidationError("Invalid _value - empty string")
-            if TAGS_CSV_SEPARATOR in self._value:
-                raise ValidationError(f"Invalid _value - '{TAGS_CSV_SEPARATOR}' is not allowed")
+            for reserved_char in RESERVED_TAG_CHARS:
+                if reserved_char in self.value:
+                    raise ValidationError(f"Invalid _value - '{reserved_char}' is not allowed")
         if self.taxonomy and self.taxonomy.export_id != self._export_id:
             raise ValidationError("ObjectTag's _export_id is out of sync with Taxonomy.export_id")
         if "," in self.object_id or "*" in self.object_id:

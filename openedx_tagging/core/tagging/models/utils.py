@@ -4,13 +4,15 @@ Utilities for tagging and taxonomy models
 from django.db.models import Aggregate, CharField
 from django.db.models.expressions import Func
 
-# This is NOT the separator of export csv file.
-# This is the separator of the individual group of tags per taxonomy.
-# eg. languages-v1: en;es;fr
-#
-# This character is not allowed to be placed in the value of a tag,
-# to avoid inconsistencies when exporting and importing tags.
-TAGS_CSV_SEPARATOR = ';'
+RESERVED_TAG_CHARS = [
+    '\t',  # Used in the database to separate tag levels in the "lineage" field
+           # e.g. lineage="Earth\tNorth America\tMexico\tMexico City"
+    ' > ',  # Used in the search index and Instantsearch frontend to separate tag levels
+            # e.g. tags_level3="Earth > North America > Mexico > Mexico City"
+    ';',   # Used in CSV exports to separate multiple tags from the same taxonomy
+           # e.g. languages-v1: en;es;fr
+]
+TAGS_CSV_SEPARATOR = RESERVED_TAG_CHARS[2]
 
 
 class ConcatNull(Func):  # pylint: disable=abstract-method

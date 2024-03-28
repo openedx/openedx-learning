@@ -13,6 +13,7 @@ from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.models.utils import RESERVED_TAG_CHARS
 
 from .utils import pretty_format_tags
 
@@ -257,23 +258,13 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         t2 = api.add_tag_to_taxonomy(self.taxonomy, "\t value\n")
         assert t2.value == "value"
 
-    def test_no_tab(self):
-        """
-        Test that tags cannot contain a TAB character, which we use as a field
-        separator in the database when computing lineage.
-        """
-        with pytest.raises(ValidationError):
-            self.taxonomy.add_tag("has\ttab")
-        # And via the API:
-        with pytest.raises(ValidationError):
-            api.add_tag_to_taxonomy(self.taxonomy, "first\tsecond")
-
-    def test_no_csv_character(self):
-        with pytest.raises(ValidationError):
-            self.taxonomy.add_tag("tag 1; tag 2;")
-        # And via the API:
-        with pytest.raises(ValidationError):
-            api.add_tag_to_taxonomy(self.taxonomy, "tag 3; tag 4;")
+    def test_reserved_chars(self):
+        for reserved_char in RESERVED_TAG_CHARS:
+            with pytest.raises(ValidationError):
+                self.taxonomy.add_tag(f"tag 1 {reserved_char} tag 2")
+            # And via the API:
+            with pytest.raises(ValidationError):
+                api.add_tag_to_taxonomy(self.taxonomy, f"tag 3 {reserved_char} tag 4")
 
     @ddt.data(
         ("test"),
@@ -825,11 +816,12 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             assert exc.exception
             assert "Invalid _value - empty string" in str(exc.exception)
 
-        object_tag = ObjectTag(taxonomy=self.taxonomy, _value="tag 1; tag2; tag3")
-        with self.assertRaises(ValidationError) as exc:
-            object_tag.full_clean()
-            assert exc.exception
-            assert "Invalid _value - ';' it's not allowed" in str(exc.exception)
+        for reserved_char in RESERVED_TAG_CHARS:
+            object_tag = ObjectTag(taxonomy=self.taxonomy, _value=f"tag 1 {reserved_char} tag 2")
+            with self.assertRaises(ValidationError) as exc:
+                object_tag.full_clean()
+                assert exc.exception
+                assert f"Invalid _value - '{reserved_char}' it's not allowed" in str(exc.exception)
 
         object_tag = ObjectTag(taxonomy=self.taxonomy, _value="tag 1")
         object_tag.full_clean()
