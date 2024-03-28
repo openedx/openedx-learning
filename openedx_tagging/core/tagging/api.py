@@ -342,7 +342,7 @@ def tag_object(
     create_invalid: You can create invalid tags and avoid the previous behavior using.
 
     taxonomy_export_id: You can create object tags without taxonomy using this param
-    and `taxonomy` as None. You need to use the taxonomy.export_id, so you can resycn
+    and `taxonomy` as None. You need to use the taxonomy.export_id, so you can resync
     this object tag if the taxonomy is created in the future.
     """
     if not isinstance(tags, list):
@@ -354,7 +354,7 @@ def tag_object(
     if taxonomy:
         taxonomy = taxonomy.cast()  # Make sure we're using the right subclass. This is a no-op if we are already.
     elif not taxonomy_export_id:
-        raise ValueError(_("`taxonomy_export_id` can't be None if `taxonomy` is None"))
+        raise ValueError("`taxonomy_export_id` can't be None if `taxonomy` is None")
 
     _check_new_tag_count(len(tags), taxonomy, object_id, taxonomy_export_id)
     current_tags = _get_current_tags(

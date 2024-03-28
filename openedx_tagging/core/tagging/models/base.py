@@ -195,7 +195,7 @@ class Tag(models.Model):
         if "\t" in self.value:
             raise ValidationError("Tags in a taxonomy cannot contain a TAB character.")
         if TAGS_CSV_SEPARATOR in self.value:
-            raise ValidationError("Tags in a taxonomy cannot contain a ';' character.")
+            raise ValidationError(f"Tags cannot contain a '{TAGS_CSV_SEPARATOR}' character.")
         if self.external_id and "\t" in self.external_id:
             raise ValidationError("Tag external ID cannot contain a TAB character.")
 
@@ -907,9 +907,9 @@ class ObjectTag(models.Model):
             if self._value == "":
                 raise ValidationError("Invalid _value - empty string")
             if TAGS_CSV_SEPARATOR in self._value:
-                raise ValidationError("Invalid _value - ';' it's not allowed")
+                raise ValidationError(f"Invalid _value - '{TAGS_CSV_SEPARATOR}' is not allowed")
         if self.taxonomy and self.taxonomy.export_id != self._export_id:
-            raise ValidationError("ObjectTag's _export_id is out of sync with Taxonomy.name")
+            raise ValidationError("ObjectTag's _export_id is out of sync with Taxonomy.export_id")
         if "," in self.object_id or "*" in self.object_id:
             # Some APIs may use these characters to allow wildcard matches or multiple matches in the future.
             raise ValidationError("Object ID contains invalid characters")
