@@ -175,7 +175,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "can_change_taxonomy": False,
                     "can_delete_taxonomy": False,
                     "can_tag_object": False,
-                    "export_id": "-1-languages",
+                    "export_id": "languages-v1",
                 },
                 {
                     "id": taxonomy.id,
@@ -298,7 +298,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             can_change_taxonomy=False,
             can_delete_taxonomy=False,
             can_tag_object=False,
-            export_id='-1-languages',
+            export_id='languages-v1',
         )
 
     @ddt.data(
@@ -774,7 +774,8 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                     "lineage": ["Eukaryota", "Fungi"],
                                     "can_delete_objecttag": True,
                                 },
-                            ]
+                            ],
+                            "export_id": "life_on_earth"
                         },
                         {
                             "name": "User Authors",
@@ -787,6 +788,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                     "can_delete_objecttag": True,
                                 },
                             ],
+                            "export_id": "user_authors"
                         }
                     ],
                 },
@@ -937,6 +939,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                     "can_delete_objecttag": True,
                                 },
                             ],
+                            "export_id": "user_authors",
                         }
                     ],
                 },

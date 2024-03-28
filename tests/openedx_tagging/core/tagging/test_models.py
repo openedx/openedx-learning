@@ -13,6 +13,7 @@ from django.test.testcases import TestCase
 
 from openedx_tagging.core.tagging import api
 from openedx_tagging.core.tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
+from openedx_tagging.core.tagging.models.utils import RESERVED_TAG_CHARS
 
 from .utils import pretty_format_tags
 
@@ -119,7 +120,7 @@ class TestTagTaxonomyMixin:
             ObjectTag.objects.create(
                 object_id="limit_tag_count",
                 taxonomy=taxonomy,
-                _name=taxonomy.name,
+                _export_id=taxonomy.export_id,
                 _value="Dummy Tag",
             )
             dummy_taxonomies.append(taxonomy)
@@ -257,16 +258,13 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
         t2 = api.add_tag_to_taxonomy(self.taxonomy, "\t value\n")
         assert t2.value == "value"
 
-    def test_no_tab(self):
-        """
-        Test that tags cannot contain a TAB character, which we use as a field
-        separator in the database when computing lineage.
-        """
-        with pytest.raises(ValidationError):
-            self.taxonomy.add_tag("has\ttab")
-        # And via the API:
-        with pytest.raises(ValidationError):
-            api.add_tag_to_taxonomy(self.taxonomy, "first\tsecond")
+    def test_reserved_chars(self):
+        for reserved_char in RESERVED_TAG_CHARS:
+            with pytest.raises(ValidationError):
+                self.taxonomy.add_tag(f"tag 1 {reserved_char} tag 2")
+            # And via the API:
+            with pytest.raises(ValidationError):
+                api.add_tag_to_taxonomy(self.taxonomy, f"tag 3 {reserved_char} tag 4")
 
     @ddt.data(
         ("test"),
@@ -725,20 +723,20 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             == "<ObjectTagTestSubclass> object:id:1: Life on Earth=Bacteria"
         )
 
-    def test_object_tag_name(self):
-        # ObjectTag's name defaults to its taxonomy's name
-        assert self.object_tag.name == self.taxonomy.name
+    def test_object_tag_export_id(self):
+        # ObjectTag's export_id defaults to its taxonomy's export_id
+        assert self.object_tag.export_id == self.taxonomy.export_id
 
-        # Even if we overwrite the name, it still uses the taxonomy's name
-        self.object_tag.name = "Another tag"
-        assert self.object_tag.name == self.taxonomy.name
+        # Even if we overwrite the export_id, it still uses the taxonomy's export_id
+        self.object_tag.export_id = "another-taxonomy"
+        assert self.object_tag.export_id == self.taxonomy.export_id
         self.object_tag.save()
-        assert self.object_tag.name == self.taxonomy.name
+        assert self.object_tag.export_id == self.taxonomy.export_id
 
-        # But if the taxonomy is deleted, then the object_tag's name reverts to our cached name
+        # But if the taxonomy is deleted, then the object_tag's export_id reverts to our cached export_id
         self.taxonomy.delete()
         self.object_tag.refresh_from_db()
-        assert self.object_tag.name == "Another tag"
+        assert self.object_tag.export_id == "another-taxonomy"
 
     def test_object_tag_value(self):
         # ObjectTag's value defaults to its tag's value
@@ -799,7 +797,7 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         with pytest.raises(api.TagDoesNotExist):
             self.taxonomy.tag_for_value("Foobarensia")
 
-    def test_clean(self):
+    def test_clean_tag_in_taxonomy(self):
         # ObjectTags in a closed taxonomy require a tag in that taxonomy
         object_tag = ObjectTag(taxonomy=self.taxonomy, tag=Tag.objects.create(
             taxonomy=self.system_taxonomy,  # Different taxonomy
@@ -809,6 +807,23 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             object_tag.full_clean()
         object_tag.tag = self.tag
         object_tag._value = self.tag.value  # pylint: disable=protected-access
+        object_tag.full_clean()
+
+    def test_clean_invalid_value(self):
+        object_tag = ObjectTag(taxonomy=self.taxonomy, _value="")
+        with self.assertRaises(ValidationError) as exc:
+            object_tag.full_clean()
+            assert exc.exception
+            assert "Invalid _value - empty string" in str(exc.exception)
+
+        for reserved_char in RESERVED_TAG_CHARS:
+            object_tag = ObjectTag(taxonomy=self.taxonomy, _value=f"tag 1 {reserved_char} tag 2")
+            with self.assertRaises(ValidationError) as exc:
+                object_tag.full_clean()
+                assert exc.exception
+                assert f"Invalid _value - '{reserved_char}' it's not allowed" in str(exc.exception)
+
+        object_tag = ObjectTag(taxonomy=self.taxonomy, _value="tag 1")
         object_tag.full_clean()
 
     def test_tag_case(self) -> None:

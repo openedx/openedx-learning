@@ -34,7 +34,7 @@ class ObjectTagAdmin(admin.ModelAdmin):
     """
     fields = ["object_id", "taxonomy", "tag", "_value"]
     autocomplete_fields = ["tag"]
-    list_display = ["object_id", "name", "value"]
+    list_display = ["object_id", "export_id", "value"]
     readonly_fields = ["object_id"]
 
     def has_add_permission(self, request):
