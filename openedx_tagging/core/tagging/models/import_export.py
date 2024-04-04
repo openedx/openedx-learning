@@ -3,7 +3,6 @@ Models used by the Taxonomy import/export tasks.
 """
 
 from datetime import datetime
-from enum import Enum
 
 from django.db import models
 from django.utils.translation import gettext as _
@@ -12,15 +11,15 @@ from django.utils.translation import gettext_lazy
 from .base import Taxonomy
 
 
-class TagImportTaskState(Enum):
+class TagImportTaskState(models.TextChoices):
     """
     Enumerates the states that a TagImportTask can be in.
     """
-    LOADING_DATA = "loading_data"
-    PLANNING = "planning"
-    EXECUTING = "executing"
-    SUCCESS = "success"
-    ERROR = "error"
+    LOADING_DATA = "loading_data", _("Loading Data")
+    PLANNING = "planning", _("Planning")
+    EXECUTING = "executing", _("Executing")
+    SUCCESS = "success", _("Success")
+    ERROR = "error", _("Error")
 
 
 class TagImportTask(models.Model):
@@ -42,7 +41,7 @@ class TagImportTask(models.Model):
 
     status = models.CharField(
         max_length=20,
-        choices=[(status, status.value) for status in TagImportTaskState],
+        choices=TagImportTaskState,
         help_text=gettext_lazy("Task status"),
     )
 
