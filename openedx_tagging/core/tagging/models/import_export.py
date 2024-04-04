@@ -15,11 +15,11 @@ class TagImportTaskState(models.TextChoices):
     """
     Enumerates the states that a TagImportTask can be in.
     """
-    LOADING_DATA = "loading_data", _("Loading Data")
-    PLANNING = "planning", _("Planning")
-    EXECUTING = "executing", _("Executing")
-    SUCCESS = "success", _("Success")
-    ERROR = "error", _("Error")
+    LOADING_DATA = "loading_data", gettext_lazy("Loading Data")
+    PLANNING = "planning", gettext_lazy("Planning")
+    EXECUTING = "executing", gettext_lazy("Executing")
+    SUCCESS = "success", gettext_lazy("Success")
+    ERROR = "error", gettext_lazy("Error")
 
 
 class TagImportTask(models.Model):
@@ -41,7 +41,7 @@ class TagImportTask(models.Model):
 
     status = models.CharField(
         max_length=20,
-        choices=TagImportTaskState,
+        choices=TagImportTaskState.choices,
         help_text=gettext_lazy("Task status"),
     )
 
