@@ -63,7 +63,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
-code-annotations==1.7.0
+code-annotations==1.8.0
     # via -r requirements/test.in
 coverage[toml]==7.4.4
     # via
@@ -248,9 +248,9 @@ types-pyyaml==6.0.12.20240311
     # via
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.20240403
+types-requests==2.31.0.20240406
     # via djangorestframework-stubs
-typing-extensions==4.10.0
+typing-extensions==4.11.0
     # via
     #   -r requirements/base.txt
     #   asgiref
