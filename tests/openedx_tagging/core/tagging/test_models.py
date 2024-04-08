@@ -40,6 +40,7 @@ class TestTagTaxonomyMixin:
         self.language_taxonomy = LanguageTaxonomy.objects.get(name="Languages")
         self.user_taxonomy = Taxonomy.objects.get(name="User Authors").cast()
         self.free_text_taxonomy = api.create_taxonomy(name="Free Text", allow_free_text=True)
+        self.import_taxonomy = Taxonomy.objects.get(name="Import Taxonomy Test")
 
         # References to some tags:
         self.archaea = get_tag("Archaea")

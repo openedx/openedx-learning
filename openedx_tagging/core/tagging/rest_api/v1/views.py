@@ -40,7 +40,6 @@ from .serializers import (
     ObjectTagsByTaxonomySerializer,
     ObjectTagSerializer,
     ObjectTagUpdateBodySerializer,
-    ObjectTagUpdateQueryParamsSerializer,
     TagDataSerializer,
     TaxonomyExportQueryParamsSerializer,
     TaxonomyImportBodySerializer,
@@ -501,8 +500,8 @@ class ObjectTagView(
         Update ObjectTags that belong to a given object_id
 
         Pass a list of Tag ids or Tag values to be applied to an object id in the
-        body `tag` parameter. Passing an empty list will remove all tags from
-        the object id.
+        body `tag` parameter, by each taxonomy. Passing an empty list will remove all tags from
+        the object id on an specific taxonomy.
 
         **Example Body Requests**
 
@@ -511,54 +510,75 @@ class ObjectTagView(
         **Example Body Requests**
         ```json
         {
-            "tags": [1, 2, 3]
+            "tagsData": [
+                {
+                    "taxonomy": 1,
+                    "tags": [1, 2, 3]
+                },
+                {
+                    "taxonomy": 1,
+                    "tags": [1, 2, 3]
+                }
+            ],
         },
         {
-            "tags": ["Tag 1", "Tag 2"]
+            "tagsData": [
+                {
+                    "taxonomy": 1,
+                    "tags": ["Tag 1", "Tag 2"]
+                },
+            ]
         },
         {
-            "tags": []
+            "tagsData": [
+                {
+                    "taxonomy": 1,
+                    "tags": []
+                },
+            ]
         }
         """
-
         partial = kwargs.pop('partial', False)
         if partial:
             raise MethodNotAllowed("PATCH", detail="PATCH not allowed")
 
-        query_params = ObjectTagUpdateQueryParamsSerializer(
-            data=request.query_params.dict()
-        )
-        query_params.is_valid(raise_exception=True)
-        taxonomy = query_params.validated_data.get("taxonomy", None)
-        taxonomy = taxonomy.cast()
-
-        perm = "oel_tagging.can_tag_object"
-
         object_id = kwargs.pop('object_id')
-        perm_obj = ObjectTagPermissionItem(
-            taxonomy=taxonomy,
-            object_id=object_id,
-        )
-
-        if not request.user.has_perm(
-            perm,
-            # The obj arg expects a model, but we are passing an object
-            perm_obj,  # type: ignore[arg-type]
-        ):
-            raise PermissionDenied(
-                "You do not have permission to change object tags for this taxonomy or object_id."
-            )
-
+        perm = "oel_tagging.can_tag_object"
         body = ObjectTagUpdateBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
-        tags = body.data.get("tags", [])
-        try:
-            tag_object(object_id, taxonomy, tags)
-        except TagDoesNotExist as e:
-            raise ValidationError from e
-        except ValueError as e:
-            raise ValidationError from e
+        data = body.validated_data.get("tagsData", [])
+
+        if not data:
+            return self.retrieve(request, object_id)
+
+        # Check permissions
+        for tagsData in data:
+            taxonomy = tagsData.get("taxonomy")
+
+            perm_obj = ObjectTagPermissionItem(
+                taxonomy=taxonomy,
+                object_id=object_id,
+            )
+            if not request.user.has_perm(
+                perm,
+                # The obj arg expects a model, but we are passing an object
+                perm_obj,  # type: ignore[arg-type]
+            ):
+                raise PermissionDenied(
+                    f"You do not have permission to change object tags for {str(taxonomy)} or object_id."
+                )
+
+        # Tag object_id per taxonomy
+        for tagsData in data:
+            taxonomy = tagsData.get("taxonomy")
+            tags = tagsData.get("tags", [])
+            try:
+                tag_object(object_id, taxonomy, tags)
+            except TagDoesNotExist as e:
+                raise ValidationError from e
+            except ValueError as e:
+                raise ValidationError from e
 
         return self.retrieve(request, object_id)
 

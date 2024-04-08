@@ -191,22 +191,21 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
         return by_object
 
 
+class ObjectTagUpdateByTaxonomySerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer of a taxonomy item of ObjectTag UPDATE view.
+    """
+    taxonomy = serializers.PrimaryKeyRelatedField(
+        queryset=Taxonomy.objects.all(), required=True
+    )
+    tags = serializers.ListField(child=serializers.CharField(), required=True)
+
+
 class ObjectTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer of the body for the ObjectTag UPDATE view
     """
-
-    tags = serializers.ListField(child=serializers.CharField(), required=True)
-
-
-class ObjectTagUpdateQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
-    """
-    Serializer of the query params for the ObjectTag UPDATE view
-    """
-
-    taxonomy = serializers.PrimaryKeyRelatedField(
-        queryset=Taxonomy.objects.all(), required=True
-    )
+    tagsData = serializers.ListField(child=ObjectTagUpdateByTaxonomySerializer(), required=True)
 
 
 class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):  # pylint: disable=abstract-method
