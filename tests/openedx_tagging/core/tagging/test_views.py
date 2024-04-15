@@ -38,7 +38,7 @@ TAXONOMY_CREATE_IMPORT_URL = "/tagging/rest_api/v1/taxonomies/import/"
 
 OBJECT_TAGS_RETRIEVE_URL = "/tagging/rest_api/v1/object_tags/{object_id}/"
 OBJECT_TAG_COUNTS_URL = "/tagging/rest_api/v1/object_tag_counts/{object_id_pattern}/"
-OBJECT_TAGS_UPDATE_URL = "/tagging/rest_api/v1/object_tags/{object_id}/?taxonomy={taxonomy_id}"
+OBJECT_TAGS_UPDATE_URL = "/tagging/rest_api/v1/object_tags/{object_id}/"
 
 LANGUAGE_TAXONOMY_ID = -1
 
@@ -1049,14 +1049,44 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
         object_id = "abc"
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
 
-        response = self.client.put(url, {"tags": tag_values}, format="json")
+        data = [{
+            "taxonomy": taxonomy.pk,
+            "tags": tag_values,
+        }]
+
+        response = self.client.put(url, {"tagsData": data}, format="json")
         assert response.status_code == expected_status
         if status.is_success(expected_status):
             assert [t["value"] for t in response.data[object_id]["taxonomies"][0]["tags"]] == tag_values
             # And retrieving the object tags again should return an identical response:
             assert response.data == self.client.get(OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)).data
+
+    def test_tag_object_multiple_taxonomy(self):
+        self.client.force_authenticate(user=self.staff)
+
+        object_id = "abc"
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
+        tag_value_1 = ["Tag 4"]
+        tag_value_2 = ["Mammalia", "Fungi"]
+        data = [
+            {
+                "taxonomy": self.import_taxonomy.pk,
+                "tags": tag_value_1,
+            },
+            {
+                "taxonomy": self.taxonomy.pk,
+                "tags": tag_value_2,
+            },
+        ]
+
+        response = self.client.put(url, {"tagsData": data}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert [t["value"] for t in response.data[object_id]["taxonomies"][0]["tags"]] == tag_value_1
+        assert [t["value"] for t in response.data[object_id]["taxonomies"][1]["tags"]] == tag_value_2
+        # And retrieving the object tags again should return an identical response:
+        assert response.data == self.client.get(OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)).data
 
     @ddt.data(
         # Users and staff can clear tags
@@ -1089,9 +1119,14 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                 setattr(self.taxonomy, k, v)
             self.taxonomy.save()
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=self.taxonomy.pk)
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
 
-        response = self.client.put(url, {"tags": []}, format="json")
+        data = [{
+            "taxonomy": self.taxonomy.pk,
+            "tags": [],
+        }]
+
+        response = self.client.put(url, {"tagsData": data}, format="json")
         assert response.status_code == expected_status
         if status.is_success(expected_status):
             # Now there are no tags applied:
@@ -1102,6 +1137,47 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                 self.taxonomy.enabled = True
                 self.taxonomy.save()
             assert [ot.value for ot in api.get_object_tags(object_id=object_id)] == ["Fungi"]
+
+    def test_tag_object_clear_multiple_taxonomy(self):
+        object_id = "abc"
+        self.client.force_authenticate(user=self.staff)
+        api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
+        api.tag_object(object_id=object_id, taxonomy=self.import_taxonomy, tags=["Tag 4"])
+
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
+        data = [
+            {
+                "taxonomy": self.import_taxonomy.pk,
+                "tags": [],
+            },
+            {
+                "taxonomy": self.taxonomy.pk,
+                "tags": [],
+            },
+        ]
+
+        response = self.client.put(url, {"tagsData": data}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data[object_id]["taxonomies"] == []
+
+    def test_tag_object_clear_simple_taxonomy(self):
+        object_id = "abc"
+        self.client.force_authenticate(user=self.staff)
+        tag_values = ["Mammalia", "Fungi"]
+        api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=tag_values)
+        api.tag_object(object_id=object_id, taxonomy=self.import_taxonomy, tags=["Tag 4"])
+
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
+        data = [
+            {
+                "taxonomy": self.import_taxonomy.pk,
+                "tags": [],
+            },
+        ]
+
+        response = self.client.put(url, {"tagsData": data}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert [t["value"] for t in response.data[object_id]["taxonomies"][0]["tags"]] == tag_values
 
     @ddt.data(
         (None, status.HTTP_401_UNAUTHORIZED),
@@ -1114,9 +1190,14 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id="view_only", taxonomy_id=self.taxonomy.pk)
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id="view_only")
 
-        response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
+        data = [{
+            "taxonomy": self.taxonomy.pk,
+            "tags": ["Tag 1"],
+        }]
+
+        response = self.client.put(url, {"tagsData": data}, format="json")
         assert response.status_code == expected_status
         assert not status.is_success(expected_status)  # No success cases here
 
@@ -1127,22 +1208,31 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         object_id = "limit_tag_count"
         dummy_taxonomies = self.create_100_taxonomies()
 
-        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=self.taxonomy.pk)
+        url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
         self.client.force_authenticate(user=self.staff)
-        response = self.client.put(url, {"tags": ["Tag 1"]}, format="json")
+        response = self.client.put(url, {"tagsData": [{
+            "taxonomy": self.taxonomy.pk,
+            "tags": ["Tag 1"],
+        }]}, format="json")
         # Can't add another tag because the object already has 100 tags
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
         # The user can edit the tags that are already on the object
         for taxonomy in dummy_taxonomies:
-            url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
-            response = self.client.put(url, {"tags": ["New Tag"]}, format="json")
+            url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
+            response = self.client.put(url, {"tagsData": [{
+                "taxonomy": taxonomy.pk,
+                "tags": ["New Tag"],
+            }]}, format="json")
             assert response.status_code == status.HTTP_200_OK
 
         # Editing tags adding another one will fail
         for taxonomy in dummy_taxonomies:
-            url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id, taxonomy_id=taxonomy.pk)
-            response = self.client.put(url, {"tags": ["New Tag 1", "New Tag 2"]}, format="json")
+            url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
+            response = self.client.put(url, {"tagsData": [{
+                "taxonomy": taxonomy.pk,
+                "tags": ["New Tag 1", "New Tag 2"],
+            }]}, format="json")
             assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
