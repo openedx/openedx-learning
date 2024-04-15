@@ -565,9 +565,10 @@ class ObjectTagView(
                 # The obj arg expects a model, but we are passing an object
                 perm_obj,  # type: ignore[arg-type]
             ):
-                raise PermissionDenied(
-                    f"You do not have permission to change object tags for {str(taxonomy)} or object_id."
-                )
+                raise PermissionDenied(f"""
+                    You do not have permission to change object tags
+                    for Taxonomy: {str(taxonomy)} or Object: {object_id}.
+                """)
 
         # Tag object_id per taxonomy
         for tagsData in data:
