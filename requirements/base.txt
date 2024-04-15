@@ -73,9 +73,9 @@ edx-drf-extensions==10.3.0
     # via -r requirements/base.in
 edx-opaque-keys==2.5.1
     # via edx-drf-extensions
-idna==3.6
+idna==3.7
     # via requests
-kombu==5.3.6
+kombu==5.3.7
     # via celery
 newrelic==9.8.0
     # via edx-django-utils
@@ -105,7 +105,7 @@ semantic-version==2.10.0
     # via edx-drf-extensions
 six==1.16.0
     # via python-dateutil
-sqlparse==0.4.4
+sqlparse==0.5.0
     # via django
 stevedore==5.2.0
     # via
