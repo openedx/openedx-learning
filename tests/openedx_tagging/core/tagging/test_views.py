@@ -2617,6 +2617,51 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
         # Check if the taxonomy was not created
         assert not Taxonomy.objects.filter(name="Imported Taxonomy name").exists()
 
+    @ddt.data(
+        "csv",
+        "json",
+    )
+    def test_import_no_export_id(self, file_format) -> None:
+        """
+        Tests importing a taxonomy without providing an export ID, it should generate one
+        """
+        url = TAXONOMY_CREATE_IMPORT_URL
+        new_tags = [
+            {"id": "tag_1", "value": "Tag 1"},
+            {"id": "tag_2", "value": "Tag 2"},
+            {"id": "tag_3", "value": "Tag 3"},
+            {"id": "tag_4", "value": "Tag 4"},
+        ]
+        file = self._get_file(new_tags, file_format)
+        taxonomy_next_count = Taxonomy.objects.count() + 1
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(
+            url,
+            {
+                "taxonomy_name": "Imported Taxonomy name",
+                "taxonomy_description": "Imported Taxonomy description",
+                # "taxonomy_export_id": "imported_taxonomy_export_id",
+                "file": file,
+            },
+            format="multipart"
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # Check if the taxonomy was created
+        taxonomy = response.data
+        assert taxonomy["name"] == "Imported Taxonomy name"
+        assert taxonomy["description"] == "Imported Taxonomy description"
+        assert taxonomy["export_id"] == f"{taxonomy_next_count}-imported-taxonomy-name"
+
+        # Check if the tags were created
+        url = TAXONOMY_TAGS_URL.format(pk=taxonomy["id"])
+        response = self.client.get(url)
+        tags = response.data["results"]
+        assert len(tags) == len(new_tags)
+        for i, tag in enumerate(tags):
+            assert tag["value"] == new_tags[i]["value"]
+
 
 @ddt.ddt
 class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
