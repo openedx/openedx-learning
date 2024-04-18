@@ -342,7 +342,7 @@ class TaxonomyImportNewBodySerializer(TaxonomyImportBodySerializer):  # pylint: 
     """
     taxonomy_name = serializers.CharField(required=True)
     taxonomy_description = serializers.CharField(default="")
-    taxonomy_export_id = serializers.CharField(required=True)
+    taxonomy_export_id = serializers.CharField(required=False)
 
 
 class TagImportTaskSerializer(serializers.ModelSerializer):
