@@ -19,7 +19,7 @@ backports-zoneinfo[tzdata]==0.2.1 ; python_version < "3.9"
     #   kombu
 billiard==4.2.0
     # via celery
-celery==5.3.6
+celery==5.4.0
     # via -r requirements/base.in
 certifi==2024.2.2
     # via requests
@@ -77,7 +77,7 @@ idna==3.7
     # via requests
 kombu==5.3.7
     # via celery
-newrelic==9.8.0
+newrelic==9.9.0
     # via edx-django-utils
 pbr==6.0.0
     # via stevedore

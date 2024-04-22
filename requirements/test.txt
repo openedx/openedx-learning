@@ -26,7 +26,7 @@ billiard==4.2.0
     # via
     #   -r requirements/base.txt
     #   celery
-celery==5.3.6
+celery==5.4.0
     # via -r requirements/base.txt
 certifi==2024.2.2
     # via
@@ -125,7 +125,7 @@ edx-opaque-keys==2.5.1
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
-exceptiongroup==1.2.0
+exceptiongroup==1.2.1
     # via pytest
 grimp==3.2
     # via import-linter
@@ -153,7 +153,7 @@ mypy-extensions==1.0.0
     # via mypy
 mysqlclient==2.2.4
     # via -r requirements/test.in
-newrelic==9.8.0
+newrelic==9.9.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
@@ -163,7 +163,7 @@ pbr==6.0.0
     # via
     #   -r requirements/base.txt
     #   stevedore
-pluggy==1.4.0
+pluggy==1.5.0
     # via pytest
 prompt-toolkit==3.0.43
     # via
@@ -242,7 +242,7 @@ tomli==2.0.1
     #   import-linter
     #   mypy
     #   pytest
-types-pytz==2024.1.0.20240203
+types-pytz==2024.1.0.20240417
     # via django-stubs
 types-pyyaml==6.0.12.20240311
     # via
