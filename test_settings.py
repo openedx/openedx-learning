@@ -40,9 +40,9 @@ INSTALLED_APPS = [
     # django-rules based authorization
     'rules.apps.AutodiscoverRulesConfig',
     # Our own apps
-    "openedx_learning.core.components.apps.ComponentsConfig",
-    "openedx_learning.core.contents.apps.ContentsConfig",
-    "openedx_learning.core.publishing.apps.PublishingConfig",
+    "openedx_learning.apps.authoring.components.apps.ComponentsConfig",
+    "openedx_learning.apps.authoring.contents.apps.ContentsConfig",
+    "openedx_learning.apps.authoring.publishing.apps.PublishingConfig",
     "openedx_tagging.core.tagging.apps.TaggingConfig",
 ]
 

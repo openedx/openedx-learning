@@ -21,6 +21,24 @@ from django.db.transaction import atomic
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionContent
 
+# The public API that will be re-exported by openedx_learning.apps.authoring.api
+# is listed in the __all__ entries below. Internal helper functions that are
+# private to this module should start with an underscore. If a function does not
+# start with an underscore AND it is not in __all__, that function is considered
+# to be callable only by other apps in the authoring package.
+__all__ = [
+    "get_or_create_component_type",
+    "create_component",
+    "create_component_version",
+    "create_next_version",
+    "create_component_and_version",
+    "get_component",
+    "get_component_by_key",
+    "component_exists_by_key",
+    "get_components",
+    "create_component_version_content",
+]
+
 
 def get_or_create_component_type(namespace: str, name: str) -> ComponentType:
     """
@@ -308,6 +326,9 @@ def look_up_component_version_content(
 
     Can raise a django.core.exceptions.ObjectDoesNotExist error if there is no
     matching ComponentVersionContent.
+
+    This API call was only used in our proof-of-concept assets media server, and
+    I don't know if we wantto make it a part of the public interface.
     """
     queries = (
         Q(component_version__component__learning_package__key=learning_package_key)

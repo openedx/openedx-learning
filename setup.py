@@ -67,7 +67,7 @@ CHANGELOG = open(os.path.join(os.path.dirname(__file__), 'CHANGELOG.rst')).read(
 setup(
     name='openedx-learning',
     version=VERSION,
-    description="""An experiment.""",
+    description="""Open edX Learning Core and Tagging.""",
     long_description=README + '\n\n' + CHANGELOG,
     author='David Ormsbee',
     author_email='dave@tcril.org',

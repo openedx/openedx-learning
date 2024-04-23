@@ -3,10 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-openedx-learning
-====================
+Open edX Learning Core
+======================
 
-An experiment.
+The boring, foundational bits of a learning platform that are hard to get right at scale. Currently being developed for content storage.
 
 Contents:
 
@@ -17,10 +17,9 @@ Contents:
    getting_started
    testing
    internationalization
-   modules
    changelog
+   api_reference
    decisions
-
 
 Indices and tables
 ==================

@@ -9,8 +9,8 @@ class ComponentsConfig(AppConfig):
     Configuration for the Components Django application.
     """
 
-    name = "openedx_learning.core.components"
-    verbose_name = "Learning Core: Components"
+    name = "openedx_learning.apps.authoring.components"
+    verbose_name = "Learning Core > Authoring > Components"
     default_auto_field = "django.db.models.BigAutoField"
     label = "oel_components"
 

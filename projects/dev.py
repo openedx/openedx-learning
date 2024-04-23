@@ -31,9 +31,9 @@ INSTALLED_APPS = (
     "django.contrib.admin",
     "django.contrib.admindocs",
     # Learning Core Apps
-    "openedx_learning.core.components.apps.ComponentsConfig",
-    "openedx_learning.core.contents.apps.ContentsConfig",
-    "openedx_learning.core.publishing.apps.PublishingConfig",
+    "openedx_learning.apps.authoring.components.apps.ComponentsConfig",
+    "openedx_learning.apps.authoring.contents.apps.ContentsConfig",
+    "openedx_learning.apps.authoring.publishing.apps.PublishingConfig",
     # Learning Contrib Apps
     "openedx_learning.contrib.media_server.apps.MediaServerConfig",
     # Apps that don't belong in this repo in the long term, but are here to make
@@ -41,7 +41,7 @@ INSTALLED_APPS = (
     "olx_importer.apps.OLXImporterConfig",
     # REST API
     "rest_framework",
-    "openedx_learning.rest_api.apps.RESTAPIConfig",
+
     # django-rules based authorization
     'rules.apps.AutodiscoverRulesConfig',
     # Tagging Core Apps

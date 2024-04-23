@@ -1,16 +1,13 @@
-openedx-learning
-=============================
+Open edX Learning Core (and Tagging)
+====================================
 
 |pypi-badge| |ci-badge| |codecov-badge| |doc-badge| |pyversions-badge|
 |license-badge|
 
-This is experimentation/prototyping and not in any way production ready!
-------------------------------------------------------------------------
-
 Overview
 --------
 
-The Open edX Learning repository holds Django apps that represent core learning concepts and data models that have been extracted from edx-platform.
+The ``openedx_learning`` package holds Django apps that represent core learning concepts and data models that have been extracted from edx-platform. At the moment, this repo also contains the ``openedx_tagging`` package, but this will likely be moved out in the future.
 
 Motivation
 ----------
@@ -26,18 +23,16 @@ Parts
 ~~~~~
 
 * ``openedx_learning.lib`` is for shared utilities, and may include things like custom field types, plugin registration code, etc.
-* ``openedx_learning.core`` contains our Core Django apps, where foundational data structures and APIs will live.
+* ``openedx_learning.apps`` contains our Learning Core Django apps, where foundational data structures and APIs will live. The first of these is ``authoring``, which holds apps related to the editing and publishing of learning content.
 * ``openedx_tagging.core`` contains the core Tagging app, which provides data structures and apis for tagging Open edX objects.
 
-App Dependencies
-~~~~~~~~~~~~~~~~
+Learning Core Package Dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Anything can import from ``openedx_learning.lib``.
+Learning Core code should never import from ``edx-platform``.
 
-Core apps can import from each other, but cannot import from other apps outside of core. For those apps:
+We want to be very strict about dependency management internally as well. Please read the `.importlinter config file <.importlinter>`_ file and the `Python API Conventions ADR <docs/decisions/0016-python-public-api-conventions>`_ for more details.
 
-* ``learning_publishing`` has no dependencies. All the other apps depend on it.
-* ``learning_composition`` and ``learning_navigation`` both depend on ``learning_partitioning``
 
 Model Conventions
 ~~~~~~~~~~~~~~~~~
@@ -46,7 +41,7 @@ We have a few different identifier types in the schema, and we try to avoid ``_i
 
 * ``id`` is the auto-generated, internal row ID and primary key. This never changes. Data models should make foreign keys to this field, as per Django convention.
 * ``uuid`` is a randomly generated UUID4. This is the stable way to refer to a row/resource from an external service. This never changes. This is separate from ``id`` mostly because there are performance penalties when using UUIDs as primary keys with MySQL.
-* ``key`` is intended to be a case-sensitive, alphanumeric key, which holds some meaning to library clients. This is usually stable, but can be changed, depending on the business logic of the client. The apps in this repo should make no assumptions about it being stable. It can be used as a suffix.
+* ``key`` is intended to be a case-sensitive, alphanumeric key, which holds some meaning to library clients. This is usually stable, but can be changed, depending on the business logic of the client. The apps in this repo should make no assumptions about it being stable. It can be used as a suffix. Since ``key`` is a reserved name on certain database systems, the database field is ``_key``.
 * ``num`` is like ``key``, but for use when it's strictly numeric. It can also be used as a suffix.
 
 
@@ -61,7 +56,7 @@ The structure of this repo follows [OEP-0049](https://open-edx-proposals.readthe
 Code Overview
 -------------
 
-The ``openedx_learning.apps`` package contains all our Django applications. All apps are named with a ``learning_`` prefix to better avoid name conflicts, because Django's app namespace is flat. Apps will adhere to `OEP-0049: Django App Patterns <https://open-edx-proposals.readthedocs.io/en/latest/architectural-decisions/oep-0049-django-app-patterns.html>`_.
+The ``openedx_learning.apps`` package contains all our Django applications.
 
 Development Workflow
 --------------------
@@ -75,7 +70,7 @@ One Time Setup
   cd openedx-learning
 
   # Set up a virtualenv using virtualenvwrapper with the same name as the repo and activate it
-  mkvirtualenv -p python3.8 openedx-learning
+  mkvirtualenv -p python3.11 openedx-learning
 
 
 Every time you develop something in this repo

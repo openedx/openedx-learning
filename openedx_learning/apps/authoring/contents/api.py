@@ -11,8 +11,20 @@ from datetime import datetime
 from django.core.files.base import ContentFile
 from django.db.transaction import atomic
 
-from ...lib.fields import create_hash_digest
+from ....lib.fields import create_hash_digest
 from .models import Content, MediaType
+
+# The public API that will be re-exported by openedx_learning.apps.authoring.api
+# is listed in the __all__ entries below. Internal helper functions that are
+# private to this module should start with an underscore. If a function does not
+# start with an underscore AND it is not in __all__, that function is considered
+# to be callable only by other apps in the authoring package.
+__all__ = [
+    "get_or_create_media_type",
+    "get_content",
+    "get_or_create_text_content",
+    "get_or_create_file_content",
+]
 
 
 def get_or_create_media_type(mime_type: str) -> MediaType:
