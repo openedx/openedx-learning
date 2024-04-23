@@ -13,9 +13,14 @@ from django.core.files.storage import Storage, default_storage
 from django.core.validators import MaxValueValidator
 from django.db import models
 
-from ...lib.fields import MultiCollationTextField, case_insensitive_char_field, hash_field, manual_date_time_field
-from ...lib.managers import WithRelationsManager
+from ....lib.fields import MultiCollationTextField, case_insensitive_char_field, hash_field, manual_date_time_field
+from ....lib.managers import WithRelationsManager
 from ..publishing.models import LearningPackage
+
+__all__ = [
+    "MediaType",
+    "Content",
+]
 
 
 def get_storage() -> Storage:

@@ -11,6 +11,12 @@ from django.db.models.query import QuerySet
 
 from .models import PublishableEntity, PublishableEntityVersion
 
+__all__ = [
+    "PublishableEntityMixin",
+    "PublishableEntityVersionMixin",
+    "PublishableContentModelRegistry",
+]
+
 
 class PublishableEntityMixin(models.Model):
     """

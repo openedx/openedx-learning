@@ -1,7 +1,7 @@
 """
 A few tests to make sure our MediaType lookups are working as expected.
 """
-from openedx_learning.core.contents import api as contents_api
+from openedx_learning.apps.authoring.contents import api as contents_api
 from openedx_learning.lib.test_utils import TestCase
 
 

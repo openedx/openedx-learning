@@ -19,11 +19,18 @@ from __future__ import annotations
 
 from django.db import models
 
-from ...lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
-from ...lib.managers import WithRelationsManager
+from ....lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
+from ....lib.managers import WithRelationsManager
 from ..contents.models import Content
 from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
 from ..publishing.models import LearningPackage
+
+__all__ = [
+    "ComponentType",
+    "Component",
+    "ComponentVersion",
+    "ComponentVersionContent",
+]
 
 
 class ComponentType(models.Model):

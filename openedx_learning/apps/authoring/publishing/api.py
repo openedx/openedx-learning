@@ -23,6 +23,34 @@ from .models import (
     PublishLogRecord,
 )
 
+# The public API that will be re-exported by openedx_learning.apps.authoring.api
+# is listed in the __all__ entries below. Internal helper functions that are
+# private to this module should start with an underscore. If a function does not
+# start with an underscore AND it is not in __all__, that function is considered
+# to be callable only by other apps in the authoring package.
+__all__ = [
+    "get_learning_package",
+    "get_learning_package_by_key",
+    "create_learning_package",
+    "update_learning_package",
+    "learning_package_exists",
+    "create_publishable_entity",
+    "create_publishable_entity_version",
+    "get_publishable_entity",
+    "get_publishable_entity_by_key",
+    "get_last_publish",
+    "get_all_drafts",
+    "get_entities_with_unpublished_changes",
+    "get_entities_with_unpublished_deletes",
+    "publish_all_drafts",
+    "get_draft_version",
+    "get_published_version",
+    "set_draft_version",
+    "soft_delete_draft",
+    "reset_drafts_to_published",
+    "register_content_models",
+]
+
 
 def get_learning_package(learning_package_id: int, /) -> LearningPackage:
     """
@@ -105,6 +133,13 @@ def update_learning_package(
     return lp
 
 
+def learning_package_exists(key: str) -> bool:
+    """
+    Check whether a LearningPackage with a particular key exists.
+    """
+    return LearningPackage.objects.filter(key=key).exists()
+
+
 def create_publishable_entity(
     learning_package_id: int,
     /,
@@ -165,13 +200,6 @@ def get_publishable_entity_by_key(learning_package_id, /, key) -> PublishableEnt
         learning_package_id=learning_package_id,
         key=key,
     )
-
-
-def learning_package_exists(key: str) -> bool:
-    """
-    Check whether a LearningPackage with a particular key exists.
-    """
-    return LearningPackage.objects.filter(key=key).exists()
 
 
 def get_last_publish(learning_package_id: int, /) -> PublishLog | None:

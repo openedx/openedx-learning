@@ -9,8 +9,8 @@ from uuid import UUID
 import pytest
 from django.core.exceptions import ValidationError
 
-from openedx_learning.core.publishing import api as publishing_api
-from openedx_learning.core.publishing.models import LearningPackage, PublishableEntity
+from openedx_learning.apps.authoring.publishing import api as publishing_api
+from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntity
 from openedx_learning.lib.test_utils import TestCase
 
 
@@ -72,7 +72,7 @@ class LearningPackageTestCase(TestCase):
         # Auto-generated datetime checking...
         assert isinstance(package.created, datetime)
         assert package.created == package.updated
-        assert package.created.tzinfo == timezone.utc  # pylint: disable=no-member
+        assert package.created.tzinfo == timezone.utc  # pylint: disable=no-member,useless-suppression
 
         # Should be auto-generated
         assert isinstance(package.uuid, UUID)

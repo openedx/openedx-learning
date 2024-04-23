@@ -23,6 +23,16 @@ from openedx_learning.lib.fields import (
     manual_date_time_field,
 )
 
+__all__ = [
+    "LearningPackage",
+    "PublishableEntity",
+    "PublishableEntityVersion",
+    "Draft",
+    "PublishLog",
+    "PublishLogRecord",
+    "Published",
+]
+
 
 class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
     """

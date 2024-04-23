@@ -3,13 +3,13 @@ Tests related to the Component models
 """
 from datetime import datetime, timezone
 
-from openedx_learning.core.components.api import (
+from openedx_learning.apps.authoring.components.api import (
     create_component_and_version,
     get_component,
     get_or_create_component_type,
 )
-from openedx_learning.core.components.models import ComponentType
-from openedx_learning.core.publishing.api import LearningPackage, create_learning_package, publish_all_drafts
+from openedx_learning.apps.authoring.components.models import ComponentType
+from openedx_learning.apps.authoring.publishing.api import LearningPackage, create_learning_package, publish_all_drafts
 from openedx_learning.lib.test_utils import TestCase
 
 

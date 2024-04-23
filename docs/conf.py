@@ -511,6 +511,9 @@ def on_init(app):  # pylint: disable=unused-argument
 
     Read the Docs won't run tox or custom shell commands, so we need this to
     avoid checking in the generated reStructuredText files.
+
+    Note: there is no auto-building of API docs for the entire repo. We
+    explicitly build reference docs for the public API in /docs/public_apis/
     """
     docs_path = os.path.abspath(os.path.dirname(__file__))
     root_path = os.path.abspath(os.path.join(docs_path, '..'))
@@ -519,9 +522,6 @@ def on_init(app):  # pylint: disable=unused-argument
         # If we are, assemble the path manually
         bin_path = os.path.abspath(os.path.join(sys.prefix, 'bin'))
         apidoc_path = os.path.join(bin_path, apidoc_path)
-    check_call([apidoc_path, '-o', docs_path, os.path.join(root_path, 'openedx_learning'),
-                os.path.join(root_path, 'openedx_learning/migrations')])
-
 
 def setup(app):
     """
