@@ -65,7 +65,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==1.8.0
     # via -r requirements/test.in
-coverage[toml]==7.4.4
+coverage[toml]==7.5.0
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -111,6 +111,10 @@ djangorestframework==3.15.1
     #   edx-drf-extensions
 djangorestframework-stubs==3.14.5
     # via -r requirements/test.in
+dnspython==2.6.1
+    # via
+    #   -r requirements/base.txt
+    #   pymongo
 drf-jwt==1.19.2
     # via
     #   -r requirements/base.txt
@@ -121,7 +125,7 @@ edx-django-utils==5.12.0
     #   edx-drf-extensions
 edx-drf-extensions==10.3.0
     # via -r requirements/base.txt
-edx-opaque-keys==2.5.1
+edx-opaque-keys==2.9.0
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
@@ -147,7 +151,7 @@ markupsafe==2.1.5
     # via jinja2
 mock==5.1.0
     # via -r requirements/test.in
-mypy==1.9.0
+mypy==1.10.0
     # via -r requirements/test.in
 mypy-extensions==1.0.0
     # via mypy
@@ -182,7 +186,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==3.13.0
+pymongo==4.4.0
     # via
     #   -r requirements/base.txt
     #   edx-opaque-keys
@@ -190,7 +194,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-pytest==8.1.1
+pytest==8.2.0
     # via
     #   -r requirements/test.in
     #   pytest-cov
