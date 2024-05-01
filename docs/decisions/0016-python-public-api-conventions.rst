@@ -47,14 +47,44 @@ App ``api`` modules should not import directly from apps outside their package.
 Public API modules may implement their own functions.
   In addition to aggregating app ``api`` modules via wildcard imports, public API modules like ``openedx_learning.api.authoring`` may implement their own functionality. This will be useful for convenience functions that invoke multiple app APIs, and for backwards compatibility shims. When possible, the bulk of the logic for these should continue to live in app-defined APIs, with the public API module acting more as a glue layer.
 
-Importlinter will be used to enforce these restrictions.
+Import Linter will be used to enforce these restrictions.
 
 Rejected Alternatives
 ---------------------
 
 Public APIs in each app package
 
-  We could have added these aggregations as ``api`` modules in each app group package, e.g. ``openedx_learning.apps.authoring.api``. Some reasons this was rejected:
+  We could have added these aggregations as ``api`` modules in each app group package, e.g. ``openedx_learning.apps.authoring.api``. We are not doing this because:
 
   * It's more convenient for browsing and documentation generation to have the public API modules in the same package.
   * It's more idiomatic for Python libraries to expose their APIs in appropriately named modules (like ``authoring``), rather than all imported modules being named ``api``.
+
+Collapse the namespace to remove ``apps``.
+
+  The ``openedx_learning`` package only has a few sub-packages inside: ``api``,
+  ``apps``, and ``lib``. We could remove the ``apps`` package and have those app package groups appear as peers of ``api`` and ``lib``, so something like::
+
+    # Public API package
+    openedx_learning.api
+
+    # All the app groups
+    openedx_learning.authoring
+    openedx_learning.grading
+    openedx_learning.personalization
+
+    # Public lib package
+    openedx_learning.lib
+
+  The reasons why we're not doing this:
+
+  * Having an ``apps`` package makes it more obvious that all Django apps go in there, and that we should not have them in ``openedx_learning.lib`` or ``openedx_learning.api``.
+  * It makes it easier to make blanket statements and lint checking like, "nothing in edx-platform should ever import from ``openedx_learning.apps``".
+  * It's more consistent to keep all the app groups in one package, instead of having ``openedx_learning`` hold mostly app groups and a few odd exceptions like ``lib``.
+
+Use ``_api`` modules in apps instead of ``api``.
+
+  To better signal that individual app ``api`` modules should not be used by consumers like ``edx-platform``, we could adopt the convention that apps create a ``_api`` module instead.
+
+  I'm not adding this because it feels unintuitive that apps would import a private module from other apps, e.g. the ``components`` app importing from ``openedx_learning.apps.publishing._api``. My hope is that documentation and import linter rules in edx-platform will be enough to make it clear that APIs should only be imported from ``openedx_learning.api``.
+
+  We should revisit this at a later time if this turns out to be a source of confusion.
