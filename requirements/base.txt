@@ -42,7 +42,7 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==42.0.5
+cryptography==42.0.6
     # via pyjwt
 django==4.2.11
     # via
@@ -69,7 +69,7 @@ dnspython==2.6.1
     # via pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==5.12.0
+edx-django-utils==5.13.0
     # via edx-drf-extensions
 edx-drf-extensions==10.3.0
     # via -r requirements/base.in
