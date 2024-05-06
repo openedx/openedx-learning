@@ -8,7 +8,7 @@ click==8.1.7
     # via import-linter
 distlib==0.3.8
     # via virtualenv
-filelock==3.13.4
+filelock==3.14.0
     # via
     #   tox
     #   virtualenv
@@ -38,5 +38,5 @@ typing-extensions==4.11.0
     # via
     #   grimp
     #   import-linter
-virtualenv==20.26.0
+virtualenv==20.26.1
     # via tox

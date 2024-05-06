@@ -16,9 +16,10 @@ asgiref==3.8.1
     # via
     #   -r requirements/test.txt
     #   django
+    #   django-stubs
 attrs==23.2.0
     # via -r requirements/test.txt
-babel==2.14.0
+babel==2.15.0
     # via
     #   pydata-sphinx-theme
     #   sphinx
@@ -75,11 +76,11 @@ click-repl==0.3.0
     #   celery
 code-annotations==1.8.0
     # via -r requirements/test.txt
-coverage[toml]==7.5.0
+coverage[toml]==7.5.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==42.0.5
+cryptography==42.0.6
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -105,11 +106,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==4.3.0
     # via -r requirements/test.txt
-django-stubs==4.2.7
+django-stubs==5.0.0
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==4.2.7
+django-stubs-ext==5.0.0
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -123,7 +124,7 @@ djangorestframework==3.15.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.14.5
+djangorestframework-stubs==3.15.0
     # via -r requirements/test.txt
 dnspython==2.6.1
     # via
@@ -142,7 +143,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==5.12.0
+edx-django-utils==5.13.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -174,7 +175,7 @@ iniconfig==2.0.0
     # via
     #   -r requirements/test.txt
     #   pytest
-jinja2==3.1.3
+jinja2==3.1.4
     # via
     #   -r requirements/test.txt
     #   code-annotations
@@ -233,7 +234,7 @@ pycparser==2.22
     #   cffi
 pydata-sphinx-theme==0.14.4
     # via sphinx-book-theme
-pygments==2.17.2
+pygments==2.18.0
     # via
     #   accessible-pygments
     #   doc8
@@ -347,10 +348,6 @@ tomli==2.0.1
     #   import-linter
     #   mypy
     #   pytest
-types-pytz==2024.1.0.20240417
-    # via
-    #   -r requirements/test.txt
-    #   django-stubs
 types-pyyaml==6.0.12.20240311
     # via
     #   -r requirements/test.txt
