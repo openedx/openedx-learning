@@ -100,6 +100,16 @@ def can_view_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
 
 
 @rules.predicate
+def can_remove_object_tag_objectid(_user: UserType, _object_id: str) -> bool:
+    """
+    Everybody can remove object tags from any objects.
+
+    This rule could be defined in other apps for proper permission checking.
+    """
+    return True
+
+
+@rules.predicate
 def can_view_object_tag(
     user: UserType, perm_obj: ObjectTagPermissionItem | None = None
 ) -> bool:
@@ -194,3 +204,4 @@ rules.add_perm("oel_tagging.view_objecttag_objectid", can_view_object_tag_object
 rules.add_perm("oel_tagging.view_objecttag_taxonomy", can_view_object_tag_taxonomy)
 rules.add_perm("oel_tagging.change_objecttag_taxonomy", can_view_object_tag_taxonomy)
 rules.add_perm("oel_tagging.change_objecttag_objectid", can_change_object_tag_objectid)
+rules.add_perm("oel_tagging.remove_objecttag_objectid", can_remove_object_tag_objectid)
