@@ -874,8 +874,8 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         Test how many queries are used when retrieving object tags and permissions
         """
         expected_perm = True
-        expoected_remove_perm = False
-        object_id, sort_test_applied_result = self.prepare_for_sort_test(expoected_remove_perm)
+        expected_remove_perm = False
+        object_id, sort_test_applied_result = self.prepare_for_sort_test(expected_remove_perm)
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
         self.client.force_authenticate(user=self.user_1)
