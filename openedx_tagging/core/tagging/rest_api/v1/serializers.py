@@ -140,7 +140,14 @@ class ObjectTagMinimalSerializer(UserPermissionsSerializerMixin, serializers.Mod
         fields = ["value", "lineage", "can_delete_objecttag"]
 
     lineage = serializers.ListField(child=serializers.CharField(), source="get_lineage", read_only=True)
-    can_delete_objecttag = serializers.SerializerMethodField(method_name='get_can_delete')
+    can_delete_objecttag = serializers.SerializerMethodField()
+
+    def get_can_delete_objecttag(self, instance) -> bool | None:
+        """
+        Returns True if the current request user may delete object tags on this taxonomy
+        """
+        perm_name = f'{self.app_label}.remove_objecttag_objectid'
+        return self._can(perm_name, instance.object_id)
 
 
 class ObjectTagSerializer(ObjectTagMinimalSerializer):

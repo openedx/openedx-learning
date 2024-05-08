@@ -767,12 +767,12 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "Mammalia",
                                     "lineage": ["Eukaryota", "Animalia", "Chordata", "Mammalia"],
-                                    "can_delete_objecttag": True,
+                                    "can_delete_objecttag": False,
                                 },
                                 {
                                     "value": "Fungi",
                                     "lineage": ["Eukaryota", "Fungi"],
-                                    "can_delete_objecttag": True,
+                                    "can_delete_objecttag": False,
                                 },
                             ],
                             "export_id": "life_on_earth"
@@ -785,7 +785,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
-                                    "can_delete_objecttag": True,
+                                    "can_delete_objecttag": False,
                                 },
                             ],
                             "export_id": "user_authors"
@@ -860,7 +860,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         Test the sort order of the object tags retrieved from the get object
         tags API.
         """
-        object_id, sort_test_applied_result = self.prepare_for_sort_test(expected_perm=True)
+        object_id, sort_test_applied_result = self.prepare_for_sort_test(expected_perm=False)
 
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
         self.client.force_authenticate(user=self.user_1)
@@ -874,7 +874,8 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         Test how many queries are used when retrieving object tags and permissions
         """
         expected_perm = True
-        object_id, sort_test_applied_result = self.prepare_for_sort_test(expected_perm)
+        expected_remove_perm = False
+        object_id, sort_test_applied_result = self.prepare_for_sort_test(expected_remove_perm)
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
         self.client.force_authenticate(user=self.user_1)
@@ -936,7 +937,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                                 {
                                     "value": "test_user_1",
                                     "lineage": ["test_user_1"],
-                                    "can_delete_objecttag": True,
+                                    "can_delete_objecttag": False,
                                 },
                             ],
                             "export_id": "user_authors",
