@@ -90,11 +90,11 @@ class TagImportTask(models.Model):
         """
         self.add_log(_("Starting to load data from file"))
 
-    def log_parser_end(self):
+    def log_parser_end(self, elapsed_time):
         """
         Logs the parser finished event.
         """
-        self.add_log(_("Load data finished"))
+        self.add_log(_("Load data finished. Time elapsed: ") + str(elapsed_time) + _(" seconds"))
 
     def handle_parser_errors(self, errors):
         """
@@ -113,11 +113,11 @@ class TagImportTask(models.Model):
         self.status = TagImportTaskState.PLANNING.value
         self.save()
 
-    def log_plan(self, plan):
+    def log_plan(self, plan, elapsed_time):
         """
         Logs the task plan.
         """
-        self.add_log(_("Plan finished"))
+        self.add_log(_("Plan finished. Time elapsed: ") + str(elapsed_time) + _(" seconds"))
         plan_str = plan.plan()
         self.log += f"\n{plan_str}\n"
         self.save()
@@ -138,10 +138,13 @@ class TagImportTask(models.Model):
         self.status = TagImportTaskState.EXECUTING.value
         self.save()
 
-    def end_success(self):
+    def log_end_execute(self, elapsed_time):
+        self.add_log(_("Execute actions finished. Time elapsed: ") + str(elapsed_time) + _(" seconds"))
+
+    def end_success(self, elapsed_time):
         """
         Completes task execution with a log message, and moves the task status to SUCCESS.
         """
-        self.add_log(_("Execution finished"), save=False)
+        self.add_log(_("Execution finished. Total time elapsed: ") + str(elapsed_time) + _("seconds"), save=False)
         self.status = TagImportTaskState.SUCCESS.value
         self.save()

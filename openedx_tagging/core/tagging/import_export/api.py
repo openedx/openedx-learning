@@ -44,6 +44,7 @@ TODO for next versions
 """
 from __future__ import annotations
 
+import time
 from typing import BinaryIO
 
 from django.utils.translation import gettext as _
@@ -77,6 +78,7 @@ def import_tags(
 
     Set `plan_only` to True to only generate the actions and not execute them.
     """
+    global_start_time = time.time()
     _import_validations(taxonomy)
 
     # Checks that exists only one task import in progress at a time per taxonomy
@@ -92,7 +94,10 @@ def import_tags(
     task = TagImportTask.create(taxonomy)
 
     try:
+        # Start of parsing
+
         # Get the parser and parse the file
+        start_time = time.time()
         task.log_parser_start()
         parser = get_parser(parser_format)
         tags, errors = parser.parse_import(file)
@@ -102,23 +107,48 @@ def import_tags(
             task.handle_parser_errors(errors)
             return False, task, None
 
-        task.log_parser_end()
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        elapsed_time = round(elapsed_time, 5)
+        task.log_parser_end(elapsed_time)
 
-        # Generate actions
+        # End of parsing
+
+        # Start of generate actions
+
+        start_time = time.time()
+
         task.log_start_planning()
         tag_import_plan = TagImportPlan(taxonomy)
         tag_import_plan.generate_actions(tags, replace)
-        task.log_plan(tag_import_plan)
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        elapsed_time = round(elapsed_time, 5)
+        task.log_plan(tag_import_plan, elapsed_time)
+
+        # End of generate actions
 
         if tag_import_plan.errors:
             task.handle_plan_errors()
             return False, task, tag_import_plan
 
         if not plan_only:
+            # Start of execute
+            start_time = time.time()
             task.log_start_execute()
             tag_import_plan.execute(task)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            elapsed_time = round(elapsed_time, 5)
+            task.log_end_execute(elapsed_time)
+            # End of execute
 
-        task.end_success()
+        global_end_time = time.time()
+        global_elapsed_time = global_end_time - global_start_time
+        global_elapsed_time = round(global_elapsed_time, 5)
+
+        task.end_success(global_elapsed_time)
 
         return True, task, tag_import_plan
     except Exception as exception:
