@@ -244,16 +244,13 @@ class CreateTag(ImportAction):
         """
         Creates a Tag
         """
-        parent = None
-        if self.tag.parent_id:
-            parent = self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
-        taxonomy_tag = Tag(
+        Tag.objects.create(
             taxonomy=self.taxonomy,
-            parent=parent,
+            parent=self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
+            if self.tag.parent_id is not None else None,
             value=self.tag.value,
             external_id=self.tag.id,
         )
-        taxonomy_tag.save()
 
 
 class UpdateParentTag(ImportAction):
