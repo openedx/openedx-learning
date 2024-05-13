@@ -96,7 +96,7 @@ coverage[toml]==7.5.1
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
-cryptography==42.0.6
+cryptography==42.0.7
     # via
     #   -r requirements/quality.txt
     #   pyjwt
@@ -113,7 +113,7 @@ distlib==0.3.8
     # via
     #   -r requirements/ci.txt
     #   virtualenv
-django==4.2.11
+django==4.2.13
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/quality.txt
@@ -491,7 +491,7 @@ tomli==2.0.1
     #   pylint
     #   pytest
     #   tox
-tomlkit==0.12.4
+tomlkit==0.12.5
     # via
     #   -r requirements/quality.txt
     #   pylint

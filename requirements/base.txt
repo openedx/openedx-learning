@@ -42,9 +42,9 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==42.0.6
+cryptography==42.0.7
     # via pyjwt
-django==4.2.11
+django==4.2.13
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/base.in
