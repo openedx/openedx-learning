@@ -406,8 +406,7 @@ class DeleteTag(ImportAction):
         Delete a tag
         """
         try:
-            taxonomy_tag = self._get_tag()
-            taxonomy_tag.delete()
+            self._get_tag().delete()
         except Tag.DoesNotExist:
             pass  # The tag may be already cascade deleted if the parent tag was deleted
 
