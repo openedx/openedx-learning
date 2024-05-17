@@ -244,16 +244,13 @@ class CreateTag(ImportAction):
         """
         Creates a Tag
         """
-        parent = None
-        if self.tag.parent_id:
-            parent = self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
-        taxonomy_tag = Tag(
+        Tag.objects.create(
             taxonomy=self.taxonomy,
-            parent=parent,
+            parent=self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
+            if self.tag.parent_id is not None else None,
             value=self.tag.value,
             external_id=self.tag.id,
         )
-        taxonomy_tag.save()
 
 
 class UpdateParentTag(ImportAction):
@@ -409,8 +406,7 @@ class DeleteTag(ImportAction):
         Delete a tag
         """
         try:
-            taxonomy_tag = self._get_tag()
-            taxonomy_tag.delete()
+            self._get_tag().delete()
         except Tag.DoesNotExist:
             pass  # The tag may be already cascade deleted if the parent tag was deleted
 

@@ -207,8 +207,12 @@ class TagImportPlan:
         if self.errors:
             return
         for action in self.actions:
+            # Avoid to save each log because it is slow and costs a lot in memory
+            # It is necessary to save at the end.
             if task:
-                task.add_log(f"#{action.index}: {str(action)} [Started]")
+                task.add_log(f"#{action.index}: {str(action)} [Started]", save=False)
             action.execute()
             if task:
-                task.add_log("Success")
+                task.add_log("Success", save=False)
+        if task:
+            task.save()
