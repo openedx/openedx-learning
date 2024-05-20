@@ -198,7 +198,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.9.0
+newrelic==9.9.1
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -254,7 +254,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.2.0
+pytest==8.2.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -287,7 +287,7 @@ requests==2.31.0
     #   sphinx
 restructuredtext-lint==1.4.0
     # via doc8
-rules==3.3
+rules==3.4
     # via -r requirements/test.txt
 semantic-version==2.10.0
     # via
@@ -390,5 +390,5 @@ wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-zipp==3.18.1
+zipp==3.18.2
     # via importlib-metadata
