@@ -79,7 +79,7 @@ idna==3.7
     # via requests
 kombu==5.3.7
     # via celery
-newrelic==9.9.0
+newrelic==9.9.1
     # via edx-django-utils
 pbr==6.0.0
     # via stevedore
@@ -101,7 +101,7 @@ python-dateutil==2.9.0.post0
     # via celery
 requests==2.31.0
     # via edx-drf-extensions
-rules==3.3
+rules==3.4
     # via -r requirements/base.in
 semantic-version==2.10.0
     # via edx-drf-extensions

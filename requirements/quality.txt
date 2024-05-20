@@ -13,7 +13,7 @@ asgiref==3.8.1
     #   -r requirements/test.txt
     #   django
     #   django-stubs
-astroid==3.1.0
+astroid==3.2.2
     # via
     #   pylint
     #   pylint-celery
@@ -194,7 +194,7 @@ jinja2==3.1.4
     # via
     #   -r requirements/test.txt
     #   code-annotations
-keyring==25.2.0
+keyring==25.2.1
     # via twine
 kombu==5.3.7
     # via
@@ -224,7 +224,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.9.0
+newrelic==9.9.1
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -240,7 +240,7 @@ pbr==6.0.0
     #   stevedore
 pkginfo==1.10.0
     # via twine
-platformdirs==4.2.1
+platformdirs==4.2.2
     # via pylint
 pluggy==1.5.0
     # via
@@ -271,7 +271,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.1.0
+pylint==3.2.1
     # via
     #   edx-lint
     #   pylint-celery
@@ -293,7 +293,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.2.0
+pytest==8.2.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -329,7 +329,7 @@ rfc3986==2.0.0
     # via twine
 rich==13.7.1
     # via twine
-rules==3.3
+rules==3.4
     # via -r requirements/test.txt
 secretstorage==3.3.3
     # via keyring
@@ -370,7 +370,7 @@ tomli==2.0.1
     #   pytest
 tomlkit==0.12.5
     # via pylint
-twine==5.0.0
+twine==5.1.0
     # via -r requirements/quality.in
 types-pyyaml==6.0.12.20240311
     # via
@@ -417,7 +417,7 @@ wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-zipp==3.18.1
+zipp==3.18.2
     # via
     #   importlib-metadata
     #   importlib-resources
