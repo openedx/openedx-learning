@@ -272,6 +272,16 @@ class PublishableEntityMixin(models.Model):
                 publishable_entity_version__entity_id=pub_ent.id
             )
 
+        def version_num(self, version_num):
+            """
+            Return a specific numbered version model.
+            """
+            pub_ent = self.content_obj.publishable_entity
+            return self.content_version_model_cls.objects.get(
+                publishable_entity_version__entity_id=pub_ent.id,
+                publishable_entity_version__version_num=version_num,
+            )
+
 
 class PublishableEntityVersionMixin(models.Model):
     """
