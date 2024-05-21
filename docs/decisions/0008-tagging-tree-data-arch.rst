@@ -27,7 +27,7 @@ All taxonomies are trees
 
 We could use a tree structure for all taxonomies: flat taxonomies would have only 1 level of tags under the root, while nested taxonomies can be deeper.
 
-To implement this, we'd link each taxonomy to a root tag, with the user-visible tags underneath. 
+To implement this, we'd link each taxonomy to a root tag, with the user-visible tags underneath.
 
 It was simpler instead to link the tag to the taxonomy, which removes the need for the unseen root tag.
 

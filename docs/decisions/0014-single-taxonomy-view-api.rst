@@ -135,12 +135,12 @@ Return a simple list of tags, regardless of whether it is root or leaf.
 Add the children to the root pagination
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Ex. If the ``page_size`` is 100, when fetching the first root tag, which has 10 children tags, 
+Ex. If the ``page_size`` is 100, when fetching the first root tag, which has 10 children tags,
 11 tags are counted for the total and there would be reamin 89 tags to be obtained.
 
 **Cons:**
 
-- If there is a branch with a number of tags that exceeds ``page_size``, 
+- If there is a branch with a number of tags that exceeds ``page_size``,
   it would only return that branch.
 - All branches are variable in size, therefore a variable number of root tags
   would be returned. This would cause interfaces between taxonomies to be inconsistent
@@ -150,7 +150,7 @@ Ex. If the ``page_size`` is 100, when fetching the first root tag, which has 10 
 Search on frontend
 ~~~~~~~~~~~~~~~~~~
 
-We constrain the number of tags allowed in a taxonomy for MVP, so that the API 
+We constrain the number of tags allowed in a taxonomy for MVP, so that the API
 can return all the tags in one page. So we can perform the tag search on the frontend.
 
 **Cons:**

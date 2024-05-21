@@ -31,7 +31,8 @@ When is a taxonomy field shown to course authors in a given course?
 | False       | False                       | True                     | False                         |
 +-------------+-----------------------------+--------------------------+-------------------------------+
 
-.. _Course
+.. _Course:
+
 Course
 ~~~~~~
 
@@ -43,7 +44,8 @@ Disabling taxonomies for a course will remove/hide the taxonomy fields from the 
 
 Future versions may add more granularity to these settings, to be determined by user needs.
 
-.. _Instance
+.. _Instance:
+
 Instance
 ~~~~~~~~
 
@@ -52,7 +54,8 @@ Taxonomy contains a boolean ``enabled`` field.
 A Taxonomy can be disabled for all contexts by setting ``enabled = False``.
 If ``enabled = True``, then the :ref:`Organization` and :ref:`Course` contexts determine whether a taxonomy will be shown to course authors.
 
-.. _Organization
+.. _Organization:
+
 Organization
 ~~~~~~~~~~~~
 
