@@ -7,6 +7,7 @@ are stored in this app.
 from __future__ import annotations
 
 from datetime import datetime
+from logging import getLogger
 
 from django.core.files.base import ContentFile
 from django.db.transaction import atomic
@@ -22,9 +23,13 @@ from .models import Content, MediaType
 __all__ = [
     "get_or_create_media_type",
     "get_content",
+    "get_content_info_headers",
     "get_or_create_text_content",
     "get_or_create_file_content",
 ]
+
+
+log = getLogger()
 
 
 def get_or_create_media_type(mime_type: str) -> MediaType:
@@ -168,3 +173,67 @@ def get_or_create_file_content(
             content.write_file(ContentFile(data))
 
         return content
+
+
+def get_content_info_headers(content: Content) -> dict[str, str]:
+    """
+    Return HTTP headers that are specific to this Content.
+
+    This currently only consists of the Content-Type and ETag. These values are
+    safe to cache.
+    """
+    return {
+        "Content-Type": str(content.media_type),
+        "Etag": content.hash_digest,
+    }
+
+
+def get_redirect_headers(
+    stored_file_path: str,
+    public: bool = False,
+    max_age: int | None = None,
+) -> dict[str, str]:
+    """
+    Return a dict of headers for file redirect and caching.
+
+    This is a separate function from get_content_info_headers because the URLs
+    returned in these headers produced by this function should never be put into
+    the backend Django cache (redis/memcached). The `stored_file_path` location
+    *is* cacheable though–that's the actual storage location for the resource,
+    and not a link that could potentially expire.
+
+    TODO: We need to add support for short-lived URL generation from the
+    stored_file_path.
+    """
+    if public:
+        # If an asset is public, then let it be cached by the reverse-proxy and
+        # CDN, but do require that it be revalidated after the suggested max
+        # age. This would help us do things like take a URL that was mistakenly
+        # made public and make it require authentication. Fortunately, checking
+        # that the content is up to date is a cheap operation, since it just
+        # requires examining the Etag.
+        cache_directive = "must-revalidate"
+
+        # Default to an hour of caching, to make it easier to tighten access
+        # later on.
+        max_age = max_age or (5 * 60)
+    else:
+        # If an asset is meant to be private, that means this response should
+        # not be cached by either the reverse-proxy or any CDN–it's only ever
+        # cached on the user's browser. This is what you'd use for very granular
+        # permissions checking, e.g. "only let them see this image if they have
+        # access to the Component it's associated with". Note that we're not
+        # doing ``Vary: Cookie`` because that would fill the reverse-proxy and
+        # CDN caches with a lot of redundant entries.
+        cache_directive = "private"
+
+        # This only stays on the user's browser, so cache for a whole day. This
+        # is okay to do because Content data is typically immutable–i.e. if an
+        # asset actually changes, the user should be directed to a different URL
+        # for it.
+        max_age = max_age or (60 * 60 * 24)
+
+    return {
+        "Cache-Control": f"max-age={max_age}, {cache_directive}",
+        "X-Accel-Redirect": stored_file_path,
+    }

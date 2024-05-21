@@ -13,11 +13,16 @@ are stored in this app.
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum, auto
+from logging import getLogger
 from pathlib import Path
+from uuid import UUID
 
 from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
+from django.http.response import HttpResponse, HttpResponseNotFound
 
+from ..contents import api as contents_api
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionContent
 
@@ -34,10 +39,18 @@ __all__ = [
     "create_component_and_version",
     "get_component",
     "get_component_by_key",
+    "get_component_by_uuid",
+    "get_component_version_by_uuid",
     "component_exists_by_key",
     "get_components",
     "create_component_version_content",
+    "look_up_component_version_content",
+    "AssetError",
+    "get_redirect_response_for_component_asset",
 ]
+
+
+logger = getLogger()
 
 
 def get_or_create_component_type(namespace: str, name: str) -> ComponentType:
@@ -112,9 +125,9 @@ def create_component_version(
 def create_next_component_version(
     component_pk: int,
     /,
-    title: str,
     content_to_replace: dict[str, int | None],
     created: datetime,
+    title: str | None = None,
     created_by: int | None = None,
 ) -> ComponentVersion:
     """
@@ -150,8 +163,11 @@ def create_next_component_version(
     last_version = component.versioning.latest
     if last_version is None:
         next_version_num = 1
+        title = title or ""
     else:
         next_version_num = last_version.version_num + 1
+        if title is None:
+            title = last_version.title
 
     with atomic():
         publishable_entity_version = publishing_api.create_publishable_entity_version(
@@ -245,6 +261,14 @@ def get_component_by_key(
                         component_type__name=type_name,
                         local_key=local_key,
                     )
+
+
+def get_component_by_uuid(uuid: UUID) -> Component:
+    return Component.with_publishing_relations.get(publishable_entity__uuid=uuid)
+
+
+def get_component_version_by_uuid(uuid: UUID) -> ComponentVersion:
+    return ComponentVersion.objects.get(publishable_entity_version__uuid=uuid)
 
 
 def component_exists_by_key(
@@ -351,7 +375,7 @@ def create_component_version_content(
     content_id: int,
     /,
     key: str,
-    learner_downloadable=False,
+    learner_downloadable: bool = False,
 ) -> ComponentVersionContent:
     """
     Add a Content to the given ComponentVersion
@@ -363,3 +387,177 @@ def create_component_version_content(
         learner_downloadable=learner_downloadable,
     )
     return cvrc
+
+
+class AssetError(StrEnum):
+    """Error codes related to fetching ComponentVersion assets."""
+    ASSET_PATH_NOT_FOUND_FOR_COMPONENT_VERSION = auto()
+    ASSET_NOT_LEARNER_DOWNLOADABLE = auto()
+    ASSET_HAS_NO_DOWNLOAD_FILE = auto()
+
+
+def _get_component_version_info_headers(component_version: ComponentVersion) -> dict[str, str]:
+    """
+    These are the headers we can derive based on a valid ComponentVersion.
+
+    These headers are intended to ease development and debugging, by showing
+    where this static asset is coming from. These headers will work even if
+    the asset path does not exist for this particular ComponentVersion.
+    """
+    component = component_version.component
+    learning_package = component.learning_package
+    return {
+        # Component
+        "X-Open-edX-Component-Key": component.publishable_entity.key,
+        "X-Open-edX-Component-Uuid": component.uuid,
+        # Component Version
+        "X-Open-edX-Component-Version-Uuid": component_version.uuid,
+        "X-Open-edX-Component-Version-Num": component_version.version_num,
+        # Learning Package
+        "X-Open-edX-Learning-Package-Key": learning_package.key,
+        "X-Open-edX-Learning-Package-Uuid": learning_package.uuid,
+    }
+
+
+def get_redirect_response_for_component_asset(
+    component_version_uuid: UUID,
+    asset_path: Path,
+    public: bool = False,
+    learner_downloadable_only: bool = True,
+) -> HttpResponse:
+    """
+    ``HttpResponse`` for a reverse-proxy to serve a ``ComponentVersion`` asset.
+
+    :param component_version_uuid: ``UUID`` of the ``ComponentVersion`` that the
+        asset is part of.
+
+    :param asset_path: Path to the asset being requested.
+
+    :param public: Is this asset going to be made available without auth checks?
+        If ``True``, this will return an ``HttpResponse`` that can be cached in
+        a CDN and shared across many clients.
+
+    :param learner_downloadable_only: Only return assets that are meant to be
+        downloadable by Learners, i.e. in the LMS experience. If this is
+        ``True``, then requests for assets that are not meant for student
+        download will return a ``404`` error response.
+
+    **Response Codes**
+
+    If the asset exists for this ``ComponentVersion``, this function will return
+    an ``HttpResponse`` with a status code of ``200``.
+
+    If the specified asset does not exist for this ``ComponentVersion``, or if
+    the ``ComponentVersion`` itself does not exist, the response code will be
+    ``404``.
+
+    Other than checking the coarse-grained ``learner_downloadable_only`` flag,
+    *this function does not do auth checking of any sort*–it will never return
+    a ``401`` or ``403`` response code. That is by design. Figuring out who is
+    making the request and whether they have permission to do so is the
+    responsiblity of whatever is calling this function. The
+    ``learner_downloadable_only`` flag is intended to be a filter for the entire
+    view. When it's True, not even staff can download component-internal assets.
+    This is intended to protect us from accidentally allowing sensitive grading
+    code to get leaked out.
+
+    **Metadata Headers**
+
+    The ``HttpResponse`` returned by this function will have headers describing
+    the asset and the ``ComponentVersion`` it belongs to (if it exists):
+
+    * ``Content-Type``
+    * ``Etag`` (this will be the asset's hash digest)
+    * ``X-Open-edX-Component-Key``
+    * ``X-Open-edX-Component-Uuid``
+    * ``X-Open-edX-Component-Version-Uuid``
+    * ``X-Open-edX-Component-Version-Num``
+    * ``X-Open-edX-Learning-Package-Key``
+    * ``X-Open-edX-Learning-Package-Uuid``
+
+    **Asset Redirection**
+
+    For performance reasons, the ``HttpResponse`` object returned by this
+    function does not contain the actual content data of the asset. It requires
+    an appropriately configured reverse proxy server that handles the
+    ``X-Accel-Redirect`` header (both Caddy and Nginx support this).
+
+    .. warning::
+        If you add any headers here, you may need to add them in the "media"
+        service container's reverse proxy configuration. In Tutor, this is a
+        Caddyfile. All non-standard HTTP headers should be prefixed with
+        ``X-Open-edX-``.
+    """
+    # Helper to generate error header messages.
+    def _error_header(error: AssetError) -> dict[str, str]:
+        return {"X-Open-edX-Error": str(error)}
+
+    # Check: Does the ComponentVersion exist?
+    try:
+        component_version = get_component_version_by_uuid(component_version_uuid)
+    except ComponentVersion.DoesNotExist:
+        # No need to add headers here, because no ComponentVersion was found.
+        logger.error(f"Asset Not Found: No ComponentVersion with UUID {component_version_uuid}")
+        return HttpResponseNotFound()
+
+    # At this point we know that the ComponentVersion exists, so we can build
+    # those headers...
+    info_headers = _get_component_version_info_headers(component_version)
+
+    # Check: Does the ComponentVersion have the requested asset (Content)?
+    try:
+        cv_content = component_version.componentversioncontent_set.get(key=asset_path)
+    except ComponentVersionContent.DoesNotExist:
+        logger.error(f"ComponentVersion {component_version_uuid} has no asset {asset_path}")
+        info_headers.update(
+            _error_header(AssetError.ASSET_PATH_NOT_FOUND_FOR_COMPONENT_VERSION)
+        )
+        return HttpResponseNotFound(headers=info_headers)
+
+    # Check: Does the Content have a downloadable file, instead of just inline
+    # text? It's easy for us to grab this content and stream it to the user
+    # anyway, but we're explicitly not doing so because streaming large text
+    # fields from the database is less scalable, and we don't want to encourage
+    # that usage pattern.
+    content = cv_content.content
+    if not content.has_file:
+        logger.error(
+           f"ComponentVersion {component_version_uuid} has asset {asset_path}, "
+           "but it is not downloadable (has_file=False)."
+        )
+        info_headers.update(
+            _error_header(AssetError.ASSET_HAS_NO_DOWNLOAD_FILE)
+        )
+        return HttpResponseNotFound(headers=info_headers)
+
+    # Check: If we're asking only for Learner Downloadable assets, and the asset
+    # in question is not supposed to be downloadable by learners, then we give a
+    # 404 error. Even staff members are not expected to be able to download
+    # these assets via the LMS endpoint that serves students. Studio would be
+    # expected to have an entirely different view to serve these assets in that
+    # context (along with different timeouts, auth, and cache settings). So in
+    # that sense, the asset doesn't exist for that particular endpoint.
+    if learner_downloadable_only and (not cv_content.learner_downloadable):
+        logger.error(
+           f"ComponentVersion {component_version_uuid} has asset {asset_path}, "
+           "but it is not meant to be downloadable by learners "
+           "(ComponentVersionContent.learner_downloadable=False)."
+        )
+        info_headers.update(
+            _error_header(AssetError.ASSET_NOT_LEARNER_DOWNLOADABLE)
+        )
+        return HttpResponseNotFound(headers=info_headers)
+
+    # At this point, we know that there is valid Content that we want to send.
+    # This adds Content-level headers, like the hash/etag and content type.
+    info_headers.update(contents_api.get_content_info_headers(content))
+    stored_file_path = content.file_path()
+
+    # Recompute redirect headers (reminder: this should never be cached).
+    redirect_headers = contents_api.get_redirect_headers(stored_file_path, public)
+    logger.info(
+        "Asset redirect (uncached metadata): "
+        f"{component_version_uuid}/{asset_path} -> {redirect_headers}"
+    )
+
+    return HttpResponse(headers={**info_headers, **redirect_headers})

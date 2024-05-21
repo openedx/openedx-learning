@@ -61,6 +61,9 @@ class TestModelVersioningQueries(TestCase):
         # Grabbing the list of versions for this component
         assert list(component.versioning.versions) == [component_version]
 
+        # Grab a specific version by number
+        assert component.versioning.version_num(1) == component_version
+
     def test_last_publish_log(self):
         """
         Test last_publish_log versioning property for published Components.

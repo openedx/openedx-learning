@@ -5,7 +5,7 @@ more intelligent data models to be useful.
 """
 from __future__ import annotations
 
-from functools import cached_property
+from functools import cache, cached_property
 
 from django.core.exceptions import ValidationError
 from django.core.files.base import File
@@ -23,6 +23,7 @@ __all__ = [
 ]
 
 
+@cache
 def get_storage() -> Storage:
     """
     Return the Storage instance for our Content file persistence.
@@ -236,6 +237,10 @@ class Content(models.Model):
     hash_digest = hash_field()
 
     # Do we have file data stored for this Content in our file storage backend?
+    # We use has_file instead of a FileField because it's more space efficient.
+    # The location of a Content's file data is derivable from the Learning
+    # Package's UUID and the hash of the Content. There's no need to waste that
+    # space to encode it in every row.
     has_file = models.BooleanField()
 
     # The ``text`` field contains the text representation of the Content, if
@@ -288,6 +293,8 @@ class Content(models.Model):
     def write_file(self, file: File) -> None:
         """
         Write file contents to the file storage backend.
+
+        This function does nothing if the file already exists.
         """
         storage = get_storage()
         file_path = self.file_path()
@@ -303,14 +310,19 @@ class Content(models.Model):
         # be two logically separate Content entries if they are different file
         # types. This lets other models add data to Content via 1:1 relations by
         # ContentType (e.g. all SRT files). This is definitely an edge case.
-        if not storage.exists(file_path):
-            storage.save(file_path, file)
+        #
+        # 3. Similar to (2), but only part of the file was written before an
+        # error occurred. This seems unlikely, but possible if the underlying
+        # storage engine writes in chunks.
+        if storage.exists(file_path) and storage.size(file_path) == file.size:
+            return
+        storage.save(file_path, file)
 
     def file_url(self) -> str:
         """
         This will sometimes be a time-limited signed URL.
         """
-        return get_storage().url(self.file_path())
+        return content_file_url(self.file_path())
 
     def clean(self):
         """
@@ -349,3 +361,7 @@ class Content(models.Model):
         ]
         verbose_name = "Content"
         verbose_name_plural = "Contents"
+
+
+def content_file_url(file_path):
+    return get_storage().url(file_path)
