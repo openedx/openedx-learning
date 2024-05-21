@@ -34,7 +34,7 @@ Rejected Alternatives
 Django users & groups
 ~~~~~~~~~~~~~~~~~~~~~
 
-This is a standard way to grant access in Django apps, but it is not used in Open edX. 
+This is a standard way to grant access in Django apps, but it is not used in Open edX.
 
 .. _get_organizations: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/cms/djangoapps/contentstore/views/course.py#L1958
 .. _CourseCreator: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/cms/djangoapps/course_creators/models.py#L27

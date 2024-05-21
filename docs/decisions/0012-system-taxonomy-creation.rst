@@ -46,7 +46,7 @@ In this way, the system-defined taxonomies are fully dynamic and can represent
 tags based on Languages, Users, or Organizations that may exist in large numbers
 or be constantly created.
 
-At present, there isn't a good way to *list* all of the [potential] tags that
+At present, there isn't a good way to *list* all of the potential tags that
 exist in a system-defined Taxonomy. We may add an API for that in the future,
 for example to list all of the available languages. However for other cases like
 users it doesn't make sense to even try to list all of the available tags. So
@@ -54,7 +54,7 @@ for now, the assumption is that the UI will not even try to display a list of
 available tags for system-defined taxonomies. After all, system-defined tags are
 usually applied automatically, rather than a user manually selecting from a
 list. If there is a need to show a list of tags to the user, use the API that
-lists the actually applied tags - i.e. the values of the ``ObjectTag``s
+lists the actually applied tags - i.e. the values of the ``ObjectTags``
 currently applied to objects using the taxonomy.
 
 Tags hard-coded by fixtures/migrations
