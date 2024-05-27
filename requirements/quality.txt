@@ -78,7 +78,7 @@ code-annotations==1.8.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.5.1
+coverage[toml]==7.5.2
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -108,7 +108,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-django-debug-toolbar==4.3.0
+django-debug-toolbar==4.4.1
     # via -r requirements/test.txt
 django-stubs==5.0.0
     # via
@@ -140,7 +140,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==5.13.0
+edx-django-utils==5.14.1
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -224,7 +224,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.9.1
+newrelic==9.10.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -271,7 +271,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.2.1
+pylint==3.2.2
     # via
     #   edx-lint
     #   pylint-celery
@@ -316,7 +316,7 @@ pyyaml==6.0.1
     #   code-annotations
 readme-renderer==43.0
     # via twine
-requests==2.31.0
+requests==2.32.2
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
@@ -377,11 +377,11 @@ types-pyyaml==6.0.12.20240311
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.31.0.20240406
+types-requests==2.32.0.20240523
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-typing-extensions==4.11.0
+typing-extensions==4.12.0
     # via
     #   -r requirements/test.txt
     #   asgiref
@@ -417,7 +417,7 @@ wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-zipp==3.18.2
+zipp==3.19.0
     # via
     #   importlib-metadata
     #   importlib-resources
