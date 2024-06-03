@@ -21,7 +21,7 @@ billiard==4.2.0
     # via celery
 celery==5.4.0
     # via -r requirements/base.in
-certifi==2024.2.2
+certifi==2024.6.2
     # via requests
 cffi==1.16.0
     # via
@@ -69,7 +69,7 @@ dnspython==2.6.1
     # via pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==5.14.1
+edx-django-utils==5.14.2
     # via edx-drf-extensions
 edx-drf-extensions==10.3.0
     # via -r requirements/base.in
@@ -83,7 +83,7 @@ newrelic==9.10.0
     # via edx-django-utils
 pbr==6.0.0
     # via stevedore
-prompt-toolkit==3.0.43
+prompt-toolkit==3.0.45
     # via click-repl
 psutil==5.9.8
     # via edx-django-utils
@@ -99,7 +99,7 @@ pynacl==1.5.0
     # via edx-django-utils
 python-dateutil==2.9.0.post0
     # via celery
-requests==2.32.2
+requests==2.32.3
     # via edx-drf-extensions
 rules==3.4
     # via -r requirements/base.in
@@ -113,7 +113,7 @@ stevedore==5.2.0
     # via
     #   edx-django-utils
     #   edx-opaque-keys
-typing-extensions==4.12.0
+typing-extensions==4.12.1
     # via
     #   asgiref
     #   edx-opaque-keys
