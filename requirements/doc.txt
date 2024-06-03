@@ -39,7 +39,7 @@ billiard==4.2.0
     #   celery
 celery==5.4.0
     # via -r requirements/test.txt
-certifi==2024.2.2
+certifi==2024.6.2
     # via
     #   -r requirements/test.txt
     #   requests
@@ -76,7 +76,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==1.8.0
     # via -r requirements/test.txt
-coverage[toml]==7.5.2
+coverage[toml]==7.5.3
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -104,13 +104,13 @@ django-crum==0.7.9
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-django-debug-toolbar==4.4.1
+django-debug-toolbar==4.4.2
     # via -r requirements/test.txt
-django-stubs==5.0.0
+django-stubs==5.0.2
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.0.0
+django-stubs-ext==5.0.2
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -143,7 +143,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==5.14.1
+edx-django-utils==5.14.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -220,7 +220,7 @@ pluggy==1.5.0
     #   pytest
 pprintpp==0.4.0
     # via sphinxcontrib-django
-prompt-toolkit==3.0.43
+prompt-toolkit==3.0.45
     # via
     #   -r requirements/test.txt
     #   click-repl
@@ -279,7 +279,7 @@ pyyaml==6.0.1
     #   code-annotations
 readme-renderer==43.0
     # via -r requirements/doc.in
-requests==2.32.2
+requests==2.32.3
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
@@ -353,11 +353,11 @@ types-pyyaml==6.0.12.20240311
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20240523
+types-requests==2.32.0.20240602
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-typing-extensions==4.12.0
+typing-extensions==4.12.1
     # via
     #   -r requirements/test.txt
     #   asgiref
@@ -390,5 +390,5 @@ wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-zipp==3.19.0
+zipp==3.19.1
     # via importlib-metadata
