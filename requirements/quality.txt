@@ -82,7 +82,7 @@ coverage[toml]==7.5.3
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==42.0.7
+cryptography==42.0.8
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -230,7 +230,7 @@ newrelic==9.10.0
     #   edx-django-utils
 nh3==0.2.17
     # via readme-renderer
-packaging==24.0
+packaging==24.1
     # via
     #   -r requirements/test.txt
     #   pytest
@@ -238,7 +238,7 @@ pbr==6.0.0
     # via
     #   -r requirements/test.txt
     #   stevedore
-pkginfo==1.11.0
+pkginfo==1.11.1
     # via twine
 platformdirs==4.2.2
     # via pylint
@@ -246,7 +246,7 @@ pluggy==1.5.0
     # via
     #   -r requirements/test.txt
     #   pytest
-prompt-toolkit==3.0.45
+prompt-toolkit==3.0.46
     # via
     #   -r requirements/test.txt
     #   click-repl
@@ -271,7 +271,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.2.2
+pylint==3.2.3
     # via
     #   edx-lint
     #   pylint-celery
@@ -293,7 +293,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.2.1
+pytest==8.2.2
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -381,7 +381,7 @@ types-requests==2.32.0.20240602
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-typing-extensions==4.12.1
+typing-extensions==4.12.2
     # via
     #   -r requirements/test.txt
     #   asgiref
@@ -417,7 +417,7 @@ wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-zipp==3.19.1
+zipp==3.19.2
     # via
     #   importlib-metadata
     #   importlib-resources

@@ -16,7 +16,7 @@ grimp==3.2
     # via import-linter
 import-linter==2.0
     # via -r requirements/ci.in
-packaging==24.0
+packaging==24.1
     # via tox
 platformdirs==4.2.2
     # via virtualenv
@@ -34,7 +34,7 @@ tox==3.28.0
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/ci.in
-typing-extensions==4.12.1
+typing-extensions==4.12.2
     # via
     #   grimp
     #   import-linter
