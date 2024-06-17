@@ -148,7 +148,7 @@ edx-drf-extensions==10.3.0
     # via -r requirements/test.txt
 edx-lint==5.3.6
     # via -r requirements/quality.in
-edx-opaque-keys==2.9.0
+edx-opaque-keys==2.10.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -156,7 +156,7 @@ exceptiongroup==1.2.1
     # via
     #   -r requirements/test.txt
     #   pytest
-grimp==3.2
+grimp==3.3
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -212,7 +212,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mock==5.1.0
     # via -r requirements/test.txt
-more-itertools==10.2.0
+more-itertools==10.3.0
     # via
     #   jaraco-classes
     #   jaraco-functools
@@ -224,7 +224,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.10.0
+newrelic==9.11.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -246,7 +246,7 @@ pluggy==1.5.0
     # via
     #   -r requirements/test.txt
     #   pytest
-prompt-toolkit==3.0.46
+prompt-toolkit==3.0.47
     # via
     #   -r requirements/test.txt
     #   click-repl
@@ -254,7 +254,7 @@ psutil==5.9.8
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pycodestyle==2.11.1
+pycodestyle==2.12.0
     # via -r requirements/quality.in
 pycparser==2.22
     # via
@@ -285,7 +285,7 @@ pylint-plugin-utils==0.8.2
     # via
     #   pylint-celery
     #   pylint-django
-pymongo==4.4.0
+pymongo==4.7.3
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys

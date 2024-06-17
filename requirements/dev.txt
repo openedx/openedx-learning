@@ -177,7 +177,7 @@ edx-i18n-tools==1.6.0
     # via -r requirements/dev.in
 edx-lint==5.3.6
     # via -r requirements/quality.txt
-edx-opaque-keys==2.9.0
+edx-opaque-keys==2.10.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
@@ -185,12 +185,12 @@ exceptiongroup==1.2.1
     # via
     #   -r requirements/quality.txt
     #   pytest
-filelock==3.14.0
+filelock==3.15.1
     # via
     #   -r requirements/ci.txt
     #   tox
     #   virtualenv
-grimp==3.2
+grimp==3.3
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -276,7 +276,7 @@ mdurl==0.1.2
     #   markdown-it-py
 mock==5.1.0
     # via -r requirements/quality.txt
-more-itertools==10.2.0
+more-itertools==10.3.0
     # via
     #   -r requirements/quality.txt
     #   jaraco-classes
@@ -289,7 +289,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/quality.txt
-newrelic==9.10.0
+newrelic==9.11.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -332,7 +332,7 @@ pluggy==1.5.0
     #   tox
 polib==1.2.0
     # via edx-i18n-tools
-prompt-toolkit==3.0.46
+prompt-toolkit==3.0.47
     # via
     #   -r requirements/quality.txt
     #   click-repl
@@ -344,7 +344,7 @@ py==1.11.0
     # via
     #   -r requirements/ci.txt
     #   tox
-pycodestyle==2.11.1
+pycodestyle==2.12.0
     # via -r requirements/quality.txt
 pycparser==2.22
     # via
@@ -383,7 +383,7 @@ pylint-plugin-utils==0.8.2
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.4.0
+pymongo==4.7.3
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
