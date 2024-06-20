@@ -73,17 +73,17 @@ edx-django-utils==5.14.2
     # via edx-drf-extensions
 edx-drf-extensions==10.3.0
     # via -r requirements/base.in
-edx-opaque-keys==2.9.0
+edx-opaque-keys==2.10.0
     # via edx-drf-extensions
 idna==3.7
     # via requests
 kombu==5.3.7
     # via celery
-newrelic==9.10.0
+newrelic==9.11.0
     # via edx-django-utils
 pbr==6.0.0
     # via stevedore
-prompt-toolkit==3.0.46
+prompt-toolkit==3.0.47
     # via click-repl
 psutil==5.9.8
     # via edx-django-utils
@@ -93,7 +93,7 @@ pyjwt[crypto]==2.8.0
     # via
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.4.0
+pymongo==4.7.3
     # via edx-opaque-keys
 pynacl==1.5.0
     # via edx-django-utils
