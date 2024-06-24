@@ -92,7 +92,7 @@ code-annotations==1.8.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
-coverage[toml]==7.5.3
+coverage[toml]==7.5.4
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -148,7 +148,7 @@ django-waffle==4.1.0
     #   -r requirements/quality.txt
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.15.1
+djangorestframework==3.15.2
     # via
     #   -r requirements/quality.txt
     #   drf-jwt
@@ -185,7 +185,7 @@ exceptiongroup==1.2.1
     # via
     #   -r requirements/quality.txt
     #   pytest
-filelock==3.15.1
+filelock==3.15.4
     # via
     #   -r requirements/ci.txt
     #   tox
@@ -203,7 +203,7 @@ import-linter==2.0
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
-importlib-metadata==7.1.0
+importlib-metadata==7.2.1
     # via
     #   -r requirements/pip-tools.txt
     #   -r requirements/quality.txt
@@ -336,7 +336,7 @@ prompt-toolkit==3.0.47
     # via
     #   -r requirements/quality.txt
     #   click-repl
-psutil==5.9.8
+psutil==6.0.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -506,7 +506,7 @@ types-pyyaml==6.0.12.20240311
     #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20240602
+types-requests==2.32.0.20240622
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
@@ -531,7 +531,7 @@ tzdata==2024.1
     #   -r requirements/quality.txt
     #   backports-zoneinfo
     #   celery
-urllib3==2.2.1
+urllib3==2.2.2
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -543,7 +543,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.26.2
+virtualenv==20.26.3
     # via
     #   -r requirements/ci.txt
     #   tox

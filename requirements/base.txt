@@ -60,7 +60,7 @@ django-waffle==4.1.0
     # via
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.15.1
+djangorestframework==3.15.2
     # via
     #   -r requirements/base.in
     #   drf-jwt
@@ -85,7 +85,7 @@ pbr==6.0.0
     # via stevedore
 prompt-toolkit==3.0.47
     # via click-repl
-psutil==5.9.8
+psutil==6.0.0
     # via edx-django-utils
 pycparser==2.22
     # via cffi
@@ -122,7 +122,7 @@ tzdata==2024.1
     # via
     #   backports-zoneinfo
     #   celery
-urllib3==2.2.1
+urllib3==2.2.2
     # via requests
 vine==5.1.0
     # via
