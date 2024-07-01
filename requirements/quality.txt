@@ -166,7 +166,7 @@ idna==3.7
     #   requests
 import-linter==2.0
     # via -r requirements/test.txt
-importlib-metadata==7.2.1
+importlib-metadata==8.0.0
     # via
     #   keyring
     #   twine
@@ -216,7 +216,7 @@ more-itertools==10.3.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.10.0
+mypy==1.10.1
     # via -r requirements/test.txt
 mypy-extensions==1.0.0
     # via
@@ -238,7 +238,7 @@ pbr==6.0.0
     # via
     #   -r requirements/test.txt
     #   stevedore
-pkginfo==1.11.1
+pkginfo==1.10.0
     # via twine
 platformdirs==4.2.2
     # via pylint
@@ -271,7 +271,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.2.3
+pylint==3.2.5
     # via
     #   edx-lint
     #   pylint-celery
@@ -285,7 +285,7 @@ pylint-plugin-utils==0.8.2
     # via
     #   pylint-celery
     #   pylint-django
-pymongo==4.7.3
+pymongo==4.8.0
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -370,7 +370,7 @@ tomli==2.0.1
     #   pytest
 tomlkit==0.12.5
     # via pylint
-twine==5.1.0
+twine==5.1.1
     # via -r requirements/quality.in
 types-pyyaml==6.0.12.20240311
     # via

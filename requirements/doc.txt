@@ -169,7 +169,7 @@ imagesize==1.4.1
     # via sphinx
 import-linter==2.0
     # via -r requirements/test.txt
-importlib-metadata==7.2.1
+importlib-metadata==8.0.0
     # via sphinx
 iniconfig==2.0.0
     # via
@@ -190,7 +190,7 @@ markupsafe==2.1.5
     #   jinja2
 mock==5.1.0
     # via -r requirements/test.txt
-mypy==1.10.0
+mypy==1.10.1
     # via -r requirements/test.txt
 mypy-extensions==1.0.0
     # via
@@ -246,7 +246,7 @@ pyjwt[crypto]==2.8.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.7.3
+pymongo==4.8.0
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
