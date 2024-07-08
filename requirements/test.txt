@@ -29,7 +29,7 @@ billiard==4.2.0
     #   celery
 celery==5.4.0
     # via -r requirements/base.txt
-certifi==2024.6.2
+certifi==2024.7.4
     # via
     #   -r requirements/base.txt
     #   requests
@@ -92,7 +92,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-django-debug-toolbar==4.4.2
+django-debug-toolbar==4.4.5
     # via -r requirements/test.in
 django-stubs==5.0.2
     # via
