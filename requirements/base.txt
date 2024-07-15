@@ -44,7 +44,7 @@ click-repl==0.3.0
     # via celery
 cryptography==42.0.8
     # via pyjwt
-django==4.2.13
+django==4.2.14
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/base.in
@@ -79,7 +79,7 @@ idna==3.7
     # via requests
 kombu==5.3.7
     # via celery
-newrelic==9.11.0
+newrelic==9.12.0
     # via edx-django-utils
 pbr==6.0.0
     # via stevedore

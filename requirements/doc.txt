@@ -76,7 +76,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==1.8.0
     # via -r requirements/test.txt
-coverage[toml]==7.5.4
+coverage[toml]==7.6.0
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -86,7 +86,7 @@ cryptography==42.0.8
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==4.2.13
+django==4.2.14
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
@@ -104,7 +104,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-django-debug-toolbar==4.4.5
+django-debug-toolbar==4.4.6
     # via -r requirements/test.txt
 django-stubs==5.0.2
     # via
@@ -153,11 +153,11 @@ edx-opaque-keys==2.10.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-exceptiongroup==1.2.1
+exceptiongroup==1.2.2
     # via
     #   -r requirements/test.txt
     #   pytest
-grimp==3.3
+grimp==3.4.1
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -198,7 +198,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.11.0
+newrelic==9.12.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -353,7 +353,7 @@ types-pyyaml==6.0.12.20240311
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20240622
+types-requests==2.32.0.20240712
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
