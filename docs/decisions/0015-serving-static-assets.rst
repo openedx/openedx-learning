@@ -130,7 +130,7 @@ Asset requests may return a 403 error if the user is logged in but not authorize
 There will be a new endpoint exposed in LMS/Studio that will force a redirect and login to the asset server. Pages that make use of assets will be expected to load that endpoint in their ``<head>`` before any page assets are loaded. The flow would go like this:
 
 #. There is a ``<script>`` tag that points to a new check-login endpoint in LMS/Studio, causing the browser to load and execute it before images are loaded.
-#. This LMS/Studio endpoint generates a random token, stores user information its backend cache based on that token, and redirects the user to an asset server login endpoint using that token as a querystring parameter.
+#. This LMS/Studio endpoint generates a random token, stores user information in its backend cache based on that token, and redirects the user to an asset server login endpoint using that token as a querystring parameter.
 #. The asset server endpoint checks the cache with that token for the relevant user information, logs that user in, and removes the cache entry. It has access to the cache because it's still proxying to the same LMS/Studio process underneath–it's just being called from a different domain.
 
 Masquerading
