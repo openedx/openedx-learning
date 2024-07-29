@@ -145,6 +145,8 @@ edx-opaque-keys==2.10.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
+freezegun==1.5.1
+    # via -r requirements/test.txt
 grimp==3.4.1
     # via
     #   -r requirements/test.txt
@@ -253,6 +255,7 @@ python-dateutil==2.9.0.post0
     # via
     #   -r requirements/test.txt
     #   celery
+    #   freezegun
 python-slugify==8.0.4
     # via
     #   -r requirements/test.txt

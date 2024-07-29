@@ -18,3 +18,4 @@ mypy                      # static type checking
 django-stubs              # Typing stubs for Django, so it works with mypy
 djangorestframework-stubs # Typing stubs for DRF
 django-debug-toolbar      # provides a debug toolbar for Django
+freezegun                 # Allows tests to mock the output of assorted datetime module functions

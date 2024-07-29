@@ -122,6 +122,8 @@ edx-opaque-keys==2.10.0
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
+freezegun==1.5.1
+    # via -r requirements/test.in
 grimp==3.4.1
     # via import-linter
 idna==3.7
@@ -198,6 +200,7 @@ python-dateutil==2.9.0.post0
     # via
     #   -r requirements/base.txt
     #   celery
+    #   freezegun
 python-slugify==8.0.4
     # via code-annotations
 pyyaml==6.0.1

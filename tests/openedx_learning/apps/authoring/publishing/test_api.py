@@ -8,6 +8,7 @@ from uuid import UUID
 
 import pytest
 from django.core.exceptions import ValidationError
+from freezegun import freeze_time
 
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntity
@@ -283,6 +284,113 @@ class DraftTestCase(TestCase):
                 self._get_draft_version_num(entity) ==
                 pub_version_num
             )
+
+    def test_last_publish(self):
+        """
+        Test that PublishLog records are created when publishing a LearningPackage and its PublishableEntities.
+        """
+        # This Entity will get a couple of Published versions
+        entity_with_changes = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "entity_with_changes",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity_with_changes.id,
+            version_num=1,
+            title="I'm entity_with_changes v1",
+            created=self.now,
+            created_by=None,
+        )
+
+        # This Entity will only be Published once.
+        entity_with_no_changes = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "entity_with_no_changes",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity_with_no_changes.id,
+            version_num=1,
+            title="I'm entity_with_no_changes v1",
+            created=self.now,
+            created_by=None,
+        )
+
+        # Publish first time.
+        published_first_time = datetime(2024, 5, 6, 7, 8, 9, tzinfo=timezone.utc)
+        with freeze_time(published_first_time):
+            publishing_api.publish_all_drafts(self.learning_package.id)
+
+        # Fetch the most recent PublishLog for the LearningPackage and its PublishableEntities.
+        # Each call should only require a single query.
+        with self.assertNumQueries(1):
+            first_publish_log_for_library = publishing_api.get_last_publish(
+                self.learning_package.id,
+            )
+        with self.assertNumQueries(1):
+            first_publish_log_for_entity_with_changes = publishing_api.get_last_publish(
+                self.learning_package.id,
+                key=entity_with_changes.key,
+            )
+        with self.assertNumQueries(1):
+            first_publish_log_for_entity_with_no_changes = publishing_api.get_last_publish(
+                self.learning_package.id,
+                key=entity_with_no_changes.key,
+            )
+
+        # PublishLog for library + both entities should match each other
+        assert published_first_time == first_publish_log_for_library.published_at
+        assert (
+            first_publish_log_for_library ==
+            first_publish_log_for_entity_with_changes ==
+            first_publish_log_for_entity_with_no_changes
+        )
+
+        # Modify entity_with_changes
+        publishing_api.create_publishable_entity_version(
+            entity_with_changes.id,
+            version_num=2,
+            title="I'm entity_with_changes v2",
+            created=self.now,
+            created_by=None,
+        )
+
+        # Publish second time
+        published_second_time = datetime(2024, 5, 6, 7, 8, 9, tzinfo=timezone.utc)
+        with freeze_time(published_second_time):
+            publishing_api.publish_all_drafts(self.learning_package.id)
+
+        # Re-fetch the most recent PublishLog for the LearningPackage and its PublishableEntities.
+        # Each call should only require a single query.
+        with self.assertNumQueries(1):
+            next_publish_log_for_library = publishing_api.get_last_publish(
+                self.learning_package.id,
+            )
+        with self.assertNumQueries(1):
+            next_publish_log_for_entity_with_changes = publishing_api.get_last_publish(
+                self.learning_package.id,
+                key=entity_with_changes.key,
+            )
+        with self.assertNumQueries(1):
+            next_publish_log_for_entity_with_no_changes = publishing_api.get_last_publish(
+                self.learning_package.id,
+                key=entity_with_no_changes.key,
+            )
+
+        # PublishLog for library and and entity_with_changes should match each other
+        assert next_publish_log_for_library.published_at == published_second_time
+        assert (
+            next_publish_log_for_library ==
+            next_publish_log_for_entity_with_changes
+        )
+        # But the entity_with_no_changes should still be on the original publish log
+        assert (
+            first_publish_log_for_entity_with_no_changes ==
+            next_publish_log_for_entity_with_no_changes
+        )
 
     def _get_published_version_num(self, entity: PublishableEntity) -> int | None:
         published_version = publishing_api.get_published_version(entity.id)
