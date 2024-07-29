@@ -202,7 +202,21 @@ def get_publishable_entity_by_key(learning_package_id, /, key) -> PublishableEnt
     )
 
 
-def get_last_publish(learning_package_id: int, /) -> PublishLog | None:
+def get_last_publish(learning_package_id: int, /, key=None) -> PublishLog | None:
+    """
+    Return the most recent PublishLog for the given LearningPackage + optional PublishableEntity.
+
+    Returns None if no related PublishLog (or PublishLogRecord) is found.
+    """
+    if key:
+        publish_log_record = PublishLogRecord.objects \
+                                             .filter(publish_log__learning_package_id=learning_package_id) \
+                                             .filter(entity__key=key) \
+                                             .order_by('-publish_log__id') \
+                                             .select_related('publish_log') \
+                                             .first()
+        return publish_log_record.publish_log if publish_log_record else None
+
     return PublishLog.objects \
                      .filter(learning_package_id=learning_package_id) \
                      .order_by('-id') \
