@@ -134,6 +134,8 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
         'publishable_entity__draft__version__componentversion',
         'publishable_entity__published__version',
         'publishable_entity__published__version__componentversion',
+        'publishable_entity__published__publish_log_record',
+        'publishable_entity__published__publish_log_record__publish_log',
     )
 
     # This foreign key is technically redundant because we're already locked to
