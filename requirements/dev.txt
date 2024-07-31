@@ -178,6 +178,8 @@ filelock==3.15.4
     #   -r requirements/ci.txt
     #   tox
     #   virtualenv
+freezegun==1.5.1
+    # via -r requirements/quality.txt
 grimp==3.4.1
     # via
     #   -r requirements/ci.txt
@@ -391,6 +393,7 @@ python-dateutil==2.9.0.post0
     # via
     #   -r requirements/quality.txt
     #   celery
+    #   freezegun
 python-slugify==8.0.4
     # via
     #   -r requirements/quality.txt

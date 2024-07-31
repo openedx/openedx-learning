@@ -244,6 +244,18 @@ class PublishableEntityMixin(models.Model):
             return draft_version_id != published_version_id
 
         @property
+        def last_publish_log(self):
+            """
+            Return the most recent PublishLog for this component.
+
+            Return None if the component is not published.
+            """
+            pub_entity = self.content_obj.publishable_entity
+            if hasattr(pub_entity, 'published'):
+                return pub_entity.published.publish_log_record.publish_log
+            return None
+
+        @property
         def versions(self):
             """
             Return a QuerySet of content version models for this content model.

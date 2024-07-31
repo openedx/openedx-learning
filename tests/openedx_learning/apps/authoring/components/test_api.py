@@ -73,6 +73,7 @@ class PerformanceTestCase(ComponentTestCase):
             draft = component.versioning.draft
             published = component.versioning.published
             assert draft.title == published.title
+            assert component.versioning.last_publish_log.published_at == self.now
 
 
 class GetComponentsTestCase(ComponentTestCase):
