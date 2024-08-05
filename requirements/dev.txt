@@ -18,7 +18,7 @@ astroid==3.2.4
     #   -r requirements/quality.txt
     #   pylint
     #   pylint-celery
-attrs==23.2.0
+attrs==24.1.0
     # via -r requirements/quality.txt
 backports-tarfile==1.2.0
     # via
@@ -84,7 +84,7 @@ code-annotations==1.8.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
-coverage[toml]==7.6.0
+coverage[toml]==7.6.1
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -159,13 +159,13 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-edx-django-utils==5.14.2
+edx-django-utils==5.15.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
 edx-drf-extensions==10.3.0
     # via -r requirements/quality.txt
-edx-i18n-tools==1.6.0
+edx-i18n-tools==1.6.2
     # via -r requirements/dev.in
 edx-lint==5.3.7
     # via -r requirements/quality.txt
@@ -214,7 +214,7 @@ jaraco-context==5.3.0
     # via
     #   -r requirements/quality.txt
     #   keyring
-jaraco-functools==4.0.1
+jaraco-functools==4.0.2
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -228,7 +228,7 @@ jinja2==3.1.4
     #   -r requirements/quality.txt
     #   code-annotations
     #   diff-cover
-keyring==25.2.1
+keyring==25.3.0
     # via
     #   -r requirements/quality.txt
     #   twine
@@ -236,12 +236,8 @@ kombu==5.3.7
     # via
     #   -r requirements/quality.txt
     #   celery
-lxml[html-clean,html_clean]==5.2.2
-    # via
-    #   edx-i18n-tools
-    #   lxml-html-clean
-lxml-html-clean==0.1.1
-    # via lxml
+lxml==5.2.2
+    # via edx-i18n-tools
 markdown-it-py==3.0.0
     # via
     #   -r requirements/quality.txt
@@ -265,7 +261,7 @@ more-itertools==10.3.0
     #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.11.0
+mypy==1.11.1
     # via -r requirements/quality.txt
 mypy-extensions==1.0.0
     # via
@@ -289,7 +285,7 @@ packaging==24.1
     #   build
     #   pytest
     #   tox
-path==17.0.0
+path==16.16.0
     # via edx-i18n-tools
 pbr==6.0.0
     # via
@@ -328,7 +324,7 @@ py==1.11.0
     # via
     #   -r requirements/ci.txt
     #   tox
-pycodestyle==2.12.0
+pycodestyle==2.12.1
     # via -r requirements/quality.txt
 pycparser==2.22
     # via
@@ -342,7 +338,7 @@ pygments==2.18.0
     #   diff-cover
     #   readme-renderer
     #   rich
-pyjwt[crypto]==2.8.0
+pyjwt[crypto]==2.9.0
     # via
     #   -r requirements/quality.txt
     #   drf-jwt
@@ -516,7 +512,7 @@ wcwidth==0.2.13
     # via
     #   -r requirements/quality.txt
     #   prompt-toolkit
-wheel==0.43.0
+wheel==0.44.0
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
