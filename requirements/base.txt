@@ -8,7 +8,7 @@ amqp==5.2.0
     # via kombu
 asgiref==3.8.1
     # via django
-attrs==23.2.0
+attrs==24.1.0
     # via -r requirements/base.in
 billiard==4.2.0
     # via celery
@@ -62,7 +62,7 @@ dnspython==2.6.1
     # via pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==5.14.2
+edx-django-utils==5.15.0
     # via edx-drf-extensions
 edx-drf-extensions==10.3.0
     # via -r requirements/base.in
@@ -82,7 +82,7 @@ psutil==6.0.0
     # via edx-django-utils
 pycparser==2.22
     # via cffi
-pyjwt[crypto]==2.8.0
+pyjwt[crypto]==2.9.0
     # via
     #   drf-jwt
     #   edx-drf-extensions
