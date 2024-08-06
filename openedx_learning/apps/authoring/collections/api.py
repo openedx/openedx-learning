@@ -34,6 +34,8 @@ def get_collection(collection_id: int) -> Collection:
 def get_learning_package_collections(learning_package_id: int) -> QuerySet[Collection]:
     """
     Get all collections for a given learning package
+
+    Only enabled collections are returned
     """
     return (
         Collection.objects

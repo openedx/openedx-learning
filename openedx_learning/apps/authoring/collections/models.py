@@ -16,7 +16,10 @@ class Collection(models.Model):
     """
 
     id = models.AutoField(primary_key=True)
+
+    # Each collection belongs to a learning package
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+
     name = case_insensitive_char_field(
         null=False,
         max_length=255,
@@ -47,13 +50,13 @@ class Collection(models.Model):
     class Meta:
         verbose_name_plural = "Collections"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Developer-facing representation of a Collection.
         """
         return str(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         User-facing string representation of a Collection.
         """
