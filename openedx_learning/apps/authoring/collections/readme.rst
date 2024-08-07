@@ -1,7 +1,7 @@
 Collections App
 ==============
 
-The ``collections`` app will enable content authors group content together for
+The ``collections`` app will enable content authors to group content together for
 organizing and re-using content. Components can be part of several different collections.
 
 Motivation
