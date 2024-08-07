@@ -216,10 +216,20 @@ def get_all_drafts(learning_package_id: int, /) -> QuerySet[Draft]:
     )
 
 
-def get_entities_with_unpublished_changes(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
-    return PublishableEntity.objects \
-                            .filter(learning_package_id=learning_package_id) \
-                            .exclude(draft__version=F('published__version'))
+def get_entities_with_unpublished_changes(
+    learning_package_id: int,
+    /,
+    include_deleted_drafts: bool = False
+) -> QuerySet[PublishableEntity]:
+    """
+    Fetch entities that have unpublished changes.
+
+    By default, this excludes soft-deleted drafts but can be included using include_deleted_drafts option.
+    """
+    query_filters = {"learning_package_id": learning_package_id}
+    if not include_deleted_drafts:
+        query_filters['draft__version__isnull'] = False
+    return PublishableEntity.objects.filter(**query_filters).exclude(draft__version=F('published__version'))
 
 
 def get_entities_with_unpublished_deletes(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
