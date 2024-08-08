@@ -7,6 +7,18 @@ from django.db.models import QuerySet
 
 from .models import Collection
 
+# The public API that will be re-exported by openedx_learning.apps.authoring.api
+# is listed in the __all__ entries below. Internal helper functions that are
+# private to this module should start with an underscore. If a function does not
+# start with an underscore AND it is not in __all__, that function is considered
+# to be callable only by other apps in the authoring package.
+__all__ = [
+    "create_collection",
+    "get_collection",
+    "get_learning_package_collections",
+    "update_collection",
+]
+
 
 def create_collection(
     learning_package_id: int,
