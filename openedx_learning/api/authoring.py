@@ -9,6 +9,7 @@ APIs.
 """
 # These wildcard imports are okay because these api modules declare __all__.
 # pylint: disable=wildcard-import
+from ..apps.authoring.collections.api import *
 from ..apps.authoring.components.api import *
 from ..apps.authoring.contents.api import *
 from ..apps.authoring.publishing.api import *

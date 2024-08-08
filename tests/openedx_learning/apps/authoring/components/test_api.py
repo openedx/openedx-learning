@@ -92,7 +92,7 @@ class GetComponentsTestCase(ComponentTestCase):
         Initialize our content data (all our tests are read only).
 
         We don't actually need to add content to the ComponentVersions, since
-        for this we only care about the metadata on Compnents, their versions,
+        for this we only care about the metadata on Components, their versions,
         and the associated draft/publish status.
         """
         super().setUpTestData()
