@@ -218,8 +218,10 @@ def get_all_drafts(learning_package_id: int, /) -> QuerySet[Draft]:
 
 def get_entities_with_unpublished_changes(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
     return PublishableEntity.objects \
-                            .filter(learning_package_id=learning_package_id) \
-                            .exclude(draft__version=F('published__version'))
+                            .filter(
+                                learning_package_id=learning_package_id,
+                                draft__version__isnull=False,
+                            ).exclude(draft__version=F('published__version'))
 
 
 def get_entities_with_unpublished_deletes(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
