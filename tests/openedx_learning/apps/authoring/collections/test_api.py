@@ -45,17 +45,17 @@ class GetCollectionTestCase(CollectionTestCase):
         super().setUpTestData()
         cls.collection1 = collection_api.create_collection(
             cls.learning_package.id,
-            name="Collection 1",
+            title="Collection 1",
             description="Description of Collection 1",
         )
         cls.collection2 = collection_api.create_collection(
             cls.learning_package.id,
-            name="Collection 2",
+            title="Collection 2",
             description="Description of Collection 2",
         )
         cls.disabled_collection = collection_api.create_collection(
             cls.learning_package.id,
-            name="Disabled Collection",
+            title="Disabled Collection",
             description="Description of Disabled Collection",
         )
         cls.disabled_collection.enabled = False
@@ -106,11 +106,11 @@ class CollectionCreateTestCase(CollectionTestCase):
         with freeze_time(created_time):
             collection = collection_api.create_collection(
                 self.learning_package.id,
-                name="My Collection",
+                title="My Collection",
                 description="This is my collection",
             )
 
-        assert collection.name == "My Collection"
+        assert collection.title == "My Collection"
         assert collection.description == "This is my collection"
         assert collection.enabled
         assert collection.created == created_time
@@ -122,9 +122,9 @@ class CollectionCreateTestCase(CollectionTestCase):
         """
         collection = collection_api.create_collection(
             self.learning_package.id,
-            name="My Collection",
+            title="My Collection",
         )
-        assert collection.name == "My Collection"
+        assert collection.title == "My Collection"
         assert collection.description == ""
         assert collection.enabled
 
@@ -142,37 +142,37 @@ class UpdateCollectionTestCase(CollectionTestCase):
         super().setUp()
         self.collection = collection_api.create_collection(
             self.learning_package.id,
-            name="Collection",
+            title="Collection",
             description="Description of Collection",
         )
 
     def test_update_collection(self):
         """
-        Test updating a collection's name and description.
+        Test updating a collection's title and description.
         """
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
             collection = collection_api.update_collection(
                 self.collection.pk,
-                name="New Name",
+                title="New Title",
                 description="",
             )
 
-        assert collection.name == "New Name"
+        assert collection.title == "New Title"
         assert collection.description == ""
         assert collection.modified == modified_time
         assert collection.created == self.collection.created  # unchanged
 
     def test_update_collection_partial(self):
         """
-        Test updating a collection's name.
+        Test updating a collection's title.
         """
         collection = collection_api.update_collection(
             self.collection.pk,
-            name="New Name",
+            title="New Title",
         )
 
-        assert collection.name == "New Name"
+        assert collection.title == "New Title"
         assert collection.description == self.collection.description  # unchanged
 
     def test_update_collection_empty(self):
@@ -185,7 +185,7 @@ class UpdateCollectionTestCase(CollectionTestCase):
                 self.collection.pk,
             )
 
-        assert collection.name == self.collection.name  # unchanged
+        assert collection.title == self.collection.title  # unchanged
         assert collection.description == self.collection.description  # unchanged
         assert collection.modified == self.collection.modified  # unchanged
 
@@ -194,4 +194,4 @@ class UpdateCollectionTestCase(CollectionTestCase):
         Test updating a collection that doesn't exist.
         """
         with self.assertRaises(ObjectDoesNotExist):
-            collection_api.update_collection(12345, name="New Name")
+            collection_api.update_collection(12345, title="New Title")
