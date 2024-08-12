@@ -18,7 +18,7 @@ astroid==3.2.4
     #   -r requirements/quality.txt
     #   pylint
     #   pylint-celery
-attrs==24.1.0
+attrs==24.2.0
     # via -r requirements/quality.txt
 backports-tarfile==1.2.0
     # via
@@ -38,7 +38,7 @@ certifi==2024.7.4
     # via
     #   -r requirements/quality.txt
     #   requests
-cffi==1.16.0
+cffi==1.17.0
     # via
     #   -r requirements/quality.txt
     #   cryptography
@@ -105,7 +105,7 @@ distlib==0.3.8
     # via
     #   -r requirements/ci.txt
     #   virtualenv
-django==4.2.14
+django==4.2.15
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/quality.txt
@@ -232,11 +232,11 @@ keyring==25.3.0
     # via
     #   -r requirements/quality.txt
     #   twine
-kombu==5.3.7
+kombu==5.4.0
     # via
     #   -r requirements/quality.txt
     #   celery
-lxml==5.2.2
+lxml==5.3.0
     # via edx-i18n-tools
 markdown-it-py==3.0.0
     # via
@@ -256,7 +256,7 @@ mdurl==0.1.2
     #   markdown-it-py
 mock==5.1.0
     # via -r requirements/quality.txt
-more-itertools==10.3.0
+more-itertools==10.4.0
     # via
     #   -r requirements/quality.txt
     #   jaraco-classes
@@ -269,7 +269,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/quality.txt
-newrelic==9.12.0
+newrelic==9.13.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -394,7 +394,7 @@ python-slugify==8.0.4
     # via
     #   -r requirements/quality.txt
     #   code-annotations
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via
     #   -r requirements/quality.txt
     #   code-annotations
@@ -468,7 +468,7 @@ tox==3.28.0
     #   -r requirements/ci.txt
 twine==5.1.1
     # via -r requirements/quality.txt
-types-pyyaml==6.0.12.20240724
+types-pyyaml==6.0.12.20240808
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -516,7 +516,7 @@ wheel==0.44.0
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
-zipp==3.19.2
+zipp==3.20.0
     # via
     #   -r requirements/quality.txt
     #   importlib-metadata

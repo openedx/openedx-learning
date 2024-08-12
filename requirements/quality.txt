@@ -17,7 +17,7 @@ astroid==3.2.4
     # via
     #   pylint
     #   pylint-celery
-attrs==24.1.0
+attrs==24.2.0
     # via -r requirements/test.txt
 backports-tarfile==1.2.0
     # via jaraco-context
@@ -31,7 +31,7 @@ certifi==2024.7.4
     # via
     #   -r requirements/test.txt
     #   requests
-cffi==1.16.0
+cffi==1.17.0
     # via
     #   -r requirements/test.txt
     #   cryptography
@@ -83,7 +83,7 @@ ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.3.8
     # via pylint
-django==4.2.14
+django==4.2.15
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
@@ -184,7 +184,7 @@ jinja2==3.1.4
     #   code-annotations
 keyring==25.3.0
     # via twine
-kombu==5.3.7
+kombu==5.4.0
     # via
     #   -r requirements/test.txt
     #   celery
@@ -200,7 +200,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mock==5.1.0
     # via -r requirements/test.txt
-more-itertools==10.3.0
+more-itertools==10.4.0
     # via
     #   jaraco-classes
     #   jaraco-functools
@@ -212,7 +212,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.12.0
+newrelic==9.13.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -299,7 +299,7 @@ python-slugify==8.0.4
     # via
     #   -r requirements/test.txt
     #   code-annotations
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via
     #   -r requirements/test.txt
     #   code-annotations
@@ -352,7 +352,7 @@ tomlkit==0.13.0
     # via pylint
 twine==5.1.1
     # via -r requirements/quality.in
-types-pyyaml==6.0.12.20240724
+types-pyyaml==6.0.12.20240808
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -391,5 +391,5 @@ wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-zipp==3.19.2
+zipp==3.20.0
     # via importlib-metadata
