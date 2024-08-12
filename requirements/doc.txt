@@ -17,9 +17,9 @@ asgiref==3.8.1
     #   -r requirements/test.txt
     #   django
     #   django-stubs
-attrs==24.1.0
+attrs==24.2.0
     # via -r requirements/test.txt
-babel==2.15.0
+babel==2.16.0
     # via
     #   pydata-sphinx-theme
     #   sphinx
@@ -35,7 +35,7 @@ certifi==2024.7.4
     # via
     #   -r requirements/test.txt
     #   requests
-cffi==1.16.0
+cffi==1.17.0
     # via
     #   -r requirements/test.txt
     #   cryptography
@@ -78,7 +78,7 @@ cryptography==43.0.0
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==4.2.14
+django==4.2.15
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
@@ -168,7 +168,7 @@ jinja2==3.1.4
     #   -r requirements/test.txt
     #   code-annotations
     #   sphinx
-kombu==5.3.7
+kombu==5.4.0
     # via
     #   -r requirements/test.txt
     #   celery
@@ -186,7 +186,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.12.0
+newrelic==9.13.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -260,7 +260,7 @@ python-slugify==8.0.4
     # via
     #   -r requirements/test.txt
     #   code-annotations
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via
     #   -r requirements/test.txt
     #   code-annotations
@@ -326,7 +326,7 @@ text-unidecode==1.3
     # via
     #   -r requirements/test.txt
     #   python-slugify
-types-pyyaml==6.0.12.20240724
+types-pyyaml==6.0.12.20240808
     # via
     #   -r requirements/test.txt
     #   django-stubs
