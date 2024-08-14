@@ -152,6 +152,49 @@ class DraftTestCase(TestCase):
         deleted_entity_version = publishing_api.get_draft_version(entity.id)
         assert deleted_entity_version is None
 
+    def test_soft_deletes(self) -> None:
+        """Test the publishing behavior of soft deletes."""
+        entity = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "my_entity",
+            created=self.now,
+            created_by=None,
+        )
+        entity_version = publishing_api.create_publishable_entity_version(
+            entity.id,
+            version_num=1,
+            title="An Entity 🌴",
+            created=self.now,
+            created_by=None,
+        )
+
+        # Initial publish
+        publish_log = publishing_api.publish_all_drafts(self.learning_package.id)
+        log_records = list(publish_log.records.all())
+        assert len(log_records) == 1
+        record = log_records[0]
+        assert record.entity_id == entity.id
+        assert record.old_version is None
+        assert record.new_version_id == entity_version.id
+
+        # Publishing the soft-delete
+        publishing_api.soft_delete_draft(entity.id)
+        publish_log = publishing_api.publish_all_drafts(self.learning_package.id)
+        log_records = list(publish_log.records.all())
+        assert len(log_records) == 1
+        record = log_records[0]
+        assert record.entity_id == entity.id
+        assert record.old_version_id == entity_version.id
+        assert record.new_version is None
+
+        # Verify that we do not re-publish soft-deleted records. We initially
+        # had a bug here because NULL != NULL in SQL, so the check to "publish
+        # all the Drafts that have different versions than their Published
+        # counterparts" would mistakenly pull in records that were NULL in both
+        # places.
+        publish_log = publishing_api.publish_all_drafts(self.learning_package.id)
+        assert publish_log.records.count() == 0
+
     def test_reset_drafts_to_published(self) -> None:
         """
         Test throwing out Draft data and resetting to the Published versions.
