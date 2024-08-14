@@ -82,7 +82,7 @@ class Collection(models.Model):
     class Meta:
         verbose_name_plural = "Collections"
         indexes = [
-            models.Index(fields=["learning_package_id", "title"]),
+            models.Index(fields=["learning_package", "title"]),
         ]
 
     def __repr__(self) -> str:
