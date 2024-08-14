@@ -11,6 +11,10 @@ from ....lib.fields import MultiCollationTextField, case_insensitive_char_field
 from ....lib.validators import validate_utc_datetime
 from ..publishing.models import LearningPackage
 
+__all__ = [
+    "Collection",
+]
+
 
 class Collection(models.Model):
     """
