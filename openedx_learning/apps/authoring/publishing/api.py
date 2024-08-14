@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, QuerySet
+from django.db.models import F, Q, QuerySet
 from django.db.transaction import atomic
 
 from .model_mixins import PublishableContentModelRegistry, PublishableEntityMixin, PublishableEntityVersionMixin
@@ -245,10 +245,23 @@ def publish_all_drafts(
     """
     Publish everything that is a Draft and is not already published.
     """
-    draft_qset = Draft.objects \
-                      .select_related("entity__published") \
-                      .filter(entity__learning_package_id=learning_package_id) \
-                      .exclude(entity__published__version_id=F("version_id"))
+    draft_qset = (
+        Draft.objects.select_related("entity__published")
+        .filter(entity__learning_package_id=learning_package_id)
+
+        # Exclude entities where the Published version already matches the
+        # Draft version.
+        .exclude(entity__published__version_id=F("version_id"))
+
+        # Account for soft-deletes:
+        # NULL != NULL in SQL, so simply excluding entities where the Draft
+        # and Published versions match will not catch the case where a
+        # soft-delete has been published (i.e. both the Draft and Published
+        # versions are NULL). We need to explicitly check for that case
+        # instead, or else we will re-publish the same soft-deletes over
+        # and over again.
+        .exclude(Q(version__isnull=True) & Q(entity__published__version__isnull=True))
+    )
     return publish_from_drafts(
         learning_package_id, draft_qset, message, published_at, published_by
     )
