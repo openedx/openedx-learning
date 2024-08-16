@@ -327,6 +327,47 @@ class DraftTestCase(TestCase):
                 pub_version_num
             )
 
+    def test_get_entities_with_unpublished_changes(self) -> None:
+        """Test fetching entities with unpublished changes after soft deletes."""
+        entity = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "my_entity",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity.id,
+            version_num=1,
+            title="An Entity 🌴",
+            created=self.now,
+            created_by=None,
+        )
+
+        # Fetch unpublished entities
+        entities = publishing_api.get_entities_with_unpublished_changes(self.learning_package.id)
+        records = list(entities.all())
+        assert len(records) == 1
+        record = records[0]
+        assert record.id == entity.id
+
+        # Initial publish
+        publishing_api.publish_all_drafts(self.learning_package.id)
+
+        # soft-delete entity
+        publishing_api.soft_delete_draft(entity.id)
+        entities = publishing_api.get_entities_with_unpublished_changes(self.learning_package.id)
+        assert len(entities) == 0
+        entities = publishing_api.get_entities_with_unpublished_changes(self.learning_package.id,
+                                                                        include_deleted_drafts=True)
+        assert len(entities) == 1
+
+        # publish soft-delete
+        publishing_api.publish_all_drafts(self.learning_package.id)
+        entities = publishing_api.get_entities_with_unpublished_changes(self.learning_package.id,
+                                                                        include_deleted_drafts=True)
+        # should not return published soft-deleted entities.
+        assert len(entities) == 0
+
     def _get_published_version_num(self, entity: PublishableEntity) -> int | None:
         published_version = publishing_api.get_published_version(entity.id)
         if published_version is not None:

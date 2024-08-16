@@ -216,10 +216,36 @@ def get_all_drafts(learning_package_id: int, /) -> QuerySet[Draft]:
     )
 
 
-def get_entities_with_unpublished_changes(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
-    return PublishableEntity.objects \
-                            .filter(learning_package_id=learning_package_id) \
-                            .exclude(draft__version=F('published__version'))
+def get_entities_with_unpublished_changes(
+    learning_package_id: int,
+    /,
+    include_deleted_drafts: bool = False
+) -> QuerySet[PublishableEntity]:
+    """
+    Fetch entities that have unpublished changes.
+
+    By default, this excludes soft-deleted drafts but can be included using include_deleted_drafts option.
+    """
+    entities_qs = (
+        PublishableEntity.objects
+        .filter(learning_package_id=learning_package_id)
+        .exclude(draft__version=F('published__version'))
+    )
+
+    if include_deleted_drafts:
+        # This means that we should also return PublishableEntities where the draft
+        # has been soft-deleted, but that deletion has not been published yet. Just
+        # excluding records where the Draft and Published versions don't match won't
+        # be enough here, because that will return soft-deletes that have already
+        # been published (since NULL != NULL in SQL).
+        #
+        # So we explicitly exclude already-published soft-deletes:
+        return entities_qs.exclude(
+            Q(draft__version__isnull=True) & Q(published__version__isnull=True)
+        )
+
+    # Simple case: exclude all entities that have been soft-deleted.
+    return entities_qs.exclude(draft__version__isnull=True)
 
 
 def get_entities_with_unpublished_deletes(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
