@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, QuerySet
+from django.db.models import F, Q, QuerySet
 from django.db.transaction import atomic
 
 from .model_mixins import PublishableContentModelRegistry, PublishableEntityMixin, PublishableEntityVersionMixin
@@ -226,10 +226,26 @@ def get_entities_with_unpublished_changes(
 
     By default, this excludes soft-deleted drafts but can be included using include_deleted_drafts option.
     """
-    query_filters = {"learning_package_id": learning_package_id}
-    if not include_deleted_drafts:
-        query_filters['draft__version__isnull'] = False
-    return PublishableEntity.objects.filter(**query_filters).exclude(draft__version=F('published__version'))
+    entities_qs = (
+        PublishableEntity.objects
+        .filter(learning_package_id=learning_package_id)
+        .exclude(draft__version=F('published__version'))
+    )
+
+    if include_deleted_drafts:
+        # This means that we should also return PublishableEntities where the draft
+        # has been soft-deleted, but that deletion has not been published yet. Just
+        # excluding records where the Draft and Published versions don't match won't
+        # be enough here, because that will return soft-deletes that have already
+        # been published (since NULL != NULL in SQL).
+        #
+        # So we explicitly exclude already-published soft-deletes:
+        return entities_qs.exclude(
+            Q(draft__version__isnull=True) & Q(published__version__isnull=True)
+        )
+
+    # Simple case: exclude all entities that have been soft-deleted.
+    return entities_qs.exclude(draft__version__isnull=True)
 
 
 def get_entities_with_unpublished_deletes(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
