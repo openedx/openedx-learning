@@ -45,16 +45,19 @@ class GetCollectionTestCase(CollectionTestCase):
         super().setUpTestData()
         cls.collection1 = collection_api.create_collection(
             cls.learning_package.id,
+            created_by=None,
             title="Collection 1",
             description="Description of Collection 1",
         )
         cls.collection2 = collection_api.create_collection(
             cls.learning_package.id,
+            created_by=None,
             title="Collection 2",
             description="Description of Collection 2",
         )
         cls.disabled_collection = collection_api.create_collection(
             cls.learning_package.id,
+            created_by=None,
             title="Disabled Collection",
             description="Description of Disabled Collection",
         )
@@ -107,6 +110,7 @@ class CollectionCreateTestCase(CollectionTestCase):
             collection = collection_api.create_collection(
                 self.learning_package.id,
                 title="My Collection",
+                created_by=None,
                 description="This is my collection",
             )
 
@@ -122,6 +126,7 @@ class CollectionCreateTestCase(CollectionTestCase):
         """
         collection = collection_api.create_collection(
             self.learning_package.id,
+            created_by=None,
             title="My Collection",
         )
         assert collection.title == "My Collection"
@@ -143,6 +148,7 @@ class UpdateCollectionTestCase(CollectionTestCase):
         self.collection = collection_api.create_collection(
             self.learning_package.id,
             title="Collection",
+            created_by=None,
             description="Description of Collection",
         )
 

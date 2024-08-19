@@ -23,6 +23,7 @@ __all__ = [
 def create_collection(
     learning_package_id: int,
     title: str,
+    created_by: int | None,
     description: str = "",
 ) -> Collection:
     """
@@ -31,6 +32,7 @@ def create_collection(
     collection = Collection.objects.create(
         learning_package_id=learning_package_id,
         title=title,
+        created_by=created_by,
         description=description,
     )
     return collection
