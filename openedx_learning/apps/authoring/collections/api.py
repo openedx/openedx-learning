@@ -15,6 +15,7 @@ from .models import Collection
 __all__ = [
     "create_collection",
     "get_collection",
+    "get_collections",
     "get_learning_package_collections",
     "update_collection",
 ]
@@ -78,3 +79,14 @@ def get_learning_package_collections(learning_package_id: int) -> QuerySet[Colle
     return Collection.objects \
                      .filter(learning_package_id=learning_package_id, enabled=True) \
                      .select_related("learning_package")
+
+
+def get_collections(enabled: bool = True) -> QuerySet[Collection]:
+    """
+    Get all collections, optionally caller can filter by enabled flag
+    """
+    return (
+        Collection.objects
+        .filter(enabled=enabled)
+        .select_related("learning_package")
+    )
