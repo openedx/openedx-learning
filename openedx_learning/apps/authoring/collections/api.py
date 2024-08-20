@@ -32,7 +32,7 @@ def create_collection(
     collection = Collection.objects.create(
         learning_package_id=learning_package_id,
         title=title,
-        created_by=created_by,
+        created_by_id=created_by,
         description=description,
     )
     return collection

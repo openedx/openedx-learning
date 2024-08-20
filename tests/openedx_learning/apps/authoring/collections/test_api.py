@@ -3,6 +3,7 @@ Basic tests of the Collections API.
 """
 from datetime import datetime, timezone
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from freezegun import freeze_time
 
@@ -11,6 +12,8 @@ from openedx_learning.apps.authoring.collections.models import Collection
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
+
+User = get_user_model()
 
 
 class CollectionTestCase(TestCase):
@@ -105,12 +108,16 @@ class CollectionCreateTestCase(CollectionTestCase):
         """
         Test creating a collection.
         """
+        user = User.objects.create(
+            username="user",
+            email="user@example.com",
+        )
         created_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(created_time):
             collection = collection_api.create_collection(
                 self.learning_package.id,
                 title="My Collection",
-                created_by=None,
+                created_by=user.id,
                 description="This is my collection",
             )
 
@@ -119,6 +126,7 @@ class CollectionCreateTestCase(CollectionTestCase):
         assert collection.enabled
         assert collection.created == created_time
         assert collection.modified == created_time
+        assert collection.created_by == user
 
     def test_create_collection_without_description(self):
         """
