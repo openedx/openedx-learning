@@ -188,6 +188,15 @@ class UpdateCollectionTestCase(CollectionTestCase):
 
         assert collection.title == "New Title"
         assert collection.description == self.collection.description  # unchanged
+        assert f"{collection}" == f"<Collection> ({self.collection.pk}:New Title)"
+
+        collection = collection_api.update_collection(
+            self.collection.pk,
+            description="New description",
+        )
+
+        assert collection.title == "New Title"  # unchanged
+        assert collection.description == "New description"
 
     def test_update_collection_empty(self):
         """
