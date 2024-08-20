@@ -13,3 +13,8 @@ from ..apps.authoring.collections.api import *
 from ..apps.authoring.components.api import *
 from ..apps.authoring.contents.api import *
 from ..apps.authoring.publishing.api import *
+
+# This was renamed after the authoring API refactoring pushed this and other
+# app APIs into the openedx_learning.api.authoring module. Here I'm aliasing to
+# it's previous name, to make migration a little easier.
+create_next_version = create_next_component_version

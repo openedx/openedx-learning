@@ -414,7 +414,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         )
 
         # Two text files, hello.txt and goodbye.txt
-        version_1 = components_api.create_next_version(
+        version_1 = components_api.create_next_component_version(
             self.problem.pk,
             title="Problem Version 1",
             content_to_replace={
@@ -440,7 +440,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
 
         # This should keep the old value for goodbye.txt, add blank.txt, and set
         # hello.txt to be a new value (blank).
-        version_2 = components_api.create_next_version(
+        version_2 = components_api.create_next_component_version(
             self.problem.pk,
             title="Problem Version 2",
             content_to_replace={
@@ -469,7 +469,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
 
         # Now we're going to set "hello.txt" back to hello_content, but remove
         # blank.txt, goodbye.txt, and an unknown "nothere.txt".
-        version_3 = components_api.create_next_version(
+        version_3 = components_api.create_next_component_version(
             self.problem.pk,
             title="Problem Version 3",
             content_to_replace={

@@ -30,7 +30,7 @@ __all__ = [
     "get_or_create_component_type",
     "create_component",
     "create_component_version",
-    "create_next_version",
+    "create_next_component_version",
     "create_component_and_version",
     "get_component",
     "get_component_by_key",
@@ -109,7 +109,7 @@ def create_component_version(
     return component_version
 
 
-def create_next_version(
+def create_next_component_version(
     component_pk: int,
     /,
     title: str,
