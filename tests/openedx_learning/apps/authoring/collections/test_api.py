@@ -10,7 +10,11 @@ from freezegun import freeze_time
 from openedx_learning.apps.authoring.collections import api as collection_api
 from openedx_learning.apps.authoring.collections.models import Collection
 from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import LearningPackage
+from openedx_learning.apps.authoring.publishing.models import (
+    LearningPackage,
+    PublishableEntity,
+    PublishableEntityVersion,
+)
 from openedx_learning.lib.test_utils import TestCase
 
 User = get_user_model()
@@ -184,6 +188,190 @@ class CollectionCreateTestCase(CollectionTestCase):
         assert collection.enabled
 
 
+class CollectionContentsTestCase(CollectionTestCase):
+    """
+    Test collections that contain publishable entitites.
+    """
+    published_entity: PublishableEntity
+    pe_version: PublishableEntityVersion
+    draft_entity: PublishableEntity
+    de_version: PublishableEntityVersion
+    collection0: Collection
+    collection1: Collection
+    collection2: Collection
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        """
+        Initialize our content data (all our tests are read only).
+        """
+        super().setUpTestData()
+
+        # Make and Publish one PublishableEntity
+        cls.published_entity = publishing_api.create_publishable_entity(
+            cls.learning_package.id,
+            key="my_entity_published_example",
+            created=cls.now,
+            created_by=None,
+        )
+        cls.pe_version = publishing_api.create_publishable_entity_version(
+            cls.published_entity.id,
+            version_num=1,
+            title="An Entity that we'll Publish 🌴",
+            created=cls.now,
+            created_by=None,
+        )
+        publishing_api.publish_all_drafts(
+            cls.learning_package.id,
+            message="Publish from CollectionTestCase.setUpTestData",
+            published_at=cls.now,
+        )
+
+        # Leave another PublishableEntity in Draft.
+        cls.draft_entity = publishing_api.create_publishable_entity(
+            cls.learning_package.id,
+            key="my_entity_draft_example",
+            created=cls.now,
+            created_by=None,
+        )
+        cls.de_version = publishing_api.create_publishable_entity_version(
+            cls.draft_entity.id,
+            version_num=1,
+            title="An Entity that we'll keep in Draft 🌴",
+            created=cls.now,
+            created_by=None,
+        )
+
+        # Create collections with some shared contents
+        cls.collection0 = collection_api.create_collection(
+            cls.learning_package.id,
+            title="Collection Empty",
+            created_by=None,
+            description="This collection contains 0 objects",
+        )
+        cls.collection1 = collection_api.create_collection(
+            cls.learning_package.id,
+            title="Collection One",
+            created_by=None,
+            description="This collection contains 1 object",
+            contents_qset=PublishableEntity.objects.filter(id__in=[
+                cls.published_entity.id,
+            ]),
+        )
+        cls.collection2 = collection_api.create_collection(
+            cls.learning_package.id,
+            title="Collection Two",
+            created_by=None,
+            description="This collection contains 2 objects",
+            contents_qset=PublishableEntity.objects.filter(id__in=[
+                cls.published_entity.id,
+                cls.draft_entity.id,
+            ]),
+        )
+
+    def test_create_collection_contents(self):
+        """
+        Ensure the collections were pre-populated with the expected publishable entities.
+        """
+        assert not list(self.collection0.contents.all())
+        assert list(self.collection1.contents.all()) == [
+            self.published_entity,
+        ]
+        assert list(self.collection2.contents.all()) == [
+            self.published_entity,
+            self.draft_entity,
+        ]
+
+    def test_add_to_collections(self):
+        """
+        Test adding objects to collections.
+        """
+        modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(modified_time):
+            count = collection_api.add_to_collections(
+                Collection.objects.filter(id__in=[
+                    self.collection1.id,
+                ]),
+                PublishableEntity.objects.filter(id__in=[
+                    self.draft_entity.id,
+                ]),
+            )
+        assert count == 1
+        assert list(self.collection1.contents.all()) == [
+            self.published_entity,
+            self.draft_entity,
+        ]
+        self.collection1.refresh_from_db()
+        assert self.collection1.modified == modified_time
+
+    def test_add_to_collections_again(self):
+        """
+        Test that re-adding objects to collections doesn't throw an error.
+        """
+        modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(modified_time):
+            count = collection_api.add_to_collections(
+                Collection.objects.filter(id__in=[
+                    self.collection1.id,
+                    self.collection2.id,
+                ]),
+                PublishableEntity.objects.filter(id__in=[
+                    self.published_entity.id,
+                ]),
+            )
+
+        assert count == 2
+        assert list(self.collection1.contents.all()) == [
+            self.published_entity,
+        ]
+        assert list(self.collection2.contents.all()) == [
+            self.published_entity,
+            self.draft_entity,
+        ]
+
+        # Modified dates will have have changed, even though we didn't really add anything
+        self.collection1.refresh_from_db()
+        assert self.collection1.modified == modified_time
+        self.collection2.refresh_from_db()
+        assert self.collection2.modified == modified_time
+
+    def test_remove_from_collections(self):
+        """
+        Test removing objects from collections.
+        """
+        # Expect no changes to be made to collection0
+        coll0_modified = self.collection0.modified
+
+        modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(modified_time):
+            count = collection_api.remove_from_collections(
+                Collection.objects.filter(id__in=[
+                    self.collection0.id,
+                    self.collection1.id,
+                    self.collection2.id,
+                ]),
+                PublishableEntity.objects.filter(id__in=[
+                    self.published_entity.id,
+                ]),
+            )
+
+        assert count == 2
+
+        assert not list(self.collection0.contents.all())
+        assert not list(self.collection1.contents.all())
+        assert list(self.collection2.contents.all()) == [
+            self.draft_entity,
+        ]
+
+        # Check that the modified collections were updated
+        self.collection0.refresh_from_db()
+        assert self.collection0.modified == coll0_modified
+        self.collection1.refresh_from_db()
+        assert self.collection1.modified == modified_time
+        self.collection2.refresh_from_db()
+        assert self.collection2.modified == modified_time
+
+
 class UpdateCollectionTestCase(CollectionTestCase):
     """
     Test updating a collection.
@@ -250,9 +438,10 @@ class UpdateCollectionTestCase(CollectionTestCase):
                 self.collection.pk,
             )
 
-        assert collection.title == self.collection.title  # unchanged
-        assert collection.description == self.collection.description  # unchanged
-        assert collection.modified == self.collection.modified  # unchanged
+        # all fields unchanged
+        assert collection.title == self.collection.title
+        assert collection.description == self.collection.description
+        assert collection.modified == self.collection.modified
 
     def test_update_collection_not_found(self):
         """

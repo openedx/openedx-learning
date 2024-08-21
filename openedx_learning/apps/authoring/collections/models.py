@@ -72,10 +72,11 @@ from django.utils.translation import gettext_lazy as _
 
 from ....lib.fields import MultiCollationTextField, case_insensitive_char_field
 from ....lib.validators import validate_utc_datetime
-from ..publishing.models import LearningPackage
+from ..publishing.models import LearningPackage, PublishableEntity
 
 __all__ = [
     "Collection",
+    "CollectionObject",
 ]
 
 
@@ -142,6 +143,12 @@ class Collection(models.Model):
         ],
     )
 
+    contents: models.ManyToManyField[PublishableEntity, "CollectionObject"] = models.ManyToManyField(
+        PublishableEntity,
+        through="CollectionObject",
+        related_name="collections",
+    )
+
     class Meta:
         verbose_name_plural = "Collections"
         indexes = [
@@ -159,3 +166,30 @@ class Collection(models.Model):
         User-facing string representation of a Collection.
         """
         return f"<{self.__class__.__name__}> ({self.id}:{self.title})"
+
+
+class CollectionObject(models.Model):
+    """
+    Collection -> PublishableEntity association.
+    """
+    collection = models.ForeignKey(
+        Collection,
+        on_delete=models.CASCADE,
+    )
+    object = models.ForeignKey(
+        PublishableEntity,
+        on_delete=models.CASCADE,
+    )
+
+    class Meta:
+        constraints = [
+            # Prevent race conditions from making multiple rows associating the
+            # same Collection to the same Entity.
+            models.UniqueConstraint(
+                fields=[
+                    "collection",
+                    "object",
+                ],
+                name="oel_collections_cpe_uniq_col_obj",
+            )
+        ]
