@@ -1,5 +1,68 @@
 """
 Core models for Collections
+
+TLDR Guidelines:
+1. DO NOT modify these models to store full version snapshots.
+2. DO NOT use these models to try to reconstruct historical versions of
+   Collections for fast querying.
+
+If you're trying to do either of these things, you probably want a new model or
+app. For more details, read on.
+
+The goal of these models is to provide a lightweight method of organizing
+PublishableEntities. The first use case for this is modeling the structure of a
+v1 Content Library within a LearningPackage. This is what we'll use the
+Collection model for.
+
+An important thing to note here is that Collections are *NOT* publishable
+entities themselves. They have no "Draft" or "Published" versions. Collections
+are never "published", though the things inside of them are.
+
+When a LibraryContentBlock makes use of a Content Library, it copies all of
+the items it will use into the Course itself. It will also store a version
+on the LibraryContentBlock -- this is a MongoDB ObjectID in v1 and an integer in
+v2 Libraries. Later on, the LibraryContentBlock will want to check back to see
+if any updates have been made, using its version as a key. If a new version
+exists, the course team has the option of re-copying data from the Library.
+
+ModuleStore based v1 Libraries and Blockstore-based v2 libraries both version
+the entire library in a series of snapshots. This makes it difficult to have
+very large libraries, which is an explicit goal for Modular Learning. In
+Learning Core, we've moved to tracking the versions of individual Components to
+address this issue. But that means we no longer have a single version indicator
+for "has anything here changed"?
+
+We *could* have put that version in the ``publishing`` app's PublishLog, but
+that would make it too broad. We want the ability to eventually collapse many v1
+Libraries into a single Learning Core backed v2 Library. If we tracked the
+versioning in only a central location, then we'd have many false positives where
+the version was bumped because something else in the Learning Package changed.
+So instead, we're creating a new Collection model inside the LearningPackage to
+track that concept.
+
+A critical takeaway is that we don't have to store snapshots of every version of
+a Collection, because that data has been copied over by the LibraryContentBlock.
+We only need to store the current state of the Collection, and increment the
+version numbers when changes happen. This will allow the LibraryContentBlock to
+check in and re-copy over the latest version if the course team desires.
+
+That's why these models only store the current state of a Collection. Unlike the
+``components`` app,  ``collections`` does not store fully materialized snapshots
+of past versions. This is done intentionally in order to save space and reduce
+the cost of writes. Collections may grow to be very large, and we don't want to
+be writing N rows with every version, where N is the number of
+PublishableEntities in a Collection.
+
+MVP of these models does not store changesets, but we can add this when there's a
+use case for it. The number of rows in these changesets would grow in proportion
+to the number of things that are actually changing (instead of copying over
+everything on every version). This is could be used to make it easier to figure out
+what changed between two given versions of a Collection. A LibraryContentBlock
+in a course would have stored the version number of the last time it copied data
+from the Collection, and we can eventually surface this data to the user. Note that
+while it may be possible to reconstruct past versions of Collections based off of
+this changeset data, it's going to be a very slow process to do so, and it is
+strongly discouraged.
 """
 from __future__ import annotations
 
