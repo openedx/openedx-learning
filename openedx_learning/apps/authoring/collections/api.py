@@ -81,12 +81,11 @@ def get_learning_package_collections(learning_package_id: int) -> QuerySet[Colle
                      .select_related("learning_package")
 
 
-def get_collections(enabled: bool = True) -> QuerySet[Collection]:
+def get_collections(enabled: bool | None = None) -> QuerySet[Collection]:
     """
     Get all collections, optionally caller can filter by enabled flag
     """
-    return (
-        Collection.objects
-        .filter(enabled=enabled)
-        .select_related("learning_package")
-    )
+    qs = Collection.objects.all()
+    if enabled is not None:
+        qs = qs.filter(enabled=enabled)
+    return qs.select_related("learning_package")
