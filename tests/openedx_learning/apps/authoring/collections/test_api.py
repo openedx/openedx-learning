@@ -115,23 +115,23 @@ class GetCollectionTestCase(CollectionTestCase):
         Test getting all collections.
         """
         collections = collection_api.get_collections()
-        assert list(collections) == [
+        self.assertQuerySetEqual(collections, [
             self.collection1,
             self.collection2,
             self.collection3,
             self.disabled_collection,
-        ]
+        ], ordered=False)
 
     def test_get_all_enabled_collections(self):
         """
         Test getting all ENABLED collections.
         """
         collections = collection_api.get_collections(enabled=True)
-        assert list(collections) == [
+        self.assertQuerySetEqual(collections, [
             self.collection1,
             self.collection2,
             self.collection3,
-        ]
+        ], ordered=False)
 
     def test_get_all_disabled_collections(self):
         """
