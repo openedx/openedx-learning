@@ -199,6 +199,7 @@ class CollectionContentsTestCase(CollectionTestCase):
     collection0: Collection
     collection1: Collection
     collection2: Collection
+    disabled_collection: Collection
 
     @classmethod
     def setUpTestData(cls) -> None:
@@ -268,6 +269,17 @@ class CollectionContentsTestCase(CollectionTestCase):
                 cls.draft_entity.id,
             ]),
         )
+        cls.disabled_collection = collection_api.create_collection(
+            cls.learning_package.id,
+            title="Disabled Collection",
+            created_by=None,
+            description="This disabled collection contains 1 object",
+            contents_qset=PublishableEntity.objects.filter(id__in=[
+                cls.published_entity.id,
+            ]),
+        )
+        cls.disabled_collection.enabled = False
+        cls.disabled_collection.save()
 
     def test_create_collection_contents(self):
         """
@@ -370,6 +382,18 @@ class CollectionContentsTestCase(CollectionTestCase):
         assert self.collection1.modified == modified_time
         self.collection2.refresh_from_db()
         assert self.collection2.modified == modified_time
+
+    def test_get_object_collections(self):
+        """
+        Tests fetching the enabled collections which contain a given object.
+        """
+        collections = collection_api.get_object_collections(
+            self.published_entity.id,
+        )
+        assert list(collections) == [
+            self.collection1,
+            self.collection2,
+        ]
 
 
 class UpdateCollectionTestCase(CollectionTestCase):

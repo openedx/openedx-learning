@@ -21,6 +21,7 @@ __all__ = [
     "get_collection",
     "get_collections",
     "get_learning_package_collections",
+    "get_object_collections",
     "remove_from_collections",
     "update_collection",
 ]
@@ -158,6 +159,16 @@ def remove_from_collections(
     Collection.objects.filter(id__in=modified_collection_ids).update(modified=timezone.now())
 
     return total_deleted
+
+
+def get_object_collections(object_id: int) -> QuerySet[Collection]:
+    """
+    Get all collections associated with a given PublishableEntity.
+
+    Only enabled collections are returned.
+    """
+    entity = PublishableEntity.objects.get(pk=object_id)
+    return entity.collections.filter(enabled=True).order_by("pk")
 
 
 def get_learning_package_collections(learning_package_id: int) -> QuerySet[Collection]:
