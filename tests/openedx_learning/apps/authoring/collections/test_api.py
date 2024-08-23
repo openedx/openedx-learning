@@ -120,7 +120,7 @@ class GetCollectionTestCase(CollectionTestCase):
             self.collection2,
             self.collection3,
             self.disabled_collection,
-        ], ordered=False)
+        ], ordered=True)
 
     def test_get_all_enabled_collections(self):
         """
@@ -131,7 +131,7 @@ class GetCollectionTestCase(CollectionTestCase):
             self.collection1,
             self.collection2,
             self.collection3,
-        ], ordered=False)
+        ], ordered=True)
 
     def test_get_all_disabled_collections(self):
         """

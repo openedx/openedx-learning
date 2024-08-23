@@ -78,7 +78,8 @@ def get_learning_package_collections(learning_package_id: int) -> QuerySet[Colle
     """
     return Collection.objects \
                      .filter(learning_package_id=learning_package_id, enabled=True) \
-                     .select_related("learning_package")
+                     .select_related("learning_package") \
+                     .order_by('pk')
 
 
 def get_collections(enabled: bool | None = None) -> QuerySet[Collection]:
@@ -88,4 +89,4 @@ def get_collections(enabled: bool | None = None) -> QuerySet[Collection]:
     qs = Collection.objects.all()
     if enabled is not None:
         qs = qs.filter(enabled=enabled)
-    return qs.select_related("learning_package")
+    return qs.select_related("learning_package").order_by('pk')
