@@ -126,7 +126,7 @@ freezegun==1.5.1
     # via -r requirements/test.in
 grimp==3.4.1
     # via import-linter
-idna==3.7
+idna==3.8
     # via
     #   -r requirements/base.txt
     #   requests
@@ -144,7 +144,7 @@ markupsafe==2.1.5
     # via jinja2
 mock==5.1.0
     # via -r requirements/test.in
-mypy==1.11.1
+mypy==1.11.2
     # via -r requirements/test.in
 mypy-extensions==1.0.0
     # via mypy
@@ -225,7 +225,7 @@ sqlparse==0.5.1
     #   -r requirements/base.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.2.0
+stevedore==5.3.0
     # via
     #   -r requirements/base.txt
     #   code-annotations

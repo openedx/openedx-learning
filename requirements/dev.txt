@@ -167,7 +167,7 @@ edx-drf-extensions==10.3.0
     # via -r requirements/quality.txt
 edx-i18n-tools==1.6.2
     # via -r requirements/dev.in
-edx-lint==5.3.7
+edx-lint==5.4.0
     # via -r requirements/quality.txt
 edx-opaque-keys==2.10.0
     # via
@@ -185,7 +185,7 @@ grimp==3.4.1
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
     #   import-linter
-idna==3.7
+idna==3.8
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -193,7 +193,7 @@ import-linter==2.0
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
-importlib-metadata==8.2.0
+importlib-metadata==8.4.0
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -210,7 +210,7 @@ jaraco-classes==3.4.0
     # via
     #   -r requirements/quality.txt
     #   keyring
-jaraco-context==5.3.0
+jaraco-context==6.0.1
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -261,7 +261,7 @@ more-itertools==10.4.0
     #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.11.1
+mypy==1.11.2
     # via -r requirements/quality.txt
 mypy-extensions==1.0.0
     # via
@@ -448,7 +448,7 @@ sqlparse==0.5.1
     #   -r requirements/quality.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.2.0
+stevedore==5.3.0
     # via
     #   -r requirements/quality.txt
     #   code-annotations
