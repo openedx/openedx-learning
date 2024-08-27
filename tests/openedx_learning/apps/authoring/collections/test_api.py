@@ -21,6 +21,7 @@ class CollectionTestCase(TestCase):
     Base-class for setting up commonly used test data.
     """
     learning_package: LearningPackage
+    learning_package_2: LearningPackage
     now: datetime
 
     @classmethod
@@ -28,6 +29,10 @@ class CollectionTestCase(TestCase):
         cls.learning_package = publishing_api.create_learning_package(
             key="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
+        )
+        cls.learning_package_2 = publishing_api.create_learning_package(
+            key="ComponentTestCase-test-key-2",
+            title="Components Test Case another Learning Package",
         )
         cls.now = datetime(2024, 8, 5, tzinfo=timezone.utc)
 
@@ -38,6 +43,7 @@ class GetCollectionTestCase(CollectionTestCase):
     """
     collection1: Collection
     collection2: Collection
+    collection3: Collection
     disabled_collection: Collection
 
     @classmethod
@@ -57,6 +63,12 @@ class GetCollectionTestCase(CollectionTestCase):
             created_by=None,
             title="Collection 2",
             description="Description of Collection 2",
+        )
+        cls.collection3 = collection_api.create_collection(
+            cls.learning_package_2.id,
+            created_by=None,
+            title="Collection 3",
+            description="Description of Collection 3",
         )
         cls.disabled_collection = collection_api.create_collection(
             cls.learning_package.id,
@@ -97,6 +109,36 @@ class GetCollectionTestCase(CollectionTestCase):
         """
         collections = collection_api.get_learning_package_collections(12345)
         assert not list(collections)
+
+    def test_get_all_collections(self):
+        """
+        Test getting all collections.
+        """
+        collections = collection_api.get_collections()
+        self.assertQuerySetEqual(collections, [
+            self.collection1,
+            self.collection2,
+            self.collection3,
+            self.disabled_collection,
+        ], ordered=True)
+
+    def test_get_all_enabled_collections(self):
+        """
+        Test getting all ENABLED collections.
+        """
+        collections = collection_api.get_collections(enabled=True)
+        self.assertQuerySetEqual(collections, [
+            self.collection1,
+            self.collection2,
+            self.collection3,
+        ], ordered=True)
+
+    def test_get_all_disabled_collections(self):
+        """
+        Test getting all DISABLED collections.
+        """
+        collections = collection_api.get_collections(enabled=False)
+        assert list(collections) == [self.disabled_collection]
 
 
 class CollectionCreateTestCase(CollectionTestCase):
