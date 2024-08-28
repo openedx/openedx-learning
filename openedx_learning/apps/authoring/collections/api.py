@@ -161,13 +161,13 @@ def remove_from_collections(
     return total_deleted
 
 
-def get_object_collections(object_id: int) -> QuerySet[Collection]:
+def get_object_collections(object_key: str) -> QuerySet[Collection]:
     """
-    Get all collections associated with a given PublishableEntity.
+    Get all collections associated with a given PublishableEntity.key.
 
     Only enabled collections are returned.
     """
-    entity = PublishableEntity.objects.get(pk=object_id)
+    entity = PublishableEntity.objects.get(key=object_key)
     return entity.collections.filter(enabled=True).order_by("pk")
 
 

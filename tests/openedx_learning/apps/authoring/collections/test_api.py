@@ -388,7 +388,7 @@ class CollectionContentsTestCase(CollectionTestCase):
         Tests fetching the enabled collections which contain a given object.
         """
         collections = collection_api.get_object_collections(
-            self.published_entity.id,
+            self.published_entity.key,
         )
         assert list(collections) == [
             self.collection1,
