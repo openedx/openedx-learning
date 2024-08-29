@@ -20,4 +20,4 @@ Things to remember:
 
 * Collections may grow very large.
 * Collections are not publishable in and of themselves.
-* Collections link to PublisableEntity records, **not** PublishableEntityVersion records.
+* Collections link to PublishableEntity records, **not** PublishableEntityVersion records.

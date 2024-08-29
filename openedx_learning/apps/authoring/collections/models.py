@@ -76,7 +76,7 @@ from ..publishing.models import LearningPackage, PublishableEntity
 
 __all__ = [
     "Collection",
-    "CollectionObject",
+    "CollectionPublishableEntity",
 ]
 
 
@@ -143,9 +143,9 @@ class Collection(models.Model):
         ],
     )
 
-    contents: models.ManyToManyField[PublishableEntity, "CollectionObject"] = models.ManyToManyField(
+    entities: models.ManyToManyField[PublishableEntity, "CollectionPublishableEntity"] = models.ManyToManyField(
         PublishableEntity,
-        through="CollectionObject",
+        through="CollectionPublishableEntity",
         related_name="collections",
     )
 
@@ -168,7 +168,7 @@ class Collection(models.Model):
         return f"<{self.__class__.__name__}> ({self.id}:{self.title})"
 
 
-class CollectionObject(models.Model):
+class CollectionPublishableEntity(models.Model):
     """
     Collection -> PublishableEntity association.
     """
@@ -176,9 +176,21 @@ class CollectionObject(models.Model):
         Collection,
         on_delete=models.CASCADE,
     )
-    object = models.ForeignKey(
+    entity = models.ForeignKey(
         PublishableEntity,
-        on_delete=models.CASCADE,
+        on_delete=models.RESTRICT,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    created = models.DateTimeField(
+        auto_now_add=True,
+        validators=[
+            validate_utc_datetime,
+        ],
     )
 
     class Meta:
@@ -188,8 +200,8 @@ class CollectionObject(models.Model):
             models.UniqueConstraint(
                 fields=[
                     "collection",
-                    "object",
+                    "entity",
                 ],
-                name="oel_collections_cpe_uniq_col_obj",
+                name="oel_collections_cpe_uniq_col_ent",
             )
         ]

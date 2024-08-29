@@ -7,8 +7,9 @@ from django.db.models import QuerySet
 from django.db.transaction import atomic
 from django.utils import timezone
 
+from ..publishing import api as publishing_api
 from ..publishing.models import PublishableEntity
-from .models import Collection, CollectionObject
+from .models import Collection, CollectionPublishableEntity
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -21,7 +22,7 @@ __all__ = [
     "get_collection",
     "get_collections",
     "get_learning_package_collections",
-    "get_object_collections",
+    "get_entity_collections",
     "remove_from_collections",
     "update_collection",
 ]
@@ -32,7 +33,7 @@ def create_collection(
     title: str,
     created_by: int | None,
     description: str = "",
-    contents_qset: QuerySet[PublishableEntity] = PublishableEntity.objects.none(),  # default to empty set,
+    entities_qset: QuerySet[PublishableEntity] = PublishableEntity.objects.none(),  # default to empty set,
 ) -> Collection:
     """
     Create a new Collection
@@ -48,7 +49,8 @@ def create_collection(
 
         added = add_to_collections(
             Collection.objects.filter(id=collection.id),
-            contents_qset,
+            entities_qset,
+            created_by,
         )
         if added:
             collection.refresh_from_db()  # fetch updated modified date
@@ -89,33 +91,35 @@ def update_collection(
 
 def add_to_collections(
     collections_qset: QuerySet[Collection],
-    contents_qset: QuerySet[PublishableEntity],
+    entities_qset: QuerySet[PublishableEntity],
+    created_by: int | None = None,
 ) -> int:
     """
     Adds a QuerySet of PublishableEntities to a QuerySet of Collections.
 
-    Records are created in bulk, and so integrity errors are deliberately ignored: they indicate that the content(s)
+    Records are created in bulk, and so integrity errors are deliberately ignored: they indicate that the entity(s)
     have already been added to the collection(s).
 
     Returns the number of entities added (including any that already exist).
     """
-    collection_objects = []
-    object_ids = contents_qset.values_list("pk", flat=True)
+    collection_entities = []
+    entity_ids = entities_qset.values_list("pk", flat=True)
     collection_ids = collections_qset.values_list("pk", flat=True)
 
     for collection_id in collection_ids:
-        for object_id in object_ids:
-            collection_objects.append(
-                CollectionObject(
+        for entity_id in entity_ids:
+            collection_entities.append(
+                CollectionPublishableEntity(
                     collection_id=collection_id,
-                    object_id=object_id,
+                    entity_id=entity_id,
+                    created_by_id=created_by,
                 )
             )
 
     created = []
-    if collection_objects:
-        created = CollectionObject.objects.bulk_create(
-            collection_objects,
+    if collection_entities:
+        created = CollectionPublishableEntity.objects.bulk_create(
+            collection_entities,
             ignore_conflicts=True,
         )
 
@@ -127,27 +131,27 @@ def add_to_collections(
 
 
 def remove_from_collections(
-    collections_qset: QuerySet,
-    contents_qset: QuerySet,
+    collections_qset: QuerySet[Collection],
+    entities_qset: QuerySet[PublishableEntity],
 ) -> int:
     """
     Removes a QuerySet of PublishableEntities from a QuerySet of Collections.
 
     PublishableEntities are deleted from each Collection, in bulk.
 
-    Collections which had objects removed are marked with modified=now().
+    Collections which had entities removed are marked with modified=now().
 
     Returns the total number of entities deleted.
     """
     total_deleted = 0
-    object_ids = contents_qset.values_list("pk", flat=True)
+    entity_ids = entities_qset.values_list("pk", flat=True)
     collection_ids = collections_qset.values_list("pk", flat=True)
     modified_collection_ids = []
 
     for collection_id in collection_ids:
-        num_deleted, _ = CollectionObject.objects.filter(
+        num_deleted, _ = CollectionPublishableEntity.objects.filter(
             collection_id=collection_id,
-            object_id__in=object_ids,
+            entity__in=entity_ids,
         ).delete()
 
         if num_deleted:
@@ -161,13 +165,16 @@ def remove_from_collections(
     return total_deleted
 
 
-def get_object_collections(object_key: str) -> QuerySet[Collection]:
+def get_entity_collections(learning_package_id: int, entity_key: str) -> QuerySet[Collection]:
     """
-    Get all collections associated with a given PublishableEntity.key.
+    Get all collections in the given learning package which contain this entity.
 
     Only enabled collections are returned.
     """
-    entity = PublishableEntity.objects.get(key=object_key)
+    entity = publishing_api.get_publishable_entity_by_key(
+        learning_package_id,
+        key=entity_key,
+    )
     return entity.collections.filter(enabled=True).order_by("pk")
 
 

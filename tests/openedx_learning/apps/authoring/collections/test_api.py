@@ -8,7 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from freezegun import freeze_time
 
 from openedx_learning.apps.authoring.collections import api as collection_api
-from openedx_learning.apps.authoring.collections.models import Collection
+from openedx_learning.apps.authoring.collections.models import Collection, CollectionPublishableEntity
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import (
     LearningPackage,
@@ -188,7 +188,7 @@ class CollectionCreateTestCase(CollectionTestCase):
         assert collection.enabled
 
 
-class CollectionContentsTestCase(CollectionTestCase):
+class CollectionEntitiesTestCase(CollectionTestCase):
     """
     Test collections that contain publishable entitites.
     """
@@ -200,27 +200,33 @@ class CollectionContentsTestCase(CollectionTestCase):
     collection1: Collection
     collection2: Collection
     disabled_collection: Collection
+    user: User  # type: ignore [valid-type]
 
     @classmethod
     def setUpTestData(cls) -> None:
         """
-        Initialize our content data (all our tests are read only).
+        Initialize our content data
         """
         super().setUpTestData()
+
+        cls.user = User.objects.create(
+            username="user",
+            email="user@example.com",
+        )
 
         # Make and Publish one PublishableEntity
         cls.published_entity = publishing_api.create_publishable_entity(
             cls.learning_package.id,
             key="my_entity_published_example",
             created=cls.now,
-            created_by=None,
+            created_by=cls.user.id,
         )
         cls.pe_version = publishing_api.create_publishable_entity_version(
             cls.published_entity.id,
             version_num=1,
             title="An Entity that we'll Publish 🌴",
             created=cls.now,
-            created_by=None,
+            created_by=cls.user.id,
         )
         publishing_api.publish_all_drafts(
             cls.learning_package.id,
@@ -233,38 +239,38 @@ class CollectionContentsTestCase(CollectionTestCase):
             cls.learning_package.id,
             key="my_entity_draft_example",
             created=cls.now,
-            created_by=None,
+            created_by=cls.user.id,
         )
         cls.de_version = publishing_api.create_publishable_entity_version(
             cls.draft_entity.id,
             version_num=1,
             title="An Entity that we'll keep in Draft 🌴",
             created=cls.now,
-            created_by=None,
+            created_by=cls.user.id,
         )
 
-        # Create collections with some shared contents
+        # Create collections with some shared entities
         cls.collection0 = collection_api.create_collection(
             cls.learning_package.id,
             title="Collection Empty",
-            created_by=None,
-            description="This collection contains 0 objects",
+            created_by=cls.user.id,
+            description="This collection contains 0 entities",
         )
         cls.collection1 = collection_api.create_collection(
             cls.learning_package.id,
             title="Collection One",
-            created_by=None,
-            description="This collection contains 1 object",
-            contents_qset=PublishableEntity.objects.filter(id__in=[
+            created_by=cls.user.id,
+            description="This collection contains 1 entity",
+            entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_entity.id,
             ]),
         )
         cls.collection2 = collection_api.create_collection(
             cls.learning_package.id,
             title="Collection Two",
-            created_by=None,
-            description="This collection contains 2 objects",
-            contents_qset=PublishableEntity.objects.filter(id__in=[
+            created_by=cls.user.id,
+            description="This collection contains 2 entities",
+            entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_entity.id,
                 cls.draft_entity.id,
             ]),
@@ -272,31 +278,31 @@ class CollectionContentsTestCase(CollectionTestCase):
         cls.disabled_collection = collection_api.create_collection(
             cls.learning_package.id,
             title="Disabled Collection",
-            created_by=None,
-            description="This disabled collection contains 1 object",
-            contents_qset=PublishableEntity.objects.filter(id__in=[
+            created_by=cls.user.id,
+            description="This disabled collection contains 1 entity",
+            entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_entity.id,
             ]),
         )
         cls.disabled_collection.enabled = False
         cls.disabled_collection.save()
 
-    def test_create_collection_contents(self):
+    def test_create_collection_entities(self):
         """
         Ensure the collections were pre-populated with the expected publishable entities.
         """
-        assert not list(self.collection0.contents.all())
-        assert list(self.collection1.contents.all()) == [
+        assert not list(self.collection0.entities.all())
+        assert list(self.collection1.entities.all()) == [
             self.published_entity,
         ]
-        assert list(self.collection2.contents.all()) == [
+        assert list(self.collection2.entities.all()) == [
             self.published_entity,
             self.draft_entity,
         ]
 
     def test_add_to_collections(self):
         """
-        Test adding objects to collections.
+        Test adding entities to collections.
         """
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
@@ -307,18 +313,21 @@ class CollectionContentsTestCase(CollectionTestCase):
                 PublishableEntity.objects.filter(id__in=[
                     self.draft_entity.id,
                 ]),
+                created_by=self.user.id,
             )
         assert count == 1
-        assert list(self.collection1.contents.all()) == [
+        assert list(self.collection1.entities.all()) == [
             self.published_entity,
             self.draft_entity,
         ]
+        for collection_entity in CollectionPublishableEntity.objects.filter(collection=self.collection1):
+            assert collection_entity.created_by == self.user
         self.collection1.refresh_from_db()
         assert self.collection1.modified == modified_time
 
     def test_add_to_collections_again(self):
         """
-        Test that re-adding objects to collections doesn't throw an error.
+        Test that re-adding entities to collections doesn't throw an error.
         """
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
@@ -333,10 +342,10 @@ class CollectionContentsTestCase(CollectionTestCase):
             )
 
         assert count == 2
-        assert list(self.collection1.contents.all()) == [
+        assert list(self.collection1.entities.all()) == [
             self.published_entity,
         ]
-        assert list(self.collection2.contents.all()) == [
+        assert list(self.collection2.entities.all()) == [
             self.published_entity,
             self.draft_entity,
         ]
@@ -349,7 +358,7 @@ class CollectionContentsTestCase(CollectionTestCase):
 
     def test_remove_from_collections(self):
         """
-        Test removing objects from collections.
+        Test removing entities from collections.
         """
         # Expect no changes to be made to collection0
         coll0_modified = self.collection0.modified
@@ -369,9 +378,9 @@ class CollectionContentsTestCase(CollectionTestCase):
 
         assert count == 2
 
-        assert not list(self.collection0.contents.all())
-        assert not list(self.collection1.contents.all())
-        assert list(self.collection2.contents.all()) == [
+        assert not list(self.collection0.entities.all())
+        assert not list(self.collection1.entities.all())
+        assert list(self.collection2.entities.all()) == [
             self.draft_entity,
         ]
 
@@ -383,11 +392,12 @@ class CollectionContentsTestCase(CollectionTestCase):
         self.collection2.refresh_from_db()
         assert self.collection2.modified == modified_time
 
-    def test_get_object_collections(self):
+    def test_get_entity_collections(self):
         """
-        Tests fetching the enabled collections which contain a given object.
+        Tests fetching the enabled collections which contain a given entity.
         """
-        collections = collection_api.get_object_collections(
+        collections = collection_api.get_entity_collections(
+            self.learning_package.id,
             self.published_entity.key,
         )
         assert list(collections) == [
@@ -462,10 +472,9 @@ class UpdateCollectionTestCase(CollectionTestCase):
                 self.collection.pk,
             )
 
-        # all fields unchanged
-        assert collection.title == self.collection.title
-        assert collection.description == self.collection.description
-        assert collection.modified == self.collection.modified
+        assert collection.title == self.collection.title  # unchanged
+        assert collection.description == self.collection.description  # unchanged
+        assert collection.modified == self.collection.modified  # unchanged
 
     def test_update_collection_not_found(self):
         """
