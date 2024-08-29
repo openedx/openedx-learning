@@ -21,7 +21,6 @@ __all__ = [
     "create_collection",
     "get_collection",
     "get_collections",
-    "get_learning_package_collections",
     "get_entity_collections",
     "remove_from_collections",
     "update_collection",
@@ -178,23 +177,13 @@ def get_entity_collections(learning_package_id: int, entity_key: str) -> QuerySe
     return entity.collections.filter(enabled=True).order_by("pk")
 
 
-def get_learning_package_collections(learning_package_id: int) -> QuerySet[Collection]:
+def get_collections(learning_package_id: int, enabled: bool | None = True) -> QuerySet[Collection]:
     """
     Get all collections for a given learning package
 
     Only enabled collections are returned
     """
-    return Collection.objects \
-                     .filter(learning_package_id=learning_package_id, enabled=True) \
-                     .select_related("learning_package") \
-                     .order_by('pk')
-
-
-def get_collections(enabled: bool | None = None) -> QuerySet[Collection]:
-    """
-    Get all collections, optionally caller can filter by enabled flag
-    """
-    qs = Collection.objects.all()
+    qs = Collection.objects.filter(learning_package_id=learning_package_id)
     if enabled is not None:
         qs = qs.filter(enabled=enabled)
     return qs.select_related("learning_package").order_by('pk')

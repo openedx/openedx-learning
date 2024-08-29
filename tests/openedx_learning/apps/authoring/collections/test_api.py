@@ -97,11 +97,11 @@ class GetCollectionTestCase(CollectionTestCase):
         with self.assertRaises(ObjectDoesNotExist):
             collection_api.get_collection(12345)
 
-    def test_get_learning_package_collections(self):
+    def test_get_collections(self):
         """
         Test getting all ENABLED collections for a learning package.
         """
-        collections = collection_api.get_learning_package_collections(self.learning_package.id)
+        collections = collection_api.get_collections(self.learning_package.id)
         assert list(collections) == [
             self.collection1,
             self.collection2,
@@ -111,18 +111,17 @@ class GetCollectionTestCase(CollectionTestCase):
         """
         Test getting collections for an invalid learning package should return an empty queryset.
         """
-        collections = collection_api.get_learning_package_collections(12345)
+        collections = collection_api.get_collections(12345)
         assert not list(collections)
 
     def test_get_all_collections(self):
         """
         Test getting all collections.
         """
-        collections = collection_api.get_collections()
+        collections = collection_api.get_collections(self.learning_package.id, enabled=None)
         self.assertQuerySetEqual(collections, [
             self.collection1,
             self.collection2,
-            self.collection3,
             self.disabled_collection,
         ], ordered=True)
 
@@ -130,18 +129,17 @@ class GetCollectionTestCase(CollectionTestCase):
         """
         Test getting all ENABLED collections.
         """
-        collections = collection_api.get_collections(enabled=True)
+        collections = collection_api.get_collections(self.learning_package.id, enabled=True)
         self.assertQuerySetEqual(collections, [
             self.collection1,
             self.collection2,
-            self.collection3,
         ], ordered=True)
 
     def test_get_all_disabled_collections(self):
         """
         Test getting all DISABLED collections.
         """
-        collections = collection_api.get_collections(enabled=False)
+        collections = collection_api.get_collections(self.learning_package.id, enabled=False)
         assert list(collections) == [self.disabled_collection]
 
 
