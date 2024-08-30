@@ -3,13 +3,14 @@ Collections API (warning: UNSTABLE, in progress API)
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
+from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
-from django.db.transaction import atomic
-from django.utils import timezone
 
 from ..publishing import api as publishing_api
 from ..publishing.models import PublishableEntity
-from .models import Collection, CollectionPublishableEntity
+from .models import Collection
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -17,12 +18,12 @@ from .models import Collection, CollectionPublishableEntity
 # start with an underscore AND it is not in __all__, that function is considered
 # to be callable only by other apps in the authoring package.
 __all__ = [
-    "add_to_collections",
+    "add_to_collection",
     "create_collection",
     "get_collection",
     "get_collections",
     "get_entity_collections",
-    "remove_from_collections",
+    "remove_from_collection",
     "update_collection",
 ]
 
@@ -32,28 +33,18 @@ def create_collection(
     title: str,
     created_by: int | None,
     description: str = "",
-    entities_qset: QuerySet[PublishableEntity] = PublishableEntity.objects.none(),  # default to empty set,
+    enabled: bool = True,
 ) -> Collection:
     """
     Create a new Collection
     """
-
-    with atomic():
-        collection = Collection.objects.create(
-            learning_package_id=learning_package_id,
-            title=title,
-            created_by_id=created_by,
-            description=description,
-        )
-
-        added = add_to_collections(
-            Collection.objects.filter(id=collection.id),
-            entities_qset,
-            created_by,
-        )
-        if added:
-            collection.refresh_from_db()  # fetch updated modified date
-
+    collection = Collection.objects.create(
+        learning_package_id=learning_package_id,
+        title=title,
+        created_by_id=created_by,
+        description=description,
+        enabled=enabled,
+    )
     return collection
 
 
@@ -88,80 +79,63 @@ def update_collection(
     return collection
 
 
-def add_to_collections(
-    collections_qset: QuerySet[Collection],
+def add_to_collection(
+    collection_id: int,
     entities_qset: QuerySet[PublishableEntity],
     created_by: int | None = None,
-) -> int:
+) -> Collection:
     """
-    Adds a QuerySet of PublishableEntities to a QuerySet of Collections.
+    Adds a QuerySet of PublishableEntities to a Collection.
 
-    Records are created in bulk, and so integrity errors are deliberately ignored: they indicate that the entity(s)
-    have already been added to the collection(s).
+    These Entities must belong to the same LearningPackage as the Collection, or a ValidationError will be raised.
 
-    Returns the number of entities added (including any that already exist).
+    PublishableEntities already in the Collection are silently ignored.
+
+    The Collection object's modified date is updated.
+
+    Returns the updated Collection object.
     """
-    collection_entities = []
-    entity_ids = entities_qset.values_list("pk", flat=True)
-    collection_ids = collections_qset.values_list("pk", flat=True)
+    collection = get_collection(collection_id)
+    learning_package_id = collection.learning_package_id
 
-    for collection_id in collection_ids:
-        for entity_id in entity_ids:
-            collection_entities.append(
-                CollectionPublishableEntity(
-                    collection_id=collection_id,
-                    entity_id=entity_id,
-                    created_by_id=created_by,
-                )
+    # Disallow adding entities outside the collection's learning package
+    for entity in entities_qset.all():
+        if entity.learning_package_id != learning_package_id:
+            raise ValidationError(
+                f"Cannot add entity {entity.pk} in learning package {entity.learning_package_id} to "
+                f"collection {collection_id} in learning package {learning_package_id}."
             )
 
-    created = []
-    if collection_entities:
-        created = CollectionPublishableEntity.objects.bulk_create(
-            collection_entities,
-            ignore_conflicts=True,
-        )
+    collection.entities.add(
+        *entities_qset.all(),
+        through_defaults={"created_by_id": created_by},
+    )
+    collection.modified = datetime.now(tz=timezone.utc)
+    collection.save()
 
-        # Update the modified date for all the provided Collections.
-        # (Ignoring conflicts means we don't know which ones were modified.)
-        collections_qset.update(modified=timezone.now())
-
-    return len(created)
+    return collection
 
 
-def remove_from_collections(
-    collections_qset: QuerySet[Collection],
+def remove_from_collection(
+    collection_id: int,
     entities_qset: QuerySet[PublishableEntity],
-) -> int:
+) -> Collection:
     """
-    Removes a QuerySet of PublishableEntities from a QuerySet of Collections.
+    Removes a QuerySet of PublishableEntities from a Collection.
 
-    PublishableEntities are deleted from each Collection, in bulk.
+    PublishableEntities are deleted (in bulk).
 
-    Collections which had entities removed are marked with modified=now().
+    The Collection's modified date is updated (even if nothing was removed).
 
-    Returns the total number of entities deleted.
+    Returns the updated Collection.
     """
-    total_deleted = 0
-    entity_ids = entities_qset.values_list("pk", flat=True)
-    collection_ids = collections_qset.values_list("pk", flat=True)
-    modified_collection_ids = []
+    collection = get_collection(collection_id)
 
-    for collection_id in collection_ids:
-        num_deleted, _ = CollectionPublishableEntity.objects.filter(
-            collection_id=collection_id,
-            entity__in=entity_ids,
-        ).delete()
+    collection.entities.remove(*entities_qset.all())
+    collection.modified = datetime.now(tz=timezone.utc)
+    collection.save()
 
-        if num_deleted:
-            modified_collection_ids.append(collection_id)
-
-        total_deleted += num_deleted
-
-    # Update the modified date for the affected Collections
-    Collection.objects.filter(id__in=modified_collection_ids).update(modified=timezone.now())
-
-    return total_deleted
+    return collection
 
 
 def get_entity_collections(learning_package_id: int, entity_key: str) -> QuerySet[Collection]:
@@ -181,7 +155,7 @@ def get_collections(learning_package_id: int, enabled: bool | None = True) -> Qu
     """
     Get all collections for a given learning package
 
-    Only enabled collections are returned
+    Enabled collections are returned by default.
     """
     qs = Collection.objects.filter(learning_package_id=learning_package_id)
     if enabled is not None:
