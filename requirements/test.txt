@@ -21,7 +21,7 @@ billiard==4.2.0
     #   celery
 celery==5.4.0
     # via -r requirements/base.txt
-certifi==2024.7.4
+certifi==2024.8.30
     # via
     #   -r requirements/base.txt
     #   requests
@@ -156,7 +156,7 @@ newrelic==9.13.0
     #   edx-django-utils
 packaging==24.1
     # via pytest
-pbr==6.0.0
+pbr==6.1.0
     # via
     #   -r requirements/base.txt
     #   stevedore
