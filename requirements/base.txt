@@ -14,7 +14,7 @@ billiard==4.2.0
     # via celery
 celery==5.4.0
     # via -r requirements/base.in
-certifi==2024.7.4
+certifi==2024.8.30
     # via requests
 cffi==1.17.0
     # via
@@ -74,7 +74,7 @@ kombu==5.4.0
     # via celery
 newrelic==9.13.0
     # via edx-django-utils
-pbr==6.0.0
+pbr==6.1.0
     # via stevedore
 prompt-toolkit==3.0.47
     # via click-repl

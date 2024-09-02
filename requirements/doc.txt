@@ -31,7 +31,7 @@ billiard==4.2.0
     #   celery
 celery==5.4.0
     # via -r requirements/test.txt
-certifi==2024.7.4
+certifi==2024.8.30
     # via
     #   -r requirements/test.txt
     #   requests
@@ -198,7 +198,7 @@ packaging==24.1
     #   pydata-sphinx-theme
     #   pytest
     #   sphinx
-pbr==6.0.0
+pbr==6.1.0
     # via
     #   -r requirements/test.txt
     #   stevedore
