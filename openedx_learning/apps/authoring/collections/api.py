@@ -99,12 +99,12 @@ def add_to_collection(
     learning_package_id = collection.learning_package_id
 
     # Disallow adding entities outside the collection's learning package
-    for entity in entities_qset.all():
-        if entity.learning_package_id != learning_package_id:
-            raise ValidationError(
-                f"Cannot add entity {entity.pk} in learning package {entity.learning_package_id} to "
-                f"collection {collection_id} in learning package {learning_package_id}."
-            )
+    invalid_entity = entities_qset.exclude(learning_package_id=learning_package_id).first()
+    if invalid_entity:
+        raise ValidationError(
+            f"Cannot add entity {invalid_entity.pk} in learning package {invalid_entity.learning_package_id} "
+            f"to collection {collection_id} in learning package {learning_package_id}."
+        )
 
     collection.entities.add(
         *entities_qset.all(),
