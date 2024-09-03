@@ -3,8 +3,13 @@ Collections API (warning: UNSTABLE, in progress API)
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
+from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 
+from ..publishing import api as publishing_api
+from ..publishing.models import PublishableEntity
 from .models import Collection
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
@@ -13,10 +18,12 @@ from .models import Collection
 # start with an underscore AND it is not in __all__, that function is considered
 # to be callable only by other apps in the authoring package.
 __all__ = [
+    "add_to_collection",
     "create_collection",
     "get_collection",
     "get_collections",
-    "get_learning_package_collections",
+    "get_entity_collections",
+    "remove_from_collection",
     "update_collection",
 ]
 
@@ -26,6 +33,7 @@ def create_collection(
     title: str,
     created_by: int | None,
     description: str = "",
+    enabled: bool = True,
 ) -> Collection:
     """
     Create a new Collection
@@ -35,6 +43,7 @@ def create_collection(
         title=title,
         created_by_id=created_by,
         description=description,
+        enabled=enabled,
     )
     return collection
 
@@ -70,23 +79,85 @@ def update_collection(
     return collection
 
 
-def get_learning_package_collections(learning_package_id: int) -> QuerySet[Collection]:
+def add_to_collection(
+    collection_id: int,
+    entities_qset: QuerySet[PublishableEntity],
+    created_by: int | None = None,
+) -> Collection:
+    """
+    Adds a QuerySet of PublishableEntities to a Collection.
+
+    These Entities must belong to the same LearningPackage as the Collection, or a ValidationError will be raised.
+
+    PublishableEntities already in the Collection are silently ignored.
+
+    The Collection object's modified date is updated.
+
+    Returns the updated Collection object.
+    """
+    collection = get_collection(collection_id)
+    learning_package_id = collection.learning_package_id
+
+    # Disallow adding entities outside the collection's learning package
+    invalid_entity = entities_qset.exclude(learning_package_id=learning_package_id).first()
+    if invalid_entity:
+        raise ValidationError(
+            f"Cannot add entity {invalid_entity.pk} in learning package {invalid_entity.learning_package_id} "
+            f"to collection {collection_id} in learning package {learning_package_id}."
+        )
+
+    collection.entities.add(
+        *entities_qset.all(),
+        through_defaults={"created_by_id": created_by},
+    )
+    collection.modified = datetime.now(tz=timezone.utc)
+    collection.save()
+
+    return collection
+
+
+def remove_from_collection(
+    collection_id: int,
+    entities_qset: QuerySet[PublishableEntity],
+) -> Collection:
+    """
+    Removes a QuerySet of PublishableEntities from a Collection.
+
+    PublishableEntities are deleted (in bulk).
+
+    The Collection's modified date is updated (even if nothing was removed).
+
+    Returns the updated Collection.
+    """
+    collection = get_collection(collection_id)
+
+    collection.entities.remove(*entities_qset.all())
+    collection.modified = datetime.now(tz=timezone.utc)
+    collection.save()
+
+    return collection
+
+
+def get_entity_collections(learning_package_id: int, entity_key: str) -> QuerySet[Collection]:
+    """
+    Get all collections in the given learning package which contain this entity.
+
+    Only enabled collections are returned.
+    """
+    entity = publishing_api.get_publishable_entity_by_key(
+        learning_package_id,
+        key=entity_key,
+    )
+    return entity.collections.filter(enabled=True).order_by("pk")
+
+
+def get_collections(learning_package_id: int, enabled: bool | None = True) -> QuerySet[Collection]:
     """
     Get all collections for a given learning package
 
-    Only enabled collections are returned
+    Enabled collections are returned by default.
     """
-    return Collection.objects \
-                     .filter(learning_package_id=learning_package_id, enabled=True) \
-                     .select_related("learning_package") \
-                     .order_by('pk')
-
-
-def get_collections(enabled: bool | None = None) -> QuerySet[Collection]:
-    """
-    Get all collections, optionally caller can filter by enabled flag
-    """
-    qs = Collection.objects.all()
+    qs = Collection.objects.filter(learning_package_id=learning_package_id)
     if enabled is not None:
         qs = qs.filter(enabled=enabled)
     return qs.select_related("learning_package").order_by('pk')
