@@ -80,15 +80,34 @@ __all__ = [
 ]
 
 
+class CollectionManager(models.Manager):
+    """
+    Custom manager for Collection class.
+    """
+    def get_by_key(self, learning_package_id: int, slug: str):
+        """
+        Get the Collection for the given Learning Package + slug.
+        """
+        return self.select_related('learning_package') \
+                   .get(learning_package_id=learning_package_id, slug=slug)
+
+
 class Collection(models.Model):
     """
     Represents a collection of library components
     """
+    objects: CollectionManager[Collection] = CollectionManager()
 
     id = models.AutoField(primary_key=True)
 
     # Each collection belongs to a learning package
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+
+    # Every collection is uniquely and permanently identified within its learning package
+    # by a 'slug' that is set during creation. Both will appear in the
+    # collection's opaque key:
+    # e.g. "lib-collection:lib:slug" is the opaque key for a library collection.
+    slug = models.SlugField(allow_unicode=True)
 
     title = case_insensitive_char_field(
         null=False,
@@ -153,6 +172,7 @@ class Collection(models.Model):
         verbose_name_plural = "Collections"
         indexes = [
             models.Index(fields=["learning_package", "title"]),
+            models.Index(fields=["learning_package", "slug"]),
         ]
 
     def __repr__(self) -> str:
@@ -165,7 +185,7 @@ class Collection(models.Model):
         """
         User-facing string representation of a Collection.
         """
-        return f"<{self.__class__.__name__}> ({self.id}:{self.title})"
+        return f"<{self.__class__.__name__}> ({self.slug}:{self.title})"
 
 
 class CollectionPublishableEntity(models.Model):

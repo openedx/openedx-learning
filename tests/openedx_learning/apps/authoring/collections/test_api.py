@@ -59,24 +59,28 @@ class CollectionsTestCase(CollectionTestCase):
         super().setUpTestData()
         cls.collection1 = api.create_collection(
             cls.learning_package.id,
+            slug="COL1",
             created_by=None,
             title="Collection 1",
             description="Description of Collection 1",
         )
         cls.collection2 = api.create_collection(
             cls.learning_package.id,
+            slug="COL2",
             created_by=None,
             title="Collection 2",
             description="Description of Collection 2",
         )
         cls.collection3 = api.create_collection(
             cls.learning_package_2.id,
+            slug="COL3",
             created_by=None,
             title="Collection 3",
             description="Description of Collection 3",
         )
         cls.disabled_collection = api.create_collection(
             cls.learning_package.id,
+            slug="COL4",
             created_by=None,
             title="Disabled Collection",
             description="Description of Disabled Collection",
@@ -165,12 +169,14 @@ class CollectionCreateTestCase(CollectionTestCase):
         with freeze_time(created_time):
             collection = api.create_collection(
                 self.learning_package.id,
+                slug='MYCOL',
                 title="My Collection",
                 created_by=user.id,
                 description="This is my collection",
             )
 
         assert collection.title == "My Collection"
+        assert collection.slug == "MYCOL"
         assert collection.description == "This is my collection"
         assert collection.enabled
         assert collection.created == created_time
@@ -183,10 +189,12 @@ class CollectionCreateTestCase(CollectionTestCase):
         """
         collection = api.create_collection(
             self.learning_package.id,
+            slug='MYCOL',
             created_by=None,
             title="My Collection",
         )
         assert collection.title == "My Collection"
+        assert collection.slug == "MYCOL"
         assert collection.description == ""
         assert collection.enabled
 
@@ -376,13 +384,15 @@ class UpdateCollectionTestCase(CollectionTestCase):
     """
     collection: Collection
 
-    def setUp(self) -> None:
+    @classmethod
+    def setUpTestData(cls) -> None:
         """
         Initialize our content data
         """
-        super().setUp()
-        self.collection = api.create_collection(
-            self.learning_package.id,
+        super().setUpTestData()
+        cls.collection = api.create_collection(
+            cls.learning_package.id,
+            slug="MYCOL",
             title="Collection",
             created_by=None,
             description="Description of Collection",
@@ -416,7 +426,7 @@ class UpdateCollectionTestCase(CollectionTestCase):
 
         assert collection.title == "New Title"
         assert collection.description == self.collection.description  # unchanged
-        assert f"{collection}" == f"<Collection> ({self.collection.pk}:New Title)"
+        assert f"{collection}" == f"<Collection> ({self.collection.slug}:New Title)"
 
         collection = api.update_collection(
             self.collection.pk,
