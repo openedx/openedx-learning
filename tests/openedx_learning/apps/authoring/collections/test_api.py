@@ -96,7 +96,7 @@ class GetCollectionTestCase(CollectionsTestCase):
         """
         Test getting a single collection.
         """
-        collection = api.get_collection(self.collection1.pk)
+        collection = api.get_collection(self.learning_package.pk, 'COL1')
         assert collection == self.collection1
 
     def test_get_collection_not_found(self):
@@ -104,7 +104,14 @@ class GetCollectionTestCase(CollectionsTestCase):
         Test getting a collection that doesn't exist.
         """
         with self.assertRaises(ObjectDoesNotExist):
-            api.get_collection(12345)
+            api.get_collection(self.learning_package.pk, '12345')
+
+    def test_get_collection_wrong_learning_package(self):
+        """
+        Test getting a collection that doesn't exist in the requested learning package.
+        """
+        with self.assertRaises(ObjectDoesNotExist):
+            api.get_collection(self.learning_package.pk, self.collection3.slug)
 
     def test_get_collections(self):
         """
@@ -258,21 +265,24 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
 
         # Add some shared entities to the collections
         cls.collection1 = api.add_to_collection(
-            cls.collection1.id,
+            cls.learning_package.id,
+            slug=cls.collection1.slug,
             entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_entity.id,
             ]),
             created_by=cls.user.id,
         )
         cls.collection2 = api.add_to_collection(
-            cls.collection2.id,
+            cls.learning_package.id,
+            slug=cls.collection2.slug,
             entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_entity.id,
                 cls.draft_entity.id,
             ]),
         )
         cls.disabled_collection = api.add_to_collection(
-            cls.disabled_collection.id,
+            cls.learning_package.id,
+            slug=cls.disabled_collection.slug,
             entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_entity.id,
             ]),
@@ -298,7 +308,8 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
             self.collection1 = api.add_to_collection(
-                self.collection1.id,
+                self.learning_package.id,
+                self.collection1.slug,
                 PublishableEntity.objects.filter(id__in=[
                     self.draft_entity.id,
                 ]),
@@ -320,7 +331,8 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
             self.collection2 = api.add_to_collection(
-                self.collection2.id,
+                self.learning_package.id,
+                self.collection2.slug,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_entity.id,
                 ]),
@@ -338,7 +350,8 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         """
         with self.assertRaises(ValidationError):
             api.add_to_collection(
-                self.collection3.id,
+                self.learning_package_2.id,
+                self.collection3.slug,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_entity.id,
                 ]),
@@ -353,7 +366,8 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
             self.collection2 = api.remove_from_collection(
-                self.collection2.id,
+                self.learning_package.id,
+                self.collection2.slug,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_entity.id,
                 ]),
@@ -405,7 +419,8 @@ class UpdateCollectionTestCase(CollectionTestCase):
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
             collection = api.update_collection(
-                self.collection.pk,
+                self.learning_package.id,
+                slug=self.collection.slug,
                 title="New Title",
                 description="",
             )
@@ -420,7 +435,8 @@ class UpdateCollectionTestCase(CollectionTestCase):
         Test updating a collection's title.
         """
         collection = api.update_collection(
-            self.collection.pk,
+            self.learning_package.id,
+            slug=self.collection.slug,
             title="New Title",
         )
 
@@ -429,7 +445,8 @@ class UpdateCollectionTestCase(CollectionTestCase):
         assert f"{collection}" == f"<Collection> ({self.collection.slug}:New Title)"
 
         collection = api.update_collection(
-            self.collection.pk,
+            self.learning_package.id,
+            slug=self.collection.slug,
             description="New description",
         )
 
@@ -443,7 +460,8 @@ class UpdateCollectionTestCase(CollectionTestCase):
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
             collection = api.update_collection(
-                self.collection.pk,
+                self.learning_package.id,
+                slug=self.collection.slug,
             )
 
         assert collection.title == self.collection.title  # unchanged
@@ -455,4 +473,8 @@ class UpdateCollectionTestCase(CollectionTestCase):
         Test updating a collection that doesn't exist.
         """
         with self.assertRaises(ObjectDoesNotExist):
-            api.update_collection(12345, title="New Title")
+            api.update_collection(
+                self.learning_package.id,
+                slug="12345",
+                title="New Title",
+            )
