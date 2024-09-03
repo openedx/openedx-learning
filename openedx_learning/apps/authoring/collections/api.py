@@ -31,6 +31,7 @@ __all__ = [
 def create_collection(
     learning_package_id: int,
     title: str,
+    key: str,
     created_by: int | None,
     description: str = "",
     enabled: bool = True,
@@ -41,6 +42,7 @@ def create_collection(
     collection = Collection.objects.create(
         learning_package_id=learning_package_id,
         title=title,
+        key=key,
         created_by_id=created_by,
         description=description,
         enabled=enabled,
