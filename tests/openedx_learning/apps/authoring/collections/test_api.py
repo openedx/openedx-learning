@@ -442,7 +442,7 @@ class UpdateCollectionTestCase(CollectionTestCase):
 
         assert collection.title == "New Title"
         assert collection.description == self.collection.description  # unchanged
-        assert f"{collection}" == f"<Collection> ({self.collection.key}:New Title)"
+        assert f"{collection}" == f"<Collection> (lp:{self.learning_package.id} {self.collection.key}:New Title)"
 
         collection = api.update_collection(
             self.learning_package.id,

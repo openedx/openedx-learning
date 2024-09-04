@@ -195,7 +195,7 @@ class Collection(models.Model):
         """
         User-facing string representation of a Collection.
         """
-        return f"<{self.__class__.__name__}> ({self.key}:{self.title})"
+        return f"<{self.__class__.__name__}> (lp:{self.learning_package_id} {self.key}:{self.title})"
 
 
 class CollectionPublishableEntity(models.Model):
