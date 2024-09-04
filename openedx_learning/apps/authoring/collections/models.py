@@ -171,9 +171,18 @@ class Collection(models.Model):
 
     class Meta:
         verbose_name_plural = "Collections"
+        constraints = [
+            # Keys are unique within a given LearningPackage.
+            models.UniqueConstraint(
+                fields=[
+                    "learning_package",
+                    "key",
+                ],
+                name="oel_coll_uniq_lp_key",
+            ),
+        ]
         indexes = [
             models.Index(fields=["learning_package", "title"]),
-            models.Index(fields=["learning_package", "key"]),
         ]
 
     def __repr__(self) -> str:
