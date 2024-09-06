@@ -2,12 +2,12 @@ name: Publish package to PyPI
 
 on:
   push:
-    tags: 
+    tags:
       - '*'
 
 jobs:
   push:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout

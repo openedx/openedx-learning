@@ -31,7 +31,7 @@ certifi==2024.8.30
     # via
     #   -r requirements/test.txt
     #   requests
-cffi==1.17.0
+cffi==1.17.1
     # via
     #   -r requirements/test.txt
     #   cryptography
@@ -74,18 +74,17 @@ coverage[toml]==7.6.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==43.0.0
+cryptography==43.0.1
     # via
     #   -r requirements/test.txt
     #   pyjwt
-    #   secretstorage
 ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.3.8
     # via pylint
-django==4.2.15
+django==4.2.16
     # via
-    #   -c requirements/constraints.txt
+    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
     #   django-crum
     #   django-debug-toolbar
@@ -136,11 +135,11 @@ edx-django-utils==5.15.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==10.3.0
+edx-drf-extensions==10.4.0
     # via -r requirements/test.txt
 edx-lint==5.4.0
     # via -r requirements/quality.in
-edx-opaque-keys==2.10.0
+edx-opaque-keys==2.11.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -174,10 +173,6 @@ jaraco-context==6.0.1
     # via keyring
 jaraco-functools==4.0.2
     # via keyring
-jeepney==0.8.0
-    # via
-    #   keyring
-    #   secretstorage
 jinja2==3.1.4
     # via
     #   -r requirements/test.txt
@@ -200,7 +195,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mock==5.1.0
     # via -r requirements/test.txt
-more-itertools==10.4.0
+more-itertools==10.5.0
     # via
     #   jaraco-classes
     #   jaraco-functools
@@ -288,7 +283,7 @@ pytest==8.3.2
     #   pytest-django
 pytest-cov==5.0.0
     # via -r requirements/test.txt
-pytest-django==4.8.0
+pytest-django==4.9.0
     # via -r requirements/test.txt
 python-dateutil==2.9.0.post0
     # via
@@ -318,10 +313,8 @@ rfc3986==2.0.0
     # via twine
 rich==13.8.0
     # via twine
-rules==3.4
+rules==3.5
     # via -r requirements/test.txt
-secretstorage==3.3.3
-    # via keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/test.txt
@@ -357,7 +350,7 @@ types-pyyaml==6.0.12.20240808
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20240712
+types-requests==2.32.0.20240905
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
