@@ -35,7 +35,7 @@ certifi==2024.8.30
     # via
     #   -r requirements/test.txt
     #   requests
-cffi==1.17.0
+cffi==1.17.1
     # via
     #   -r requirements/test.txt
     #   cryptography
@@ -72,13 +72,13 @@ coverage[toml]==7.6.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==43.0.0
+cryptography==43.0.1
     # via
     #   -r requirements/test.txt
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==4.2.15
+django==4.2.16
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/test.txt
@@ -122,9 +122,9 @@ dnspython==2.6.1
     # via
     #   -r requirements/test.txt
     #   pymongo
-doc8==1.1.1
+doc8==1.1.2
     # via -r requirements/doc.in
-docutils==0.20.1
+docutils==0.21.2
     # via
     #   doc8
     #   pydata-sphinx-theme
@@ -139,9 +139,9 @@ edx-django-utils==5.15.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==10.3.0
+edx-drf-extensions==10.4.0
     # via -r requirements/test.txt
-edx-opaque-keys==2.10.0
+edx-opaque-keys==2.11.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -249,7 +249,7 @@ pytest==8.3.2
     #   pytest-django
 pytest-cov==5.0.0
     # via -r requirements/test.txt
-pytest-django==4.8.0
+pytest-django==4.9.0
     # via -r requirements/test.txt
 python-dateutil==2.9.0.post0
     # via
@@ -264,7 +264,7 @@ pyyaml==6.0.2
     # via
     #   -r requirements/test.txt
     #   code-annotations
-readme-renderer==43.0
+readme-renderer==44.0
     # via -r requirements/doc.in
 requests==2.32.3
     # via
@@ -274,7 +274,7 @@ requests==2.32.3
     #   sphinx
 restructuredtext-lint==1.4.0
     # via doc8
-rules==3.4
+rules==3.5
     # via -r requirements/test.txt
 semantic-version==2.10.0
     # via
@@ -331,7 +331,7 @@ types-pyyaml==6.0.12.20240808
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20240712
+types-requests==2.32.0.20240907
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
