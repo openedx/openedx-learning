@@ -23,14 +23,18 @@ grimp==3.4.1
 import-linter==2.0
     # via -r requirements/ci.in
 packaging==24.1
-    # via tox
+    # via
+    #   pyproject-api
+    #   tox
 platformdirs==4.3.2
-    # via virtualenv
+    # via
+    #   tox
+    #   virtualenv
 pluggy==1.5.0
     # via tox
 pyproject-api==1.7.1
     # via tox
-tox==4.18.0
+tox==4.18.1
     # via -r requirements/ci.in
 typing-extensions==4.12.2
     # via

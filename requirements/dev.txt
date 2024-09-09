@@ -467,7 +467,7 @@ tomlkit==0.13.2
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==4.18.0
+tox==4.18.1
     # via -r requirements/ci.txt
 twine==5.1.1
     # via -r requirements/quality.txt
