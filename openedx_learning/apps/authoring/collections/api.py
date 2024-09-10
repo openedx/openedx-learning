@@ -30,6 +30,8 @@ __all__ = [
 
 def create_collection(
     learning_package_id: int,
+    key: str,
+    *,
     title: str,
     created_by: int | None,
     description: str = "",
@@ -40,6 +42,7 @@ def create_collection(
     """
     collection = Collection.objects.create(
         learning_package_id=learning_package_id,
+        key=key,
         title=title,
         created_by_id=created_by,
         description=description,
@@ -48,22 +51,24 @@ def create_collection(
     return collection
 
 
-def get_collection(collection_id: int) -> Collection:
+def get_collection(learning_package_id: int, collection_key: str) -> Collection:
     """
     Get a Collection by ID
     """
-    return Collection.objects.get(id=collection_id)
+    return Collection.objects.get_by_key(learning_package_id, collection_key)
 
 
 def update_collection(
-    collection_id: int,
+    learning_package_id: int,
+    key: str,
+    *,
     title: str | None = None,
     description: str | None = None,
 ) -> Collection:
     """
-    Update a Collection
+    Update a Collection identified by the learning_package_id + key.
     """
-    collection = Collection.objects.get(id=collection_id)
+    collection = get_collection(learning_package_id, key)
 
     # If no changes were requested, there's nothing to update, so just return
     # the Collection as-is
@@ -80,7 +85,8 @@ def update_collection(
 
 
 def add_to_collection(
-    collection_id: int,
+    learning_package_id: int,
+    key: str,
     entities_qset: QuerySet[PublishableEntity],
     created_by: int | None = None,
 ) -> Collection:
@@ -95,17 +101,15 @@ def add_to_collection(
 
     Returns the updated Collection object.
     """
-    collection = get_collection(collection_id)
-    learning_package_id = collection.learning_package_id
-
     # Disallow adding entities outside the collection's learning package
     invalid_entity = entities_qset.exclude(learning_package_id=learning_package_id).first()
     if invalid_entity:
         raise ValidationError(
             f"Cannot add entity {invalid_entity.pk} in learning package {invalid_entity.learning_package_id} "
-            f"to collection {collection_id} in learning package {learning_package_id}."
+            f"to collection {key} in learning package {learning_package_id}."
         )
 
+    collection = get_collection(learning_package_id, key)
     collection.entities.add(
         *entities_qset.all(),
         through_defaults={"created_by_id": created_by},
@@ -117,7 +121,8 @@ def add_to_collection(
 
 
 def remove_from_collection(
-    collection_id: int,
+    learning_package_id: int,
+    key: str,
     entities_qset: QuerySet[PublishableEntity],
 ) -> Collection:
     """
@@ -129,7 +134,7 @@ def remove_from_collection(
 
     Returns the updated Collection.
     """
-    collection = get_collection(collection_id)
+    collection = get_collection(learning_package_id, key)
 
     collection.entities.remove(*entities_qset.all())
     collection.modified = datetime.now(tz=timezone.utc)

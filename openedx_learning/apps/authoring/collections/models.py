@@ -70,8 +70,9 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from ....lib.fields import MultiCollationTextField, case_insensitive_char_field
-from ....lib.validators import validate_utc_datetime
+from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field, key_field
+from openedx_learning.lib.validators import validate_utc_datetime
+
 from ..publishing.models import LearningPackage, PublishableEntity
 
 __all__ = [
@@ -80,15 +81,34 @@ __all__ = [
 ]
 
 
+class CollectionManager(models.Manager):
+    """
+    Custom manager for Collection class.
+    """
+    def get_by_key(self, learning_package_id: int, key: str):
+        """
+        Get the Collection for the given Learning Package + key.
+        """
+        return self.select_related('learning_package') \
+                   .get(learning_package_id=learning_package_id, key=key)
+
+
 class Collection(models.Model):
     """
     Represents a collection of library components
     """
+    objects: CollectionManager[Collection] = CollectionManager()
 
     id = models.AutoField(primary_key=True)
 
     # Each collection belongs to a learning package
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+
+    # Every collection is uniquely and permanently identified within its learning package
+    # by a 'key' that is set during creation. Both will appear in the
+    # collection's opaque key:
+    # e.g. "lib-collection:lib:key" is the opaque key for a library collection.
+    key = key_field(db_column='_key')
 
     title = case_insensitive_char_field(
         null=False,
@@ -151,6 +171,16 @@ class Collection(models.Model):
 
     class Meta:
         verbose_name_plural = "Collections"
+        constraints = [
+            # Keys are unique within a given LearningPackage.
+            models.UniqueConstraint(
+                fields=[
+                    "learning_package",
+                    "key",
+                ],
+                name="oel_coll_uniq_lp_key",
+            ),
+        ]
         indexes = [
             models.Index(fields=["learning_package", "title"]),
         ]
@@ -165,7 +195,7 @@ class Collection(models.Model):
         """
         User-facing string representation of a Collection.
         """
-        return f"<{self.__class__.__name__}> ({self.id}:{self.title})"
+        return f"<{self.__class__.__name__}> (lp:{self.learning_package_id} {self.key}:{self.title})"
 
 
 class CollectionPublishableEntity(models.Model):
