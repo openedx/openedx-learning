@@ -69,7 +69,7 @@ cryptography==43.0.1
 ddt==1.7.2
     # via -r requirements/test.in
     # via
-    #   -c requirements/constraints.txt
+    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/base.txt
     #   django-crum
     #   django-debug-toolbar

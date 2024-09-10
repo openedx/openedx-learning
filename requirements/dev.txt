@@ -32,6 +32,10 @@ build==1.2.2
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
+cachetools==5.5.0
+    # via
+    #   -r requirements/ci.txt
+    #   tox
 celery==5.4.0
     # via -r requirements/quality.txt
 certifi==2024.8.30
@@ -44,7 +48,10 @@ cffi==1.17.1
     #   cryptography
     #   pynacl
 chardet==5.2.0
-    # via diff-cover
+    # via
+    #   -r requirements/ci.txt
+    #   diff-cover
+    #   tox
 charset-normalizer==3.3.2
     # via
     #   -r requirements/quality.txt
@@ -84,6 +91,10 @@ code-annotations==1.8.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
+colorama==0.4.6
+    # via
+    #   -r requirements/ci.txt
+    #   tox
 coverage[toml]==7.6.1
     # via
     #   -r requirements/quality.txt
@@ -92,7 +103,6 @@ cryptography==43.0.1
     # via
     #   -r requirements/quality.txt
     #   pyjwt
-    #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
 diff-cover==9.2.0
@@ -107,7 +117,7 @@ distlib==0.3.8
     #   virtualenv
 django==4.2.16
     # via
-    #   -c requirements/constraints.txt
+    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/quality.txt
     #   django-crum
     #   django-debug-toolbar
@@ -218,11 +228,6 @@ jaraco-functools==4.0.2
     # via
     #   -r requirements/quality.txt
     #   keyring
-jeepney==0.8.0
-    # via
-    #   -r requirements/quality.txt
-    #   keyring
-    #   secretstorage
 jinja2==3.1.4
     # via
     #   -r requirements/quality.txt
@@ -287,6 +292,7 @@ packaging==24.1
     #   -r requirements/pip-tools.txt
     #   -r requirements/quality.txt
     #   build
+    #   pyproject-api
     #   pytest
     #   tox
 path==16.16.0
@@ -306,6 +312,7 @@ platformdirs==4.3.2
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
     #   pylint
+    #   tox
     #   virtualenv
 pluggy==1.5.0
     # via
@@ -324,10 +331,6 @@ psutil==6.0.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
-py==1.11.0
-    # via
-    #   -r requirements/ci.txt
-    #   tox
 pycodestyle==2.12.1
     # via -r requirements/quality.txt
 pycparser==2.22
@@ -375,6 +378,10 @@ pynacl==1.5.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
+pyproject-api==1.7.1
+    # via
+    #   -r requirements/ci.txt
+    #   tox
 pyproject-hooks==1.1.0
     # via
     #   -r requirements/pip-tools.txt
@@ -428,21 +435,15 @@ rich==13.8.0
     #   twine
 rules==3.5
     # via -r requirements/quality.txt
-secretstorage==3.3.3
-    # via
-    #   -r requirements/quality.txt
-    #   keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
 six==1.16.0
     # via
-    #   -r requirements/ci.txt
     #   -r requirements/quality.txt
     #   edx-lint
     #   python-dateutil
-    #   tox
 snowballstemmer==2.2.0
     # via
     #   -r requirements/quality.txt
@@ -466,10 +467,8 @@ tomlkit==0.13.2
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==3.28.0
-    # via
-    #   -c requirements/constraints.txt
-    #   -r requirements/ci.txt
+tox==4.18.1
+    # via -r requirements/ci.txt
 twine==5.1.1
     # via -r requirements/quality.txt
 types-pyyaml==6.0.12.20240808

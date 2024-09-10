@@ -78,14 +78,13 @@ cryptography==43.0.1
     # via
     #   -r requirements/test.txt
     #   pyjwt
-    #   secretstorage
 ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.3.8
     # via pylint
 django==4.2.16
     # via
-    #   -c requirements/constraints.txt
+    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
     #   django-crum
     #   django-debug-toolbar
@@ -174,10 +173,6 @@ jaraco-context==6.0.1
     # via keyring
 jaraco-functools==4.0.2
     # via keyring
-jeepney==0.8.0
-    # via
-    #   keyring
-    #   secretstorage
 jinja2==3.1.4
     # via
     #   -r requirements/test.txt
@@ -320,8 +315,6 @@ rich==13.8.0
     # via twine
 rules==3.5
     # via -r requirements/test.txt
-secretstorage==3.3.3
-    # via keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/test.txt

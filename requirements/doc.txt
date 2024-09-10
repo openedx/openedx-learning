@@ -80,7 +80,7 @@ ddt==1.7.2
     # via -r requirements/test.txt
 django==4.2.16
     # via
-    #   -c requirements/constraints.txt
+    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
     #   django-crum
     #   django-debug-toolbar
