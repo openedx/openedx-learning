@@ -103,6 +103,7 @@ cryptography==43.0.1
     # via
     #   -r requirements/quality.txt
     #   pyjwt
+    #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
 diff-cover==9.2.0
@@ -155,7 +156,7 @@ djangorestframework==3.15.2
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.15.0
+djangorestframework-stubs==3.15.1
     # via -r requirements/quality.txt
 dnspython==2.6.1
     # via
@@ -195,7 +196,7 @@ grimp==3.4.1
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
     #   import-linter
-idna==3.8
+idna==3.10
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -203,7 +204,7 @@ import-linter==2.0
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
-importlib-metadata==8.4.0
+importlib-metadata==8.5.0
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -228,6 +229,11 @@ jaraco-functools==4.0.2
     # via
     #   -r requirements/quality.txt
     #   keyring
+jeepney==0.8.0
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
+    #   secretstorage
 jinja2==3.1.4
     # via
     #   -r requirements/quality.txt
@@ -237,7 +243,7 @@ keyring==25.3.0
     # via
     #   -r requirements/quality.txt
     #   twine
-kombu==5.4.0
+kombu==5.4.1
     # via
     #   -r requirements/quality.txt
     #   celery
@@ -307,7 +313,7 @@ pkginfo==1.10.0
     # via
     #   -r requirements/quality.txt
     #   twine
-platformdirs==4.3.2
+platformdirs==4.3.3
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -387,7 +393,7 @@ pyproject-hooks==1.1.0
     #   -r requirements/pip-tools.txt
     #   build
     #   pip-tools
-pytest==8.3.2
+pytest==8.3.3
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -429,12 +435,16 @@ rfc3986==2.0.0
     # via
     #   -r requirements/quality.txt
     #   twine
-rich==13.8.0
+rich==13.8.1
     # via
     #   -r requirements/quality.txt
     #   twine
 rules==3.5
     # via -r requirements/quality.txt
+secretstorage==3.3.3
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/quality.txt
@@ -476,7 +486,7 @@ types-pyyaml==6.0.12.20240808
     #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20240907
+types-requests==2.32.0.20240914
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
@@ -495,7 +505,7 @@ tzdata==2024.1
     # via
     #   -r requirements/quality.txt
     #   celery
-urllib3==2.2.2
+urllib3==2.2.3
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -519,7 +529,7 @@ wheel==0.44.0
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
-zipp==3.20.1
+zipp==3.20.2
     # via
     #   -r requirements/quality.txt
     #   importlib-metadata
