@@ -60,6 +60,10 @@ class PublishableEntityMixin(models.Model):
     def created(self):
         return self.publishable_entity.created
 
+    @property
+    def created_by(self):
+        return self.publishable_entity.created_by
+
     class Meta:
         abstract = True
 
