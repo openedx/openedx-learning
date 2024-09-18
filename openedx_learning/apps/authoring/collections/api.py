@@ -20,10 +20,12 @@ from .models import Collection
 __all__ = [
     "add_to_collection",
     "create_collection",
+    "delete_collection",
     "get_collection",
     "get_collections",
     "get_entity_collections",
     "remove_from_collection",
+    "restore_collection",
     "update_collection",
 ]
 
@@ -80,6 +82,42 @@ def update_collection(
     if description is not None:
         collection.description = description
 
+    collection.save()
+    return collection
+
+
+def delete_collection(
+    learning_package_id: int,
+    key: str,
+    *,
+    hard_delete=False,
+) -> Collection:
+    """
+    Disables or deletes a collection identified by the given learning_package + key.
+
+    By default (hard_delete=False), the collection is "soft deleted", i.e disabled.
+    Soft-deleted collections can be re-enabled using restore_collection.
+    """
+    collection = get_collection(learning_package_id, key)
+
+    if hard_delete:
+        collection.delete()
+    else:
+        collection.enabled = False
+        collection.save()
+    return collection
+
+
+def restore_collection(
+    learning_package_id: int,
+    key: str,
+) -> Collection:
+    """
+    Undo a "soft delete" by re-enabling a Collection.
+    """
+    collection = get_collection(learning_package_id, key)
+
+    collection.enabled = True
     collection.save()
     return collection
 

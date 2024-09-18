@@ -208,7 +208,7 @@ class CollectionCreateTestCase(CollectionTestCase):
 
 class CollectionEntitiesTestCase(CollectionsTestCase):
     """
-    Test collections that contain publishable entitites.
+    Base class with collections that contain publishable entitites.
     """
     published_entity: PublishableEntity
     pe_version: PublishableEntityVersion
@@ -287,6 +287,12 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
                 cls.published_entity.id,
             ]),
         )
+
+
+class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
+    """
+    Test collections that contain publishable entitites.
+    """
 
     def test_create_collection_entities(self):
         """
@@ -478,3 +484,83 @@ class UpdateCollectionTestCase(CollectionTestCase):
                 key="12345",
                 title="New Title",
             )
+
+
+class DeleteCollectionTestCase(CollectionEntitiesTestCase):
+    """
+    Tests soft-deleting, restoring, and deleting collections.
+    """
+
+    def test_soft_delete(self):
+        """
+        Collections are soft-deleted by default.
+        """
+        modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(modified_time):
+            collection = api.delete_collection(
+                self.learning_package.id,
+                key=self.collection2.key,
+            )
+
+        # Collection was disabled and still exists in the database
+        assert not collection.enabled
+        assert collection.modified == modified_time
+        assert collection == api.get_collection(self.learning_package.id, collection.key)
+        # ...and the collection's entities remain intact.
+        assert list(collection.entities.all()) == [
+            self.published_entity,
+            self.draft_entity,
+        ]
+
+    def test_delete(self):
+        """
+        Collections can be deleted completely.
+        """
+        modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(modified_time):
+            collection = api.delete_collection(
+                self.learning_package.id,
+                key=self.collection2.key,
+                hard_delete=True,
+            )
+
+        # Collection was returned unchanged, but it's been deleted
+        assert collection.enabled
+        assert not collection.id
+        with self.assertRaises(ObjectDoesNotExist):
+            api.get_collection(self.learning_package.id, collection.key)
+        # ...and the entities have been removed from this collection
+        assert list(api.get_entity_collections(
+            self.learning_package.id,
+            self.published_entity.key,
+        )) == [self.collection1]
+        assert not list(api.get_entity_collections(
+            self.learning_package.id,
+            self.draft_entity.key,
+        ))
+
+    def test_restore(self):
+        """
+        Soft-deleted collections can be restored.
+        """
+        collection = api.delete_collection(
+            self.learning_package.id,
+            key=self.collection2.key,
+        )
+
+        modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(modified_time):
+            collection = api.restore_collection(
+                self.learning_package.id,
+                key=self.collection2.key,
+            )
+
+        # Collection was enabled and still exists in the database
+        assert collection.enabled
+        assert collection.modified == modified_time
+        assert collection == api.get_collection(self.learning_package.id, collection.key)
+        # ...and the collection's entities remain intact.
+        assert list(collection.entities.all()) == [
+            self.published_entity,
+            self.draft_entity,
+        ]
