@@ -46,6 +46,10 @@ layers=
     # without versioning information. These belong to a single Learning Package.
     openedx_learning.apps.authoring.contents
 
+    # The "collections" app stores arbitrary groupings of PublishableEntities.
+    # Its only dependency should be the publishing app.
+    openedx_learning.apps.authoring.collections
+
     # The lowest layer is "publishing", which holds the basic primitives needed
     # to create Learning Packages and manage the draft and publish states for
     # various types of content.
