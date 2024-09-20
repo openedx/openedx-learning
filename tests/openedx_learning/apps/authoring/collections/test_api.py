@@ -12,9 +12,10 @@ from openedx_learning.api import authoring as api
 from openedx_learning.api.authoring_models import (
     Collection,
     CollectionPublishableEntity,
+    Component,
+    ComponentType,
     LearningPackage,
     PublishableEntity,
-    PublishableEntityVersion,
 )
 from openedx_learning.lib.test_utils import TestCase
 
@@ -208,13 +209,13 @@ class CollectionCreateTestCase(CollectionTestCase):
 
 class CollectionEntitiesTestCase(CollectionsTestCase):
     """
-    Base class with collections that contain publishable entitites.
+    Base class with collections that contain components.
     """
-    published_entity: PublishableEntity
-    pe_version: PublishableEntityVersion
-    draft_entity: PublishableEntity
-    de_version: PublishableEntityVersion
+    published_component: Component
+    draft_component: Component
     user: User  # type: ignore [valid-type]
+    html_type: ComponentType
+    problem_type: ComponentType
 
     @classmethod
     def setUpTestData(cls) -> None:
@@ -228,17 +229,15 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
             email="user@example.com",
         )
 
-        # Make and Publish one PublishableEntity
-        cls.published_entity = api.create_publishable_entity(
+        cls.html_type = api.get_or_create_component_type("xblock.v1", "html")
+        cls.problem_type = api.get_or_create_component_type("xblock.v1", "problem")
+
+        # Make and publish one Component
+        cls.published_component, _ = api.create_component_and_version(
             cls.learning_package.id,
-            key="my_entity_published_example",
-            created=cls.now,
-            created_by=cls.user.id,
-        )
-        cls.pe_version = api.create_publishable_entity_version(
-            cls.published_entity.id,
-            version_num=1,
-            title="An Entity that we'll Publish 🌴",
+            cls.problem_type,
+            local_key="my_published_example",
+            title="My published problem",
             created=cls.now,
             created_by=cls.user.id,
         )
@@ -248,27 +247,22 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
             published_at=cls.now,
         )
 
-        # Create two Draft PublishableEntities, one in each learning package
-        cls.draft_entity = api.create_publishable_entity(
+        # Create a Draft component, one in each learning package
+        cls.draft_component, _ = api.create_component_and_version(
             cls.learning_package.id,
-            key="my_entity_draft_example",
-            created=cls.now,
-            created_by=cls.user.id,
-        )
-        cls.de_version = api.create_publishable_entity_version(
-            cls.draft_entity.id,
-            version_num=1,
-            title="An Entity that we'll keep in Draft 🌴",
+            cls.html_type,
+            local_key="my_draft_example",
+            title="My draft html",
             created=cls.now,
             created_by=cls.user.id,
         )
 
-        # Add some shared entities to the collections
+        # Add some shared components to the collections
         cls.collection1 = api.add_to_collection(
             cls.learning_package.id,
             key=cls.collection1.key,
             entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_entity.id,
+                cls.published_component.pk,
             ]),
             created_by=cls.user.id,
         )
@@ -276,15 +270,15 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
             cls.learning_package.id,
             key=cls.collection2.key,
             entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_entity.id,
-                cls.draft_entity.id,
+                cls.published_component.pk,
+                cls.draft_component.pk,
             ]),
         )
         cls.disabled_collection = api.add_to_collection(
             cls.learning_package.id,
             key=cls.disabled_collection.key,
             entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_entity.id,
+                cls.published_component.pk,
             ]),
         )
 
@@ -299,11 +293,11 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         Ensure the collections were pre-populated with the expected publishable entities.
         """
         assert list(self.collection1.entities.all()) == [
-            self.published_entity,
+            self.published_component.publishable_entity,
         ]
         assert list(self.collection2.entities.all()) == [
-            self.published_entity,
-            self.draft_entity,
+            self.published_component.publishable_entity,
+            self.draft_component.publishable_entity,
         ]
         assert not list(self.collection3.entities.all())
 
@@ -317,14 +311,14 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.learning_package.id,
                 self.collection1.key,
                 PublishableEntity.objects.filter(id__in=[
-                    self.draft_entity.id,
+                    self.draft_component.pk,
                 ]),
                 created_by=self.user.id,
             )
 
         assert list(self.collection1.entities.all()) == [
-            self.published_entity,
-            self.draft_entity,
+            self.published_component.publishable_entity,
+            self.draft_component.publishable_entity,
         ]
         for collection_entity in CollectionPublishableEntity.objects.filter(collection=self.collection1):
             assert collection_entity.created_by == self.user
@@ -340,13 +334,13 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.learning_package.id,
                 self.collection2.key,
                 PublishableEntity.objects.filter(id__in=[
-                    self.published_entity.id,
+                    self.published_component.pk,
                 ]),
             )
 
         assert list(self.collection2.entities.all()) == [
-            self.published_entity,
-            self.draft_entity,
+            self.published_component.publishable_entity,
+            self.draft_component.publishable_entity,
         ]
         assert self.collection2.modified == modified_time
 
@@ -359,7 +353,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.learning_package_2.id,
                 self.collection3.key,
                 PublishableEntity.objects.filter(id__in=[
-                    self.published_entity.id,
+                    self.published_component.pk,
                 ]),
             )
 
@@ -375,12 +369,12 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.learning_package.id,
                 self.collection2.key,
                 PublishableEntity.objects.filter(id__in=[
-                    self.published_entity.id,
+                    self.published_component.pk,
                 ]),
             )
 
         assert list(self.collection2.entities.all()) == [
-            self.draft_entity,
+            self.draft_component.publishable_entity,
         ]
         assert self.collection2.modified == modified_time
 
@@ -390,12 +384,26 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         """
         collections = api.get_entity_collections(
             self.learning_package.id,
-            self.published_entity.key,
+            self.published_component.publishable_entity.key,
         )
         assert list(collections) == [
             self.collection1,
             self.collection2,
         ]
+
+    def test_get_collection_components(self):
+        assert list(api.get_collection_components(
+            self.learning_package.id,
+            self.collection1.key,
+        )) == [self.published_component]
+        assert list(api.get_collection_components(
+            self.learning_package.id,
+            self.collection2.key,
+        )) == [self.published_component, self.draft_component]
+        assert not list(api.get_collection_components(
+            self.learning_package.id,
+            self.collection3.key,
+        ))
 
 
 class UpdateCollectionTestCase(CollectionTestCase):
@@ -508,8 +516,8 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         assert collection == api.get_collection(self.learning_package.id, collection.key)
         # ...and the collection's entities remain intact.
         assert list(collection.entities.all()) == [
-            self.published_entity,
-            self.draft_entity,
+            self.published_component.publishable_entity,
+            self.draft_component.publishable_entity,
         ]
 
     def test_delete(self):
@@ -532,11 +540,11 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         # ...and the entities have been removed from this collection
         assert list(api.get_entity_collections(
             self.learning_package.id,
-            self.published_entity.key,
+            self.published_component.publishable_entity.key,
         )) == [self.collection1]
         assert not list(api.get_entity_collections(
             self.learning_package.id,
-            self.draft_entity.key,
+            self.draft_component.publishable_entity.key,
         ))
 
     def test_restore(self):
@@ -561,6 +569,6 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         assert collection == api.get_collection(self.learning_package.id, collection.key)
         # ...and the collection's entities remain intact.
         assert list(collection.entities.all()) == [
-            self.published_entity,
-            self.draft_entity,
+            self.published_component.publishable_entity,
+            self.draft_component.publishable_entity,
         ]
