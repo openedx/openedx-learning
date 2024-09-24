@@ -55,6 +55,7 @@ upgrade:  ## update the pip requirements files to use the latest releases satisf
 
 quality: ## check coding style with pycodestyle and pylint
 	tox -e quality
+	lint-imports
 
 pii_check: ## check for PII annotations on all Django models
 	tox -e pii_check

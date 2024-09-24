@@ -42,6 +42,7 @@ __all__ = [
     "get_component_by_uuid",
     "get_component_version_by_uuid",
     "component_exists_by_key",
+    "get_collection_components",
     "get_components",
     "create_component_version_content",
     "look_up_component_version_content",
@@ -337,6 +338,21 @@ def get_components(
         )
 
     return qset
+
+
+def get_collection_components(
+    learning_package_id: int,
+    collection_key: str,
+) -> QuerySet[Component]:
+    """
+    Returns a QuerySet of Components relating to the PublishableEntities in a Collection.
+
+    Components have a one-to-one relationship with PublishableEntity, but the reverse may not always be true.
+    """
+    return Component.objects.filter(
+        learning_package_id=learning_package_id,
+        publishable_entity__collections__key=collection_key,
+    ).order_by('pk')
 
 
 def look_up_component_version_content(
