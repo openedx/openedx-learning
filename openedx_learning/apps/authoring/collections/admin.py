@@ -16,7 +16,6 @@ class CollectionAdmin(admin.ModelAdmin):
     readonly_fields = ["key", "learning_package"]
     list_filter = ["enabled"]
     list_display = ["key", "title", "enabled", "modified"]
-    list_editable = ["enabled"]
     fieldsets = [
         (
             "",
