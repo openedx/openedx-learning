@@ -133,12 +133,10 @@ class Collection(models.Model):
         }
     )
 
-    # We don't have api functions to handle the enabled field. This is a placeholder for future use and
-    # a way to "soft delete" collections.
     enabled = models.BooleanField(
         default=True,
         help_text=_(
-            "Whether the collection is enabled or not."
+            'Disabled collections are "soft deleted", and should be re-enabled before use, or be deleted.',
         ),
     )
 
