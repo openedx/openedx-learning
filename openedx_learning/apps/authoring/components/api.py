@@ -269,7 +269,15 @@ def get_component_by_uuid(uuid: UUID) -> Component:
 
 
 def get_component_version_by_uuid(uuid: UUID) -> ComponentVersion:
-    return ComponentVersion.objects.get(publishable_entity_version__uuid=uuid)
+    return (
+        ComponentVersion
+        .objects
+        .select_related(
+            "component",
+            "component__learning_package",
+        )
+        .get(publishable_entity_version__uuid=uuid)
+    )
 
 
 def component_exists_by_key(
@@ -510,7 +518,12 @@ def get_redirect_response_for_component_asset(
 
     # Check: Does the ComponentVersion exist?
     try:
-        component_version = get_component_version_by_uuid(component_version_uuid)
+        component_version = (
+            ComponentVersion
+            .objects
+            .select_related("component", "component__learning_package")
+            .get(publishable_entity_version__uuid=component_version_uuid)
+        )
     except ComponentVersion.DoesNotExist:
         # No need to add headers here, because no ComponentVersion was found.
         logger.error(f"Asset Not Found: No ComponentVersion with UUID {component_version_uuid}")
