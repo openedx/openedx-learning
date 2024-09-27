@@ -7,11 +7,13 @@ from __future__ import annotations
 
 from functools import cache, cached_property
 
-from django.core.exceptions import ValidationError
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.base import File
-from django.core.files.storage import Storage, default_storage
+from django.core.files.storage import Storage
 from django.core.validators import MaxValueValidator
 from django.db import models
+from django.utils.module_loading import import_string
 
 from ....lib.fields import MultiCollationTextField, case_insensitive_char_field, hash_field, manual_date_time_field
 from ....lib.managers import WithRelationsManager
@@ -28,13 +30,25 @@ def get_storage() -> Storage:
     """
     Return the Storage instance for our Content file persistence.
 
-    For right now, we're still only storing inline text and not static assets in
-    production, so just return the default_storage. We're also going through a
-    transition between Django 3.2 -> 4.2, where storage configuration has moved.
+    This will first search for an OPENEDX_LEARNING config dictionary and return
+    a Storage subclass based on that configuration.
 
-    Make this work properly as part of adding support for static assets.
+    If there is no value for the OPENEDX_LEARNING setting, we return the default
+    MEDIA storage class. TODO: Should we make it just error instead?
     """
-    return default_storage
+    config_dict = getattr(settings, 'OPENEDX_LEARNING', {})
+
+    if 'MEDIA' in config_dict:
+        storage_cls = import_string(config_dict['MEDIA']['BACKEND'])
+        options = config_dict['MEDIA'].get('OPTIONS', {})
+        return storage_cls(**options)
+
+    raise ImproperlyConfigured(
+        "Cannot access file storage: Missing the OPENEDX_LEARNING['MEDIA'] "
+        "setting, which should have a storage BACKEND and OPTIONS values for "
+        "a Storage subclass. These files should be stored in a location that "
+        "is NOT publicly accessible to browsers (so not in the MEDIA_ROOT)."
+    )
 
 
 class MediaType(models.Model):
@@ -282,22 +296,53 @@ class Content(models.Model):
         """
         return str(self.media_type)
 
-    def file_path(self):
+    @cached_property
+    def path(self):
         """
-        Path at which this content is stored (or would be stored).
+        Logical path at which this content is stored (or would be stored).
 
-        This path is relative to configured storage root.
+        This path is relative to OPENEDX_LEARNING['MEDIA'] configured storage
+        root. This file may not exist because has_file=False, or because we
+        haven't written the file yet (this is the method we call when trying to
+        figure out where the file *should* go).
         """
-        return f"{self.learning_package.uuid}/{self.hash_digest}"
+        return f"content/{self.learning_package.uuid}/{self.hash_digest}"
+
+    def os_path(self):
+        """
+        The full OS path for the underlying file for this Content.
+
+        This will not be supported by all Storage class types.
+
+        This will return ``None`` if there is no backing file (has_file=False).
+        """
+        if self.has_file:
+            return get_storage().path(self.path)
+        return None
+
+    def read_file(self) -> File:
+        """
+        Get a File object that has been open for reading.
+
+        We intentionally don't expose an `open()` call where callers can open
+        this file in write mode. Writing a Content file should happen at most
+        once, and the logic is not obvious (see ``write_file``).
+
+        At the end of the day, the caller can close the returned File and reopen
+        it in whatever mode they want, but we're trying to gently discourage
+        that kind of usage.
+        """
+        return get_storage().open(self.path, 'rb')
 
     def write_file(self, file: File) -> None:
         """
         Write file contents to the file storage backend.
 
-        This function does nothing if the file already exists.
+        This function does nothing if the file already exists. Note that Content
+        is supposed to be immutable, so this should normally only be called once
+        for a given Content row.
         """
         storage = get_storage()
-        file_path = self.file_path()
 
         # There are two reasons why a file might already exist even if the the
         # Content row is new:
@@ -314,15 +359,15 @@ class Content(models.Model):
         # 3. Similar to (2), but only part of the file was written before an
         # error occurred. This seems unlikely, but possible if the underlying
         # storage engine writes in chunks.
-        if storage.exists(file_path) and storage.size(file_path) == file.size:
+        if storage.exists(self.path) and storage.size(self.path) == file.size:
             return
-        storage.save(file_path, file)
+        storage.save(self.path, file)
 
     def file_url(self) -> str:
         """
         This will sometimes be a time-limited signed URL.
         """
-        return content_file_url(self.file_path())
+        return get_storage().url(self.path)
 
     def clean(self):
         """
@@ -361,7 +406,3 @@ class Content(models.Model):
         ]
         verbose_name = "Content"
         verbose_name_plural = "Contents"
-
-
-def content_file_url(file_path):
-    return get_storage().url(file_path)

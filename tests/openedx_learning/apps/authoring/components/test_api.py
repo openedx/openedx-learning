@@ -381,7 +381,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         components_api.create_component_version_content(
             new_version.pk,
             new_content.pk,
-            key="hello.txt",
+            key="my/path/to/hello.txt",
             learner_downloadable=False,
         )
         # re-fetch from the database to check to see if we wrote it correctly
@@ -390,7 +390,23 @@ class CreateNewVersionsTestCase(ComponentTestCase):
                                     .get(publishable_entity_version__version_num=1)
         assert (
             new_content ==
-            new_version.contents.get(componentversioncontent__key="hello.txt")
+            new_version.contents.get(componentversioncontent__key="my/path/to/hello.txt")
+        )
+
+        # Write the same content again, but to an absolute path (should auto-
+        # strip) the leading '/'s.
+        components_api.create_component_version_content(
+            new_version.pk,
+            new_content.pk,
+            key="//nested/path/hello.txt",
+            learner_downloadable=False,
+        )
+        new_version = components_api.get_component(self.problem.pk) \
+                                    .versions \
+                                    .get(publishable_entity_version__version_num=1)
+        assert (
+            new_content ==
+            new_version.contents.get(componentversioncontent__key="nested/path/hello.txt")
         )
 
     def test_multiple_versions(self):
