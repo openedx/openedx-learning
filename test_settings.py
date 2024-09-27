@@ -69,3 +69,14 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'edx_rest_framework_extensions.paginators.DefaultPagination',
     'PAGE_SIZE': 10,
 }
+
+######################## LEARNING CORE SETTINGS ########################
+
+OPENEDX_LEARNING = {
+    'MEDIA': {
+        'BACKEND': 'django.core.files.storage.InMemoryStorage',
+        'OPTIONS': {
+            'location': MEDIA_ROOT + "_private"
+        }
+    }
+}

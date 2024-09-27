@@ -403,7 +403,21 @@ def create_component_version_content(
 ) -> ComponentVersionContent:
     """
     Add a Content to the given ComponentVersion
+
+    We don't allow keys that would be absolute paths, e.g. ones that start with
+    '/'. Storing these causes headaches with building relative paths and because
+    of mismatches with things that expect a leading slash and those that don't.
+    So for safety and consistency, we strip off leading slashes and emit a
+    warning when we do.
     """
+    if key.startswith('/'):
+        logger.warning(
+            "Absolute paths are not supported: "
+            f"removed leading '/' from ComponentVersion {component_version_id} "
+            f"content key: {repr(key)} (content_id: {content_id})"
+        )
+        key = key.lstrip('/')
+
     cvrc, _created = ComponentVersionContent.objects.get_or_create(
         component_version_id=component_version_id,
         content_id=content_id,
@@ -580,10 +594,9 @@ def get_redirect_response_for_component_asset(
     # At this point, we know that there is valid Content that we want to send.
     # This adds Content-level headers, like the hash/etag and content type.
     info_headers.update(contents_api.get_content_info_headers(content))
-    stored_file_path = content.file_path()
 
     # Recompute redirect headers (reminder: this should never be cached).
-    redirect_headers = contents_api.get_redirect_headers(stored_file_path, public)
+    redirect_headers = contents_api.get_redirect_headers(content.path, public)
     logger.info(
         "Asset redirect (uncached metadata): "
         f"{component_version_uuid}/{asset_path} -> {redirect_headers}"

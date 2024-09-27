@@ -1,6 +1,8 @@
 """
 Django admin for contents models
 """
+import base64
+
 from django.contrib import admin
 from django.utils.html import format_html
 
@@ -16,7 +18,6 @@ class ContentAdmin(ReadOnlyModelAdmin):
     """
     list_display = [
         "hash_digest",
-        "file_link",
         "learning_package",
         "media_type",
         "size",
@@ -29,24 +30,42 @@ class ContentAdmin(ReadOnlyModelAdmin):
         "media_type",
         "size",
         "created",
-        "file_link",
-        "text_preview",
         "has_file",
+        "path",
+        "os_path",
+        "text_preview",
+        "image_preview",
     ]
     list_filter = ("media_type", "learning_package")
     search_fields = ("hash_digest",)
 
-    def file_link(self, content: Content):
-        if not content.has_file:
-            return ""
+    @admin.display(description="OS Path")
+    def os_path(self, content: Content):
+        return content.os_path() or ""
 
-        return format_html(
-            '<a href="{}">Download</a>',
-            content.file_url(),
-        )
+    def path(self, content: Content):
+        return content.path if content.has_file else ""
 
     def text_preview(self, content: Content):
+        if not content.text:
+            return ""
         return format_html(
             '<pre style="white-space: pre-wrap;">\n{}\n</pre>',
             content.text,
+        )
+
+    def image_preview(self, content: Content):
+        """
+        Return HTML for an image, if that is the underlying Content.
+
+        Otherwise, just return a blank string.
+        """
+        if content.media_type.type != "image":
+            return ""
+
+        data = content.read_file().read()
+        return format_html(
+            '<img src="data:{};base64, {}" style="max-width: 100%;" />',
+            content.mime_type,
+            base64.encodebytes(data).decode('utf8'),
         )
