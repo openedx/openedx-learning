@@ -25,7 +25,7 @@ babel==2.16.0
     #   sphinx
 beautifulsoup4==4.12.3
     # via pydata-sphinx-theme
-billiard==4.2.0
+billiard==4.2.1
     # via
     #   -r requirements/test.txt
     #   celery
@@ -98,11 +98,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==4.4.6
     # via -r requirements/test.txt
-django-stubs==5.0.4
+django-stubs==5.1.0
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.0.4
+django-stubs-ext==5.1.0
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -168,7 +168,7 @@ jinja2==3.1.4
     #   -r requirements/test.txt
     #   code-annotations
     #   sphinx
-kombu==5.4.1
+kombu==5.4.2
     # via
     #   -r requirements/test.txt
     #   celery
@@ -186,7 +186,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==9.13.0
+newrelic==10.0.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -208,7 +208,7 @@ pluggy==1.5.0
     #   pytest
 pprintpp==0.4.0
     # via sphinxcontrib-django
-prompt-toolkit==3.0.47
+prompt-toolkit==3.0.48
     # via
     #   -r requirements/test.txt
     #   click-repl
@@ -234,7 +234,7 @@ pyjwt[crypto]==2.9.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.8.0
+pymongo==4.9.1
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -326,7 +326,7 @@ text-unidecode==1.3
     # via
     #   -r requirements/test.txt
     #   python-slugify
-types-pyyaml==6.0.12.20240808
+types-pyyaml==6.0.12.20240917
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -346,10 +346,11 @@ typing-extensions==4.12.2
     #   import-linter
     #   mypy
     #   pydata-sphinx-theme
-tzdata==2024.1
+tzdata==2024.2
     # via
     #   -r requirements/test.txt
     #   celery
+    #   kombu
 urllib3==2.2.3
     # via
     #   -r requirements/test.txt
