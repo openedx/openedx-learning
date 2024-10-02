@@ -795,6 +795,12 @@ class ObjectTag(models.Model):
             "Tag associated with this object tag. Provides the tag's 'value' if set."
         ),
     )
+    read_only = models.BooleanField(
+        default=False,
+        help_text=_(
+            "True if this object tag cannot be deleted by the user."
+        ),
+    )
     _export_id = case_insensitive_char_field(
         max_length=255,
         help_text=_(
@@ -981,6 +987,7 @@ class ObjectTag(models.Model):
         self.tag = object_tag.tag
         self.taxonomy = object_tag.taxonomy
         self.object_id = object_tag.object_id
+        self.read_only = object_tag.read_only
         self._value = object_tag._value  # pylint: disable=protected-access
         self._export_id = object_tag._export_id  # pylint: disable=protected-access
         return self

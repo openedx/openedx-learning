@@ -484,3 +484,33 @@ def delete_tags_from_taxonomy(
     """
     taxonomy = taxonomy.cast()
     taxonomy.delete_tags(tags, with_subtags)
+
+
+def copy_tags(
+    object_id_from: str,
+    object_id_to: str,
+    include_deleted: bool = True,
+    object_tag_class: type[ObjectTag] = ObjectTag
+):
+    """
+    Copy all tags from one object to another.
+    This deletes all previous object tags in destination.
+    """
+    object_tags = get_object_tags(
+        object_id_from,
+        include_deleted=include_deleted,
+        object_tag_class=object_tag_class,
+    )
+    ObjectTagClass = object_tag_class
+    with transaction.atomic():
+        # Delete all object tags of destination
+        delete_object_tags(object_id_to)
+
+        # Copy an create object_tags in destination
+        for object_tag in object_tags:
+            new_object_tag = ObjectTagClass()
+            new_object_tag.copy(object_tag)
+            new_object_tag.id = None  # To create a new instance in DB
+            new_object_tag.object_id = object_id_to
+            new_object_tag.read_only = True
+            new_object_tag.save()
