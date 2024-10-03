@@ -12,12 +12,13 @@ are stored in this app.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum, auto
 from logging import getLogger
 from pathlib import Path
 from uuid import UUID
 
+from django.core.exceptions import ValidationError
 from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 from django.http.response import HttpResponse, HttpResponseNotFound
@@ -25,6 +26,7 @@ from django.http.response import HttpResponse, HttpResponseNotFound
 from ..contents import api as contents_api
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionContent
+from ..collections.models import Collection
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -48,6 +50,8 @@ __all__ = [
     "look_up_component_version_content",
     "AssetError",
     "get_redirect_response_for_component_asset",
+    "add_collections",
+    "remove_collections",
 ]
 
 
@@ -603,3 +607,55 @@ def get_redirect_response_for_component_asset(
     )
 
     return HttpResponse(headers={**info_headers, **redirect_headers})
+
+
+def add_collections(
+    learning_package_id: int,
+    component: Component,
+    collection_qset: QuerySet[Collection],
+    created_by: int | None = None,
+) -> Component:
+    """
+    Adds a QuerySet of Collection to Component.
+
+    These Collections must belong to the same LearningPackage as the Component, or a ValidationError will be raised.
+
+    Collections already in the Component.PublishableEntities are silently ignored.
+
+    The all collection object's modified date is updated.
+
+    Returns the updated component object.
+    """
+    # Disallow adding entities outside the collection's learning package
+    invalid_collection = collection_qset.exclude(learning_package_id=learning_package_id).first()
+    if invalid_collection:
+        raise ValidationError(
+            f"Cannot add collection {invalid_collection.pk} in learning package  "
+            f"{invalid_collection.learning_package_id} to component {component} in "
+            f"learning package {learning_package_id}."
+        )
+    component.publishable_entity.collections.add(
+        *collection_qset.all(),
+        through_defaults={"created_by_id": created_by},
+    )
+    collection_qset.update(modified=datetime.now(tz=timezone.utc))
+
+    return component
+
+
+def remove_collections(
+    learning_package_id: int,
+    component: Component,
+    collection_qset: QuerySet[Collection],
+) -> Component:
+    """
+    Removes a QuerySet of Collections from a Component.
+
+    The Collections modified date is updated.
+
+    Returns the updated component.
+    """
+    component.publishable_entity.collections.remove(*collection_qset.all())
+    collection_qset.update(modified=datetime.now(tz=timezone.utc))
+
+    return component
