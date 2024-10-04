@@ -613,15 +613,15 @@ def set_collections(
     component: Component,
     collection_qset: QuerySet[Collection],
     created_by: int | None = None,
-) -> Component:
+) -> set[Collection]:
     """
     Set collections for a given component.
 
     These Collections must belong to the same LearningPackage as the Component, or a ValidationError will be raised.
 
-    The collection_qset object's modified date is updated.
+    Modified date of all collections related to component is updated.
 
-    Returns the updated component object.
+    Returns the updated collections.
     """
     # Disallow adding entities outside the collection's learning package
     invalid_collection = collection_qset.exclude(learning_package_id=learning_package_id).first()
@@ -635,14 +635,18 @@ def set_collections(
     relations = CollectionPublishableEntity.objects.filter(
         entity=component.publishable_entity
     ).exclude(collection__in=collection_qset)
-    removed_collections = [relation.collection for relation in relations]
+    removed_collections = set(relation.collection for relation in relations)
     relations.delete()
     component.publishable_entity.collections.add(
         *collection_qset.all(),
         through_defaults={"created_by_id": created_by},
     )
-    for collection in list(collection_qset.all()) + removed_collections:
-        collection.modified = datetime.now(tz=timezone.utc)
-        collection.save()
+    # Update modified date via update to avoid triggering post_save signal for collections
+    # The signal triggers index update for each collection synchronously which will be very slow in this case.
+    # Instead trigger the index update in the caller function asynchronously.
+    affected_collection = removed_collections | set(collection_qset.all())
+    Collection.objects.filter(
+        id__in=[collection.id for collection in affected_collection]
+    ).update(modified=datetime.now(tz=timezone.utc))
 
-    return component
+    return affected_collection
