@@ -26,7 +26,7 @@ from django.http.response import HttpResponse, HttpResponseNotFound
 from ..contents import api as contents_api
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionContent
-from ..collections.models import Collection
+from ..collections.models import Collection, CollectionPublishableEntity
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -50,8 +50,7 @@ __all__ = [
     "look_up_component_version_content",
     "AssetError",
     "get_redirect_response_for_component_asset",
-    "add_collections",
-    "remove_collections",
+    "set_collections",
 ]
 
 
@@ -609,20 +608,18 @@ def get_redirect_response_for_component_asset(
     return HttpResponse(headers={**info_headers, **redirect_headers})
 
 
-def add_collections(
+def set_collections(
     learning_package_id: int,
     component: Component,
     collection_qset: QuerySet[Collection],
     created_by: int | None = None,
 ) -> Component:
     """
-    Adds a QuerySet of Collection to Component.
+    Set collections for a given component.
 
     These Collections must belong to the same LearningPackage as the Component, or a ValidationError will be raised.
 
-    Collections already in the Component.PublishableEntities are silently ignored.
-
-    The all collection object's modified date is updated.
+    The collection_qset object's modified date is updated.
 
     Returns the updated component object.
     """
@@ -634,28 +631,18 @@ def add_collections(
             f"{invalid_collection.learning_package_id} to component {component} in "
             f"learning package {learning_package_id}."
         )
+    # Clear other collections for given component and add/keep only the ones in collection_qset
+    relations = CollectionPublishableEntity.objects.filter(
+        entity=component.publishable_entity
+    ).exclude(collection__in=collection_qset)
+    removed_collections = [relation.collection for relation in relations]
+    relations.delete()
     component.publishable_entity.collections.add(
         *collection_qset.all(),
         through_defaults={"created_by_id": created_by},
     )
-    collection_qset.update(modified=datetime.now(tz=timezone.utc))
-
-    return component
-
-
-def remove_collections(
-    learning_package_id: int,
-    component: Component,
-    collection_qset: QuerySet[Collection],
-) -> Component:
-    """
-    Removes a QuerySet of Collections from a Component.
-
-    The Collections modified date is updated.
-
-    Returns the updated component.
-    """
-    component.publishable_entity.collections.remove(*collection_qset.all())
-    collection_qset.update(modified=datetime.now(tz=timezone.utc))
+    for collection in list(collection_qset.all()) + removed_collections:
+        collection.modified = datetime.now(tz=timezone.utc)
+        collection.save()
 
     return component
