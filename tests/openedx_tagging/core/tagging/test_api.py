@@ -932,9 +932,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         for tag_object in tags_list:
             tagging_api.tag_object(object_id=obj1, taxonomy=tag_object["taxonomy"], tags=[tag_object["value"]])
 
-        tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
-        tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
-
         tagging_api.copy_tags(obj1, obj2)
 
         object_tags = tagging_api.get_object_tags(obj2)
@@ -946,7 +943,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert not object_tag.is_deleted
             assert object_tag.taxonomy == tags_list[index]["taxonomy"]
             assert object_tag.object_id == obj2
-            assert object_tag.read_only is True
+            assert object_tag.is_copied is True
 
     def test_copy_tags_with_deleted(self) -> None:
         obj1 = "object_id1"
@@ -968,9 +965,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         for tag_object in tags_list:
             tagging_api.tag_object(object_id=obj1, taxonomy=tag_object["taxonomy"], tags=[tag_object["value"]])
 
-        tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
-        tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
-
         tagging_api.delete_tags_from_taxonomy(self.taxonomy, ["DPANN"], with_subtags=True)
 
         # Copy tags, also with deleted tags
@@ -984,16 +978,118 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert object_tag.is_deleted == tags_list[index]["deleted"]
             assert object_tag.taxonomy == tags_list[index]["taxonomy"]
             assert object_tag.object_id == obj2
-            assert object_tag.read_only is True
+            assert object_tag.is_copied is True
 
         # Copy tags, without deleted tags
         tagging_api.copy_tags(obj1, obj2, include_deleted=False)
 
-        object_tags = tagging_api.get_object_tags(obj2, include_deleted=True)
+        object_tags = tagging_api.get_object_tags(obj2, include_deleted=False)
 
         assert len(object_tags) == 1
         assert object_tags[0].value == tags_list[0]["value"]
         assert not object_tags[0].is_deleted
         assert object_tags[0].taxonomy == tags_list[0]["taxonomy"]
         assert object_tags[0].object_id == obj2
-        assert object_tags[0].read_only is True
+        assert object_tags[0].is_copied is True
+
+    def test_copy_tags_with_non_copied(self) -> None:
+        obj1 = "object_id1"
+        obj2 = "object_id2"
+
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.language_taxonomy, tags=["English"])
+
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
+
+        tagging_api.copy_tags(obj1, obj2)
+        object_tags = tagging_api.get_object_tags(obj2)
+
+        # Tags must be the non-copied and the copied tag.
+        expected_tags = [
+            {
+                "value": "has a notochord",
+                "taxonomy": self.free_text_taxonomy,
+                "copied": False,
+            },
+            {
+                "value": "English",
+                "taxonomy": self.language_taxonomy,
+                "copied": True,
+            },
+            {
+                "value": "Chordata",
+                "taxonomy": self.taxonomy,
+                "copied": False,
+            },
+        ]
+        assert len(object_tags) == 3
+        for index, object_tag in enumerate(object_tags):
+            assert object_tag.value == expected_tags[index]["value"]
+            assert not object_tag.is_deleted
+            assert object_tag.taxonomy == expected_tags[index]["taxonomy"]
+            assert object_tag.object_id == obj2
+            assert object_tag.is_copied == expected_tags[index]["copied"]
+
+        # Delete tags of 'obj1' and add other
+        tagging_api.delete_object_tags(obj1)
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.taxonomy, tags=["DPANN"])
+        tagging_api.copy_tags(obj1, obj2)
+        object_tags = tagging_api.get_object_tags(obj2)
+
+        # Tags must be the non-copied and the new copied tag.
+        # The previous copied tags must be deleted.
+        expected_tags = [
+            {
+                "value": "has a notochord",
+                "taxonomy": self.free_text_taxonomy,
+                "copied": False,
+            },
+            {
+                "value": "DPANN",
+                "taxonomy": self.taxonomy,
+                "copied": True,
+            },
+            {
+                "value": "Chordata",
+                "taxonomy": self.taxonomy,
+                "copied": False,
+            },
+        ]
+        assert len(object_tags) == 3
+        for index, object_tag in enumerate(object_tags):
+            assert object_tag.value == expected_tags[index]["value"]
+            assert not object_tag.is_deleted
+            assert object_tag.taxonomy == expected_tags[index]["taxonomy"]
+            assert object_tag.object_id == obj2
+            assert object_tag.is_copied == expected_tags[index]["copied"]
+
+        # Add a tag used by 'obj2'
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
+        tagging_api.copy_tags(obj1, obj2)
+        object_tags = tagging_api.get_object_tags(obj2)
+
+        # The non-copied tag 'has a notochord' must be copied now.
+        expected_tags = [
+            {
+                "value": "has a notochord",
+                "taxonomy": self.free_text_taxonomy,
+                "copied": True,
+            },
+            {
+                "value": "DPANN",
+                "taxonomy": self.taxonomy,
+                "copied": True,
+            },
+            {
+                "value": "Chordata",
+                "taxonomy": self.taxonomy,
+                "copied": False,
+            },
+        ]
+        assert len(object_tags) == 3
+        for index, object_tag in enumerate(object_tags):
+            assert object_tag.value == expected_tags[index]["value"]
+            assert not object_tag.is_deleted
+            assert object_tag.taxonomy == expected_tags[index]["taxonomy"]
+            assert object_tag.object_id == obj2
+            assert object_tag.is_copied == expected_tags[index]["copied"]
