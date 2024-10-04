@@ -3,8 +3,12 @@ Basic tests of the Components API.
 """
 from datetime import datetime, timezone
 
-from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from freezegun import freeze_time
 
+from openedx_learning.apps.authoring.collections import api as collection_api
+from openedx_learning.apps.authoring.collections.models import Collection, CollectionPublishableEntity
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.components.models import Component, ComponentType
 from openedx_learning.apps.authoring.contents import api as contents_api
@@ -12,6 +16,9 @@ from openedx_learning.apps.authoring.contents.models import MediaType
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
+
+
+User = get_user_model()
 
 
 class ComponentTestCase(TestCase):
@@ -503,3 +510,128 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             version_3.contents
                      .get(componentversioncontent__key="hello.txt")
         )
+
+
+class SetCollectionsTestCase(ComponentTestCase):
+    """
+    Test setting collections for a component.
+    """
+    collection1: Collection
+    collection2: Collection
+    collection3: Collection
+    published_problem: Component
+    user: User  # type: ignore [valid-type]
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        """
+        Initialize some collections
+        """
+        super().setUpTestData()
+        v2_problem_type = components_api.get_or_create_component_type("xblock.v2", "problem")
+        cls.published_problem, _ = components_api.create_component_and_version(
+            cls.learning_package.id,
+            component_type=v2_problem_type,
+            local_key="pp_lk",
+            title="Published Problem",
+            created=cls.now,
+            created_by=None,
+        )
+        cls.collection1 = collection_api.create_collection(
+            cls.learning_package.id,
+            key="MYCOL1",
+            title="Collection1",
+            created_by=None,
+            description="Description of Collection 1",
+        )
+        cls.collection2 = collection_api.create_collection(
+            cls.learning_package.id,
+            key="MYCOL2",
+            title="Collection2",
+            created_by=None,
+            description="Description of Collection 2",
+        )
+        cls.collection3 = collection_api.create_collection(
+            cls.learning_package.id,
+            key="MYCOL3",
+            title="Collection3",
+            created_by=None,
+            description="Description of Collection 3",
+        )
+        cls.user = User.objects.create(
+            username="user",
+            email="user@example.com",
+        )
+
+    def test_set_collections(self):
+        """
+        Test setting collections in a component
+        """
+        modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(modified_time):
+            components_api.set_collections(
+                self.learning_package.id,
+                self.published_problem,
+                collection_qset=Collection.objects.filter(id__in=[
+                    self.collection1.pk,
+                    self.collection2.pk,
+                ]),
+                created_by=self.user.id,
+            )
+        assert list(self.collection1.entities.all()) == [
+            self.published_problem.publishable_entity,
+        ]
+        assert list(self.collection2.entities.all()) == [
+            self.published_problem.publishable_entity,
+        ]
+        for collection_entity in CollectionPublishableEntity.objects.filter(
+            entity=self.published_problem.publishable_entity
+        ):
+            assert collection_entity.created_by == self.user
+        assert Collection.objects.get(id=self.collection1.pk).modified == modified_time
+        assert Collection.objects.get(id=self.collection2.pk).modified == modified_time
+
+        # Set collections again, but this time remove collection1 and add collection3
+        # Expected result: collection2 & collection3 associated to component and collection1 is excluded.
+        new_modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(new_modified_time):
+            components_api.set_collections(
+                self.learning_package.id,
+                self.published_problem,
+                collection_qset=Collection.objects.filter(id__in=[
+                    self.collection3.pk,
+                    self.collection2.pk,
+                ]),
+                created_by=self.user.id,
+            )
+        assert not list(self.collection1.entities.all())
+        assert list(self.collection2.entities.all()) == [
+            self.published_problem.publishable_entity,
+        ]
+        assert list(self.collection3.entities.all()) == [
+            self.published_problem.publishable_entity,
+        ]
+        # update modified time of all three collections as they were all updated
+        assert Collection.objects.get(id=self.collection1.pk).modified == new_modified_time
+        assert Collection.objects.get(id=self.collection2.pk).modified == new_modified_time
+        assert Collection.objects.get(id=self.collection3.pk).modified == new_modified_time
+
+    def test_set_collection_wrong_learning_package(self):
+        """
+        We cannot set collections with a different learning package than the component.
+        """
+        learning_package_2 = publishing_api.create_learning_package(
+            key="ComponentTestCase-test-key-2",
+            title="Components Test Case Learning Package-2",
+        )
+        with self.assertRaises(ValidationError):
+            components_api.set_collections(
+                learning_package_2.id,
+                self.published_problem,
+                collection_qset=Collection.objects.filter(id__in=[
+                    self.collection1.pk,
+                ]),
+                created_by=self.user.id,
+            )
+
+        assert not list(self.collection1.entities.all())
