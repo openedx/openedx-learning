@@ -17,7 +17,6 @@ from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
 
-
 User = get_user_model()
 
 

@@ -23,10 +23,10 @@ from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 from django.http.response import HttpResponse, HttpResponseNotFound
 
+from ..collections.models import Collection, CollectionPublishableEntity
 from ..contents import api as contents_api
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionContent
-from ..collections.models import Collection, CollectionPublishableEntity
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
