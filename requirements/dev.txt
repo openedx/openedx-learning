@@ -13,7 +13,7 @@ asgiref==3.8.1
     #   -r requirements/quality.txt
     #   django
     #   django-stubs
-astroid==3.3.4
+astroid==3.3.5
     # via
     #   -r requirements/quality.txt
     #   pylint
@@ -28,7 +28,7 @@ billiard==4.2.1
     # via
     #   -r requirements/quality.txt
     #   celery
-build==1.2.2
+build==1.2.2.post1
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
@@ -158,7 +158,7 @@ djangorestframework==3.15.2
     #   edx-drf-extensions
 djangorestframework-stubs==3.15.1
     # via -r requirements/quality.txt
-dnspython==2.6.1
+dnspython==2.7.0
     # via
     #   -r requirements/quality.txt
     #   pymongo
@@ -170,7 +170,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-edx-django-utils==5.15.0
+edx-django-utils==5.16.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
@@ -376,7 +376,7 @@ pylint-plugin-utils==0.8.2
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.9.1
+pymongo==4.10.1
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
@@ -435,7 +435,7 @@ rfc3986==2.0.0
     # via
     #   -r requirements/quality.txt
     #   twine
-rich==13.8.1
+rich==13.9.2
     # via
     #   -r requirements/quality.txt
     #   twine
@@ -477,7 +477,7 @@ tomlkit==0.13.2
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==4.20.0
+tox==4.21.2
     # via -r requirements/ci.txt
 twine==5.1.1
     # via -r requirements/quality.txt
