@@ -631,20 +631,27 @@ def set_collections(
             f"{invalid_collection.learning_package_id} to component {component} in "
             f"learning package {learning_package_id}."
         )
-    # Clear other collections for given component and add/keep only the ones in collection_qset
-    relations = CollectionPublishableEntity.objects.filter(
+    current_relations = CollectionPublishableEntity.objects.filter(
         entity=component.publishable_entity
-    ).exclude(collection__in=collection_qset)
-    removed_collections = set(relation.collection for relation in relations)
-    relations.delete()
+    ).select_related('collection')
+    # Clear other collections for given component and add only new collections from collection_qset
+    removed_collections = set(
+        r.collection for r in current_relations.exclude(collection__in=collection_qset)
+    )
+    new_collections = set(collection_qset.exclude(
+        id__in=current_relations.values_list('collection', flat=True)
+    ))
+    # Use `remove` instead of `CollectionPublishableEntity.delete()` to trigger m2m_changed signal which will handle
+    # updating component index.
+    component.publishable_entity.collections.remove(*removed_collections)
     component.publishable_entity.collections.add(
-        *collection_qset.all(),
+        *new_collections,
         through_defaults={"created_by_id": created_by},
     )
     # Update modified date via update to avoid triggering post_save signal for collections
     # The signal triggers index update for each collection synchronously which will be very slow in this case.
     # Instead trigger the index update in the caller function asynchronously.
-    affected_collection = removed_collections | set(collection_qset.all())
+    affected_collection = removed_collections | new_collections
     Collection.objects.filter(
         id__in=[collection.id for collection in affected_collection]
     ).update(modified=datetime.now(tz=timezone.utc))
