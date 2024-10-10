@@ -502,7 +502,7 @@ def copy_tags(
     """
     ObjectTagClass = object_tag_class
 
-    def object_has_tag(object_tag):
+    def dest_object_has_tag(object_tag):
         try:
             result = ObjectTagClass.objects.get(
                 object_id=dest_object_id,
@@ -513,7 +513,7 @@ def copy_tags(
         except ObjectTagClass.DoesNotExist:
             return None
 
-    object_tags = get_object_tags(
+    source_object_tags = get_object_tags(
         source_object_id,
         include_deleted=include_deleted,
         object_tag_class=object_tag_class,
@@ -528,8 +528,8 @@ def copy_tags(
         copied_tags.delete()
 
         # Copy an create object_tags in destination
-        for object_tag in object_tags:
-            existing_object_tag = object_has_tag(object_tag)
+        for object_tag in source_object_tags:
+            existing_object_tag = dest_object_has_tag(object_tag)
             if existing_object_tag:
                 # Now this tag is copied
                 existing_object_tag.is_copied = True
