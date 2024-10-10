@@ -37,6 +37,7 @@ from ..utils import view_auth_classes
 from .permissions import ObjectTagObjectPermissions, TaxonomyObjectPermissions, TaxonomyTagsObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
+    ObjectTagMinimalSerializer,
     ObjectTagsByTaxonomySerializer,
     ObjectTagSerializer,
     ObjectTagUpdateBodySerializer,
@@ -444,6 +445,7 @@ class ObjectTagView(
     """
 
     serializer_class = ObjectTagSerializer
+    minimal_serilizer_class = ObjectTagMinimalSerializer
     permission_classes = [ObjectTagObjectPermissions]
     lookup_field = "object_id"
 

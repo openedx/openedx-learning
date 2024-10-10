@@ -484,3 +484,60 @@ def delete_tags_from_taxonomy(
     """
     taxonomy = taxonomy.cast()
     taxonomy.delete_tags(tags, with_subtags)
+
+
+def copy_tags(
+    source_object_id: str,
+    dest_object_id: str,
+    include_deleted: bool = True,
+    object_tag_class: type[ObjectTag] = ObjectTag
+):
+    """
+    Copy all tags from one object to another.
+
+    This keeps all not-copied tags and delete all
+    previous copied tags of the dest object.
+    If there are not-copied tags that also are in 'source_object_id',
+    then they become copied.
+    """
+    ObjectTagClass = object_tag_class
+
+    def dest_object_has_tag(object_tag):
+        try:
+            result = ObjectTagClass.objects.get(
+                object_id=dest_object_id,
+                _export_id=object_tag.export_id,
+                _value=object_tag.value,
+            )
+            return result
+        except ObjectTagClass.DoesNotExist:
+            return None
+
+    source_object_tags = get_object_tags(
+        source_object_id,
+        include_deleted=include_deleted,
+        object_tag_class=object_tag_class,
+    )
+    copied_tags = ObjectTagClass.objects.filter(
+        object_id=dest_object_id,
+        is_copied=True,
+    )
+
+    with transaction.atomic():
+        # Delete all copied tags of destination
+        copied_tags.delete()
+
+        # Copy an create object_tags in destination
+        for object_tag in source_object_tags:
+            existing_object_tag = dest_object_has_tag(object_tag)
+            if existing_object_tag:
+                # Now this tag is copied
+                existing_object_tag.is_copied = True
+                existing_object_tag.save()
+            else:
+                new_object_tag = ObjectTagClass()
+                new_object_tag.copy(object_tag)
+                new_object_tag.id = None  # To create a new instance in DB
+                new_object_tag.object_id = dest_object_id
+                new_object_tag.is_copied = True
+                new_object_tag.save()
