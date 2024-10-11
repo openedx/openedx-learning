@@ -1,6 +1,8 @@
 """
 Django admin for components models
 """
+import base64
+
 from django.contrib import admin
 from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
@@ -67,18 +69,21 @@ class ContentInline(admin.TabularInline):
         )
 
     fields = [
-        "format_key",
+        "key",
         "format_size",
         "learner_downloadable",
         "rendered_data",
     ]
     readonly_fields = [
         "content",
-        "format_key",
+        "key",
         "format_size",
         "rendered_data",
     ]
     extra = 0
+
+    def has_file(self, cvc_obj):
+        return cvc_obj.content.has_file
 
     def rendered_data(self, cvc_obj):
         return content_preview(cvc_obj)
@@ -86,15 +91,6 @@ class ContentInline(admin.TabularInline):
     @admin.display(description="Size")
     def format_size(self, cvc_obj):
         return filesizeformat(cvc_obj.content.size)
-
-    @admin.display(description="Key")
-    def format_key(self, cvc_obj):
-        return format_html(
-            '<a href="{}">{}</a>',
-            link_for_cvc(cvc_obj),
-            # reverse("admin:components_content_change", args=(cvc_obj.content_id,)),
-            cvc_obj.key,
-        )
 
 
 @admin.register(ComponentVersion)
@@ -129,18 +125,6 @@ class ComponentVersionAdmin(ReadOnlyModelAdmin):
         )
 
 
-def link_for_cvc(cvc_obj: ComponentVersionContent) -> str:
-    """
-    Get the download URL for the given ComponentVersionContent instance
-    """
-    return "/media_server/component_asset/{}/{}/{}/{}".format(
-        cvc_obj.content.learning_package.key,
-        cvc_obj.component_version.component.key,
-        cvc_obj.component_version.version_num,
-        cvc_obj.key,
-    )
-
-
 def format_text_for_admin_display(text: str) -> SafeText:
     """
     Get the HTML to display the given plain text (preserving formatting)
@@ -158,9 +142,17 @@ def content_preview(cvc_obj: ComponentVersionContent) -> SafeText:
     content_obj = cvc_obj.content
 
     if content_obj.media_type.type == "image":
+        # This base64 encoding looks really goofy and is bad for performance,
+        # but image previews in the admin are extremely useful, and this lets us
+        # have them without creating a separate view in Learning Core. (Keep in
+        # mind that these assets are private, so they cannot be accessed via the
+        # MEDIA_URL like most Django uploaded assets.)
+        data = content_obj.read_file().read()
         return format_html(
-            '<img src="{}" style="max-width: 100%;" />',
-            content_obj.file_url(),
+            '<img src="data:{};base64, {}" style="max-width: 100%;" /><br><pre>{}</pre>',
+            content_obj.mime_type,
+            base64.encodebytes(data).decode('utf8'),
+            content_obj.os_path(),
         )
 
     return format_text_for_admin_display(

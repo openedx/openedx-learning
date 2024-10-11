@@ -167,7 +167,7 @@ class AssetTestCase(TestCase):
         assert response.status_code == 200
         assert response.headers["Etag"] == self.html_asset_content.hash_digest
         assert response.headers["Content-Type"] == "text/html"
-        assert response.headers["X-Accel-Redirect"] == self.html_asset_content.file_path()
+        assert response.headers["X-Accel-Redirect"] == self.html_asset_content.path
         assert "X-Open-edX-Error" not in response.headers
 
     def test_public_asset_response(self):

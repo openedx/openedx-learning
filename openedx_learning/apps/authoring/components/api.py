@@ -12,16 +12,18 @@ are stored in this app.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum, auto
 from logging import getLogger
 from pathlib import Path
 from uuid import UUID
 
+from django.core.exceptions import ValidationError
 from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 from django.http.response import HttpResponse, HttpResponseNotFound
 
+from ..collections.models import Collection, CollectionPublishableEntity
 from ..contents import api as contents_api
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionContent
@@ -48,6 +50,7 @@ __all__ = [
     "look_up_component_version_content",
     "AssetError",
     "get_redirect_response_for_component_asset",
+    "set_collections",
 ]
 
 
@@ -269,7 +272,15 @@ def get_component_by_uuid(uuid: UUID) -> Component:
 
 
 def get_component_version_by_uuid(uuid: UUID) -> ComponentVersion:
-    return ComponentVersion.objects.get(publishable_entity_version__uuid=uuid)
+    return (
+        ComponentVersion
+        .objects
+        .select_related(
+            "component",
+            "component__learning_package",
+        )
+        .get(publishable_entity_version__uuid=uuid)
+    )
 
 
 def component_exists_by_key(
@@ -395,7 +406,21 @@ def create_component_version_content(
 ) -> ComponentVersionContent:
     """
     Add a Content to the given ComponentVersion
+
+    We don't allow keys that would be absolute paths, e.g. ones that start with
+    '/'. Storing these causes headaches with building relative paths and because
+    of mismatches with things that expect a leading slash and those that don't.
+    So for safety and consistency, we strip off leading slashes and emit a
+    warning when we do.
     """
+    if key.startswith('/'):
+        logger.warning(
+            "Absolute paths are not supported: "
+            f"removed leading '/' from ComponentVersion {component_version_id} "
+            f"content key: {repr(key)} (content_id: {content_id})"
+        )
+        key = key.lstrip('/')
+
     cvrc, _created = ComponentVersionContent.objects.get_or_create(
         component_version_id=component_version_id,
         content_id=content_id,
@@ -510,7 +535,12 @@ def get_redirect_response_for_component_asset(
 
     # Check: Does the ComponentVersion exist?
     try:
-        component_version = get_component_version_by_uuid(component_version_uuid)
+        component_version = (
+            ComponentVersion
+            .objects
+            .select_related("component", "component__learning_package")
+            .get(publishable_entity_version__uuid=component_version_uuid)
+        )
     except ComponentVersion.DoesNotExist:
         # No need to add headers here, because no ComponentVersion was found.
         logger.error(f"Asset Not Found: No ComponentVersion with UUID {component_version_uuid}")
@@ -567,13 +597,63 @@ def get_redirect_response_for_component_asset(
     # At this point, we know that there is valid Content that we want to send.
     # This adds Content-level headers, like the hash/etag and content type.
     info_headers.update(contents_api.get_content_info_headers(content))
-    stored_file_path = content.file_path()
 
     # Recompute redirect headers (reminder: this should never be cached).
-    redirect_headers = contents_api.get_redirect_headers(stored_file_path, public)
+    redirect_headers = contents_api.get_redirect_headers(content.path, public)
     logger.info(
         "Asset redirect (uncached metadata): "
         f"{component_version_uuid}/{asset_path} -> {redirect_headers}"
     )
 
     return HttpResponse(headers={**info_headers, **redirect_headers})
+
+
+def set_collections(
+    learning_package_id: int,
+    component: Component,
+    collection_qset: QuerySet[Collection],
+    created_by: int | None = None,
+) -> set[Collection]:
+    """
+    Set collections for a given component.
+
+    These Collections must belong to the same LearningPackage as the Component, or a ValidationError will be raised.
+
+    Modified date of all collections related to component is updated.
+
+    Returns the updated collections.
+    """
+    # Disallow adding entities outside the collection's learning package
+    invalid_collection = collection_qset.exclude(learning_package_id=learning_package_id).first()
+    if invalid_collection:
+        raise ValidationError(
+            f"Cannot add collection {invalid_collection.pk} in learning package  "
+            f"{invalid_collection.learning_package_id} to component {component} in "
+            f"learning package {learning_package_id}."
+        )
+    current_relations = CollectionPublishableEntity.objects.filter(
+        entity=component.publishable_entity
+    ).select_related('collection')
+    # Clear other collections for given component and add only new collections from collection_qset
+    removed_collections = set(
+        r.collection for r in current_relations.exclude(collection__in=collection_qset)
+    )
+    new_collections = set(collection_qset.exclude(
+        id__in=current_relations.values_list('collection', flat=True)
+    ))
+    # Use `remove` instead of `CollectionPublishableEntity.delete()` to trigger m2m_changed signal which will handle
+    # updating component index.
+    component.publishable_entity.collections.remove(*removed_collections)
+    component.publishable_entity.collections.add(
+        *new_collections,
+        through_defaults={"created_by_id": created_by},
+    )
+    # Update modified date via update to avoid triggering post_save signal for collections
+    # The signal triggers index update for each collection synchronously which will be very slow in this case.
+    # Instead trigger the index update in the caller function asynchronously.
+    affected_collection = removed_collections | new_collections
+    Collection.objects.filter(
+        id__in=[collection.id for collection in affected_collection]
+    ).update(modified=datetime.now(tz=timezone.utc))
+
+    return affected_collection

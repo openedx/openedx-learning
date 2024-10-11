@@ -58,11 +58,11 @@ djangorestframework==3.15.2
     #   -r requirements/base.in
     #   drf-jwt
     #   edx-drf-extensions
-dnspython==2.6.1
+dnspython==2.7.0
     # via pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==5.15.0
+edx-django-utils==5.16.0
     # via edx-drf-extensions
 edx-drf-extensions==10.4.0
     # via -r requirements/base.in
@@ -86,7 +86,7 @@ pyjwt[crypto]==2.9.0
     # via
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.9.1
+pymongo==4.10.1
     # via edx-opaque-keys
 pynacl==1.5.0
     # via edx-django-utils
