@@ -36,7 +36,7 @@ cffi==1.17.1
     #   -r requirements/test.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.3.2
+charset-normalizer==3.4.0
     # via
     #   -r requirements/test.txt
     #   requests
@@ -70,7 +70,7 @@ code-annotations==1.8.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.6.1
+coverage[toml]==7.6.3
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -132,7 +132,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==5.16.0
+edx-django-utils==6.0.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -146,7 +146,7 @@ edx-opaque-keys==2.11.0
     #   edx-drf-extensions
 freezegun==1.5.1
     # via -r requirements/test.txt
-grimp==3.4.1
+grimp==3.5
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -154,7 +154,7 @@ idna==3.10
     # via
     #   -r requirements/test.txt
     #   requests
-import-linter==2.0
+import-linter==2.1
     # via -r requirements/test.txt
 importlib-metadata==8.5.0
     # via
@@ -190,7 +190,7 @@ kombu==5.4.2
     #   celery
 markdown-it-py==3.0.0
     # via rich
-markupsafe==2.1.5
+markupsafe==3.0.1
     # via
     #   -r requirements/test.txt
     #   jinja2
@@ -212,7 +212,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.4
     # via -r requirements/test.txt
-newrelic==10.0.0
+newrelic==10.1.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -267,7 +267,7 @@ pylint==3.3.1
     #   pylint-plugin-utils
 pylint-celery==0.3
     # via edx-lint
-pylint-django==2.5.5
+pylint-django==2.6.1
     # via edx-lint
 pylint-plugin-utils==0.8.2
     # via

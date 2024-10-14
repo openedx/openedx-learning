@@ -20,7 +20,7 @@ cffi==1.17.1
     # via
     #   cryptography
     #   pynacl
-charset-normalizer==3.3.2
+charset-normalizer==3.4.0
     # via requests
 click==8.1.7
     # via
@@ -62,7 +62,7 @@ dnspython==2.7.0
     # via pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==5.16.0
+edx-django-utils==6.0.0
     # via edx-drf-extensions
 edx-drf-extensions==10.4.0
     # via -r requirements/base.in
@@ -72,7 +72,7 @@ idna==3.10
     # via requests
 kombu==5.4.2
     # via celery
-newrelic==10.0.0
+newrelic==10.1.0
     # via edx-django-utils
 pbr==6.1.0
     # via stevedore
