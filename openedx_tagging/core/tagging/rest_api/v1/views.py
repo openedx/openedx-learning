@@ -444,8 +444,10 @@ class ObjectTagView(
         * 405 - Method not allowed
     """
 
+    # Serializer used in `get_queryset` when getting tags per taxonomy
     serializer_class = ObjectTagSerializer
-    minimal_serilizer_class = ObjectTagMinimalSerializer
+    # Serializer used in the result in `to_representation` in `ObjectTagsByTaxonomySerializer`
+    minimal_serializer_class = ObjectTagMinimalSerializer
     permission_classes = [ObjectTagObjectPermissions]
     lookup_field = "object_id"
 

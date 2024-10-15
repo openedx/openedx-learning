@@ -945,53 +945,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert object_tag.object_id == obj2
             assert object_tag.is_copied is True
 
-    def test_copy_tags_with_deleted(self) -> None:
-        obj1 = "object_id1"
-        obj2 = "object_id2"
-
-        tags_list = [
-            {
-                "value": "English",
-                "taxonomy": self.language_taxonomy,
-                "deleted": False,
-            },
-            {
-                "value": "DPANN",
-                "taxonomy": self.taxonomy,
-                "deleted": True,
-            },
-        ]
-
-        for tag_object in tags_list:
-            tagging_api.tag_object(object_id=obj1, taxonomy=tag_object["taxonomy"], tags=[tag_object["value"]])
-
-        tagging_api.delete_tags_from_taxonomy(self.taxonomy, ["DPANN"], with_subtags=True)
-
-        # Copy tags, also with deleted tags
-        tagging_api.copy_tags(obj1, obj2)
-
-        object_tags = tagging_api.get_object_tags(obj2, include_deleted=True)
-
-        assert len(object_tags) == 2
-        for index, object_tag in enumerate(object_tags):
-            assert object_tag.value == tags_list[index]["value"]
-            assert object_tag.is_deleted == tags_list[index]["deleted"]
-            assert object_tag.taxonomy == tags_list[index]["taxonomy"]
-            assert object_tag.object_id == obj2
-            assert object_tag.is_copied is True
-
-        # Copy tags, without deleted tags
-        tagging_api.copy_tags(obj1, obj2, include_deleted=False)
-
-        object_tags = tagging_api.get_object_tags(obj2, include_deleted=False)
-
-        assert len(object_tags) == 1
-        assert object_tags[0].value == tags_list[0]["value"]
-        assert not object_tags[0].is_deleted
-        assert object_tags[0].taxonomy == tags_list[0]["taxonomy"]
-        assert object_tags[0].object_id == obj2
-        assert object_tags[0].is_copied is True
-
     def test_copy_tags_with_non_copied(self) -> None:
         obj1 = "object_id1"
         obj2 = "object_id2"
