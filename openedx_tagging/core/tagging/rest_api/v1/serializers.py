@@ -176,6 +176,9 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
         """
         Convert this list of ObjectTags to the serialized dictionary, grouped by Taxonomy
         """
+        # Allows consumers like edx-platform to override this
+        ObjectTagViewMinimalSerializer = self.context["view"].minimal_serializer_class
+
         can_tag_object_perm = f"{self.app_label}.can_tag_object"
         by_object: dict[str, dict[str, Any]] = {}
         for obj_tag in instance:
@@ -194,7 +197,7 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
                     "export_id": obj_tag.export_id,
                 }
                 taxonomies.append(tax_entry)
-            tax_entry["tags"].append(ObjectTagMinimalSerializer(obj_tag, context=self.context).data)
+            tax_entry["tags"].append(ObjectTagViewMinimalSerializer(obj_tag, context=self.context).data)
         return by_object
 
 

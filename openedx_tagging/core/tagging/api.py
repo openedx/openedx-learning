@@ -484,3 +484,35 @@ def delete_tags_from_taxonomy(
     """
     taxonomy = taxonomy.cast()
     taxonomy.delete_tags(tags, with_subtags)
+
+
+def copy_tags(source_object_id: str, dest_object_id: str):
+    """
+    Copy all tags from one object to another.
+
+    This keeps all not-copied tags and delete all
+    previous copied tags of the dest object.
+    If there are not-copied tags that also are in 'source_object_id',
+    then they become copied.
+    """
+    source_object_tags = get_object_tags(
+        source_object_id,
+    )
+    copied_tags = ObjectTag.objects.filter(
+        object_id=dest_object_id,
+        is_copied=True,
+    )
+
+    with transaction.atomic():
+        # Delete all copied tags of destination
+        copied_tags.delete()
+
+        # Copy an create object_tags in destination
+        for object_tag in source_object_tags:
+            ObjectTag.objects.update_or_create(
+                object_id=dest_object_id,
+                taxonomy_id=object_tag.taxonomy_id,
+                tag_id=object_tag.tag_id,
+                defaults={"is_copied": True},
+                # Note: _value and _export_id are set automatically
+            )
