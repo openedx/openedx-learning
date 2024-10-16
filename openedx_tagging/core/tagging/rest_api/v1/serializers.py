@@ -176,7 +176,9 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
         """
         Convert this list of ObjectTags to the serialized dictionary, grouped by Taxonomy
         """
+        # Allows consumers like edx-platform to override this
         ObjectTagViewMinimalSerializer = self.context["view"].minimal_serializer_class
+
         can_tag_object_perm = f"{self.app_label}.can_tag_object"
         by_object: dict[str, dict[str, Any]] = {}
         for obj_tag in instance:
