@@ -514,5 +514,5 @@ def copy_tags(source_object_id: str, dest_object_id: str):
                 taxonomy_id=object_tag.taxonomy_id,
                 tag_id=object_tag.tag_id,
                 defaults={"is_copied": True},
-                # Note: _value and _export_id should be set automatically
+                # Note: _value and _export_id are set automatically
             )
