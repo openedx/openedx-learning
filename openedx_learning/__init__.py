@@ -1,4 +1,4 @@
 """
 Open edX Learning ("Learning Core").
 """
-__version__ = "0.15.0"
+__version__ = "0.16.1"
