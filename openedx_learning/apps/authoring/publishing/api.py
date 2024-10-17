@@ -43,6 +43,7 @@ __all__ = [
     "get_entities_with_unpublished_changes",
     "get_entities_with_unpublished_deletes",
     "publish_all_drafts",
+    "publish_from_drafts",
     "get_draft_version",
     "get_published_version",
     "set_draft_version",
