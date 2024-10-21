@@ -35,7 +35,7 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==43.0.1
+cryptography==43.0.3
     # via pyjwt
 django==4.2.16
     # via
@@ -62,7 +62,7 @@ dnspython==2.7.0
     # via pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==6.0.0
+edx-django-utils==7.0.0
     # via edx-drf-extensions
 edx-drf-extensions==10.4.0
     # via -r requirements/base.in
@@ -72,13 +72,13 @@ idna==3.10
     # via requests
 kombu==5.4.2
     # via celery
-newrelic==10.1.0
+newrelic==10.2.0
     # via edx-django-utils
 pbr==6.1.0
     # via stevedore
 prompt-toolkit==3.0.48
     # via click-repl
-psutil==6.0.0
+psutil==6.1.0
     # via edx-django-utils
 pycparser==2.22
     # via cffi
