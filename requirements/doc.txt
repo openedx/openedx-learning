@@ -178,7 +178,7 @@ markupsafe==3.0.2
     #   jinja2
 mock==5.1.0
     # via -r requirements/test.txt
-mypy==1.12.1
+mypy==1.11.2
     # via -r requirements/test.txt
 mypy-extensions==1.0.0
     # via
