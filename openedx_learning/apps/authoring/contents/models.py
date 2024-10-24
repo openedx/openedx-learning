@@ -6,6 +6,7 @@ more intelligent data models to be useful.
 from __future__ import annotations
 
 from functools import cache, cached_property
+from logging import getLogger
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, ValidationError
@@ -18,6 +19,8 @@ from django.utils.module_loading import import_string
 from ....lib.fields import MultiCollationTextField, case_insensitive_char_field, hash_field, manual_date_time_field
 from ....lib.managers import WithRelationsManager
 from ..publishing.models import LearningPackage
+
+logger = getLogger()
 
 __all__ = [
     "MediaType",
@@ -316,8 +319,11 @@ class Content(models.Model):
 
         This will return ``None`` if there is no backing file (has_file=False).
         """
-        if self.has_file:
-            return get_storage().path(self.path)
+        try:
+            if self.has_file:
+                return get_storage().path(self.path)
+        except NotImplementedError as err:
+            logger.exception(err)
         return None
 
     def read_file(self) -> File:
