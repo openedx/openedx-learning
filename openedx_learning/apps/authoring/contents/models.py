@@ -322,8 +322,8 @@ class Content(models.Model):
         try:
             if self.has_file:
                 return get_storage().path(self.path)
-        except NotImplementedError as err:
-            logger.exception(err)
+        except NotImplementedError:
+            logger.warning("Storage backend does not support path()")
         return None
 
     def read_file(self) -> File:
