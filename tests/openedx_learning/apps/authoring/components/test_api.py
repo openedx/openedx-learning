@@ -442,13 +442,14 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             content_to_replace={
                 "hello.txt": hello_content.pk,
                 "goodbye.txt": goodbye_content.pk,
+                "raw.txt": b'raw content',
             },
             created=self.now,
         )
         assert version_1.version_num == 1
         assert version_1.title == "Problem Version 1"
         version_1_contents = list(version_1.contents.all())
-        assert len(version_1_contents) == 2
+        assert len(version_1_contents) == 3
         assert (
             hello_content ==
             version_1.contents
@@ -472,7 +473,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             created=self.now,
         )
         assert version_2.version_num == 2
-        assert version_2.contents.count() == 3
+        assert version_2.contents.count() == 4
         assert (
             blank_content ==
             version_2.contents
@@ -503,7 +504,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             created=self.now,
         )
         assert version_3.version_num == 3
-        assert version_3.contents.count() == 1
+        assert version_3.contents.count() == 2
         assert (
             hello_content ==
             version_3.contents

@@ -12,6 +12,7 @@ are stored in this app.
 """
 from __future__ import annotations
 
+import mimetypes
 from datetime import datetime, timezone
 from enum import StrEnum, auto
 from logging import getLogger
@@ -129,7 +130,7 @@ def create_component_version(
 def create_next_component_version(
     component_pk: int,
     /,
-    content_to_replace: dict[str, int | None],
+    content_to_replace: dict[str, int | None | bytes],
     created: datetime,
     title: str | None = None,
     created_by: int | None = None,
@@ -191,6 +192,20 @@ def create_next_component_version(
             # content represented by our key from the next version. Otherwise,
             # we add our key->content_pk mapping to the next version.
             if content_pk is not None:
+                if isinstance(content_pk, bytes):
+                    file_path, file_content = key, content_pk
+                    media_type_str, _encoding = mimetypes.guess_type(file_path)
+                    # We use "application/octet-stream" as a generic fallback media type, per
+                    # RFC 2046: https://datatracker.ietf.org/doc/html/rfc2046
+                    media_type_str = media_type_str or "application/octet-stream"
+                    media_type = contents_api.get_or_create_media_type(media_type_str)
+                    content = contents_api.get_or_create_file_content(
+                        component.publishable_entity.learning_package.id,
+                        media_type.id,
+                        data=file_content,
+                        created=created,
+                    )
+                    content_pk = content.pk
                 ComponentVersionContent.objects.create(
                     content_id=content_pk,
                     component_version=component_version,
