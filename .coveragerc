@@ -6,7 +6,7 @@ source =
 	openedx_tagging
 omit =
     test_settings
-    *migrations*
+    **/migrations/*
     *admin.py
     *static*
     *templates*
