@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 
-from ....components.api import create_component_version_content
 from ....publishing.api import get_learning_package_by_key
 from ...api import create_next_component_version, get_component_by_key
 
@@ -67,31 +66,18 @@ class Command(BaseCommand):
         )
 
         created = datetime.now(tz=timezone.utc)
-        keys_to_remove = set()
-        local_keys_to_raw_content = {}
+        local_keys_to_content_bytes = {}
 
         for file_mapping in file_mappings:
             local_key, file_path = file_mapping.split(":", 1)
 
-            # No file_path means to delete this entry from the next version.
-            if not file_path:
-                keys_to_remove.add(local_key)
-                continue
-
-            local_keys_to_raw_content[local_key] = pathlib.Path(file_path).read_bytes()
+            local_keys_to_content_bytes[local_key] = pathlib.Path(file_path).read_bytes() if file_path else None
 
         next_version = create_next_component_version(
             component.pk,
-            content_to_replace={local_key: None for local_key in keys_to_remove},
+            content_to_replace=local_keys_to_content_bytes,
             created=created,
         )
-        for local_key, content_id in sorted(local_keys_to_raw_content.items()):
-            create_component_version_content(
-                next_version.pk,
-                content_id,
-                key=local_key,
-                learner_downloadable=True,
-            )
 
         self.stdout.write(
             f"Created v{next_version.version_num} of "

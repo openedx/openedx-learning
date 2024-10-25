@@ -439,7 +439,6 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         assert str(content_raw_txt.media_type) == 'application/octet-stream'
         assert content_raw_txt.read_file().read() == bytes_content
 
-
     def test_multiple_versions(self):
         hello_content = contents_api.get_or_create_text_content(
             self.learning_package.id,
