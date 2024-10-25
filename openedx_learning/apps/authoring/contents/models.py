@@ -267,11 +267,7 @@ class Content(models.Model):
     # only in file form. It is an error for ``text`` to be None and ``has_file``
     # to be False, since that would mean we haven't stored data anywhere at all.
     #
-    # We annotate this because mypy doesn't recognize that ``text`` should be
-    # nullable when using MultiCollationTextField, but does the right thing for
-    # TextField. For more info, see:
-    #   https://github.com/openedx/openedx-learning/issues/152
-    text: models.TextField[str | None, str | None] = MultiCollationTextField(
+    text = MultiCollationTextField(
         blank=True,
         null=True,
         max_length=MAX_TEXT_LENGTH,
