@@ -22,7 +22,7 @@ Decisions
 - A container marks any PublishableEntity, such as sections, subsections, units, or any other custom content type, as a type that can hold other content.
 - Containers might be of different types, with each type potentially having different restrictions on the type of content it can hold but that will not be enforced by containers.
 - Content restrictions for containers are implemented at the app layer, allowing specific container types, like Unit, to limit their members to particular content types (e.g., only Components).
-- The course hierarchy Course > Section > Subsection > Unit will be implemented as relationships between containers, with each level acting as a container that holds other content. The hierarchy will be enforced by the content restrictions of each particular container.
+- The course hierarchy Course > Section > Subsection > Unit will be implemented as relationships between containers, with each level acting as a container that holds other content. The hierarchy will be enforced by the content restrictions of each particular container but allowed to be overridden to support `0002-content-extensibility.rst`.
 - Containers will follow extensibility principles in `0003-content-extensibility.rst` for creating new container types or subtypes, static or dynamic.
 
 1. Container Members and Relationships
@@ -55,3 +55,7 @@ Consequences
 ------------
 
 WIP
+
+
+.. _0002-content-flexibility.rst: docs/decisions/0002-content-extensibility.rst
+.. _0003-content-extensibility.rst: docs/decisions/0003-content-extensibility.rst
