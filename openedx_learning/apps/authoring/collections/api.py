@@ -27,6 +27,7 @@ __all__ = [
     "remove_from_collection",
     "restore_collection",
     "update_collection",
+    "remove_unpublished_from_collections",
 ]
 
 
@@ -204,3 +205,25 @@ def get_collections(learning_package_id: int, enabled: bool | None = True) -> Qu
     if enabled is not None:
         qs = qs.filter(enabled=enabled)
     return qs.select_related("learning_package").order_by('pk')
+
+
+def remove_unpublished_from_collections(learning_package_id: int) -> None:
+    """
+    Removes all unpublished entities from collections for a
+    given learning package.
+    """
+    collections = get_collections(learning_package_id)
+
+    for collection in collections:
+        entities_for_remove = []
+
+        for entity in collection.entities.all():
+            if not publishing_api.get_published_version(entity.id):
+                entities_for_remove.append(entity.id)
+
+        if entities_for_remove:
+            remove_from_collection(
+                learning_package_id,
+                collection.key,
+                PublishableEntity.objects.filter(id__in=entities_for_remove)
+            )
