@@ -9,8 +9,8 @@ from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 
 from ..publishing import api as publishing_api
-from ..publishing.models import PublishableEntity
-from .models import Collection
+from ..publishing.models import PublishableEntity, Published
+from .models import Collection, CollectionPublishableEntity
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -214,11 +214,19 @@ def remove_unpublished_from_collections(learning_package_id: int) -> None:
     """
     collections = get_collections(learning_package_id)
 
+    all_entities = CollectionPublishableEntity.objects.filter(
+        collection__learning_package__id=learning_package_id
+    ).values_list('entity_id', flat=True)
+    
+    entities_with_version = Published.objects.select_related("version").filter(
+        entity_id__in=all_entities
+    ).values_list('entity_id', flat=True)
+
     for collection in collections:
         entities_for_remove = []
 
         for entity in collection.entities.all():
-            if not publishing_api.get_published_version(entity.id):
+            if entity.id not in entities_with_version:
                 entities_for_remove.append(entity.id)
 
         if entities_for_remove:
