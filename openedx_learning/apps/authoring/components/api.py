@@ -147,6 +147,9 @@ def create_next_component_version(
     local path/key for a file, to ``Content.id`` or content bytes values. Using
     `None` for a value in this dict means to delete that key in the next version.
 
+    Make sure to wrap the function call on a atomic statement:
+    ``with transaction.atomic():``
+
     It is okay to mark entries for deletion that don't exist. For instance, if a
     version has ``a.txt`` and ``b.txt``, sending a ``content_to_replace`` value
     of ``{"a.txt": None, "c.txt": None}`` will remove ``a.txt`` from the next
