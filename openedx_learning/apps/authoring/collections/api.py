@@ -217,7 +217,7 @@ def remove_unpublished_from_collections(learning_package_id: int) -> None:
     all_entities = CollectionPublishableEntity.objects.filter(
         collection__learning_package__id=learning_package_id
     ).values_list('entity_id', flat=True)
-    
+
     entities_with_version = Published.objects.select_related("version").filter(
         entity_id__in=all_entities
     ).values_list('entity_id', flat=True)

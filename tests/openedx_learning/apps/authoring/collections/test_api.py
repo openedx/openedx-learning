@@ -405,6 +405,22 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             self.collection3.key,
         ))
 
+    def test_remove_unpublished_components(self):
+        api.remove_unpublished_from_collections(self.learning_package.id)
+
+        assert list(api.get_collection_components(
+            self.learning_package.id,
+            self.collection1.key,
+        )) == [self.published_component]
+        assert list(api.get_collection_components(
+            self.learning_package.id,
+            self.collection2.key,
+        )) == [self.published_component]
+        assert not list(api.get_collection_components(
+            self.learning_package.id,
+            self.collection3.key,
+        ))
+
 
 class UpdateCollectionTestCase(CollectionTestCase):
     """
