@@ -415,6 +415,30 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             new_version.contents.get(componentversioncontent__key="nested/path/hello.txt")
         )
 
+    def test_bytes_content(self):
+        bytes_content = b'raw content'
+
+        version_1 = components_api.create_next_component_version(
+            self.problem.pk,
+            title="Problem Version 1",
+            content_to_replace={
+                "raw.txt": bytes_content,
+                "no_ext": bytes_content,
+            },
+            created=self.now,
+        )
+
+        content_txt = version_1.contents.get(componentversioncontent__key="raw.txt")
+        content_raw_txt = version_1.contents.get(componentversioncontent__key="no_ext")
+
+        assert content_txt.size == len(bytes_content)
+        assert str(content_txt.media_type) == 'text/plain'
+        assert content_txt.read_file().read() == bytes_content
+
+        assert content_raw_txt.size == len(bytes_content)
+        assert str(content_raw_txt.media_type) == 'application/octet-stream'
+        assert content_raw_txt.read_file().read() == bytes_content
+
     def test_multiple_versions(self):
         hello_content = contents_api.get_or_create_text_content(
             self.learning_package.id,

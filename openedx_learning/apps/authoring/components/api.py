@@ -12,6 +12,7 @@ are stored in this app.
 """
 from __future__ import annotations
 
+import mimetypes
 from datetime import datetime, timezone
 from enum import StrEnum, auto
 from logging import getLogger
@@ -129,7 +130,7 @@ def create_component_version(
 def create_next_component_version(
     component_pk: int,
     /,
-    content_to_replace: dict[str, int | None],
+    content_to_replace: dict[str, int | None | bytes],
     created: datetime,
     title: str | None = None,
     created_by: int | None = None,
@@ -140,11 +141,14 @@ def create_next_component_version(
     A very common pattern for making a new ComponentVersion is going to be "make
     it just like the last version, except changing these one or two things".
     Before calling this, you should create any new contents via the contents
-    API, since ``content_to_replace`` needs Content IDs for the values.
+    API or send the content bytes as part of ``content_to_replace`` values.
 
     The ``content_to_replace`` dict is a mapping of strings representing the
-    local path/key for a file, to ``Content.id`` values. Using a `None` for
-    a value in this dict means to delete that key in the next version.
+    local path/key for a file, to ``Content.id`` or content bytes values. Using
+    `None` for a value in this dict means to delete that key in the next version.
+
+    Make sure to wrap the function call on a atomic statement:
+    ``with transaction.atomic():``
 
     It is okay to mark entries for deletion that don't exist. For instance, if a
     version has ``a.txt`` and ``b.txt``, sending a ``content_to_replace`` value
@@ -186,11 +190,27 @@ def create_next_component_version(
             component_id=component_pk,
         )
         # First copy the new stuff over...
-        for key, content_pk in content_to_replace.items():
+        for key, content_pk_or_bytes in content_to_replace.items():
             # If the content_pk is None, it means we want to remove the
             # content represented by our key from the next version. Otherwise,
             # we add our key->content_pk mapping to the next version.
-            if content_pk is not None:
+            if content_pk_or_bytes is not None:
+                if isinstance(content_pk_or_bytes, bytes):
+                    file_path, file_content = key, content_pk_or_bytes
+                    media_type_str, _encoding = mimetypes.guess_type(file_path)
+                    # We use "application/octet-stream" as a generic fallback media type, per
+                    # RFC 2046: https://datatracker.ietf.org/doc/html/rfc2046
+                    media_type_str = media_type_str or "application/octet-stream"
+                    media_type = contents_api.get_or_create_media_type(media_type_str)
+                    content = contents_api.get_or_create_file_content(
+                        component.learning_package.id,
+                        media_type.id,
+                        data=file_content,
+                        created=created,
+                    )
+                    content_pk = content.pk
+                else:
+                    content_pk = content_pk_or_bytes
                 ComponentVersionContent.objects.create(
                     content_id=content_pk,
                     component_version=component_version,
