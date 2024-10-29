@@ -141,7 +141,7 @@ def create_next_component_version(
     A very common pattern for making a new ComponentVersion is going to be "make
     it just like the last version, except changing these one or two things".
     Before calling this, you should create any new contents via the contents
-    API, since ``content_to_replace`` needs Content IDs for the values.
+    API or send the content bytes as part of ``content_to_replace`` values.
 
     The ``content_to_replace`` dict is a mapping of strings representing the
     local path/key for a file, to ``Content.id`` or content bytes values. Using
