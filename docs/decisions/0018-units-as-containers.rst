@@ -9,12 +9,15 @@ The container capability is a generalized capability to hold different types of 
 Decisions
 ---------
 
-All decisions from `0017-generalized-containers.rst` are still valid. The following decisions are added:
+All decisions from `0017-generalized-containers.rst`_ are still valid so that this decisions will build on top of them.
+
+.. _`0017-generalized-containers.rst`: 0017-generalized-containers.rst
 
 1. Units as Containers
 =======================
 
 - A unit is a concrete type of container that holds components.
+- A unit is a container, making it also a publishable entity.
 - A unit application will offer shared definitions for use by other unit subtypes.
 
 1. Unit Types and Content Constraints
