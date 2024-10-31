@@ -4,7 +4,7 @@
 Context
 -------
 
-WIP
+This ADR proposes a model for containers that can hold different types of content, including custom content types, and that can be used to create courses. The model defines the core structure and purpose of containers, the types of containers and content constraints, the members and relationships of containers, version control, publishing, and pruning.
 
 Decisions
 ---------
@@ -20,6 +20,7 @@ Decisions
 ==========================================
 
 - A container marks any PublishableEntity, such as sections, subsections, units, or any other custom content type, as a type that can hold other content.
+- Containers can be nested within other containers, allowing for complex content structures.
 - Containers might be of different types, with each type potentially having different restrictions on the type of content it can hold but that will not be enforced by containers.
 - Content restrictions for containers are implemented at the app layer, allowing specific container types, like Unit, to limit their members to particular content types (e.g., only Components).
 - The course hierarchy Course > Section > Subsection > Unit will be implemented as relationships between containers, with each level acting as a container that holds other content. The hierarchy will be enforced by the content restrictions of each particular container but allowed to be overridden to support `0002-content-flexibility.rst`_.
@@ -34,27 +35,32 @@ Decisions
 - The structure defining these relationships is anonymous, so it can only be referenced through the container.
 - Containers can hold both static and dynamically generated content, including user-specific variations.
 - Each container holds different states of its members (author-defined, initial, and frozen final state) to support rollback operations.
+- Members can be added or removed from a container, and the container will maintain the state of the content for the previous version.
 - Containers support both fixed and version-agnostic references for members, allowing members to be pinned to a specific version or set to reference the latest draft or published state.
 - The latest draft or published states can be referenced by setting the version to ``None``, avoiding the need for new instances on each update.
+- A single member (publishable entity) can be referenced by multiple containers, allowing for reuse of content across different containers.
 
 4. Version Control
 ==================================
 
 - A new version is created if and only if the container itself changes (e.g., title, ordering of contents, adding or removing content) and not when its content changes (e.g., a component in a Unit is updated with new text).
--
+- When a new version is created because a member is added or removed, new references to the members are created to maintain the state of the content for the previous version.
+- Changes to the order of members within a container require creating a new version with the new ordering.
+- Changes in pinned published or draft states require creating a new version to maintain the state of the content for the previous version.
+- Each time a new version is created because of metadata changed, its members are copied from the previous version to preserve the state of the content at that time.
+- When using version-agnostic references, no new version is created when the content changes, and the reference is updated to the latest draft or published state.
+- If a member is soft-deleted, the container will create a new version with the member removed.
 
 5. Publishing
 =============
 
-WIP
+- Containers can be published, allowing their content to be accessible from where the container is referenced.
+- When a draft container is published, all its draft members are also published.
+- Members of a container can be published independently of the container itself.
+- If a member of a container is published independently, then it'd be published in the context of the container where it is referenced.
 
-6. Pruning
+1. Pruning
 ==========
-
-WIP
-
-Consequences
-------------
 
 WIP
 
