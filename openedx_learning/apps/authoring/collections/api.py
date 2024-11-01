@@ -212,9 +212,10 @@ def remove_unpublished_from_collections(learning_package_id: int) -> None:
     Removes all unpublished entities from collections for a
     given learning package.
 
-    One use case for this function is when reverting to published.
-    If a collection has unpublished entities and the learning package is reverted
-    to the published version, the unpublished entities need to be removed.
+    One use case for this function is when reverting a library to published version.
+    If a collection of a library has unpublished entities and the library is reverted
+    to the published version, the unpublished entities need to be removed
+    to reflect the published state of the library.
     """
     collections = get_collections(learning_package_id)
 
