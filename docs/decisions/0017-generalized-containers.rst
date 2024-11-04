@@ -44,7 +44,6 @@ Decisions
 ==================================
 
 - A new version is created if and only if the container itself changes (e.g., title, ordering of contents, adding or removing content) and not when its content changes (e.g., a component in a Unit is updated with new text).
-- When a new version is created because a member is added or removed, new references to the members are created to maintain the state of the content for the previous version.
 - Changes to the order of members within a container require creating a new version with the new ordering.
 - Changes in pinned published or draft states require creating a new version to maintain the state of the content for the previous version.
 - Each time a new version is created because of metadata changed, its members are copied from the previous version to preserve the state of the content at that time.
