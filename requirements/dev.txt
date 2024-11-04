@@ -178,7 +178,7 @@ edx-drf-extensions==10.5.0
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
 edx-i18n-tools==1.6.3
     # via -r requirements/dev.in
-edx-lint==5.4.0
+edx-lint==5.4.1
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
 edx-opaque-keys==2.11.0
     # via
@@ -398,7 +398,7 @@ pytest==8.3.3
     #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==5.0.0
+pytest-cov==6.0.0
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
 pytest-django==4.9.0
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
@@ -435,7 +435,7 @@ rfc3986==2.0.0
     # via
     #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
     #   twine
-rich==13.9.3
+rich==13.9.4
     # via
     #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
     #   twine
@@ -518,7 +518,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.27.0
+virtualenv==20.27.1
     # via
     #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
     #   tox

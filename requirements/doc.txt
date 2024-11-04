@@ -246,7 +246,7 @@ pytest==8.3.3
     #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/test.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==5.0.0
+pytest-cov==6.0.0
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/test.txt
 pytest-django==4.9.0
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/test.txt

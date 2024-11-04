@@ -138,7 +138,7 @@ edx-django-utils==7.0.0
     #   edx-drf-extensions
 edx-drf-extensions==10.5.0
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/test.txt
-edx-lint==5.4.0
+edx-lint==5.4.1
     # via -r requirements/quality.in
 edx-opaque-keys==2.11.0
     # via
@@ -286,7 +286,7 @@ pytest==8.3.3
     #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/test.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==5.0.0
+pytest-cov==6.0.0
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/test.txt
 pytest-django==4.9.0
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/test.txt
@@ -316,7 +316,7 @@ requests-toolbelt==1.0.0
     # via twine
 rfc3986==2.0.0
     # via twine
-rich==13.9.3
+rich==13.9.4
     # via twine
 rules==3.5
     # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/test.txt
