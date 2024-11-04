@@ -6,61 +6,61 @@
 #
 amqp==5.2.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   kombu
 asgiref==3.8.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   django
     #   django-stubs
 astroid==3.3.5
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pylint
     #   pylint-celery
 attrs==24.2.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 backports-tarfile==1.2.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   jaraco-context
 billiard==4.2.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   celery
 build==1.2.2.post1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/pip-tools.txt
+    #   -r requirements/pip-tools.txt
     #   pip-tools
 cachetools==5.5.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
+    #   -r requirements/ci.txt
     #   tox
 celery==5.4.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 certifi==2024.8.30
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   requests
 cffi==1.17.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   cryptography
     #   pynacl
 chardet==5.2.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
+    #   -r requirements/ci.txt
     #   diff-cover
     #   tox
 charset-normalizer==3.4.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   requests
 click==8.1.7
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/pip-tools.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/ci.txt
+    #   -r requirements/pip-tools.txt
+    #   -r requirements/quality.txt
     #   celery
     #   click-didyoumean
     #   click-log
@@ -73,53 +73,52 @@ click==8.1.7
     #   pip-tools
 click-didyoumean==0.3.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   celery
 click-log==0.4.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-lint
 click-plugins==1.1.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   celery
 click-repl==0.3.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   celery
 code-annotations==1.8.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-lint
 colorama==0.4.6
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
+    #   -r requirements/ci.txt
     #   tox
 coverage[toml]==7.6.4
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pytest-cov
 cryptography==43.0.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pyjwt
-    #   secretstorage
 ddt==1.7.2
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 diff-cover==9.2.0
     # via -r requirements/dev.in
 dill==0.3.9
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pylint
 distlib==0.3.9
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
+    #   -r requirements/ci.txt
     #   virtualenv
 django==4.2.16
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   django-crum
     #   django-debug-toolbar
     #   django-stubs
@@ -132,120 +131,115 @@ django==4.2.16
     #   edx-i18n-tools
 django-crum==0.7.9
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-django-utils
 django-debug-toolbar==4.4.6
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
     #   -r requirements/dev.in
+    #   -r requirements/quality.txt
 django-stubs==5.1.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   djangorestframework-stubs
 django-stubs-ext==5.1.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   django-stubs
 django-waffle==4.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-django-utils
     #   edx-drf-extensions
 djangorestframework==3.15.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
 djangorestframework-stubs==3.15.1
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 dnspython==2.7.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pymongo
 docutils==0.21.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   readme-renderer
 drf-jwt==1.19.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-drf-extensions
 edx-django-utils==7.0.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-drf-extensions
 edx-drf-extensions==10.5.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 edx-i18n-tools==1.6.3
     # via -r requirements/dev.in
-edx-lint==5.4.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+edx-lint==5.4.1
+    # via -r requirements/quality.txt
 edx-opaque-keys==2.11.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-drf-extensions
 filelock==3.16.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
+    #   -r requirements/ci.txt
     #   tox
     #   virtualenv
 freezegun==1.5.1
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 grimp==3.5
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/ci.txt
+    #   -r requirements/quality.txt
     #   import-linter
 idna==3.10
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   requests
 import-linter==2.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/ci.txt
+    #   -r requirements/quality.txt
 importlib-metadata==8.5.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   keyring
     #   twine
 iniconfig==2.0.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pytest
 isort==5.13.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pylint
 jaraco-classes==3.4.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   keyring
 jaraco-context==6.0.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   keyring
 jaraco-functools==4.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   keyring
-jeepney==0.8.0
-    # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
-    #   keyring
-    #   secretstorage
 jinja2==3.1.4
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   code-annotations
     #   diff-cover
 keyring==25.5.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   twine
 kombu==5.4.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   celery
 lxml[html-clean,html_clean]==5.3.0
     # via
@@ -255,48 +249,48 @@ lxml-html-clean==0.3.1
     # via lxml
 markdown-it-py==3.0.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   rich
 markupsafe==3.0.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   jinja2
 mccabe==0.7.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pylint
 mdurl==0.1.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   markdown-it-py
 mock==5.1.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 more-itertools==10.5.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
 mypy==1.13.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 mypy-extensions==1.0.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   mypy
 mysqlclient==2.2.5
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 newrelic==10.2.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-django-utils
 nh3==0.2.18
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   readme-renderer
 packaging==24.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/pip-tools.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/ci.txt
+    #   -r requirements/pip-tools.txt
+    #   -r requirements/quality.txt
     #   build
     #   pyproject-api
     #   pytest
@@ -305,25 +299,25 @@ path==16.16.0
     # via edx-i18n-tools
 pbr==6.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   stevedore
 pip-tools==7.4.1
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/pip-tools.txt
+    # via -r requirements/pip-tools.txt
 pkginfo==1.10.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   twine
 platformdirs==4.3.6
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/ci.txt
+    #   -r requirements/quality.txt
     #   pylint
     #   tox
     #   virtualenv
 pluggy==1.5.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/ci.txt
+    #   -r requirements/quality.txt
     #   diff-cover
     #   pytest
     #   tox
@@ -331,169 +325,165 @@ polib==1.2.0
     # via edx-i18n-tools
 prompt-toolkit==3.0.48
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   click-repl
 psutil==6.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-django-utils
 pycodestyle==2.12.1
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 pycparser==2.22
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   cffi
 pydocstyle==6.3.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 pygments==2.18.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   diff-cover
     #   readme-renderer
     #   rich
 pyjwt[crypto]==2.9.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
 pylint==3.3.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-lint
     #   pylint-celery
     #   pylint-django
     #   pylint-plugin-utils
 pylint-celery==0.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-lint
 pylint-django==2.6.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-lint
 pylint-plugin-utils==0.8.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
 pymongo==4.10.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-opaque-keys
 pynacl==1.5.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-django-utils
 pyproject-api==1.8.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
+    #   -r requirements/ci.txt
     #   tox
 pyproject-hooks==1.2.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/pip-tools.txt
+    #   -r requirements/pip-tools.txt
     #   build
     #   pip-tools
 pytest==8.3.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==5.0.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+pytest-cov==6.0.0
+    # via -r requirements/quality.txt
 pytest-django==4.9.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 python-dateutil==2.9.0.post0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   celery
     #   freezegun
 python-slugify==8.0.4
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   code-annotations
 pyyaml==6.0.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   code-annotations
     #   edx-i18n-tools
 readme-renderer==44.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   twine
 requests==2.32.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   djangorestframework-stubs
     #   edx-drf-extensions
     #   requests-toolbelt
     #   twine
 requests-toolbelt==1.0.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   twine
 rfc3986==2.0.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   twine
-rich==13.9.3
+rich==13.9.4
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   twine
 rules==3.5
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
-secretstorage==3.3.3
-    # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
-    #   keyring
+    # via -r requirements/quality.txt
 semantic-version==2.10.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-drf-extensions
 six==1.16.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   edx-lint
     #   python-dateutil
 snowballstemmer==2.2.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pydocstyle
 sqlparse==0.5.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   django
     #   django-debug-toolbar
 stevedore==5.3.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   code-annotations
     #   edx-django-utils
     #   edx-opaque-keys
 text-unidecode==1.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   python-slugify
 tomlkit==0.13.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   pylint
 tox==4.23.2
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
+    # via -r requirements/ci.txt
 twine==5.1.1
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    # via -r requirements/quality.txt
 types-pyyaml==6.0.12.20240917
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
 types-requests==2.32.0.20241016
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   djangorestframework-stubs
 typing-extensions==4.12.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/ci.txt
+    #   -r requirements/quality.txt
     #   django-stubs
     #   django-stubs-ext
     #   djangorestframework-stubs
@@ -503,36 +493,36 @@ typing-extensions==4.12.2
     #   mypy
 tzdata==2024.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   celery
     #   kombu
 urllib3==2.2.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   requests
     #   twine
     #   types-requests
 vine==5.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.27.0
+virtualenv==20.27.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/ci.txt
+    #   -r requirements/ci.txt
     #   tox
 wcwidth==0.2.13
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   prompt-toolkit
 wheel==0.44.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/pip-tools.txt
+    #   -r requirements/pip-tools.txt
     #   pip-tools
 zipp==3.20.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/quality.txt
+    #   -r requirements/quality.txt
     #   importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:

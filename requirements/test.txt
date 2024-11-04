@@ -6,37 +6,37 @@
 #
 amqp==5.2.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   kombu
 asgiref==3.8.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   django
     #   django-stubs
 attrs==24.2.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    # via -r requirements/base.txt
 billiard==4.2.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   celery
 celery==5.4.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    # via -r requirements/base.txt
 certifi==2024.8.30
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   requests
 cffi==1.17.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   cryptography
     #   pynacl
 charset-normalizer==3.4.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   requests
 click==8.1.7
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   celery
     #   click-didyoumean
     #   click-plugins
@@ -46,15 +46,15 @@ click==8.1.7
     #   import-linter
 click-didyoumean==0.3.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   celery
 click-plugins==1.1.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   celery
 click-repl==0.3.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   celery
 code-annotations==1.8.0
     # via -r requirements/test.in
@@ -64,13 +64,13 @@ coverage[toml]==7.6.4
     #   pytest-cov
 cryptography==43.0.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.in
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   django-crum
     #   django-debug-toolbar
     #   django-stubs
@@ -82,7 +82,7 @@ ddt==1.7.2
     #   edx-drf-extensions
 django-crum==0.7.9
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-django-utils
 django-debug-toolbar==4.4.6
     # via -r requirements/test.in
@@ -94,33 +94,33 @@ django-stubs-ext==5.1.1
     # via django-stubs
 django-waffle==4.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-django-utils
     #   edx-drf-extensions
 djangorestframework==3.15.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
 djangorestframework-stubs==3.15.1
     # via -r requirements/test.in
 dnspython==2.7.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   pymongo
 drf-jwt==1.19.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-drf-extensions
 edx-django-utils==7.0.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-drf-extensions
 edx-drf-extensions==10.5.0
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    # via -r requirements/base.txt
 edx-opaque-keys==2.11.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-drf-extensions
 freezegun==1.5.1
     # via -r requirements/test.in
@@ -128,7 +128,7 @@ grimp==3.5
     # via import-linter
 idna==3.10
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   requests
 import-linter==2.1
     # via -r requirements/test.in
@@ -138,7 +138,7 @@ jinja2==3.1.4
     # via code-annotations
 kombu==5.4.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   celery
 markupsafe==3.0.2
     # via jinja2
@@ -152,53 +152,53 @@ mysqlclient==2.2.5
     # via -r requirements/test.in
 newrelic==10.2.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-django-utils
 packaging==24.1
     # via pytest
 pbr==6.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   stevedore
 pluggy==1.5.0
     # via pytest
 prompt-toolkit==3.0.48
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   click-repl
 psutil==6.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-django-utils
 pycparser==2.22
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   cffi
 pyjwt[crypto]==2.9.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
 pymongo==4.10.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-opaque-keys
 pynacl==1.5.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-django-utils
 pytest==8.3.3
     # via
     #   -r requirements/test.in
     #   pytest-cov
     #   pytest-django
-pytest-cov==5.0.0
+pytest-cov==6.0.0
     # via -r requirements/test.in
 pytest-django==4.9.0
     # via -r requirements/test.in
 python-dateutil==2.9.0.post0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   celery
     #   freezegun
 python-slugify==8.0.4
@@ -207,27 +207,27 @@ pyyaml==6.0.2
     # via code-annotations
 requests==2.32.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   djangorestframework-stubs
     #   edx-drf-extensions
 rules==3.5
-    # via -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    # via -r requirements/base.txt
 semantic-version==2.10.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   edx-drf-extensions
 six==1.16.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   python-dateutil
 sqlparse==0.5.1
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   django
     #   django-debug-toolbar
 stevedore==5.3.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   code-annotations
     #   edx-django-utils
     #   edx-opaque-keys
@@ -241,7 +241,7 @@ types-requests==2.32.0.20241016
     # via djangorestframework-stubs
 typing-extensions==4.12.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   django-stubs
     #   django-stubs-ext
     #   djangorestframework-stubs
@@ -251,21 +251,21 @@ typing-extensions==4.12.2
     #   mypy
 tzdata==2024.2
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   celery
     #   kombu
 urllib3==2.2.3
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   requests
     #   types-requests
 vine==5.1.0
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   amqp
     #   celery
     #   kombu
 wcwidth==0.2.13
     # via
-    #   -r /home/runner/work/openedx-learning/openedx-learning/requirements/base.txt
+    #   -r requirements/base.txt
     #   prompt-toolkit
