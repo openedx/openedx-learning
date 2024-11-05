@@ -14,3 +14,12 @@ class UnitsConfig(AppConfig):
     verbose_name = "Learning Core > Authoring > Units"
     default_auto_field = "django.db.models.BigAutoField"
     label = "oel_units"
+
+    def ready(self):
+        """
+        Register Unit and UnitVersion.
+        """
+        from ..publishing.api import register_content_models  # pylint: disable=import-outside-toplevel
+        from .models import Unit, UnitVersion  # pylint: disable=import-outside-toplevel
+
+        register_content_models(Unit, UnitVersion)
