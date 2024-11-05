@@ -34,8 +34,10 @@ Decisions
 - Containers represent their content hierarchy through a structure that defines parent-child relationships between the container and its members.
 - The structure defining these relationships is anonymous, so it can only be referenced through the container.
 - Containers can hold both static and dynamically generated content, including user-specific variations.
-- Each container holds different states of its members (author-defined, initial, and frozen final state) to support rollback operations.
-- Members can be added or removed from a container, and the container will maintain the state of the content for the previous version.
+- Each container holds different states of its members (user-defined, initial, and frozen final state) to support rollback operations.
+- Members can be added or removed from a container, and the container will maintain the state of the content for the previous version (frozen final state).
+- The initial state of a container is immutable.
+- When a container's structure changes, e.g., when a new member is added, the user-defined state of the container is updated with the new members list.
 - Containers support both fixed and version-agnostic references for members, allowing members to be pinned to a specific version or set to reference the latest draft or published state.
 - The latest draft or published states can be referenced by setting the version to ``None``, avoiding the need for new instances on each update.
 - A single member (publishable entity) can be referenced by multiple containers, allowing for reuse of content across different containers.
