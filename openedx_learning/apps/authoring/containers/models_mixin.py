@@ -2,16 +2,23 @@ from __future__ import annotations
 
 from django.db import models
 
-from openedx_learning.apps.authoring.containers.models import ContainerEntity, ContainerEntityVersion
+from openedx_learning.apps.authoring.containers.models import (
+    ContainerEntity,
+    ContainerEntityVersion,
+)
 
 from django.db.models.query import QuerySet
 
-from openedx_learning.apps.authoring.publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
+from openedx_learning.apps.authoring.publishing.model_mixins import (
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 
 __all__ = [
     "ContainerEntityMixin",
     "ContainerEntityVersionMixin",
 ]
+
 
 class ContainerEntityMixin(PublishableEntityMixin):
     """
@@ -50,6 +57,7 @@ class ContainerEntityMixin(PublishableEntityMixin):
     class Meta:
         abstract = True
 
+
 class ContainerEntityVersionMixin(PublishableEntityVersionMixin):
     """
     Convenience mixin to link your models against ContainerEntityVersion.
@@ -69,7 +77,9 @@ class ContainerEntityVersionMixin(PublishableEntityVersionMixin):
                 )
             )
 
-    objects: models.Manager[ContainerEntityVersionMixin] = ContainerEntityVersionMixinManager()
+    objects: models.Manager[ContainerEntityVersionMixin] = (
+        ContainerEntityVersionMixinManager()
+    )
 
     container_entity_version = models.OneToOneField(
         ContainerEntityVersion,
