@@ -4,7 +4,7 @@
 Context
 -------
 
-This ADR proposes a model for containers that can hold different types of content, including custom content types, and that can be used to create courses. The model defines the core structure and purpose of containers, the types of containers and content constraints, the members and relationships of containers, version control, publishing, and pruning.
+This ADR proposes a model for containers that can hold different types of content and can be used to model other content types with similar behavior, such as units, subsections, sections, or courses. The model defines containers' core structure and purpose, the types of containers, content constraints, container members, version control, publishing, and pruning.
 
 Decisions
 ---------
