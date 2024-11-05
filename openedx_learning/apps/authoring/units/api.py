@@ -4,9 +4,13 @@ This module provides functions to manage units.
 """
 
 from django.db.transaction import atomic
+
+from openedx_learning.apps.authoring.containers.models import EntityListRow
 from ..publishing import api as publishing_api
 from ..containers import api as container_api
 from .models import Unit, UnitVersion
+from django.db.models import QuerySet
+
 
 from datetime import datetime
 
@@ -18,10 +22,9 @@ __all__ = [
     "get_unit",
     "get_unit_version",
     "get_latest_unit_version",
-    "get_unit_version_by_version_num",
-    "get_user_defined_components_in_unit_version",
-    "get_initial_components_in_unit_version",
-    "get_frozen_components_in_unit_version",
+    "get_user_defined_list_in_unit_version",
+    "get_initial_list_in_unit_version",
+    "get_frozen_list_in_unit_version",
 ]
 
 
@@ -175,23 +178,14 @@ def get_latest_unit_version(unit_pk: int) -> UnitVersion:
     return Unit.objects.get(pk=unit_pk).versioning.latest
 
 
-def get_unit_version_by_version_num(unit_pk: int, version_num: int) -> UnitVersion:
-    """Get a unit version by version number.
-
-    Args:
-        unit_pk: The unit ID.
-        version_num: The version number.
-    """
-    return Unit.objects.get(pk=unit_pk).versioning.get(version_num=version_num)
-
-
-def get_user_defined_list_in_unit_version(unit_version_pk: int) -> list[int]:
+def get_user_defined_list_in_unit_version(unit_version_pk: int) -> QuerySet[EntityListRow]:
     """Get the list in a unit version.
 
     Args:
         unit_version_pk: The unit version ID.
     """
-    return UnitVersion.objects.get(pk=unit_version_pk).container_version.defined_list
+    unit_version = UnitVersion.objects.get(pk=unit_version_pk)
+    return container_api.get_defined_list_for_container_version(unit_version.container_entity_version)
 
 
 def get_initial_list_in_unit_version(unit_version_pk: int) -> list[int]:
@@ -200,7 +194,8 @@ def get_initial_list_in_unit_version(unit_version_pk: int) -> list[int]:
     Args:
         unit_version_pk: The unit version ID.
     """
-    return UnitVersion.objects.get(pk=unit_version_pk).container_version.initial_list
+    unit_version = UnitVersion.objects.get(pk=unit_version_pk)
+    return container_api.get_initial_list_for_container_version(unit_version.container_entity_version)
 
 
 def get_frozen_list_in_unit_version(unit_version_pk: int) -> list[int]:
@@ -209,4 +204,5 @@ def get_frozen_list_in_unit_version(unit_version_pk: int) -> list[int]:
     Args:
         unit_version_pk: The unit version ID.
     """
-    return UnitVersion.objects.get(pk=unit_version_pk).container_version.frozen_list
+    unit_version = UnitVersion.objects.get(pk=unit_version_pk)
+    return container_api.get_frozen_list_for_container_version(unit_version.container_entity_version)

@@ -1,7 +1,13 @@
 from django.db import models
 
-from openedx_learning.apps.authoring.publishing.models import PublishableEntity, PublishableEntityVersion
-from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
+from openedx_learning.apps.authoring.publishing.models import (
+    PublishableEntity,
+    PublishableEntityVersion,
+)
+from ..publishing.model_mixins import (
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 
 
 class EntityList(models.Model):
@@ -14,6 +20,7 @@ class EntityList(models.Model):
     anonymous in a sense–they're pointed to by ContainerEntityVersions and
     other models, rather than being looked up by their own identifers.
     """
+
     pass
 
 
@@ -25,6 +32,7 @@ class EntityListRow(models.Model):
     There is a row in this table for each member of an EntityList. The order_num
     field is used to determine the order of the members in the list.
     """
+
     entity_list = models.ForeignKey(EntityList, on_delete=models.CASCADE)
 
     # This ordering should be treated as immutable–if the ordering needs to
@@ -70,6 +78,7 @@ class ContainerEntity(PublishableEntityMixin):
     PublishLog and Containers that were affected in a publish because their
     child elements were published.
     """
+
     pass
 
 
@@ -93,6 +102,7 @@ class ContainerEntityVersion(PublishableEntityVersionMixin):
     makes things easier to reason about if we say that defined_list never
     changes for a given ContainerEntityVersion.
     """
+
     container = models.ForeignKey(
         ContainerEntity,
         on_delete=models.CASCADE,
