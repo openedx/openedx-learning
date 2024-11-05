@@ -49,7 +49,7 @@ Decisions
 - Changes to the order of members within a container require creating a new version of the container with the new ordering.
 - Changes in pinned published or draft states require creating a new version of the container to maintain the state of the content for the previous version.
 - Each time a new version is created because of metadata changed, its members are copied from the previous version to preserve the state of the content at that time.
-- When using version-agnostic references, no new version is created when the content changes, and the reference is updated to the latest draft or published state.
+- When using version-agnostic references to members, no new version is created when members change since the latest draft or published state is always used.
 - If a member is soft-deleted, the container will create a new version with the member removed.
 
 5. Publishing
