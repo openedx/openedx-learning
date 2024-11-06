@@ -75,7 +75,6 @@ class AssetTestCase(TestCase):
             cls.component_version.pk,
             cls.problem_content.id,
             key="block.xml",
-            learner_downloadable=False,
         )
 
         # Python source file, stored as a file. This is hypothetical, as we
@@ -90,7 +89,6 @@ class AssetTestCase(TestCase):
             cls.component_version.pk,
             cls.python_source_asset.id,
             key="src/grader.py",
-            learner_downloadable=False,
         )
 
         # An HTML file that is student downloadable
@@ -104,7 +102,6 @@ class AssetTestCase(TestCase):
             cls.component_version.pk,
             cls.html_asset_content.id,
             key="static/hello.html",
-            learner_downloadable=True,
         )
 
     def test_no_component_version(self):
@@ -144,10 +141,6 @@ class AssetTestCase(TestCase):
 
             # This is testing that asset paths are case sensitive
             "static/HELLO.html": AssetError.ASSET_PATH_NOT_FOUND_FOR_COMPONENT_VERSION,
-
-            # Files that want to guarantee can never be downloaded (they're for
-            # backend usage only).
-            "src/grader.py": AssetError.ASSET_NOT_LEARNER_DOWNLOADABLE,
 
             # Text stored in the database directly instead of file storage.
             "block.xml": AssetError.ASSET_HAS_NO_DOWNLOAD_FILE,
