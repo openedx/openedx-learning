@@ -5,7 +5,7 @@ Views for the media server application
 """
 from pathlib import Path
 
-from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import FileResponse, Http404
 
 from openedx_learning.apps.authoring.components.api import look_up_component_version_content
@@ -33,11 +33,6 @@ def component_asset(
         )
     except ObjectDoesNotExist:
         raise Http404("File not found")  # pylint: disable=raise-missing-from
-
-    if not cvc.learner_downloadable and not (
-        request.user and request.user.is_superuser
-    ):
-        raise PermissionDenied("This file is not publicly downloadable.")
 
     response = FileResponse(cvc.raw_content.file, filename=Path(asset_path).name)
     response["Content-Type"] = cvc.raw_content.mime_type

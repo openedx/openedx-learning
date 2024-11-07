@@ -126,7 +126,6 @@ class Command(BaseCommand):
             component_version,
             content.id,
             key=key,
-            learner_downloadable=True,
         )
 
     def import_block_type(self, block_type_name, now): # , publish_log_entry):
@@ -177,7 +176,6 @@ class Command(BaseCommand):
                 component_version,
                 text_content.pk,
                 key="block.xml",
-                learner_downloadable=False
             )
 
             # Cycle through static assets references and add those as well...

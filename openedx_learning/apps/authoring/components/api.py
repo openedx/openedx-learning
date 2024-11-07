@@ -215,7 +215,6 @@ def create_next_component_version(
                     content_id=content_pk,
                     component_version=component_version,
                     key=key,
-                    learner_downloadable=False,
                 )
         # Now copy any old associations that existed, as long as they aren't
         # in conflict with the new stuff or marked for deletion.
@@ -227,7 +226,6 @@ def create_next_component_version(
                     content_id=cvrc.content_id,
                     component_version=component_version,
                     key=cvrc.key,
-                    learner_downloadable=cvrc.learner_downloadable,
                 )
 
         return component_version
@@ -422,7 +420,6 @@ def create_component_version_content(
     content_id: int,
     /,
     key: str,
-    learner_downloadable: bool = False,
 ) -> ComponentVersionContent:
     """
     Add a Content to the given ComponentVersion
@@ -445,7 +442,6 @@ def create_component_version_content(
         component_version_id=component_version_id,
         content_id=content_id,
         key=key,
-        learner_downloadable=learner_downloadable,
     )
     return cvrc
 
@@ -453,7 +449,6 @@ def create_component_version_content(
 class AssetError(StrEnum):
     """Error codes related to fetching ComponentVersion assets."""
     ASSET_PATH_NOT_FOUND_FOR_COMPONENT_VERSION = auto()
-    ASSET_NOT_LEARNER_DOWNLOADABLE = auto()
     ASSET_HAS_NO_DOWNLOAD_FILE = auto()
 
 
@@ -484,7 +479,6 @@ def get_redirect_response_for_component_asset(
     component_version_uuid: UUID,
     asset_path: Path,
     public: bool = False,
-    learner_downloadable_only: bool = True,
 ) -> HttpResponse:
     """
     ``HttpResponse`` for a reverse-proxy to serve a ``ComponentVersion`` asset.
@@ -498,11 +492,6 @@ def get_redirect_response_for_component_asset(
         If ``True``, this will return an ``HttpResponse`` that can be cached in
         a CDN and shared across many clients.
 
-    :param learner_downloadable_only: Only return assets that are meant to be
-        downloadable by Learners, i.e. in the LMS experience. If this is
-        ``True``, then requests for assets that are not meant for student
-        download will return a ``404`` error response.
-
     **Response Codes**
 
     If the asset exists for this ``ComponentVersion``, this function will return
@@ -512,15 +501,10 @@ def get_redirect_response_for_component_asset(
     the ``ComponentVersion`` itself does not exist, the response code will be
     ``404``.
 
-    Other than checking the coarse-grained ``learner_downloadable_only`` flag,
-    *this function does not do auth checking of any sort*–it will never return
+    This function does not do auth checking of any sort. It will never return
     a ``401`` or ``403`` response code. That is by design. Figuring out who is
     making the request and whether they have permission to do so is the
-    responsiblity of whatever is calling this function. The
-    ``learner_downloadable_only`` flag is intended to be a filter for the entire
-    view. When it's True, not even staff can download component-internal assets.
-    This is intended to protect us from accidentally allowing sensitive grading
-    code to get leaked out.
+    responsiblity of whatever is calling this function.
 
     **Metadata Headers**
 
@@ -593,24 +577,6 @@ def get_redirect_response_for_component_asset(
         )
         info_headers.update(
             _error_header(AssetError.ASSET_HAS_NO_DOWNLOAD_FILE)
-        )
-        return HttpResponseNotFound(headers=info_headers)
-
-    # Check: If we're asking only for Learner Downloadable assets, and the asset
-    # in question is not supposed to be downloadable by learners, then we give a
-    # 404 error. Even staff members are not expected to be able to download
-    # these assets via the LMS endpoint that serves students. Studio would be
-    # expected to have an entirely different view to serve these assets in that
-    # context (along with different timeouts, auth, and cache settings). So in
-    # that sense, the asset doesn't exist for that particular endpoint.
-    if learner_downloadable_only and (not cv_content.learner_downloadable):
-        logger.error(
-           f"ComponentVersion {component_version_uuid} has asset {asset_path}, "
-           "but it is not meant to be downloadable by learners "
-           "(ComponentVersionContent.learner_downloadable=False)."
-        )
-        info_headers.update(
-            _error_header(AssetError.ASSET_NOT_LEARNER_DOWNLOADABLE)
         )
         return HttpResponseNotFound(headers=info_headers)
 
