@@ -54,7 +54,9 @@ def create_unit_version(
     unit: Unit,
     version_num: int,
     title: str,
-    publishable_entities_pk: list[int],
+    publishable_entities_pks: list[int],
+    draft_version_pks: list[int | None],
+    published_version_pks: list[int | None],
     created: datetime,
     created_by: int | None,
 ) -> Unit:
@@ -74,7 +76,9 @@ def create_unit_version(
             unit.container_entity.pk,
             version_num,
             title,
-            publishable_entities_pk,
+            publishable_entities_pks,
+            draft_version_pks,
+            published_version_pks,
             unit.container_entity.publishable_entity,
             created,
             created_by,
@@ -90,7 +94,9 @@ def create_unit_version(
 def create_next_unit_version(
     unit: Unit,
     title: str,
-    publishable_entities_pk: list[int],
+    publishable_entities_pks: list[int],
+    draft_version_pks: list[int | None],
+    published_version_pks: list[int | None],
     created: datetime,
     created_by: int | None,
 ) -> Unit:
@@ -110,7 +116,9 @@ def create_next_unit_version(
         container_entity_version = container_api.create_next_container_version(
             unit.container_entity.pk,
             title,
-            publishable_entities_pk,
+            publishable_entities_pks,
+            draft_version_pks,
+            published_version_pks,
             unit.container_entity.publishable_entity,
             created,
             created_by,
