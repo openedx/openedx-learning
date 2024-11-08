@@ -388,7 +388,6 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             new_version.pk,
             new_content.pk,
             key="my/path/to/hello.txt",
-            learner_downloadable=False,
         )
         # re-fetch from the database to check to see if we wrote it correctly
         new_version = components_api.get_component(self.problem.pk) \
@@ -405,7 +404,6 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             new_version.pk,
             new_content.pk,
             key="//nested/path/hello.txt",
-            learner_downloadable=False,
         )
         new_version = components_api.get_component(self.problem.pk) \
                                     .versions \

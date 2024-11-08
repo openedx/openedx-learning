@@ -254,43 +254,6 @@ class ComponentVersionContent(models.Model):
     # identifiers that don't map as cleanly to file paths at some point.
     key = key_field(db_column="_key")
 
-    # Long explanation for the ``learner_downloadable`` field:
-    #
-    # Is this Content downloadable during the learning experience? This is
-    # NOT about public vs. private permissions on course assets, as that will be
-    # a policy that can be changed independently of new versions of the content.
-    # For instance, a course team could decide to flip their course assets from
-    # private to public for CDN caching reasons, and that should not require
-    # new ComponentVersions to be created.
-    #
-    # What the ``learner_downloadable`` field refers to is whether this asset is
-    # supposed to *ever* be directly downloadable by browsers during the
-    # learning experience. This will be True for things like images, PDFs, and
-    # video transcript files. This field will be False for things like:
-    #
-    # * Problem Block OLX will contain the answers to the problem. The XBlock
-    #   runtime and ProblemBlock will use this information to generate HTML and
-    #   grade responses, but the the user's browser is never permitted to
-    #   actually download the raw OLX itself.
-    # * Many courses include a python_lib.zip file holding custom Python code
-    #   to be used by codejail to assess student answers. This code will also
-    #   potentially reveal answers, and is never intended to be downloadable by
-    #   the student's browser.
-    # * Some course teams will upload other file formats that their OLX is
-    #   derived from (e.g. specially formatted LaTeX files). These files will
-    #   likewise contain answers and should never be downloadable by the
-    #   student.
-    # * Other custom metadata may be attached as files in the import, such as
-    #   custom identifiers, author information, etc.
-    #
-    # Even if ``learner_downloadble`` is True, the LMS may decide that this
-    # particular student isn't allowed to see this particular piece of content
-    # yet–e.g. because they are not enrolled, or because the exam this Component
-    # is a part of hasn't started yet. That's a matter of LMS permissions and
-    # policy that is not intrinsic to the content itself, and exists at a layer
-    # above this.
-    learner_downloadable = models.BooleanField(default=False)
-
     class Meta:
         constraints = [
             # Uniqueness is only by ComponentVersion and key. If for some reason

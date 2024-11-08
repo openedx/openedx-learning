@@ -71,7 +71,6 @@ class ContentInline(admin.TabularInline):
     fields = [
         "key",
         "format_size",
-        "learner_downloadable",
         "rendered_data",
     ]
     readonly_fields = [
