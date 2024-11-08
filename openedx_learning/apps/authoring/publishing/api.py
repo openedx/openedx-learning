@@ -50,6 +50,8 @@ __all__ = [
     "soft_delete_draft",
     "reset_drafts_to_published",
     "register_content_models",
+    "get_drafts",
+    "get_published",
 ]
 
 
@@ -493,3 +495,29 @@ def register_content_models(
     return PublishableContentModelRegistry.register(
         content_model_cls, content_version_model_cls
     )
+
+
+def get_drafts(publishable_entities: QuerySet[PublishableEntity]) -> QuerySet[Draft]:
+    """
+    Given a list of publishable entities returns current drafts.
+    Not all entities may have current drafts.
+    """
+    entity_ids = publishable_entities.values_list("id", flat=True)
+
+    return Draft.objects.filter(
+        entity_id__in=entity_ids,
+        version__isnull=False,
+    ).select_related("entity", "version")
+
+
+def get_published(publishable_entities: QuerySet[PublishableEntity]) -> QuerySet[Published]:
+    """
+    Given a list of publishable entities returns those who have a published version.
+    Not all entities may have current published version.
+    """
+    entity_ids = publishable_entities.values_list("id", flat=True)
+
+    return Published.objects.filter(
+        entity_id__in=entity_ids,
+        version__isnull=False,
+    ).select_related("entity", "version")

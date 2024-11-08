@@ -368,6 +368,82 @@ class DraftTestCase(TestCase):
         # should not return published soft-deleted entities.
         assert len(entities) == 0
 
+    def test_get_drafts(self) -> None:
+        n = 13
+        x = 5
+
+        for i in range(n):
+            # Create entities with drafts
+            entity = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                f"entity_{i}",
+                created=self.now,
+                created_by=None,
+            )
+
+            publishing_api.create_publishable_entity_version(
+                entity.id,
+                version_num=1,
+                title=f"Entity_{i}",
+                created=self.now,
+                created_by=None,
+            )
+
+        for i in range(x):
+            # Create entities without drafts
+            entity = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                f"entity_no_drafts_{i}",
+                created=self.now,
+                created_by=None,
+            )
+
+        drafts = publishing_api.get_drafts(PublishableEntity.objects.all())
+        assert len(drafts) == n
+
+    def test_get_published(self) -> None:
+        n = 13
+        x = 5
+
+        for i in range(n):
+            # Create entities to publish
+            entity = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                f"entity_{i}",
+                created=self.now,
+                created_by=None,
+            )
+
+            publishing_api.create_publishable_entity_version(
+                entity.id,
+                version_num=1,
+                title=f"Entity_{i}",
+                created=self.now,
+                created_by=None,
+            )
+
+        publishing_api.publish_all_drafts(self.learning_package.id)
+
+        for i in range(x):
+            # Create entities without publish
+            entity = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                f"entity_no_drafts_{i}",
+                created=self.now,
+                created_by=None,
+            )
+
+            publishing_api.create_publishable_entity_version(
+                entity.id,
+                version_num=1,
+                title=f"Entity_{i}",
+                created=self.now,
+                created_by=None,
+            )
+
+        published = publishing_api.get_published(PublishableEntity.objects.all())
+        assert len(published) == n
+
     def _get_published_version_num(self, entity: PublishableEntity) -> int | None:
         published_version = publishing_api.get_published_version(entity.id)
         if published_version is not None:
