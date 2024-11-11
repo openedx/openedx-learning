@@ -78,6 +78,7 @@ cryptography==43.0.3
     # via
     #   -r requirements/test.txt
     #   pyjwt
+    #   secretstorage
 ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.3.9
@@ -173,6 +174,10 @@ jaraco-context==6.0.1
     # via keyring
 jaraco-functools==4.1.0
     # via keyring
+jeepney==0.8.0
+    # via
+    #   keyring
+    #   secretstorage
 jinja2==3.1.4
     # via
     #   -r requirements/test.txt
@@ -213,7 +218,7 @@ newrelic==10.2.0
     #   edx-django-utils
 nh3==0.2.18
     # via readme-renderer
-packaging==24.1
+packaging==24.2
     # via
     #   -r requirements/test.txt
     #   pytest
@@ -315,6 +320,8 @@ rich==13.9.4
     # via twine
 rules==3.5
     # via -r requirements/test.txt
+secretstorage==3.3.3
+    # via keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/test.txt
@@ -385,5 +392,5 @@ wcwidth==0.2.13
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit
-zipp==3.20.2
+zipp==3.21.0
     # via importlib-metadata

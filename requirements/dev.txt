@@ -103,6 +103,7 @@ cryptography==43.0.3
     # via
     #   -r requirements/quality.txt
     #   pyjwt
+    #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
 diff-cover==9.2.0
@@ -228,6 +229,11 @@ jaraco-functools==4.1.0
     # via
     #   -r requirements/quality.txt
     #   keyring
+jeepney==0.8.0
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
+    #   secretstorage
 jinja2==3.1.4
     # via
     #   -r requirements/quality.txt
@@ -286,7 +292,7 @@ nh3==0.2.18
     # via
     #   -r requirements/quality.txt
     #   readme-renderer
-packaging==24.1
+packaging==24.2
     # via
     #   -r requirements/ci.txt
     #   -r requirements/pip-tools.txt
@@ -435,6 +441,10 @@ rich==13.9.4
     #   twine
 rules==3.5
     # via -r requirements/quality.txt
+secretstorage==3.3.3
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/quality.txt
@@ -516,11 +526,11 @@ wcwidth==0.2.13
     # via
     #   -r requirements/quality.txt
     #   prompt-toolkit
-wheel==0.44.0
+wheel==0.45.0
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
-zipp==3.20.2
+zipp==3.21.0
     # via
     #   -r requirements/quality.txt
     #   importlib-metadata

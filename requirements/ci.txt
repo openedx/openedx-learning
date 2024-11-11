@@ -22,7 +22,7 @@ grimp==3.5
     # via import-linter
 import-linter==2.1
     # via -r requirements/ci.in
-packaging==24.1
+packaging==24.2
     # via
     #   pyproject-api
     #   tox
