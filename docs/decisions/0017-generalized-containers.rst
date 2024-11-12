@@ -44,18 +44,19 @@ This section defines container members, their order, and relationships, covering
 - The latest draft or published states can be referenced by setting the version to ``None``, avoiding the need for new instances on each update.
 - A single member (publishable entity) can be referenced by multiple containers, allowing for reuse of content across different containers.
 
-4. Container Lists and Rollback Operations
-==========================================
+4. Container Version History
+============================
 
-This section defines the various lists of container's members (author-defined, initial, and frozen) and explains how these lists are preserved to support rollback operations.
+This section defines the various lists of container's version members (author-defined, initial, and frozen) and explains how these lists are preserved to support rollback operations and history tracking.
 
-- Each container holds different states of its members (author-defined, initial, and frozen final) to support rollback operations.
+- Each container version holds different states of its members (author-defined, initial, and frozen final) to support rollback operations and history tracking.
 - The author-defined list of a container is the list of members that the author has defined for the version of the container.
 - The author-defined list won't change for a container version even if its references get soft-deleted.
-- The initial list of a container is the list of members the container when it was first created.
-- The initial list of a container is immutable.
-- All references in the initial list of a container are pinned to the version of the member at the time of the container's creation.
-- The frozen list of a container is the list of members of the container at the time when a new version is created.
+- The initial list is a copy of the author-defined list that has all versions pinned as they were at the time the container version was created.
+- The initial list of a container version is immutable.
+- All references in the initial list of a container version are pinned to the version of the member at the time of the container's creation.
+- The frozen list of a container version refers its list of members at the time when the next version of the container is created.
+- The frozen list of a container version is immutable if and only if the author-defined list contains pinned references to its members. If not, the frozen list is mutable and should be updated to reflect the latest state of the members.
 
 5. Version Control
 ==================================
