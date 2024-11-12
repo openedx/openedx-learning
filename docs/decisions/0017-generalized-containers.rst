@@ -44,20 +44,18 @@ This section defines container members, their order, and relationships, covering
 - The latest draft or published states can be referenced by setting the version to ``None``, avoiding the need for new instances on each update.
 - A single member (publishable entity) can be referenced by multiple containers, allowing for reuse of content across different containers.
 
-4. Container States
-===================
+4. Container Lists and Rollback Operations
+==========================================
 
-This section defines the various states of a container's members (user-defined, initial, and frozen final states) and explains how these states are preserved to support state management and rollback operations.
+This section defines the various lists of container's members (author-defined, initial, and frozen) and explains how these lists are preserved to support rollback operations.
 
-- Each container holds different states of its members (user-defined, initial, and frozen final state) to support rollback operations.
-- The user-defined state of a container is the state that the author has defined for the version of the container.
-- The user-defined state won't change for a container version even if its references get soft-deleted.
-- The initial state of a container is the state of the container when it was first created.
-- The initial state of a container is immutable.
+- Each container holds different states of its members (author-defined, initial, and frozen final) to support rollback operations.
+- The author-defined list of a container is the list of members that the author has defined for the version of the container.
+- The author-defined list won't change for a container version even if its references get soft-deleted.
+- The initial list of a container is the list of members the container when it was first created.
+- The initial list of a container is immutable.
 - All references in the initial list of a container are pinned to the version of the member at the time of the container's creation.
-- The frozen final state of a container is the state of the container at the time when a new version is created.
-- All references in the frozen final list of a container are pinned to the version of the member at the time of the container's version creation.
-- When a container's changes, e.g., when a new member is added, the next user-defined state of the container references the new members and the frozen final state of the container references the previous members.
+- The frozen list of a container is the list of members of the container at the time when a new version is created.
 
 5. Version Control
 ==================================
