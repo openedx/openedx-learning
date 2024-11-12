@@ -12,12 +12,16 @@ Decisions
 1. Core Structure and Purpose of Containers
 ===========================================
 
+This section defines the purpose and structure of containers, explaining how they are designed to hold various types of content through a parent-child setup.
+
 - A container is designed as a generalized capability to hold different types of content.
 - A container is a publishable content type that holds other content types through a parent-child relationship.
 - A container application will offer shared definitions for use by other container types.
 
 2. Container Types and Content Constraints
 ==========================================
+
+This section defines container types, content constraints, hierarchy, and extensibility. It introduces the main types of containers and outlines how content limitations and configurations are handled at the application level to support flexible content structures.
 
 - A container marks any PublishableEntity, such as sections, subsections, units, or any other custom content type, as a type that can hold other content.
 - Containers can be nested within other containers, allowing for complex content structures.
@@ -29,21 +33,36 @@ Decisions
 3. Container Members and Relationships
 =======================================
 
+This section defines container members, their order, and relationships, covering flexible connections and support for draft and published states of their members.
+
 - The members of a container can be any type of publishable content.
 - Members within a container are maintained in a specific order as an ordered list.
 - Containers represent their content hierarchy through a structure that defines parent-child relationships between the container and its members.
 - The structure defining these relationships is anonymous, so it can only be referenced through the container.
-- Containers can hold both static and dynamically generated content, including user-specific variations.
-- Each container holds different states of its members (user-defined, initial, and frozen final state) to support rollback operations.
-- Members can be added or removed from a container, and the container will maintain the state of the content for the previous version (frozen final state).
-- The initial state of a container is immutable.
-- When a container's structure changes, e.g., when a new member is added, the user-defined state of the container is updated with the new members list.
+- Containers can hold both static and dynamically generated content, such as user-specific variations.
 - Containers support both fixed and version-agnostic references for members, allowing members to be pinned to a specific version or set to reference the latest draft or published state.
 - The latest draft or published states can be referenced by setting the version to ``None``, avoiding the need for new instances on each update.
 - A single member (publishable entity) can be referenced by multiple containers, allowing for reuse of content across different containers.
 
-4. Version Control
+4. Container States
+===================
+
+This section defines the various states of a container's members (user-defined, initial, and frozen final states) and explains how these states are preserved to support state management and rollback operations.
+
+- Each container holds different states of its members (user-defined, initial, and frozen final state) to support rollback operations.
+- The user-defined state of a container is the state that the author has defined for the version of the container.
+- The user-defined state won't change for a container version even if its references get soft-deleted.
+- The initial state of a container is the state of the container when it was first created.
+- The initial state of a container is immutable.
+- All references in the initial list of a container are pinned to the version of the member at the time of the container's creation.
+- The frozen final state of a container is the state of the container at the time when a new version is created.
+- All references in the frozen final list of a container are pinned to the version of the member at the time of the container's version creation.
+- When a container's changes, e.g., when a new member is added, the next user-defined state of the container references the new members and the frozen final state of the container references the previous members.
+
+5. Version Control
 ==================================
+
+This section defines the rules for version control in containers, explaining when new versions are created based on changes to container structure, metadata, or member states.
 
 - A new version is created if and only if the container itself changes (e.g., title, ordering of contents, adding or removing content) and not when its content changes (e.g., a component in a Unit is updated with new text).
 - Changes to the order of members within a container require creating a new version of the container with the new ordering.
@@ -52,15 +71,17 @@ Decisions
 - When using version-agnostic references to members, no new version is created when members change since the latest draft or published state is always used.
 - If a member is soft-deleted, the container will create a new version with the member removed.
 
-5. Publishing
+6. Publishing
 =============
+
+This section explains the publishing process for containers, detailing how containers and their members become accessible, either together or independently, based on their publication state.
 
 - Containers can be published, allowing their content to be accessible from where the container is referenced.
 - When a draft container is published, all its draft members are also published.
 - Members of a container can be published independently of the container itself.
 - If a member of a container is published independently, then it'd be published in the context of the container where it is referenced.
 
-1. Pruning
+7. Pruning
 ==========
 
 WIP
