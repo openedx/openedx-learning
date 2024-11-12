@@ -50,6 +50,7 @@ __all__ = [
     "soft_delete_draft",
     "reset_drafts_to_published",
     "register_content_models",
+    "filter_publishable_entities",
 ]
 
 
@@ -493,3 +494,22 @@ def register_content_models(
     return PublishableContentModelRegistry.register(
         content_model_cls, content_version_model_cls
     )
+
+
+def filter_publishable_entities(
+    entities: QuerySet[PublishableEntity],
+    has_draft=None,
+    has_published=None
+) -> QuerySet[PublishableEntity]:
+    """
+    Filter an entities query set.
+
+    has_draft: You can filter by entities that has a draft or not.
+    has_published: You can filter by entities that has a published version or not.
+    """
+    if has_draft is not None:
+        entities = entities.filter(draft__version__isnull=not has_draft)
+    if has_published is not None:
+        entities = entities.filter(published__version__isnull=not has_published)
+
+    return entities
