@@ -38,47 +38,43 @@ This section defines container members, their order, and relationships, covering
 - The members of a container can be any type of publishable content.
 - Members within a container are maintained in a specific order as an ordered list.
 - Containers represent their content hierarchy through a structure that defines parent-child relationships between the container and its members.
-- The structure defining these relationships is anonymous, so it can only be referenced through the container.
-- Containers can hold both static and dynamically generated content, such as user-specific variations.
-- Containers support both fixed and version-agnostic references for members, allowing members to be pinned to a specific version or set to reference the latest draft or published state.
-- The latest draft or published states can be referenced by setting the version to ``None``, avoiding the need for new instances on each update.
-- A single member (publishable entity) can be referenced by multiple containers, allowing for reuse of content across different containers.
+- Containers support both pinned and unpinned references for its members, allowing members to be pinned to a specific version or set to reference a particular version.
+- The latest draft or published state of a member can be referenced by setting the version to ``None``.
+- A single member (publishable entity) can be shared by multiple containers, allowing for reuse of content across different containers.
 
 4. Container Version History
 ============================
 
-This section defines the various lists of container's version members (author-defined, initial, and frozen) and explains how these lists are preserved to support rollback operations and history tracking.
+This section defines the various lists of container's versions (author-defined, initial, and frozen) used  to track the history of changes made to a container, allowing to view past versions and changes over time.
 
-- Each container version holds different states of its members (author-defined, initial, and frozen final) to support rollback operations and history tracking.
-- The author-defined list of a container is the list of members that the author has defined for the version of the container.
-- The author-defined list won't change for a container version even if its references get soft-deleted.
+- Each container version holds different lists of members (author-defined, initial, and frozen) to support rollback operations and history tracking for the container.
+- The author-defined list is the list of members that the author has defined for the version of the container.
+- The author-defined list won't change for a specific container version even if its references get soft-deleted.
 - The initial list is a copy of the author-defined list that has all versions pinned as they were at the time the container version was created.
-- The initial list of a container version is immutable.
-- All references in the initial list of a container version are pinned to the version of the member at the time of the container's creation.
-- The frozen list of a container version refers its list of members at the time when the next version of the container is created.
-- The frozen list of a container version is immutable if and only if the author-defined list contains pinned references to its members. If not, the frozen list is mutable and should be updated to reflect the latest state of the members.
+- The initial list is immutable for a container version.
+- The frozen list refers to the list of members at the time when the next version of the container is created.
+- When creating the author-defined list of a new version with pinned references, then the author-defined list is the same as the initial and frozen list. When creating a new version with unpinned references, then the frozen list starts as `None` and should be updated with the author-defined members pinned when a new version is created.
+- The author-defined list is used to show the content of a container version as the author specified it, the frozen list can be used for discard operations on a draft version and the initial-list is part of the history of evolution of the container.
+- These lists allow history tracking of a container version and revert operations.
 
-5. Version Control
+5. Next Container Versions
 ==================================
 
-This section defines the rules for version control in containers, explaining when new versions are created based on changes to container structure, metadata, or member states.
+This section defines the rules for version control in containers, explaining when new versions are created based on changes to container structure or metadata.
 
-- A new version is created if and only if the container itself changes (e.g., title, ordering of contents, adding or removing content) and not when its content changes (e.g., a component in a Unit is updated with new text).
-- Changes to the order of members within a container require creating a new version of the container with the new ordering.
-- Each time a new version is created because of metadata changed, its members are copied from the previous version to preserve the state of the content at that time.
-- Changes in pinned published or draft states require creating a new version of the container to maintain the state of the content for the previous version.
-- When using version-agnostic references to members, no new version is created when members change since the latest draft or published state is always used.
-- If a member is soft-deleted, the container will create a new version with the member removed.
+- A new version is created if and only if the container itself changes (e.g., title, ordering of members, adding or removing members) and not when its members change (e.g., a component in a Unit is updated with new text).
+- When a shared member is soft-deleted in a different container, a new container version should be created for all containers referencing it without the member.
 
 6. Publishing
 =============
 
 This section explains the publishing process for containers, detailing how containers and their members become accessible, either together or independently, based on their publication state.
 
-- Containers can be published, allowing their content to be accessible from where the container is referenced.
+- Containers can be published, allowing their content to be accessible from where the container is being used.
 - When a draft container is published, all its draft members are also published.
 - Members of a container can be published independently of the container itself.
-- If a member of a container is published independently, then it'd be published in the context of the container where it is referenced.
+- When a new draft, created for a container when a shared member is soft-deleted, is published then all containers referencing the member will be force-published.
+- Containers are not affected by the publishing process of its members.
 
 7. Pruning
 ==========
