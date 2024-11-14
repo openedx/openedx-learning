@@ -25,9 +25,9 @@ __all__ = [
     "create_next_container_version",
     "create_container_and_version",
     "get_container",
-    "get_defined_list_for_container_version",
-    "get_initial_list_for_container_version",
-    "get_frozen_list_for_container_version",
+    "get_defined_list_rows_for_container_version",
+    "get_initial_list_rows_for_container_version",
+    "get_frozen_list_rows_for_container_version",
 ]
 
 
