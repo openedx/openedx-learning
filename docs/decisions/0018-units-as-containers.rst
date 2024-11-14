@@ -18,15 +18,15 @@ All decisions from `0017-generalized-containers.rst`_ are still valid so that th
 
 - A unit is a concrete type of container that holds components.
 - A unit is a container, making it also a publishable entity.
-- A unit application will offer shared definitions for use by other unit subtypes.
+- A Django application, which builds on the container application definitions, will offer methods for use by other unit subtypes.
 
-1. Unit Types and Content Constraints
+2. Unit Types and Content Constraints
 ======================================
 
 - Units can only hold components as their members but will not enforce this restriction at the model level.
 - Content restrictions for units are implemented at the app layer, allowing units to limit their members to components.
 
-1. Unit Members and Relationships
+3. Unit Members and Relationships
 ==================================
 
 - The members of a unit can only be components.

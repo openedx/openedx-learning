@@ -16,7 +16,7 @@ This section defines the purpose and structure of containers, explaining how the
 
 - A container is designed as a generalized capability to hold different types of content.
 - A container is a publishable content type that holds other content types through a parent-child relationship.
-- A container application will offer shared definitions for use by other container types.
+- A Django application will offer methods for other subtypes to use the container's capabilities.
 
 2. Container Types and Content Constraints
 ==========================================
