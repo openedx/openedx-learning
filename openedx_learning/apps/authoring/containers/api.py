@@ -70,12 +70,62 @@ def create_entity_list() -> EntityList:
     return EntityList.objects.create()
 
 
-def create_entity_list_rows(
-    entity_list: EntityList,
+def create_next_defined_list(
+    previous_entity_list: EntityList | None,
+    new_entity_list: EntityList,
     entity_pks: list[int],
     draft_version_pks: list[int | None],
     published_version_pks: list[int | None],
 ) -> EntityListRow:
+    """
+    Create new entity list rows for an entity list.
+
+    Args:
+        previous_entity_list: The previous entity list that the new entity list is based on.
+        new_entity_list: The entity list to create the rows for.
+        entity_pks: The IDs of the publishable entities that the entity list rows reference.
+        draft_version_pks: The IDs of the draft versions of the entities (PublishableEntityVersion) that the entity list rows reference.
+        published_version_pks: The IDs of the published versions of the entities (PublishableEntityVersion) that the entity list rows reference.
+
+    Returns:
+        The newly created entity list rows.
+    """
+    order_nums = range(len(entity_pks))
+    with atomic():
+        # Case 1: create first container version (no previous rows created for container)
+        # 1. Create new rows for the entity list
+        # Case 2: create next container version (previous rows created for container)
+        # 1. Get all the rows in the previous version entity list
+        # 2. Only associate existent rows to the new entity list iff: the order is the same, the PublishableEntity is in entity_pks and versions are not pinned
+        # 3. If the order is different for a row with the PublishableEntity, create new row with the same PublishableEntity for the new order
+        # and associate the new row to the new entity list
+        current_rows = previous_entity_list.entitylistrow_set.all()
+        publishable_entities_in_rows = {row.entity.pk: row for row in current_rows}
+        new_rows = []
+        for order_num, entity_pk, draft_version_pk, published_version_pk in zip(
+            order_nums, entity_pks, draft_version_pks, published_version_pks
+        ):
+            row = publishable_entities_in_rows.get(entity_pk)
+            if row and row.order_num == order_num:
+                new_entity_list.entitylistrow_set.add(row)
+                continue
+            new_rows.append(
+                EntityListRow(
+                    entity_list=new_entity_list,
+                    entity_id=entity_pk,
+                    order_num=order_num,
+                    draft_version_id=draft_version_pk,
+                    published_version_id=published_version_pk,
+                )
+            )
+        EntityListRow.objects.bulk_create(new_rows)
+
+def create_defined_list(
+    entity_list: EntityList,
+    entity_pks: list[int],
+    draft_version_pks: list[int | None],
+    published_version_pks: list[int | None],
+) -> EntityList:
     """
     Create new entity list rows for an entity list.
 
@@ -86,11 +136,11 @@ def create_entity_list_rows(
         published_version_pks: The IDs of the published versions of the entities (PublishableEntityVersion) that the entity list rows reference.
 
     Returns:
-        The newly created entity list rows.
+        The newly created entity list.
     """
     order_nums = range(len(entity_pks))
     with atomic():
-        entity_list_rows = EntityListRow.objects.bulk_create(
+        EntityListRow.objects.bulk_create(
             [
                 EntityListRow(
                     entity_list=entity_list,
@@ -99,46 +149,15 @@ def create_entity_list_rows(
                     draft_version_id=draft_version_pk,
                     published_version_id=published_version_pk,
                 )
-                for entity_pk, order_num, draft_version_pk, published_version_pk in zip(
-                    entity_pks, order_nums, draft_version_pks, published_version_pks
+                for order_num, entity_pk, draft_version_pk, published_version_pk in zip(
+                    order_nums, entity_pks, draft_version_pks, published_version_pks
                 )
             ]
         )
-
-    return entity_list_rows
-
-
-def create_entity_list_with_rows(
-    entity_pks: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
-) -> EntityList:
-    """
-    Create a new entity list with rows.
-
-    Args:
-        entity_pks: The IDs of the publishable entities that the entity list rows
-        reference.
-        order_nums: The order_nums of the entity list rows in the entity list.
-        draft_version_pks: The IDs of the draft versions of the entities
-        (PublishableEntityVersion) that the entity list rows reference.
-        published_version_pks: The IDs of the published versions of the entities
-        (PublishableEntityVersion) that the entity list rows reference.
-
-    Returns:
-        The newly created entity list.
-    """
-    entity_list = create_entity_list()
-    create_entity_list_rows(
-        entity_list=entity_list,
-        entity_pks=entity_pks,
-        draft_version_pks=draft_version_pks,
-        published_version_pks=published_version_pks,
-    )
     return entity_list
 
 
-def copy_rows_to_new_entity_list(
+def pin_versions_in_entity_list(
     rows: QuerySet[EntityListRow],
 ) -> EntityList:
     """
@@ -153,7 +172,7 @@ def copy_rows_to_new_entity_list(
     """
     entity_list = create_entity_list()
     with atomic():
-        entity_list_rows = EntityListRow.objects.bulk_create(
+        _ = EntityListRow.objects.bulk_create(
             [
                 EntityListRow(
                     entity_list=entity_list,
@@ -203,7 +222,7 @@ def create_container_version(
             created=created,
             created_by=created_by,
         )
-        entity_list = create_entity_list_with_rows(
+        defined_list = create_defined_list(
             entity_pks=publishable_entities_pk,
             draft_version_pks=draft_version_pks,
             published_version_pks=published_version_pks,
@@ -211,9 +230,10 @@ def create_container_version(
         container_version = ContainerEntityVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container_pk,
-            defined_list=entity_list,
-            initial_list=entity_list,
-            # Would frozen_list be always None the 1st time a container is created?
+            defined_list=defined_list,
+            initial_list=defined_list,
+            # TODO: Check for unpinned versions in defined_list to know whether to point this to the defined_list
+            # point to None.
             frozen_list=None,
         )
     return container_version
@@ -230,12 +250,19 @@ def create_next_container_version(
     created_by: int | None,
 ) -> ContainerEntityVersion:
     """
-    Create the next version of a container.
+    Create the next version of a container. A new version of the container is created
+    only when its metadata changes:
+
+    * Something was added to the Container.
+    * We re-ordered the rows in the container.
+    * Something was removed to the container.
+    * The Container's metadata changed, e.g. the title.
+    * We pin to different versions of the Container.
 
     Args:
         container_pk: The ID of the container to create the next version of.
         title: The title of the container.
-        publishable_entities_pk: The IDs of the members of the container.
+        publishable_entities_pk: The IDs of the members current members of the container.
         entity: The entity that the container belongs to.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
@@ -254,28 +281,26 @@ def create_next_container_version(
             created=created,
             created_by=created_by,
         )
-        # 1. The changes provoking a new version are always the addition, removal of members or reordering. How can we detect changes only in the metadata?
-        # 2. Published and draft versions are always the latest for all members.
-        # 3. When creating a new version, a new user-defined entity list is created to preserve the latest state as the previous user-defined list.
-        # 4. When creating a new version, a new frozen entity list is created copying the state of the user-defined list of the previous version.
-        # 5. While copying the versions into the new frozen list, versions are pinned in new rows for published/draft versions.
-        new_user_defined_list = create_entity_list_with_rows(
+        # 1. Pin versions in previous frozen list for last container version
+        # 2. Create new defined list for author changes
+        next_defined_list = create_next_defined_list(
+            previous_entity_list=last_version.defined_list,
+            new_entity_list=create_entity_list(),
             entity_pks=publishable_entities_pk,
             draft_version_pks=draft_version_pks,
             published_version_pks=published_version_pks,
         )
-        new_frozen_list = copy_rows_to_new_entity_list(
-            rows=get_defined_list_rows_for_container_version(last_version)
-        )
-
-        container_version = ContainerEntityVersion.objects.create(
+        # 3. Check for unpinned references in defined_list to determine if frozen_list should be None
+        # 4. Point frozen_list to None or defined_list
+        next_container_version = ContainerEntityVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container_pk,
-            defined_list=new_user_defined_list,
-            initial_list=last_version.initial_list,
-            frozen_list=new_frozen_list,
+            defined_list=next_defined_list,
+            initial_list=next_defined_list,
+            frozen_list=None,
         )
-    return container_version
+
+    return next_container_version
 
 
 def create_container_and_version(
