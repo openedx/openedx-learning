@@ -700,7 +700,9 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             """
             For testing, let everyone have edit object permission on object_id "abc" and "limit_tag_count"
             """
-            if object_id in ("abc", "limit_tag_count", "problem7", "problem15", "html7"):
+            basic_object_ids = ("abc", "limit_tag_count", "problem7", "problem15", "html7")
+            complex_object_ids = ("abc.xyz", "limit_tag_count1.1", "problem7.2", "problem1.5", "html7.3")
+            if object_id in basic_object_ids or object_id in complex_object_ids:
                 return True
 
             return can_change_object_tag_objectid(user, object_id)
@@ -726,16 +728,15 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         self.taxonomy.save()
 
     @ddt.data(
-        (None, status.HTTP_401_UNAUTHORIZED),
-        ("user_1", status.HTTP_200_OK),
-        ("staff", status.HTTP_200_OK),
+        (None, status.HTTP_401_UNAUTHORIZED, 'problem15'),
+        ("user_1", status.HTTP_200_OK, 'problem1.5'),
+        ("staff", status.HTTP_200_OK, 'problem1.5'),
     )
     @ddt.unpack
-    def test_retrieve_object_tags(self, user_attr, expected_status):
+    def test_retrieve_object_tags(self, user_attr, expected_status, object_id):
         """
         Test retrieving object tags
         """
-        object_id = "problem15"
 
         # Apply the object tags that we're about to retrieve:
         api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
@@ -755,7 +756,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             assert response.data == {
                 # In the future, this API may allow retrieving tags for multiple objects at once, so it's grouped by
                 # object ID.
-                "problem15": {
+                object_id: {
                     "taxonomies": [
                         {
                             "name": "Life on Earth",
@@ -798,7 +799,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         """
         Tag an object with tags from the "sort test" taxonomy
         """
-        object_id = "problem7"
+        object_id = "problem7.2"
         # Some selected tags to use, from the taxonomy create by self.create_sort_test_taxonomy()
         sort_test_tags = [
             "ANVIL",
@@ -897,18 +898,17 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @ddt.data(
-        (None, status.HTTP_401_UNAUTHORIZED),
-        ("user_1", status.HTTP_200_OK),
-        ("staff", status.HTTP_200_OK),
+        (None, status.HTTP_401_UNAUTHORIZED, 'html7.3'),
+        ("user_1", status.HTTP_200_OK, 'html7'),
+        ("staff", status.HTTP_200_OK, 'html7.3'),
     )
     @ddt.unpack
     def test_retrieve_object_tags_taxonomy_queryparam(
-        self, user_attr, expected_status,
+        self, user_attr, expected_status, object_id
     ):
         """
         Test retrieving object tags for specific taxonomies provided
         """
-        object_id = "html7"
 
         # Apply the object tags that we're about to retrieve:
         api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
@@ -947,9 +947,9 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             }
 
     @ddt.data(
-        (None, "abc", status.HTTP_401_UNAUTHORIZED),
+        (None, "abc.xyz", status.HTTP_401_UNAUTHORIZED),
         ("user_1", "abc", status.HTTP_400_BAD_REQUEST),
-        ("staff", "abc", status.HTTP_400_BAD_REQUEST),
+        ("staff", "abc.xyz", status.HTTP_400_BAD_REQUEST),
     )
     @ddt.unpack
     def test_retrieve_object_tags_invalid_taxonomy_queryparam(self, user_attr, object_id, expected_status):
@@ -967,15 +967,15 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         assert response.status_code == expected_status
 
     @ddt.data(
-        (None, "POST", status.HTTP_401_UNAUTHORIZED),
-        (None, "PATCH", status.HTTP_401_UNAUTHORIZED),
-        (None, "DELETE", status.HTTP_401_UNAUTHORIZED),
-        ("user_1", "POST", status.HTTP_405_METHOD_NOT_ALLOWED),
-        ("user_1", "PATCH", status.HTTP_405_METHOD_NOT_ALLOWED),
-        ("user_1", "DELETE", status.HTTP_405_METHOD_NOT_ALLOWED),
-        ("staff", "POST", status.HTTP_405_METHOD_NOT_ALLOWED),
-        ("staff", "PATCH", status.HTTP_405_METHOD_NOT_ALLOWED),
-        ("staff", "DELETE", status.HTTP_405_METHOD_NOT_ALLOWED),
+        (None, "POST", status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        (None, "PATCH", status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        (None, "DELETE", status.HTTP_401_UNAUTHORIZED, "abc"),
+        ("user_1", "POST", status.HTTP_405_METHOD_NOT_ALLOWED, "abc"),
+        ("user_1", "PATCH", status.HTTP_405_METHOD_NOT_ALLOWED, "abc"),
+        ("user_1", "DELETE", status.HTTP_405_METHOD_NOT_ALLOWED, "abc.xyz"),
+        ("staff", "POST", status.HTTP_405_METHOD_NOT_ALLOWED, "abc.xyz"),
+        ("staff", "PATCH", status.HTTP_405_METHOD_NOT_ALLOWED, "abc.xyz"),
+        ("staff", "DELETE", status.HTTP_405_METHOD_NOT_ALLOWED, "abc"),
     )
     @ddt.unpack
     def test_object_tags_remaining_http_methods(
@@ -983,6 +983,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         user_attr,
         http_method,
         expected_status,
+        object_id
     ):
         """
         Test POST/PATCH/DELETE method for ObjectTagView
@@ -990,7 +991,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         Only staff users should have permissions to perform the actions,
         however the methods are currently not allowed.
         """
-        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id="abc")
+        url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
         if user_attr:
             user = getattr(self, user_attr)
@@ -1008,36 +1009,36 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
     @ddt.data(
         # Users and staff can add tags
-        (None, "language_taxonomy", {}, ["Portuguese"], status.HTTP_401_UNAUTHORIZED),
-        ("user_1", "language_taxonomy", {}, ["Portuguese"], status.HTTP_200_OK),
-        ("staff", "language_taxonomy", {}, ["Portuguese"], status.HTTP_200_OK),
+        (None, "language_taxonomy", {}, ["Portuguese"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        ("user_1", "language_taxonomy", {}, ["Portuguese"], status.HTTP_200_OK, "abc"),
+        ("staff", "language_taxonomy", {}, ["Portuguese"], status.HTTP_200_OK, "abc.xyz"),
         # user_1s and staff can clear add tags
-        (None, "taxonomy", {}, ["Fungi"], status.HTTP_401_UNAUTHORIZED),
-        ("user_1", "taxonomy", {}, ["Fungi"], status.HTTP_200_OK),
-        ("staff", "taxonomy", {}, ["Fungi"], status.HTTP_200_OK),
+        (None, "taxonomy", {}, ["Fungi"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        ("user_1", "taxonomy", {}, ["Fungi"], status.HTTP_200_OK, "abc.xyz"),
+        ("staff", "taxonomy", {}, ["Fungi"], status.HTTP_200_OK, "abc.xyz"),
         # Nobody can add tag using a disabled taxonomy
-        (None, "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_401_UNAUTHORIZED),
-        ("user_1", "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_403_FORBIDDEN),
-        ("staff", "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_403_FORBIDDEN),
+        (None, "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        ("user_1", "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_403_FORBIDDEN, "abc"),
+        ("staff", "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_403_FORBIDDEN, "abc.xyz"),
         # If allow_multiple=True, multiple tags can be added, but not if it's false:
-        ("user_1", "taxonomy", {"allow_multiple": True}, ["Mammalia", "Fungi"], status.HTTP_200_OK),
-        ("user_1", "taxonomy", {"allow_multiple": False}, ["Mammalia", "Fungi"], status.HTTP_400_BAD_REQUEST),
+        ("user_1", "taxonomy", {"allow_multiple": True}, ["Mammalia", "Fungi"], status.HTTP_200_OK, "abc.xyz"),
+        ("user_1", "taxonomy", {"allow_multiple": False}, ["Mammalia", "Fungi"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
         # user_1s and staff can add tags using an open taxonomy
-        (None, "free_text_taxonomy", {}, ["tag1"], status.HTTP_401_UNAUTHORIZED),
-        ("user_1", "free_text_taxonomy", {}, ["tag1", "tag2"], status.HTTP_200_OK),
-        ("staff", "free_text_taxonomy", {}, ["tag1", "tag4"], status.HTTP_200_OK),
+        (None, "free_text_taxonomy", {}, ["tag1"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        ("user_1", "free_text_taxonomy", {}, ["tag1", "tag2"], status.HTTP_200_OK, "abc"),
+        ("staff", "free_text_taxonomy", {}, ["tag1", "tag4"], status.HTTP_200_OK, "abc.xyz"),
         # Nobody can add tags using a disabled open taxonomy
-        (None, "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_401_UNAUTHORIZED),
-        ("user_1", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN),
-        ("staff", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN),
+        (None, "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        ("user_1", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN, "abc.xyz"),
+        ("staff", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN, "abc"),
         # Can't add invalid/nonexistent tags using a closed taxonomy
-        (None, "language_taxonomy", {}, ["Invalid"], status.HTTP_401_UNAUTHORIZED),
-        ("user_1", "language_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST),
-        ("staff", "language_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST),
-        ("staff", "taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST),
+        (None, "language_taxonomy", {}, ["Invalid"], status.HTTP_401_UNAUTHORIZED, "abc"),
+        ("user_1", "language_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
+        ("staff", "language_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc"),
+        ("staff", "taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
     )
     @ddt.unpack
-    def test_tag_object(self, user_attr, taxonomy_attr, taxonomy_flags, tag_values, expected_status):
+    def test_tag_object(self, user_attr, taxonomy_attr, taxonomy_flags, tag_values, expected_status, object_id):
         if user_attr:
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
@@ -1047,8 +1048,6 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             for (k, v) in taxonomy_flags.items():
                 setattr(taxonomy, k, v)
             taxonomy.save()
-
-        object_id = "abc"
 
         url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
 
@@ -1064,10 +1063,14 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             # And retrieving the object tags again should return an identical response:
             assert response.data == self.client.get(OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)).data
 
-    def test_tag_object_multiple_taxonomy(self):
+    @ddt.data(
+        ("abc",),
+        ("abc.xyz",),
+    )
+    @ddt.unpack
+    def test_tag_object_multiple_taxonomy(self, object_id):
         self.client.force_authenticate(user=self.staff)
 
-        object_id = "abc"
         url = OBJECT_TAGS_UPDATE_URL.format(object_id=object_id)
         tag_value_1 = ["Tag 4"]
         tag_value_2 = ["Mammalia", "Fungi"]
@@ -1251,12 +1254,13 @@ class TestObjectTagCountsViewSet(TestTagTaxonomyMixin, APITestCase):
         # Course 2
         api.tag_object(object_id="course02-unit01-problem01", taxonomy=self.free_text_taxonomy, tags=["other"])
         # Course 7 Unit 1
-        api.tag_object(object_id="course07-unit01-problem01", taxonomy=self.free_text_taxonomy, tags=["a", "b", "c"])
-        api.tag_object(object_id="course07-unit01-problem02", taxonomy=self.free_text_taxonomy, tags=["a", "b"])
+        api.tag_object(object_id="course07-unit01-problem01.1", taxonomy=self.free_text_taxonomy, tags=["a", "b", "c"])
+        api.tag_object(object_id="course07-unit01-problem02.2", taxonomy=self.free_text_taxonomy, tags=["a", "b"])
         # Course 7 Unit 2
         api.tag_object(object_id="course07-unit02-problem01", taxonomy=self.free_text_taxonomy, tags=["b"])
-        api.tag_object(object_id="course07-unit02-problem02", taxonomy=self.free_text_taxonomy, tags=["c", "d"])
+        api.tag_object(object_id="course07-unit02-problem02.2", taxonomy=self.free_text_taxonomy, tags=["c", "d"])
         api.tag_object(object_id="course07-unit02-problem03", taxonomy=self.free_text_taxonomy, tags=["N", "M"])
+        api.tag_object(object_id="course07-unit02-problem03.3", taxonomy=self.free_text_taxonomy, tags=["N", "M"])
         api.tag_object(object_id="course07-unit02-problem03", taxonomy=self.taxonomy, tags=["Mammalia"])
 
         def check(object_id_pattern: str, count_implicit=False):
@@ -1273,40 +1277,43 @@ class TestObjectTagCountsViewSet(TestTagTaxonomyMixin, APITestCase):
             }
         with self.assertNumQueries(1):
             assert check(object_id_pattern="course07-unit01-*") == {
-                "course07-unit01-problem01": 3,
-                "course07-unit01-problem02": 2,
+                "course07-unit01-problem01.1": 3,
+                "course07-unit01-problem02.2": 2,
             }
         with self.assertNumQueries(1):
             assert check(object_id_pattern="course07-unit02-*") == {
                 "course07-unit02-problem01": 1,
-                "course07-unit02-problem02": 2,
+                "course07-unit02-problem02.2": 2,
                 "course07-unit02-problem03": 3,
+                "course07-unit02-problem03.3": 2,
             }
         with self.assertNumQueries(1):
             assert check(object_id_pattern="course07-unit02-*", count_implicit=True) == {
                 "course07-unit02-problem01": 1,
-                "course07-unit02-problem02": 2,
+                "course07-unit02-problem02.2": 2,
+                "course07-unit02-problem03.3": 2,
                 # "Mammalia" includes 1 explicit + 3 implicit tags: "Eukaryota > Animalia > Chordata > Mammalia"
                 # so problem03 has 2 free text tags and "4" life on earth tags:
                 "course07-unit02-problem03": 6,
             }
         with self.assertNumQueries(1):
             assert check(object_id_pattern="course07-unit*") == {
-                "course07-unit01-problem01": 3,
-                "course07-unit01-problem02": 2,
+                "course07-unit01-problem01.1": 3,
+                "course07-unit01-problem02.2": 2,
                 "course07-unit02-problem01": 1,
-                "course07-unit02-problem02": 2,
+                "course07-unit02-problem02.2": 2,
                 "course07-unit02-problem03": 3,
+                "course07-unit02-problem03.3": 2,
             }
         # Can also use a comma to separate explicit object IDs:
         with self.assertNumQueries(1):
-            assert check(object_id_pattern="course07-unit01-problem01") == {
-                "course07-unit01-problem01": 3,
+            assert check(object_id_pattern="course07-unit01-problem01.1") == {
+                "course07-unit01-problem01.1": 3,
             }
         with self.assertNumQueries(1):
-            assert check(object_id_pattern="course07-unit01-problem01,course07-unit02-problem02") == {
-                "course07-unit01-problem01": 3,
-                "course07-unit02-problem02": 2,
+            assert check(object_id_pattern="course07-unit01-problem01.1,course07-unit02-problem02.2") == {
+                "course07-unit01-problem01.1": 3,
+                "course07-unit02-problem02.2": 2,
             }
 
     def test_get_counts_invalid_spec(self):
