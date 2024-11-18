@@ -1022,7 +1022,10 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         ("staff", "taxonomy", {"enabled": False}, ["Fungi"], status.HTTP_403_FORBIDDEN, "abc.xyz"),
         # If allow_multiple=True, multiple tags can be added, but not if it's false:
         ("user_1", "taxonomy", {"allow_multiple": True}, ["Mammalia", "Fungi"], status.HTTP_200_OK, "abc.xyz"),
-        ("user_1", "taxonomy", {"allow_multiple": False}, ["Mammalia", "Fungi"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
+        (
+            "user_1", "taxonomy", {"allow_multiple": False},
+            ["Mammalia", "Fungi"], status.HTTP_400_BAD_REQUEST, "abc.xyz"
+        ),
         # user_1s and staff can add tags using an open taxonomy
         (None, "free_text_taxonomy", {}, ["tag1"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
         ("user_1", "free_text_taxonomy", {}, ["tag1", "tag2"], status.HTTP_200_OK, "abc"),
