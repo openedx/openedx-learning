@@ -4,7 +4,7 @@
 #
 #    make upgrade
 #
-amqp==5.2.0
+amqp==5.3.1
     # via
     #   -r requirements/base.txt
     #   kombu
@@ -56,9 +56,9 @@ click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
-code-annotations==1.8.0
+code-annotations==1.8.1
     # via -r requirements/test.in
-coverage[toml]==7.6.4
+coverage[toml]==7.6.7
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -92,7 +92,7 @@ django-stubs==5.1.1
     #   djangorestframework-stubs
 django-stubs-ext==5.1.1
     # via django-stubs
-django-waffle==4.1.0
+django-waffle==4.2.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
@@ -148,7 +148,7 @@ mypy==1.13.0
     # via -r requirements/test.in
 mypy-extensions==1.0.0
     # via mypy
-mysqlclient==2.2.5
+mysqlclient==2.2.6
     # via -r requirements/test.in
 newrelic==10.2.0
     # via
@@ -174,7 +174,7 @@ pycparser==2.22
     # via
     #   -r requirements/base.txt
     #   cffi
-pyjwt[crypto]==2.9.0
+pyjwt[crypto]==2.10.0
     # via
     #   -r requirements/base.txt
     #   drf-jwt
@@ -220,7 +220,7 @@ six==1.16.0
     # via
     #   -r requirements/base.txt
     #   python-dateutil
-sqlparse==0.5.1
+sqlparse==0.5.2
     # via
     #   -r requirements/base.txt
     #   django
