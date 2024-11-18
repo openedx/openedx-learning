@@ -8,7 +8,7 @@ accessible-pygments==0.0.5
     # via pydata-sphinx-theme
 alabaster==1.0.0
     # via sphinx
-amqp==5.2.0
+amqp==5.3.1
     # via
     #   -r requirements/test.txt
     #   kombu
@@ -66,9 +66,9 @@ click-repl==0.3.0
     # via
     #   -r requirements/test.txt
     #   celery
-code-annotations==1.8.0
+code-annotations==1.8.1
     # via -r requirements/test.txt
-coverage[toml]==7.6.4
+coverage[toml]==7.6.7
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -106,7 +106,7 @@ django-stubs-ext==5.1.1
     # via
     #   -r requirements/test.txt
     #   django-stubs
-django-waffle==4.1.0
+django-waffle==4.2.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -184,7 +184,7 @@ mypy-extensions==1.0.0
     # via
     #   -r requirements/test.txt
     #   mypy
-mysqlclient==2.2.5
+mysqlclient==2.2.6
     # via -r requirements/test.txt
 newrelic==10.2.0
     # via
@@ -228,7 +228,7 @@ pygments==2.18.0
     #   pydata-sphinx-theme
     #   readme-renderer
     #   sphinx
-pyjwt[crypto]==2.9.0
+pyjwt[crypto]==2.10.0
     # via
     #   -r requirements/test.txt
     #   drf-jwt
@@ -309,7 +309,7 @@ sphinxcontrib-qthelp==2.0.0
     # via sphinx
 sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
-sqlparse==0.5.1
+sqlparse==0.5.2
     # via
     #   -r requirements/test.txt
     #   django

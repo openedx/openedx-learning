@@ -4,7 +4,7 @@
 #
 #    make upgrade
 #
-amqp==5.2.0
+amqp==5.3.1
     # via
     #   -r requirements/quality.txt
     #   kombu
@@ -87,7 +87,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/quality.txt
     #   celery
-code-annotations==1.8.0
+code-annotations==1.8.1
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -95,7 +95,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.6.4
+coverage[toml]==7.6.7
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -146,7 +146,7 @@ django-stubs-ext==5.1.1
     # via
     #   -r requirements/quality.txt
     #   django-stubs
-django-waffle==4.1.0
+django-waffle==4.2.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -251,7 +251,7 @@ lxml[html-clean,html_clean]==5.3.0
     # via
     #   edx-i18n-tools
     #   lxml-html-clean
-lxml-html-clean==0.3.1
+lxml-html-clean==0.4.1
     # via lxml
 markdown-it-py==3.0.0
     # via
@@ -282,7 +282,7 @@ mypy-extensions==1.0.0
     # via
     #   -r requirements/quality.txt
     #   mypy
-mysqlclient==2.2.5
+mysqlclient==2.2.6
     # via -r requirements/quality.txt
 newrelic==10.2.0
     # via
@@ -351,7 +351,7 @@ pygments==2.18.0
     #   diff-cover
     #   readme-renderer
     #   rich
-pyjwt[crypto]==2.9.0
+pyjwt[crypto]==2.10.0
     # via
     #   -r requirements/quality.txt
     #   drf-jwt
@@ -458,7 +458,7 @@ snowballstemmer==2.2.0
     # via
     #   -r requirements/quality.txt
     #   pydocstyle
-sqlparse==0.5.1
+sqlparse==0.5.2
     # via
     #   -r requirements/quality.txt
     #   django
