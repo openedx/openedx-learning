@@ -9,7 +9,7 @@ This ADR proposes a model for containers that can hold different types of conten
 Decisions
 ---------
 
-1. Core Structure and Purpose of Containers
+#. Core Structure and Purpose of Containers
 ===========================================
 
 This section defines the purpose and structure of containers, explaining how they are designed to hold various types of content through a parent-child setup.
@@ -22,7 +22,7 @@ This section defines the purpose and structure of containers, explaining how the
   - Selectors for dynamically selecting 0-N PublishableEntities, i.e. how we're going to do things like SplitTest and Randomized (selectors application, builds on containers).
   - Units (units app, builds on containers and selectors).
 
-2. Container Types and Content Constraints
+#. Container Types and Content Constraints
 ==========================================
 
 This section defines container types, content constraints, hierarchy, and extensibility. It introduces the main types of containers and outlines how content limitations and configurations are handled at the application level to support flexible content structures.
@@ -34,7 +34,7 @@ This section defines container types, content constraints, hierarchy, and extens
 - The course hierarchy Course > Section > Subsection > Unit will be implemented as relationships between containers, with each level acting as a container that holds other content. The hierarchy will be enforced by the content restrictions of each particular container but allowed to be overridden to support `0002-content-flexibility.rst`_.
 - Containers will follow extensibility principles in `0003-content-extensibility.rst`_ for creating new container types or subtypes.
 
-3. Container Members and Relationships
+#. Container Members and Relationships
 =======================================
 
 This section defines container members, their order, and relationships, covering flexible connections and support for draft and published states of their members.
@@ -46,7 +46,7 @@ This section defines container members, their order, and relationships, covering
 - The latest draft or published state of a member can be referenced by setting the version to ``None``.
 - A single member (publishable entity) can be shared by multiple containers, allowing for reuse of content across different containers.
 
-4. Container Version History
+#. Container Version History
 ============================
 
 This section defines the various lists of container's versions (author-defined, initial, and frozen) used  to track the history of changes made to a container, allowing to view past versions and changes over time.
@@ -57,19 +57,17 @@ This section defines the various lists of container's versions (author-defined, 
 - The initial list is a copy of the author-defined list that has all versions pinned as they were at the time the container version was created.
 - The initial list is immutable for a container version.
 - The frozen list refers to the list of members at the time when the next version of the container is created.
-- When creating the author-defined list of a new version with pinned references, then the author-defined list is the same as the initial and frozen list. When creating a new version with unpinned references, then the frozen list starts as `None` and should be updated with the author-defined members pinned when a new version is created.
 - The author-defined list is used to show the content of a container version as the author specified it, the frozen list can be used for discard operations on a draft version and the initial-list is part of the history of evolution of the container.
-- These lists allow history tracking of a container version and revert operations.
 
-5. Next Container Versions
+#. Next Container Versions
 ==================================
 
 This section defines the rules for version control in containers, explaining when new versions are created based on changes to container structure or metadata.
 
 - A new version is created if and only if the container itself changes (e.g., title, ordering of members, adding or removing members) and not when its members change (e.g., a component in a Unit is updated with new text).
-- When a shared member is soft-deleted in a different container, a new container version should be created for all containers referencing it without the member.
+- When a shared member is soft-deleted in a different container, a new container version should be created for all containers referencing it without the member. That new version will be the new draft version of the container.
 
-6. Publishing
+#. Publishing
 =============
 
 This section explains the publishing process for containers, detailing how containers and their members become accessible, either together or independently, based on their publication state.
@@ -77,14 +75,21 @@ This section explains the publishing process for containers, detailing how conta
 - Containers can be published, allowing their content to be accessible from where the container is being used.
 - When a draft container is published, all its draft members are also published.
 - Members of a container can be published independently of the container itself.
-- When a new draft, created for a container when a shared member is soft-deleted, is published then all containers referencing the member will be force-published.
+- When a new draft is created for a container with a shared member that has been soft-deleted, publishing the draft will trigger the publishing of all containers referencing that member.
 - Containers are not affected by the publishing process of its members.
 
-7. Pruning
+#. Pruning
 ==========
 
-WIP
+This section defines the rules for pruning container versions, explaining when a container version can be pruned and the effects of pruning on the container and its members.
 
+- A container version can be pruned if:
+  #. It's not being used by any other container.
+  #. It's not a published version.
+  #. It's not the latest version of the container.
+- In a top-down approach, start with the parent container and work your way down to its members.
+- Members will not be deleted if they are shared by other containers.
+- Pruning a container version will not affect the container's history or the members of other container versions.
 
 .. _0002-content-flexibility.rst: docs/decisions/0002-content-extensibility.rst
 .. _0003-content-extensibility.rst: docs/decisions/0003-content-extensibility.rst
