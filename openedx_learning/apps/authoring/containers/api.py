@@ -157,7 +157,7 @@ def create_defined_list(
     return entity_list
 
 
-def pin_versions_in_entity_list(
+def get_entity_list_with_pinned_versions(
     rows: QuerySet[EntityListRow],
 ) -> EntityList:
     """
@@ -186,6 +186,46 @@ def pin_versions_in_entity_list(
         )
 
     return entity_list
+
+
+def check_unpinned_versions_in_defined_list(
+    defined_list: EntityList,
+) -> bool:
+    """
+    Check if there are any unpinned versions in the defined list.
+
+    Args:
+        defined_list: The defined list to check for unpinned versions.
+
+    Returns:
+        True if there are unpinned versions in the defined list, False otherwise.
+    """
+    # Is there a way to short-circuit this?
+    return any(
+        row.draft_version is None or row.published_version is None
+        for row in defined_list.entitylistrow_set.all()
+    )
+
+
+def check_new_changes_in_defined_list(
+    entity_list: EntityList,
+    publishable_entities_pk: list[int],
+) -> bool:
+    """
+    Check if there are any new changes in the defined list.
+
+    Args:
+        entity_list: The entity list to check for new changes.
+        publishable_entities: The publishable entities to check for new changes.
+
+    Returns:
+        True if there are new changes in the defined list, False otherwise.
+    """
+    # Is there a way to short-circuit this? Using queryset operations
+    return any(
+        row.entity.pk not in publishable_entities_pk
+        for row in entity_list.entitylistrow_set.all()
+    )
 
 
 def create_container_version(
@@ -281,23 +321,51 @@ def create_next_container_version(
             created=created,
             created_by=created_by,
         )
-        # 1. Pin versions in previous frozen list for last container version
-        # 2. Create new defined list for author changes
-        next_defined_list = create_next_defined_list(
-            previous_entity_list=last_version.defined_list,
-            new_entity_list=create_entity_list(),
-            entity_pks=publishable_entities_pk,
-            draft_version_pks=draft_version_pks,
-            published_version_pks=published_version_pks,
-        )
-        # 3. Check for unpinned references in defined_list to determine if frozen_list should be None
-        # 4. Point frozen_list to None or defined_list
+        # 1. Check if there are any changes in the container's members
+        # 2. Pin versions in previous frozen list for last container version
+        # 3. Create new defined list for author changes
+        # 4. Pin versions in defined list to create initial list
+        # 5. Check for unpinned references in defined_list to determine if frozen_list should be None
+        # 6. Point frozen_list to None or defined_list
+        if check_new_changes_in_defined_list(
+            entity_list=last_version.defined_list,
+            publishable_entities_pk=publishable_entities_pk,
+        ):
+            # Only change if there are unpin versions in defined list, meaning last frozen list is None
+            # When does this has to happen? Before?
+            if not last_version.frozen_list:
+                last_version.frozen_list = get_entity_list_with_pinned_versions(
+                    rows=last_version.defined_list.entitylistrow_set.all()
+                )
+                last_version.save()
+            next_defined_list = create_next_defined_list(
+                previous_entity_list=last_version.defined_list,
+                new_entity_list=create_entity_list(),
+                entity_pks=publishable_entities_pk,
+                draft_version_pks=draft_version_pks,
+                published_version_pks=published_version_pks,
+            )
+            next_initial_list = get_entity_list_with_pinned_versions(
+                rows=next_defined_list.frozen_list.entitylistrow_set.all()
+            )
+            if check_unpinned_versions_in_defined_list(next_defined_list):
+                next_frozen_list = None
+            else:
+                next_frozen_list = next_initial_list
+        else:
+            # Do I need to create new EntityList and copy rows?
+            # I do think so because frozen can change when creating a new version
+            # Does it need to change though?
+            # What would happen if I only change the title?
+            next_defined_list = last_version.defined_list
+            next_initial_list = last_version.initial_list
+            next_frozen_list = last_version.frozen_list
         next_container_version = ContainerEntityVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container_pk,
             defined_list=next_defined_list,
-            initial_list=next_defined_list,
-            frozen_list=None,
+            initial_list=next_initial_list,
+            frozen_list=next_frozen_list,
         )
 
     return next_container_version
