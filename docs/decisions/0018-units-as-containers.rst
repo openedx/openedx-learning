@@ -13,14 +13,14 @@ All decisions from `0017-generalized-containers.rst`_ are still valid but are wr
 
 .. _`0017-generalized-containers.rst`: 0017-generalized-containers.rst
 
-#. Units as Containers
+1. Units as Containers
 =======================
 
 - A unit is a concrete type of container that holds components.
 - A unit is a container, making it also a publishable entity.
 - A Django application, which builds on the container application definitions, will an API and enough definitions for other unit subtypes to use.
 
-#. Unit Types and Content Constraints
+2. Unit Types and Content Constraints
 ======================================
 
 - Units can only hold components as their members but will not enforce this restriction at the model level.
@@ -28,7 +28,7 @@ All decisions from `0017-generalized-containers.rst`_ are still valid but are wr
 - Content restrictions for units are implemented at the app layer, allowing units to limit their members to only components.
 - Unit subtypes can be created by following the extensibility principles in `0003-content-extensibility.rst`_.
 
-#. Unit Members and Relationships
+3. Unit Members and Relationships
 ==================================
 
 - The members of a unit can only be components.
@@ -38,7 +38,7 @@ All decisions from `0017-generalized-containers.rst`_ are still valid but are wr
 - The latest draft or publish version of a component can be set by using `None` in thr parent-child relationship between units-components.
 - A single component can be reference by multiple units.
 
-#. Unit Version History
+4. Unit Version History
 ============================
 
 - Each unit version holds different list of components to support rollback operations and history tracking.
@@ -51,13 +51,13 @@ All decisions from `0017-generalized-containers.rst`_ are still valid but are wr
 - The author-defined list is used to show the content of a unit version as the author specified it, the frozen list can be used for discard operations on a draft version and the initial-list is part of the history of evolution of the unit.
 - These lists allow history tracking of a unit version and revert operations.
 
-#. Next Unit Versions
+5. Next Unit Versions
 ======================
 
 - A new version is created if and only if the unit itself changes (e.g., title, ordering of components, adding or removing components) and not when its components change (e.g., a component in a Unit is updated with new text).
 - When a shared component is soft-deleted in a different unit, a new unit version should be created for all containers referencing it without the component.
 
-#. Publishing
+6. Publishing
 ==============
 
 - Units can be published, allowing their content to be accessible from where the unit is being used.
@@ -66,7 +66,7 @@ All decisions from `0017-generalized-containers.rst`_ are still valid but are wr
 - When a new draft, created for a unit when a shared component is soft-deleted, is published then all units referencing the component will be force-published.
 - Units are not affected by the publishing process of its components.
 
-#. Pruning
+7. Pruning
 ===========
 
 - A unit version can be pruned if:
