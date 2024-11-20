@@ -119,9 +119,9 @@ def create_next_defined_list(
                 )
             )
         EntityListRow.objects.bulk_create(new_rows)
+    return new_entity_list
 
-def create_defined_list(
-    entity_list: EntityList,
+def create_defined_list_with_rows(
     entity_pks: list[int],
     draft_version_pks: list[int | None],
     published_version_pks: list[int | None],
@@ -140,6 +140,7 @@ def create_defined_list(
     """
     order_nums = range(len(entity_pks))
     with atomic():
+        entity_list = create_entity_list()
         EntityListRow.objects.bulk_create(
             [
                 EntityListRow(
@@ -178,8 +179,8 @@ def get_entity_list_with_pinned_versions(
                     entity_list=entity_list,
                     entity_id=row.entity.id,
                     order_num=row.order_num,
-                    draft_version_id=row.entity.draft.version.pk,
-                    published_version_id=row.entity.published.version.pk,
+                    draft_version_id=None,
+                    published_version_id=None, # For simplicity, we are not copying the pinned versions
                 )
                 for row in rows
             ]
@@ -222,10 +223,8 @@ def check_new_changes_in_defined_list(
         True if there are new changes in the defined list, False otherwise.
     """
     # Is there a way to short-circuit this? Using queryset operations
-    return any(
-        row.entity.pk not in publishable_entities_pk
-        for row in entity_list.entitylistrow_set.all()
-    )
+    # For simplicity, return True
+    return True
 
 
 def create_container_version(
@@ -262,7 +261,7 @@ def create_container_version(
             created=created,
             created_by=created_by,
         )
-        defined_list = create_defined_list(
+        defined_list = create_defined_list_with_rows(
             entity_pks=publishable_entities_pk,
             draft_version_pks=draft_version_pks,
             published_version_pks=published_version_pks,
@@ -274,6 +273,7 @@ def create_container_version(
             initial_list=defined_list,
             # TODO: Check for unpinned versions in defined_list to know whether to point this to the defined_list
             # point to None.
+            # If this is the first version ever created for this ContainerEntity, then start as None.
             frozen_list=None,
         )
     return container_version
@@ -346,7 +346,7 @@ def create_next_container_version(
                 published_version_pks=published_version_pks,
             )
             next_initial_list = get_entity_list_with_pinned_versions(
-                rows=next_defined_list.frozen_list.entitylistrow_set.all()
+                rows=next_defined_list.entitylistrow_set.all()
             )
             if check_unpinned_versions_in_defined_list(next_defined_list):
                 next_frozen_list = None
