@@ -58,7 +58,7 @@ def create_unit_version(
     draft_version_pks: list[int | None],
     published_version_pks: list[int | None],
     created: datetime,
-    created_by: int | None,
+    created_by: int | None = None,
 ) -> Unit:
     """Create a new unit version.
 
@@ -98,7 +98,7 @@ def create_next_unit_version(
     draft_version_pks: list[int | None],
     published_version_pks: list[int | None],
     created: datetime,
-    created_by: int | None,
+    created_by: int | None = None,
 ) -> Unit:
     """Create the next unit version.
 
@@ -134,11 +134,11 @@ def create_next_unit_version(
 def create_unit_and_version(
     learning_package_id: int,
     key: str,
-    created: datetime,
-    created_by: int | None,
     title: str,
+    created: datetime,
+    created_by: int | None = None,
 ) -> tuple[Unit, UnitVersion]:
-    """Create a new unit and version.
+    """Create a new unit and its version.
 
     Args:
         learning_package_id: The learning package ID.
@@ -152,6 +152,8 @@ def create_unit_and_version(
             unit,
             1,
             title,
+            [],
+            [],
             [],
             created,
             created_by,
@@ -193,7 +195,7 @@ def get_user_defined_list_in_unit_version(unit_version_pk: int) -> QuerySet[Enti
         unit_version_pk: The unit version ID.
     """
     unit_version = UnitVersion.objects.get(pk=unit_version_pk)
-    return container_api.get_defined_list_for_container_version(unit_version.container_entity_version)
+    return container_api.get_defined_list_rows_for_container_version(unit_version.container_entity_version)
 
 
 def get_initial_list_in_unit_version(unit_version_pk: int) -> list[int]:
@@ -203,7 +205,7 @@ def get_initial_list_in_unit_version(unit_version_pk: int) -> list[int]:
         unit_version_pk: The unit version ID.
     """
     unit_version = UnitVersion.objects.get(pk=unit_version_pk)
-    return container_api.get_initial_list_for_container_version(unit_version.container_entity_version)
+    return container_api.get_initial_list_rows_for_container_version(unit_version.container_entity_version)
 
 
 def get_frozen_list_in_unit_version(unit_version_pk: int) -> list[int]:
@@ -213,4 +215,4 @@ def get_frozen_list_in_unit_version(unit_version_pk: int) -> list[int]:
         unit_version_pk: The unit version ID.
     """
     unit_version = UnitVersion.objects.get(pk=unit_version_pk)
-    return container_api.get_frozen_list_for_container_version(unit_version.container_entity_version)
+    return container_api.get_frozen_list_rows_for_container_version(unit_version.container_entity_version)
