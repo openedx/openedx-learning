@@ -59,11 +59,11 @@ This section defines the various lists of container's versions (author-defined, 
 - The frozen list refers to the list of members at the time when the next version of the container is created.
 - The author-defined list is used to show the content of a container version as the author specified it, the frozen list can be used for discard operations on a draft version and the initial-list is part of the history of evolution of the container.
 
-Let's say a course author creates a unit with three components, all using floating versions. Each component's latest version is V1. The author-defined list would include these three components, ordered as the author decided. The initial list would have the components pinned to V1, while the frozen list would be empty until we create the next version for the container.
+Let's say a course author creates a unit version with three components, all using floating versions. Each component's latest version is V1. The author-defined list would include these three components, ordered as the author decided. The initial list would have the components pinned to V1 since that's the components' versions for this moment in time, while the frozen list would be empty until we create the next version for the unit.
 
 Now, when the author creates a new version of the unit, for example, V2, we need to store the latest state of the container in the frozen list. This means pinning the latest versions of the components at that time, let's say V1, V2, and V3, respectively.
 
-Next, imagine the course author creates a new unit but uses pinned references for the components instead of floating versions, as they don't want to use the latest updates. In this case, the author-defined list, initial list, and frozen list would all be the same, as the component versions remain fixed. If we were to use different pinned versions, then a new unit version would be created instead.
+Next, imagine the course author creates a another unit version but uses pinned references for the components instead of floating versions, as they don't want to use the latest updates. In this case, the author-defined list, initial list, and frozen list would all be the same, as the component versions remain fixed. If we were to use different pinned versions, then a new unit version would be created instead.
 
 5. Next Container Versions
 ==================================
