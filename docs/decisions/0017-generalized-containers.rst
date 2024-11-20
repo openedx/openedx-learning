@@ -96,6 +96,6 @@ This section defines the rules for pruning container versions, explaining when a
 - In a top-down approach, start the deletion process with the parent container and work your way down to its members. E.g., when pruning Section V2 > Subsection V1 > Unit V3, the deletion process starts in the greater container working its way down to the smaller.
 - Pruning a container version will not affect the container's history or the members of other container versions, so containers will not be deleted if they are shared by other containers.
 
-.. _0002-content-flexibility.rst: docs/decisions/0002-content-extensibility.rst
+.. _0002-content-flexibility.rst: docs/decisions/0002-content-flexibility.rst
 .. _0003-content-extensibility.rst: docs/decisions/0003-content-extensibility.rst
 .. _PublishableEntity: https://github.com/openedx/openedx-learning/blob/main/openedx_learning/apps/authoring/publishing/models.py#L100-L184
