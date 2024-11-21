@@ -450,6 +450,7 @@ class ObjectTagView(
     minimal_serializer_class = ObjectTagMinimalSerializer
     permission_classes = [ObjectTagObjectPermissions]
     lookup_field = "object_id"
+    lookup_value_regex = r'[\w\.\+\-@:]+'
 
     def get_queryset(self) -> models.QuerySet:
         """
@@ -619,6 +620,7 @@ class ObjectTagCountsView(
 
     serializer_class = ObjectTagSerializer
     lookup_field = "object_id_pattern"
+    lookup_value_regex = r'[\w\.\+\-@:*,]+'
 
     def retrieve(self, request, *args, **kwargs) -> Response:
         """
