@@ -35,7 +35,7 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==43.0.3
+cryptography==44.0.0
     # via pyjwt
 django==4.2.16
     # via
@@ -72,7 +72,7 @@ idna==3.10
     # via requests
 kombu==5.4.2
     # via celery
-newrelic==10.3.0
+newrelic==10.3.1
     # via edx-django-utils
 pbr==6.1.0
     # via stevedore
@@ -82,7 +82,7 @@ psutil==6.1.0
     # via edx-django-utils
 pycparser==2.22
     # via cffi
-pyjwt[crypto]==2.10.0
+pyjwt[crypto]==2.10.1
     # via
     #   drf-jwt
     #   edx-drf-extensions
