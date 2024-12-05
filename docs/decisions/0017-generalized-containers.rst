@@ -31,8 +31,8 @@ This section defines container types, content constraints, hierarchy, and extens
 - Containers can be nested within other containers, allowing for complex content structures. For example, subsections can contain units.
 - Containers might be of different types, with each type potentially having different restrictions on the type of content it can hold but that will not be enforced by containers.
 - Content restrictions for containers are implemented at the app layer, allowing specific container types, like units, to limit their children to particular content types, e.g., units are restricted to contain only components.
-- The course hierarchy Course > Section > Subsection > Unit will be implemented as relationships between containers, with each level acting as a container that holds other content. The hierarchy will be enforced by the content restrictions of each particular container but allowed to be overridden to support `0002-content-flexibility.rst`_.
-- Containers will follow extensibility principles in `0003-content-extensibility.rst`_ for creating new container types or subtypes.
+- The course hierarchy Course > Section > Subsection > Unit will be implemented as relationships between containers, with each level acting as a container that holds other content. The hierarchy will be enforced by the content restrictions of each particular container but allowed to be overridden to support `Approach to Content Flexibility <docs/decisions/0002-content-flexibility.rst>`_.
+- Containers will follow extensibility principles in `Content Extensibility Through Model Relations <docs/decisions/0003-content-extensibility.rst>`_ for creating new container types or subtypes.
 
 3. Container Children and Relationships
 =======================================
@@ -76,6 +76,4 @@ This section defines the rules for pruning container versions, explaining when a
 - In a top-down approach, start the deletion process with the parent container and work your way down to its children. E.g., when pruning Section V2 > Subsection V1 > Unit V3, the deletion process starts in the greater container working its way down to the smaller.
 - Pruning a container version will not affect the container's history or the children of other container versions, so containers will not be deleted if they are shared by other containers.
 
-.. _0002-content-flexibility.rst: docs/decisions/0002-content-flexibility.rst
-.. _0003-content-extensibility.rst: docs/decisions/0003-content-extensibility.rst
 .. _PublishableEntity: https://github.com/openedx/openedx-learning/blob/main/openedx_learning/apps/authoring/publishing/models.py#L100-L184
