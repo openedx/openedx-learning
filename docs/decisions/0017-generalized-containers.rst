@@ -16,11 +16,11 @@ This section defines the purpose and structure of containers, explaining how the
 
 - A container is designed as a generalized capability to hold different types of content.
 - A container is a publishable content type that holds other content types through a parent-child relationship. For example, sections, subsections and units.
-- The generalized container capability will have its own Django application as part of the authoring application where other types of containers and content types will build on top of. For instance:
+- The generalized container capability will have its own Django application as part of the authoring application allowing other types of containers and content types will build on top of. For instance:
 
   - Generalized containers (containers app is lowest level of these applications)
-  - Selectors for dynamically selecting 0-N PublishableEntities, i.e. how we're going to do things like SplitTest and Randomized (selectors application, builds on containers).
-  - Units (units app, builds on containers and selectors).
+  - Selectors for dynamically selecting 0-N PublishableEntities, i.e., how we're going to do things like SplitTest and Randomized (a selectors Django application that builds on containers).
+  - Units (units Django application, builds on containers and selectors).
 
 2. Container Types and Content Constraints
 ==========================================
@@ -42,14 +42,13 @@ This section defines container members, their order, and relationships, covering
 - The members of a container can be any type of publishable content. E.g., sections, subsections, units, components, and any other publishable thing. For more details on publishable content, see `PublishableEntity`_.
 - Members within a container are maintained in a specific order as an ordered list. E.g., components within a unit, or units within a subsection, are presented in a specific order.
 - Containers represent their content hierarchy through a structure, like Course > Section > Subsection > Unit > Component, which defines parent-child relationships at each level.
-- Containers support both pinned and unpinned references for its members, allowing members to be pinned to a specific version or set to reference its latest version. For instance, component V1 might be used in a unit instead of its latest version.
-- The latest state of a member can be referenced by setting its version to ``None``, which consists of the standard for a floating version.
+- Containers can reference a specific version of their members or be set to point to their latest versions. For instance, component V1 might be used in a unit instead of its latest version. The latest version of a member can be referenced by setting its version to ``None`` which consists of the chosen standard for this representation.
 - A single member (publishable entity) can be shared by multiple containers, allowing for reuse of content across different containers. For instance, a component can be shared by multiple units.
 
 4. Container Version History
 ============================
 
-This section defines the various lists of container's versions (author-defined, initial, and frozen) used  to track the history of changes made to a container, allowing to view past versions and changes over time.
+This section defines the various lists of container's versions (author-defined, initial, and frozen) used to track the history of changes made to a container, allowing to view past versions and changes over time.
 
 - Each container version holds different lists of members (author-defined, initial, and frozen) to support rollback operations and history tracking for the container.
 - The author-defined list is the list of members that the author has defined for the version of the container.
@@ -66,7 +65,7 @@ Now, when the author creates a new version of the unit, for example, V2, we need
 Next, imagine the course author creates a another unit version but uses pinned references for the components instead of floating versions, as they don't want to use the latest updates. In this case, the author-defined list, initial list, and frozen list would all be the same, as the component versions remain fixed. If we were to use different pinned versions, then a new unit version would be created instead.
 
 5. Next Container Versions
-==================================
+==========================
 
 This section defines the rules for version control in containers, explaining when new versions are created based on changes to container structure or metadata.
 
@@ -89,10 +88,7 @@ This section explains the publishing process for containers, detailing how conta
 
 This section defines the rules for pruning container versions, explaining when a container version can be pruned and the effects of pruning on the container and its members.
 
-- A container version can be pruned if:
-  #. It's not being used by any other container.
-  #. It's not a published version.
-  #. It's not the latest version of the container.
+- A container version can be pruned if it's not being used by any other container, it's not a published version and it's not the latest version of the container.
 - In a top-down approach, start the deletion process with the parent container and work your way down to its members. E.g., when pruning Section V2 > Subsection V1 > Unit V3, the deletion process starts in the greater container working its way down to the smaller.
 - Pruning a container version will not affect the container's history or the members of other container versions, so containers will not be deleted if they are shared by other containers.
 
