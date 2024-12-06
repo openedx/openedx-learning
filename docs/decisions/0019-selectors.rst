@@ -1,4 +1,4 @@
-Selectors for Dynamically Selecting Content
+19. Selectors for Dynamically Selecting Content
 ===========================================
 
 Context
@@ -27,7 +27,7 @@ This section explains the concepts and behaviors used to build dynamic selection
 
 This section describes how different types of selectors work and how they handle the selection of dynamic content.
 
-- A selector can be of any type, which means it can implement any method to select members from a pool. Therefore, selectors will follow extensibility principles in `0003-content-extensibility.rst`_ for creating new selector types.
+- A selector can be of any type, which means it can implement any method to select members from a pool. Therefore, selectors will follow extensibility principles in `0003-content-extensibility.rst <0003-content-extensibility.rst>`_ for creating new selector types.
 - Selection versions encode the rules and holds useful details for the selection process like: where to get members from, number of items to select, and other criteria. For instance, for the "select 5 components out of this pool of 20 components" its selector version would encode where to get the 20 components, how many to get for each user and any other detail needed to create the specific variants.
 - Depending on the size of the pool of members, variants can be generated at publishing time or on-demand. This behavior should be determined by the selector version based on high vs low permutation scenarios.
 - A compositor is responsible for populating the variants but will not be implemented as part of the selector application which belongs to the authoring app.
@@ -37,4 +37,3 @@ This section describes how different types of selectors work and how they handle
 
 A new version of a selector is created whenever the pool of concent changes by adding, removing or reordering existing members.
 
-.. _0003-content-extensibility.rst: docs/decisions/0003-content-extensibility.rst
