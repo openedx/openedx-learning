@@ -37,7 +37,7 @@ click-repl==0.3.0
     # via celery
 cryptography==44.0.0
     # via pyjwt
-django==4.2.16
+django==4.2.17
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/base.in
@@ -62,7 +62,7 @@ dnspython==2.7.0
     # via pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==7.0.1
+edx-django-utils==7.1.0
     # via edx-drf-extensions
 edx-drf-extensions==10.5.0
     # via -r requirements/base.in
@@ -98,7 +98,7 @@ rules==3.5
     # via -r requirements/base.in
 semantic-version==2.10.0
     # via edx-drf-extensions
-six==1.16.0
+six==1.17.0
     # via python-dateutil
 sqlparse==0.5.2
     # via django
