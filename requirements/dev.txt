@@ -13,7 +13,7 @@ asgiref==3.8.1
     #   -r requirements/quality.txt
     #   django
     #   django-stubs
-astroid==3.3.5
+astroid==3.3.6
     # via
     #   -r requirements/quality.txt
     #   pylint
@@ -95,7 +95,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.6.8
+coverage[toml]==7.6.9
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -116,7 +116,7 @@ distlib==0.3.9
     # via
     #   -r requirements/ci.txt
     #   virtualenv
-django==4.2.16
+django==4.2.17
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/quality.txt
@@ -170,7 +170,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-edx-django-utils==7.0.1
+edx-django-utils==7.1.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
@@ -309,7 +309,7 @@ pbr==6.1.0
     #   stevedore
 pip-tools==7.4.1
     # via -r requirements/pip-tools.txt
-pkginfo==1.11.2
+pkginfo==1.12.0
     # via
     #   -r requirements/quality.txt
     #   twine
@@ -449,7 +449,7 @@ semantic-version==2.10.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-six==1.16.0
+six==1.17.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
