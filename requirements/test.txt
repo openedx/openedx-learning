@@ -21,7 +21,7 @@ billiard==4.2.1
     #   celery
 celery==5.4.0
     # via -r requirements/base.txt
-certifi==2024.8.30
+certifi==2024.12.14
     # via
     #   -r requirements/base.txt
     #   requests
@@ -56,7 +56,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
-code-annotations==2.0.0
+code-annotations==2.1.0
     # via -r requirements/test.in
 coverage[toml]==7.6.9
     # via
@@ -102,7 +102,7 @@ djangorestframework==3.15.2
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.15.1
+djangorestframework-stubs==3.15.2
     # via -r requirements/test.in
 dnspython==2.7.0
     # via
@@ -150,7 +150,7 @@ mypy-extensions==1.0.0
     # via mypy
 mysqlclient==2.2.6
     # via -r requirements/test.in
-newrelic==10.3.1
+newrelic==10.4.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
@@ -220,7 +220,7 @@ six==1.17.0
     # via
     #   -r requirements/base.txt
     #   python-dateutil
-sqlparse==0.5.2
+sqlparse==0.5.3
     # via
     #   -r requirements/base.txt
     #   django
