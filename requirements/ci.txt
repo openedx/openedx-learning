@@ -8,7 +8,7 @@ cachetools==5.5.0
     # via tox
 chardet==5.2.0
     # via tox
-click==8.1.7
+click==8.1.8
     # via import-linter
 colorama==0.4.6
     # via tox

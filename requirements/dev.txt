@@ -13,12 +13,12 @@ asgiref==3.8.1
     #   -r requirements/quality.txt
     #   django
     #   django-stubs
-astroid==3.3.6
+astroid==3.3.7
     # via
     #   -r requirements/quality.txt
     #   pylint
     #   pylint-celery
-attrs==24.2.0
+attrs==24.3.0
     # via -r requirements/quality.txt
 backports-tarfile==1.2.0
     # via
@@ -56,7 +56,7 @@ charset-normalizer==3.4.0
     # via
     #   -r requirements/quality.txt
     #   requests
-click==8.1.7
+click==8.1.8
     # via
     #   -r requirements/ci.txt
     #   -r requirements/pip-tools.txt
@@ -233,7 +233,7 @@ jeepney==0.8.0
     #   -r requirements/quality.txt
     #   keyring
     #   secretstorage
-jinja2==3.1.4
+jinja2==3.1.5
     # via
     #   -r requirements/quality.txt
     #   code-annotations
@@ -275,7 +275,7 @@ more-itertools==10.5.0
     #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.13.0
+mypy==1.14.0
     # via -r requirements/quality.txt
 mypy-extensions==1.0.0
     # via
@@ -287,7 +287,7 @@ newrelic==10.4.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
-nh3==0.2.19
+nh3==0.2.20
     # via
     #   -r requirements/quality.txt
     #   readme-renderer
@@ -333,7 +333,7 @@ prompt-toolkit==3.0.48
     # via
     #   -r requirements/quality.txt
     #   click-repl
-psutil==6.1.0
+psutil==6.1.1
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -481,7 +481,7 @@ tox==4.23.2
     # via -r requirements/ci.txt
 twine==6.0.1
     # via -r requirements/quality.txt
-types-pyyaml==6.0.12.20240917
+types-pyyaml==6.0.12.20241221
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -506,7 +506,7 @@ tzdata==2024.2
     #   -r requirements/quality.txt
     #   celery
     #   kombu
-urllib3==2.2.3
+urllib3==2.3.0
     # via
     #   -r requirements/quality.txt
     #   requests
