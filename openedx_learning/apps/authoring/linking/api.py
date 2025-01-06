@@ -1,0 +1,103 @@
+"""
+Linking API (warning: UNSTABLE, in progress API)
+
+Please look at the models.py file for more information about the kinds of data
+are stored in this app.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from django.db.models import QuerySet
+
+from ..components.models import Component
+from .models import CourseLinksStatus, CourseLinksStatusChoices, PublishableEntityLink
+
+__all__ = [
+    "delete_entity_link",
+    "get_entity_links",
+    "get_or_create_course_link_status",
+    "update_or_create_entity_link",
+]
+
+
+def get_or_create_course_link_status(context_key: str, created: datetime | None = None) -> CourseLinksStatus:
+    """
+    Get or create course link status row from CourseLinksStatus table for given course key.
+
+    Args:
+        context_key: Course key
+
+    Returns:
+        CourseLinksStatus object
+    """
+    if not created:
+        created = datetime.now(tz=timezone.utc)
+    status, _ = CourseLinksStatus.objects.get_or_create(
+        context_key=context_key,
+        defaults={
+            "status": CourseLinksStatusChoices.PENDING,
+            "created": created,
+            "updated": created,
+        }
+    )
+    return status
+
+
+def get_entity_links(filters: dict[str, Any]) -> QuerySet[PublishableEntityLink]:
+    """
+    Get entity links based on passed filters.
+    """
+    return PublishableEntityLink.objects.filter(**filters)
+
+
+def update_or_create_entity_link(
+    upstream_block: Component,
+    /,
+    upstream_usage_key: str,
+    downstream_usage_key: str,
+    downstream_context_key: str,
+    downstream_context_title: str,
+    version_synced: int,
+    version_declined: int | None = None,
+    created: datetime | None = None,
+) -> PublishableEntityLink:
+    """
+    Update or create entity link. This will only update `updated` field if something has changed.
+    """
+    if not created:
+        created = datetime.now(tz=timezone.utc)
+    new_values = {
+        "upstream_block": upstream_block.publishable_entity,
+        "upstream_usage_key": upstream_usage_key,
+        "upstream_context_key": upstream_block.learning_package.key,
+        "downstream_usage_key": downstream_usage_key,
+        "downstream_context_key": downstream_context_key,
+        "downstream_context_title": downstream_context_title,
+        "version_synced": version_synced,
+        "version_declined": version_declined,
+    }
+    try:
+        link = PublishableEntityLink.objects.get(downstream_usage_key=downstream_usage_key)
+        has_changes = False
+        for key, value in new_values.items():
+            prev = getattr(link, key)
+            # None != None is True, so we need to check for it specially
+            if prev != value and ~(prev is None and value is None):
+                has_changes = True
+                setattr(link, key, value)
+        if has_changes:
+            link.updated = created
+            link.save()
+    except PublishableEntityLink.DoesNotExist:
+        link = PublishableEntityLink(**new_values)
+        link.created = created
+        link.updated = created
+        link.save()
+    return link
+
+
+def delete_entity_link(downstream_usage_key: str):
+    """Detele upstream->downstream entity link from database"""
+    PublishableEntityLink.objects.filter(downstream_usage_key=downstream_usage_key).delete()
