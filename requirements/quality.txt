@@ -202,7 +202,7 @@ more-itertools==10.5.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.14.0
+mypy==1.14.1
     # via -r requirements/test.txt
 mypy-extensions==1.0.0
     # via
@@ -249,7 +249,7 @@ pycparser==2.22
     #   cffi
 pydocstyle==6.3.0
     # via -r requirements/quality.in
-pygments==2.18.0
+pygments==2.19.0
     # via
     #   readme-renderer
     #   rich
@@ -351,7 +351,7 @@ tomlkit==0.13.2
     # via pylint
 twine==6.0.1
     # via -r requirements/quality.in
-types-pyyaml==6.0.12.20241221
+types-pyyaml==6.0.12.20241230
     # via
     #   -r requirements/test.txt
     #   django-stubs
