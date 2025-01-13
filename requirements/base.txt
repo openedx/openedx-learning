@@ -112,8 +112,10 @@ tzdata==2024.2
     # via
     #   celery
     #   kombu
-urllib3==2.3.0
-    # via requests
+urllib3==2.2.3
+    # via
+    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
+    #   requests
 vine==5.1.0
     # via
     #   amqp

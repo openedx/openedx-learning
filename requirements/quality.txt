@@ -208,7 +208,7 @@ mypy-extensions==1.0.0
     # via
     #   -r requirements/test.txt
     #   mypy
-mysqlclient==2.2.6
+mysqlclient==2.2.7
     # via -r requirements/test.txt
 newrelic==10.4.0
     # via
@@ -249,7 +249,7 @@ pycparser==2.22
     #   cffi
 pydocstyle==6.3.0
     # via -r requirements/quality.in
-pygments==2.19.0
+pygments==2.19.1
     # via
     #   readme-renderer
     #   rich
@@ -375,8 +375,9 @@ tzdata==2024.2
     #   -r requirements/test.txt
     #   celery
     #   kombu
-urllib3==2.3.0
+urllib3==2.2.3
     # via
+    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
     #   requests
     #   twine
