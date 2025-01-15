@@ -11,7 +11,10 @@ from .models import CourseLinksStatus, PublishableEntityLink
 
 @admin.register(PublishableEntityLink)
 class PublishableEntityLinkAdmin(ReadOnlyModelAdmin):
-    fields = [
+    """
+    PublishableEntityLink admin.
+    """
+    fields = (
         "uuid",
         "upstream_block",
         "upstream_usage_key",
@@ -23,7 +26,7 @@ class PublishableEntityLinkAdmin(ReadOnlyModelAdmin):
         "version_declined",
         "created",
         "updated",
-    ]
+    )
     readonly_fields = fields
     list_display = [
         "upstream_block",
@@ -44,6 +47,9 @@ class PublishableEntityLinkAdmin(ReadOnlyModelAdmin):
 
 @admin.register(CourseLinksStatus)
 class CourseLinksStatusAdmin(admin.ModelAdmin):
+    """
+    CourseLinksStatus admin.
+    """
     fields = (
         "context_key",
         "status",

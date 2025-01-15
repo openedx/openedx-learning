@@ -53,7 +53,7 @@ def get_entity_links(filters: dict[str, Any]) -> QuerySet[PublishableEntityLink]
 
 
 def update_or_create_entity_link(
-    upstream_block: Component,
+    upstream_block: Component | None,
     /,
     upstream_usage_key: str,
     downstream_usage_key: str,

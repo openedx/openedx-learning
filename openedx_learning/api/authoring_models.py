@@ -10,6 +10,6 @@ consistent.
 from ..apps.authoring.collections.models import *
 from ..apps.authoring.components.models import *
 from ..apps.authoring.contents.models import *
+from ..apps.authoring.linking.models import *
 from ..apps.authoring.publishing.model_mixins import *
 from ..apps.authoring.publishing.models import *
-from ..apps.authoring.linking.models import *

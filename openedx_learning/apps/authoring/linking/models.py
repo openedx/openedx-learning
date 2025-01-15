@@ -98,6 +98,10 @@ class CourseLinksStatusChoices(models.TextChoices):
 
 
 class CourseLinksStatus(models.Model):
+    """
+    This table stores current processing status of upstream-downstream links in PublishableEntityLink table for a
+    course.
+    """
     context_key = key_field(
         help_text=_("Linking status for downstream/course context key"),
     )
