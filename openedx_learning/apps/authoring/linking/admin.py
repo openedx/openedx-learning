@@ -6,11 +6,11 @@ from django.contrib import admin
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 
-from .models import PublishableEntityLink, CourseLinksStatus
+from .models import CourseLinksStatus, PublishableEntityLink
 
 
 @admin.register(PublishableEntityLink)
-class PublishableEntityLinkAdmin(admin.ModelAdmin):
+class PublishableEntityLinkAdmin(ReadOnlyModelAdmin):
     fields = [
         "uuid",
         "upstream_block",
@@ -51,3 +51,9 @@ class CourseLinksStatusAdmin(admin.ModelAdmin):
         "updated",
     )
     readonly_fields = ("created", "updated")
+    list_display = (
+        "context_key",
+        "status",
+        "created",
+        "updated",
+    )
