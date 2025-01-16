@@ -69,9 +69,11 @@ class Migration(migrations.Migration):
                 (
                     'upstream_context_key',
                     openedx_learning.lib.fields.MultiCollationCharField(
+                        blank=True,
                         db_collations={'mysql': 'utf8mb4_bin', 'sqlite': 'BINARY'},
                         help_text='Upstream context key i.e., learning_package/library key',
                         max_length=500,
+                        null=True,
                     ),
                 ),
                 (

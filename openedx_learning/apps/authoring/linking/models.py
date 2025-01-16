@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 from openedx_learning.lib.fields import (
     case_insensitive_char_field,
+    case_sensitive_char_field,
     immutable_uuid_field,
     key_field,
     manual_date_time_field,
@@ -39,10 +40,13 @@ class PublishableEntityLink(models.Model):
             " and useful to track upstream library blocks that do not exist yet"
         )
     )
-    upstream_context_key = key_field(
+    upstream_context_key = case_sensitive_char_field(
+        max_length=500,
         help_text=_(
             "Upstream context key i.e., learning_package/library key"
-        )
+        ),
+        null=True,
+        blank=True,
     )
     downstream_usage_key = key_field()
     downstream_context_key = key_field()

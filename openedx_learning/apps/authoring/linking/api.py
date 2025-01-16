@@ -69,15 +69,18 @@ def update_or_create_entity_link(
     if not created:
         created = datetime.now(tz=timezone.utc)
     new_values = {
-        "upstream_block": upstream_block.publishable_entity,
         "upstream_usage_key": upstream_usage_key,
-        "upstream_context_key": upstream_block.learning_package.key,
         "downstream_usage_key": downstream_usage_key,
         "downstream_context_key": downstream_context_key,
         "downstream_context_title": downstream_context_title,
         "version_synced": version_synced,
         "version_declined": version_declined,
     }
+    if upstream_block:
+        new_values.update({
+            "upstream_block": upstream_block.publishable_entity,
+            "upstream_context_key": upstream_block.learning_package.key,
+        })
     try:
         link = PublishableEntityLink.objects.get(downstream_usage_key=downstream_usage_key)
         has_changes = False
