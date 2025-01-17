@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.components.models import Component, ComponentType
 from openedx_learning.apps.authoring.linking import api as linking_api
-from openedx_learning.apps.authoring.linking.models import CourseLinksStatus, PublishableEntityLink
+from openedx_learning.apps.authoring.linking.models import LearningContextLinksStatus, PublishableEntityLink
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
@@ -40,18 +40,18 @@ class EntityLinkingTestCase(TestCase):
             created_by=None,
         )
 
-    def test_get_or_create_course_link_status(self) -> None:
+    def test_get_or_create_learning_context_link_status(self) -> None:
         """
-        Test get_or_create_course_link_status api.
+        Test get_or_create_learning_context_link_status api.
         """
         context_key = "test_context_key"
-        assert not CourseLinksStatus.objects.filter(context_key=context_key).exists()
-        linking_api.get_or_create_course_link_status(context_key)
-        assert CourseLinksStatus.objects.filter(context_key=context_key).exists()
-        assert CourseLinksStatus.objects.filter(context_key=context_key).count() == 1
+        assert not LearningContextLinksStatus.objects.filter(context_key=context_key).exists()
+        linking_api.get_or_create_learning_context_link_status(context_key)
+        assert LearningContextLinksStatus.objects.filter(context_key=context_key).exists()
+        assert LearningContextLinksStatus.objects.filter(context_key=context_key).count() == 1
         # Should not create a new object
-        linking_api.get_or_create_course_link_status(context_key)
-        assert CourseLinksStatus.objects.filter(context_key=context_key).count() == 1
+        linking_api.get_or_create_learning_context_link_status(context_key)
+        assert LearningContextLinksStatus.objects.filter(context_key=context_key).count() == 1
 
     def test_update_or_create_entity_link(self) -> None:
         """
@@ -61,6 +61,7 @@ class EntityLinkingTestCase(TestCase):
         assert not PublishableEntityLink.objects.filter(downstream_usage_key=downstream_usage_key).exists()
         entity_args = {
             "upstream_usage_key": "test_upstream_usage_key",
+            "upstream_context_key": "test_upstream_context_key",
             "downstream_usage_key": downstream_usage_key,
             "downstream_context_key": "test_downstream_context_key",
             "downstream_context_title": "test_downstream_context_key",
@@ -88,6 +89,7 @@ class EntityLinkingTestCase(TestCase):
         downstream_usage_key = "test_downstream_usage_key"
         entity_args = {
             "upstream_usage_key": "test_upstream_usage_key",
+            "upstream_context_key": "test_upstream_context_key",
             "downstream_usage_key": downstream_usage_key,
             "downstream_context_key": "test_downstream_context_key",
             "downstream_context_title": "test_downstream_context_key",

@@ -6,7 +6,6 @@ from django.utils.translation import gettext_lazy as _
 
 from openedx_learning.lib.fields import (
     case_insensitive_char_field,
-    case_sensitive_char_field,
     immutable_uuid_field,
     key_field,
     manual_date_time_field,
@@ -16,8 +15,8 @@ from ..publishing.models import PublishableEntity
 
 __all__ = [
     "PublishableEntityLink",
-    "CourseLinksStatus",
-    "CourseLinksStatusChoices"
+    "LearningContextLinksStatus",
+    "LearningContextLinksStatusChoices"
 ]
 
 
@@ -40,13 +39,10 @@ class PublishableEntityLink(models.Model):
             " and useful to track upstream library blocks that do not exist yet"
         )
     )
-    upstream_context_key = case_sensitive_char_field(
-        max_length=500,
+    upstream_context_key = key_field(
         help_text=_(
             "Upstream context key i.e., learning_package/library key"
         ),
-        null=True,
-        blank=True,
     )
     downstream_usage_key = key_field()
     downstream_context_key = key_field()
@@ -87,13 +83,13 @@ class PublishableEntityLink(models.Model):
                 name="oel_link_ent_idx_up_ctx_key"
             ),
         ]
-        verbose_name = "Publishable Entity Link"
-        verbose_name_plural = "Publishable Entity Links"
+        verbose_name = _("Publishable Entity Link")
+        verbose_name_plural = _("Publishable Entity Links")
 
 
-class CourseLinksStatusChoices(models.TextChoices):
+class LearningContextLinksStatusChoices(models.TextChoices):
     """
-    Enumerates the states that a CourseLinksStatus can be in.
+    Enumerates the states that a LearningContextLinksStatus can be in.
     """
     PENDING = "pending", _("Pending")
     PROCESSING = "processing", _("Processing")
@@ -101,32 +97,32 @@ class CourseLinksStatusChoices(models.TextChoices):
     COMPLETED = "completed", _("Completed")
 
 
-class CourseLinksStatus(models.Model):
+class LearningContextLinksStatus(models.Model):
     """
     This table stores current processing status of upstream-downstream links in PublishableEntityLink table for a
-    course.
+    course or a learning context.
     """
     context_key = key_field(
         help_text=_("Linking status for downstream/course context key"),
     )
     status = models.CharField(
         max_length=20,
-        choices=CourseLinksStatusChoices.choices,
-        help_text=_("Status of links in given course."),
+        choices=LearningContextLinksStatusChoices.choices,
+        help_text=_("Status of links in given learning context/course."),
     )
     created = manual_date_time_field()
     updated = manual_date_time_field()
 
     class Meta:
         constraints = [
-            # Single entry for a course
+            # Single entry for a learning context or course
             models.UniqueConstraint(
                 fields=["context_key"],
                 name="oel_link_ent_status_ctx_key",
             )
         ]
-        verbose_name = "Course Links status"
-        verbose_name_plural = "Course Links status"
+        verbose_name = _("Learning Context Links status")
+        verbose_name_plural = _("Learning Context Links status")
 
     def __str__(self):
         return f"{self.status}|{self.context_key}"

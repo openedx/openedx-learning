@@ -4,6 +4,7 @@ Linking API (warning: UNSTABLE, in progress API)
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -12,35 +13,37 @@ from typing import Any
 from django.db.models import QuerySet
 
 from ..components.models import Component
-from .models import CourseLinksStatus, CourseLinksStatusChoices, PublishableEntityLink
+from .models import LearningContextLinksStatus, LearningContextLinksStatusChoices, PublishableEntityLink
 
 __all__ = [
-    "delete_entity_link",
-    "get_entity_links",
-    "get_or_create_course_link_status",
-    "update_or_create_entity_link",
+    'delete_entity_link',
+    'get_entity_links',
+    'get_or_create_learning_context_link_status',
+    'update_or_create_entity_link',
 ]
 
 
-def get_or_create_course_link_status(context_key: str, created: datetime | None = None) -> CourseLinksStatus:
+def get_or_create_learning_context_link_status(
+    context_key: str, created: datetime | None = None
+) -> LearningContextLinksStatus:
     """
-    Get or create course link status row from CourseLinksStatus table for given course key.
+    Get or create course link status row from LearningContextLinksStatus table for given course key.
 
     Args:
-        context_key: Course key
+        context_key: Learning context or Course key
 
     Returns:
-        CourseLinksStatus object
+        LearningContextLinksStatus object
     """
     if not created:
         created = datetime.now(tz=timezone.utc)
-    status, _ = CourseLinksStatus.objects.get_or_create(
+    status, _ = LearningContextLinksStatus.objects.get_or_create(
         context_key=context_key,
         defaults={
-            "status": CourseLinksStatusChoices.PENDING,
-            "created": created,
-            "updated": created,
-        }
+            'status': LearningContextLinksStatusChoices.PENDING,
+            'created': created,
+            'updated': created,
+        },
     )
     return status
 
@@ -56,6 +59,7 @@ def update_or_create_entity_link(
     upstream_block: Component | None,
     /,
     upstream_usage_key: str,
+    upstream_context_key: str,
     downstream_usage_key: str,
     downstream_context_key: str,
     downstream_context_title: str,
@@ -69,18 +73,20 @@ def update_or_create_entity_link(
     if not created:
         created = datetime.now(tz=timezone.utc)
     new_values = {
-        "upstream_usage_key": upstream_usage_key,
-        "downstream_usage_key": downstream_usage_key,
-        "downstream_context_key": downstream_context_key,
-        "downstream_context_title": downstream_context_title,
-        "version_synced": version_synced,
-        "version_declined": version_declined,
+        'upstream_usage_key': upstream_usage_key,
+        'upstream_context_key': upstream_context_key,
+        'downstream_usage_key': downstream_usage_key,
+        'downstream_context_key': downstream_context_key,
+        'downstream_context_title': downstream_context_title,
+        'version_synced': version_synced,
+        'version_declined': version_declined,
     }
     if upstream_block:
-        new_values.update({
-            "upstream_block": upstream_block.publishable_entity,
-            "upstream_context_key": upstream_block.learning_package.key,
-        })
+        new_values.update(
+            {
+                'upstream_block': upstream_block.publishable_entity,
+            }
+        )
     try:
         link = PublishableEntityLink.objects.get(downstream_usage_key=downstream_usage_key)
         has_changes = False

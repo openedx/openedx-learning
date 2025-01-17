@@ -6,7 +6,7 @@ from django.contrib import admin
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 
-from .models import CourseLinksStatus, PublishableEntityLink
+from .models import LearningContextLinksStatus, PublishableEntityLink
 
 
 @admin.register(PublishableEntityLink)
@@ -45,10 +45,10 @@ class PublishableEntityLinkAdmin(ReadOnlyModelAdmin):
     ]
 
 
-@admin.register(CourseLinksStatus)
-class CourseLinksStatusAdmin(admin.ModelAdmin):
+@admin.register(LearningContextLinksStatus)
+class LearningContextLinksStatusAdmin(admin.ModelAdmin):
     """
-    CourseLinksStatus admin.
+    LearningContextLinksStatus admin.
     """
     fields = (
         "context_key",
