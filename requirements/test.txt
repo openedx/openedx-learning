@@ -56,7 +56,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
-code-annotations==2.1.0
+code-annotations==2.2.0
     # via -r requirements/test.in
 coverage[toml]==7.6.10
     # via
@@ -84,13 +84,13 @@ django-crum==0.7.9
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-django-debug-toolbar==4.4.6
+django-debug-toolbar==5.0.1
     # via -r requirements/test.in
-django-stubs==5.1.1
+django-stubs==5.1.2
     # via
     #   -r requirements/test.in
     #   djangorestframework-stubs
-django-stubs-ext==5.1.1
+django-stubs-ext==5.1.2
     # via django-stubs
 django-waffle==4.2.0
     # via
