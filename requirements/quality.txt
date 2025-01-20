@@ -66,7 +66,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/test.txt
     #   celery
-code-annotations==2.1.0
+code-annotations==2.2.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
@@ -83,7 +83,7 @@ ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.3.9
     # via pylint
-django==4.2.17
+django==4.2.18
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -100,13 +100,13 @@ django-crum==0.7.9
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-django-debug-toolbar==4.4.6
+django-debug-toolbar==5.0.1
     # via -r requirements/test.txt
-django-stubs==5.1.1
+django-stubs==5.1.2
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.1.1
+django-stubs-ext==5.1.2
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -198,7 +198,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mock==5.1.0
     # via -r requirements/test.txt
-more-itertools==10.5.0
+more-itertools==10.6.0
     # via
     #   jaraco-classes
     #   jaraco-functools
