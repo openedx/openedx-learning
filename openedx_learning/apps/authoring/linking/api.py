@@ -20,6 +20,7 @@ __all__ = [
     'get_entity_links',
     'get_or_create_learning_context_link_status',
     'update_or_create_entity_link',
+    'update_learning_context_link_status',
 ]
 
 
@@ -46,6 +47,22 @@ def get_or_create_learning_context_link_status(
         },
     )
     return status
+
+
+def update_learning_context_link_status(
+    context_key: str,
+    status: LearningContextLinksStatusChoices,
+    updated: datetime | None = None
+) -> None:
+    """
+    Updates entity links processing status of given learning context.
+    """
+    if not updated:
+        updated = datetime.now(tz=timezone.utc)
+    LearningContextLinksStatus.objects.filter(context_key=context_key).update(
+        status=status,
+        updated=updated,
+    )
 
 
 def get_entity_links(filters: dict[str, Any]) -> QuerySet[PublishableEntityLink]:
