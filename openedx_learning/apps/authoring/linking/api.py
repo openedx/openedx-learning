@@ -18,6 +18,7 @@ from .models import LearningContextLinksStatus, LearningContextLinksStatusChoice
 __all__ = [
     'delete_entity_link',
     'get_entity_links',
+    'get_entity_links_by_downstream',
     'get_or_create_learning_context_link_status',
     'update_or_create_entity_link',
     'update_learning_context_link_status',
@@ -127,3 +128,16 @@ def update_or_create_entity_link(
 def delete_entity_link(downstream_usage_key: str):
     """Detele upstream->downstream entity link from database"""
     PublishableEntityLink.objects.filter(downstream_usage_key=downstream_usage_key).delete()
+
+
+def get_entity_links_by_downstream(downstream_context_key: str) -> QuerySet[PublishableEntityLink]:
+    """
+    Filter publishable entity links by given downstream_context_key.
+    Returns latest published version number of upstream_block as well.
+    """
+    return PublishableEntityLink.objects.filter(
+        downstream_context_key=downstream_context_key
+    ).select_related(
+        "upstream_block__published__version",
+        "upstream_block__learning_package"
+    )

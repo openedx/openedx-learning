@@ -62,6 +62,19 @@ class PublishableEntityLink(models.Model):
     def __str__(self):
         return f"{self.upstream_usage_key}->{self.downstream_usage_key}"
 
+    @property
+    def upstream_version(self) -> int | None:
+        version_num = None
+        if hasattr(self.upstream_block, 'published'):
+            if hasattr(self.upstream_block.published, 'version'):
+                if hasattr(self.upstream_block.published.version, 'version_num'):
+                    version_num = self.upstream_block.published.version.version_num
+        return version_num
+
+    @property
+    def upstream_context_title(self) -> str:
+        return self.upstream_block.learning_package.title
+
     class Meta:
         constraints = [
             # A downstream entity can only link to single upstream entity

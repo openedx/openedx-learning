@@ -39,6 +39,7 @@ class EntityLinkingTestCase(TestCase):
             created=cls.now,
             created_by=None,
         )
+        publishing_api.publish_all_drafts(cls.learning_package.id)
 
     def test_get_or_create_learning_context_link_status(self) -> None:
         """
@@ -100,3 +101,37 @@ class EntityLinkingTestCase(TestCase):
         assert PublishableEntityLink.objects.filter(downstream_usage_key=downstream_usage_key).exists()
         linking_api.delete_entity_link(downstream_usage_key)
         assert not PublishableEntityLink.objects.filter(downstream_usage_key=downstream_usage_key).exists()
+
+    def test_get_entity_links_by_downstream(self) -> None:
+        """
+        Test get_entity_links_by_downstream api.
+        """
+        downstream_context_key = "course-v1:test-course-1"
+        downstream_context_key_2 = "course-v1:test-course-1"
+        entity_args_1 = {
+            "upstream_usage_key": "u-usage-1",
+            "upstream_context_key": "u-context-1",
+            "downstream_usage_key": "d-usage-1",
+            "downstream_context_key": downstream_context_key,
+            "downstream_context_title": "Course title 1",
+            "version_synced": 1,
+        }
+        entity_args_2 = {
+            "upstream_usage_key": "u-usage-1",
+            "upstream_context_key": "u-context-1",
+            "downstream_usage_key": "d-usage-2",
+            "downstream_context_key": downstream_context_key,
+            "downstream_context_title": "Course title 2",
+            "version_synced": 1,
+        }
+        # Create new links
+        linking_api.update_or_create_entity_link(self.html_component, **entity_args_1)  # type: ignore[arg-type]
+        linking_api.update_or_create_entity_link(self.html_component, **entity_args_2)  # type: ignore[arg-type]
+        entity_args_1["downstream_context_key"] = downstream_context_key_2
+        entity_args_2["downstream_context_key"] = downstream_context_key_2
+        linking_api.update_or_create_entity_link(self.html_component, **entity_args_1)  # type: ignore[arg-type]
+        linking_api.update_or_create_entity_link(self.html_component, **entity_args_2)  # type: ignore[arg-type]
+        with self.assertNumQueries(1):
+            links = linking_api.get_entity_links_by_downstream(downstream_context_key)
+            for link in links:
+                assert link.upstream_version == 1
