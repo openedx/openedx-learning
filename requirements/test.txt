@@ -13,7 +13,7 @@ asgiref==3.8.1
     #   -r requirements/base.txt
     #   django
     #   django-stubs
-attrs==24.3.0
+attrs==25.1.0
     # via -r requirements/base.txt
 billiard==4.2.1
     # via
@@ -162,7 +162,7 @@ pbr==6.1.0
     #   stevedore
 pluggy==1.5.0
     # via pytest
-prompt-toolkit==3.0.48
+prompt-toolkit==3.0.50
     # via
     #   -r requirements/base.txt
     #   click-repl
@@ -249,7 +249,7 @@ typing-extensions==4.12.2
     #   grimp
     #   import-linter
     #   mypy
-tzdata==2024.2
+tzdata==2025.1
     # via
     #   -r requirements/base.txt
     #   celery

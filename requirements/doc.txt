@@ -17,7 +17,7 @@ asgiref==3.8.1
     #   -r requirements/test.txt
     #   django
     #   django-stubs
-attrs==24.3.0
+attrs==25.1.0
     # via -r requirements/test.txt
 babel==2.16.0
     # via
@@ -207,7 +207,7 @@ pluggy==1.5.0
     #   pytest
 pprintpp==0.4.0
     # via sphinxcontrib-django
-prompt-toolkit==3.0.48
+prompt-toolkit==3.0.50
     # via
     #   -r requirements/test.txt
     #   click-repl
@@ -345,7 +345,7 @@ typing-extensions==4.12.2
     #   import-linter
     #   mypy
     #   pydata-sphinx-theme
-tzdata==2024.2
+tzdata==2025.1
     # via
     #   -r requirements/test.txt
     #   celery
