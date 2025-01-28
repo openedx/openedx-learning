@@ -782,8 +782,8 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         The current taxonomy is cached in the view.
         """
         if not self._taxonomy:
-            taxonomy_id = int(self.kwargs["pk"])
-            taxonomy = get_taxonomy(taxonomy_id)
+            taxonomy_id = self.kwargs.get("pk")
+            taxonomy = get_taxonomy(int(taxonomy_id)) if taxonomy_id else None
             if not taxonomy:
                 raise Http404("Taxonomy not found")
             self.check_object_permissions(self.request, taxonomy)
