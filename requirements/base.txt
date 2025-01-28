@@ -8,7 +8,7 @@ amqp==5.3.1
     # via kombu
 asgiref==3.8.1
     # via django
-attrs==24.3.0
+attrs==25.1.0
     # via -r requirements/base.in
 billiard==4.2.1
     # via celery
@@ -76,7 +76,7 @@ newrelic==10.4.0
     # via edx-django-utils
 pbr==6.1.0
     # via stevedore
-prompt-toolkit==3.0.48
+prompt-toolkit==3.0.50
     # via click-repl
 psutil==6.1.1
     # via edx-django-utils
@@ -108,7 +108,7 @@ stevedore==5.4.0
     #   edx-opaque-keys
 typing-extensions==4.12.2
     # via edx-opaque-keys
-tzdata==2024.2
+tzdata==2025.1
     # via
     #   celery
     #   kombu
