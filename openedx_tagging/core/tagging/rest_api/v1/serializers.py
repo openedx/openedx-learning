@@ -157,8 +157,7 @@ class ObjectTagSerializer(ObjectTagMinimalSerializer):
     class Meta:
         model = ObjectTag
         fields = ObjectTagMinimalSerializer.Meta.fields + [
-            # The taxonomy name
-            "name",
+            "export_id",
             "taxonomy_id",
             # If the Tag or Taxonomy has been deleted, this ObjectTag shouldn't be shown to users.
             "is_deleted",

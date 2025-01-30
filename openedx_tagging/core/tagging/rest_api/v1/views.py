@@ -782,8 +782,8 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         The current taxonomy is cached in the view.
         """
         if not self._taxonomy:
-            taxonomy_id = int(self.kwargs["pk"])
-            taxonomy = get_taxonomy(taxonomy_id)
+            taxonomy_id = self.kwargs.get("pk")
+            taxonomy = get_taxonomy(int(taxonomy_id)) if taxonomy_id else None
             if not taxonomy:
                 raise Http404("Taxonomy not found")
             self.check_object_permissions(self.request, taxonomy)
@@ -799,6 +799,9 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         context['request'] = self.request
         serializer = self.serializer_class(self, context=context)
 
+        if getattr(self, 'swagger_fake_view', False):
+            # queryset just for schema generation metadata
+            return context
         # Instead of checking permissions for each TagData instance, we just check them once for the whole taxonomy
         # (since that's currently how our rules work). This might change if Tag-specific permissions are needed.
         taxonomy = self.get_taxonomy()
@@ -814,6 +817,9 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         """
         Builds and returns the queryset to be paginated.
         """
+        if getattr(self, 'swagger_fake_view', False):
+            # queryset just for schema generation metadata
+            return Taxonomy.objects.none()  # type: ignore[return-value]
         taxonomy = self.get_taxonomy()
         parent_tag_value = self.request.query_params.get("parent_tag", None)
         include_counts = "include_counts" in self.request.query_params
