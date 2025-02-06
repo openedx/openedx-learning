@@ -516,3 +516,10 @@ def copy_tags(source_object_id: str, dest_object_id: str):
                 defaults={"is_copied": True},
                 # Note: _value and _export_id are set automatically
             )
+
+
+def unmark_copied_tags(object_id: str) -> None:
+    """
+    Update copied object tags on the given object to mark them as "not copied".
+    """
+    ObjectTag.objects.filter(object_id=object_id).update(is_copied=False)

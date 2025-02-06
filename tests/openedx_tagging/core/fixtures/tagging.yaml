@@ -247,7 +247,7 @@
     name: System defined taxonomy
     description: Generic System defined taxonomy
     enabled: true
-    allow_multiple: false
+    allow_multiple: true
     allow_free_text: false
     export_id: system_defined_taxonomy
     _taxonomy_class: openedx_tagging.core.tagging.models.system_defined.SystemDefinedTaxonomy
