@@ -70,7 +70,7 @@ code-annotations==2.2.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.6.10
+coverage[toml]==7.6.11
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -83,7 +83,7 @@ ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.3.9
     # via pylint
-django==4.2.18
+django==4.2.19
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -102,11 +102,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==5.0.1
     # via -r requirements/test.txt
-django-stubs==5.1.2
+django-stubs==5.1.3
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.1.2
+django-stubs-ext==5.1.3
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -146,7 +146,7 @@ edx-opaque-keys==2.11.0
     #   edx-drf-extensions
 freezegun==1.5.1
     # via -r requirements/test.txt
-grimp==3.5
+grimp==3.6
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -156,7 +156,7 @@ idna==3.10
     # via
     #   -r requirements/test.txt
     #   requests
-import-linter==2.1
+import-linter==2.2
     # via -r requirements/test.txt
 importlib-metadata==8.6.1
     # via keyring
@@ -204,7 +204,7 @@ more-itertools==10.6.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.14.1
+mypy==1.15.0
     # via -r requirements/test.txt
 mypy-extensions==1.0.0
     # via
@@ -212,7 +212,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.7
     # via -r requirements/test.txt
-newrelic==10.5.0
+newrelic==10.6.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -223,7 +223,7 @@ packaging==24.2
     #   -r requirements/test.txt
     #   pytest
     #   twine
-pbr==6.1.0
+pbr==6.1.1
     # via
     #   -r requirements/test.txt
     #   stevedore
@@ -395,3 +395,6 @@ wcwidth==0.2.13
     #   prompt-toolkit
 zipp==3.21.0
     # via importlib-metadata
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools
