@@ -4,18 +4,21 @@ Containers API.
 This module provides a set of functions to interact with the containers
 models in the Open edX Learning platform.
 """
+from dataclasses import dataclass
 
 from django.db.transaction import atomic
 from django.db.models import QuerySet
 
 from datetime import datetime
+
+from openedx_learning.apps.authoring.containers.models_mixin import ContainerEntityMixin, ContainerEntityVersionMixin
 from ..containers.models import (
     ContainerEntity,
     ContainerEntityVersion,
     EntityList,
     EntityListRow,
 )
-from ..publishing.models import PublishableEntity
+from ..publishing.models import PublishableEntity, PublishableEntityVersion
 from ..publishing import api as publishing_api
 
 
@@ -28,6 +31,9 @@ __all__ = [
     "get_defined_list_rows_for_container_version",
     "get_initial_list_rows_for_container_version",
     "get_frozen_list_rows_for_container_version",
+    "ContainerEntityListEntry",
+    "get_entities_in_draft_container",
+    "get_entities_in_published_container",
 ]
 
 
@@ -471,3 +477,64 @@ def get_frozen_list_rows_for_container_version(
     if container_version.frozen_list is None:
         return QuerySet[EntityListRow]()
     return container_version.frozen_list.entitylistrow_set.all()
+
+
+@dataclass(frozen=True)
+class ContainerEntityListEntry:
+    """
+    Data about a single entity in a container, e.g. a component in a unit.
+    """
+    entity_version: PublishableEntityVersion
+    pinned: bool
+
+    @property
+    def entity(self):
+        return self.entity_version.entity
+
+
+def get_entities_in_draft_container(
+    container: ContainerEntity | ContainerEntityMixin,
+) -> list[ContainerEntityListEntry]:
+    """
+    Get the list of entities and their versions in the draft version of the
+    given container.
+    """
+    if isinstance(container, ContainerEntityMixin):
+        container = container.container_entity
+    assert isinstance(container, ContainerEntity)
+    entity_list = []
+    defined_list = container.versioning.draft.defined_list
+    for row in defined_list.entitylistrow_set.order_by("order_num"):
+        entity_list.append(ContainerEntityListEntry(
+            entity_version=row.draft_version or row.entity.draft.version,
+            pinned=row.draft_version is not None,
+        ))
+    return entity_list
+
+
+def get_entities_in_published_container(
+    container: ContainerEntity | ContainerEntityMixin,
+) -> list[ContainerEntityListEntry] | None:
+    """
+    Get the list of entities and their versions in the draft version of the
+    given container.
+    """
+    if isinstance(container, ContainerEntityMixin):
+        cev = container.container_entity.versioning.published
+    elif isinstance(container, ContainerEntity):
+        cev = container.versioning.published
+    if cev == None:
+        return None  # There is no published version of this container. Should this be an exception?
+    assert isinstance(cev, ContainerEntityVersion)
+    # TODO: do we ever need frozen_list? e.g. when accessing a historical version?
+    # Doesn't make a lot of sense when the versions of the container don't capture many of the changes to the contents,
+    # e.g. container version 1 had component version 1 through 50, and container version 2 had component versions 51
+    # through 100, what is the point of tracking whether container version 1 "should" show v1 or v50 when they're wildly
+    # different?
+    entity_list = []
+    for row in cev.defined_list.entitylistrow_set.order_by("order_num"):
+        entity_list.append(ContainerEntityListEntry(
+            entity_version=row.published_version or row.entity.published.version,
+            pinned=row.published_version is not None,
+        ))
+    return entity_list

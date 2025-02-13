@@ -33,13 +33,14 @@ class UnitTestCase(ComponentTestCase):
         2. The unit is not created.
         """
 
-    def test_create_empty_first_unit_and_version(self):
+    def test_create_empty_unit_and_version(self):
         """Test creating a unit with no components.
 
         Expected results:
         1. A unit and unit version are created.
         2. The unit version number is 1.
-        3. The unit version is in the unit's versions.
+        3. The unit is a draft with unpublished changes.
+        4. There is no published version of the unit.
         """
         unit, unit_version = authoring_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
@@ -51,6 +52,9 @@ class UnitTestCase(ComponentTestCase):
         assert unit, unit_version
         assert unit_version.version_num == 1
         assert unit_version in unit.versioning.versions.all()
+        assert unit.versioning.has_unpublished_changes == True
+        assert unit.versioning.draft == unit_version
+        assert unit.versioning.published is None
 
     def test_create_next_unit_version_with_two_components(self):
         """Test creating a unit version with two components.
@@ -84,11 +88,10 @@ class UnitTestCase(ComponentTestCase):
         )
         assert unit_version_v2.version_num == 2
         assert unit_version_v2 in unit.versioning.versions.all()
-        publishable_entities_in_list = [
-            row.entity for row in authoring_api.get_user_defined_list_in_unit_version(unit_version_v2.pk)
+        assert authoring_api.get_components_in_draft_unit(unit) == [
+            authoring_api.UnitListEntry(component_version=self.component_1.versioning.draft, pinned=False),
+            authoring_api.UnitListEntry(component_version=self.component_2.versioning.draft, pinned=False),
         ]
-        assert self.component_1.publishable_entity in publishable_entities_in_list
-        assert self.component_2.publishable_entity in publishable_entities_in_list
 
 
     def test_next_version_with_different_different_title(self):
