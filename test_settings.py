@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "openedx_learning.apps.authoring.components.apps.ComponentsConfig",
     "openedx_learning.apps.authoring.contents.apps.ContentsConfig",
     "openedx_learning.apps.authoring.publishing.apps.PublishingConfig",
+    "openedx_learning.apps.authoring.linking.apps.LinkingConfig",
     "openedx_tagging.core.tagging.apps.TaggingConfig",
 ]
 

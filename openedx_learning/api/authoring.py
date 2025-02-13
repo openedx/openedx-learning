@@ -12,6 +12,7 @@ APIs.
 from ..apps.authoring.collections.api import *
 from ..apps.authoring.components.api import *
 from ..apps.authoring.contents.api import *
+from ..apps.authoring.linking.api import *
 from ..apps.authoring.publishing.api import *
 
 # This was renamed after the authoring API refactoring pushed this and other
