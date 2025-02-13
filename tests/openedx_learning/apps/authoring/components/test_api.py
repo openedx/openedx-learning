@@ -43,6 +43,17 @@ class ComponentTestCase(TestCase):
         cls.problem_type = components_api.get_or_create_component_type("xblock.v1", "problem")
         cls.video_type = components_api.get_or_create_component_type("xblock.v1", "video")
 
+    def publish_component(self, component: Component):
+        """
+        Helper method to publish a single component.
+        """
+        publishing_api.publish_from_drafts(
+            self.learning_package.pk,
+            draft_qset=publishing_api.get_all_drafts(self.learning_package.pk).filter(
+                entity=component.publishable_entity,
+            ),
+        )
+
 
 class PerformanceTestCase(ComponentTestCase):
     """
