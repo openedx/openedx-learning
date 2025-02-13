@@ -2,9 +2,11 @@
 
 This module provides functions to manage units.
 """
+from dataclasses import dataclass
 
 from django.db.transaction import atomic
 
+from openedx_learning.apps.authoring.components.models import ComponentVersion
 from openedx_learning.apps.authoring.containers.models import EntityListRow
 from ..publishing import api as publishing_api
 from ..containers import api as container_api
@@ -25,6 +27,9 @@ __all__ = [
     "get_user_defined_list_in_unit_version",
     "get_initial_list_in_unit_version",
     "get_frozen_list_in_unit_version",
+    "UnitListEntry",
+    "get_components_in_draft_unit",
+    "get_components_in_published_unit",
 ]
 
 
@@ -216,3 +221,50 @@ def get_frozen_list_in_unit_version(unit_version_pk: int) -> list[int]:
     """
     unit_version = UnitVersion.objects.get(pk=unit_version_pk)
     return container_api.get_frozen_list_rows_for_container_version(unit_version.container_entity_version)
+
+
+@dataclass(frozen=True)
+class UnitListEntry:
+    """
+    Data about a single entity in a container, e.g. a component in a unit.
+    """
+    component_version: ComponentVersion
+    pinned: bool
+
+    @property
+    def component(self):
+        return self.component_version.component
+
+
+def get_components_in_draft_unit(
+    unit: Unit,
+) -> list[UnitListEntry]:
+    """
+    Get the list of entities and their versions in the draft version of the
+    given container.
+    """
+    assert isinstance(unit, Unit)
+    entity_list = []
+    for entry in container_api.get_entities_in_draft_container(unit):
+        # Convert from generic PublishableEntityVersion to ComponentVersion:
+        component_version = entry.entity_version.componentversion
+        assert isinstance(component_version, ComponentVersion)
+        entity_list.append(UnitListEntry(component_version=component_version, pinned=entry.pinned))
+    return entity_list
+
+
+def get_components_in_published_unit(
+    unit: Unit | UnitVersion,
+) -> list[UnitListEntry]:
+    """
+    Get the list of entities and their versions in the draft version of the
+    given container.
+    """
+    assert isinstance(unit, (Unit, UnitVersion))
+    entity_list = []
+    for entry in container_api.get_entities_in_published_container(unit):
+        # Convert from generic PublishableEntityVersion to ComponentVersion:
+        component_version = entry.entity_version.componentversion
+        assert isinstance(component_version, ComponentVersion)
+        entity_list.append(UnitListEntry(component_version=component_version, pinned=entry.pinned))
+    return entity_list

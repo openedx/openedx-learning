@@ -8,7 +8,7 @@ from openedx_learning.api import authoring as authoring_api
 class UnitTestCase(ComponentTestCase):
 
     def setUp(self) -> None:
-        self.component_1, self.component_version_1 = authoring_api.create_component_and_version(
+        self.component_1, self.component_1_v1 = authoring_api.create_component_and_version(
             self.learning_package.id,
             component_type=self.problem_type,
             local_key="Query Counting",
@@ -16,7 +16,7 @@ class UnitTestCase(ComponentTestCase):
             created=self.now,
             created_by=None,
         )
-        self.component_2, self.component_version_2 = authoring_api.create_component_and_version(
+        self.component_2, self.component_2_v2 = authoring_api.create_component_and_version(
             self.learning_package.id,
             component_type=self.problem_type,
             local_key="Query Counting (2)",
@@ -33,13 +33,14 @@ class UnitTestCase(ComponentTestCase):
         2. The unit is not created.
         """
 
-    def test_create_empty_first_unit_and_version(self):
+    def test_create_empty_unit_and_version(self):
         """Test creating a unit with no components.
 
         Expected results:
         1. A unit and unit version are created.
         2. The unit version number is 1.
-        3. The unit version is in the unit's versions.
+        3. The unit is a draft with unpublished changes.
+        4. There is no published version of the unit.
         """
         unit, unit_version = authoring_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
@@ -51,6 +52,9 @@ class UnitTestCase(ComponentTestCase):
         assert unit, unit_version
         assert unit_version.version_num == 1
         assert unit_version in unit.versioning.versions.all()
+        assert unit.versioning.has_unpublished_changes == True
+        assert unit.versioning.draft == unit_version
+        assert unit.versioning.published is None
 
     def test_create_next_unit_version_with_two_components(self):
         """Test creating a unit version with two components.
@@ -78,17 +82,129 @@ class UnitTestCase(ComponentTestCase):
                 self.component_2.publishable_entity.id,
             ],
             draft_version_pks=[None, None],
-            published_version_pks=[None, None],
+            published_version_pks=[None, None],  # FIXME: why do we specify this?
             created=self.now,
             created_by=None,
         )
         assert unit_version_v2.version_num == 2
         assert unit_version_v2 in unit.versioning.versions.all()
-        publishable_entities_in_list = [
-            row.entity for row in authoring_api.get_user_defined_list_in_unit_version(unit_version_v2.pk)
+        assert authoring_api.get_components_in_draft_unit(unit) == [
+            authoring_api.UnitListEntry(component_version=self.component_1.versioning.draft, pinned=False),
+            authoring_api.UnitListEntry(component_version=self.component_2.versioning.draft, pinned=False),
         ]
-        assert self.component_1.publishable_entity in publishable_entities_in_list
-        assert self.component_2.publishable_entity in publishable_entities_in_list
+
+    def test_add_component_after_publish(self):
+        """
+        Adding a component to a published unit will create a new version and
+        show that the unit has unpublished changes.
+        """
+        unit, unit_version = authoring_api.create_unit_and_version(
+            learning_package_id=self.learning_package.id,
+            key=f"unit:key",
+            title="Unit",
+            created=self.now,
+            created_by=None,
+        )
+        assert unit.versioning.draft == unit_version
+        assert unit.versioning.published is None
+        assert unit.versioning.has_unpublished_changes == True
+        # Publish the empty unit:
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit.refresh_from_db()  # Reloading the unit is necessary
+        assert unit.versioning.has_unpublished_changes == False
+
+        # Add a published component (unpinned):
+        assert self.component_1.versioning.has_unpublished_changes == False
+        unit_version_v2 = authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            publishable_entities_pks=[
+                self.component_1.publishable_entity.id,
+            ],
+            draft_version_pks=[None],
+            published_version_pks=[None],  # FIXME: why do we specify this?
+            created=self.now,
+            created_by=None,
+        )
+        # Now the unit should have unpublished changes:
+        unit.refresh_from_db()  # Reloading the unit is necessary
+        assert unit.versioning.has_unpublished_changes == True
+        assert unit.versioning.draft == unit_version_v2
+        assert unit.versioning.published == unit_version
+
+    def test_modify_component_after_publish(self):
+        """
+        Modifying a component in a published unit will NOT create a new version
+        nor show that the unit has unpublished changes. The modifications will
+        appear in the published version of the unit only after the component is
+        published.
+        """
+        # Create a unit:
+        unit, unit_version = authoring_api.create_unit_and_version(
+            learning_package_id=self.learning_package.id,
+            key=f"unit:key",
+            title="Unit",
+            created=self.now,
+            created_by=None,
+        )
+        # Add a draft component (unpinned):
+        assert self.component_1.versioning.has_unpublished_changes == True
+        unit_version_v2 = authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            publishable_entities_pks=[
+                self.component_1.publishable_entity.id,
+            ],
+            draft_version_pks=[None],
+            published_version_pks=[None],  # FIXME: why do we specify this?
+            created=self.now,
+            created_by=None,
+        )
+        # Publish the unit and the component:
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit.refresh_from_db()  # Reloading the unit is necessary
+        self.component_1.refresh_from_db()
+        assert unit.versioning.has_unpublished_changes == False
+        assert self.component_1.versioning.has_unpublished_changes == False
+
+        # Now modify the component by changing its title (it remains a draft):
+        component_1_v2 = authoring_api.create_next_component_version(
+            self.component_1.pk,
+            content_to_replace={},
+            title="Modified Counting Problem with new title",
+            created=self.now,
+            created_by=None,
+        )
+
+        # The component now has unpublished changes, but the unit doesn't (⭐️ Is this what we want? ⭐️)
+        unit.refresh_from_db()  # Reloading the unit is necessary
+        self.component_1.refresh_from_db()
+        assert unit.versioning.has_unpublished_changes == False
+        assert self.component_1.versioning.has_unpublished_changes == True
+
+        # Since the component changes haven't been published, they should only appear in the draft unit
+        assert authoring_api.get_components_in_draft_unit(unit) == [
+            authoring_api.UnitListEntry(component_version=component_1_v2, pinned=False),  # new version
+        ]
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            authoring_api.UnitListEntry(component_version=self.component_1_v1, pinned=False),  # old version
+        ]
+
+        # But if we publish the component, the changes will appear in the published version of the unit.
+        self.publish_component(self.component_1)
+        assert authoring_api.get_components_in_draft_unit(unit) == [
+            authoring_api.UnitListEntry(component_version=component_1_v2, pinned=False),  # new version
+        ]
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            authoring_api.UnitListEntry(component_version=component_1_v2, pinned=False),  # new version
+        ]
+
+
+    # Test that only components can be added to units
+    # Test that components must be in the same learning package
+    # Test that _version_pks=[] arguments must be related to publishable_entities_pks
+    # Test that publishing a unit publishes its components
+    # Test viewing old snapshots of units and components by passing in a timestamp to some get_historic_unit() API
 
 
     def test_next_version_with_different_different_title(self):
