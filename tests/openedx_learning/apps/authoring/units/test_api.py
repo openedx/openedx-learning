@@ -205,7 +205,44 @@ class UnitTestCase(ComponentTestCase):
         assert authoring_api.contains_unpublished_changes(unit) == False  # No longer contains unpublished changes
 
 
-    # Test query count of contains_unpublished_changes()
+    def test_query_count_of_contains_unpublished_changes(self):
+        """
+        Checking for unpublished changes in a unit should require a fixed number
+        of queries, not get more expensive as the unit gets larger.
+        """
+        unit, unit_version = authoring_api.create_unit_and_version(
+            learning_package_id=self.learning_package.id,
+            key=f"unit:key",
+            title="Unit",
+            created=self.now,
+            created_by=None,
+        )
+        # Add 100 components (unpinned)
+        component_count = 100
+        publishable_entities_pks = []
+        for i in range(0, component_count):
+            component, _version = authoring_api.create_component_and_version(
+                self.learning_package.id,
+                component_type=self.problem_type,
+                local_key=f"Query Counting {i}",
+                title=f"Querying Counting Problem {i}",
+                created=self.now,
+            )
+            publishable_entities_pks.append(component.publishable_entity_id)
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            publishable_entities_pks=publishable_entities_pks,
+            draft_version_pks=[None] * component_count,
+            published_version_pks=[None] * component_count,  # FIXME: why do we specify this?
+            created=self.now,
+        )
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit.refresh_from_db()
+        with self.assertNumQueries(3):
+            assert authoring_api.contains_unpublished_changes(unit) == False
+
+    # Test that pinned components with changes don't show up as "contains unpublished changes"
     # Test that only components can be added to units
     # Test that components must be in the same learning package
     # Test that _version_pks=[] arguments must be related to publishable_entities_pks

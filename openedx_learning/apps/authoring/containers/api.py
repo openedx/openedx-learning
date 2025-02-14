@@ -551,7 +551,16 @@ def contains_unpublished_changes(
     itself has unpublished changes, not if its contents do.
     """
     if isinstance(container, ContainerEntityMixin):
-        container = container.container_entity
+        # The query below pre-loads the data we need but is otherwise the same thing as:
+        #     container = container.container_entity
+        container = ContainerEntity.objects.select_related(
+            "publishable_entity",
+            "publishable_entity__draft",
+            "publishable_entity__draft__version",
+            "publishable_entity__draft__version__containerentityversion__defined_list",
+        ).get(pk=container.container_entity)
+    else:
+        pass # TODO: select_related if we're given a raw ContainerEntity rather than a ContainerEntityMixin like Unit?
     assert isinstance(container, ContainerEntity)
 
     if container.versioning.has_unpublished_changes:
@@ -563,7 +572,11 @@ def contains_unpublished_changes(
     # TODO: This is a naive inefficient implementation but hopefully correct.
     # Once we know it's correct and have a good test suite, then we can optimize.
     # We will likely change to a tracking-based approach rather than a "scan for changes" based approach.
-    for row in defined_list.entitylistrow_set.filter(draft_version=None):
+    for row in defined_list.entitylistrow_set.filter(draft_version=None).select_related(
+        "entity__containerentity",
+        "entity__draft__version",
+        "entity__published__version",
+    ):
         try:
             child_container = row.entity.containerentity
         except PublishableEntity.containerentity.RelatedObjectDoesNotExist:
