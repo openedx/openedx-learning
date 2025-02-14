@@ -34,6 +34,7 @@ __all__ = [
     "ContainerEntityListEntry",
     "get_entities_in_draft_container",
     "get_entities_in_published_container",
+    "contains_unpublished_changes",
 ]
 
 
@@ -538,3 +539,45 @@ def get_entities_in_published_container(
             pinned=row.published_version is not None,
         ))
     return entity_list
+
+
+def contains_unpublished_changes(
+    container: ContainerEntity | ContainerEntityMixin,
+) -> bool:
+    """
+    Check recursively if a container has any unpublished changes.
+
+    Note: container.versioning.has_unpublished_changes only checks if the container
+    itself has unpublished changes, not if its contents do.
+    """
+    if isinstance(container, ContainerEntityMixin):
+        container = container.container_entity
+    assert isinstance(container, ContainerEntity)
+
+    if container.versioning.has_unpublished_changes:
+        return True
+
+    # We only care about children that are un-pinned, since published changes to pinned children don't matter
+    defined_list = container.versioning.draft.defined_list
+
+    # TODO: This is a naive inefficient implementation but hopefully correct.
+    # Once we know it's correct and have a good test suite, then we can optimize.
+    # We will likely change to a tracking-based approach rather than a "scan for changes" based approach.
+    for row in defined_list.entitylistrow_set.filter(draft_version=None):
+        try:
+            child_container = row.entity.containerentity
+        except PublishableEntity.containerentity.RelatedObjectDoesNotExist:
+            child_container = None
+        if child_container:
+            child_container = row.entity.containerentity
+            # This is itself a container - check recursively:
+            if child_container.versioning.has_unpublished_changes or contains_unpublished_changes(child_container):
+                return True
+        else:
+            # This is not a container:
+            draft_pk = row.entity.draft.version_id if row.entity.draft else None
+            published_pk = row.entity.published.version_id if row.entity.published else None
+            if draft_pk != published_pk:
+                return True
+    
+    return False

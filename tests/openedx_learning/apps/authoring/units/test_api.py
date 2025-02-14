@@ -111,7 +111,8 @@ class UnitTestCase(ComponentTestCase):
         # Publish the empty unit:
         authoring_api.publish_all_drafts(self.learning_package.id)
         unit.refresh_from_db()  # Reloading the unit is necessary
-        assert unit.versioning.has_unpublished_changes == False
+        assert unit.versioning.has_unpublished_changes == False  # Shallow check for just the unit itself, not children
+        assert authoring_api.contains_unpublished_changes(unit) == False  # Deeper check
 
         # Add a published component (unpinned):
         assert self.component_1.versioning.has_unpublished_changes == False
@@ -128,16 +129,17 @@ class UnitTestCase(ComponentTestCase):
         )
         # Now the unit should have unpublished changes:
         unit.refresh_from_db()  # Reloading the unit is necessary
-        assert unit.versioning.has_unpublished_changes == True
+        assert unit.versioning.has_unpublished_changes == True  # Shallow check - adding a child is a change to the unit
+        assert authoring_api.contains_unpublished_changes(unit) == True  # Deeper check
         assert unit.versioning.draft == unit_version_v2
         assert unit.versioning.published == unit_version
 
     def test_modify_component_after_publish(self):
         """
         Modifying a component in a published unit will NOT create a new version
-        nor show that the unit has unpublished changes. The modifications will
-        appear in the published version of the unit only after the component is
-        published.
+        nor show that the unit has unpublished changes (but it will "contain"
+        unpublished changes). The modifications will appear in the published
+        version of the unit only after the component is published.
         """
         # Create a unit:
         unit, unit_version = authoring_api.create_unit_and_version(
@@ -164,7 +166,8 @@ class UnitTestCase(ComponentTestCase):
         authoring_api.publish_all_drafts(self.learning_package.id)
         unit.refresh_from_db()  # Reloading the unit is necessary
         self.component_1.refresh_from_db()
-        assert unit.versioning.has_unpublished_changes == False
+        assert unit.versioning.has_unpublished_changes == False  # Shallow check
+        assert authoring_api.contains_unpublished_changes(unit) == False  # Deeper check
         assert self.component_1.versioning.has_unpublished_changes == False
 
         # Now modify the component by changing its title (it remains a draft):
@@ -176,10 +179,11 @@ class UnitTestCase(ComponentTestCase):
             created_by=None,
         )
 
-        # The component now has unpublished changes, but the unit doesn't (⭐️ Is this what we want? ⭐️)
+        # The component now has unpublished changes; the unit doesn't directly but does contain
         unit.refresh_from_db()  # Reloading the unit is necessary
         self.component_1.refresh_from_db()
-        assert unit.versioning.has_unpublished_changes == False
+        assert unit.versioning.has_unpublished_changes == False  # Shallow check should be false - unit is unchanged
+        assert authoring_api.contains_unpublished_changes(unit) == True  # But unit DOES contain changes
         assert self.component_1.versioning.has_unpublished_changes == True
 
         # Since the component changes haven't been published, they should only appear in the draft unit
@@ -198,13 +202,22 @@ class UnitTestCase(ComponentTestCase):
         assert authoring_api.get_components_in_published_unit(unit) == [
             authoring_api.UnitListEntry(component_version=component_1_v2, pinned=False),  # new version
         ]
+        assert authoring_api.contains_unpublished_changes(unit) == False  # No longer contains unpublished changes
 
 
+    # Test query count of contains_unpublished_changes()
     # Test that only components can be added to units
     # Test that components must be in the same learning package
     # Test that _version_pks=[] arguments must be related to publishable_entities_pks
-    # Test that publishing a unit publishes its components
-    # Test viewing old snapshots of units and components by passing in a timestamp to some get_historic_unit() API
+    # Test that publishing a unit publishes its child components (either automatically or throws an exception if you
+    #     don't request the children be published together with the containeer)
+    # Test that publishing a component does NOT publish changes to its parent unit
+    # Test that I can get a history of a given unit and all its children, including children that aren't currently in
+    #     the unit and excluding children that are only in other units.
+    # Test that I can get a history of a given unit and its children, that includes changes made to the child components
+    #     while they were part of the unit but excludes changes made to those children while they were not part of
+    #     the unit. 🫣
+    # Test viewing old snapshots of units and components by passing in a timestamp to some get_historic_unit() API?
 
 
     def test_next_version_with_different_different_title(self):
