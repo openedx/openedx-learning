@@ -81,8 +81,7 @@ def create_next_defined_list(
     previous_entity_list: EntityList | None,
     new_entity_list: EntityList,
     entity_pks: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
+    entity_version_pks: list[int | None],
 ) -> EntityListRow:
     """
     Create new entity list rows for an entity list.
@@ -91,8 +90,9 @@ def create_next_defined_list(
         previous_entity_list: The previous entity list that the new entity list is based on.
         new_entity_list: The entity list to create the rows for.
         entity_pks: The IDs of the publishable entities that the entity list rows reference.
-        draft_version_pks: The IDs of the draft versions of the entities (PublishableEntityVersion) that the entity list rows reference.
-        published_version_pks: The IDs of the published versions of the entities (PublishableEntityVersion) that the entity list rows reference.
+        entity_version_pks: The IDs of the draft versions of the entities
+            (PublishableEntityVersion) that the entity list rows reference, or
+            Nones for "unpinned" (default).
 
     Returns:
         The newly created entity list rows.
@@ -109,8 +109,8 @@ def create_next_defined_list(
         current_rows = previous_entity_list.entitylistrow_set.all()
         publishable_entities_in_rows = {row.entity.pk: row for row in current_rows}
         new_rows = []
-        for order_num, entity_pk, draft_version_pk, published_version_pk in zip(
-            order_nums, entity_pks, draft_version_pks, published_version_pks
+        for order_num, entity_pk, entity_version_pk in zip(
+            order_nums, entity_pks, entity_version_pks
         ):
             row = publishable_entities_in_rows.get(entity_pk)
             if row and row.order_num == order_num:
@@ -121,8 +121,7 @@ def create_next_defined_list(
                     entity_list=new_entity_list,
                     entity_id=entity_pk,
                     order_num=order_num,
-                    draft_version_id=draft_version_pk,
-                    published_version_id=published_version_pk,
+                    entity_version_id=entity_version_pk,
                 )
             )
         EntityListRow.objects.bulk_create(new_rows)
@@ -130,8 +129,7 @@ def create_next_defined_list(
 
 def create_defined_list_with_rows(
     entity_pks: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
+    entity_version_pks: list[int | None],
 ) -> EntityList:
     """
     Create new entity list rows for an entity list.
@@ -139,8 +137,9 @@ def create_defined_list_with_rows(
     Args:
         entity_list: The entity list to create the rows for.
         entity_pks: The IDs of the publishable entities that the entity list rows reference.
-        draft_version_pks: The IDs of the draft versions of the entities (PublishableEntityVersion) that the entity list rows reference.
-        published_version_pks: The IDs of the published versions of the entities (PublishableEntityVersion) that the entity list rows reference.
+        entity_version_pks: The IDs of the versions of the entities
+            (PublishableEntityVersion) that the entity list rows reference, or
+            Nones for "unpinned" (default).
 
     Returns:
         The newly created entity list.
@@ -154,11 +153,10 @@ def create_defined_list_with_rows(
                     entity_list=entity_list,
                     entity_id=entity_pk,
                     order_num=order_num,
-                    draft_version_id=draft_version_pk,
-                    published_version_id=published_version_pk,
+                    entity_version_id=entity_version_pk,
                 )
-                for order_num, entity_pk, draft_version_pk, published_version_pk in zip(
-                    order_nums, entity_pks, draft_version_pks, published_version_pks
+                for order_num, entity_pk, entity_version_pk in zip(
+                    order_nums, entity_pks, entity_version_pks
                 )
             ]
         )
@@ -186,8 +184,7 @@ def get_entity_list_with_pinned_versions(
                     entity_list=entity_list,
                     entity_id=row.entity.id,
                     order_num=row.order_num,
-                    draft_version_id=None,
-                    published_version_id=None, # For simplicity, we are not copying the pinned versions
+                    entity_version_id=None,  # For simplicity, we are not copying the pinned versions
                 )
                 for row in rows
             ]
@@ -210,7 +207,7 @@ def check_unpinned_versions_in_defined_list(
     """
     # Is there a way to short-circuit this?
     return any(
-        row.draft_version is None or row.published_version is None
+        row.entity_version is None
         for row in defined_list.entitylistrow_set.all()
     )
 
@@ -239,8 +236,7 @@ def create_container_version(
     version_num: int,
     title: str,
     publishable_entities_pk: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
+    entity_version_pks: list[int | None],
     entity: PublishableEntity,
     created: datetime,
     created_by: int | None,
@@ -270,8 +266,7 @@ def create_container_version(
         )
         defined_list = create_defined_list_with_rows(
             entity_pks=publishable_entities_pk,
-            draft_version_pks=draft_version_pks,
-            published_version_pks=published_version_pks,
+            entity_version_pks=entity_version_pks,
         )
         container_version = ContainerEntityVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
@@ -290,8 +285,7 @@ def create_next_container_version(
     container_pk: int,
     title: str,
     publishable_entities_pk: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
+    entity_version_pks: list[int | None],
     entity: PublishableEntity,
     created: datetime,
     created_by: int | None,
@@ -349,8 +343,7 @@ def create_next_container_version(
                 previous_entity_list=last_version.defined_list,
                 new_entity_list=create_entity_list(),
                 entity_pks=publishable_entities_pk,
-                draft_version_pks=draft_version_pks,
-                published_version_pks=published_version_pks,
+                entity_version_pks=entity_version_pks,
             )
             next_initial_list = get_entity_list_with_pinned_versions(
                 rows=next_defined_list.entitylistrow_set.all()
@@ -385,8 +378,7 @@ def create_container_and_version(
     created_by: int | None,
     title: str,
     publishable_entities_pk: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
+    entity_version_pks: list[int | None],
 ) -> ContainerEntityVersion:
     """
     Create a new container and its first version.
@@ -410,8 +402,7 @@ def create_container_and_version(
             version_num=1,
             title=title,
             publishable_entities_pk=publishable_entities_pk,
-            draft_version_pks=draft_version_pks,
-            published_version_pks=published_version_pks,
+            entity_version_pks=entity_version_pks,
             entity=container.publishable_entity,
             created=created,
             created_by=created_by,
@@ -507,8 +498,8 @@ def get_entities_in_draft_container(
     defined_list = container.versioning.draft.defined_list
     for row in defined_list.entitylistrow_set.order_by("order_num"):
         entity_list.append(ContainerEntityListEntry(
-            entity_version=row.draft_version or row.entity.draft.version,
-            pinned=row.draft_version is not None,
+            entity_version=row.entity_version or row.entity.draft.version,
+            pinned=row.entity_version is not None,
         ))
     return entity_list
 
@@ -535,8 +526,8 @@ def get_entities_in_published_container(
     entity_list = []
     for row in cev.defined_list.entitylistrow_set.order_by("order_num"):
         entity_list.append(ContainerEntityListEntry(
-            entity_version=row.published_version or row.entity.published.version,
-            pinned=row.published_version is not None,
+            entity_version=row.entity_version or row.entity.published.version,
+            pinned=row.entity_version is not None,
         ))
     return entity_list
 
@@ -572,7 +563,7 @@ def contains_unpublished_changes(
     # TODO: This is a naive inefficient implementation but hopefully correct.
     # Once we know it's correct and have a good test suite, then we can optimize.
     # We will likely change to a tracking-based approach rather than a "scan for changes" based approach.
-    for row in defined_list.entitylistrow_set.filter(draft_version=None).select_related(
+    for row in defined_list.entitylistrow_set.filter(entity_version=None).select_related(
         "entity__containerentity",
         "entity__draft__version",
         "entity__published__version",

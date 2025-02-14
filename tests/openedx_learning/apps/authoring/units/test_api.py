@@ -81,8 +81,7 @@ class UnitTestCase(ComponentTestCase):
                 self.component_1.publishable_entity.id,
                 self.component_2.publishable_entity.id,
             ],
-            draft_version_pks=[None, None],
-            published_version_pks=[None, None],  # FIXME: why do we specify this?
+            entity_version_pks=[None, None],
             created=self.now,
             created_by=None,
         )
@@ -122,8 +121,7 @@ class UnitTestCase(ComponentTestCase):
             publishable_entities_pks=[
                 self.component_1.publishable_entity.id,
             ],
-            draft_version_pks=[None],
-            published_version_pks=[None],  # FIXME: why do we specify this?
+            entity_version_pks=[None],
             created=self.now,
             created_by=None,
         )
@@ -157,8 +155,7 @@ class UnitTestCase(ComponentTestCase):
             publishable_entities_pks=[
                 self.component_1.publishable_entity.id,
             ],
-            draft_version_pks=[None],
-            published_version_pks=[None],  # FIXME: why do we specify this?
+            entity_version_pks=[None],
             created=self.now,
             created_by=None,
         )
@@ -233,8 +230,7 @@ class UnitTestCase(ComponentTestCase):
             unit=unit,
             title=unit_version.title,
             publishable_entities_pks=publishable_entities_pks,
-            draft_version_pks=[None] * component_count,
-            published_version_pks=[None] * component_count,  # FIXME: why do we specify this?
+            entity_version_pks=[None] * component_count,
             created=self.now,
         )
         authoring_api.publish_all_drafts(self.learning_package.id)

@@ -58,17 +58,11 @@ class EntityListRow(models.Model):
     # So our approach to this is to use a value of None (null) to represent an
     # unpinned reference to a PublishableEntity. It's shorthand for "just use
     # the latest draft or published version of this, as appropriate".
-    draft_version = models.ForeignKey(
+    entity_version = models.ForeignKey(
         PublishableEntityVersion,
         on_delete=models.RESTRICT,
         null=True,
-        related_name="draft_version",
-    )
-    published_version = models.ForeignKey(
-        PublishableEntityVersion,
-        on_delete=models.RESTRICT,
-        null=True,
-        related_name="published_version",
+        related_name="+",  # Do we need the reverse relation?
     )
 
 
