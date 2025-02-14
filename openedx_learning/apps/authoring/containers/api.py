@@ -5,35 +5,30 @@ This module provides a set of functions to interact with the containers
 models in the Open edX Learning platform.
 """
 from dataclasses import dataclass
-
-from django.db.transaction import atomic
-from django.db.models import QuerySet
-
 from datetime import datetime
 
-from openedx_learning.apps.authoring.containers.models_mixin import ContainerEntityMixin, ContainerEntityVersionMixin
-from ..containers.models import (
-    ContainerEntity,
-    ContainerEntityVersion,
-    EntityList,
-    EntityListRow,
-)
-from ..publishing.models import PublishableEntity, PublishableEntityVersion
+from django.core.exceptions import ValidationError
+from django.db.models import QuerySet
+from django.db.transaction import atomic
+
+from openedx_learning.apps.authoring.containers.models_mixin import ContainerEntityMixin
+
+from ..containers.models import ContainerEntity, ContainerEntityVersion, EntityList, EntityListRow
 from ..publishing import api as publishing_api
+from ..publishing.models import PublishableEntity, PublishableEntityVersion
 
-
+# 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
+#              out our approach to dynamic content (randomized, A/B tests, etc.)
 __all__ = [
     "create_container",
     "create_container_version",
     "create_next_container_version",
     "create_container_and_version",
     "get_container",
-    "get_defined_list_rows_for_container_version",
-    "get_initial_list_rows_for_container_version",
-    "get_frozen_list_rows_for_container_version",
     "ContainerEntityListEntry",
     "get_entities_in_draft_container",
     "get_entities_in_published_container",
+    "contains_unpublished_changes",
 ]
 
 
@@ -44,6 +39,7 @@ def create_container(
     created_by: int | None,
 ) -> ContainerEntity:
     """
+    [ 🛑 UNSTABLE ]
     Create a new container.
 
     Args:
@@ -67,6 +63,7 @@ def create_container(
 
 def create_entity_list() -> EntityList:
     """
+    [ 🛑 UNSTABLE ]
     Create a new entity list. This is an structure that holds a list of entities
     that will be referenced by the container.
 
@@ -77,21 +74,22 @@ def create_entity_list() -> EntityList:
 
 
 def create_next_defined_list(
-    previous_entity_list: EntityList | None,
+    previous_entity_list: EntityList | None,  # pylint: disable=unused-argument
     new_entity_list: EntityList,
     entity_pks: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
-) -> EntityListRow:
+    entity_version_pks: list[int | None],
+) -> EntityList:
     """
+    [ 🛑 UNSTABLE ]
     Create new entity list rows for an entity list.
 
     Args:
         previous_entity_list: The previous entity list that the new entity list is based on.
         new_entity_list: The entity list to create the rows for.
         entity_pks: The IDs of the publishable entities that the entity list rows reference.
-        draft_version_pks: The IDs of the draft versions of the entities (PublishableEntityVersion) that the entity list rows reference.
-        published_version_pks: The IDs of the published versions of the entities (PublishableEntityVersion) that the entity list rows reference.
+        entity_version_pks: The IDs of the draft versions of the entities
+            (PublishableEntityVersion) that the entity list rows reference, or
+            Nones for "unpinned" (default).
 
     Returns:
         The newly created entity list rows.
@@ -102,44 +100,40 @@ def create_next_defined_list(
         # 1. Create new rows for the entity list
         # Case 2: create next container version (previous rows created for container)
         # 1. Get all the rows in the previous version entity list
-        # 2. Only associate existent rows to the new entity list iff: the order is the same, the PublishableEntity is in entity_pks and versions are not pinned
-        # 3. If the order is different for a row with the PublishableEntity, create new row with the same PublishableEntity for the new order
-        # and associate the new row to the new entity list
-        current_rows = previous_entity_list.entitylistrow_set.all()
-        publishable_entities_in_rows = {row.entity.pk: row for row in current_rows}
+        # 2. Only associate existent rows to the new entity list iff: the order is the same, the PublishableEntity is in
+        #    entity_pks and versions are not pinned
+        # 3. If the order is different for a row with the PublishableEntity, create new row with the same
+        #    PublishableEntity for the new order and associate the new row to the new entity list
         new_rows = []
-        for order_num, entity_pk, draft_version_pk, published_version_pk in zip(
-            order_nums, entity_pks, draft_version_pks, published_version_pks
+        for order_num, entity_pk, entity_version_pk in zip(
+            order_nums, entity_pks, entity_version_pks
         ):
-            row = publishable_entities_in_rows.get(entity_pk)
-            if row and row.order_num == order_num:
-                new_entity_list.entitylistrow_set.add(row)
-                continue
             new_rows.append(
                 EntityListRow(
                     entity_list=new_entity_list,
                     entity_id=entity_pk,
                     order_num=order_num,
-                    draft_version_id=draft_version_pk,
-                    published_version_id=published_version_pk,
+                    entity_version_id=entity_version_pk,
                 )
             )
         EntityListRow.objects.bulk_create(new_rows)
     return new_entity_list
 
+
 def create_defined_list_with_rows(
     entity_pks: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
+    entity_version_pks: list[int | None],
 ) -> EntityList:
     """
+    [ 🛑 UNSTABLE ]
     Create new entity list rows for an entity list.
 
     Args:
         entity_list: The entity list to create the rows for.
         entity_pks: The IDs of the publishable entities that the entity list rows reference.
-        draft_version_pks: The IDs of the draft versions of the entities (PublishableEntityVersion) that the entity list rows reference.
-        published_version_pks: The IDs of the published versions of the entities (PublishableEntityVersion) that the entity list rows reference.
+        entity_version_pks: The IDs of the versions of the entities
+            (PublishableEntityVersion) that the entity list rows reference, or
+            Nones for "unpinned" (default).
 
     Returns:
         The newly created entity list.
@@ -153,11 +147,10 @@ def create_defined_list_with_rows(
                     entity_list=entity_list,
                     entity_id=entity_pk,
                     order_num=order_num,
-                    draft_version_id=draft_version_pk,
-                    published_version_id=published_version_pk,
+                    entity_version_id=entity_version_pk,
                 )
-                for order_num, entity_pk, draft_version_pk, published_version_pk in zip(
-                    order_nums, entity_pks, draft_version_pks, published_version_pks
+                for order_num, entity_pk, entity_version_pk in zip(
+                    order_nums, entity_pks, entity_version_pks
                 )
             ]
         )
@@ -168,6 +161,7 @@ def get_entity_list_with_pinned_versions(
     rows: QuerySet[EntityListRow],
 ) -> EntityList:
     """
+    [ 🛑 UNSTABLE ]
     Copy rows from an existing entity list to a new entity list.
 
     Args:
@@ -185,8 +179,7 @@ def get_entity_list_with_pinned_versions(
                     entity_list=entity_list,
                     entity_id=row.entity.id,
                     order_num=row.order_num,
-                    draft_version_id=None,
-                    published_version_id=None, # For simplicity, we are not copying the pinned versions
+                    entity_version_id=None,  # For simplicity, we are not copying the pinned versions
                 )
                 for row in rows
             ]
@@ -199,6 +192,7 @@ def check_unpinned_versions_in_defined_list(
     defined_list: EntityList,
 ) -> bool:
     """
+    [ 🛑 UNSTABLE ]
     Check if there are any unpinned versions in the defined list.
 
     Args:
@@ -209,16 +203,17 @@ def check_unpinned_versions_in_defined_list(
     """
     # Is there a way to short-circuit this?
     return any(
-        row.draft_version is None or row.published_version is None
+        row.entity_version is None
         for row in defined_list.entitylistrow_set.all()
     )
 
 
 def check_new_changes_in_defined_list(
-    entity_list: EntityList,
-    publishable_entities_pk: list[int],
+    entity_list: EntityList,  # pylint: disable=unused-argument
+    publishable_entities_pks: list[int],  # pylint: disable=unused-argument
 ) -> bool:
     """
+    [ 🛑 UNSTABLE ]
     Check if there are any new changes in the defined list.
 
     Args:
@@ -236,22 +231,23 @@ def check_new_changes_in_defined_list(
 def create_container_version(
     container_pk: int,
     version_num: int,
+    *,
     title: str,
-    publishable_entities_pk: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
+    publishable_entities_pks: list[int],
+    entity_version_pks: list[int | None],
     entity: PublishableEntity,
     created: datetime,
     created_by: int | None,
 ) -> ContainerEntityVersion:
     """
+    [ 🛑 UNSTABLE ]
     Create a new container version.
 
     Args:
         container_pk: The ID of the container that the version belongs to.
         version_num: The version number of the container.
         title: The title of the container.
-        publishable_entities_pk: The IDs of the members of the container.
+        publishable_entities_pks: The IDs of the members of the container.
         entity: The entity that the container belongs to.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
@@ -268,9 +264,8 @@ def create_container_version(
             created_by=created_by,
         )
         defined_list = create_defined_list_with_rows(
-            entity_pks=publishable_entities_pk,
-            draft_version_pks=draft_version_pks,
-            published_version_pks=published_version_pks,
+            entity_pks=publishable_entities_pks,
+            entity_version_pks=entity_version_pks,
         )
         container_version = ContainerEntityVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
@@ -287,28 +282,29 @@ def create_container_version(
 
 def create_next_container_version(
     container_pk: int,
+    *,
     title: str,
-    publishable_entities_pk: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
+    publishable_entities_pks: list[int],
+    entity_version_pks: list[int | None],
     entity: PublishableEntity,
     created: datetime,
     created_by: int | None,
 ) -> ContainerEntityVersion:
     """
+    [ 🛑 UNSTABLE ]
     Create the next version of a container. A new version of the container is created
     only when its metadata changes:
 
     * Something was added to the Container.
     * We re-ordered the rows in the container.
-    * Something was removed to the container.
+    * Something was removed from the container.
     * The Container's metadata changed, e.g. the title.
     * We pin to different versions of the Container.
 
     Args:
         container_pk: The ID of the container to create the next version of.
         title: The title of the container.
-        publishable_entities_pk: The IDs of the members current members of the container.
+        publishable_entities_pks: The IDs of the members current members of the container.
         entity: The entity that the container belongs to.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
@@ -316,6 +312,13 @@ def create_next_container_version(
     Returns:
         The newly created container version.
     """
+    # Do a quick check that the given entities are in the right learning package:
+    if PublishableEntity.objects.filter(
+        pk__in=publishable_entities_pks,
+    ).exclude(
+        learning_package_id=entity.learning_package_id,
+    ).exists():
+        raise ValidationError("Container entities must be from the same learning package.")
     with atomic():
         container = ContainerEntity.objects.get(pk=container_pk)
         last_version = container.versioning.latest
@@ -335,7 +338,7 @@ def create_next_container_version(
         # 6. Point frozen_list to None or defined_list
         if check_new_changes_in_defined_list(
             entity_list=last_version.defined_list,
-            publishable_entities_pk=publishable_entities_pk,
+            publishable_entities_pks=publishable_entities_pks,
         ):
             # Only change if there are unpin versions in defined list, meaning last frozen list is None
             # When does this has to happen? Before?
@@ -347,9 +350,8 @@ def create_next_container_version(
             next_defined_list = create_next_defined_list(
                 previous_entity_list=last_version.defined_list,
                 new_entity_list=create_entity_list(),
-                entity_pks=publishable_entities_pk,
-                draft_version_pks=draft_version_pks,
-                published_version_pks=published_version_pks,
+                entity_pks=publishable_entities_pks,
+                entity_version_pks=entity_version_pks,
             )
             next_initial_list = get_entity_list_with_pinned_versions(
                 rows=next_defined_list.entitylistrow_set.all()
@@ -380,14 +382,15 @@ def create_next_container_version(
 def create_container_and_version(
     learning_package_id: int,
     key: str,
+    *,
     created: datetime,
     created_by: int | None,
     title: str,
-    publishable_entities_pk: list[int],
-    draft_version_pks: list[int | None],
-    published_version_pks: list[int | None],
-) -> ContainerEntityVersion:
+    publishable_entities_pks: list[int],
+    entity_version_pks: list[int | None],
+) -> tuple[ContainerEntity, ContainerEntityVersion]:
     """
+    [ 🛑 UNSTABLE ]
     Create a new container and its first version.
 
     Args:
@@ -408,9 +411,8 @@ def create_container_and_version(
             container_pk=container.publishable_entity.pk,
             version_num=1,
             title=title,
-            publishable_entities_pk=publishable_entities_pk,
-            draft_version_pks=draft_version_pks,
-            published_version_pks=published_version_pks,
+            publishable_entities_pks=publishable_entities_pks,
+            entity_version_pks=entity_version_pks,
             entity=container.publishable_entity,
             created=created,
             created_by=created_by,
@@ -420,6 +422,7 @@ def create_container_and_version(
 
 def get_container(pk: int) -> ContainerEntity:
     """
+    [ 🛑 UNSTABLE ]
     Get a container by its primary key.
 
     Args:
@@ -432,56 +435,10 @@ def get_container(pk: int) -> ContainerEntity:
     return ContainerEntity.objects.get(pk=pk)
 
 
-def get_defined_list_rows_for_container_version(
-    container_version: ContainerEntityVersion,
-) -> QuerySet[EntityListRow]:
-    """
-    Get the user-defined members of a container version.
-
-    Args:
-        container_version: The container version to get the members of.
-
-    Returns:
-        The members of the container version.
-    """
-    return container_version.defined_list.entitylistrow_set.all()
-
-
-def get_initial_list_rows_for_container_version(
-    container_version: ContainerEntityVersion,
-) -> QuerySet[EntityListRow]:
-    """
-    Get the initial members of a container version.
-
-    Args:
-        container_version: The container version to get the initial members of.
-
-    Returns:
-        The initial members of the container version.
-    """
-    return container_version.initial_list.entitylistrow_set.all()
-
-
-def get_frozen_list_rows_for_container_version(
-    container_version: ContainerEntityVersion,
-) -> QuerySet[EntityListRow]:
-    """
-    Get the frozen members of a container version.
-
-    Args:
-        container_version: The container version to get the frozen members of.
-
-    Returns:
-        The frozen members of the container version.
-    """
-    if container_version.frozen_list is None:
-        return QuerySet[EntityListRow]()
-    return container_version.frozen_list.entitylistrow_set.all()
-
-
 @dataclass(frozen=True)
 class ContainerEntityListEntry:
     """
+    [ 🛑 UNSTABLE ]
     Data about a single entity in a container, e.g. a component in a unit.
     """
     entity_version: PublishableEntityVersion
@@ -496,6 +453,7 @@ def get_entities_in_draft_container(
     container: ContainerEntity | ContainerEntityMixin,
 ) -> list[ContainerEntityListEntry]:
     """
+    [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
@@ -505,10 +463,13 @@ def get_entities_in_draft_container(
     entity_list = []
     defined_list = container.versioning.draft.defined_list
     for row in defined_list.entitylistrow_set.order_by("order_num"):
-        entity_list.append(ContainerEntityListEntry(
-            entity_version=row.draft_version or row.entity.draft.version,
-            pinned=row.draft_version is not None,
-        ))
+        entity_version = row.entity_version or row.entity.draft.version
+        if entity_version is not None:  # As long as this hasn't been soft-deleted:
+            entity_list.append(ContainerEntityListEntry(
+                entity_version=row.entity_version or row.entity.draft.version,
+                pinned=row.entity_version is not None,
+            ))
+        # else should we indicate somehow a deleted item was here?
     return entity_list
 
 
@@ -516,6 +477,7 @@ def get_entities_in_published_container(
     container: ContainerEntity | ContainerEntityMixin,
 ) -> list[ContainerEntityListEntry] | None:
     """
+    [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
@@ -523,7 +485,9 @@ def get_entities_in_published_container(
         cev = container.container_entity.versioning.published
     elif isinstance(container, ContainerEntity):
         cev = container.versioning.published
-    if cev == None:
+    else:
+        raise TypeError(f"Expected ContainerEntity or ContainerEntityMixin; got {type(container)}")
+    if cev is None:
         return None  # There is no published version of this container. Should this be an exception?
     assert isinstance(cev, ContainerEntityVersion)
     # TODO: do we ever need frozen_list? e.g. when accessing a historical version?
@@ -533,8 +497,66 @@ def get_entities_in_published_container(
     # different?
     entity_list = []
     for row in cev.defined_list.entitylistrow_set.order_by("order_num"):
-        entity_list.append(ContainerEntityListEntry(
-            entity_version=row.published_version or row.entity.published.version,
-            pinned=row.published_version is not None,
-        ))
+        entity_version = row.entity_version or row.entity.published.version
+        if entity_version is not None:  # As long as this hasn't been soft-deleted:
+            entity_list.append(ContainerEntityListEntry(
+                entity_version=entity_version,
+                pinned=row.entity_version is not None,
+            ))
+        # else should we indicate somehow a deleted item was here?
     return entity_list
+
+
+def contains_unpublished_changes(
+    container: ContainerEntity | ContainerEntityMixin,
+) -> bool:
+    """
+    [ 🛑 UNSTABLE ]
+    Check recursively if a container has any unpublished changes.
+
+    Note: container.versioning.has_unpublished_changes only checks if the container
+    itself has unpublished changes, not if its contents do.
+    """
+    if isinstance(container, ContainerEntityMixin):
+        # The query below pre-loads the data we need but is otherwise the same thing as:
+        #     container = container.container_entity
+        container = ContainerEntity.objects.select_related(
+            "publishable_entity",
+            "publishable_entity__draft",
+            "publishable_entity__draft__version",
+            "publishable_entity__draft__version__containerentityversion__defined_list",
+        ).get(pk=container.container_entity_id)
+    else:
+        pass  # TODO: select_related if we're given a raw ContainerEntity rather than a ContainerEntityMixin like Unit?
+    assert isinstance(container, ContainerEntity)
+
+    if container.versioning.has_unpublished_changes:
+        return True
+
+    # We only care about children that are un-pinned, since published changes to pinned children don't matter
+    defined_list = container.versioning.draft.defined_list
+
+    # TODO: This is a naive inefficient implementation but hopefully correct.
+    # Once we know it's correct and have a good test suite, then we can optimize.
+    # We will likely change to a tracking-based approach rather than a "scan for changes" based approach.
+    for row in defined_list.entitylistrow_set.filter(entity_version=None).select_related(
+        "entity__containerentity",
+        "entity__draft__version",
+        "entity__published__version",
+    ):
+        try:
+            child_container = row.entity.containerentity
+        except ContainerEntity.DoesNotExist:
+            child_container = None
+        if child_container:
+            child_container = row.entity.containerentity
+            # This is itself a container - check recursively:
+            if child_container.versioning.has_unpublished_changes or contains_unpublished_changes(child_container):
+                return True
+        else:
+            # This is not a container:
+            draft_pk = row.entity.draft.version_id if row.entity.draft else None
+            published_pk = row.entity.published.version_id if row.entity.published else None
+            if draft_pk != published_pk:
+                return True
+    return False

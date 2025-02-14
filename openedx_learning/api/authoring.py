@@ -11,9 +11,9 @@ APIs.
 # pylint: disable=wildcard-import
 from ..apps.authoring.collections.api import *
 from ..apps.authoring.components.api import *
+from ..apps.authoring.containers.api import *
 from ..apps.authoring.contents.api import *
 from ..apps.authoring.publishing.api import *
-from ..apps.authoring.containers.api import *
 from ..apps.authoring.units.api import *
 
 # This was renamed after the authoring API refactoring pushed this and other

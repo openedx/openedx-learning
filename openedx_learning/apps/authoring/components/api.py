@@ -231,7 +231,7 @@ def create_next_component_version(
         return component_version
 
 
-def create_component_and_version(
+def create_component_and_version(  # pylint: disable=too-many-positional-arguments
     learning_package_id: int,
     /,
     component_type: ComponentType,
@@ -326,7 +326,7 @@ def component_exists_by_key(
         return False
 
 
-def get_components(
+def get_components(  # pylint: disable=too-many-positional-arguments
     learning_package_id: int,
     /,
     draft: bool | None = None,

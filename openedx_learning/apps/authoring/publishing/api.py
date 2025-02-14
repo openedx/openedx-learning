@@ -513,3 +513,18 @@ def filter_publishable_entities(
         entities = entities.filter(published__version__isnull=not has_published)
 
     return entities
+
+
+def get_published_version_as_of(entity_id: int, publish_log_id: int) -> PublishableEntityVersion | None:
+    """
+    Get the published version of the given entity, at a specific snapshot in the
+    history of this Learning Package, given by the PublishLog ID.
+
+    This is a semi-private function, only available to other apps in the
+    authoring package.
+    """
+    record = PublishLogRecord.objects.filter(
+        entity_id=entity_id,
+        publish_log_id__lte=publish_log_id,
+    ).order_by('-publish_log_id').first()
+    return record.new_version if record else None
