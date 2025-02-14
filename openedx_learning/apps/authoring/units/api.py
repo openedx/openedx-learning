@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from django.db.transaction import atomic
 
-from openedx_learning.apps.authoring.components.models import ComponentVersion
+from openedx_learning.apps.authoring.components.models import Component, ComponentVersion
 from openedx_learning.apps.authoring.containers.models import EntityListRow
 from ..publishing import api as publishing_api
 from ..containers import api as container_api
@@ -97,8 +97,7 @@ def create_unit_version(
 def create_next_unit_version(
     unit: Unit,
     title: str,
-    publishable_entities_pks: list[int],
-    entity_version_pks: list[int | None],
+    components: list[Component | ComponentVersion],
     created: datetime,
     created_by: int | None = None,
 ) -> Unit:
@@ -107,11 +106,21 @@ def create_next_unit_version(
     Args:
         unit_pk: The unit ID.
         title: The title.
-        publishable_entities_pk: The components.
+        components: The components, as a list of Components (unpinned) and/or ComponentVersions (pinned)
         entity: The entity.
         created: The creation date.
         created_by: The user who created the unit.
     """
+    for c in components:
+        assert isinstance(c, (Component, ComponentVersion))
+    publishable_entities_pks = [
+        (c.publishable_entity_id if isinstance(c, Component) else c.component.publishable_entity_id)
+        for c in components
+    ]
+    entity_version_pks = [
+        (cv.pk if isinstance(cv, ComponentVersion) else None)
+        for cv in components
+    ]
     with atomic():
         # TODO: how can we enforce that publishable entities must be components?
         # This currently allows for any publishable entity to be added to a unit.

@@ -57,15 +57,13 @@ class UnitTestCase(ComponentTestCase):
         assert unit.versioning.published is None
 
     def test_create_next_unit_version_with_two_components(self):
-        """Test creating a unit version with two components.
+        """Test creating a unit version with two unpinned components.
 
         Expected results:
         1. A new unit version is created.
         2. The unit version number is 2.
         3. The unit version is in the unit's versions.
-        4. The components are in the unit version's user defined list.
-        5. Initial list contains the pinned versions of the defined list.
-        6. Frozen list is empty.
+        4. The components are in the draft unit version's component list and are unpinned.
         """
         unit, unit_version = authoring_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
@@ -77,11 +75,7 @@ class UnitTestCase(ComponentTestCase):
         unit_version_v2 = authoring_api.create_next_unit_version(
             unit=unit,
             title="Unit",
-            publishable_entities_pks=[
-                self.component_1.publishable_entity.id,
-                self.component_2.publishable_entity.id,
-            ],
-            entity_version_pks=[None, None],
+            components=[self.component_1, self.component_2],
             created=self.now,
             created_by=None,
         )
@@ -118,10 +112,7 @@ class UnitTestCase(ComponentTestCase):
         unit_version_v2 = authoring_api.create_next_unit_version(
             unit=unit,
             title=unit_version.title,
-            publishable_entities_pks=[
-                self.component_1.publishable_entity.id,
-            ],
-            entity_version_pks=[None],
+            components=[self.component_1],
             created=self.now,
             created_by=None,
         )
@@ -152,10 +143,7 @@ class UnitTestCase(ComponentTestCase):
         unit_version_v2 = authoring_api.create_next_unit_version(
             unit=unit,
             title=unit_version.title,
-            publishable_entities_pks=[
-                self.component_1.publishable_entity.id,
-            ],
-            entity_version_pks=[None],
+            components=[self.component_1],
             created=self.now,
             created_by=None,
         )
@@ -216,7 +204,7 @@ class UnitTestCase(ComponentTestCase):
         )
         # Add 100 components (unpinned)
         component_count = 100
-        publishable_entities_pks = []
+        components = []
         for i in range(0, component_count):
             component, _version = authoring_api.create_component_and_version(
                 self.learning_package.id,
@@ -225,12 +213,11 @@ class UnitTestCase(ComponentTestCase):
                 title=f"Querying Counting Problem {i}",
                 created=self.now,
             )
-            publishable_entities_pks.append(component.publishable_entity_id)
+            components.append(component)
         authoring_api.create_next_unit_version(
             unit=unit,
             title=unit_version.title,
-            publishable_entities_pks=publishable_entities_pks,
-            entity_version_pks=[None] * component_count,
+            components=components,
             created=self.now,
         )
         authoring_api.publish_all_drafts(self.learning_package.id)
