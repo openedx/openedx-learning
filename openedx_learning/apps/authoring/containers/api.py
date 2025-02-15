@@ -28,9 +28,6 @@ __all__ = [
     "create_next_container_version",
     "create_container_and_version",
     "get_container",
-    "get_defined_list_rows_for_container_version",
-    "get_initial_list_rows_for_container_version",
-    "get_frozen_list_rows_for_container_version",
     "ContainerEntityListEntry",
     "get_entities_in_draft_container",
     "get_entities_in_published_container",
@@ -422,53 +419,6 @@ def get_container(pk: int) -> ContainerEntity:
     """
     # TODO: should this use with_publishing_relations as in components?
     return ContainerEntity.objects.get(pk=pk)
-
-
-def get_defined_list_rows_for_container_version(
-    container_version: ContainerEntityVersion,
-) -> QuerySet[EntityListRow]:
-    """
-    Get the user-defined members of a container version.
-
-    Args:
-        container_version: The container version to get the members of.
-
-    Returns:
-        The members of the container version.
-    """
-    return container_version.defined_list.entitylistrow_set.all()
-
-
-def get_initial_list_rows_for_container_version(
-    container_version: ContainerEntityVersion,
-) -> QuerySet[EntityListRow]:
-    """
-    Get the initial members of a container version.
-
-    Args:
-        container_version: The container version to get the initial members of.
-
-    Returns:
-        The initial members of the container version.
-    """
-    return container_version.initial_list.entitylistrow_set.all()
-
-
-def get_frozen_list_rows_for_container_version(
-    container_version: ContainerEntityVersion,
-) -> QuerySet[EntityListRow]:
-    """
-    Get the frozen members of a container version.
-
-    Args:
-        container_version: The container version to get the frozen members of.
-
-    Returns:
-        The frozen members of the container version.
-    """
-    if container_version.frozen_list is None:
-        return QuerySet[EntityListRow]()
-    return container_version.frozen_list.entitylistrow_set.all()
 
 
 @dataclass(frozen=True)

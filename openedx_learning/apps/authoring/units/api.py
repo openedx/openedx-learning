@@ -24,9 +24,6 @@ __all__ = [
     "get_unit",
     "get_unit_version",
     "get_latest_unit_version",
-    "get_user_defined_list_in_unit_version",
-    "get_initial_list_in_unit_version",
-    "get_frozen_list_in_unit_version",
     "UnitListEntry",
     "get_components_in_draft_unit",
     "get_components_in_published_unit",
@@ -195,36 +192,6 @@ def get_latest_unit_version(unit_pk: int) -> UnitVersion:
         unit_pk: The unit ID.
     """
     return Unit.objects.get(pk=unit_pk).versioning.latest
-
-
-def get_user_defined_list_in_unit_version(unit_version_pk: int) -> QuerySet[EntityListRow]:
-    """Get the list in a unit version.
-
-    Args:
-        unit_version_pk: The unit version ID.
-    """
-    unit_version = UnitVersion.objects.get(pk=unit_version_pk)
-    return container_api.get_defined_list_rows_for_container_version(unit_version.container_entity_version)
-
-
-def get_initial_list_in_unit_version(unit_version_pk: int) -> list[int]:
-    """Get the initial list in a unit version.
-
-    Args:
-        unit_version_pk: The unit version ID.
-    """
-    unit_version = UnitVersion.objects.get(pk=unit_version_pk)
-    return container_api.get_initial_list_rows_for_container_version(unit_version.container_entity_version)
-
-
-def get_frozen_list_in_unit_version(unit_version_pk: int) -> list[int]:
-    """Get the frozen list in a unit version.
-
-    Args:
-        unit_version_pk: The unit version ID.
-    """
-    unit_version = UnitVersion.objects.get(pk=unit_version_pk)
-    return container_api.get_frozen_list_rows_for_container_version(unit_version.container_entity_version)
 
 
 @dataclass(frozen=True)
