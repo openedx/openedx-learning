@@ -9,6 +9,11 @@ from ..publishing.model_mixins import (
     PublishableEntityVersionMixin,
 )
 
+__all__ = [
+    "ContainerEntity",
+    "ContainerEntityVersion",
+]
+
 
 class EntityList(models.Model):
     """

@@ -265,8 +265,11 @@ def get_components_in_published_unit(
     given container.
     """
     assert isinstance(unit, (Unit, UnitVersion))
+    published_entities = container_api.get_entities_in_published_container(unit)
+    if published_entities == None:
+        return None  # There is no published version of this unit. Should this be an exception?
     entity_list = []
-    for entry in container_api.get_entities_in_published_container(unit):
+    for entry in published_entities:
         # Convert from generic PublishableEntityVersion to ComponentVersion:
         component_version = entry.entity_version.componentversion
         assert isinstance(component_version, ComponentVersion)
