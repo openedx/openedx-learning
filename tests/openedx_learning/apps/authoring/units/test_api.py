@@ -305,18 +305,19 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(2):
             assert authoring_api.contains_unpublished_changes(unit) == True
 
+    # Test that soft-deleting a component doesn't show the unit as changed but does show it contains changes ?
     # Test that only components can be added to units
     # Test that components must be in the same learning package
     # Test that _version_pks=[] arguments must be related to publishable_entities_pks
-    # Test that publishing a unit publishes its child components (either automatically or throws an exception if you
-    #     don't request the children be published together with the containeer)
+    # Test that publishing a unit publishes its child components automatically
     # Test that publishing a component does NOT publish changes to its parent unit
     # Test that I can get a history of a given unit and all its children, including children that aren't currently in
     #     the unit and excluding children that are only in other units.
     # Test that I can get a history of a given unit and its children, that includes changes made to the child components
     #     while they were part of the unit but excludes changes made to those children while they were not part of
     #     the unit. 🫣
-    # Test viewing old snapshots of units and components by passing in a timestamp to some get_historic_unit() API?
+    # Test viewing old snapshots of units and components by passing in a timestamp (or PublishLog PK) to a
+    #     get_historic_unit() API?
 
 
     def test_next_version_with_different_different_title(self):

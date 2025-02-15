@@ -16,6 +16,8 @@ from django.db.models import QuerySet
 
 from datetime import datetime
 
+# 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
+#              out our approach to dynamic content (randomized, A/B tests, etc.)
 __all__ = [
     "create_unit",
     "create_unit_version",
@@ -33,7 +35,8 @@ __all__ = [
 def create_unit(
     learning_package_id: int, key: str, created: datetime, created_by: int | None
 ) -> Unit:
-    """Create a new unit.
+    """
+    [ 🛑 UNSTABLE ] Create a new unit.
 
     Args:
         learning_package_id: The learning package ID.
@@ -61,7 +64,8 @@ def create_unit_version(
     created: datetime,
     created_by: int | None = None,
 ) -> Unit:
-    """Create a new unit version.
+    """
+    [ 🛑 UNSTABLE ] Create a new unit version.
 
     Args:
         unit_pk: The unit ID.
@@ -98,7 +102,8 @@ def create_next_unit_version(
     created: datetime,
     created_by: int | None = None,
 ) -> Unit:
-    """Create the next unit version.
+    """
+    [ 🛑 UNSTABLE ] Create the next unit version.
 
     Args:
         unit_pk: The unit ID.
@@ -145,7 +150,8 @@ def create_unit_and_version(
     created: datetime,
     created_by: int | None = None,
 ) -> tuple[Unit, UnitVersion]:
-    """Create a new unit and its version.
+    """
+    [ 🛑 UNSTABLE ] Create a new unit and its version.
 
     Args:
         learning_package_id: The learning package ID.
@@ -168,7 +174,8 @@ def create_unit_and_version(
 
 
 def get_unit(unit_pk: int) -> Unit:
-    """Get a unit.
+    """
+    [ 🛑 UNSTABLE ] Get a unit.
 
     Args:
         unit_pk: The unit ID.
@@ -177,7 +184,8 @@ def get_unit(unit_pk: int) -> Unit:
 
 
 def get_unit_version(unit_version_pk: int) -> UnitVersion:
-    """Get a unit version.
+    """
+    [ 🛑 UNSTABLE ] Get a unit version.
 
     Args:
         unit_version_pk: The unit version ID.
@@ -186,7 +194,8 @@ def get_unit_version(unit_version_pk: int) -> UnitVersion:
 
 
 def get_latest_unit_version(unit_pk: int) -> UnitVersion:
-    """Get the latest unit version.
+    """
+    [ 🛑 UNSTABLE ] Get the latest unit version.
 
     Args:
         unit_pk: The unit ID.
@@ -197,6 +206,7 @@ def get_latest_unit_version(unit_pk: int) -> UnitVersion:
 @dataclass(frozen=True)
 class UnitListEntry:
     """
+    [ 🛑 UNSTABLE ]
     Data about a single entity in a container, e.g. a component in a unit.
     """
     component_version: ComponentVersion
@@ -211,6 +221,7 @@ def get_components_in_draft_unit(
     unit: Unit,
 ) -> list[UnitListEntry]:
     """
+    [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
@@ -228,6 +239,7 @@ def get_components_in_published_unit(
     unit: Unit | UnitVersion,
 ) -> list[UnitListEntry]:
     """
+    [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """

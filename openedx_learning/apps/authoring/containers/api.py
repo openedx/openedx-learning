@@ -22,6 +22,8 @@ from ..publishing.models import PublishableEntity, PublishableEntityVersion
 from ..publishing import api as publishing_api
 
 
+# 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
+#              out our approach to dynamic content (randomized, A/B tests, etc.)
 __all__ = [
     "create_container",
     "create_container_version",
@@ -42,6 +44,7 @@ def create_container(
     created_by: int | None,
 ) -> ContainerEntity:
     """
+    [ 🛑 UNSTABLE ]
     Create a new container.
 
     Args:
@@ -65,6 +68,7 @@ def create_container(
 
 def create_entity_list() -> EntityList:
     """
+    [ 🛑 UNSTABLE ]
     Create a new entity list. This is an structure that holds a list of entities
     that will be referenced by the container.
 
@@ -81,6 +85,7 @@ def create_next_defined_list(
     entity_version_pks: list[int | None],
 ) -> EntityListRow:
     """
+    [ 🛑 UNSTABLE ]
     Create new entity list rows for an entity list.
 
     Args:
@@ -129,6 +134,7 @@ def create_defined_list_with_rows(
     entity_version_pks: list[int | None],
 ) -> EntityList:
     """
+    [ 🛑 UNSTABLE ]
     Create new entity list rows for an entity list.
 
     Args:
@@ -164,6 +170,7 @@ def get_entity_list_with_pinned_versions(
     rows: QuerySet[EntityListRow],
 ) -> EntityList:
     """
+    [ 🛑 UNSTABLE ]
     Copy rows from an existing entity list to a new entity list.
 
     Args:
@@ -194,6 +201,7 @@ def check_unpinned_versions_in_defined_list(
     defined_list: EntityList,
 ) -> bool:
     """
+    [ 🛑 UNSTABLE ]
     Check if there are any unpinned versions in the defined list.
 
     Args:
@@ -214,6 +222,7 @@ def check_new_changes_in_defined_list(
     publishable_entities_pk: list[int],
 ) -> bool:
     """
+    [ 🛑 UNSTABLE ]
     Check if there are any new changes in the defined list.
 
     Args:
@@ -239,6 +248,7 @@ def create_container_version(
     created_by: int | None,
 ) -> ContainerEntityVersion:
     """
+    [ 🛑 UNSTABLE ]
     Create a new container version.
 
     Args:
@@ -288,6 +298,7 @@ def create_next_container_version(
     created_by: int | None,
 ) -> ContainerEntityVersion:
     """
+    [ 🛑 UNSTABLE ]
     Create the next version of a container. A new version of the container is created
     only when its metadata changes:
 
@@ -378,6 +389,7 @@ def create_container_and_version(
     entity_version_pks: list[int | None],
 ) -> ContainerEntityVersion:
     """
+    [ 🛑 UNSTABLE ]
     Create a new container and its first version.
 
     Args:
@@ -409,6 +421,7 @@ def create_container_and_version(
 
 def get_container(pk: int) -> ContainerEntity:
     """
+    [ 🛑 UNSTABLE ]
     Get a container by its primary key.
 
     Args:
@@ -424,6 +437,7 @@ def get_container(pk: int) -> ContainerEntity:
 @dataclass(frozen=True)
 class ContainerEntityListEntry:
     """
+    [ 🛑 UNSTABLE ]
     Data about a single entity in a container, e.g. a component in a unit.
     """
     entity_version: PublishableEntityVersion
@@ -438,6 +452,7 @@ def get_entities_in_draft_container(
     container: ContainerEntity | ContainerEntityMixin,
 ) -> list[ContainerEntityListEntry]:
     """
+    [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
@@ -458,6 +473,7 @@ def get_entities_in_published_container(
     container: ContainerEntity | ContainerEntityMixin,
 ) -> list[ContainerEntityListEntry] | None:
     """
+    [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
@@ -486,6 +502,7 @@ def contains_unpublished_changes(
     container: ContainerEntity | ContainerEntityMixin,
 ) -> bool:
     """
+    [ 🛑 UNSTABLE ]
     Check recursively if a container has any unpublished changes.
 
     Note: container.versioning.has_unpublished_changes only checks if the container
