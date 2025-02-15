@@ -236,14 +236,14 @@ def get_components_in_draft_unit(
 
 
 def get_components_in_published_unit(
-    unit: Unit | UnitVersion,
+    unit: Unit,
 ) -> list[UnitListEntry]:
     """
     [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
-    assert isinstance(unit, (Unit, UnitVersion))
+    assert isinstance(unit, Unit)
     published_entities = container_api.get_entities_in_published_container(unit)
     if published_entities == None:
         return None  # There is no published version of this unit. Should this be an exception?

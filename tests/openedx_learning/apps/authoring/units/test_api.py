@@ -276,7 +276,6 @@ class UnitTestCase(ComponentTestCase):
         assert authoring_api.get_components_in_draft_unit(unit) == expected_unit_contents
         assert authoring_api.get_components_in_published_unit(unit) == expected_unit_contents
 
-
     def test_query_count_of_contains_unpublished_changes(self):
         """
         Checking for unpublished changes in a unit should require a fixed number
@@ -318,7 +317,6 @@ class UnitTestCase(ComponentTestCase):
     #     the unit. 🫣
     # Test viewing old snapshots of units and components by passing in a timestamp (or PublishLog PK) to a
     #     get_historic_unit() API?
-
 
     def test_next_version_with_different_different_title(self):
         """Test creating a unit version with a different title.

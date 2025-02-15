@@ -481,6 +481,8 @@ def get_entities_in_published_container(
         cev = container.container_entity.versioning.published
     elif isinstance(container, ContainerEntity):
         cev = container.versioning.published
+    else:
+        raise TypeError(f"Expected ContainerEntity or ContainerEntityMixin; got {type(container)}")
     if cev == None:
         return None  # There is no published version of this container. Should this be an exception?
     assert isinstance(cev, ContainerEntityVersion)
