@@ -108,16 +108,10 @@ def create_next_defined_list(
         # 2. Only associate existent rows to the new entity list iff: the order is the same, the PublishableEntity is in entity_pks and versions are not pinned
         # 3. If the order is different for a row with the PublishableEntity, create new row with the same PublishableEntity for the new order
         # and associate the new row to the new entity list
-        current_rows = previous_entity_list.entitylistrow_set.all()
-        publishable_entities_in_rows = {row.entity.pk: row for row in current_rows}
         new_rows = []
         for order_num, entity_pk, entity_version_pk in zip(
             order_nums, entity_pks, entity_version_pks
         ):
-            row = publishable_entities_in_rows.get(entity_pk)
-            if row and row.order_num == order_num:
-                new_entity_list.entitylistrow_set.add(row)
-                continue
             new_rows.append(
                 EntityListRow(
                     entity_list=new_entity_list,

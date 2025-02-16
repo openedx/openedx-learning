@@ -9,6 +9,7 @@ from django.db.transaction import atomic
 from openedx_learning.apps.authoring.components.models import Component, ComponentVersion
 from openedx_learning.apps.authoring.containers.models import EntityListRow
 from ..publishing import api as publishing_api
+from ..publishing.api import get_published_version_as_of
 from ..containers import api as container_api
 from .models import Unit, UnitVersion
 from django.db.models import QuerySet
@@ -29,6 +30,7 @@ __all__ = [
     "UnitListEntry",
     "get_components_in_draft_unit",
     "get_components_in_published_unit",
+    "get_components_in_published_unit_as_of",
 ]
 
 
@@ -240,7 +242,7 @@ def get_components_in_published_unit(
 ) -> list[UnitListEntry]:
     """
     [ 🛑 UNSTABLE ]
-    Get the list of entities and their versions in the draft version of the
+    Get the list of entities and their versions in the published version of the
     given container.
     """
     assert isinstance(unit, Unit)
@@ -253,4 +255,44 @@ def get_components_in_published_unit(
         component_version = entry.entity_version.componentversion
         assert isinstance(component_version, ComponentVersion)
         entity_list.append(UnitListEntry(component_version=component_version, pinned=entry.pinned))
+    return entity_list
+
+
+def get_components_in_published_unit_as_of(
+    unit: Unit,
+    publish_log_id: int,
+) -> list[UnitListEntry] | None:
+    """
+    [ 🛑 UNSTABLE ]
+    Get the list of entities and their versions in the published version of the
+    given container as of the given PublishLog version (which is essentially a
+    version for the entire learning package).
+
+    TODO: This API should be updated to also return the UnitVersion so we can
+          see the unit title and any other metadata from that point in time.
+    TODO: accept a publish log UUID, not just int ID?
+    TODO: move the implementation to be a generic 'containers' implementation
+          that this units function merely wraps.
+    TODO: optimize, perhaps by having the publishlog store a record of all
+          ancestors of every modified PublishableEntity in the publish.
+    """
+    assert isinstance(unit, Unit)
+    unit_pub_entity_version = get_published_version_as_of(unit.publishable_entity, publish_log_id)
+    if unit_pub_entity_version is None:
+        return None  # This unit was not published as of the given PublishLog ID.
+    unit_version = unit_pub_entity_version.unitversion
+
+    entity_list = []
+    rows = unit_version.container_entity_version.defined_list.entitylistrow_set.order_by("order_num")
+    for row in rows:
+        if row.entity_version is not None:
+            component_version = row.entity_version.componentversion
+            assert isinstance(component_version, ComponentVersion)
+            entity_list.append(UnitListEntry(component_version=component_version, pinned=True))
+        else:
+            # Unpinned component - figure out what its latest published version was.
+            # This is not optimized. It could be done in one query per unit rather than one query per component.
+            pub_entity_version = get_published_version_as_of(row.entity, publish_log_id)
+            if pub_entity_version:
+                entity_list.append(UnitListEntry(component_version=pub_entity_version.componentversion, pinned=False))
     return entity_list

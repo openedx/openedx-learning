@@ -133,7 +133,7 @@ class UnitTestCase(ComponentTestCase):
 
     def test_create_next_unit_version_with_unpinned_and_pinned_components(self):
         """
-        Test creating a unit version with one unpinned and one pinned component.
+        Test creating a unit version with one unpinned and one pinned 📌 component.
         """
         unit, unit_version = authoring_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
@@ -145,7 +145,7 @@ class UnitTestCase(ComponentTestCase):
         unit_version_v2 = authoring_api.create_next_unit_version(
             unit=unit,
             title="Unit",
-            components=[self.component_1, self.component_2_v1],  # Note the "v1" pinning it to version 2
+            components=[self.component_1, self.component_2_v1],  # Note the "v1" pinning 📌 the second one to version 1
             created=self.now,
             created_by=None,
         )
@@ -153,7 +153,7 @@ class UnitTestCase(ComponentTestCase):
         assert unit_version_v2 in unit.versioning.versions.all()
         assert authoring_api.get_components_in_draft_unit(unit) == [
             authoring_api.UnitListEntry(component_version=self.component_1_v1, pinned=False),
-            authoring_api.UnitListEntry(component_version=self.component_2_v1, pinned=True),  # Pinned to v1
+            authoring_api.UnitListEntry(component_version=self.component_2_v1, pinned=True),  # Pinned 📌 to v1
         ]
         assert authoring_api.get_components_in_published_unit(unit) is None
 
@@ -304,6 +304,7 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(2):
             assert authoring_api.contains_unpublished_changes(unit) == True
 
+    # Test the query counts of various operations
     # Test that soft-deleting a component doesn't show the unit as changed but does show it contains changes ?
     # Test that only components can be added to units
     # Test that components must be in the same learning package
@@ -315,8 +316,76 @@ class UnitTestCase(ComponentTestCase):
     # Test that I can get a history of a given unit and its children, that includes changes made to the child components
     #     while they were part of the unit but excludes changes made to those children while they were not part of
     #     the unit. 🫣
-    # Test viewing old snapshots of units and components by passing in a timestamp (or PublishLog PK) to a
-    #     get_historic_unit() API?
+
+    def test_snapshots_of_published_unit(self):
+        """
+        Test that we can access snapshots of the historic published version of
+        units and their contents.
+        """
+        # At first the unit has one component (unpinned):
+        unit = self.create_unit_with_components([self.component_1])
+        self.modify_component(self.component_1, title="Component 1 as of checkpoint 1")
+
+        # Publish everything, creating Checkpoint 1
+        checkpoint_1 = authoring_api.publish_all_drafts(self.learning_package.id, message="checkpoint 1")
+
+        ########################################################################
+
+        # Now we update the title of the component.
+        self.modify_component(self.component_1, title="Component 1 as of checkpoint 2")
+        # Publish everything, creating Checkpoint 2
+        checkpoint_2 = authoring_api.publish_all_drafts(self.learning_package.id, message="checkpoint 2")
+        ########################################################################
+
+        # Now add a second component to the unit:
+        self.modify_component(self.component_1, title="Component 1 as of checkpoint 3")
+        self.modify_component(self.component_2, title="Component 2 as of checkpoint 3")
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title="Unit title in checkpoint 3",
+            components=[self.component_1, self.component_2],
+            created=self.now,
+        )
+        # Publish everything, creating Checkpoint 3
+        checkpoint_3 = authoring_api.publish_all_drafts(self.learning_package.id, message="checkpoint 3")
+        ########################################################################
+
+        # Now add a third component to the unit, a pinned 📌 version of component 1.
+        # This will test pinned versions and also test adding at the beginning rather than the end of the unit.
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title="Unit title in checkpoint 4",
+            components=[self.component_1_v1, self.component_1, self.component_2],
+            created=self.now,
+        )
+        # Publish everything, creating Checkpoint 4
+        checkpoint_4 = authoring_api.publish_all_drafts(self.learning_package.id, message="checkpoint 4")
+        ########################################################################
+
+        # Modify the drafts, but don't publish:
+        self.modify_component(self.component_1, title="Component 1 draft")
+        self.modify_component(self.component_2, title="Component 2 draft")
+
+        # Now fetch the snapshots:
+        as_of_checkpoint_1 = authoring_api.get_components_in_published_unit_as_of(unit, checkpoint_1.pk)
+        assert [cv.component_version.title for cv in as_of_checkpoint_1] == [
+            "Component 1 as of checkpoint 1",
+        ]
+        as_of_checkpoint_2 = authoring_api.get_components_in_published_unit_as_of(unit, checkpoint_2.pk)
+        assert [cv.component_version.title for cv in as_of_checkpoint_2] == [
+            "Component 1 as of checkpoint 2",
+        ]
+        as_of_checkpoint_3 = authoring_api.get_components_in_published_unit_as_of(unit, checkpoint_3.pk)
+        assert [cv.component_version.title for cv in as_of_checkpoint_3] == [
+            "Component 1 as of checkpoint 3",
+            "Component 2 as of checkpoint 3",
+        ]
+        as_of_checkpoint_4 = authoring_api.get_components_in_published_unit_as_of(unit, checkpoint_4.pk)
+        assert [cv.component_version.title for cv in as_of_checkpoint_4] == [
+            "Querying Counting Problem",  # Pinned. This title is self.component_1_v1.title (original v1 title)
+            "Component 1 as of checkpoint 3",  # we didn't modify these components so they're same as in snapshot 3
+            "Component 2 as of checkpoint 3",  # we didn't modify these components so they're same as in snapshot 3
+        ]
 
     def test_next_version_with_different_different_title(self):
         """Test creating a unit version with a different title.
