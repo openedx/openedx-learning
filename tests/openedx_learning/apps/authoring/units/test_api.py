@@ -7,6 +7,8 @@ from ..components.test_api import ComponentTestCase
 from openedx_learning.api import authoring as authoring_api
 from openedx_learning.api import authoring_models
 
+Entry = authoring_api.UnitListEntry
+
 
 class UnitTestCase(ComponentTestCase):
 
@@ -152,8 +154,8 @@ class UnitTestCase(ComponentTestCase):
         assert unit_version_v2.version_num == 2
         assert unit_version_v2 in unit.versioning.versions.all()
         assert authoring_api.get_components_in_draft_unit(unit) == [
-            authoring_api.UnitListEntry(component_version=self.component_1.versioning.draft, pinned=False),
-            authoring_api.UnitListEntry(component_version=self.component_2.versioning.draft, pinned=False),
+            Entry(self.component_1.versioning.draft, pinned=False),
+            Entry(self.component_2.versioning.draft, pinned=False),
         ]
         assert authoring_api.get_components_in_published_unit(unit) is None
 
@@ -178,8 +180,8 @@ class UnitTestCase(ComponentTestCase):
         assert unit_version_v2.version_num == 2
         assert unit_version_v2 in unit.versioning.versions.all()
         assert authoring_api.get_components_in_draft_unit(unit) == [
-            authoring_api.UnitListEntry(component_version=self.component_1_v1, pinned=False),
-            authoring_api.UnitListEntry(component_version=self.component_2_v1, pinned=True),  # Pinned 📌 to v1
+            Entry(self.component_1_v1, pinned=False),
+            Entry(self.component_2_v1, pinned=True),  # Pinned 📌 to v1
         ]
         assert authoring_api.get_components_in_published_unit(unit) is None
 
@@ -252,19 +254,19 @@ class UnitTestCase(ComponentTestCase):
 
         # Since the component changes haven't been published, they should only appear in the draft unit
         assert authoring_api.get_components_in_draft_unit(unit) == [
-            authoring_api.UnitListEntry(component_version=component_1_v2, pinned=False),  # new version
+            Entry(component_1_v2, pinned=False),  # new version
         ]
         assert authoring_api.get_components_in_published_unit(unit) == [
-            authoring_api.UnitListEntry(component_version=self.component_1_v1, pinned=False),  # old version
+            Entry(self.component_1_v1, pinned=False),  # old version
         ]
 
         # But if we publish the component, the changes will appear in the published version of the unit.
         self.publish_component(self.component_1)
         assert authoring_api.get_components_in_draft_unit(unit) == [
-            authoring_api.UnitListEntry(component_version=component_1_v2, pinned=False),  # new version
+            Entry(component_1_v2, pinned=False),  # new version
         ]
         assert authoring_api.get_components_in_published_unit(unit) == [
-            authoring_api.UnitListEntry(component_version=component_1_v2, pinned=False),  # new version
+            Entry(component_1_v2, pinned=False),  # new version
         ]
         assert authoring_api.contains_unpublished_changes(unit) == False  # No longer contains unpublished changes
 
@@ -280,7 +282,7 @@ class UnitTestCase(ComponentTestCase):
         # Publish the unit and the component:
         authoring_api.publish_all_drafts(self.learning_package.id)
         expected_unit_contents = [
-            authoring_api.UnitListEntry(component_version=self.component_1_v1, pinned=True),  # pinned 📌 to v1
+            Entry(self.component_1_v1, pinned=True),  # pinned 📌 to v1
         ]
         assert authoring_api.get_components_in_published_unit(unit) == expected_unit_contents
 
@@ -301,6 +303,57 @@ class UnitTestCase(ComponentTestCase):
         self.publish_component(self.component_1)
         assert authoring_api.get_components_in_draft_unit(unit) == expected_unit_contents
         assert authoring_api.get_components_in_published_unit(unit) == expected_unit_contents
+
+    def test_create_two_units_with_same_components(self):
+        """Test creating two units with the same components.
+
+        Expected results:
+        1. Two different units are created.
+        2. The units have the same components.
+        """
+        # Create a unit with component 2 unpinned, component 2 pinned 📌, and component 1:
+        unit1 = self.create_unit_with_components([self.component_2, self.component_2_v1, self.component_1], key="u1")
+        # Create a second unit with component 1 pinned 📌, component 2, and component 1 unpinned:
+        unit2 = self.create_unit_with_components([self.component_1_v1, self.component_2, self.component_1], key="u2")
+
+        # Check that the contents are as expected:
+        assert [row.component_version for row in authoring_api.get_components_in_draft_unit(unit1)] == [
+            self.component_2_v1, self.component_2_v1, self.component_1_v1,
+        ]
+        assert [row.component_version for row in authoring_api.get_components_in_draft_unit(unit2)] == [
+            self.component_1_v1, self.component_2_v1, self.component_1_v1,
+        ]
+
+        # Modify component 1
+        component_1_v2 = self.modify_component(self.component_1, title="component 1 v2")
+        # Publish changes
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        # Modify component 2 - only in the draft
+        component_2_v2 = self.modify_component(self.component_2, title="component 2 DRAFT")
+
+        # Check that the draft contents are as expected:
+        assert authoring_api.get_components_in_draft_unit(unit1) == [
+            Entry(component_2_v2, pinned=False),  # v2 in the draft version
+            Entry(self.component_2_v1, pinned=True),  # pinned 📌 to v1
+            Entry(component_1_v2, pinned=False),  # v2
+        ]
+        assert authoring_api.get_components_in_draft_unit(unit2) == [
+            Entry(self.component_1_v1, pinned=True),  # pinned 📌 to v1
+            Entry(component_2_v2, pinned=False),  # v2 in the draft version
+            Entry(component_1_v2, pinned=False),  # v2
+        ]
+
+        # Check that the published contents are as expected:
+        assert authoring_api.get_components_in_published_unit(unit1) == [
+            Entry(self.component_2_v1, pinned=False),  # v1 in the published version
+            Entry(self.component_2_v1, pinned=True),  # pinned 📌 to v1
+            Entry(component_1_v2, pinned=False),  # v2
+        ]
+        assert authoring_api.get_components_in_published_unit(unit2) == [
+            Entry(self.component_1_v1, pinned=True),  # pinned 📌 to v1
+            Entry(self.component_2_v1, pinned=False),  # v1 in the published version
+            Entry(component_1_v2, pinned=False),  # v2
+        ]
 
     def test_query_count_of_contains_unpublished_changes(self):
         """
@@ -423,14 +476,6 @@ class UnitTestCase(ComponentTestCase):
         4. The unit version's title is different from the previous version.
         5. The user defined is the same as the previous version.
         6. The frozen list is empty.
-        """
-
-    def test_create_two_units_with_same_components(self):
-        """Test creating two units with the same components.
-
-        Expected results:
-        1. Two different units are created.
-        2. The units have the same components.
         """
 
     def test_check_author_defined_list_matches_components(self):
