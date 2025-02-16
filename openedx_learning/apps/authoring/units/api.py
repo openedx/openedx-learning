@@ -116,7 +116,8 @@ def create_next_unit_version(
         created_by: The user who created the unit.
     """
     for c in components:
-        assert isinstance(c, (Component, ComponentVersion))
+        if not isinstance(c, (Component, ComponentVersion)):
+            raise TypeError("Unit components must be either Component or ComponentVersion.")
     publishable_entities_pks = [
         (c.publishable_entity_id if isinstance(c, Component) else c.component.publishable_entity_id)
         for c in components

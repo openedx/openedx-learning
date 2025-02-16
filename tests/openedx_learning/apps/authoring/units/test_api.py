@@ -1,6 +1,8 @@
 """
 Basic tests for the units API.
 """
+import pytest
+
 from ..components.test_api import ComponentTestCase
 from openedx_learning.api import authoring as authoring_api
 from openedx_learning.api import authoring_models
@@ -69,13 +71,37 @@ class UnitTestCase(ComponentTestCase):
             created_by=None,
         )
 
-    def test_create_unit_with_content_instead_of_components(self):
-        """Test creating a unit with content instead of components.
-
-        Expected results:
-        1. An error is raised indicating the content restriction for units.
-        2. The unit is not created.
+    def test_create_unit_with_invalid_children(self):
         """
+        Verify that only components can be added to units, and a specific
+        exception is raised.
+        """
+        # Create two units:
+        unit, unit_version = authoring_api.create_unit_and_version(
+            learning_package_id=self.learning_package.id,
+            key=f"unit:key",
+            title="Unit",
+            created=self.now,
+            created_by=None,
+        )
+        unit2, _u2v1 = authoring_api.create_unit_and_version(
+            learning_package_id=self.learning_package.id,
+            key=f"unit:key2",
+            title="Unit 2",
+            created=self.now,
+            created_by=None,
+        )
+        # Try adding a Unit to a Unit
+        with pytest.raises(TypeError, match="Unit components must be either Component or ComponentVersion."):
+            authoring_api.create_next_unit_version(
+                unit=unit,
+                title="Unit Containing a Unit",
+                components=[unit2],
+                created=self.now,
+                created_by=None,
+            )
+        # Check that a new version was not created:
+        assert unit.versioning.draft == unit_version
 
     def test_create_empty_unit_and_version(self):
         """Test creating a unit with no components.
