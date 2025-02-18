@@ -213,7 +213,7 @@ class UnitListEntry:
     Data about a single entity in a container, e.g. a component in a unit.
     """
     component_version: ComponentVersion
-    pinned: bool
+    pinned: bool = False
 
     @property
     def component(self):

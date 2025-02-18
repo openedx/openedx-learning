@@ -180,8 +180,8 @@ class UnitTestCase(ComponentTestCase):
         assert unit_version_v2.version_num == 2
         assert unit_version_v2 in unit.versioning.versions.all()
         assert authoring_api.get_components_in_draft_unit(unit) == [
-            Entry(self.component_1.versioning.draft, pinned=False),
-            Entry(self.component_2.versioning.draft, pinned=False),
+            Entry(self.component_1.versioning.draft),
+            Entry(self.component_2.versioning.draft),
         ]
         assert authoring_api.get_components_in_published_unit(unit) is None
 
@@ -206,7 +206,7 @@ class UnitTestCase(ComponentTestCase):
         assert unit_version_v2.version_num == 2
         assert unit_version_v2 in unit.versioning.versions.all()
         assert authoring_api.get_components_in_draft_unit(unit) == [
-            Entry(self.component_1_v1, pinned=False),
+            Entry(self.component_1_v1),
             Entry(self.component_2_v1, pinned=True),  # Pinned 📌 to v1
         ]
         assert authoring_api.get_components_in_published_unit(unit) is None
@@ -280,19 +280,19 @@ class UnitTestCase(ComponentTestCase):
 
         # Since the component changes haven't been published, they should only appear in the draft unit
         assert authoring_api.get_components_in_draft_unit(unit) == [
-            Entry(component_1_v2, pinned=False),  # new version
+            Entry(component_1_v2),  # new version
         ]
         assert authoring_api.get_components_in_published_unit(unit) == [
-            Entry(self.component_1_v1, pinned=False),  # old version
+            Entry(self.component_1_v1),  # old version
         ]
 
         # But if we publish the component, the changes will appear in the published version of the unit.
         self.publish_component(self.component_1)
         assert authoring_api.get_components_in_draft_unit(unit) == [
-            Entry(component_1_v2, pinned=False),  # new version
+            Entry(component_1_v2),  # new version
         ]
         assert authoring_api.get_components_in_published_unit(unit) == [
-            Entry(component_1_v2, pinned=False),  # new version
+            Entry(component_1_v2),  # new version
         ]
         assert authoring_api.contains_unpublished_changes(unit) == False  # No longer contains unpublished changes
 
@@ -359,26 +359,26 @@ class UnitTestCase(ComponentTestCase):
 
         # Check that the draft contents are as expected:
         assert authoring_api.get_components_in_draft_unit(unit1) == [
-            Entry(component_2_v2, pinned=False),  # v2 in the draft version
+            Entry(component_2_v2),  # v2 in the draft version
             Entry(self.component_2_v1, pinned=True),  # pinned 📌 to v1
-            Entry(component_1_v2, pinned=False),  # v2
+            Entry(component_1_v2),  # v2
         ]
         assert authoring_api.get_components_in_draft_unit(unit2) == [
             Entry(self.component_1_v1, pinned=True),  # pinned 📌 to v1
-            Entry(component_2_v2, pinned=False),  # v2 in the draft version
-            Entry(component_1_v2, pinned=False),  # v2
+            Entry(component_2_v2),  # v2 in the draft version
+            Entry(component_1_v2),  # v2
         ]
 
         # Check that the published contents are as expected:
         assert authoring_api.get_components_in_published_unit(unit1) == [
-            Entry(self.component_2_v1, pinned=False),  # v1 in the published version
+            Entry(self.component_2_v1),  # v1 in the published version
             Entry(self.component_2_v1, pinned=True),  # pinned 📌 to v1
-            Entry(component_1_v2, pinned=False),  # v2
+            Entry(component_1_v2),  # v2
         ]
         assert authoring_api.get_components_in_published_unit(unit2) == [
             Entry(self.component_1_v1, pinned=True),  # pinned 📌 to v1
-            Entry(self.component_2_v1, pinned=False),  # v1 in the published version
-            Entry(component_1_v2, pinned=False),  # v2
+            Entry(self.component_2_v1),  # v1 in the published version
+            Entry(component_1_v2),  # v2
         ]
 
     def test_publishing_shared_component(self):
@@ -434,18 +434,18 @@ class UnitTestCase(ComponentTestCase):
 
         # Result: Unit 1 will show the newly published version of C2:
         assert authoring_api.get_components_in_published_unit(unit1) == [
-            Entry(c1_v1, pinned=False),
-            Entry(c2_v2, pinned=False),  # new published version of C2
-            Entry(c3_v1, pinned=False),
+            Entry(c1_v1),
+            Entry(c2_v2),  # new published version of C2
+            Entry(c3_v1),
         ]
 
         # Result: someone looking at Unit 2 should see the newly published component 2, because publishing it anywhere
         # publishes it everywhere. But publishing C2 and Unit 1 does not affect the other components in Unit 2.
         # (Publish propagates downward, not upward)
         assert authoring_api.get_components_in_published_unit(unit2) == [
-            Entry(c2_v2, pinned=False),  # new published version of C2
-            Entry(c4_v1, pinned=False),  # still original version of C4 (it was never modified)
-            Entry(c5_v1, pinned=False),  # still original version of C5 (it hasn't been published)
+            Entry(c2_v2),  # new published version of C2
+            Entry(c4_v1),  # still original version of C4 (it was never modified)
+            Entry(c5_v1),  # still original version of C5 (it hasn't been published)
         ]
 
         # Result: Unit 2 CONTAINS unpublished changes because of the modified C5. Unit 1 doesn't contain unpub changes.
@@ -456,9 +456,9 @@ class UnitTestCase(ComponentTestCase):
         self.publish_component(c5)
         # Result: Unit 2 shows the new version of C5 and no longer contains unpublished changes:
         assert authoring_api.get_components_in_published_unit(unit2) == [
-            Entry(c2_v2, pinned=False),  # new published version of C2
-            Entry(c4_v1, pinned=False),  # still original version of C4 (it was never modified)
-            Entry(c5_v2, pinned=False),  # new published version of C5
+            Entry(c2_v2),  # new published version of C2
+            Entry(c4_v1),  # still original version of C4 (it was never modified)
+            Entry(c5_v2),  # new published version of C5
         ]
         assert authoring_api.contains_unpublished_changes(unit2) == False
 
@@ -494,6 +494,8 @@ class UnitTestCase(ComponentTestCase):
     # Test that soft-deleting a component doesn't show the unit as changed but does show it contains changes ?
     # Test that only components can be added to units
     # Test that components must be in the same learning package
+    # Test that invalid component PKs cannot be added to a unit
+    # Test that soft-deleted components cannot be added to a unit?
     # Test that _version_pks=[] arguments must be related to publishable_entities_pks
     # Test that publishing a unit publishes its child components automatically
     # Test that publishing a component does NOT publish changes to its parent unit
