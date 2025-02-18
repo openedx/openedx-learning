@@ -298,7 +298,7 @@ def create_next_container_version(
 
     * Something was added to the Container.
     * We re-ordered the rows in the container.
-    * Something was removed to the container.
+    * Something was removed from the container.
     * The Container's metadata changed, e.g. the title.
     * We pin to different versions of the Container.
 

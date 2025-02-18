@@ -3,6 +3,8 @@ Basic tests for the units API.
 """
 import pytest
 
+from django.core.exceptions import ValidationError
+
 from ..components.test_api import ComponentTestCase
 from openedx_learning.api import authoring as authoring_api
 from openedx_learning.api import authoring_models
@@ -104,6 +106,30 @@ class UnitTestCase(ComponentTestCase):
             )
         # Check that a new version was not created:
         assert unit.versioning.draft == unit_version
+
+    def test_adding_external_components(self):
+        """
+        Test that components from another learning package cannot be added to a
+        unit.
+        """
+        learning_package2 = authoring_api.create_learning_package(key="other-package", title="Other Package")
+        unit, _unit_version = authoring_api.create_unit_and_version(
+            learning_package_id=learning_package2.pk,
+            key=f"unit:key",
+            title="Unit",
+            created=self.now,
+            created_by=None,
+        )
+        assert self.component_1.learning_package != learning_package2
+        # Try adding a a component from LP 1 (self.learning_package) to a unit from LP 2
+        with pytest.raises(ValidationError, match="Container entities must be from the same learning package."):
+            authoring_api.create_next_unit_version(
+                unit=unit,
+                title="Unit Containing an External Component",
+                components=[self.component_1],
+                created=self.now,
+                created_by=None,
+            )
 
     def test_create_empty_unit_and_version(self):
         """Test creating a unit with no components.
