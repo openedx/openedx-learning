@@ -381,6 +381,87 @@ class UnitTestCase(ComponentTestCase):
             Entry(component_1_v2, pinned=False),  # v2
         ]
 
+    def test_publishing_shared_component(self):
+        """
+        A complex test case involving two units with a shared component and
+        other non-shared components.
+
+        Unit 1: components C1, C2, C3
+        Unit 2: components C2, C4, C5
+        Everything is "unpinned".
+        """
+        # 1️⃣ Create the units and publish them:
+        (c1, c1_v1), (c2, c2_v1), (c3, c3_v1), (c4, c4_v1), (c5, c5_v1) = [authoring_api.create_component_and_version(
+            self.learning_package.id,
+            component_type=self.problem_type,
+            local_key=f"C{i}",
+            title=f"Component {i}",
+            created=self.now,
+        ) for i in range(1, 6)]
+        unit1 = self.create_unit_with_components([c1, c2, c3], title="Unit 1", key="unit:1")
+        unit2 = self.create_unit_with_components([c2, c4, c5], title="Unit 2", key="unit:2")
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        assert authoring_api.contains_unpublished_changes(unit1) == False
+        assert authoring_api.contains_unpublished_changes(unit2) == False
+
+        # 2️⃣ Then the author edits C2 inside of Unit 1 making C2v2.
+        c2_v2 = self.modify_component(c2, title="C2 version 2")
+        # This makes U1 and U2 both show up as Units that CONTAIN unpublished changes, because they share the component.
+        assert authoring_api.contains_unpublished_changes(unit1)
+        assert authoring_api.contains_unpublished_changes(unit2)
+        # (But the units themselves are unchanged:)
+        unit1.refresh_from_db()
+        unit2.refresh_from_db()
+        assert unit1.versioning.has_unpublished_changes == False
+        assert unit2.versioning.has_unpublished_changes == False
+
+        # 3️⃣ In addition to this, the author also modifies another component in Unit 2 (C5)
+        c5_v2 = self.modify_component(c5, title="C5 version 2")
+
+        # 4️⃣ The author then publishes Unit 1, and therefore everything in it.
+        # FIXME: this should only require publishing the unit itself, but we don't yet do auto-publishing children
+        authoring_api.publish_from_drafts(
+            self.learning_package.pk,
+            draft_qset=authoring_api.get_all_drafts(self.learning_package.pk).filter(
+                entity_id__in=[
+                    unit1.publishable_entity.id,
+                    c1.publishable_entity.id,
+                    c2.publishable_entity.id,
+                    c3.publishable_entity.id,
+                ],
+            ),
+        )
+
+        # Result: Unit 1 will show the newly published version of C2:
+        assert authoring_api.get_components_in_published_unit(unit1) == [
+            Entry(c1_v1, pinned=False),
+            Entry(c2_v2, pinned=False),  # new published version of C2
+            Entry(c3_v1, pinned=False),
+        ]
+
+        # Result: someone looking at Unit 2 should see the newly published component 2, because publishing it anywhere
+        # publishes it everywhere. But publishing C2 and Unit 1 does not affect the other components in Unit 2.
+        # (Publish propagates downward, not upward)
+        assert authoring_api.get_components_in_published_unit(unit2) == [
+            Entry(c2_v2, pinned=False),  # new published version of C2
+            Entry(c4_v1, pinned=False),  # still original version of C4 (it was never modified)
+            Entry(c5_v1, pinned=False),  # still original version of C5 (it hasn't been published)
+        ]
+
+        # Result: Unit 2 CONTAINS unpublished changes because of the modified C5. Unit 1 doesn't contain unpub changes.
+        assert authoring_api.contains_unpublished_changes(unit1) == False
+        assert authoring_api.contains_unpublished_changes(unit2)
+
+        # 5️⃣ Publish component C5, which should be the only thing unpublished in the learning package
+        self.publish_component(c5)
+        # Result: Unit 2 shows the new version of C5 and no longer contains unpublished changes:
+        assert authoring_api.get_components_in_published_unit(unit2) == [
+            Entry(c2_v2, pinned=False),  # new published version of C2
+            Entry(c4_v1, pinned=False),  # still original version of C4 (it was never modified)
+            Entry(c5_v2, pinned=False),  # new published version of C5
+        ]
+        assert authoring_api.contains_unpublished_changes(unit2) == False
+
     def test_query_count_of_contains_unpublished_changes(self):
         """
         Checking for unpublished changes in a unit should require a fixed number
