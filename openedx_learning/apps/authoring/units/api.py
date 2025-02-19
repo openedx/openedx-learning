@@ -56,6 +56,7 @@ def create_unit(
 def create_unit_version(
     unit: Unit,
     version_num: int,
+    *,
     title: str,
     publishable_entities_pks: list[int],
     entity_version_pks: list[int | None],
@@ -78,12 +79,12 @@ def create_unit_version(
         container_entity_version = container_api.create_container_version(
             unit.container_entity.pk,
             version_num,
-            title,
-            publishable_entities_pks,
-            entity_version_pks,
-            unit.container_entity.publishable_entity,
-            created,
-            created_by,
+            title=title,
+            publishable_entities_pks=publishable_entities_pks,
+            entity_version_pks=entity_version_pks,
+            entity=unit.container_entity.publishable_entity,
+            created=created,
+            created_by=created_by,
         )
         unit_version = UnitVersion.objects.create(
             unit=unit,
@@ -127,12 +128,12 @@ def create_next_unit_version(
         # This currently allows for any publishable entity to be added to a unit.
         container_entity_version = container_api.create_next_container_version(
             unit.container_entity.pk,
-            title,
-            publishable_entities_pks,
-            entity_version_pks,
-            unit.container_entity.publishable_entity,
-            created,
-            created_by,
+            title=title,
+            publishable_entities_pks=publishable_entities_pks,
+            entity_version_pks=entity_version_pks,
+            entity=unit.container_entity.publishable_entity,
+            created=created,
+            created_by=created_by,
         )
         unit_version = UnitVersion.objects.create(
             unit=unit,
@@ -163,7 +164,7 @@ def create_unit_and_version(
         unit_version = create_unit_version(
             unit,
             1,
-            title,
+            title=title,
             publishable_entities_pks=[],
             entity_version_pks=[],
             created=created,

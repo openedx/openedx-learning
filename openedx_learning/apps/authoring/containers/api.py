@@ -213,7 +213,7 @@ def check_unpinned_versions_in_defined_list(
 
 def check_new_changes_in_defined_list(
     entity_list: EntityList,  # pylint: disable=unused-argument
-    publishable_entities_pk: list[int],  # pylint: disable=unused-argument
+    publishable_entities_pks: list[int],  # pylint: disable=unused-argument
 ) -> bool:
     """
     [ 🛑 UNSTABLE ]
@@ -234,8 +234,9 @@ def check_new_changes_in_defined_list(
 def create_container_version(
     container_pk: int,
     version_num: int,
+    *,
     title: str,
-    publishable_entities_pk: list[int],
+    publishable_entities_pks: list[int],
     entity_version_pks: list[int | None],
     entity: PublishableEntity,
     created: datetime,
@@ -249,7 +250,7 @@ def create_container_version(
         container_pk: The ID of the container that the version belongs to.
         version_num: The version number of the container.
         title: The title of the container.
-        publishable_entities_pk: The IDs of the members of the container.
+        publishable_entities_pks: The IDs of the members of the container.
         entity: The entity that the container belongs to.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
@@ -266,7 +267,7 @@ def create_container_version(
             created_by=created_by,
         )
         defined_list = create_defined_list_with_rows(
-            entity_pks=publishable_entities_pk,
+            entity_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
         )
         container_version = ContainerEntityVersion.objects.create(
@@ -284,8 +285,9 @@ def create_container_version(
 
 def create_next_container_version(
     container_pk: int,
+    *,
     title: str,
-    publishable_entities_pk: list[int],
+    publishable_entities_pks: list[int],
     entity_version_pks: list[int | None],
     entity: PublishableEntity,
     created: datetime,
@@ -305,7 +307,7 @@ def create_next_container_version(
     Args:
         container_pk: The ID of the container to create the next version of.
         title: The title of the container.
-        publishable_entities_pk: The IDs of the members current members of the container.
+        publishable_entities_pks: The IDs of the members current members of the container.
         entity: The entity that the container belongs to.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
@@ -332,7 +334,7 @@ def create_next_container_version(
         # 6. Point frozen_list to None or defined_list
         if check_new_changes_in_defined_list(
             entity_list=last_version.defined_list,
-            publishable_entities_pk=publishable_entities_pk,
+            publishable_entities_pks=publishable_entities_pks,
         ):
             # Only change if there are unpin versions in defined list, meaning last frozen list is None
             # When does this has to happen? Before?
@@ -344,7 +346,7 @@ def create_next_container_version(
             next_defined_list = create_next_defined_list(
                 previous_entity_list=last_version.defined_list,
                 new_entity_list=create_entity_list(),
-                entity_pks=publishable_entities_pk,
+                entity_pks=publishable_entities_pks,
                 entity_version_pks=entity_version_pks,
             )
             next_initial_list = get_entity_list_with_pinned_versions(
@@ -376,10 +378,11 @@ def create_next_container_version(
 def create_container_and_version(
     learning_package_id: int,
     key: str,
+    *,
     created: datetime,
     created_by: int | None,
     title: str,
-    publishable_entities_pk: list[int],
+    publishable_entities_pks: list[int],
     entity_version_pks: list[int | None],
 ) -> ContainerEntityVersion:
     """
@@ -404,7 +407,7 @@ def create_container_and_version(
             container_pk=container.publishable_entity.pk,
             version_num=1,
             title=title,
-            publishable_entities_pk=publishable_entities_pk,
+            publishable_entities_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
             entity=container.publishable_entity,
             created=created,
