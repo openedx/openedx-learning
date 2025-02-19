@@ -1,3 +1,6 @@
+"""
+Models that implement units
+"""
 from django.db import models
 
 from ..containers.models_mixin import ContainerEntityMixin, ContainerEntityVersionMixin

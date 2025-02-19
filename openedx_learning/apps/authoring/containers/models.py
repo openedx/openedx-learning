@@ -1,3 +1,6 @@
+"""
+Models that implement containers
+"""
 from django.db import models
 
 from openedx_learning.apps.authoring.publishing.models import (
@@ -25,8 +28,6 @@ class EntityList(models.Model):
     anonymous in a sense–they're pointed to by ContainerEntityVersions and
     other models, rather than being looked up by their own identifers.
     """
-
-    pass
 
 
 class EntityListRow(models.Model):
@@ -77,8 +78,6 @@ class ContainerEntity(PublishableEntityMixin):
     PublishLog and Containers that were affected in a publish because their
     child elements were published.
     """
-
-    pass
 
 
 class ContainerEntityVersion(PublishableEntityVersionMixin):

@@ -5,13 +5,12 @@ This module provides a set of functions to interact with the containers
 models in the Open edX Learning platform.
 """
 from dataclasses import dataclass
+from datetime import datetime
 
 from django.db.transaction import atomic
 from django.db.models import QuerySet
 
-from datetime import datetime
-
-from openedx_learning.apps.authoring.containers.models_mixin import ContainerEntityMixin, ContainerEntityVersionMixin
+from openedx_learning.apps.authoring.containers.models_mixin import ContainerEntityMixin
 from ..containers.models import (
     ContainerEntity,
     ContainerEntityVersion,
@@ -79,7 +78,7 @@ def create_entity_list() -> EntityList:
 
 
 def create_next_defined_list(
-    previous_entity_list: EntityList | None,
+    previous_entity_list: EntityList | None,  # pylint: disable=unused-argument
     new_entity_list: EntityList,
     entity_pks: list[int],
     entity_version_pks: list[int | None],
@@ -105,9 +104,10 @@ def create_next_defined_list(
         # 1. Create new rows for the entity list
         # Case 2: create next container version (previous rows created for container)
         # 1. Get all the rows in the previous version entity list
-        # 2. Only associate existent rows to the new entity list iff: the order is the same, the PublishableEntity is in entity_pks and versions are not pinned
-        # 3. If the order is different for a row with the PublishableEntity, create new row with the same PublishableEntity for the new order
-        # and associate the new row to the new entity list
+        # 2. Only associate existent rows to the new entity list iff: the order is the same, the PublishableEntity is in
+        #    entity_pks and versions are not pinned
+        # 3. If the order is different for a row with the PublishableEntity, create new row with the same
+        #    PublishableEntity for the new order and associate the new row to the new entity list
         new_rows = []
         for order_num, entity_pk, entity_version_pk in zip(
             order_nums, entity_pks, entity_version_pks
@@ -212,8 +212,8 @@ def check_unpinned_versions_in_defined_list(
 
 
 def check_new_changes_in_defined_list(
-    entity_list: EntityList,
-    publishable_entities_pk: list[int],
+    entity_list: EntityList,  # pylint: disable=unused-argument
+    publishable_entities_pk: list[int],  # pylint: disable=unused-argument
 ) -> bool:
     """
     [ 🛑 UNSTABLE ]
@@ -477,7 +477,7 @@ def get_entities_in_published_container(
         cev = container.versioning.published
     else:
         raise TypeError(f"Expected ContainerEntity or ContainerEntityMixin; got {type(container)}")
-    if cev == None:
+    if cev is None:
         return None  # There is no published version of this container. Should this be an exception?
     assert isinstance(cev, ContainerEntityVersion)
     # TODO: do we ever need frozen_list? e.g. when accessing a historical version?
@@ -533,7 +533,7 @@ def contains_unpublished_changes(
     ):
         try:
             child_container = row.entity.containerentity
-        except PublishableEntity.containerentity.RelatedObjectDoesNotExist:
+        except PublishableEntity.containerentity.RelatedObjectDoesNotExist:  # pylint: disable=no-member
             child_container = None
         if child_container:
             child_container = row.entity.containerentity
@@ -546,5 +546,4 @@ def contains_unpublished_changes(
             published_pk = row.entity.published.version_id if row.entity.published else None
             if draft_pk != published_pk:
                 return True
-    
     return False

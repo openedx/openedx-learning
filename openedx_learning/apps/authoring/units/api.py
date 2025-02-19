@@ -3,19 +3,15 @@
 This module provides functions to manage units.
 """
 from dataclasses import dataclass
+from datetime import datetime
 
 from django.db.transaction import atomic
 
 from openedx_learning.apps.authoring.components.models import Component, ComponentVersion
-from openedx_learning.apps.authoring.containers.models import EntityListRow
-from ..publishing import api as publishing_api
 from ..publishing.api import get_published_version_as_of
 from ..containers import api as container_api
 from .models import Unit, UnitVersion
-from django.db.models import QuerySet
 
-
-from datetime import datetime
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
 #              out our approach to dynamic content (randomized, A/B tests, etc.)
@@ -248,7 +244,7 @@ def get_components_in_published_unit(
     """
     assert isinstance(unit, Unit)
     published_entities = container_api.get_entities_in_published_container(unit)
-    if published_entities == None:
+    if published_entities is None:
         return None  # There is no published version of this unit. Should this be an exception?
     entity_list = []
     for entry in published_entities:

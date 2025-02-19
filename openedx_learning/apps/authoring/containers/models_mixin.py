@@ -1,14 +1,15 @@
+"""
+Mixins for models that implement containers
+"""
 from __future__ import annotations
 
 from django.db import models
+from django.db.models.query import QuerySet
 
 from openedx_learning.apps.authoring.containers.models import (
     ContainerEntity,
     ContainerEntityVersion,
 )
-
-from django.db.models.query import QuerySet
-
 from openedx_learning.apps.authoring.publishing.model_mixins import (
     PublishableEntityMixin,
     PublishableEntityVersionMixin,
