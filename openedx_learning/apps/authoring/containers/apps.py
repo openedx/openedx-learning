@@ -15,7 +15,6 @@ class ContainersConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     label = "oel_containers"
 
-
     def ready(self):
         """
         Register ContainerEntity and ContainerEntityVersion.

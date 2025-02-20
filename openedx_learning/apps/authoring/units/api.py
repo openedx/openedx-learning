@@ -8,10 +8,10 @@ from datetime import datetime
 from django.db.transaction import atomic
 
 from openedx_learning.apps.authoring.components.models import Component, ComponentVersion
-from ..publishing.api import get_published_version_as_of
-from ..containers import api as container_api
-from .models import Unit, UnitVersion
 
+from ..containers import api as container_api
+from ..publishing.api import get_published_version_as_of
+from .models import Unit, UnitVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
 #              out our approach to dynamic content (randomized, A/B tests, etc.)

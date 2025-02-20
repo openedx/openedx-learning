@@ -8,19 +8,14 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from django.core.exceptions import ValidationError
-from django.db.transaction import atomic
 from django.db.models import QuerySet
+from django.db.transaction import atomic
 
 from openedx_learning.apps.authoring.containers.models_mixin import ContainerEntityMixin
-from ..containers.models import (
-    ContainerEntity,
-    ContainerEntityVersion,
-    EntityList,
-    EntityListRow,
-)
-from ..publishing.models import PublishableEntity, PublishableEntityVersion
-from ..publishing import api as publishing_api
 
+from ..containers.models import ContainerEntity, ContainerEntityVersion, EntityList, EntityListRow
+from ..publishing import api as publishing_api
+from ..publishing.models import PublishableEntity, PublishableEntityVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
 #              out our approach to dynamic content (randomized, A/B tests, etc.)
@@ -123,6 +118,7 @@ def create_next_defined_list(
             )
         EntityListRow.objects.bulk_create(new_rows)
     return new_entity_list
+
 
 def create_defined_list_with_rows(
     entity_pks: list[int],
@@ -527,7 +523,7 @@ def contains_unpublished_changes(
             "publishable_entity__draft__version__containerentityversion__defined_list",
         ).get(pk=container.container_entity_id)
     else:
-        pass # TODO: select_related if we're given a raw ContainerEntity rather than a ContainerEntityMixin like Unit?
+        pass  # TODO: select_related if we're given a raw ContainerEntity rather than a ContainerEntityMixin like Unit?
     assert isinstance(container, ContainerEntity)
 
     if container.versioning.has_unpublished_changes:
@@ -546,7 +542,7 @@ def contains_unpublished_changes(
     ):
         try:
             child_container = row.entity.containerentity
-        except PublishableEntity.containerentity.RelatedObjectDoesNotExist:  # type: ignore[attr-defined] # pylint: disable=no-member
+        except ContainerEntity.DoesNotExist:
             child_container = None
         if child_container:
             child_container = row.entity.containerentity

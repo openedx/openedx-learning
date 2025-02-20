@@ -3,14 +3,9 @@ Models that implement containers
 """
 from django.db import models
 
-from openedx_learning.apps.authoring.publishing.models import (
-    PublishableEntity,
-    PublishableEntityVersion,
-)
-from ..publishing.model_mixins import (
-    PublishableEntityMixin,
-    PublishableEntityVersionMixin,
-)
+from openedx_learning.apps.authoring.publishing.models import PublishableEntity, PublishableEntityVersion
+
+from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
 
 __all__ = [
     "ContainerEntity",

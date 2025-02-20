@@ -1042,7 +1042,15 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         ("staff", "taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
     )
     @ddt.unpack
-    def test_tag_object(self, user_attr, taxonomy_attr, taxonomy_flags, tag_values, expected_status, object_id):  # pylint: disable=too-many-positional-arguments
+    def test_tag_object(  # pylint: disable=too-many-positional-arguments
+        self,
+        user_attr,
+        taxonomy_attr,
+        taxonomy_flags,
+        tag_values,
+        expected_status,
+        object_id,
+    ):
         if user_attr:
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)

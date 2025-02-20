@@ -2,14 +2,12 @@
 Mixins for models that implement containers
 """
 from __future__ import annotations
+
 from typing import ClassVar, Self
 
 from django.db import models
 
-from openedx_learning.apps.authoring.containers.models import (
-    ContainerEntity,
-    ContainerEntityVersion,
-)
+from openedx_learning.apps.authoring.containers.models import ContainerEntity, ContainerEntityVersion
 from openedx_learning.apps.authoring.publishing.model_mixins import (
     PublishableEntityMixin,
     PublishableEntityVersionMixin,

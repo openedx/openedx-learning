@@ -2,11 +2,11 @@
 Basic tests for the units API.
 """
 import pytest
-
 from django.core.exceptions import ValidationError
 
 from openedx_learning.api import authoring as authoring_api
 from openedx_learning.api import authoring_models
+
 from ..components.test_api import ComponentTestCase
 
 Entry = authoring_api.UnitListEntry
