@@ -463,10 +463,13 @@ def get_entities_in_draft_container(
     entity_list = []
     defined_list = container.versioning.draft.defined_list
     for row in defined_list.entitylistrow_set.order_by("order_num"):
-        entity_list.append(ContainerEntityListEntry(
-            entity_version=row.entity_version or row.entity.draft.version,
-            pinned=row.entity_version is not None,
-        ))
+        entity_version = row.entity_version or row.entity.draft.version
+        if entity_version is not None:  # As long as this hasn't been soft-deleted:
+            entity_list.append(ContainerEntityListEntry(
+                entity_version=row.entity_version or row.entity.draft.version,
+                pinned=row.entity_version is not None,
+            ))
+        # else should we indicate somehow a deleted item was here?
     return entity_list
 
 
@@ -500,6 +503,7 @@ def get_entities_in_published_container(
                 entity_version=entity_version,
                 pinned=row.entity_version is not None,
             ))
+        # else should we indicate somehow a deleted item was here?
     return entity_list
 
 

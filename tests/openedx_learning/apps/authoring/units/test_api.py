@@ -1,6 +1,7 @@
 """
 Basic tests for the units API.
 """
+import ddt  # type: ignore[import]
 import pytest
 from django.core.exceptions import ValidationError
 
@@ -12,24 +13,30 @@ from ..components.test_api import ComponentTestCase
 Entry = authoring_api.UnitListEntry
 
 
+@ddt.ddt
 class UnitTestCase(ComponentTestCase):
     """ Test cases for Units (containers of components) """
 
     def setUp(self) -> None:
         super().setUp()
-        self.component_1, self.component_1_v1 = authoring_api.create_component_and_version(
-            self.learning_package.id,
-            component_type=self.problem_type,
-            local_key="Query Counting",
+        self.component_1, self.component_1_v1 = self.create_component(
+            key="Query Counting",
             title="Querying Counting Problem",
-            created=self.now,
-            created_by=None,
         )
-        self.component_2, self.component_2_v1 = authoring_api.create_component_and_version(
+        self.component_2, self.component_2_v1 = self.create_component(
+            key="Query Counting (2)",
+            title="Querying Counting Problem (2)",
+        )
+
+    def create_component(self, *, title: str = "Test Component", key: str = "component:1") -> tuple[
+        authoring_models.Component, authoring_models.ComponentVersion
+    ]:
+        """ Helper method to quickly create a component """
+        return authoring_api.create_component_and_version(
             self.learning_package.id,
             component_type=self.problem_type,
-            local_key="Query Counting (2)",
-            title="Querying Counting Problem (2)",
+            local_key=key,
+            title=title,
             created=self.now,
             created_by=None,
         )
@@ -393,13 +400,9 @@ class UnitTestCase(ComponentTestCase):
         Everything is "unpinned".
         """
         # 1️⃣ Create the units and publish them:
-        (c1, c1_v1), (c2, _c2_v1), (c3, c3_v1), (c4, c4_v1), (c5, c5_v1) = [authoring_api.create_component_and_version(
-            self.learning_package.id,
-            component_type=self.problem_type,
-            local_key=f"C{i}",
-            title=f"Component {i}",
-            created=self.now,
-        ) for i in range(1, 6)]
+        (c1, c1_v1), (c2, _c2_v1), (c3, c3_v1), (c4, c4_v1), (c5, c5_v1) = [
+            self.create_component(key=f"C{i}", title=f"Component {i}") for i in range(1, 6)
+        ]
         unit1 = self.create_unit_with_components([c1, c2, c3], title="Unit 1", key="unit:1")
         unit2 = self.create_unit_with_components([c2, c4, c5], title="Unit 2", key="unit:2")
         authoring_api.publish_all_drafts(self.learning_package.id)
@@ -473,12 +476,9 @@ class UnitTestCase(ComponentTestCase):
         component_count = 100
         components = []
         for i in range(component_count):
-            component, _version = authoring_api.create_component_and_version(
-                self.learning_package.id,
-                component_type=self.problem_type,
-                local_key=f"Query Counting {i}",
+            component, _version = self.create_component(
+                key=f"Query Counting {i}",
                 title=f"Querying Counting Problem {i}",
-                created=self.now,
             )
             components.append(component)
         unit = self.create_unit_with_components(components)
@@ -492,12 +492,132 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(2):
             assert authoring_api.contains_unpublished_changes(unit) is True
 
+    @ddt.data(True, False)
+    @pytest.mark.skip(reason="FIXME: we don't yet prevent adding soft-deleted components to units")
+    def test_cannot_add_soft_deleted_component(self, publish_first):
+        """
+        Test that a soft-deleted component cannot be added to a unit.
+
+        Although it's valid for units to contain soft-deleted components (by
+        deleting the component after adding it), it is likely a mistake if
+        you're trying to add one to the unit.
+        """
+        component, _cv = self.create_component(title="Deleted component")
+        if publish_first:
+            # Publish the component:
+            authoring_api.publish_all_drafts(self.learning_package.id)
+        # Now delete it. The draft version is now deleted:
+        authoring_api.soft_delete_draft(component.pk)
+        # Now try adding that component to a unit:
+        with pytest.raises(ValidationError, match="component is deleted"):
+            self.create_unit_with_components([component])
+
+    def test_removing_component(self):
+        """ Test removing a component from a unit (but not deleting it) """
+        unit = self.create_unit_with_components([self.component_1, self.component_2])
+        authoring_api.publish_all_drafts(self.learning_package.id)
+
+        # Now remove component 2
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title="Revised with component 2 deleted",
+            components=[self.component_1],  # component 2 is gone
+            created=self.now,
+        )
+
+        # Now it should not be listed in the unit:
+        assert authoring_api.get_components_in_draft_unit(unit) == [
+            Entry(self.component_1_v1),
+        ]
+        unit.refresh_from_db()
+        assert unit.versioning.has_unpublished_changes  # The unit itself and its component list have change
+        assert authoring_api.contains_unpublished_changes(unit)
+        # The published version of the unit is not yet affected:
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            Entry(self.component_1_v1),
+            Entry(self.component_2_v1),
+        ]
+
+        # But when we publish the new unit version with the removal, the published version is affected:
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        # FIXME: Refreshing the unit is necessary here because get_entities_in_published_container() accesses
+        # container_entity.versioning.published, and .versioning is cached with the old version. But this seems like
+        # a footgun?
+        unit.refresh_from_db()
+        assert authoring_api.contains_unpublished_changes(unit) is False
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            Entry(self.component_1_v1),
+        ]
+
+    def test_soft_deleting_component(self):
+        """ Test soft deleting a component that's in a unit (but not removing it) """
+        unit = self.create_unit_with_components([self.component_1, self.component_2])
+        authoring_api.publish_all_drafts(self.learning_package.id)
+
+        # Now soft delete component 2
+        authoring_api.soft_delete_draft(self.component_2.pk)
+
+        # Now it should not be listed in the unit:
+        assert authoring_api.get_components_in_draft_unit(unit) == [
+            Entry(self.component_1_v1),
+            # component 2 is soft deleted from the draft.
+            # TODO: should we return some kind of placeholder here, to indicate that a component is still listed in the
+            # unit's component list but has been soft deleted, and will be fully deleted when published, or restored if
+            # reverted?
+        ]
+        assert unit.versioning.has_unpublished_changes is False  # The unit itself and its component list is not changed
+        assert authoring_api.contains_unpublished_changes(unit)  # But it CONTAINS an unpublished change (a deletion)
+        # The published version of the unit is not yet affected:
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            Entry(self.component_1_v1),
+            Entry(self.component_2_v1),
+        ]
+
+        # But when we publish the deletion, the published version is affected:
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        assert authoring_api.contains_unpublished_changes(unit) is False
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            Entry(self.component_1_v1),
+        ]
+
+    def test_soft_deleting_and_removing_component(self):
+        """ Test soft deleting a component that's in a unit AND removing it """
+        unit = self.create_unit_with_components([self.component_1, self.component_2])
+        authoring_api.publish_all_drafts(self.learning_package.id)
+
+        # Now soft delete component 2
+        authoring_api.soft_delete_draft(self.component_2.pk)
+        # And remove it from the unit:
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title="Revised with component 2 deleted",
+            components=[self.component_1],
+            created=self.now,
+        )
+
+        # Now it should not be listed in the unit:
+        assert authoring_api.get_components_in_draft_unit(unit) == [
+            Entry(self.component_1_v1),
+        ]
+        assert unit.versioning.has_unpublished_changes is True
+        assert authoring_api.contains_unpublished_changes(unit)
+        # The published version of the unit is not yet affected:
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            Entry(self.component_1_v1),
+            Entry(self.component_2_v1),
+        ]
+
+        # But when we publish the deletion, the published version is affected:
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        assert authoring_api.contains_unpublished_changes(unit) is False
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            Entry(self.component_1_v1),
+        ]
+
     # Test the query counts of various operations
-    # Test that soft-deleting a component doesn't show the unit as changed but does show it contains changes ?
     # Test that only components can be added to units
     # Test that components must be in the same learning package
     # Test that invalid component PKs cannot be added to a unit
-    # Test that soft-deleted components cannot be added to a unit?
     # Test that _version_pks=[] arguments must be related to publishable_entities_pks
     # Test that publishing a unit publishes its child components automatically
     # Test that publishing a component does NOT publish changes to its parent unit
