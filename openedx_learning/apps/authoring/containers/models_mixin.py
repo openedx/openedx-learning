@@ -2,9 +2,9 @@
 Mixins for models that implement containers
 """
 from __future__ import annotations
+from typing import ClassVar, Self
 
 from django.db import models
-from django.db.models.query import QuerySet
 
 from openedx_learning.apps.authoring.containers.models import (
     ContainerEntity,
@@ -14,6 +14,7 @@ from openedx_learning.apps.authoring.publishing.model_mixins import (
     PublishableEntityMixin,
     PublishableEntityVersionMixin,
 )
+from openedx_learning.lib.managers import WithRelationsManager
 
 __all__ = [
     "ContainerEntityMixin",
@@ -30,17 +31,8 @@ class ContainerEntityMixin(PublishableEntityMixin):
     If you use this class, you *MUST* also use ContainerEntityVersionMixin
     """
 
-    class ContainerEntityMixinManager(models.Manager):
-        def get_queryset(self) -> QuerySet:
-            return (
-                super()
-                .get_queryset()
-                .select_related(
-                    "container_entity",
-                )
-            )
-
-    objects: models.Manager[ContainerEntityMixin] = ContainerEntityMixinManager()
+    # select these related entities by default for all queries
+    objects: ClassVar[WithRelationsManager[Self]] = WithRelationsManager("container_entity")  # type: ignore[assignment]
 
     container_entity = models.OneToOneField(
         ContainerEntity,
@@ -68,18 +60,9 @@ class ContainerEntityVersionMixin(PublishableEntityVersionMixin):
     If you use this class, you *MUST* also use ContainerEntityMixin
     """
 
-    class ContainerEntityVersionMixinManager(models.Manager):
-        def get_queryset(self) -> QuerySet:
-            return (
-                super()
-                .get_queryset()
-                .select_related(
-                    "container_entity_version",
-                )
-            )
-
-    objects: models.Manager[ContainerEntityVersionMixin] = (
-        ContainerEntityVersionMixinManager()
+    # select these related entities by default for all queries
+    objects: ClassVar[WithRelationsManager[Self]] = WithRelationsManager(  # type: ignore[assignment]
+        "container_entity_version",
     )
 
     container_entity_version = models.OneToOneField(

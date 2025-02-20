@@ -82,7 +82,7 @@ def create_next_defined_list(
     new_entity_list: EntityList,
     entity_pks: list[int],
     entity_version_pks: list[int | None],
-) -> EntityListRow:
+) -> EntityList:
     """
     [ 🛑 UNSTABLE ]
     Create new entity list rows for an entity list.
@@ -384,7 +384,7 @@ def create_container_and_version(
     title: str,
     publishable_entities_pks: list[int],
     entity_version_pks: list[int | None],
-) -> ContainerEntityVersion:
+) -> tuple[ContainerEntity, ContainerEntityVersion]:
     """
     [ 🛑 UNSTABLE ]
     Create a new container and its first version.
@@ -490,10 +490,12 @@ def get_entities_in_published_container(
     # different?
     entity_list = []
     for row in cev.defined_list.entitylistrow_set.order_by("order_num"):
-        entity_list.append(ContainerEntityListEntry(
-            entity_version=row.entity_version or row.entity.published.version,
-            pinned=row.entity_version is not None,
-        ))
+        entity_version = row.entity_version or row.entity.published.version
+        if entity_version is not None:  # As long as this hasn't been soft-deleted:
+            entity_list.append(ContainerEntityListEntry(
+                entity_version=entity_version,
+                pinned=row.entity_version is not None,
+            ))
     return entity_list
 
 
@@ -536,7 +538,7 @@ def contains_unpublished_changes(
     ):
         try:
             child_container = row.entity.containerentity
-        except PublishableEntity.containerentity.RelatedObjectDoesNotExist:  # pylint: disable=no-member
+        except PublishableEntity.containerentity.RelatedObjectDoesNotExist:  # type: ignore[attr-defined] # pylint: disable=no-member
             child_container = None
         if child_container:
             child_container = row.entity.containerentity

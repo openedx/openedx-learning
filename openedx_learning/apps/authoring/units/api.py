@@ -62,7 +62,7 @@ def create_unit_version(
     entity_version_pks: list[int | None],
     created: datetime,
     created_by: int | None = None,
-) -> Unit:
+) -> UnitVersion:
     """
     [ 🛑 UNSTABLE ] Create a new unit version.
 
@@ -100,7 +100,7 @@ def create_next_unit_version(
     components: list[Component | ComponentVersion],
     created: datetime,
     created_by: int | None = None,
-) -> Unit:
+) -> UnitVersion:
     """
     [ 🛑 UNSTABLE ] Create the next unit version.
 
@@ -237,11 +237,13 @@ def get_components_in_draft_unit(
 
 def get_components_in_published_unit(
     unit: Unit,
-) -> list[UnitListEntry]:
+) -> list[UnitListEntry] | None:
     """
     [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the published version of the
     given container.
+
+    Returns None if the unit was never published (TODO: should it throw instead?).
     """
     assert isinstance(unit, Unit)
     published_entities = container_api.get_entities_in_published_container(unit)
@@ -275,10 +277,10 @@ def get_components_in_published_unit_as_of(
           ancestors of every modified PublishableEntity in the publish.
     """
     assert isinstance(unit, Unit)
-    unit_pub_entity_version = get_published_version_as_of(unit.publishable_entity, publish_log_id)
+    unit_pub_entity_version = get_published_version_as_of(unit.publishable_entity_id, publish_log_id)
     if unit_pub_entity_version is None:
         return None  # This unit was not published as of the given PublishLog ID.
-    unit_version = unit_pub_entity_version.unitversion
+    unit_version = unit_pub_entity_version.unitversion  # type: ignore[attr-defined]
 
     entity_list = []
     rows = unit_version.container_entity_version.defined_list.entitylistrow_set.order_by("order_num")
@@ -290,7 +292,7 @@ def get_components_in_published_unit_as_of(
         else:
             # Unpinned component - figure out what its latest published version was.
             # This is not optimized. It could be done in one query per unit rather than one query per component.
-            pub_entity_version = get_published_version_as_of(row.entity, publish_log_id)
+            pub_entity_version = get_published_version_as_of(row.entity_id, publish_log_id)
             if pub_entity_version:
                 entity_list.append(UnitListEntry(component_version=pub_entity_version.componentversion, pinned=False))
     return entity_list
