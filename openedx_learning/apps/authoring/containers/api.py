@@ -7,6 +7,7 @@ models in the Open edX Learning platform.
 from dataclasses import dataclass
 from datetime import datetime
 
+from django.core.exceptions import ValidationError
 from django.db.transaction import atomic
 from django.db.models import QuerySet
 
@@ -315,6 +316,13 @@ def create_next_container_version(
     Returns:
         The newly created container version.
     """
+    # Do a quick check that the given entities are in the right learning package:
+    if PublishableEntity.objects.filter(
+        pk__in=publishable_entities_pks,
+    ).exclude(
+        learning_package_id=entity.learning_package_id,
+    ).exists():
+        raise ValidationError("Container entities must be from the same learning package.")
     with atomic():
         container = ContainerEntity.objects.get(pk=container_pk)
         last_version = container.versioning.latest
