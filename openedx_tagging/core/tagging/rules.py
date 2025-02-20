@@ -6,8 +6,7 @@ from __future__ import annotations
 from typing import Callable, Union
 
 import django.contrib.auth.models
-# typing support in rules depends on https://github.com/dfunckt/django-rules/pull/177
-import rules  # type: ignore[import]
+import rules
 from attrs import define
 
 from .models import Tag, Taxonomy

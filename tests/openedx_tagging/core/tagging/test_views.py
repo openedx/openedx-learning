@@ -7,8 +7,7 @@ import json
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 import ddt  # type: ignore[import]
-# typing support in rules depends on https://github.com/dfunckt/django-rules/pull/177
-import rules  # type: ignore[import]
+import rules
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
