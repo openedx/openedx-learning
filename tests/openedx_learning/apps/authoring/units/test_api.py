@@ -484,7 +484,7 @@ class UnitTestCase(ComponentTestCase):
         unit = self.create_unit_with_components(components)
         authoring_api.publish_all_drafts(self.learning_package.id)
         unit.refresh_from_db()
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(2):
             assert authoring_api.contains_unpublished_changes(unit) is False
 
         # Modify the most recently created component:

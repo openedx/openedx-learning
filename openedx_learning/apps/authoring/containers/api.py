@@ -515,7 +515,7 @@ def contains_unpublished_changes(
             "publishable_entity__draft",
             "publishable_entity__draft__version",
             "publishable_entity__draft__version__containerentityversion__defined_list",
-        ).get(pk=container.container_entity)
+        ).get(pk=container.container_entity_id)
     else:
         pass # TODO: select_related if we're given a raw ContainerEntity rather than a ContainerEntityMixin like Unit?
     assert isinstance(container, ContainerEntity)
