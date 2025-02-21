@@ -21,7 +21,7 @@ class EntityList(models.Model):
     sometimes we'll want the same kind of data structure for things that we
     dynamically generate for individual students (e.g. Variants). EntityLists are
     anonymous in a sense–they're pointed to by ContainerEntityVersions and
-    other models, rather than being looked up by their own identifers.
+    other models, rather than being looked up by their own identifiers.
     """
 
 
@@ -92,7 +92,7 @@ class ContainerEntityVersion(PublishableEntityVersionMixin):
     The last looks a bit odd, but it's because *how we've defined the Unit* has
     changed if we decide to explicitly pin a set of versions for the children,
     and then later change our minds and move to a different set. It also just
-    makes things easier to reason about if we say that defined_list never
+    makes things easier to reason about if we say that entity_list never
     changes for a given ContainerEntityVersion.
     """
 
@@ -102,46 +102,10 @@ class ContainerEntityVersion(PublishableEntityVersionMixin):
         related_name="versions",
     )
 
-    # This is the EntityList that the author defines. This should never change,
-    # even if the things it references get soft-deleted (because we'll need to
-    # maintain it for reverts).
-    defined_list = models.ForeignKey(
+    # The list of entities (frozen and/or unfrozen) in this container
+    entity_list = models.ForeignKey(
         EntityList,
         on_delete=models.RESTRICT,
         null=False,
-        related_name="defined_list",
-    )
-
-    # inital_list is an EntityList where all the versions are pinned, to show
-    # what the exact versions of the children were at the time that the
-    # Container was created. We could technically derive this, but it would be
-    # awkward to query.
-    #
-    # If the Container was defined so that all references were pinned, then this
-    # can point to the exact same EntityList as defined_list.
-    initial_list = models.ForeignKey(
-        EntityList,
-        on_delete=models.RESTRICT,
-        null=False,
-        related_name="initial_list",
-    )
-
-    # This is the EntityList that's created when the next ContainerEntityVersion
-    # is created. All references in this list should be pinned, and it serves as
-    # "the last state the children were in for this version of the Container".
-    # If defined_list has only pinned references, this should point to the same
-    # EntityList as defined_list and initial_list.
-    #
-    # This value is mutable if and only if there are unpinned references in
-    # defined_list. In that case, frozen_list should start as None, and be
-    # updated to pin references when another version of this Container becomes
-    # the Draft version. But if this version ever becomes the Draft *again*
-    # (e.g. the user hits "discard changes" or some kind of revert happens),
-    # then we need to clear this back to None.
-    frozen_list = models.ForeignKey(
-        EntityList,
-        on_delete=models.RESTRICT,
-        null=True,
-        default=None,
-        related_name="frozen_list",
+        related_name="entity_list",
     )

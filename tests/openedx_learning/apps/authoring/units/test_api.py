@@ -705,43 +705,7 @@ class UnitTestCase(ComponentTestCase):
         2. The unit version number is 2.
         3. The unit version is in the unit's versions.
         4. The unit version's title is different from the previous version.
-        5. The user defined is the same as the previous version.
-        6. The frozen list is empty.
-        """
-
-    def test_check_author_defined_list_matches_components(self):
-        """Test checking the author defined list matches the components.
-
-        Expected results:
-        1. The author defined list matches the components used to create the unit version.
-        """
-
-    def test_check_initial_list_matches_components(self):
-        """Test checking the initial list matches the components.
-
-        Expected results:
-        1. The initial list matches the components (pinned) used to create the unit version.
-        """
-
-    def test_check_frozen_list_is_none_floating_versions(self):
-        """Test checking the frozen list is None when floating versions are used in the author defined list.
-
-        Expected results:
-        1. The frozen list is None.
-        """
-
-    def test_check_frozen_list_when_next_version_is_created(self):
-        """Test checking the frozen list when a new version is created.
-
-        Expected results:
-        1. The frozen list has pinned versions of the user defined list from the previous version.
-        """
-
-    def test_check_lists_equal_when_pinned_versions(self):
-        """Test checking the lists are equal when pinned versions are used.
-
-        Expected results:
-        1. The author defined list == initial list == frozen list.
+        5. The entity list is the same as the previous version.
         """
 
     def test_publish_unit_version(self):
@@ -768,29 +732,5 @@ class UnitTestCase(ComponentTestCase):
         1. A new unit version is created.
         2. The unit version number is 2.
         3. The unit version is in the unit's versions.
-        4. The user defined list is different from the previous version.
-        5. The initial list contains the pinned versions of the defined list.
-        6. The frozen list is empty.
-        """
-
-    def test_soft_delete_component_from_units(self):
-        """Soft-delete a component from a unit.
-
-        Expected result:
-        After soft-deleting the component (draft), a new unit version (draft) is created for the unit.
-        """
-
-    def test_soft_delete_component_from_units_and_publish(self):
-        """Soft-delete a component from a unit and publish the unit.
-
-        Expected result:
-        After soft-deleting the component (draft), a new unit version (draft) is created for the unit.
-        Then, if the unit is published all units referencing the component are published as well.
-        """
-
-    def test_unit_version_becomes_draft_again(self):
-        """Test a unit version becomes a draft again.
-
-        Expected results:
-        1. The frozen list is None after the unit version becomes a draft again.
+        4. The entity list is different from the previous version.
         """
