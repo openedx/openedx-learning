@@ -283,7 +283,7 @@ def get_components_in_published_unit_as_of(
     unit_version = unit_pub_entity_version.unitversion  # type: ignore[attr-defined]
 
     entity_list = []
-    rows = unit_version.container_entity_version.defined_list.entitylistrow_set.order_by("order_num")
+    rows = unit_version.container_entity_version.entity_list.entitylistrow_set.order_by("order_num")
     for row in rows:
         if row.entity_version is not None:
             component_version = row.entity_version.componentversion
