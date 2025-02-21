@@ -421,7 +421,7 @@ def contains_unpublished_changes(
         else:
             # This is not a container:
             draft_pk = row.entity.draft.version_id if row.entity.draft else None
-            published_pk = row.entity.published.version_id if row.entity.published else None
+            published_pk = row.entity.published.version_id if hasattr(row.entity, "published") else None
             if draft_pk != published_pk:
                 return True
     return False
