@@ -663,18 +663,18 @@ class UnitTestCase(ComponentTestCase):
             Entry(self.component_1_v1),
         ]
 
+    # TODO: test that I can find all the units that contain the given component.
     # Test the query counts of various operations
-    # Test that only components can be added to units
-    # Test that components must be in the same learning package
     # Test that invalid component PKs cannot be added to a unit
-    # Test that _version_pks=[] arguments must be related to publishable_entities_pks
+    # Test that _version_pks=[] arguments must be related to publishable_entities_pks. Note: this is not actually
+    #     possible with the updated Units API I've implemented (where you only provide a list of Component or
+    #     ComponentVersion objects), but it is a potential problem with the low-level container APIs since they accept
+    #     separate lists of entity IDs vs. entity versions.
     # Test that I can get a history of a given unit and all its children, including children that aren't currently in
     #     the unit and excluding children that are only in other units.
     # Test that I can get a history of a given unit and its children, that includes changes made to the child components
     #     while they were part of the unit but excludes changes made to those children while they were not part of
     #     the unit. 🫣
-
-    # TODO: test that I can find all the units that contain the given component.
 
     def test_snapshots_of_published_unit(self):
         """
