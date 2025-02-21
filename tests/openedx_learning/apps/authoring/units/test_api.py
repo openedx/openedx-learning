@@ -220,6 +220,56 @@ class UnitTestCase(ComponentTestCase):
         ]
         assert authoring_api.get_components_in_published_unit(unit) is None
 
+    @pytest.mark.skip(reason="FIXME: auto-publishing children is not implemented yet")
+    def test_auto_publish_children(self):
+        """
+        Test that publishing a unit publishes its child components automatically.
+        """
+        # Create a draft unit with two draft components
+        unit = self.create_unit_with_components([self.component_1, self.component_2])
+        # Also create another component that's not in the unit at all:
+        other_component, _oc_v1 = self.create_component(title="A draft component not in the unit", key="component:3")
+
+        assert authoring_api.contains_unpublished_changes(unit)
+        assert self.component_1.versioning.published is None
+        assert self.component_2.versioning.published is None
+
+        # Publish ONLY the unit. This should however also auto-publish components 1 & 2 since they're children
+        authoring_api.publish_from_drafts(
+            self.learning_package.pk,
+            draft_qset=authoring_api.get_all_drafts(self.learning_package.pk).filter(entity=unit.publishable_entity),
+        )
+        # Now all changes to the unit and to component 1 are published:
+        unit.refresh_from_db()
+        self.component_1.refresh_from_db()
+        assert unit.versioning.has_unpublished_changes is False  # Shallow check
+        assert self.component_1.versioning.has_unpublished_changes is False
+        assert authoring_api.contains_unpublished_changes(unit) is False  # Deep check
+        assert self.component_1.versioning.published == self.component_1_v1  # v1 is now the published version.
+
+        # But our other component that's outside the unit is not affected:
+        other_component.refresh_from_db()
+        assert other_component.versioning.has_unpublished_changes
+        assert other_component.versioning.published is None
+
+    def test_no_publish_parent(self):
+        """
+        Test that publishing a component does NOT publish changes to its parent unit
+        """
+        # Create a draft unit with two draft components
+        unit = self.create_unit_with_components([self.component_1, self.component_2])
+        assert unit.versioning.has_unpublished_changes
+        # Publish ONLY one of its child components
+        self.publish_component(self.component_1)
+        self.component_1.refresh_from_db()  # Clear cache on '.versioning'
+        assert self.component_1.versioning.has_unpublished_changes is False
+
+        # The unit that contains that component should still be unpublished:
+        unit.refresh_from_db()  # Clear cache on '.versioning'
+        assert unit.versioning.has_unpublished_changes
+        assert unit.versioning.published is None
+        assert authoring_api.get_components_in_published_unit(unit) is None
+
     def test_add_component_after_publish(self):
         """
         Adding a component to a published unit will create a new version and
@@ -340,11 +390,9 @@ class UnitTestCase(ComponentTestCase):
         assert authoring_api.get_components_in_published_unit(unit) == expected_unit_contents
 
     def test_create_two_units_with_same_components(self):
-        """Test creating two units with the same components.
-
-        Expected results:
-        1. Two different units are created.
-        2. The units have the same components.
+        """
+        Test creating two units with different combinations of the same two
+        components in each unit.
         """
         # Create a unit with component 2 unpinned, component 2 pinned 📌, and component 1:
         unit1 = self.create_unit_with_components([self.component_2, self.component_2_v1, self.component_1], key="u1")
@@ -542,7 +590,8 @@ class UnitTestCase(ComponentTestCase):
         authoring_api.publish_all_drafts(self.learning_package.id)
         # FIXME: Refreshing the unit is necessary here because get_entities_in_published_container() accesses
         # container_entity.versioning.published, and .versioning is cached with the old version. But this seems like
-        # a footgun?
+        # a footgun? We could avoid this if get_entities_in_published_container() took only an ID instead of an object,
+        # but that would involve additional database lookup(s).
         unit.refresh_from_db()
         assert authoring_api.contains_unpublished_changes(unit) is False
         assert authoring_api.get_components_in_published_unit(unit) == [
@@ -619,13 +668,13 @@ class UnitTestCase(ComponentTestCase):
     # Test that components must be in the same learning package
     # Test that invalid component PKs cannot be added to a unit
     # Test that _version_pks=[] arguments must be related to publishable_entities_pks
-    # Test that publishing a unit publishes its child components automatically
-    # Test that publishing a component does NOT publish changes to its parent unit
     # Test that I can get a history of a given unit and all its children, including children that aren't currently in
     #     the unit and excluding children that are only in other units.
     # Test that I can get a history of a given unit and its children, that includes changes made to the child components
     #     while they were part of the unit but excludes changes made to those children while they were not part of
     #     the unit. 🫣
+
+    # TODO: test that I can find all the units that contain the given component.
 
     def test_snapshots_of_published_unit(self):
         """
@@ -696,41 +745,3 @@ class UnitTestCase(ComponentTestCase):
             "Component 1 as of checkpoint 3",  # we didn't modify these components so they're same as in snapshot 3
             "Component 2 as of checkpoint 3",  # we didn't modify these components so they're same as in snapshot 3
         ]
-
-    def test_next_version_with_different_different_title(self):
-        """Test creating a unit version with a different title.
-
-        Expected results:
-        1. A new unit version is created.
-        2. The unit version number is 2.
-        3. The unit version is in the unit's versions.
-        4. The unit version's title is different from the previous version.
-        5. The entity list is the same as the previous version.
-        """
-
-    def test_publish_unit_version(self):
-        """Test publish unpublished unit version.
-
-        Expected results:
-        1. The newly created unit version has unpublished changes.
-        2. The published version matches the unit version.
-        3. The draft version matches the unit version.
-        """
-
-    def test_publish_unit_with_unpublished_component(self):
-        """Test publishing a unit with an unpublished component.
-
-        Expected results:
-        1. The unit version is published.
-        2. The component is published.
-        """
-
-    def test_next_version_with_different_order(self):
-        """Test creating a unit version with different order of components.
-
-        Expected results:
-        1. A new unit version is created.
-        2. The unit version number is 2.
-        3. The unit version is in the unit's versions.
-        4. The entity list is different from the previous version.
-        """
