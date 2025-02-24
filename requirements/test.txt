@@ -102,7 +102,7 @@ djangorestframework==3.15.2
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.15.2
+djangorestframework-stubs==3.15.3
     # via -r requirements/test.in
 dnspython==2.7.0
     # via
@@ -225,7 +225,7 @@ sqlparse==0.5.3
     #   -r requirements/base.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.4.0
+stevedore==5.4.1
     # via
     #   -r requirements/base.txt
     #   code-annotations
