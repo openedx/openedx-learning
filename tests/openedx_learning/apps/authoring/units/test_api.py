@@ -4,6 +4,7 @@ Basic tests for the units API.
 import ddt  # type: ignore[import]
 import pytest
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 
 from openedx_learning.api import authoring as authoring_api
 from openedx_learning.api import authoring_models
@@ -139,6 +140,19 @@ class UnitTestCase(ComponentTestCase):
                 created=self.now,
                 created_by=None,
             )
+
+    @ddt.data(True, False)
+    def test_cannot_add_invalid_ids(self, pin_version):
+        """
+        Test that non-existent components cannot be added to units
+        """
+        self.component_1.delete()
+        if pin_version:
+            components = [self.component_1_v1]
+        else:
+            components = [self.component_1]
+        with pytest.raises((IntegrityError, authoring_models.Component.DoesNotExist)):
+            self.create_unit_with_components(components)
 
     def test_create_empty_unit_and_version(self):
         """Test creating a unit with no components.
@@ -664,12 +678,6 @@ class UnitTestCase(ComponentTestCase):
         ]
 
     # TODO: test that I can find all the units that contain the given component.
-    # Test the query counts of various operations
-    # Test that invalid component PKs cannot be added to a unit
-    # Test that _version_pks=[] arguments must be related to publishable_entities_pks. Note: this is not actually
-    #     possible with the updated Units API I've implemented (where you only provide a list of Component or
-    #     ComponentVersion objects), but it is a potential problem with the low-level container APIs since they accept
-    #     separate lists of entity IDs vs. entity versions.
     # Test that I can get a history of a given unit and all its children, including children that aren't currently in
     #     the unit and excluding children that are only in other units.
     # Test that I can get a history of a given unit and its children, that includes changes made to the child components
