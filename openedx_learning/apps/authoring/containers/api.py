@@ -29,6 +29,7 @@ __all__ = [
     "get_entities_in_draft_container",
     "get_entities_in_published_container",
     "contains_unpublished_changes",
+    "get_containers_with_entity",
 ]
 
 
@@ -425,3 +426,37 @@ def contains_unpublished_changes(
             if draft_pk != published_pk:
                 return True
     return False
+
+
+def get_containers_with_entity(
+    publishable_entity_pk: int,
+    *,
+    ignore_pinned=False,
+) -> QuerySet[ContainerEntity]:
+    """
+    [ 🛑 UNSTABLE ]
+    Find all draft containers that directly contain the given entity.
+
+    They will always be from the same learning package; cross-package containers
+    are not allowed.
+
+    Args:
+        publishable_entity_pk: The ID of the PublishableEntity to search for.
+        ignore_pinned: if true, ignore any pinned references to the entity.
+    """
+    if ignore_pinned:
+        qs = ContainerEntity.objects.filter(
+            publishable_entity__draft__version__containerentityversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
+            publishable_entity__draft__version__containerentityversion__entity_list__entitylistrow__entity_version_id=None,  # pylint: disable=line-too-long # noqa: E501
+        ).order_by("pk")  # Ordering is mostly for consistent test cases.
+    else:
+        qs = ContainerEntity.objects.filter(
+            publishable_entity__draft__version__containerentityversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
+        ).order_by("pk")  # Ordering is mostly for consistent test cases.
+    # Could alternately do this query in two steps. Not sure which is more efficient; depends on how the DB plans it.
+    # # Find all the EntityLists that contain the given entity:
+    # lists = EntityList.objects.filter(entitylistrow__entity_id=publishable_entity_pk).values_list('pk', flat=True)
+    # qs = ContainerEntity.objects.filter(
+    #     publishable_entity__draft__version__containerentityversion__entity_list__in=lists
+    # )
+    return qs
