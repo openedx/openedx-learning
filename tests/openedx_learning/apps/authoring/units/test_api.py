@@ -677,6 +677,27 @@ class UnitTestCase(ComponentTestCase):
             Entry(self.component_1_v1),
         ]
 
+    def test_soft_deleting_pinned_component(self):
+        """ Test soft deleting a pinned 📌 component that's in a unit """
+        unit = self.create_unit_with_components([self.component_1_v1, self.component_2_v1])
+        authoring_api.publish_all_drafts(self.learning_package.id)
+
+        # Now soft delete component 2
+        authoring_api.soft_delete_draft(self.component_2.pk)
+
+        # Now it should still be listed in the unit:
+        assert authoring_api.get_components_in_draft_unit(unit) == [
+            Entry(self.component_1_v1, pinned=True),
+            Entry(self.component_2_v1, pinned=True),
+        ]
+        assert unit.versioning.has_unpublished_changes is False  # The unit itself and its component list is not changed
+        assert authoring_api.contains_unpublished_changes(unit) is False  # nor does it contain changes
+        # The published version of the unit is also not affected:
+        assert authoring_api.get_components_in_published_unit(unit) == [
+            Entry(self.component_1_v1, pinned=True),
+            Entry(self.component_2_v1, pinned=True),
+        ]
+
     # TODO: test that I can find all the units that contain the given component.
     # Test that I can get a history of a given unit and all its children, including children that aren't currently in
     #     the unit and excluding children that are only in other units.
@@ -753,3 +774,41 @@ class UnitTestCase(ComponentTestCase):
             "Component 1 as of checkpoint 3",  # we didn't modify these components so they're same as in snapshot 3
             "Component 2 as of checkpoint 3",  # we didn't modify these components so they're same as in snapshot 3
         ]
+
+    def test_units_containing(self):
+        """
+        Test that we can efficiently get a list of all the [draft] units
+        containing a given component.
+        """
+        component_1_v2 = self.modify_component(self.component_1, title="modified component 1")
+
+        # Create a few units, some of which contain component 1 and others which don't:
+        unit1_1pinned = self.create_unit_with_components([self.component_1_v1], key="u1")  # ✅ has it 1 pinned 📌 to V1
+        unit2_1pinned_v2 = self.create_unit_with_components([component_1_v2], key="u2")  # ✅ has it pinned 📌 to V2
+        _unit3_no = self.create_unit_with_components([self.component_2], key="u3")
+        unit4_unpinned = self.create_unit_with_components([self.component_1], key="u4")  # ✅ has component 1, unpinned
+        _unit5_no = self.create_unit_with_components([self.component_2_v1, self.component_2], key="u5")
+        _unit6_no = self.create_unit_with_components([], key="u6")
+
+        # No need to publish anything as the get_containers_with_entity() API only considers drafts (for now).
+
+        with self.assertNumQueries(1):
+            result = [
+                c.unit for c in
+                authoring_api.get_containers_with_entity(self.component_1.pk).select_related("unit")
+            ]
+        assert result == [
+            unit1_1pinned,
+            unit2_1pinned_v2,
+            unit4_unpinned,
+        ]
+
+        # Test retrieving only "unpinned", for cases like potential deletion of a component, where we wouldn't care
+        # about pinned uses anyways (they would be unaffected by a delete).
+
+        with self.assertNumQueries(1):
+            result2 = [
+                c.unit for c in
+                authoring_api.get_containers_with_entity(self.component_1.pk, ignore_pinned=True).select_related("unit")
+            ]
+        assert result2 == [unit4_unpinned]
