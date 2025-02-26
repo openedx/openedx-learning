@@ -718,12 +718,39 @@ class UnitTestCase(ComponentTestCase):
             Entry(self.component_2_v1, pinned=True),
         ]
 
-    # TODO: test that I can find all the units that contain the given component.
-    # Test that I can get a history of a given unit and all its children, including children that aren't currently in
-    #     the unit and excluding children that are only in other units.
-    # Test that I can get a history of a given unit and its children, that includes changes made to the child components
-    #     while they were part of the unit but excludes changes made to those children while they were not part of
-    #     the unit. 🫣
+    def test_soft_delete_unit(self):
+        """
+        I can delete a unit without deleting the components it contains.
+
+        See https://github.com/openedx/frontend-app-authoring/issues/1693
+        """
+        # Create two units, one of which we will soon delete:
+        unit_to_delete = self.create_unit_with_components([self.component_1, self.component_2])
+        other_unit = self.create_unit_with_components([self.component_1], key="other")
+
+        # Publish everything:
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        # Delete the unit:
+        authoring_api.soft_delete_draft(unit_to_delete.publishable_entity_id)
+        unit_to_delete.refresh_from_db()
+        # Now the draft unit is [soft] deleted, but the components, published unit, and other unit is unaffected:
+        assert unit_to_delete.versioning.draft is None  # Unit is soft deleted.
+        assert unit_to_delete.versioning.published is not None
+        self.component_1.refresh_from_db()
+        assert self.component_1.versioning.draft is not None
+        assert authoring_api.get_components_in_draft_unit(other_unit) == [Entry(self.component_1_v1)]
+
+        # Publish everything:
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        # Now the unit's published version is also deleted, but nothing else is affected.
+        unit_to_delete.refresh_from_db()
+        assert unit_to_delete.versioning.draft is None  # Unit is soft deleted.
+        assert unit_to_delete.versioning.published is None
+        self.component_1.refresh_from_db()
+        assert self.component_1.versioning.draft is not None
+        assert self.component_1.versioning.published is not None
+        assert authoring_api.get_components_in_draft_unit(other_unit) == [Entry(self.component_1_v1)]
+        assert authoring_api.get_components_in_published_unit(other_unit) == [Entry(self.component_1_v1)]
 
     def test_snapshots_of_published_unit(self):
         """
@@ -832,3 +859,10 @@ class UnitTestCase(ComponentTestCase):
                 authoring_api.get_containers_with_entity(self.component_1.pk, ignore_pinned=True).select_related("unit")
             ]
         assert result2 == [unit4_unpinned]
+
+    # Tests TODO:
+    # Test that I can get a [PublishLog] history of a given unit and all its children, including children that aren't
+    #     currently in the unit and excluding children that are only in other units.
+    # Test that I can get a [PublishLog] history of a given unit and its children, that includes changes made to the
+    #     child components while they were part of the unit but excludes changes made to those children while they were
+    #     not part of the unit. 🫣
