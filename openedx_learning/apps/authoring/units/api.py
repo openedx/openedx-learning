@@ -95,8 +95,9 @@ def create_unit_version(
 
 def create_next_unit_version(
     unit: Unit,
-    title: str,
-    components: list[Component | ComponentVersion],
+    *,
+    title: str | None = None,
+    components: list[Component | ComponentVersion] | None = None,
     created: datetime,
     created_by: int | None = None,
 ) -> UnitVersion:
@@ -105,25 +106,29 @@ def create_next_unit_version(
 
     Args:
         unit_pk: The unit ID.
-        title: The title.
-        components: The components, as a list of Components (unpinned) and/or ComponentVersions (pinned)
+        title: The title. Leave as None to keep the current title.
+        components: The components, as a list of Components (unpinned) and/or ComponentVersions (pinned). Passing None
+           will leave the existing components unchanged.
         created: The creation date.
         created_by: The user who created the unit.
     """
-    for c in components:
-        if not isinstance(c, (Component, ComponentVersion)):
-            raise TypeError("Unit components must be either Component or ComponentVersion.")
-    publishable_entities_pks = [
-        (c.publishable_entity_id if isinstance(c, Component) else c.component.publishable_entity_id)
-        for c in components
-    ]
-    entity_version_pks = [
-        (cv.pk if isinstance(cv, ComponentVersion) else None)
-        for cv in components
-    ]
+    if components is not None:
+        for c in components:
+            if not isinstance(c, (Component, ComponentVersion)):
+                raise TypeError("Unit components must be either Component or ComponentVersion.")
+        publishable_entities_pks = [
+            (c.publishable_entity_id if isinstance(c, Component) else c.component.publishable_entity_id)
+            for c in components
+        ]
+        entity_version_pks = [
+            (cv.pk if isinstance(cv, ComponentVersion) else None)
+            for cv in components
+        ]
+    else:
+        # When these are None, that means don't change the entities in the list.
+        publishable_entities_pks = None
+        entity_version_pks = None
     with atomic():
-        # TODO: how can we enforce that publishable entities must be components?
-        # This currently allows for any publishable entity to be added to a unit.
         container_entity_version = container_api.create_next_container_version(
             unit.container_entity.pk,
             title=title,
