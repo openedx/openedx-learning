@@ -82,7 +82,6 @@ def create_unit_version(
             title=title,
             publishable_entities_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
-            entity=unit.container_entity.publishable_entity,
             created=created,
             created_by=created_by,
         )
@@ -108,7 +107,6 @@ def create_next_unit_version(
         unit_pk: The unit ID.
         title: The title.
         components: The components, as a list of Components (unpinned) and/or ComponentVersions (pinned)
-        entity: The entity.
         created: The creation date.
         created_by: The user who created the unit.
     """
@@ -131,7 +129,6 @@ def create_next_unit_version(
             title=title,
             publishable_entities_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
-            entity=unit.container_entity.publishable_entity,
             created=created,
             created_by=created_by,
         )
