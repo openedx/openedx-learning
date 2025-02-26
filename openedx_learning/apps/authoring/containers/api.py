@@ -148,7 +148,6 @@ def create_container_version(
     title: str,
     publishable_entities_pks: list[int],
     entity_version_pks: list[int | None],
-    entity: PublishableEntity,
     created: datetime,
     created_by: int | None,
 ) -> ContainerEntityVersion:
@@ -161,7 +160,6 @@ def create_container_version(
         version_num: The version number of the container.
         title: The title of the container.
         publishable_entities_pks: The IDs of the members of the container.
-        entity: The entity that the container belongs to.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
 
@@ -169,6 +167,8 @@ def create_container_version(
         The newly created container version.
     """
     with atomic():
+        container = ContainerEntity.objects.select_related("publishable_entity").get(pk=container_pk)
+        entity = container.publishable_entity
         publishable_entity_version = publishing_api.create_publishable_entity_version(
             entity.pk,
             version_num=version_num,
@@ -194,7 +194,6 @@ def create_next_container_version(
     title: str,
     publishable_entities_pks: list[int],
     entity_version_pks: list[int | None],
-    entity: PublishableEntity,
     created: datetime,
     created_by: int | None,
 ) -> ContainerEntityVersion:
@@ -213,7 +212,6 @@ def create_next_container_version(
         container_pk: The ID of the container to create the next version of.
         title: The title of the container.
         publishable_entities_pks: The IDs of the members current members of the container.
-        entity: The entity that the container belongs to.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
 
@@ -228,7 +226,8 @@ def create_next_container_version(
     ).exists():
         raise ValidationError("Container entities must be from the same learning package.")
     with atomic():
-        container = ContainerEntity.objects.get(pk=container_pk)
+        container = ContainerEntity.objects.select_related("publishable_entity").get(pk=container_pk)
+        entity = container.publishable_entity
         last_version = container.versioning.latest
         next_version_num = last_version.version_num + 1
         publishable_entity_version = publishing_api.create_publishable_entity_version(
@@ -280,12 +279,11 @@ def create_container_and_version(
     with atomic():
         container = create_container(learning_package_id, key, created, created_by)
         container_version = create_container_version(
-            container_pk=container.publishable_entity.pk,
-            version_num=1,
+            container.publishable_entity.pk,
+            1,
             title=title,
             publishable_entities_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
-            entity=container.publishable_entity,
             created=created,
             created_by=created_by,
         )
