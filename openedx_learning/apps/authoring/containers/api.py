@@ -110,44 +110,13 @@ def create_entity_list_with_rows(
     return entity_list
 
 
-def get_entity_list_with_pinned_versions(
-    rows: QuerySet[EntityListRow],
-) -> EntityList:
-    """
-    [ 🛑 UNSTABLE ]
-    Copy rows from an existing entity list to a new entity list.
-
-    Args:
-        entity_list: The entity list to copy the rows to.
-        rows: The rows to copy to the new entity list.
-
-    Returns:
-        The newly created entity list.
-    """
-    entity_list = create_entity_list()
-    with atomic():
-        _ = EntityListRow.objects.bulk_create(
-            [
-                EntityListRow(
-                    entity_list=entity_list,
-                    entity_id=row.entity.id,
-                    order_num=row.order_num,
-                    entity_version_id=None,  # For simplicity, we are not copying the pinned versions
-                )
-                for row in rows
-            ]
-        )
-
-    return entity_list
-
-
 def create_container_version(
     container_pk: int,
     version_num: int,
     *,
     title: str,
     publishable_entities_pks: list[int],
-    entity_version_pks: list[int | None],
+    entity_version_pks: list[int | None] | None,
     created: datetime,
     created_by: int | None,
 ) -> ContainerEntityVersion:
@@ -169,6 +138,23 @@ def create_container_version(
     with atomic():
         container = ContainerEntity.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
+
+        # Do a quick check that the given entities are in the right learning package:
+        if PublishableEntity.objects.filter(
+            pk__in=publishable_entities_pks,
+        ).exclude(
+            learning_package_id=entity.learning_package_id,
+        ).exists():
+            raise ValidationError("Container entities must be from the same learning package.")
+
+        assert title is not None
+        assert publishable_entities_pks is not None
+        if entity_version_pks is None:
+            entity_version_pks = [None] * len(publishable_entities_pks)
+        entity_list = create_entity_list_with_rows(
+            entity_pks=publishable_entities_pks,
+            entity_version_pks=entity_version_pks,
+        )
         publishable_entity_version = publishing_api.create_publishable_entity_version(
             entity.pk,
             version_num=version_num,
@@ -176,24 +162,21 @@ def create_container_version(
             created=created,
             created_by=created_by,
         )
-        entity_list = create_entity_list_with_rows(
-            entity_pks=publishable_entities_pks,
-            entity_version_pks=entity_version_pks,
-        )
         container_version = ContainerEntityVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container_pk,
             entity_list=entity_list,
         )
+
     return container_version
 
 
 def create_next_container_version(
     container_pk: int,
     *,
-    title: str,
-    publishable_entities_pks: list[int],
-    entity_version_pks: list[int | None],
+    title: str | None,
+    publishable_entities_pks: list[int] | None,
+    entity_version_pks: list[int | None] | None,
     created: datetime,
     created_by: int | None,
 ) -> ContainerEntityVersion:
@@ -210,36 +193,44 @@ def create_next_container_version(
 
     Args:
         container_pk: The ID of the container to create the next version of.
-        title: The title of the container.
-        publishable_entities_pks: The IDs of the members current members of the container.
+        title: The title of the container. None to keep the current title.
+        publishable_entities_pks: The IDs of the members current members of the container. Or None for no change.
+        entity_version_pks: The IDs of the versions to pin to, if pinning is desired.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
 
     Returns:
         The newly created container version.
     """
-    # Do a quick check that the given entities are in the right learning package:
-    if PublishableEntity.objects.filter(
-        pk__in=publishable_entities_pks,
-    ).exclude(
-        learning_package_id=entity.learning_package_id,
-    ).exists():
-        raise ValidationError("Container entities must be from the same learning package.")
     with atomic():
         container = ContainerEntity.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
         last_version = container.versioning.latest
+        assert last_version is not None
         next_version_num = last_version.version_num + 1
+        if publishable_entities_pks is None:
+            # We're only changing metadata. Keep the same entity list.
+            next_entity_list = last_version.entity_list
+        else:
+            # Do a quick check that the given entities are in the right learning package:
+            if PublishableEntity.objects.filter(
+                pk__in=publishable_entities_pks,
+            ).exclude(
+                learning_package_id=entity.learning_package_id,
+            ).exists():
+                raise ValidationError("Container entities must be from the same learning package.")
+            if entity_version_pks is None:
+                entity_version_pks = [None] * len(publishable_entities_pks)
+            next_entity_list = create_entity_list_with_rows(
+                entity_pks=publishable_entities_pks,
+                entity_version_pks=entity_version_pks,
+            )
         publishable_entity_version = publishing_api.create_publishable_entity_version(
             entity.pk,
             version_num=next_version_num,
-            title=title,
+            title=title if title is not None else last_version.title,
             created=created,
             created_by=created_by,
-        )
-        next_entity_list = create_entity_list_with_rows(
-            entity_pks=publishable_entities_pks,
-            entity_version_pks=entity_version_pks,
         )
         next_container_version = ContainerEntityVersion.objects.create(
             publishable_entity_version=publishable_entity_version,

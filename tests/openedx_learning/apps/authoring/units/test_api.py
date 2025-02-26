@@ -554,6 +554,26 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(2):
             assert authoring_api.contains_unpublished_changes(unit) is True
 
+    def test_metadata_change_doesnt_create_entity_list(self):
+        """
+        Test that changing a container's metadata like title will create a new
+        version, but can re-use the same EntityList. API consumers generally
+        shouldn't depend on this behavior; it's an optimization.
+        """
+        unit = self.create_unit_with_components([self.component_1, self.component_2_v1])
+
+        orig_version_num = unit.container_entity.versioning.draft.version_num
+        orig_entity_list_id = unit.container_entity.versioning.draft.entity_list.pk
+
+        authoring_api.create_next_unit_version(unit, title="New Title", created=self.now)
+
+        unit.refresh_from_db()
+        new_version_num = unit.container_entity.versioning.draft.version_num
+        new_entity_list_id = unit.container_entity.versioning.draft.entity_list.pk
+
+        assert new_version_num > orig_version_num
+        assert new_entity_list_id == orig_entity_list_id
+
     @ddt.data(True, False)
     @pytest.mark.skip(reason="FIXME: we don't yet prevent adding soft-deleted components to units")
     def test_cannot_add_soft_deleted_component(self, publish_first):
