@@ -171,9 +171,9 @@ class UnitTestCase(ComponentTestCase):
         Test how many database queries are required to create a unit
         """
         # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
-        with self.assertNumQueries(22):
+        with self.assertNumQueries(25):
             _empty_unit = self.create_unit_with_components([])
-        with self.assertNumQueries(26):
+        with self.assertNumQueries(28):
             # And try with a non-empty unit:
             self.create_unit_with_components([self.component_1, self.component_2_v1], key="u2")
 
