@@ -14,10 +14,10 @@ support the logic for the management of the publishing process:
 """
 
 from .container import Container, ContainerVersion
-from .draft_published import Draft, Published
+from .draft_log import Draft, DraftChangeLogRecord, DraftChangeLog, DraftSideEffect
 from .entity_list import EntityList, EntityListRow
 from .learning_package import LearningPackage
-from .publish_log import PublishLog, PublishLogRecord
+from .publish_log import PublishLog, PublishLogRecord, Published
 from .publishable_entity import (
     PublishableContentModelRegistry,
     PublishableEntity,
