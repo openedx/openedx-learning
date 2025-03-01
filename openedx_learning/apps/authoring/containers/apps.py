@@ -17,9 +17,9 @@ class ContainersConfig(AppConfig):
 
     def ready(self):
         """
-        Register ContainerEntity and ContainerEntityVersion.
+        Register Container and ContainerVersion.
         """
         from ..publishing.api import register_content_models  # pylint: disable=import-outside-toplevel
-        from .models import ContainerEntity, ContainerEntityVersion  # pylint: disable=import-outside-toplevel
+        from .models import Container, ContainerVersion  # pylint: disable=import-outside-toplevel
 
-        register_content_models(ContainerEntity, ContainerEntityVersion)
+        register_content_models(Container, ContainerVersion)

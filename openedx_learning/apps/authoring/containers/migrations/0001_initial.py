@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='ContainerEntity',
+            name='Container',
             fields=[
                 ('publishable_entity', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='oel_publishing.publishableentity')),
             ],
@@ -39,10 +39,10 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name='ContainerEntityVersion',
+            name='ContainerVersion',
             fields=[
                 ('publishable_entity_version', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='oel_publishing.publishableentityversion')),
-                ('container', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='versions', to='oel_containers.containerentity')),
+                ('container', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='versions', to='oel_containers.container')),
                 ('entity_list', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, related_name='entity_list', to='oel_containers.entitylist')),
             ],
             options={
