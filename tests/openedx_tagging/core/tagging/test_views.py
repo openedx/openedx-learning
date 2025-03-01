@@ -45,8 +45,9 @@ LANGUAGE_TAXONOMY_ID = -1
 
 def check_taxonomy(
     data,
-    taxonomy_id,
-    name,
+    *,
+    taxonomy_id: int,
+    name: str,
     description="",
     enabled=True,
     allow_multiple=True,
@@ -333,7 +334,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             expected_data["can_change_taxonomy"] = is_admin
             expected_data["can_delete_taxonomy"] = is_admin
             expected_data["can_tag_object"] = False
-            check_taxonomy(response.data, taxonomy.pk, **expected_data)
+            check_taxonomy(response.data, taxonomy_id=taxonomy.pk, **expected_data)  # type: ignore[arg-type]
 
     def test_detail_system_taxonomy(self):
         url = TAXONOMY_DETAIL_URL.format(pk=LANGUAGE_TAXONOMY_ID)
@@ -385,11 +386,11 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             create_data["can_change_taxonomy"] = True
             create_data["can_delete_taxonomy"] = True
             create_data["can_tag_object"] = False
-            check_taxonomy(response.data, response.data["id"], **create_data)
+            check_taxonomy(response.data, taxonomy_id=response.data["id"], **create_data)  # type: ignore[arg-type]
             url = TAXONOMY_DETAIL_URL.format(pk=response.data["id"])
 
             response = self.client.get(url)
-            check_taxonomy(response.data, response.data["id"], **create_data)
+            check_taxonomy(response.data, taxonomy_id=response.data["id"], **create_data)  # type: ignore[arg-type]
 
     def test_create_without_export_id(self):
         url = TAXONOMY_LIST_URL
@@ -409,7 +410,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         create_data["can_tag_object"] = False
         check_taxonomy(
             response.data,
-            response.data["id"],
+            taxonomy_id=response.data["id"],
             export_id="2-taxonomy-data-3",
             **create_data,
         )
@@ -465,7 +466,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             response = self.client.get(url)
             check_taxonomy(
                 response.data,
-                response.data["id"],
+                taxonomy_id=response.data["id"],
                 **{
                     "name": "new name",
                     "description": "taxonomy description",
@@ -526,7 +527,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             response = self.client.get(url)
             check_taxonomy(
                 response.data,
-                response.data["id"],
+                taxonomy_id=response.data["id"],
                 **{
                     "name": "new name",
                     "enabled": True,
@@ -1041,7 +1042,15 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         ("staff", "taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
     )
     @ddt.unpack
-    def test_tag_object(self, user_attr, taxonomy_attr, taxonomy_flags, tag_values, expected_status, object_id):
+    def test_tag_object(  # pylint: disable=too-many-positional-arguments
+        self,
+        user_attr,
+        taxonomy_attr,
+        taxonomy_flags,
+        tag_values,
+        expected_status,
+        object_id,
+    ):
         if user_attr:
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
