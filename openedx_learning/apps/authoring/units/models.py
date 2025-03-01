@@ -3,7 +3,7 @@ Models that implement units
 """
 from django.db import models
 
-from ..containers.models_mixin import ContainerEntityMixin, ContainerEntityVersionMixin
+from ..containers.models_mixin import ContainerMixin, ContainerVersionMixin
 
 __all__ = [
     "Unit",
@@ -11,13 +11,13 @@ __all__ = [
 ]
 
 
-class Unit(ContainerEntityMixin):
+class Unit(ContainerMixin):
     """
     A Unit is Container, which is a PublishableEntity.
     """
 
 
-class UnitVersion(ContainerEntityVersionMixin):
+class UnitVersion(ContainerVersionMixin):
     """
     A UnitVersion is a ContainerVersion, which is a PublishableEntityVersion.
     """

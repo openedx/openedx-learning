@@ -562,14 +562,14 @@ class UnitTestCase(ComponentTestCase):
         """
         unit = self.create_unit_with_components([self.component_1, self.component_2_v1])
 
-        orig_version_num = unit.container_entity.versioning.draft.version_num
-        orig_entity_list_id = unit.container_entity.versioning.draft.entity_list.pk
+        orig_version_num = unit.container.versioning.draft.version_num
+        orig_entity_list_id = unit.container.versioning.draft.entity_list.pk
 
         authoring_api.create_next_unit_version(unit, title="New Title", created=self.now)
 
         unit.refresh_from_db()
-        new_version_num = unit.container_entity.versioning.draft.version_num
-        new_entity_list_id = unit.container_entity.versioning.draft.entity_list.pk
+        new_version_num = unit.container.versioning.draft.version_num
+        new_entity_list_id = unit.container.versioning.draft.entity_list.pk
 
         assert new_version_num > orig_version_num
         assert new_entity_list_id == orig_entity_list_id
@@ -623,7 +623,7 @@ class UnitTestCase(ComponentTestCase):
         # But when we publish the new unit version with the removal, the published version is affected:
         authoring_api.publish_all_drafts(self.learning_package.id)
         # FIXME: Refreshing the unit is necessary here because get_entities_in_published_container() accesses
-        # container_entity.versioning.published, and .versioning is cached with the old version. But this seems like
+        # container.versioning.published, and .versioning is cached with the old version. But this seems like
         # a footgun? We could avoid this if get_entities_in_published_container() took only an ID instead of an object,
         # but that would involve additional database lookup(s).
         unit.refresh_from_db()

@@ -8,8 +8,8 @@ from openedx_learning.apps.authoring.publishing.models import PublishableEntity,
 from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
 
 __all__ = [
-    "ContainerEntity",
-    "ContainerEntityVersion",
+    "Container",
+    "ContainerVersion",
 ]
 
 
@@ -20,7 +20,7 @@ class EntityList(models.Model):
     EntityLists are not PublishableEntities in and of themselves. That's because
     sometimes we'll want the same kind of data structure for things that we
     dynamically generate for individual students (e.g. Variants). EntityLists are
-    anonymous in a sense–they're pointed to by ContainerEntityVersions and
+    anonymous in a sense–they're pointed to by ContainerVersions and
     other models, rather than being looked up by their own identifiers.
     """
 
@@ -67,7 +67,7 @@ class EntityListRow(models.Model):
     )
 
 
-class ContainerEntity(PublishableEntityMixin):
+class Container(PublishableEntityMixin):
     """
     NOTE: We're going to want to eventually have some association between the
     PublishLog and Containers that were affected in a publish because their
@@ -75,9 +75,9 @@ class ContainerEntity(PublishableEntityMixin):
     """
 
 
-class ContainerEntityVersion(PublishableEntityVersionMixin):
+class ContainerVersion(PublishableEntityVersionMixin):
     """
-    A version of a ContainerEntity.
+    A version of a Container.
 
     By convention, we would only want to create new versions when the Container
     itself changes, and not when the Container's child elements change. For
@@ -93,11 +93,11 @@ class ContainerEntityVersion(PublishableEntityVersionMixin):
     changed if we decide to explicitly pin a set of versions for the children,
     and then later change our minds and move to a different set. It also just
     makes things easier to reason about if we say that entity_list never
-    changes for a given ContainerEntityVersion.
+    changes for a given ContainerVersion.
     """
 
     container = models.ForeignKey(
-        ContainerEntity,
+        Container,
         on_delete=models.CASCADE,
         related_name="versions",
     )

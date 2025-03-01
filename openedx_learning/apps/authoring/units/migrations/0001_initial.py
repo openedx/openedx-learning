@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             name='Unit',
             fields=[
                 ('publishable_entity', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='oel_publishing.publishableentity')),
-                ('container_entity', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='oel_containers.containerentity')),
+                ('container', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='oel_containers.container')),
             ],
             options={
                 'abstract': False,
@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
             name='UnitVersion',
             fields=[
                 ('publishable_entity_version', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='oel_publishing.publishableentityversion')),
-                ('container_entity_version', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='oel_containers.containerentityversion')),
+                ('container_version', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='oel_containers.containerversion')),
                 ('unit', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='versions', to='oel_units.unit')),
             ],
             options={

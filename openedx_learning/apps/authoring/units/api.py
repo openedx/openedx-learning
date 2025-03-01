@@ -47,7 +47,7 @@ def create_unit(
             learning_package_id, key, created, created_by
         )
         unit = Unit.objects.create(
-            container_entity=container,
+            container=container,
             publishable_entity=container.publishable_entity,
         )
     return unit
@@ -76,8 +76,8 @@ def create_unit_version(
         created_by: The user who created the unit.
     """
     with atomic():
-        container_entity_version = container_api.create_container_version(
-            unit.container_entity.pk,
+        container_version = container_api.create_container_version(
+            unit.container.pk,
             version_num,
             title=title,
             publishable_entities_pks=publishable_entities_pks,
@@ -87,8 +87,8 @@ def create_unit_version(
         )
         unit_version = UnitVersion.objects.create(
             unit=unit,
-            container_entity_version=container_entity_version,
-            publishable_entity_version=container_entity_version.publishable_entity_version,
+            container_version=container_version,
+            publishable_entity_version=container_version.publishable_entity_version,
         )
     return unit_version
 
@@ -129,8 +129,8 @@ def create_next_unit_version(
         publishable_entities_pks = None
         entity_version_pks = None
     with atomic():
-        container_entity_version = container_api.create_next_container_version(
-            unit.container_entity.pk,
+        container_version = container_api.create_next_container_version(
+            unit.container.pk,
             title=title,
             publishable_entities_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
@@ -139,8 +139,8 @@ def create_next_unit_version(
         )
         unit_version = UnitVersion.objects.create(
             unit=unit,
-            container_entity_version=container_entity_version,
-            publishable_entity_version=container_entity_version.publishable_entity_version,
+            container_version=container_version,
+            publishable_entity_version=container_version.publishable_entity_version,
         )
     return unit_version
 
@@ -285,7 +285,7 @@ def get_components_in_published_unit_as_of(
     unit_version = unit_pub_entity_version.unitversion  # type: ignore[attr-defined]
 
     entity_list = []
-    rows = unit_version.container_entity_version.entity_list.entitylistrow_set.order_by("order_num")
+    rows = unit_version.container_version.entity_list.entitylistrow_set.order_by("order_num")
     for row in rows:
         if row.entity_version is not None:
             component_version = row.entity_version.componentversion

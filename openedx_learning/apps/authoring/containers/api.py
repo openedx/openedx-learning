@@ -11,9 +11,9 @@ from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 from django.db.transaction import atomic
 
-from openedx_learning.apps.authoring.containers.models_mixin import ContainerEntityMixin
+from openedx_learning.apps.authoring.containers.models_mixin import ContainerMixin
 
-from ..containers.models import ContainerEntity, ContainerEntityVersion, EntityList, EntityListRow
+from ..containers.models import Container, ContainerVersion, EntityList, EntityListRow
 from ..publishing import api as publishing_api
 from ..publishing.models import PublishableEntity, PublishableEntityVersion
 
@@ -38,7 +38,7 @@ def create_container(
     key: str,
     created: datetime,
     created_by: int | None,
-) -> ContainerEntity:
+) -> Container:
     """
     [ 🛑 UNSTABLE ]
     Create a new container.
@@ -56,7 +56,7 @@ def create_container(
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id, key, created, created_by
         )
-        container = ContainerEntity.objects.create(
+        container = Container.objects.create(
             publishable_entity=publishable_entity,
         )
     return container
@@ -119,7 +119,7 @@ def create_container_version(
     entity_version_pks: list[int | None] | None,
     created: datetime,
     created_by: int | None,
-) -> ContainerEntityVersion:
+) -> ContainerVersion:
     """
     [ 🛑 UNSTABLE ]
     Create a new container version.
@@ -136,7 +136,7 @@ def create_container_version(
         The newly created container version.
     """
     with atomic():
-        container = ContainerEntity.objects.select_related("publishable_entity").get(pk=container_pk)
+        container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
 
         # Do a quick check that the given entities are in the right learning package:
@@ -162,7 +162,7 @@ def create_container_version(
             created=created,
             created_by=created_by,
         )
-        container_version = ContainerEntityVersion.objects.create(
+        container_version = ContainerVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container_pk,
             entity_list=entity_list,
@@ -179,7 +179,7 @@ def create_next_container_version(
     entity_version_pks: list[int | None] | None,
     created: datetime,
     created_by: int | None,
-) -> ContainerEntityVersion:
+) -> ContainerVersion:
     """
     [ 🛑 UNSTABLE ]
     Create the next version of a container. A new version of the container is created
@@ -203,7 +203,7 @@ def create_next_container_version(
         The newly created container version.
     """
     with atomic():
-        container = ContainerEntity.objects.select_related("publishable_entity").get(pk=container_pk)
+        container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
         last_version = container.versioning.latest
         assert last_version is not None
@@ -232,7 +232,7 @@ def create_next_container_version(
             created=created,
             created_by=created_by,
         )
-        next_container_version = ContainerEntityVersion.objects.create(
+        next_container_version = ContainerVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container_pk,
             entity_list=next_entity_list,
@@ -250,7 +250,7 @@ def create_container_and_version(
     title: str,
     publishable_entities_pks: list[int],
     entity_version_pks: list[int | None],
-) -> tuple[ContainerEntity, ContainerEntityVersion]:
+) -> tuple[Container, ContainerVersion]:
     """
     [ 🛑 UNSTABLE ]
     Create a new container and its first version.
@@ -281,7 +281,7 @@ def create_container_and_version(
     return (container, container_version)
 
 
-def get_container(pk: int) -> ContainerEntity:
+def get_container(pk: int) -> Container:
     """
     [ 🛑 UNSTABLE ]
     Get a container by its primary key.
@@ -293,7 +293,7 @@ def get_container(pk: int) -> ContainerEntity:
         The container with the given primary key.
     """
     # TODO: should this use with_publishing_relations as in components?
-    return ContainerEntity.objects.get(pk=pk)
+    return Container.objects.get(pk=pk)
 
 
 @dataclass(frozen=True)
@@ -311,16 +311,16 @@ class ContainerEntityListEntry:
 
 
 def get_entities_in_draft_container(
-    container: ContainerEntity | ContainerEntityMixin,
+    container: Container | ContainerMixin,
 ) -> list[ContainerEntityListEntry]:
     """
     [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
-    if isinstance(container, ContainerEntityMixin):
-        container = container.container_entity
-    assert isinstance(container, ContainerEntity)
+    if isinstance(container, ContainerMixin):
+        container = container.container
+    assert isinstance(container, Container)
     entity_list = []
     for row in container.versioning.draft.entity_list.entitylistrow_set.order_by("order_num"):
         entity_version = row.entity_version or row.entity.draft.version
@@ -334,24 +334,24 @@ def get_entities_in_draft_container(
 
 
 def get_entities_in_published_container(
-    container: ContainerEntity | ContainerEntityMixin,
+    container: Container | ContainerMixin,
 ) -> list[ContainerEntityListEntry] | None:
     """
     [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
-    if isinstance(container, ContainerEntityMixin):
-        cev = container.container_entity.versioning.published
-    elif isinstance(container, ContainerEntity):
-        cev = container.versioning.published
+    if isinstance(container, ContainerMixin):
+        cv = container.container.versioning.published
+    elif isinstance(container, Container):
+        cv = container.versioning.published
     else:
-        raise TypeError(f"Expected ContainerEntity or ContainerEntityMixin; got {type(container)}")
-    if cev is None:
+        raise TypeError(f"Expected Container or ContainerMixin; got {type(container)}")
+    if cv is None:
         return None  # There is no published version of this container. Should this be an exception?
-    assert isinstance(cev, ContainerEntityVersion)
+    assert isinstance(cv, ContainerVersion)
     entity_list = []
-    for row in cev.entity_list.entitylistrow_set.order_by("order_num"):
+    for row in cv.entity_list.entitylistrow_set.order_by("order_num"):
         entity_version = row.entity_version or row.entity.published.version
         if entity_version is not None:  # As long as this hasn't been soft-deleted:
             entity_list.append(ContainerEntityListEntry(
@@ -363,7 +363,7 @@ def get_entities_in_published_container(
 
 
 def contains_unpublished_changes(
-    container: ContainerEntity | ContainerEntityMixin,
+    container: Container | ContainerMixin,
 ) -> bool:
     """
     [ 🛑 UNSTABLE ]
@@ -372,18 +372,18 @@ def contains_unpublished_changes(
     Note: container.versioning.has_unpublished_changes only checks if the container
     itself has unpublished changes, not if its contents do.
     """
-    if isinstance(container, ContainerEntityMixin):
+    if isinstance(container, ContainerMixin):
         # The query below pre-loads the data we need but is otherwise the same thing as:
-        #     container = container.container_entity
-        container = ContainerEntity.objects.select_related(
+        #     container = container.container
+        container = Container.objects.select_related(
             "publishable_entity",
             "publishable_entity__draft",
             "publishable_entity__draft__version",
-            "publishable_entity__draft__version__containerentityversion__entity_list",
-        ).get(pk=container.container_entity_id)
+            "publishable_entity__draft__version__containerversion__entity_list",
+        ).get(pk=container.container_id)
     else:
-        pass  # TODO: select_related if we're given a raw ContainerEntity rather than a ContainerEntityMixin like Unit?
-    assert isinstance(container, ContainerEntity)
+        pass  # TODO: select_related if we're given a raw Container rather than a ContainerMixin like Unit?
+    assert isinstance(container, Container)
 
     if container.versioning.has_unpublished_changes:
         return True
@@ -395,16 +395,16 @@ def contains_unpublished_changes(
     # Once we know it's correct and have a good test suite, then we can optimize.
     # We will likely change to a tracking-based approach rather than a "scan for changes" based approach.
     for row in entity_list.entitylistrow_set.filter(entity_version=None).select_related(
-        "entity__containerentity",
+        "entity__container",
         "entity__draft__version",
         "entity__published__version",
     ):
         try:
-            child_container = row.entity.containerentity
-        except ContainerEntity.DoesNotExist:
+            child_container = row.entity.container
+        except Container.DoesNotExist:
             child_container = None
         if child_container:
-            child_container = row.entity.containerentity
+            child_container = row.entity.container
             # This is itself a container - check recursively:
             if child_container.versioning.has_unpublished_changes or contains_unpublished_changes(child_container):
                 return True
@@ -421,7 +421,7 @@ def get_containers_with_entity(
     publishable_entity_pk: int,
     *,
     ignore_pinned=False,
-) -> QuerySet[ContainerEntity]:
+) -> QuerySet[Container]:
     """
     [ 🛑 UNSTABLE ]
     Find all draft containers that directly contain the given entity.
@@ -434,18 +434,18 @@ def get_containers_with_entity(
         ignore_pinned: if true, ignore any pinned references to the entity.
     """
     if ignore_pinned:
-        qs = ContainerEntity.objects.filter(
-            publishable_entity__draft__version__containerentityversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
-            publishable_entity__draft__version__containerentityversion__entity_list__entitylistrow__entity_version_id=None,  # pylint: disable=line-too-long # noqa: E501
+        qs = Container.objects.filter(
+            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
+            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_version_id=None,  # pylint: disable=line-too-long # noqa: E501
         ).order_by("pk")  # Ordering is mostly for consistent test cases.
     else:
-        qs = ContainerEntity.objects.filter(
-            publishable_entity__draft__version__containerentityversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
+        qs = Container.objects.filter(
+            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
         ).order_by("pk")  # Ordering is mostly for consistent test cases.
     # Could alternately do this query in two steps. Not sure which is more efficient; depends on how the DB plans it.
     # # Find all the EntityLists that contain the given entity:
     # lists = EntityList.objects.filter(entitylistrow__entity_id=publishable_entity_pk).values_list('pk', flat=True)
-    # qs = ContainerEntity.objects.filter(
-    #     publishable_entity__draft__version__containerentityversion__entity_list__in=lists
+    # qs = Container.objects.filter(
+    #     publishable_entity__draft__version__containerversion__entity_list__in=lists
     # )
     return qs
