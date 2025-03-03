@@ -1,11 +1,17 @@
 """
 Custom Django ORM Managers.
 """
+from __future__ import annotations
+
+from typing import TypeVar
+
 from django.db import models
 from django.db.models.query import QuerySet
 
+M = TypeVar('M', bound=models.Model)
 
-class WithRelationsManager(models.Manager):
+
+class WithRelationsManager(models.Manager[M]):
     """
     Custom Manager that adds select_related to the default queryset.
 
