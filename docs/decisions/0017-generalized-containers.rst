@@ -48,14 +48,16 @@ This section defines container children, their order, and relationships, coverin
 - Containers can reference a specific version of their children or be set to point to their latest versions. For instance, component V1 might be used in a unit instead of its latest version. The latest version of a child can be referenced by setting its version to ``None`` which consists of the chosen standard for this representation.
 - A single child (publishable entity) can be shared by multiple containers, allowing for reuse of content across different containers. For instance, a component can be shared by multiple units.
 
-4. Next Container Versions
-==========================
+4. Container Versioning, Soft-Deletions and Structural Changes
+==============================================================
 
-This section defines the rules for version control in containers, explaining when new versions are created based on changes to container structure or metadata.
+This section defines the versioning rules for containers, explaining when a new version is created based on structural or metadata changes. It also clarifies how changes in child elements affect (or do not affect) container versions.
 
-- A new version is created if and only if the container itself changes (e.g., title, ordering of children, adding or removing children) and not when its children change (e.g., a component in a Unit is updated with new text). For instance, a new version of a unit is created when a component is removed, not when a new version of a component is created.
-- No external change to a child will trigger the creation of a new version for the container. For example, updating or soft-deleting a component will not trigger the creation of a new version for the unit.
-- Containers with invalid references (e.g., references to soft-deleted children) will be filtered out as needed to ensure consistency.
+- A new version of a container is created only when the container itself changes, such as modifying its title, ordering of children, or adding/removing children. Changes to a child do not cascade up, meaning modifications to a child do not trigger a new version of its parent. This includes the following cases:
+
+  - Soft-deleting a child that is referenced by a container does not create a new version of the container. For example, soft-deleting a component used by a unit will not generate a new version of the unit. Once the deletion is published, the child will be filtered out from the container as needed to ensure consistency.
+  - Removing a child from a container does create a new version, as it reflects a structural change in the container. For example, removing a component from a unit creates a new version of the unit.
+  - Changes to container metadata, such as updating its title or description, will also create a new version.
 
 5. Publishing
 =============
