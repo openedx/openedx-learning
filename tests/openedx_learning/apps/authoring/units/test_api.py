@@ -855,10 +855,19 @@ class UnitTestCase(ComponentTestCase):
         component_1_v2 = self.modify_component(self.component_1, title="modified component 1")
 
         # Create a few units, some of which contain component 1 and others which don't:
-        unit1_1pinned = self.create_unit_with_components([self.component_1_v1], key="u1")  # ✅ has it 1 pinned 📌 to V1
-        unit2_1pinned_v2 = self.create_unit_with_components([component_1_v2], key="u2")  # ✅ has it pinned 📌 to V2
+        # Note: it is important that some of these units contain other components, to ensure the complex JOINs required
+        # for this query are working correctly, especially in the case of ignore_pinned=True.
+        # Unit 1 ✅ has component 1, pinned 📌 to V1
+        unit1_1pinned = self.create_unit_with_components([self.component_1_v1, self.component_2], key="u1")
+        # Unit 2 ✅ has component 1, pinned 📌 to V2
+        unit2_1pinned_v2 = self.create_unit_with_components([component_1_v2, self.component_2_v1], key="u2")
+        # Unit 3 doesn't contain it
         _unit3_no = self.create_unit_with_components([self.component_2], key="u3")
-        unit4_unpinned = self.create_unit_with_components([self.component_1], key="u4")  # ✅ has component 1, unpinned
+        # Unit 4 ✅ has component 1, unpinned
+        unit4_unpinned = self.create_unit_with_components([
+            self.component_1, self.component_2, self.component_2_v1,
+        ], key="u4")
+        # Units 5/6 don't contain it
         _unit5_no = self.create_unit_with_components([self.component_2_v1, self.component_2], key="u5")
         _unit6_no = self.create_unit_with_components([], key="u6")
 
