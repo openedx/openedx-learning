@@ -85,6 +85,31 @@ class UnitTestCase(ComponentTestCase):
             created_by=None,
         )
 
+    def test_get_unit(self):
+        """
+        Test get_unit()
+        """
+        unit = self.create_unit_with_components([self.component_1, self.component_2])
+        result = authoring_api.get_unit(unit.pk)
+        assert result == unit
+        # Versioning data should be pre-loaded via select_related()
+        with self.assertNumQueries(0):
+            assert result.versioning.has_unpublished_changes
+        # TODO: (maybe) This currently has extra queries and is not preloaded even though it's the same:
+        # with self.assertNumQueries(0):
+        #     assert result.container.versioning.has_unpublished_changes
+
+    def test_get_container(self):
+        """
+        Test get_container()
+        """
+        unit = self.create_unit_with_components([self.component_1, self.component_2])
+        result = authoring_api.get_container(unit.container_id)
+        assert result == unit.container
+        # Versioning data should be pre-loaded via select_related()
+        with self.assertNumQueries(0):
+            assert result.versioning.has_unpublished_changes
+
     def test_create_unit_with_invalid_children(self):
         """
         Verify that only components can be added to units, and a specific

@@ -30,7 +30,12 @@ class ContainerMixin(PublishableEntityMixin):
     """
 
     # select these related entities by default for all queries
-    objects: ClassVar[WithRelationsManager[Self]] = WithRelationsManager("container")  # type: ignore[assignment]
+    objects: ClassVar[WithRelationsManager[Self]] = WithRelationsManager(  # type: ignore[assignment]
+        "container",
+        "publishable_entity",
+        "publishable_entity__published",
+        "publishable_entity__draft",
+    )
 
     container = models.OneToOneField(
         Container,
