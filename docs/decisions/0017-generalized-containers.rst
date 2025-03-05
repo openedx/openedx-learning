@@ -39,9 +39,9 @@ This section defines container types, content constraints, hierarchy, and extens
 
 This section defines container children, their order, and relationships, covering flexible connections and support for draft and published states of their children.
 
-- Each container version holds a list of children that the author has defined for that version.
-- The author-defined list is used to show the content of a container version as the author specified it.
-- The author-defined list won't change for a specific container version even if its members change. E.g., a unit version UV1 with three components (CV1, CV2, CV3) will always have those three components in the author-defined list, even if one of the components is soft-deleted or a new version for the component is created.
+- Each container version holds a list of children that the author has defined for that version, we will call this the entity list.
+- The entity list represents the content of a container version as defined by the author. It can be used to derive the initial versions of the container's children at the time of creation or the latest versions available at that moment.
+- The entity list won't change for a specific container version even if its members change. E.g., a unit version UV1 with three components (CV1, CV2, CV3) will always have those three components in the author-defined list, even if one of the components is soft-deleted or a new version for the component is created.
 - The children of a container can be any type of publishable content. E.g., sections, subsections, units, components, and any other publishable thing. For more details on publishable content, see `PublishableEntity`_.
 - Children within a container are maintained in a specific order as an ordered list. E.g., components within a unit, or units within a subsection, are presented in a specific order.
 - Containers represent their content hierarchy through a structure, like Course > Section > Subsection > Unit > Component, which defines parent-child relationships at each level.
