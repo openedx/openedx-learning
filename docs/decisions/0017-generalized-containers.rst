@@ -6,6 +6,19 @@ Context
 
 This ADR proposes a model for containers that can hold different types of content and can be used to model other content types with similar behavior, such as units, subsections, sections, or courses. The model defines containers' core structure and purpose, the types of containers, content constraints, container children, version control, publishing, and pruning.
 
+Key Concepts
+============
+
+The following definitions provide context for the terms used in this ADR:
+
+- Container: A content structure that holds other content types in a parent-child hierarchy (e.g., sections, subsections, units).
+- PublishableEntity: A versioned content type that supports publishing and can exist independently or within a container (e.g., sections, units, components).
+- Versioning: The process of creating new container versions when its structure or metadata changes (e.g., title, order, adding/removing children).
+- Soft-deletion: Removing a draft or published entity by setting its version to NULL, while keeping historical versions for potential reverts.
+- Publishing: Making a container and its content available in a published state.
+- Pruning: Removing unused, unpublished container versions if they are not the latest and have no references.
+- Selectors: A mechanism for dynamically selecting multiple PublishableEntities based on defined criteria (e.g., split testing, randomized content selection).
+
 Decisions
 ---------
 
