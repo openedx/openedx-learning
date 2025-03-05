@@ -129,6 +129,7 @@ def create_container_version(
         version_num: The version number of the container.
         title: The title of the container.
         publishable_entities_pks: The IDs of the members of the container.
+        entity_version_pks: The IDs of the versions to pin to, if pinning is desired.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
 
@@ -292,7 +293,6 @@ def get_container(pk: int) -> Container:
     Returns:
         The container with the given primary key.
     """
-    # TODO: should this use with_publishing_relations as in components?
     return Container.objects.get(pk=pk)
 
 
@@ -326,7 +326,7 @@ def get_entities_in_draft_container(
         entity_version = row.entity_version or row.entity.draft.version
         if entity_version is not None:  # As long as this hasn't been soft-deleted:
             entity_list.append(ContainerEntityListEntry(
-                entity_version=row.entity_version or row.entity.draft.version,
+                entity_version=entity_version,
                 pinned=row.entity_version is not None,
             ))
         # else should we indicate somehow a deleted item was here?
@@ -338,7 +338,7 @@ def get_entities_in_published_container(
 ) -> list[ContainerEntityListEntry] | None:
     """
     [ 🛑 UNSTABLE ]
-    Get the list of entities and their versions in the draft version of the
+    Get the list of entities and their versions in the published version of the
     given container.
     """
     if isinstance(container, ContainerMixin):
@@ -369,16 +369,17 @@ def contains_unpublished_changes(
     [ 🛑 UNSTABLE ]
     Check recursively if a container has any unpublished changes.
 
-    Note: container.versioning.has_unpublished_changes only checks if the container
-    itself has unpublished changes, not if its contents do.
+    Note: unlike this method, the similar-sounding
+    `container.versioning.has_unpublished_changes` property only reports
+    if the container itself has unpublished changes, not
+    if its contents do. So if you change a title or add a new child component,
+    `has_unpublished_changes` will be `True`, but if you merely edit a component
+    that's in the container, it will be `False`. This method will return `True`
+    in either case.
     """
     if isinstance(container, ContainerMixin):
-        # The query below pre-loads the data we need but is otherwise the same thing as:
-        #     container = container.container
+        # This is similar to 'get_container(container.container_id)' but pre-loads more data.
         container = Container.objects.select_related(
-            "publishable_entity",
-            "publishable_entity__draft",
-            "publishable_entity__draft__version",
             "publishable_entity__draft__version__containerversion__entity_list",
         ).get(pk=container.container_id)
     else:
@@ -404,9 +405,8 @@ def contains_unpublished_changes(
         except Container.DoesNotExist:
             child_container = None
         if child_container:
-            child_container = row.entity.container
             # This is itself a container - check recursively:
-            if child_container.versioning.has_unpublished_changes or contains_unpublished_changes(child_container):
+            if contains_unpublished_changes(child_container):
                 return True
         else:
             # This is not a container:
