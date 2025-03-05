@@ -259,7 +259,6 @@ class UnitTestCase(ComponentTestCase):
         ]
         assert authoring_api.get_components_in_published_unit(unit) is None
 
-    @pytest.mark.skip(reason="FIXME: auto-publishing children is not implemented yet")
     def test_auto_publish_children(self):
         """
         Test that publishing a unit publishes its child components automatically.
@@ -511,16 +510,11 @@ class UnitTestCase(ComponentTestCase):
         c5_v2 = self.modify_component(c5, title="C5 version 2")
 
         # 4️⃣ The author then publishes Unit 1, and therefore everything in it.
-        # FIXME: this should only require publishing the unit itself, but we don't yet do auto-publishing children
         authoring_api.publish_from_drafts(
             self.learning_package.pk,
             draft_qset=authoring_api.get_all_drafts(self.learning_package.pk).filter(
-                entity_id__in=[
-                    unit1.publishable_entity.id,
-                    c1.publishable_entity.id,
-                    c2.publishable_entity.id,
-                    c3.publishable_entity.id,
-                ],
+                # Note: we only publish the unit; the publishing API should auto-publish its components too.
+                entity_id=unit1.publishable_entity.id,
             ),
         )
 

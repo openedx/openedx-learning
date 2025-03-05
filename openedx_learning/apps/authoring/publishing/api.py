@@ -332,6 +332,30 @@ def publish_from_drafts(
         published_at = datetime.now(tz=timezone.utc)
 
     with atomic():
+        # If the drafts include any containers, we need to auto-publish their descendants:
+        # TODO: this only handles one level deep and would need to be updated to support sections > subsections > units
+
+        # Get the IDs of the ContainerVersion for any Containers whose drafts are slated to be published.
+        container_version_ids = (
+            Container.objects.filter(publishable_entity__draft__in=draft_qset)
+            .values_list("publishable_entity__draft__version__containerversion__pk", flat=True)
+        )
+        if container_version_ids:
+            # We are publishing at least one container. Check if it has any child components that aren't already slated
+            # to be published.
+            unpublished_draft_children = EntityListRow.objects.filter(
+                entity_list__container_versions__pk__in=container_version_ids,
+                entity_version=None,  # Unpinned entities only
+            ).exclude(
+                entity__draft__version=F("entity__published__version")  # Exclude already published things
+            ).values_list("entity__draft__pk", flat=True)
+            if unpublished_draft_children:
+                # Force these additional child components to be published at the same time by adding them to the qset:
+                draft_qset = Draft.objects.filter(
+                    Q(pk__in=draft_qset.values_list("pk", flat=True)) |
+                    Q(pk__in=unpublished_draft_children)
+                )
+
         # One PublishLog for this entire publish operation.
         publish_log = PublishLog(
             learning_package_id=learning_package_id,
