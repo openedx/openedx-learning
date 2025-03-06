@@ -14,7 +14,7 @@ class ComponentsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     label = "oel_components"
 
-    def ready(self):
+    def ready(self) -> None:
         """
         Register Component and ComponentVersion.
         """

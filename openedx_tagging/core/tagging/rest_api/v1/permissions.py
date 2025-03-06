@@ -1,7 +1,7 @@
 """
 Tagging permissions
 """
-import rules  # type: ignore[import]
+import rules
 from rest_framework.permissions import DjangoObjectPermissions
 
 from ...models import Tag, Taxonomy

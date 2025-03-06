@@ -468,7 +468,7 @@ def _get_component_version_info_headers(component_version: ComponentVersion) -> 
         "X-Open-edX-Component-Uuid": component.uuid,
         # Component Version
         "X-Open-edX-Component-Version-Uuid": component_version.uuid,
-        "X-Open-edX-Component-Version-Num": component_version.version_num,
+        "X-Open-edX-Component-Version-Num": str(component_version.version_num),
         # Learning Package
         "X-Open-edX-Learning-Package-Key": learning_package.key,
         "X-Open-edX-Learning-Package-Uuid": learning_package.uuid,

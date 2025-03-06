@@ -34,7 +34,7 @@ __all__ = [
 ]
 
 
-class LearningPackage(models.Model):  # type: ignore[django-manager-missing]
+class LearningPackage(models.Model):
     """
     Top level container for a grouping of authored content.
 

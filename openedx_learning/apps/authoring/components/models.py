@@ -72,7 +72,7 @@ class ComponentType(models.Model):
         ),
     ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.namespace}:{self.name}"
 
 
@@ -190,7 +190,7 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
         verbose_name = "Component"
         verbose_name_plural = "Components"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.component_type.namespace}:{self.component_type.name}:{self.local_key}"
 
 

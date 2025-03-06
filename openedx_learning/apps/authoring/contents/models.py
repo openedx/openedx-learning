@@ -121,7 +121,7 @@ class MediaType(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         base = f"{self.type}/{self.sub_type}"
         if self.suffix:
             return f"{base}+{self.suffix}"

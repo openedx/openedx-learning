@@ -4,6 +4,7 @@ Basic tests of the Collections API.
 from datetime import datetime, timezone
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from freezegun import freeze_time
 
@@ -213,7 +214,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
     """
     published_component: Component
     draft_component: Component
-    user: User  # type: ignore [valid-type]
+    user: UserType
     html_type: ComponentType
     problem_type: ComponentType
 
