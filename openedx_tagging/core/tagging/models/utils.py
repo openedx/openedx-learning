@@ -1,16 +1,16 @@
 """
 Utilities for tagging and taxonomy models
 """
-from django.db.models import Aggregate, CharField
-from django.db.models.expressions import Func
 from django.db import connection as db_connection
+from django.db.models import Aggregate, CharField
+from django.db.models.expressions import Combinable, Func
 
 RESERVED_TAG_CHARS = [
     '\t',  # Used in the database to separate tag levels in the "lineage" field
            # e.g. lineage="Earth\tNorth America\tMexico\tMexico City"
     ' > ',  # Used in the search index and Instantsearch frontend to separate tag levels
             # e.g. tags_level3="Earth > North America > Mexico > Mexico City"
-    ';',   # Used in CSV exports to separate multiple tags from the same taxonomy
+    ';',   # Used in CSV exports to separate multiple tags from the same taxonomy…
            # e.g. languages-v1: en;es;fr
 ]
 TAGS_CSV_SEPARATOR = RESERVED_TAG_CHARS[2]
@@ -34,10 +34,6 @@ class ConcatNull(Func):  # pylint: disable=abstract-method
             **extra_context,
         )
 
-
-from django.db.models import Aggregate, CharField
-from django.db.models.expressions import Combinable
-
 class StringAgg(Aggregate, Combinable):
     """
     Aggregate function that collects the values of some column across all rows,
@@ -54,10 +50,10 @@ class StringAgg(Aggregate, Combinable):
         # Handle the distinct option and output type
         distinct_str = 'DISTINCT ' if distinct else ''
 
-        extra.update(dict(
-            distinct=distinct_str,
-            output_field=CharField()
-        ))
+        extra.update({
+            'distinct': distinct_str,
+            'output_field': CharField(),
+        })
 
         # Check the database backend (PostgreSQL, MySQL, or SQLite)
         if 'postgresql' in db_connection.vendor.lower():
@@ -84,10 +80,10 @@ class StringAgg(Aggregate, Combinable):
 
     # Implementing abstract methods from Combinable
     def __rand__(self, other):
-        return self._combine(other, 'AND', is_combinable=True)
+        return self._combine(other, 'AND', False)
 
     def __ror__(self, other):
-        return self._combine(other, 'OR', is_combinable=True)
+        return self._combine(other, 'OR', False)
 
     def __rxor__(self, other):
-        return self._combine(other, 'XOR', is_combinable=True)
+        return self._combine(other, 'XOR', False)
