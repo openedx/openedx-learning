@@ -34,6 +34,7 @@ class ConcatNull(Func):  # pylint: disable=abstract-method
             **extra_context,
         )
 
+
 class StringAgg(Aggregate, Combinable):
     """
     Aggregate function that collects the values of some column across all rows,
