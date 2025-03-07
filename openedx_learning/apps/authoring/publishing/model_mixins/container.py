@@ -1,18 +1,23 @@
 """
-Mixins for models that implement containers
+ContainerMixin and ContainerVersionMixin
 """
 from __future__ import annotations
 
-from typing import ClassVar, Self
+from datetime import datetime
+from typing import TYPE_CHECKING, ClassVar, Self
 
 from django.db import models
 
-from openedx_learning.apps.authoring.containers.models import Container, ContainerVersion
-from openedx_learning.apps.authoring.publishing.model_mixins import (
-    PublishableEntityMixin,
-    PublishableEntityVersionMixin,
-)
 from openedx_learning.lib.managers import WithRelationsManager
+
+from .publishable_entity import PublishableEntityMixin, PublishableEntityVersionMixin
+
+if TYPE_CHECKING:
+    from ..models.container import Container, ContainerVersion
+else:
+    # To avoid circular imports, we need to reference these models using strings only
+    Container = "oel_publishing.Container"
+    ContainerVersion = "oel_publishing.ContainerVersion"
 
 __all__ = [
     "ContainerMixin",
@@ -43,11 +48,11 @@ class ContainerMixin(PublishableEntityMixin):
     )
 
     @property
-    def uuid(self):
+    def uuid(self) -> str:
         return self.container.uuid
 
     @property
-    def created(self):
+    def created(self) -> datetime:
         return self.container.created
 
     class Meta:
@@ -74,15 +79,15 @@ class ContainerVersionMixin(PublishableEntityVersionMixin):
     )
 
     @property
-    def uuid(self):
+    def uuid(self) -> str:
         return self.container_version.uuid
 
     @property
-    def title(self):
+    def title(self) -> str:
         return self.container_version.title
 
     @property
-    def created(self):
+    def created(self) -> datetime:
         return self.container_version.created
 
     @property

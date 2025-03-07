@@ -3,7 +3,7 @@ Models that implement units
 """
 from django.db import models
 
-from ..containers.models_mixin import ContainerMixin, ContainerVersionMixin
+from ..publishing.model_mixins import ContainerMixin, ContainerVersionMixin
 
 __all__ = [
     "Unit",

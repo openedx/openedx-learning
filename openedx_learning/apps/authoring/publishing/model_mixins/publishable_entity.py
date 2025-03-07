@@ -12,7 +12,7 @@ from django.db import models
 
 from openedx_learning.lib.managers import WithRelationsManager
 
-from .models import PublishableEntity, PublishableEntityVersion
+from ..models.publishable_entity import PublishableEntity, PublishableEntityVersion
 
 __all__ = [
     "PublishableEntityMixin",

@@ -9,8 +9,7 @@ from django.db.transaction import atomic
 
 from openedx_learning.apps.authoring.components.models import Component, ComponentVersion
 
-from ..containers import api as container_api
-from ..publishing.api import get_published_version_as_of
+from ..publishing import api as publishing_api
 from .models import Unit, UnitVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
@@ -43,7 +42,7 @@ def create_unit(
         created_by: The user who created the unit.
     """
     with atomic():
-        container = container_api.create_container(
+        container = publishing_api.create_container(
             learning_package_id, key, created, created_by
         )
         unit = Unit.objects.create(
@@ -76,7 +75,7 @@ def create_unit_version(
         created_by: The user who created the unit.
     """
     with atomic():
-        container_version = container_api.create_container_version(
+        container_version = publishing_api.create_container_version(
             unit.container.pk,
             version_num,
             title=title,
@@ -129,7 +128,7 @@ def create_next_unit_version(
         publishable_entities_pks = None
         entity_version_pks = None
     with atomic():
-        container_version = container_api.create_next_container_version(
+        container_version = publishing_api.create_next_container_version(
             unit.container.pk,
             title=title,
             publishable_entities_pks=publishable_entities_pks,
@@ -229,7 +228,7 @@ def get_components_in_draft_unit(
     """
     assert isinstance(unit, Unit)
     entity_list = []
-    for entry in container_api.get_entities_in_draft_container(unit):
+    for entry in publishing_api.get_entities_in_draft_container(unit):
         # Convert from generic PublishableEntityVersion to ComponentVersion:
         component_version = entry.entity_version.componentversion
         assert isinstance(component_version, ComponentVersion)
@@ -248,7 +247,7 @@ def get_components_in_published_unit(
     Returns None if the unit was never published (TODO: should it throw instead?).
     """
     assert isinstance(unit, Unit)
-    published_entities = container_api.get_entities_in_published_container(unit)
+    published_entities = publishing_api.get_entities_in_published_container(unit)
     if published_entities is None:
         return None  # There is no published version of this unit. Should this be an exception?
     entity_list = []
@@ -279,7 +278,7 @@ def get_components_in_published_unit_as_of(
           ancestors of every modified PublishableEntity in the publish.
     """
     assert isinstance(unit, Unit)
-    unit_pub_entity_version = get_published_version_as_of(unit.publishable_entity_id, publish_log_id)
+    unit_pub_entity_version = publishing_api.get_published_version_as_of(unit.publishable_entity_id, publish_log_id)
     if unit_pub_entity_version is None:
         return None  # This unit was not published as of the given PublishLog ID.
     unit_version = unit_pub_entity_version.unitversion  # type: ignore[attr-defined]
@@ -294,7 +293,7 @@ def get_components_in_published_unit_as_of(
         else:
             # Unpinned component - figure out what its latest published version was.
             # This is not optimized. It could be done in one query per unit rather than one query per component.
-            pub_entity_version = get_published_version_as_of(row.entity_id, publish_log_id)
+            pub_entity_version = publishing_api.get_published_version_as_of(row.entity_id, publish_log_id)
             if pub_entity_version:
                 entity_list.append(UnitListEntry(component_version=pub_entity_version.componentversion, pinned=False))
     return entity_list
