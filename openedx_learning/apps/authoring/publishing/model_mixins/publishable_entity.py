@@ -5,12 +5,14 @@ from __future__ import annotations
 
 from datetime import datetime
 from functools import cached_property
+from typing import ClassVar, Self
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import models
-from django.db.models.query import QuerySet
 
-from .models import PublishableEntity, PublishableEntityVersion
+from openedx_learning.lib.managers import WithRelationsManager
+
+from ..models.publishable_entity import PublishableEntity, PublishableEntityVersion
 
 __all__ = [
     "PublishableEntityMixin",
@@ -29,17 +31,12 @@ class PublishableEntityMixin(models.Model):
     the publishing app's api.register_content_models (see its docstring for
     details).
     """
-
-    class PublishableEntityMixinManager(models.Manager):
-        def get_queryset(self) -> QuerySet:
-            return super().get_queryset() \
-                          .select_related(
-                              "publishable_entity",
-                              "publishable_entity__published",
-                              "publishable_entity__draft",
-                          )
-
-    objects: models.Manager[PublishableEntityMixin] = PublishableEntityMixinManager()
+    # select these related entities by default for all queries
+    objects: ClassVar[WithRelationsManager[Self]] = WithRelationsManager(
+        "publishable_entity",
+        "publishable_entity__published",
+        "publishable_entity__draft",
+    )
 
     publishable_entity = models.OneToOneField(
         PublishableEntity, on_delete=models.CASCADE, primary_key=True
@@ -295,17 +292,10 @@ class PublishableEntityVersionMixin(models.Model):
     details).
     """
 
-    class PublishableEntityVersionMixinManager(models.Manager):
-        def get_queryset(self) -> QuerySet:
-            return (
-                super()
-                .get_queryset()
-                .select_related(
-                    "publishable_entity_version",
-                )
-            )
-
-    objects: models.Manager[PublishableEntityVersionMixin] = PublishableEntityVersionMixinManager()
+    # select these related entities by default for all queries
+    objects: ClassVar[WithRelationsManager[Self]] = WithRelationsManager(
+        "publishable_entity_version",
+    )
 
     publishable_entity_version = models.OneToOneField(
         PublishableEntityVersion, on_delete=models.CASCADE, primary_key=True
