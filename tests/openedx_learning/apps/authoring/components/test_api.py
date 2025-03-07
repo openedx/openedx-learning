@@ -4,6 +4,7 @@ Basic tests of the Components API.
 from datetime import datetime, timezone
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from freezegun import freeze_time
 
@@ -552,7 +553,7 @@ class SetCollectionsTestCase(ComponentTestCase):
     collection2: Collection
     collection3: Collection
     published_problem: Component
-    user: User  # type: ignore [valid-type]
+    user: UserType
 
     @classmethod
     def setUpTestData(cls) -> None:

@@ -4,7 +4,7 @@
 #
 #    make upgrade
 #
-cachetools==5.5.1
+cachetools==5.5.2
     # via tox
 chardet==5.2.0
     # via tox
@@ -40,5 +40,5 @@ typing-extensions==4.12.2
     # via
     #   grimp
     #   import-linter
-virtualenv==20.29.1
+virtualenv==20.29.2
     # via tox

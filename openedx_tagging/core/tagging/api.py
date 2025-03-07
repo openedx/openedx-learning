@@ -191,9 +191,9 @@ def get_object_tags(
     )
     if not include_deleted:
         # Exclude if the whole taxonomy was deleted
-        base_qs = base_qs.exclude(taxonomy_id=None)  # type: ignore
+        base_qs = base_qs.exclude(taxonomy=None)
         # Exclude if just the tag is deleted
-        base_qs = base_qs.exclude(tag_id=None, taxonomy__allow_free_text=False)  # type: ignore
+        base_qs = base_qs.exclude(tag=None, taxonomy__allow_free_text=False)
     tags = (
         base_qs
         # Preload related objects, including data for the "get_lineage" method on ObjectTag/Tag:

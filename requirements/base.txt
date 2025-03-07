@@ -35,7 +35,7 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==44.0.0
+cryptography==44.0.2
     # via pyjwt
 django==4.2.19
     # via
@@ -62,7 +62,7 @@ dnspython==2.7.0
     # via pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
-edx-django-utils==7.1.0
+edx-django-utils==7.2.0
     # via edx-drf-extensions
 edx-drf-extensions==10.5.0
     # via -r requirements/base.in
@@ -78,7 +78,7 @@ pbr==6.1.1
     # via stevedore
 prompt-toolkit==3.0.50
     # via click-repl
-psutil==6.1.1
+psutil==7.0.0
     # via edx-django-utils
 pycparser==2.22
     # via cffi
@@ -86,7 +86,7 @@ pyjwt[crypto]==2.10.1
     # via
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.11
+pymongo==4.11.1
     # via edx-opaque-keys
 pynacl==1.5.0
     # via edx-django-utils
@@ -102,7 +102,7 @@ six==1.17.0
     # via python-dateutil
 sqlparse==0.5.3
     # via django
-stevedore==5.4.0
+stevedore==5.4.1
     # via
     #   edx-django-utils
     #   edx-opaque-keys
