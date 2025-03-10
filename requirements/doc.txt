@@ -78,7 +78,7 @@ cryptography==44.0.2
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==4.2.19
+django==4.2.20
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -147,7 +147,7 @@ edx-opaque-keys==2.11.0
     #   edx-drf-extensions
 freezegun==1.5.1
     # via -r requirements/test.txt
-grimp==3.6
+grimp==3.7
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -163,7 +163,7 @@ iniconfig==2.0.0
     # via
     #   -r requirements/test.txt
     #   pytest
-jinja2==3.1.5
+jinja2==3.1.6
     # via
     #   -r requirements/test.txt
     #   code-annotations
@@ -176,7 +176,7 @@ markupsafe==3.0.2
     # via
     #   -r requirements/test.txt
     #   jinja2
-mock==5.1.0
+mock==5.2.0
     # via -r requirements/test.txt
 mypy==1.15.0
     # via -r requirements/test.txt
@@ -186,7 +186,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.7
     # via -r requirements/test.txt
-newrelic==10.6.0
+newrelic==10.7.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -234,7 +234,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.11.1
+pymongo==4.11.2
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -333,7 +333,7 @@ types-pyyaml==6.0.12.20241230
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20250301
+types-requests==2.32.0.20250306
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
