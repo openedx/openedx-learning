@@ -54,17 +54,10 @@ class UnitTestCase(ComponentTestCase):
             learning_package_id=self.learning_package.id,
             key=key,
             title=title,
-            created=self.now,
-            created_by=None,
-        )
-        _unit_v2 = authoring_api.create_next_unit_version(
-            unit=unit,
-            title=title,
             components=components,
             created=self.now,
             created_by=None,
         )
-        unit.refresh_from_db()
         return unit
 
     def modify_component(
@@ -109,6 +102,17 @@ class UnitTestCase(ComponentTestCase):
         # Versioning data should be pre-loaded via select_related()
         with self.assertNumQueries(0):
             assert result.versioning.has_unpublished_changes
+
+    def test_create_unit_queries(self):
+        """
+        Test how many database queries are required to create a unit
+        """
+        # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
+        with self.assertNumQueries(28):
+            _empty_unit = self.create_unit_with_components([])
+        with self.assertNumQueries(31):
+            # And try with a non-empty unit:
+            self.create_unit_with_components([self.component_1, self.component_2_v1], key="u2")
 
     def test_create_unit_with_invalid_children(self):
         """

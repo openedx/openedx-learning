@@ -65,6 +65,10 @@ def create_unit_version(
     """
     [ 🛑 UNSTABLE ] Create a new unit version.
 
+    This is a very low-level API, likely only needed for import/export. In
+    general, you will use `create_unit_and_version()` and
+    `create_next_unit_version()` instead.
+
     Args:
         unit_pk: The unit ID.
         version_num: The version number.
@@ -92,6 +96,34 @@ def create_unit_version(
     return unit_version
 
 
+def _pub_entities_for_components(
+    components: list[Component | ComponentVersion] | None,
+) -> tuple[list[int], list[int | None]] | tuple[None, None]:
+    """
+    Helper method: given a list of Component | ComponentVersion, return the
+    lists of publishable_entities_pks and entity_version_pks needed for the
+    base container APIs.
+
+    ComponentVersion is passed when we want to pin a specific version, otherwise
+    Component is used for unpinned.
+    """
+    if components is None:
+        # When these are None, that means don't change the entities in the list.
+        return None, None
+    for c in components:
+        if not isinstance(c, (Component, ComponentVersion)):
+            raise TypeError("Unit components must be either Component or ComponentVersion.")
+    publishable_entities_pks = [
+        (c.publishable_entity_id if isinstance(c, Component) else c.component.publishable_entity_id)
+        for c in components
+    ]
+    entity_version_pks = [
+        (cv.pk if isinstance(cv, ComponentVersion) else None)
+        for cv in components
+    ]
+    return publishable_entities_pks, entity_version_pks
+
+
 def create_next_unit_version(
     unit: Unit,
     *,
@@ -111,22 +143,7 @@ def create_next_unit_version(
         created: The creation date.
         created_by: The user who created the unit.
     """
-    if components is not None:
-        for c in components:
-            if not isinstance(c, (Component, ComponentVersion)):
-                raise TypeError("Unit components must be either Component or ComponentVersion.")
-        publishable_entities_pks = [
-            (c.publishable_entity_id if isinstance(c, Component) else c.component.publishable_entity_id)
-            for c in components
-        ]
-        entity_version_pks = [
-            (cv.pk if isinstance(cv, ComponentVersion) else None)
-            for cv in components
-        ]
-    else:
-        # When these are None, that means don't change the entities in the list.
-        publishable_entities_pks = None
-        entity_version_pks = None
+    publishable_entities_pks, entity_version_pks = _pub_entities_for_components(components)
     with atomic():
         container_version = publishing_api.create_next_container_version(
             unit.container.pk,
@@ -147,7 +164,9 @@ def create_next_unit_version(
 def create_unit_and_version(
     learning_package_id: int,
     key: str,
+    *,
     title: str,
+    components: list[Component | ComponentVersion] | None = None,
     created: datetime,
     created_by: int | None = None,
 ) -> tuple[Unit, UnitVersion]:
@@ -160,14 +179,15 @@ def create_unit_and_version(
         created: The creation date.
         created_by: The user who created the unit.
     """
+    publishable_entities_pks, entity_version_pks = _pub_entities_for_components(components)
     with atomic():
         unit = create_unit(learning_package_id, key, created, created_by)
         unit_version = create_unit_version(
             unit,
             1,
             title=title,
-            publishable_entities_pks=[],
-            entity_version_pks=[],
+            publishable_entities_pks=publishable_entities_pks or [],
+            entity_version_pks=entity_version_pks or [],
             created=created,
             created_by=created_by,
         )
