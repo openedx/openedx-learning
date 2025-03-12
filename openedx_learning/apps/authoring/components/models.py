@@ -24,8 +24,7 @@ from django.db import models
 from ....lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
 from ....lib.managers import WithRelationsManager
 from ..contents.models import Content
-from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
-from ..publishing.models import LearningPackage
+from ..publishing.models import LearningPackage, PublishableEntityMixin, PublishableEntityVersionMixin
 
 __all__ = [
     "ComponentType",

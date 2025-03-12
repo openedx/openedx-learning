@@ -18,4 +18,10 @@ from .draft_published import Draft, Published
 from .entity_list import EntityList, EntityListRow
 from .learning_package import LearningPackage
 from .publish_log import PublishLog, PublishLogRecord
-from .publishable_entity import PublishableEntity, PublishableEntityVersion
+from .publishable_entity import (
+    PublishableContentModelRegistry,
+    PublishableEntity,
+    PublishableEntityMixin,
+    PublishableEntityVersion,
+    PublishableEntityVersionMixin,
+)

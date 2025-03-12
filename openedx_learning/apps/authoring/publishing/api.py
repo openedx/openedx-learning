@@ -14,7 +14,6 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
 from django.db.transaction import atomic
 
-from .model_mixins import PublishableContentModelRegistry, PublishableEntityMixin, PublishableEntityVersionMixin
 from .models import (
     Container,
     ContainerVersion,
@@ -22,8 +21,11 @@ from .models import (
     EntityList,
     EntityListRow,
     LearningPackage,
+    PublishableContentModelRegistry,
     PublishableEntity,
+    PublishableEntityMixin,
     PublishableEntityVersion,
+    PublishableEntityVersionMixin,
     Published,
     PublishLog,
     PublishLogRecord,
@@ -520,7 +522,7 @@ def register_content_models(
     This is so that we can provide convenience links between content models and
     content version models *through* the publishing apps, so that you can do
     things like finding the draft version of a content model more easily. See
-    the model_mixins.py module for more details.
+    the publishable_entity.py module for more details.
 
     This should only be imported and run from the your app's AppConfig.ready()
     method. For example, in the components app, this looks like:

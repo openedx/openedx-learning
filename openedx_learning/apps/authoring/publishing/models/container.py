@@ -4,8 +4,8 @@ Container and ContainerVersion models
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from ..model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
 from .entity_list import EntityList
+from .publishable_entity import PublishableEntityMixin, PublishableEntityVersionMixin
 
 
 class Container(PublishableEntityMixin):
