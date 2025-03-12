@@ -891,8 +891,9 @@ def contains_unpublished_changes(container_id: int) -> bool:
     # We only care about children that are un-pinned, since published changes to pinned children don't matter
     entity_list = container.versioning.draft.entity_list
 
-    # TODO: This is a naive inefficient implementation but hopefully correct.
-    # Once we know it's correct and have a good test suite, then we can optimize.
+    # This is a naive and inefficient implementation but should be correct.
+    # TODO: Once we have expanded the containers system to support multiple levels (not just Units and Components but
+    # also subsections and sections) and we have an expanded test suite for correctness, then we can optimize.
     # We will likely change to a tracking-based approach rather than a "scan for changes" based approach.
     for row in entity_list.entitylistrow_set.filter(entity_version=None).select_related(
         "entity__container",
@@ -934,6 +935,7 @@ def get_containers_with_entity(
     """
     if ignore_pinned:
         qs = Container.objects.filter(
+            # Note: these two conditions must be in the same filter() call, or the query won't be correct.
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_version_id=None,  # pylint: disable=line-too-long # noqa: E501
         ).order_by("pk")  # Ordering is mostly for consistent test cases.
