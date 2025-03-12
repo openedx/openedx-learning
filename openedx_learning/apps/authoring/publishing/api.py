@@ -621,6 +621,8 @@ def create_entity_list() -> EntityList:
 def create_entity_list_with_rows(
     entity_pks: list[int],
     entity_version_pks: list[int | None],
+    *,
+    learning_package_id: int | None,
 ) -> EntityList:
     """
     [ 🛑 UNSTABLE ]
@@ -631,12 +633,24 @@ def create_entity_list_with_rows(
         entity_version_pks: The IDs of the versions of the entities
             (PublishableEntityVersion) that the entity list rows reference, or
             Nones for "unpinned" (default).
+        learning_package_id: Optional. Verify that all the entities are from
+            the specified learning package.
 
     Returns:
         The newly created entity list.
     """
+    # Do a quick check that the given entities are in the right learning package:
+    if learning_package_id:
+        if PublishableEntity.objects.filter(
+            pk__in=entity_pks,
+        ).exclude(
+            learning_package_id=learning_package_id,
+        ).exists():
+            raise ValidationError("Container entities must be from the same learning package.")
+
     order_nums = range(len(entity_pks))
     with atomic(savepoint=False):
+
         entity_list = create_entity_list()
         EntityListRow.objects.bulk_create(
             [
@@ -654,8 +668,40 @@ def create_entity_list_with_rows(
     return entity_list
 
 
+def _create_container_version(
+    container: Container,
+    version_num: int,
+    *,
+    title: str,
+    entity_list: EntityList,
+    created: datetime,
+    created_by: int | None,
+    container_version_model: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+) -> ContainerVersionModel:
+    """
+    Private internal method for logic shared by create_container_version() and
+    create_next_container_version().
+    """
+    assert issubclass(container_version_model, ContainerVersion)
+    with atomic(savepoint=False):  # Make sure this will happen atomically but we don't need to create a new savepoint.
+        publishable_entity_version = create_publishable_entity_version(
+            container.publishable_entity_id,
+            version_num=version_num,
+            title=title,
+            created=created,
+            created_by=created_by,
+        )
+        container_version = container_version_model.objects.create(
+            publishable_entity_version=publishable_entity_version,
+            container_id=container.pk,
+            entity_list=entity_list,
+        )
+
+    return container_version
+
+
 def create_container_version(
-    container_pk: int,
+    container_id: int,
     version_num: int,
     *,
     title: str,
@@ -670,7 +716,7 @@ def create_container_version(
     Create a new container version.
 
     Args:
-        container_pk: The ID of the container that the version belongs to.
+        container_id: The ID of the container that the version belongs to.
         version_num: The version number of the container.
         title: The title of the container.
         publishable_entities_pks: The IDs of the members of the container.
@@ -682,38 +728,27 @@ def create_container_version(
     Returns:
         The newly created container version.
     """
-    assert issubclass(container_version_model, ContainerVersion)
+    assert title is not None
+    assert publishable_entities_pks is not None
+
     with atomic(savepoint=False):
-        container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
+        container = Container.objects.select_related("publishable_entity").get(pk=container_id)
         entity = container.publishable_entity
-
-        # Do a quick check that the given entities are in the right learning package:
-        if PublishableEntity.objects.filter(
-            pk__in=publishable_entities_pks,
-        ).exclude(
-            learning_package_id=entity.learning_package_id,
-        ).exists():
-            raise ValidationError("Container entities must be from the same learning package.")
-
-        assert title is not None
-        assert publishable_entities_pks is not None
         if entity_version_pks is None:
             entity_version_pks = [None] * len(publishable_entities_pks)
         entity_list = create_entity_list_with_rows(
             entity_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
+            learning_package_id=entity.learning_package_id,
         )
-        publishable_entity_version = create_publishable_entity_version(
-            entity.pk,
-            version_num=version_num,
+        container_version = _create_container_version(
+            container,
+            version_num,
             title=title,
+            entity_list=entity_list,
             created=created,
             created_by=created_by,
-        )
-        container_version = container_version_model.objects.create(
-            publishable_entity_version=publishable_entity_version,
-            container_id=container_pk,
-            entity_list=entity_list,
+            container_version_model=container_version_model,
         )
 
     return container_version
@@ -763,30 +798,21 @@ def create_next_container_version(
             # We're only changing metadata. Keep the same entity list.
             next_entity_list = last_version.entity_list
         else:
-            # Do a quick check that the given entities are in the right learning package:
-            if PublishableEntity.objects.filter(
-                pk__in=publishable_entities_pks,
-            ).exclude(
-                learning_package_id=entity.learning_package_id,
-            ).exists():
-                raise ValidationError("Container entities must be from the same learning package.")
             if entity_version_pks is None:
                 entity_version_pks = [None] * len(publishable_entities_pks)
             next_entity_list = create_entity_list_with_rows(
                 entity_pks=publishable_entities_pks,
                 entity_version_pks=entity_version_pks,
+                learning_package_id=entity.learning_package_id,
             )
-        publishable_entity_version = create_publishable_entity_version(
-            entity.pk,
-            version_num=next_version_num,
+        next_container_version = _create_container_version(
+            container,
+            next_version_num,
             title=title if title is not None else last_version.title,
+            entity_list=next_entity_list,
             created=created,
             created_by=created_by,
-        )
-        next_container_version = container_version_model.objects.create(
-            publishable_entity_version=publishable_entity_version,
-            container_id=container_pk,
-            entity_list=next_entity_list,
+            container_version_model=container_version_model,
         )
 
     return next_container_version
