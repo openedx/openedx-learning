@@ -47,4 +47,8 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
+        migrations.AddConstraint(
+            model_name='entitylistrow',
+            constraint=models.UniqueConstraint(fields=('entity_list', 'order_num'), name='oel_publishing_elist_row_order'),
+        ),
     ]

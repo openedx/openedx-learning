@@ -58,3 +58,12 @@ class EntityListRow(models.Model):
         null=True,
         related_name="+",  # Do we need the reverse relation?
     )
+
+    class Meta:
+        constraints = [
+            # If (entity_list, order_num) is not unique, it likely indicates a race condition - so force uniqueness.
+            models.UniqueConstraint(
+                fields=["entity_list", "order_num"],
+                name="oel_publishing_elist_row_order",
+            ),
+        ]
