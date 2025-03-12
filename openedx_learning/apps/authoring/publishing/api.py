@@ -67,8 +67,7 @@ __all__ = [
     "create_next_container_version",
     "get_container",
     "ContainerEntityListEntry",
-    "get_entities_in_draft_container",
-    "get_entities_in_published_container",
+    "get_entities_in_container",
     "contains_unpublished_changes",
     "get_containers_with_entity",
 ]
@@ -821,49 +820,46 @@ class ContainerEntityListEntry:
         return self.entity_version.entity
 
 
-def get_entities_in_draft_container(
+def get_entities_in_container(
     container: Container,
-) -> list[ContainerEntityListEntry]:
-    """
-    [ 🛑 UNSTABLE ]
-    Get the list of entities and their versions in the draft version of the
-    given container.
-    """
-    assert isinstance(container, Container)
-    entity_list = []
-    for row in container.versioning.draft.entity_list.entitylistrow_set.order_by("order_num"):
-        entity_version = row.entity_version or row.entity.draft.version
-        if entity_version is not None:  # As long as this hasn't been soft-deleted:
-            entity_list.append(ContainerEntityListEntry(
-                entity_version=entity_version,
-                pinned=row.entity_version is not None,
-            ))
-        # else should we indicate somehow a deleted item was here?
-    return entity_list
-
-
-def get_entities_in_published_container(
-    container: Container,
+    *,
+    published: bool,
 ) -> list[ContainerEntityListEntry] | None:
     """
     [ 🛑 UNSTABLE ]
-    Get the list of entities and their versions in the published version of the
-    given container.
+    Get the list of entities and their versions in the current draft or
+    published version of the given container.
+
+    Returns `None` if you request the published version and it hasn't been
+    published yet.
+
+    Args:
+        container: The Container, e.g. returned by `get_container()`
+        published: `True` if we want the published version of the container, or
+            `False` for the draft version.
     """
     assert isinstance(container, Container)
-    cv = container.versioning.published
-    if cv is None:
-        return None  # There is no published version of this container. Should this be an exception?
-    assert isinstance(cv, ContainerVersion)
+    if published:
+        container_version = container.versioning.published
+        if container_version is None:
+            return None  # There is no published version of this container (yet). Should this be an exception?
+    else:
+        container_version = container.versioning.draft
+        if container_version is None:
+            raise ContainerVersion.DoesNotExist  # This container has been deleted.
+    assert isinstance(container_version, ContainerVersion)
     entity_list = []
-    for row in cv.entity_list.entitylistrow_set.order_by("order_num"):
-        entity_version = row.entity_version or row.entity.published.version
+    for row in container_version.entity_list.entitylistrow_set.order_by("order_num"):
+        entity_version = row.entity_version  # This will be set if pinned
+        if not entity_version:  # If this entity is "unpinned", use the latest published/draft version:
+            entity_version = row.entity.published.version if published else row.entity.draft.version
         if entity_version is not None:  # As long as this hasn't been soft-deleted:
             entity_list.append(ContainerEntityListEntry(
                 entity_version=entity_version,
                 pinned=row.entity_version is not None,
             ))
-        # else should we indicate somehow a deleted item was here?
+        # else we could indicate somehow a deleted item was here, e.g. by returning a ContainerEntityListEntry with
+        # deleted=True, but we don't have a use case for that yet.
     return entity_list
 
 

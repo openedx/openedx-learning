@@ -23,8 +23,8 @@ __all__ = [
     "get_unit_version",
     "get_latest_unit_version",
     "UnitListEntry",
-    "get_components_in_draft_unit",
-    "get_components_in_published_unit",
+    "get_components_in_unit",
+    "get_components_in_unit",
     "get_components_in_published_unit_as_of",
 ]
 
@@ -225,40 +225,27 @@ class UnitListEntry:
         return self.component_version.component
 
 
-def get_components_in_draft_unit(
+def get_components_in_unit(
     unit: Unit,
-) -> list[UnitListEntry]:
-    """
-    [ 🛑 UNSTABLE ]
-    Get the list of entities and their versions in the draft version of the
-    given container.
-    """
-    assert isinstance(unit, Unit)
-    entity_list = []
-    for entry in publishing_api.get_entities_in_draft_container(unit):
-        # Convert from generic PublishableEntityVersion to ComponentVersion:
-        component_version = entry.entity_version.componentversion
-        assert isinstance(component_version, ComponentVersion)
-        entity_list.append(UnitListEntry(component_version=component_version, pinned=entry.pinned))
-    return entity_list
-
-
-def get_components_in_published_unit(
-    unit: Unit,
+    *,
+    published: bool,
 ) -> list[UnitListEntry] | None:
     """
     [ 🛑 UNSTABLE ]
-    Get the list of entities and their versions in the published version of the
-    given container.
+    Get the list of entities and their versions in the draft or published
+    version of the given Unit.
 
-    Returns None if the unit was never published (TODO: should it throw instead?).
+    Args:
+        unit: The Unit, e.g. returned by `get_unit()`
+        published: `True` if we want the published version of the unit, or
+            `False` for the draft version.
     """
     assert isinstance(unit, Unit)
-    published_entities = publishing_api.get_entities_in_published_container(unit)
-    if published_entities is None:
-        return None  # There is no published version of this unit. Should this be an exception?
     entity_list = []
-    for entry in published_entities:
+    entries = publishing_api.get_entities_in_container(unit, published=published)
+    if entries is None:
+        return None  # There is no published version of this unit. Should this be an exception?
+    for entry in entries:
         # Convert from generic PublishableEntityVersion to ComponentVersion:
         component_version = entry.entity_version.componentversion
         assert isinstance(component_version, ComponentVersion)
