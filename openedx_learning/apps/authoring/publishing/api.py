@@ -8,17 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import TypeVar
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
 from django.db.transaction import atomic
 
-from .model_mixins import (
-    ContainerMixin,
-    PublishableContentModelRegistry,
-    PublishableEntityMixin,
-    PublishableEntityVersionMixin,
-)
+from .model_mixins import PublishableContentModelRegistry, PublishableEntityMixin, PublishableEntityVersionMixin
 from .models import (
     Container,
     ContainerVersion,
@@ -32,6 +28,9 @@ from .models import (
     PublishLog,
     PublishLogRecord,
 )
+
+ContainerModel = TypeVar('ContainerModel', bound=Container)
+ContainerVersionModel = TypeVar('ContainerVersionModel', bound=ContainerVersion)
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -66,7 +65,6 @@ __all__ = [
     "create_container",
     "create_container_version",
     "create_next_container_version",
-    "create_container_and_version",
     "get_container",
     "ContainerEntityListEntry",
     "get_entities_in_draft_container",
@@ -581,7 +579,9 @@ def create_container(
     key: str,
     created: datetime,
     created_by: int | None,
-) -> Container:
+    # The types on the following line are correct, but mypy will complain - https://github.com/python/mypy/issues/3737
+    container_model: type[ContainerModel] = Container,  # type: ignore[assignment]
+) -> ContainerModel:
     """
     [ 🛑 UNSTABLE ]
     Create a new container.
@@ -591,15 +591,17 @@ def create_container(
         key: The key of the container.
         created: The date and time the container was created.
         created_by: The ID of the user who created the container
+        container_model: The subclass of Container to use, if applicable
 
     Returns:
         The newly created container.
     """
+    assert issubclass(container_model, Container)
     with atomic():
         publishable_entity = create_publishable_entity(
             learning_package_id, key, created, created_by
         )
-        container = Container.objects.create(
+        container = container_model.objects.create(
             publishable_entity=publishable_entity,
         )
     return container
@@ -635,7 +637,7 @@ def create_entity_list_with_rows(
         The newly created entity list.
     """
     order_nums = range(len(entity_pks))
-    with atomic():
+    with atomic(savepoint=False):
         entity_list = create_entity_list()
         EntityListRow.objects.bulk_create(
             [
@@ -662,7 +664,8 @@ def create_container_version(
     entity_version_pks: list[int | None] | None,
     created: datetime,
     created_by: int | None,
-) -> ContainerVersion:
+    container_version_model: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
     Create a new container version.
@@ -675,11 +678,13 @@ def create_container_version(
         entity_version_pks: The IDs of the versions to pin to, if pinning is desired.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
+        container_version_model: The subclass of ContainerVersion to use, if applicable.
 
     Returns:
         The newly created container version.
     """
-    with atomic():
+    assert issubclass(container_version_model, ContainerVersion)
+    with atomic(savepoint=False):
         container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
 
@@ -706,7 +711,7 @@ def create_container_version(
             created=created,
             created_by=created_by,
         )
-        container_version = ContainerVersion.objects.create(
+        container_version = container_version_model.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container_pk,
             entity_list=entity_list,
@@ -723,7 +728,8 @@ def create_next_container_version(
     entity_version_pks: list[int | None] | None,
     created: datetime,
     created_by: int | None,
-) -> ContainerVersion:
+    container_version_model: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
     Create the next version of a container. A new version of the container is created
@@ -742,10 +748,12 @@ def create_next_container_version(
         entity_version_pks: The IDs of the versions to pin to, if pinning is desired.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
+        container_version_model: The subclass of ContainerVersion to use, if applicable.
 
     Returns:
         The newly created container version.
     """
+    assert issubclass(container_version_model, ContainerVersion)
     with atomic():
         container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
@@ -776,53 +784,13 @@ def create_next_container_version(
             created=created,
             created_by=created_by,
         )
-        next_container_version = ContainerVersion.objects.create(
+        next_container_version = container_version_model.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container_pk,
             entity_list=next_entity_list,
         )
 
     return next_container_version
-
-
-def create_container_and_version(
-    learning_package_id: int,
-    key: str,
-    *,
-    created: datetime,
-    created_by: int | None,
-    title: str,
-    publishable_entities_pks: list[int],
-    entity_version_pks: list[int | None],
-) -> tuple[Container, ContainerVersion]:
-    """
-    [ 🛑 UNSTABLE ]
-    Create a new container and its first version.
-
-    Args:
-        learning_package_id: The ID of the learning package that contains the container.
-        key: The key of the container.
-        created: The date and time the container was created.
-        created_by: The ID of the user who created the container.
-        version_num: The version number of the container.
-        title: The title of the container.
-        members_pk: The IDs of the members of the container.
-
-    Returns:
-        The newly created container version.
-    """
-    with atomic():
-        container = create_container(learning_package_id, key, created, created_by)
-        container_version = create_container_version(
-            container.publishable_entity.pk,
-            1,
-            title=title,
-            publishable_entities_pks=publishable_entities_pks,
-            entity_version_pks=entity_version_pks,
-            created=created,
-            created_by=created_by,
-        )
-    return (container, container_version)
 
 
 def get_container(pk: int) -> Container:
@@ -854,15 +822,13 @@ class ContainerEntityListEntry:
 
 
 def get_entities_in_draft_container(
-    container: Container | ContainerMixin,
+    container: Container,
 ) -> list[ContainerEntityListEntry]:
     """
     [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft version of the
     given container.
     """
-    if isinstance(container, ContainerMixin):
-        container = container.container
     assert isinstance(container, Container)
     entity_list = []
     for row in container.versioning.draft.entity_list.entitylistrow_set.order_by("order_num"):
@@ -877,19 +843,15 @@ def get_entities_in_draft_container(
 
 
 def get_entities_in_published_container(
-    container: Container | ContainerMixin,
+    container: Container,
 ) -> list[ContainerEntityListEntry] | None:
     """
     [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the published version of the
     given container.
     """
-    if isinstance(container, ContainerMixin):
-        cv = container.container.versioning.published
-    elif isinstance(container, Container):
-        cv = container.versioning.published
-    else:
-        raise TypeError(f"Expected Container or ContainerMixin; got {type(container)}")
+    assert isinstance(container, Container)
+    cv = container.versioning.published
     if cv is None:
         return None  # There is no published version of this container. Should this be an exception?
     assert isinstance(cv, ContainerVersion)
@@ -905,9 +867,7 @@ def get_entities_in_published_container(
     return entity_list
 
 
-def contains_unpublished_changes(
-    container: Container | ContainerMixin,
-) -> bool:
+def contains_unpublished_changes(container_id: int) -> bool:
     """
     [ 🛑 UNSTABLE ]
     Check recursively if a container has any unpublished changes.
@@ -920,14 +880,10 @@ def contains_unpublished_changes(
     that's in the container, it will be `False`. This method will return `True`
     in either case.
     """
-    if isinstance(container, ContainerMixin):
-        # This is similar to 'get_container(container.container_id)' but pre-loads more data.
-        container = Container.objects.select_related(
-            "publishable_entity__draft__version__containerversion__entity_list",
-        ).get(pk=container.container_id)
-    else:
-        pass  # TODO: select_related if we're given a raw Container rather than a ContainerMixin like Unit?
-    assert isinstance(container, Container)
+    # This is similar to 'get_container(container.container_id)' but pre-loads more data.
+    container = Container.objects.select_related(
+        "publishable_entity__draft__version__containerversion__entity_list",
+    ).get(pk=container_id)
 
     if container.versioning.has_unpublished_changes:
         return True
@@ -949,7 +905,7 @@ def contains_unpublished_changes(
             child_container = None
         if child_container:
             # This is itself a container - check recursively:
-            if contains_unpublished_changes(child_container):
+            if contains_unpublished_changes(child_container.pk):
                 return True
         else:
             # This is not a container:

@@ -1,6 +1,7 @@
 """
 Container and ContainerVersion models
 """
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from ..model_mixins.publishable_entity import PublishableEntityMixin, PublishableEntityVersionMixin
@@ -58,3 +59,12 @@ class ContainerVersion(PublishableEntityVersionMixin):
         null=False,
         related_name="container_versions",
     )
+
+    def clean(self):
+        """
+        Validate this model before saving. Not called normally, but will be
+        called if anything is edited via a ModelForm like the Django admin.
+        """
+        super().clean()
+        if self.container_id != self.publishable_entity_version.entity.container.pk:  # pylint: disable=no-member
+            raise ValidationError("Inconsistent foreign keys to Container")

@@ -135,10 +135,23 @@ class PublishableEntityMixin(models.Model):
             field_to_pev = self.content_version_model_cls._meta.get_field(
                 "publishable_entity_version"
             )
-
             # Now that we know the field that leads to PublishableEntityVersion,
             # get the reverse related field name so that we can use that later.
             self.related_name = field_to_pev.related_query_name()
+
+            if field_to_pev.model != self.content_version_model_cls:
+                # In the case of multi-table inheritance and mixins, this can get tricky.
+                # Example:
+                #   content_version_model_cls is UnitVersion, which is a subclass of ContainerVersion
+                # This versioning helper can be accessed via unit_version.versioning (should return UnitVersion) or
+                # via container_version.versioning (should return ContainerVersion)
+                intermediate_model = field_to_pev.model  # example: ContainerVersion
+                # This is the field on the subclass (e.g. UnitVersion) that gets
+                # the intermediate (e.g. ContainerVersion). Example: "UnitVersion.container_version" (1:1 foreign key)
+                field_to_intermediate = self.content_version_model_cls._meta.get_ancestor_link(intermediate_model)
+                if field_to_intermediate:
+                    # Example: self.related_name = "containerversion.unitversion"
+                    self.related_name = self.related_name + "." + field_to_intermediate.related_query_name()
 
         def _content_obj_version(self, pub_ent_version: PublishableEntityVersion | None):
             """
@@ -149,7 +162,10 @@ class PublishableEntityMixin(models.Model):
             """
             if pub_ent_version is None:
                 return None
-            return getattr(pub_ent_version, self.related_name)
+            obj = pub_ent_version
+            for field_name in self.related_name.split("."):
+                obj = getattr(obj, field_name)
+            return obj
 
         @property
         def draft(self):
