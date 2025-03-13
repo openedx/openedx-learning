@@ -31,6 +31,9 @@ from .models import (
     PublishLogRecord,
 )
 
+# A few of the APIs in this file are generic and can be used for Containers in
+# general, or e.g. Units (subclass of Container) in particular. These type
+# variables are used to provide correct typing for those generic API methods.
 ContainerModel = TypeVar('ContainerModel', bound=Container)
 ContainerVersionModel = TypeVar('ContainerVersionModel', bound=ContainerVersion)
 
@@ -581,7 +584,7 @@ def create_container(
     created: datetime,
     created_by: int | None,
     # The types on the following line are correct, but mypy will complain - https://github.com/python/mypy/issues/3737
-    container_model: type[ContainerModel] = Container,  # type: ignore[assignment]
+    container_cls: type[ContainerModel] = Container,  # type: ignore[assignment]
 ) -> ContainerModel:
     """
     [ 🛑 UNSTABLE ]
@@ -592,17 +595,17 @@ def create_container(
         key: The key of the container.
         created: The date and time the container was created.
         created_by: The ID of the user who created the container
-        container_model: The subclass of Container to use, if applicable
+        container_cls: The subclass of Container to use, if applicable
 
     Returns:
         The newly created container.
     """
-    assert issubclass(container_model, Container)
+    assert issubclass(container_cls, Container)
     with atomic():
         publishable_entity = create_publishable_entity(
             learning_package_id, key, created, created_by
         )
-        container = container_model.objects.create(
+        container = container_cls.objects.create(
             publishable_entity=publishable_entity,
         )
     return container
@@ -678,13 +681,13 @@ def _create_container_version(
     entity_list: EntityList,
     created: datetime,
     created_by: int | None,
-    container_version_model: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+    container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
 ) -> ContainerVersionModel:
     """
     Private internal method for logic shared by create_container_version() and
     create_next_container_version().
     """
-    assert issubclass(container_version_model, ContainerVersion)
+    assert issubclass(container_version_cls, ContainerVersion)
     with atomic(savepoint=False):  # Make sure this will happen atomically but we don't need to create a new savepoint.
         publishable_entity_version = create_publishable_entity_version(
             container.publishable_entity_id,
@@ -693,7 +696,7 @@ def _create_container_version(
             created=created,
             created_by=created_by,
         )
-        container_version = container_version_model.objects.create(
+        container_version = container_version_cls.objects.create(
             publishable_entity_version=publishable_entity_version,
             container_id=container.pk,
             entity_list=entity_list,
@@ -711,7 +714,7 @@ def create_container_version(
     entity_version_pks: list[int | None] | None,
     created: datetime,
     created_by: int | None,
-    container_version_model: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+    container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
 ) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
@@ -725,7 +728,7 @@ def create_container_version(
         entity_version_pks: The IDs of the versions to pin to, if pinning is desired.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
-        container_version_model: The subclass of ContainerVersion to use, if applicable.
+        container_version_cls: The subclass of ContainerVersion to use, if applicable.
 
     Returns:
         The newly created container version.
@@ -750,7 +753,7 @@ def create_container_version(
             entity_list=entity_list,
             created=created,
             created_by=created_by,
-            container_version_model=container_version_model,
+            container_version_cls=container_version_cls,
         )
 
     return container_version
@@ -764,7 +767,7 @@ def create_next_container_version(
     entity_version_pks: list[int | None] | None,
     created: datetime,
     created_by: int | None,
-    container_version_model: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+    container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
 ) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
@@ -784,12 +787,12 @@ def create_next_container_version(
         entity_version_pks: The IDs of the versions to pin to, if pinning is desired.
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
-        container_version_model: The subclass of ContainerVersion to use, if applicable.
+        container_version_cls: The subclass of ContainerVersion to use, if applicable.
 
     Returns:
         The newly created container version.
     """
-    assert issubclass(container_version_model, ContainerVersion)
+    assert issubclass(container_version_cls, ContainerVersion)
     with atomic():
         container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
@@ -814,7 +817,7 @@ def create_next_container_version(
             entity_list=next_entity_list,
             created=created,
             created_by=created_by,
-            container_version_model=container_version_model,
+            container_version_cls=container_version_cls,
         )
 
     return next_container_version

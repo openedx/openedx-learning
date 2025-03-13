@@ -46,7 +46,7 @@ def create_unit(
         key,
         created,
         created_by,
-        container_model=Unit,
+        container_cls=Unit,
     )
 
 
@@ -84,7 +84,7 @@ def create_unit_version(
         entity_version_pks=entity_version_pks,
         created=created,
         created_by=created_by,
-        container_version_model=UnitVersion,
+        container_version_cls=UnitVersion,
     )
 
 
@@ -143,7 +143,7 @@ def create_next_unit_version(
         entity_version_pks=entity_version_pks,
         created=created,
         created_by=created_by,
-        container_version_model=UnitVersion,
+        container_version_cls=UnitVersion,
     )
     return unit_version
 
