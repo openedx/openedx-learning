@@ -855,14 +855,11 @@ def get_entities_in_container(
     container: Container,
     *,
     published: bool,
-) -> list[ContainerEntityListEntry] | None:
+) -> list[ContainerEntityListEntry]:
     """
     [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the current draft or
     published version of the given container.
-
-    Returns `None` if you request the published version and it hasn't been
-    published yet.
 
     Args:
         container: The Container, e.g. returned by `get_container()`
@@ -870,14 +867,9 @@ def get_entities_in_container(
             `False` for the draft version.
     """
     assert isinstance(container, Container)
-    if published:
-        container_version = container.versioning.published
-        if container_version is None:
-            return None  # There is no published version of this container (yet). Should this be an exception?
-    else:
-        container_version = container.versioning.draft
-        if container_version is None:
-            raise ContainerVersion.DoesNotExist  # This container has been deleted.
+    container_version = container.versioning.published if published else container.versioning.draft
+    if container_version is None:
+        raise ContainerVersion.DoesNotExist  # This container has not been published yet, or has been deleted.
     assert isinstance(container_version, ContainerVersion)
     entity_list = []
     for row in container_version.entity_list.entitylistrow_set.order_by("order_num"):

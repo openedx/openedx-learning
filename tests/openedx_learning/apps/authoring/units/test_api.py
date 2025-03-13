@@ -252,7 +252,9 @@ class UnitTestCase(ComponentTestCase):
             Entry(self.component_1.versioning.draft),
             Entry(self.component_2.versioning.draft),
         ]
-        assert authoring_api.get_components_in_unit(unit, published=True) is None
+        with pytest.raises(authoring_models.ContainerVersion.DoesNotExist):
+            # There is no published version of the unit:
+            authoring_api.get_components_in_unit(unit, published=True)
 
     def test_create_next_unit_version_with_unpinned_and_pinned_components(self):
         """
@@ -278,7 +280,9 @@ class UnitTestCase(ComponentTestCase):
             Entry(self.component_1_v1),
             Entry(self.component_2_v1, pinned=True),  # Pinned 📌 to v1
         ]
-        assert authoring_api.get_components_in_unit(unit, published=True) is None
+        with pytest.raises(authoring_models.ContainerVersion.DoesNotExist):
+            # There is no published version of the unit:
+            authoring_api.get_components_in_unit(unit, published=True)
 
     def test_auto_publish_children(self):
         """
@@ -327,7 +331,9 @@ class UnitTestCase(ComponentTestCase):
         unit.refresh_from_db()  # Clear cache on '.versioning'
         assert unit.versioning.has_unpublished_changes
         assert unit.versioning.published is None
-        assert authoring_api.get_components_in_unit(unit, published=True) is None
+        with pytest.raises(authoring_models.ContainerVersion.DoesNotExist):
+            # There is no published version of the unit:
+            authoring_api.get_components_in_unit(unit, published=True)
 
     def test_add_component_after_publish(self):
         """

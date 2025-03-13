@@ -229,7 +229,7 @@ def get_components_in_unit(
     unit: Unit,
     *,
     published: bool,
-) -> list[UnitListEntry] | None:
+) -> list[UnitListEntry]:
     """
     [ 🛑 UNSTABLE ]
     Get the list of entities and their versions in the draft or published
@@ -241,16 +241,13 @@ def get_components_in_unit(
             `False` for the draft version.
     """
     assert isinstance(unit, Unit)
-    entity_list = []
-    entries = publishing_api.get_entities_in_container(unit, published=published)
-    if entries is None:
-        return None  # There is no published version of this unit. Should this be an exception?
-    for entry in entries:
+    components = []
+    for entry in publishing_api.get_entities_in_container(unit, published=published):
         # Convert from generic PublishableEntityVersion to ComponentVersion:
         component_version = entry.entity_version.componentversion
         assert isinstance(component_version, ComponentVersion)
-        entity_list.append(UnitListEntry(component_version=component_version, pinned=entry.pinned))
-    return entity_list
+        components.append(UnitListEntry(component_version=component_version, pinned=entry.pinned))
+    return components
 
 
 def get_components_in_published_unit_as_of(
