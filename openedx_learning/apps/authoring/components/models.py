@@ -17,13 +17,14 @@ convention, but it's possible we might want to have special identifiers later.
 """
 from __future__ import annotations
 
+from typing import ClassVar
+
 from django.db import models
 
 from ....lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
 from ....lib.managers import WithRelationsManager
 from ..contents.models import Content
-from ..publishing.model_mixins import PublishableEntityMixin, PublishableEntityVersionMixin
-from ..publishing.models import LearningPackage
+from ..publishing.models import LearningPackage, PublishableEntityMixin, PublishableEntityVersionMixin
 
 __all__ = [
     "ComponentType",
@@ -76,7 +77,7 @@ class ComponentType(models.Model):
         return f"{self.namespace}:{self.name}"
 
 
-class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
+class Component(PublishableEntityMixin):
     """
     This represents any Component that has ever existed in a LearningPackage.
 
@@ -120,14 +121,12 @@ class Component(PublishableEntityMixin):  # type: ignore[django-manager-missing]
     Make a foreign key to the Component model when you need a stable reference
     that will exist for as long as the LearningPackage itself exists.
     """
-    # Tell mypy what type our objects manager has.
-    # It's actually PublishableEntityMixinManager, but that has the exact same
-    # interface as the base manager class.
-    objects: models.Manager[Component] = WithRelationsManager(
+    # Set up our custom manager. It has the same API as the default one, but selects related objects by default.
+    objects: ClassVar[WithRelationsManager[Component]] = WithRelationsManager(  # type: ignore[assignment]
         'component_type'
     )
 
-    with_publishing_relations: models.Manager[Component] = WithRelationsManager(
+    with_publishing_relations = WithRelationsManager(
         'component_type',
         'publishable_entity',
         'publishable_entity__draft__version',
@@ -201,10 +200,6 @@ class ComponentVersion(PublishableEntityVersionMixin):
     This holds the content using a M:M relationship with Content via
     ComponentVersionContent.
     """
-    # Tell mypy what type our objects manager has.
-    # It's actually PublishableEntityVersionMixinManager, but that has the exact
-    # same interface as the base manager class.
-    objects: models.Manager[ComponentVersion]
 
     # This is technically redundant, since we can get this through
     # publishable_entity_version.publishable.component, but this is more

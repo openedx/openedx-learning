@@ -28,7 +28,7 @@ from .models.utils import ConcatNull, StringAgg
 TagDoesNotExist = Tag.DoesNotExist
 
 
-def create_taxonomy(
+def create_taxonomy(  # pylint: disable=too-many-positional-arguments
     name: str,
     description: str | None = None,
     enabled=True,
@@ -321,7 +321,7 @@ def _get_current_tags(
     return current_tags
 
 
-def tag_object(
+def tag_object(  # pylint: disable=too-many-positional-arguments
     object_id: str,
     taxonomy: Taxonomy | None,
     tags: list[str],
