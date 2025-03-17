@@ -851,11 +851,10 @@ def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
     Returns:
         The container with the given primary key.
     """
-    entity = get_publishable_entity_by_key(
-        learning_package_id,
-        key=key,
+    return Container.objects.get(
+        publishable_entity__learning_package_id=learning_package_id,
+        publishable_entity__key=key,
     )
-    return get_container(entity.id)
 
 
 def get_containers(

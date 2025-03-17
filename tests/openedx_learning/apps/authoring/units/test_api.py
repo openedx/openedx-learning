@@ -119,7 +119,7 @@ class UnitTestCase(ComponentTestCase):
         Test get_container_by_key()
         """
         unit = self.create_unit_with_components([])
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(1):
             result = authoring_api.get_container_by_key(
                 self.learning_package.id,
                 key=unit.publishable_entity.key,
