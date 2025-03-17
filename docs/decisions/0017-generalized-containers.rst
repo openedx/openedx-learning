@@ -14,7 +14,8 @@ The following definitions provide context for the terms used in this ADR:
 - Container: A content structure that holds other content types in a parent-child hierarchy (e.g., sections, subsections, units).
 - PublishableEntity: A versioned content type that supports publishing and can exist independently or within a container (e.g., sections, units, components).
 - Versioning: The process of creating new container versions when its structure or metadata changes (e.g., title, order, adding/removing children).
-- Soft-deletion: Removing a draft or published entity by setting its version to NULL, while keeping historical versions for potential reverts.
+- Deletion: Removing a draft or published entity from the learning package. This is done by setting its version to NULL, while keeping historical versions for potential reverts.
+- Removal from a container: Removing an entity from a parent container, without removing it from the learning package. 
 - Publishing: Making a container and its content available in a published state.
 - Pruning: Removing unused, unpublished container versions if they are not the latest and have no references.
 - Selectors: A mechanism for dynamically selecting multiple PublishableEntities based on defined criteria (e.g., split testing, randomized content selection).
