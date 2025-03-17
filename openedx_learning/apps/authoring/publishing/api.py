@@ -71,6 +71,7 @@ __all__ = [
     "create_container_version",
     "create_next_container_version",
     "get_container",
+    "get_container_by_key",
     "get_containers",
     "ContainerEntityListEntry",
     "get_entities_in_container",
@@ -836,6 +837,25 @@ def get_container(pk: int) -> Container:
         The container with the given primary key.
     """
     return Container.objects.get(pk=pk)
+
+
+def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
+    """
+    [ 🛑 UNSTABLE ]
+    Get a container by its learning package and primary key.
+
+    Args:
+        learning_package_id: The ID of the learning package that contains the container.
+        key: The primary key of the container.
+
+    Returns:
+        The container with the given primary key.
+    """
+    entity = get_publishable_entity_by_key(
+        learning_package_id,
+        key=key,
+    )
+    return get_container(entity.id)
 
 
 def get_containers(

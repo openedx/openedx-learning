@@ -114,6 +114,21 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(0):
             assert result.versioning.has_unpublished_changes
 
+    def test_get_container_by_key(self):
+        """
+        Test get_container_by_key()
+        """
+        unit = self.create_unit_with_components([])
+        with self.assertNumQueries(2):
+            result = authoring_api.get_container_by_key(
+                self.learning_package.id,
+                key=unit.publishable_entity.key,
+            )
+        assert result == unit.container
+        # Versioning data should be pre-loaded via select_related()
+        with self.assertNumQueries(0):
+            assert result.versioning.has_unpublished_changes
+
     def test_unit_container_versioning(self):
         """
         Test that the .versioning helper of a Unit returns a UnitVersion, and
