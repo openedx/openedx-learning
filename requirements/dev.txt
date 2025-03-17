@@ -18,7 +18,7 @@ astroid==3.3.9
     #   -r requirements/quality.txt
     #   pylint
     #   pylint-celery
-attrs==25.1.0
+attrs==25.3.0
     # via -r requirements/quality.txt
 backports-tarfile==1.2.0
     # via
@@ -95,7 +95,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.6.12
+coverage[toml]==7.7.0
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -184,14 +184,14 @@ edx-opaque-keys==2.11.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-filelock==3.17.0
+filelock==3.18.0
     # via
     #   -r requirements/ci.txt
     #   tox
     #   virtualenv
 freezegun==1.5.1
     # via -r requirements/quality.txt
-grimp==3.7
+grimp==3.7.1
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -204,7 +204,7 @@ idna==3.10
     # via
     #   -r requirements/quality.txt
     #   requests
-import-linter==2.2
+import-linter==2.3
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -246,7 +246,7 @@ keyring==25.6.0
     # via
     #   -r requirements/quality.txt
     #   twine
-kombu==5.4.2
+kombu==5.5.0
     # via
     #   -r requirements/quality.txt
     #   celery
