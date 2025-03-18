@@ -1,5 +1,5 @@
 19. Selectors for Dynamically Selecting Content
-===========================================
+===============================================
 
 Context
 -------
@@ -11,8 +11,11 @@ This ADR proposes a way to represent dynamic members of a container, where dynam
 
 And any other custom use case to dynamically select members for a container. This proposal introduces the concepts of selectors and variants to implement this type of dynamic selection.
 
+Decisions
+---------
+
 1. Core Structure
-=================
+~~~~~~~~~~~~~~~~~
 
 This section explains the concepts and behaviors used to build dynamic selection, selectors and variants.
 
@@ -23,7 +26,7 @@ This section explains the concepts and behaviors used to build dynamic selection
 - Variants are build on the parent-child relationship used for containers and their members, storing the dynamically selected content as an ordered list as containers do.
 
 2. Selector Types and Selecting Content
-=======================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This section describes how different types of selectors work and how they handle the selection of dynamic content.
 
@@ -33,7 +36,7 @@ This section describes how different types of selectors work and how they handle
 - A compositor is responsible for populating the variants but will not be implemented as part of the selector application which belongs to the authoring app.
 
 3. Versioning
-=============
+~~~~~~~~~~~~~
 
 A new version of a selector is created whenever the pool of concent changes by adding, removing or reordering existing members.
 

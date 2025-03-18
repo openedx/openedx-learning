@@ -7,7 +7,7 @@ Context
 This ADR proposes a model for containers that can hold different types of content and can be used to model other content types with similar behavior, such as units, subsections, sections, or courses. The model defines containers' core structure and purpose, the types of containers, content constraints, container children, version control, publishing, and pruning.
 
 Key Concepts
-============
+~~~~~~~~~~~~~
 
 The following definitions provide context for the terms used in this ADR:
 
@@ -24,7 +24,7 @@ Decisions
 ---------
 
 1. Core Structure and Purpose of Containers
-===========================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This section defines the purpose and structure of containers, explaining how they are designed to hold various types of content through a parent-child setup.
 
@@ -37,7 +37,7 @@ This section defines the purpose and structure of containers, explaining how the
   - Units (units Django application, builds on containers and selectors).
 
 2. Container Types and Content Constraints
-==========================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This section defines container types, content constraints, hierarchy, and extensibility. It introduces the main types of containers and outlines how content limitations and configurations are handled at the application level to support flexible content structures.
 
@@ -49,7 +49,7 @@ This section defines container types, content constraints, hierarchy, and extens
 - Containers will follow extensibility principles in `Content Extensibility Through Model Relations <0003-content-extensibility.rst>`_ for creating new container types or subtypes.
 
 3. Container Children and Relationships
-=======================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This section defines container children, their order, and relationships, covering flexible connections and support for draft and published states of their children.
 
@@ -63,7 +63,7 @@ This section defines container children, their order, and relationships, coverin
 - A single child (publishable entity) can be shared by multiple containers, allowing for reuse of content across different containers. For instance, a component can be shared by multiple units.
 
 4. Container Versioning, Deletions and Structural Changes
-==============================================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This section defines the versioning rules for containers, explaining when a new version is created based on structural or metadata changes. It also clarifies how changes in child elements affect (or do not affect) container versions.
 
@@ -74,7 +74,7 @@ This section defines the versioning rules for containers, explaining when a new 
   - Changes to container metadata, such as updating its title or description, will also create a new version.
 
 5. Publishing
-=============
+~~~~~~~~~~~~~
 
 This section explains the publishing process for containers, detailing how containers and their children become accessible, either together or independently, based on their publication state. The publishing process happens on container versions, but throughout this section we'd call them containers for simplicity.
 
@@ -84,7 +84,7 @@ This section explains the publishing process for containers, detailing how conta
 - Containers are not affected by the publishing process of its children. This means that publishing a component won't trigger new publishing processes for a container.
 
 6. Pruning
-==========
+~~~~~~~~~~
 
 This section defines the rules for pruning container versions, explaining when a container version can be pruned and the effects of pruning on the container and its children.
 
