@@ -83,6 +83,8 @@ def create_component(
     local_key: str,
     created: datetime,
     created_by: int | None,
+    *,
+    can_stand_alone: bool = True,
 ) -> Component:
     """
     Create a new Component (an entity like a Problem or Video)
@@ -90,7 +92,11 @@ def create_component(
     key = f"{component_type.namespace}:{component_type.name}:{local_key}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
-            learning_package_id, key, created, created_by
+            learning_package_id,
+            key,
+            created,
+            created_by,
+            can_stand_alone=can_stand_alone
         )
         component = Component.objects.create(
             publishable_entity=publishable_entity,
@@ -239,13 +245,20 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
     title: str,
     created: datetime,
     created_by: int | None = None,
+    *,
+    can_stand_alone: bool = True,
 ) -> tuple[Component, ComponentVersion]:
     """
     Create a Component and associated ComponentVersion atomically
     """
     with atomic():
         component = create_component(
-            learning_package_id, component_type, local_key, created, created_by
+            learning_package_id,
+            component_type,
+            local_key,
+            created,
+            created_by,
+            can_stand_alone=can_stand_alone,
         )
         component_version = create_component_version(
             component.pk,

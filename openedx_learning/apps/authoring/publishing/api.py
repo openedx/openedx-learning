@@ -173,6 +173,8 @@ def create_publishable_entity(
     created: datetime,
     # User ID who created this
     created_by: int | None,
+    *,
+    can_stand_alone: bool = True,
 ) -> PublishableEntity:
     """
     Create a PublishableEntity.
@@ -185,6 +187,7 @@ def create_publishable_entity(
         key=key,
         created=created,
         created_by_id=created_by,
+        can_stand_alone=can_stand_alone,
     )
 
 
@@ -583,6 +586,8 @@ def create_container(
     key: str,
     created: datetime,
     created_by: int | None,
+    *,
+    can_stand_alone: bool = True,
     # The types on the following line are correct, but mypy will complain - https://github.com/python/mypy/issues/3737
     container_cls: type[ContainerModel] = Container,  # type: ignore[assignment]
 ) -> ContainerModel:
@@ -603,7 +608,11 @@ def create_container(
     assert issubclass(container_cls, Container)
     with atomic():
         publishable_entity = create_publishable_entity(
-            learning_package_id, key, created, created_by
+            learning_package_id,
+            key,
+            created,
+            created_by,
+            can_stand_alone=can_stand_alone,
         )
         container = container_cls.objects.create(
             publishable_entity=publishable_entity,

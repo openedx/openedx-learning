@@ -126,6 +126,7 @@ class PublishableEntity(models.Model):
         null=True,
         blank=True,
     )
+    can_stand_alone = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
