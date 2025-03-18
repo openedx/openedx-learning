@@ -5,7 +5,6 @@ This module provides functions to manage units.
 from dataclasses import dataclass
 from datetime import datetime
 
-from django.db.models import QuerySet
 from django.db.transaction import atomic
 
 from openedx_learning.apps.authoring.components.models import Component, ComponentVersion
@@ -22,7 +21,6 @@ __all__ = [
     "create_unit_and_version",
     "get_unit",
     "get_unit_version",
-    "get_units",
     "get_latest_unit_version",
     "UnitListEntry",
     "get_components_in_unit",
@@ -211,16 +209,6 @@ def get_latest_unit_version(unit_pk: int) -> UnitVersion:
         unit_pk: The unit ID.
     """
     return Unit.objects.get(pk=unit_pk).versioning.latest
-
-
-def get_units(learning_package_id: int) -> QuerySet[Unit]:
-    """
-    [ 🛑 UNSTABLE ] Get all units in a given learning package.
-
-    Args:
-        learning_package_id: The learning package ID.
-    """
-    return publishing_api.get_containers(learning_package_id, container_cls=Unit)
 
 
 @dataclass(frozen=True)

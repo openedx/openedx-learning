@@ -90,14 +90,14 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(0):
             assert result.versioning.has_unpublished_changes
 
-    def test_get_units(self):
+    def test_get_containers(self):
         """
-        Test get_units()
+        Test get_containers()
         """
         unit = self.create_unit_with_components([])
         with self.assertNumQueries(1):
-            result = list(authoring_api.get_units(self.learning_package.id))
-        assert result == [unit]
+            result = list(authoring_api.get_containers(self.learning_package.id))
+        assert result == [unit.container]
         # Versioning data should be pre-loaded via select_related()
         with self.assertNumQueries(0):
             assert result[0].versioning.has_unpublished_changes
