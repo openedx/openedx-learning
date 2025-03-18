@@ -90,6 +90,26 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(0):
             assert result.versioning.has_unpublished_changes
 
+    def test_get_unit_version(self):
+        """
+        Test get_unit_version()
+        """
+        unit = self.create_unit_with_components([])
+        draft = unit.versioning.draft
+        with self.assertNumQueries(1):
+            result = authoring_api.get_unit_version(draft.pk)
+        assert result == draft
+
+    def test_get_latest_unit_version(self):
+        """
+        Test test_get_latest_unit_version()
+        """
+        unit = self.create_unit_with_components([])
+        draft = unit.versioning.draft
+        with self.assertNumQueries(2):
+            result = authoring_api.get_latest_unit_version(unit.pk)
+        assert result == draft
+
     def test_get_containers(self):
         """
         Test get_containers()
@@ -833,6 +853,8 @@ class UnitTestCase(ComponentTestCase):
         # At first the unit has one component (unpinned):
         unit = self.create_unit_with_components([self.component_1])
         self.modify_component(self.component_1, title="Component 1 as of checkpoint 1")
+        before_publish = authoring_api.get_components_in_published_unit_as_of(unit, 0)
+        assert before_publish is None
 
         # Publish everything, creating Checkpoint 1
         checkpoint_1 = authoring_api.publish_all_drafts(self.learning_package.id, message="checkpoint 1")
