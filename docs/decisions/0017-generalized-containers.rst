@@ -63,7 +63,7 @@ This section defines container children, their order, and relationships, coverin
 - A single child (publishable entity) can be shared by multiple containers, allowing for reuse of content across different containers. For instance, a component can be shared by multiple units.
 
 4. Container Versioning, Deletions and Structural Changes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This section defines the versioning rules for containers, explaining when a new version is created based on structural or metadata changes. It also clarifies how changes in child elements affect (or do not affect) container versions.
 
@@ -81,7 +81,7 @@ This section explains the publishing process for containers, detailing how conta
 - Containers can be published, allowing their content to be accessible from where the container is being used.
 - When a draft container is published, all its draft children are also published. For instance, after publishing a draft version of subsection which contains a draft unit with an updated title, the latest published version of the unit will be the one with the updated title, reflecting the changes made previously.
 - Children of a container can be published independently of the container itself. E.g., a shared component can be published independently of the unit if it also exists outside the unit.
-- Containers are not affected by the publishing process of its children. This means that publishing a component won't trigger new publishing processes for a container.
+- Containers are not affected by the publishing process of its children. This means that publishing a component won't trigger new publishing processes for a container. However, authors will find it relevant that a container's child has changed; therefore, in the UI, publishing a child will most likely affect the date at which its ancestor containers are shown to have been "last published at".
 
 6. Pruning
 ~~~~~~~~~~
