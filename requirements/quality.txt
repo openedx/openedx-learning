@@ -17,7 +17,7 @@ astroid==3.3.9
     # via
     #   pylint
     #   pylint-celery
-attrs==25.1.0
+attrs==25.3.0
     # via -r requirements/test.txt
 backports-tarfile==1.2.0
     # via jaraco-context
@@ -70,7 +70,7 @@ code-annotations==2.2.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.6.12
+coverage[toml]==7.7.0
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -146,7 +146,7 @@ edx-opaque-keys==2.11.0
     #   edx-drf-extensions
 freezegun==1.5.1
     # via -r requirements/test.txt
-grimp==3.7
+grimp==3.7.1
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -156,7 +156,7 @@ idna==3.10
     # via
     #   -r requirements/test.txt
     #   requests
-import-linter==2.2
+import-linter==2.3
     # via -r requirements/test.txt
 importlib-metadata==8.6.1
     # via keyring
@@ -184,7 +184,7 @@ jinja2==3.1.6
     #   code-annotations
 keyring==25.6.0
     # via twine
-kombu==5.4.2
+kombu==5.5.0
     # via
     #   -r requirements/test.txt
     #   celery

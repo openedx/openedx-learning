@@ -269,6 +269,7 @@ class UnitTestCase(ComponentTestCase):
         assert unit.versioning.has_unpublished_changes
         assert unit.versioning.draft == unit_version
         assert unit.versioning.published is None
+        assert unit.publishable_entity.can_stand_alone
 
     def test_create_next_unit_version_with_two_unpinned_components(self):
         """Test creating a unit version with two unpinned components.

@@ -13,7 +13,7 @@ asgiref==3.8.1
     #   -r requirements/base.txt
     #   django
     #   django-stubs
-attrs==25.1.0
+attrs==25.3.0
     # via -r requirements/base.txt
 billiard==4.2.1
     # via
@@ -58,7 +58,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==2.2.0
     # via -r requirements/test.in
-coverage[toml]==7.6.12
+coverage[toml]==7.7.0
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -124,19 +124,19 @@ edx-opaque-keys==2.11.0
     #   edx-drf-extensions
 freezegun==1.5.1
     # via -r requirements/test.in
-grimp==3.7
+grimp==3.7.1
     # via import-linter
 idna==3.10
     # via
     #   -r requirements/base.txt
     #   requests
-import-linter==2.2
+import-linter==2.3
     # via -r requirements/test.in
 iniconfig==2.0.0
     # via pytest
 jinja2==3.1.6
     # via code-annotations
-kombu==5.4.2
+kombu==5.5.0
     # via
     #   -r requirements/base.txt
     #   celery

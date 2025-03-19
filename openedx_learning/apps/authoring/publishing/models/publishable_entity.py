@@ -9,6 +9,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils.translation import gettext as _
 
 from openedx_learning.lib.fields import (
     case_insensitive_char_field,
@@ -125,6 +126,10 @@ class PublishableEntity(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+    )
+    can_stand_alone = models.BooleanField(
+        default=True,
+        help_text=_("Set to True when created independently, False when created as part of a container."),
     )
 
     class Meta:

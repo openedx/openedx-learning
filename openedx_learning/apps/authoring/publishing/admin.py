@@ -85,6 +85,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         "learning_package",
         "created",
         "created_by",
+        "can_stand_alone",
     ]
     list_filter = ["learning_package"]
     search_fields = ["key", "uuid"]
@@ -98,6 +99,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         "created",
         "created_by",
         "see_also",
+        "can_stand_alone",
     ]
     readonly_fields = [
         "key",
@@ -108,6 +110,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         "created",
         "created_by",
         "see_also",
+        "can_stand_alone",
     ]
 
     def get_queryset(self, request):

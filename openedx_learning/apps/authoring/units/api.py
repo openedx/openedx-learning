@@ -30,7 +30,12 @@ __all__ = [
 
 
 def create_unit(
-    learning_package_id: int, key: str, created: datetime, created_by: int | None
+    learning_package_id: int,
+    key: str,
+    created: datetime,
+    created_by: int | None,
+    *,
+    can_stand_alone: bool = True,
 ) -> Unit:
     """
     [ 🛑 UNSTABLE ] Create a new unit.
@@ -40,12 +45,14 @@ def create_unit(
         key: The key.
         created: The creation date.
         created_by: The user who created the unit.
+        can_stand_alone: Set to False when created as part of containers
     """
     return publishing_api.create_container(
         learning_package_id,
         key,
         created,
         created_by,
+        can_stand_alone=can_stand_alone,
         container_cls=Unit,
     )
 
@@ -156,6 +163,7 @@ def create_unit_and_version(
     components: list[Component | ComponentVersion] | None = None,
     created: datetime,
     created_by: int | None = None,
+    can_stand_alone: bool = True,
 ) -> tuple[Unit, UnitVersion]:
     """
     [ 🛑 UNSTABLE ] Create a new unit and its version.
@@ -165,10 +173,17 @@ def create_unit_and_version(
         key: The key.
         created: The creation date.
         created_by: The user who created the unit.
+        can_stand_alone: Set to False when created as part of containers
     """
     publishable_entities_pks, entity_version_pks = _pub_entities_for_components(components)
     with atomic():
-        unit = create_unit(learning_package_id, key, created, created_by)
+        unit = create_unit(
+            learning_package_id,
+            key,
+            created,
+            created_by,
+            can_stand_alone=can_stand_alone,
+        )
         unit_version = create_unit_version(
             unit,
             1,
