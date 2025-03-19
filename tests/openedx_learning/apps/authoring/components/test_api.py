@@ -322,6 +322,7 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
             local_key='my_component',
             created=cls.now,
             created_by=None,
+            can_stand_alone=False,
         )
 
     def test_simple_get(self):
@@ -332,6 +333,16 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
     def test_publishing_entity_key_convention(self):
         """Our mapping convention is {namespace}:{component_type}:{local_key}"""
         assert self.problem.key == "xblock.v1:problem:my_component"
+
+    def test_stand_alone_flag(self):
+        """Check if can_stand_alone flag is set"""
+        component = components_api.get_component_by_key(
+            self.learning_package.id,
+            namespace='xblock.v1',
+            type_name='html',
+            local_key='my_component',
+        )
+        assert not component.publishable_entity.can_stand_alone
 
     def test_get_by_key(self):
         assert self.html == components_api.get_component_by_key(
