@@ -224,14 +224,13 @@ class DraftChangeSetAdmin(ReadOnlyModelAdmin):
     fields = (
         "uuid",
         "learning_package",
-        "change_set_type",
         "num_changes",
         "changed_at",
         "changed_by",
     )
     readonly_fields = fields
     list_display = fields
-    list_filter = ["learning_package", "change_set_type"]
+    list_filter = ["learning_package",]
 
     def num_changes(self, draft_change_set):
         return draft_change_set.num_changes

@@ -77,6 +77,7 @@ __all__ = [
     "get_entities_in_container",
     "contains_unpublished_changes",
     "get_containers_with_entity",
+    "DraftChangeSetContext",
 ]
 
 
@@ -456,23 +457,15 @@ def set_draft_version(
         set_at = datetime.now(tz=timezone.utc)
 
     with atomic():
-        draft, created = Draft.objects.select_related("entity").get_or_create(entity_id=publishable_entity_id)
+        draft, _created = Draft.objects.select_related("entity").get_or_create(entity_id=publishable_entity_id)
         old_version_id = draft.version_id
-        if created:
-            change_set_type = DraftChangeSet.ChangeSetType.CREATE
-        elif publishable_entity_version_pk is None:
-            change_set_type = DraftChangeSet.ChangeSetType.DELETE
-        else:
-            change_set_type = DraftChangeSet.ChangeSetType.EDIT
-
         draft.version_id = publishable_entity_version_pk
         draft.save()
 
-        change_set = DraftChangeSet.objects.create(
+        change_set = _get_active_draft_change_set() or DraftChangeSet.objects.create(
             learning_package_id=draft.entity.learning_package_id,
             changed_at=set_at,
             changed_by_id=set_by,
-            change_set_type=change_set_type,
         )
         DraftChange.objects.create(
             change_set_id=change_set.id,
@@ -556,11 +549,10 @@ def reset_drafts_to_published(
     # rework this into a bulk update or custom SQL if it becomes a performance
     # issue.
     with atomic():
-        change_set = DraftChangeSet.objects.create(
+        change_set = _get_active_draft_change_set() or DraftChangeSet.objects.create(
             learning_package_id=learning_package_id,
             changed_at=reset_at,
             changed_by_id=reset_by,
-            change_set_type=DraftChangeSet.ChangeSetType.RESET_TO_PUBLISHED,
         )
         for draft in draft_qset:
             if hasattr(draft.entity, 'published'):
@@ -1032,3 +1024,56 @@ def get_containers_with_entity(
     #     publishable_entity__draft__version__containerversion__entity_list__in=lists
     # )
     return qs
+
+
+def changeset(learning_package_id):
+    pass
+
+
+import django.dispatch
+
+
+from django.db.transaction import Atomic
+
+# This should never be used outside of this module
+_request_draft_change_set = django.dispatch.Signal()
+
+# TODO: This should take a learning_package_id to make sure we don't completely
+# mess up the data model in weird ways.
+def _get_active_draft_change_set():
+    signal_receivers_and_responses = _request_draft_change_set.send(None)
+    if not signal_receivers_and_responses:
+        return None
+
+    _last_receiver, last_draft_change_set = signal_receivers_and_responses[-1]
+    return last_draft_change_set
+
+
+class DraftChangeSetContext(Atomic):
+    
+    def __init__(self, learning_package_id, changed_by=None, changed_at=None):
+        super().__init__(using=None, savepoint=False, durable=False)
+
+        self.learning_package_id = learning_package_id
+        self.changed_by = changed_by
+        self.changed_at = changed_at or datetime.now(tz=timezone.utc)
+        self._drafts_changed = {}
+
+    def request_draft_change_set_handler(self, sender, **kwargs):
+        return self.draft_change_set
+
+    def __enter__(self):
+        super().__enter__()
+
+        self.draft_change_set = DraftChangeSet.objects.create(
+            learning_package_id=self.learning_package_id,
+            changed_by=self.changed_by,
+            changed_at=self.changed_at,
+        )
+        _request_draft_change_set.connect(self.request_draft_change_set_handler)
+
+        return self.draft_change_set
+
+    def __exit__(self, type, value, traceback):
+        _request_draft_change_set.connect(self.request_draft_change_set_handler)
+        return super().__exit__(type, value, traceback)

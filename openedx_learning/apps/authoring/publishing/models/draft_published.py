@@ -109,17 +109,7 @@ class DraftChangeSet(models.Model):
     Drafts at once, such as discarding changes (i.e. reset to the published
     version) or doing an import.
     """
-    class ChangeSetType(models.IntegerChoices):
-        CREATE = 1, _("Create"),
-        EDIT = 2, _("Edit"),
-        DELETE = 3, _("Delete"),
-        RESET_TO_PUBLISHED = 4, _("Reset to Published")
-
     uuid = immutable_uuid_field()
-    change_set_type = models.SmallIntegerField(
-        choices=ChangeSetType.choices,
-        default=ChangeSetType.EDIT,
-    )
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
     changed_at = manual_date_time_field()
     changed_by = models.ForeignKey(

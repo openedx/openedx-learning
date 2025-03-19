@@ -25,13 +25,6 @@ def bootstrap_draft_change_sets(apps, schema_editor):
     """
     Create a fake DraftChangeSet that encompasses the state of current Drafts.
     """
-    # We're copying the ChangeSetTypes here from the model, since we don't want
-    # to accidentally import a later state of the model.
-    CREATE = 1
-    EDIT = 2
-    DELETE = 3
-    RESET_TO_PUBLISHED = 4
-
     LearningPackage = apps.get_model("oel_publishing", "LearningPackage")
     PublishableEntityVersion = apps.get_model("oel_publishing", "PublishableEntityVersion")
 
@@ -49,13 +42,10 @@ def bootstrap_draft_change_sets(apps, schema_editor):
         # First cycle though all the simple create/edit operations...
         last_version_seen = {}  # PublishableEntity.id -> PublishableEntityVersion.id
         for pub_ent_version in pub_ent_versions.order_by("pk"):
-            change_set_type = CREATE if pub_ent_version.version_num == 1 else EDIT
-
             change_set = DraftChangeSet.objects.create(
                 learning_package=learning_package,
                 changed_at=pub_ent_version.created,
                 changed_by=pub_ent_version.created_by,
-                change_set_type=change_set_type,
             )
             DraftChange.objects.create(
                 change_set=change_set,
@@ -72,14 +62,11 @@ def bootstrap_draft_change_sets(apps, schema_editor):
             last_version_id = last_version_seen.get(draft.entity_id)
             if draft.version_id == last_version_id:
                 continue
-            change_set_type = DELETE if draft.version_id is None else RESET_TO_PUBLISHED
-
             # We don't really know who did this or when, so we use None and now.
             change_set = DraftChangeSet.objects.create(
                 learning_package=learning_package,
                 changed_at=now,
                 changed_by=None,
-                change_set_type=change_set_type,
             )
             DraftChange.objects.create(
                 change_set=change_set,
