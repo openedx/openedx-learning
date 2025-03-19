@@ -71,6 +71,8 @@ __all__ = [
     "create_container_version",
     "create_next_container_version",
     "get_container",
+    "get_container_by_key",
+    "get_containers",
     "ContainerEntityListEntry",
     "get_entities_in_container",
     "contains_unpublished_changes",
@@ -845,6 +847,43 @@ def get_container(pk: int) -> Container:
         The container with the given primary key.
     """
     return Container.objects.get(pk=pk)
+
+
+def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
+    """
+    [ 🛑 UNSTABLE ]
+    Get a container by its learning package and primary key.
+
+    Args:
+        learning_package_id: The ID of the learning package that contains the container.
+        key: The primary key of the container.
+
+    Returns:
+        The container with the given primary key.
+    """
+    return Container.objects.get(
+        publishable_entity__learning_package_id=learning_package_id,
+        publishable_entity__key=key,
+    )
+
+
+def get_containers(
+    learning_package_id: int,
+    container_cls: type[ContainerModel] = Container,  # type: ignore[assignment]
+) -> QuerySet[ContainerModel]:
+    """
+    [ 🛑 UNSTABLE ]
+    Get all containers in the given learning package.
+
+    Args:
+        learning_package_id: The primary key of the learning package
+        container_cls: The subclass of Container to use, if applicable
+
+    Returns:
+        A queryset containing the container associated with the given learning package.
+    """
+    assert issubclass(container_cls, Container)
+    return container_cls.objects.filter(publishable_entity__learning_package=learning_package_id)
 
 
 @dataclass(frozen=True)
