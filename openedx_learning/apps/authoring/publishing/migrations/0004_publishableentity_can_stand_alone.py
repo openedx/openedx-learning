@@ -13,6 +13,9 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='publishableentity',
             name='can_stand_alone',
-            field=models.BooleanField(default=True),
+            field=models.BooleanField(
+                default=True,
+                help_text="Set to True when created independently, False when created as part of a container.",
+            ),
         ),
     ]
