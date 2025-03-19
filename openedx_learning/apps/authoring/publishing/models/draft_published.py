@@ -1,8 +1,13 @@
 """
 Draft and Published models
 """
+from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
+from openedx_learning.lib.fields import immutable_uuid_field, manual_date_time_field
+
+from .learning_package import LearningPackage
 from .publish_log import PublishLogRecord
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
 
@@ -93,3 +98,75 @@ class Published(models.Model):
     class Meta:
         verbose_name = "Published Entity"
         verbose_name_plural = "Published Entities"
+
+
+class DraftChangeSet(models.Model):
+    """
+    There is one row in this table for every time Drafts are created/modified.
+
+    Most of the time we'll only be changing one Draft at a time, and this will
+    be 1:1 with DraftChange. But there are some operations that affect many
+    Drafts at once, such as discarding changes (i.e. reset to the published
+    version) or doing an import.
+    """
+    uuid = immutable_uuid_field()
+    learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+    changed_at = manual_date_time_field()
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        verbose_name = "Draft Change Set"
+        verbose_name_plural = "Draft Change Sets"
+
+
+class DraftChange(models.Model):
+    """
+    A single change in the Draft version of a Publishable Entity
+    """
+    change_set = models.ForeignKey(
+        DraftChangeSet,
+        on_delete=models.CASCADE,
+        related_name="changes",
+    )
+    entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+    old_version = models.ForeignKey(
+        PublishableEntityVersion,
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    new_version = models.ForeignKey(
+        PublishableEntityVersion, on_delete=models.RESTRICT, null=True, blank=True
+    )
+
+    class Meta:
+        constraints = [
+            # A PublishableEntity can have only one DraftLogRecord per DraftLog.
+            # You can't simultaneously change the same thing in two different
+            # ways, e.g. set the Draft to version 1 and version 2 at the same
+            # time; or delete a Draft and set it to version 2 at the same time.
+            models.UniqueConstraint(
+                fields=[
+                    "change_set",
+                    "entity",
+                ],
+                name="oel_dc_uniq_changeset_entity",
+            )
+        ]
+        indexes = [
+            # Entity (reverse) DraftLog Index:
+            #   * Find the history of draft changes for a given entity, starting
+            #     with the most recent (since IDs are ascending ints).
+            models.Index(
+                fields=["entity", "-change_set"],
+                name="oel_dc_idx_entity_rchangeset",
+            ),
+        ]
+        verbose_name = "Draft Change"
+        verbose_name_plural = "Draft Changes"

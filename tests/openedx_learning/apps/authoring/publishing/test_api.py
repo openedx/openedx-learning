@@ -10,7 +10,7 @@ import pytest
 from django.core.exceptions import ValidationError
 
 from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntity
+from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntity, DraftChangeSet
 from openedx_learning.lib.test_utils import TestCase
 
 
@@ -122,6 +122,38 @@ class DraftTestCase(TestCase):
             "Draft Testing LearningPackage 🔥",
             created=cls.now,
         )
+
+    def test_draft_changeset(self) -> None:
+        with publishing_api.DraftChangeSetContext(self.learning_package.id):
+            entity = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                "my_entity",
+                created=self.now,
+                created_by=None,
+            )
+            publishing_api.create_publishable_entity_version(
+                entity.id,
+                version_num=1,
+                title="An Entity 🌴",
+                created=self.now,
+                created_by=None,
+            )
+            entity2 = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                "my_entity2",
+                created=self.now,
+                created_by=None,
+            )
+            publishing_api.create_publishable_entity_version(
+                entity2.id,
+                version_num=1,
+                title="An Entity 🌴",
+                created=self.now,
+                created_by=None,
+            )
+        draft_sets = list(DraftChangeSet.objects.all())
+        assert len(draft_sets) == 1
+        assert len(draft_sets[0].changes.all()) == 2
 
     def test_draft_lifecycle(self) -> None:
         """

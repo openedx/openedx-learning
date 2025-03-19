@@ -18,6 +18,8 @@ from .models import (
     Container,
     ContainerVersion,
     Draft,
+    DraftChange,
+    DraftChangeSet,
     EntityList,
     EntityListRow,
     LearningPackage,
@@ -75,6 +77,7 @@ __all__ = [
     "get_entities_in_container",
     "contains_unpublished_changes",
     "get_containers_with_entity",
+    "DraftChangeSetContext",
 ]
 
 
@@ -210,10 +213,8 @@ def create_publishable_entity_version(
             created=created,
             created_by_id=created_by,
         )
-        Draft.objects.update_or_create(
-            entity_id=entity_id,
-            defaults={"version": version},
-        )
+        set_draft_version(entity_id, version.id, set_at=created, set_by=created_by)
+
     return version
 
 
@@ -440,6 +441,8 @@ def set_draft_version(
     publishable_entity_id: int,
     publishable_entity_version_pk: int | None,
     /,
+    set_at: datetime | None = None,
+    set_by: int | None = None,  # User.id
 ) -> None:
     """
     Modify the Draft of a PublishableEntity to be a PublishableEntityVersion.
@@ -450,12 +453,29 @@ def set_draft_version(
     from Studio's editing point of view (see ``soft_delete_draft`` for more
     details).
     """
-    draft = Draft.objects.get(entity_id=publishable_entity_id)
-    draft.version_id = publishable_entity_version_pk
-    draft.save()
+    if set_at is None:
+        set_at = datetime.now(tz=timezone.utc)
+
+    with atomic():
+        draft, _created = Draft.objects.select_related("entity").get_or_create(entity_id=publishable_entity_id)
+        old_version_id = draft.version_id
+        draft.version_id = publishable_entity_version_pk
+        draft.save()
+
+        change_set = _get_active_draft_change_set() or DraftChangeSet.objects.create(
+            learning_package_id=draft.entity.learning_package_id,
+            changed_at=set_at,
+            changed_by_id=set_by,
+        )
+        DraftChange.objects.create(
+            change_set_id=change_set.id,
+            entity_id=publishable_entity_id,
+            old_version_id=old_version_id,
+            new_version_id=publishable_entity_version_pk,
+        )
 
 
-def soft_delete_draft(publishable_entity_id: int, /) -> None:
+def soft_delete_draft(publishable_entity_id: int, /, deleted_by: int | None = None) -> None:
     """
     Sets the Draft version to None.
 
@@ -465,10 +485,15 @@ def soft_delete_draft(publishable_entity_id: int, /) -> None:
     of pointing the Draft back to the most recent ``PublishableEntityVersion``
     for a given ``PublishableEntity``.
     """
-    return set_draft_version(publishable_entity_id, None)
+    return set_draft_version(publishable_entity_id, None, set_by=deleted_by)
 
 
-def reset_drafts_to_published(learning_package_id: int, /) -> None:
+def reset_drafts_to_published(
+    learning_package_id: int,
+    /,
+    reset_at: datetime | None = None,
+    reset_by: int | None = None,  # User.id
+) -> None:
     """
     Reset all Drafts to point to the most recently Published versions.
 
@@ -496,22 +521,52 @@ def reset_drafts_to_published(learning_package_id: int, /) -> None:
     Also, there is no current immutable record for when a reset happens. It's
     not like a publish that leaves an entry in the ``PublishLog``.
     """
+    if reset_at is None:
+        reset_at = datetime.now(tz=timezone.utc)
+
     # These are all the drafts that are different from the published versions.
     draft_qset = Draft.objects \
                       .select_related("entity__published") \
                       .filter(entity__learning_package_id=learning_package_id) \
-                      .exclude(entity__published__version_id=F("version_id"))
+                      .exclude(entity__published__version_id=F("version_id")) \
+                      .exclude(
+                          # NULL != NULL in SQL, so we want to exclude entries
+                          # where both the published version and draft version
+                          # are None. This edge case happens when we create
+                          # something and then delete it without publishing, and
+                          # then reset Drafts to their published state.
+                          Q(entity__published__version__isnull=True) &
+                          Q(version__isnull=True)
+                      )
+    # If there's nothing to reset because there are no changes from the
+    # published version, just return early rather than making an empty
+    # DraftChangeSet.
+    if not draft_qset:
+        return
 
     # Note: We can't do an .update with a F() on a joined field in the ORM, so
     # we have to loop through the drafts individually to reset them. We can
     # rework this into a bulk update or custom SQL if it becomes a performance
     # issue.
     with atomic():
+        change_set = _get_active_draft_change_set() or DraftChangeSet.objects.create(
+            learning_package_id=learning_package_id,
+            changed_at=reset_at,
+            changed_by_id=reset_by,
+        )
         for draft in draft_qset:
             if hasattr(draft.entity, 'published'):
-                draft.version_id = draft.entity.published.version_id
+                published_version_id = draft.entity.published.version_id
             else:
-                draft.version = None
+                published_version_id = None
+
+            DraftChange.objects.create(
+                change_set_id=change_set.id,
+                entity_id=draft.entity_id,
+                old_version_id=draft.version_id,
+                new_version_id=published_version_id,
+            )
+            draft.version_id = published_version_id
             draft.save()
 
 
@@ -969,3 +1024,56 @@ def get_containers_with_entity(
     #     publishable_entity__draft__version__containerversion__entity_list__in=lists
     # )
     return qs
+
+
+def changeset(learning_package_id):
+    pass
+
+
+import django.dispatch
+
+
+from django.db.transaction import Atomic
+
+# This should never be used outside of this module
+_request_draft_change_set = django.dispatch.Signal()
+
+# TODO: This should take a learning_package_id to make sure we don't completely
+# mess up the data model in weird ways.
+def _get_active_draft_change_set():
+    signal_receivers_and_responses = _request_draft_change_set.send(None)
+    if not signal_receivers_and_responses:
+        return None
+
+    _last_receiver, last_draft_change_set = signal_receivers_and_responses[-1]
+    return last_draft_change_set
+
+
+class DraftChangeSetContext(Atomic):
+    
+    def __init__(self, learning_package_id, changed_by=None, changed_at=None):
+        super().__init__(using=None, savepoint=False, durable=False)
+
+        self.learning_package_id = learning_package_id
+        self.changed_by = changed_by
+        self.changed_at = changed_at or datetime.now(tz=timezone.utc)
+        self._drafts_changed = {}
+
+    def request_draft_change_set_handler(self, sender, **kwargs):
+        return self.draft_change_set
+
+    def __enter__(self):
+        super().__enter__()
+
+        self.draft_change_set = DraftChangeSet.objects.create(
+            learning_package_id=self.learning_package_id,
+            changed_by=self.changed_by,
+            changed_at=self.changed_at,
+        )
+        _request_draft_change_set.connect(self.request_draft_change_set_handler)
+
+        return self.draft_change_set
+
+    def __exit__(self, type, value, traceback):
+        _request_draft_change_set.connect(self.request_draft_change_set_handler)
+        return super().__exit__(type, value, traceback)
