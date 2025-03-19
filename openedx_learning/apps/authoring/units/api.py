@@ -45,6 +45,7 @@ def create_unit(
         key: The key.
         created: The creation date.
         created_by: The user who created the unit.
+        can_stand_alone: Set to False when created as part of containers
     """
     return publishing_api.create_container(
         learning_package_id,
@@ -172,6 +173,7 @@ def create_unit_and_version(
         key: The key.
         created: The creation date.
         created_by: The user who created the unit.
+        can_stand_alone: Set to False when created as part of containers
     """
     publishable_entities_pks, entity_version_pks = _pub_entities_for_components(components)
     with atomic():

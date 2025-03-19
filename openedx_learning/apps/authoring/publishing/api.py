@@ -600,6 +600,7 @@ def create_container(
         key: The key of the container.
         created: The date and time the container was created.
         created_by: The ID of the user who created the container
+        can_stand_alone: Set to False when created as part of containers
         container_cls: The subclass of Container to use, if applicable
 
     Returns:
