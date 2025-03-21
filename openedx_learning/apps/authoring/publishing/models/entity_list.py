@@ -60,6 +60,7 @@ class EntityListRow(models.Model):
     )
 
     class Meta:
+        ordering = ["order_num"]
         constraints = [
             # If (entity_list, order_num) is not unique, it likely indicates a race condition - so force uniqueness.
             models.UniqueConstraint(

@@ -130,6 +130,7 @@ def create_next_unit_version(
     components: list[Component | ComponentVersion] | None = None,
     created: datetime,
     created_by: int | None = None,
+    entities_action: publishing_api.ChildrenEntitiesAction = publishing_api.ChildrenEntitiesAction.REPLACE,
 ) -> UnitVersion:
     """
     [ 🛑 UNSTABLE ] Create the next unit version.
@@ -151,6 +152,7 @@ def create_next_unit_version(
         created=created,
         created_by=created_by,
         container_version_cls=UnitVersion,
+        entities_action=entities_action,
     )
     return unit_version
 

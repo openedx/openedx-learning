@@ -412,6 +412,7 @@ class UnitTestCase(ComponentTestCase):
             components=[self.component_1],
             created=self.now,
             created_by=None,
+            entities_action=authoring_api.ChildrenEntitiesAction.APPEND,
         )
         # Now the unit should have unpublished changes:
         unit.refresh_from_db()  # Reloading the unit is necessary
@@ -697,8 +698,9 @@ class UnitTestCase(ComponentTestCase):
         authoring_api.create_next_unit_version(
             unit=unit,
             title="Revised with component 2 deleted",
-            components=[self.component_1],  # component 2 is gone
+            components=[self.component_2],
             created=self.now,
+            entities_action=authoring_api.ChildrenEntitiesAction.REMOVE,
         )
 
         # Now it should not be listed in the unit:
@@ -768,8 +770,9 @@ class UnitTestCase(ComponentTestCase):
         authoring_api.create_next_unit_version(
             unit=unit,
             title="Revised with component 2 deleted",
-            components=[self.component_1],
+            components=[self.component_2],
             created=self.now,
+            entities_action=authoring_api.ChildrenEntitiesAction.REMOVE,
         )
 
         # Now it should not be listed in the unit:
@@ -964,6 +967,94 @@ class UnitTestCase(ComponentTestCase):
                 authoring_api.get_containers_with_entity(self.component_1.pk, ignore_pinned=True).select_related("unit")
             ]
         assert result2 == [unit4_unpinned]
+
+    def test_add_remove_container_children(self):
+        """
+        Test adding and removing children components from containers.
+        """
+        unit, unit_version = authoring_api.create_unit_and_version(
+            learning_package_id=self.learning_package.id,
+            key="unit:key",
+            title="Unit",
+            components=[self.component_1],
+            created=self.now,
+            created_by=None,
+        )
+        assert authoring_api.get_components_in_unit(unit, published=False) == [
+            Entry(self.component_1.versioning.draft),
+        ]
+        component_3, _ = self.create_component(
+            key="Query Counting (3)",
+            title="Querying Counting Problem (3)",
+        )
+        # Add component_2 and component_3
+        unit_version_v2 = authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            components=[self.component_2, component_3],
+            created=self.now,
+            created_by=None,
+            entities_action=authoring_api.ChildrenEntitiesAction.APPEND,
+        )
+        unit.refresh_from_db()
+        assert unit_version_v2.version_num == 2
+        assert unit_version_v2 in unit.versioning.versions.all()
+        # Verify that component_2 and component_3 is added to end
+        assert authoring_api.get_components_in_unit(unit, published=False) == [
+            Entry(self.component_1.versioning.draft),
+            Entry(self.component_2.versioning.draft),
+            Entry(component_3.versioning.draft),
+        ]
+
+        # Remove component_1
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            components=[self.component_1],
+            created=self.now,
+            created_by=None,
+            entities_action=authoring_api.ChildrenEntitiesAction.REMOVE,
+        )
+        unit.refresh_from_db()
+        # Verify that component_1 is removed
+        assert authoring_api.get_components_in_unit(unit, published=False) == [
+            Entry(self.component_2.versioning.draft),
+            Entry(component_3.versioning.draft),
+        ]
+
+    def test_get_container_children_count(self):
+        """
+        Test get_container_children_count()
+        """
+        unit = self.create_unit_with_components([self.component_1])
+        assert authoring_api.get_container_children_count(unit.container, published=False) == 1
+        # publish
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit_version = unit.versioning.draft
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            components=[self.component_2],
+            created=self.now,
+            created_by=None,
+            entities_action=authoring_api.ChildrenEntitiesAction.APPEND,
+        )
+        unit.refresh_from_db()
+        # Should have two components in draft version and 1 in published version
+        assert authoring_api.get_container_children_count(unit.container, published=False) == 2
+        assert authoring_api.get_container_children_count(unit.container, published=True) == 1
+        # publish
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit.refresh_from_db()
+        assert authoring_api.get_container_children_count(unit.container, published=True) == 2
+        # Soft delete component_1
+        authoring_api.soft_delete_draft(self.component_1.pk)
+        unit.refresh_from_db()
+        # Should contain only 1 child
+        assert authoring_api.get_container_children_count(unit.container, published=False) == 1
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit.refresh_from_db()
+        assert authoring_api.get_container_children_count(unit.container, published=True) == 1
 
     # Tests TODO:
     # Test that I can get a [PublishLog] history of a given unit and all its children, including children that aren't
