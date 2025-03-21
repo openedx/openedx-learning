@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from typing import TypeVar
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -73,6 +74,7 @@ __all__ = [
     "get_container",
     "get_container_by_key",
     "get_containers",
+    "ChildrenEntitiesAction",
     "ContainerEntityListEntry",
     "get_entities_in_container",
     "contains_unpublished_changes",
@@ -771,6 +773,44 @@ def create_container_version(
     return container_version
 
 
+class ChildrenEntitiesAction(Enum):
+    """Possible actions for children entities"""
+
+    APPEND = "append"
+    REMOVE = "remove"
+    REPLACE = "replace"
+
+
+def get_next_entity_list(
+    entity,
+    last_version: ContainerVersion,
+    entity_version_pks: list[int | None] | None,
+    publishable_entities_pks: list[int] | None,
+    entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
+) -> EntityList:
+    if publishable_entities_pks is None:
+        # We're only changing metadata. Keep the same entity list.
+        next_entity_list = last_version.entity_list
+    else:
+        if entity_version_pks is None:
+            entity_version_pks: list[int | None] = [None] * len(publishable_entities_pks)
+        if entities_action == ChildrenEntitiesAction.APPEND:
+            # get previous entity list rows
+            last_entities = last_version.entity_list.entitylistrow_set.values_list(
+                "entity_id",
+                "entity_version_id"
+            )
+            # append given publishable_entities_pks and entity_version_pks
+            publishable_entities_pks = [entity[0] for entity in last_entities] + publishable_entities_pks
+            entity_version_pks = [entity[1] for entity in last_entities] + entity_version_pks
+        next_entity_list = create_entity_list_with_rows(
+            entity_pks=publishable_entities_pks,
+            entity_version_pks=entity_version_pks,
+            learning_package_id=entity.learning_package_id,
+        )
+    return next_entity_list
+
+
 def create_next_container_version(
     container_pk: int,
     *,
@@ -780,6 +820,7 @@ def create_next_container_version(
     created: datetime,
     created_by: int | None,
     container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+    entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
 ) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
@@ -811,17 +852,14 @@ def create_next_container_version(
         last_version = container.versioning.latest
         assert last_version is not None
         next_version_num = last_version.version_num + 1
-        if publishable_entities_pks is None:
-            # We're only changing metadata. Keep the same entity list.
-            next_entity_list = last_version.entity_list
-        else:
-            if entity_version_pks is None:
-                entity_version_pks = [None] * len(publishable_entities_pks)
-            next_entity_list = create_entity_list_with_rows(
-                entity_pks=publishable_entities_pks,
-                entity_version_pks=entity_version_pks,
-                learning_package_id=entity.learning_package_id,
-            )
+        next_entity_list = get_next_entity_list(
+            entity,
+            last_version,
+            entity_version_pks,
+            publishable_entities_pks,
+            entities_action
+        )
+
         next_container_version = _create_container_version(
             container,
             next_version_num,
