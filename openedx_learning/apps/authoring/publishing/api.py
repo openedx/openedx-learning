@@ -462,8 +462,11 @@ def set_draft_version(
         draft.version_id = publishable_entity_version_pk
         draft.save()
 
+        learning_package_id = draft.entity.learning_package_id
+
+        active_change_set = DraftChangeSetContext.get_active_draft_change_set(learning_package_id)
         change_set = _get_active_draft_change_set() or DraftChangeSet.objects.create(
-            learning_package_id=draft.entity.learning_package_id,
+            learning_package_id=learning_package_id,
             changed_at=set_at,
             changed_by_id=set_by,
         )
@@ -549,7 +552,8 @@ def reset_drafts_to_published(
     # rework this into a bulk update or custom SQL if it becomes a performance
     # issue.
     with atomic():
-        change_set = _get_active_draft_change_set() or DraftChangeSet.objects.create(
+        active_change_set = DraftChangeSetContext.get_active_draft_change_set(learning_package_id)
+        change_set = active_change_set or DraftChangeSet.objects.create(
             learning_package_id=learning_package_id,
             changed_at=reset_at,
             changed_by_id=reset_by,
@@ -1049,7 +1053,11 @@ def _get_active_draft_change_set():
     return last_draft_change_set
 
 
+from contextvars import ContextVar
+
 class DraftChangeSetContext(Atomic):
+
+    _draft_change_sets: ContextVar[list | None] = ContextVar('_draft_change_sets', default=None)
     
     def __init__(self, learning_package_id, changed_by=None, changed_at=None):
         super().__init__(using=None, savepoint=False, durable=False)
@@ -1059,8 +1067,17 @@ class DraftChangeSetContext(Atomic):
         self.changed_at = changed_at or datetime.now(tz=timezone.utc)
         self._drafts_changed = {}
 
-    def request_draft_change_set_handler(self, sender, **kwargs):
-        return self.draft_change_set
+    @classmethod
+    def get_active_draft_change_set(cls, learning_package_id):
+        draft_change_sets = cls._draft_change_sets.get()
+        if draft_change_sets is None:
+            return None
+
+        for draft_change_set in reversed(draft_change_sets):
+            if draft_change_set.learning_package_id == learning_package_id:
+                return draft_change_set
+
+        return None
 
     def __enter__(self):
         super().__enter__()
@@ -1070,10 +1087,17 @@ class DraftChangeSetContext(Atomic):
             changed_by=self.changed_by,
             changed_at=self.changed_at,
         )
-        _request_draft_change_set.connect(self.request_draft_change_set_handler)
+        draft_change_sets = self._draft_change_sets.get()
+        if not draft_change_sets:
+            draft_change_sets = []
+        draft_change_sets.append(self.draft_change_set)
+        self._draft_change_sets.set(draft_change_sets)
 
         return self.draft_change_set
 
     def __exit__(self, type, value, traceback):
-        _request_draft_change_set.connect(self.request_draft_change_set_handler)
+        draft_change_sets = self._draft_change_sets.get()
+        draft_change_sets.pop()
+        self._draft_change_sets.set(draft_change_sets)
+
         return super().__exit__(type, value, traceback)
