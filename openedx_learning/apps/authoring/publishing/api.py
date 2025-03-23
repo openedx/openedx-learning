@@ -14,6 +14,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
 from django.db.transaction import atomic
 
+from .contextmanagers import DraftChangeSetContext
 from .models import (
     Container,
     ContainerVersion,
@@ -77,7 +78,7 @@ __all__ = [
     "get_entities_in_container",
     "contains_unpublished_changes",
     "get_containers_with_entity",
-    "DraftChangeSetContext",
+    "draft_changes_for",
 ]
 
 
@@ -464,18 +465,51 @@ def set_draft_version(
 
         learning_package_id = draft.entity.learning_package_id
 
+        # Check to see if we're inside a context manager for an active
+        # DraftChangeSet (i.e. what happens if the caller is using the public
+        # draft_changes_for() API call), or if we have to make our own.
         active_change_set = DraftChangeSetContext.get_active_draft_change_set(learning_package_id)
-        change_set = _get_active_draft_change_set() or DraftChangeSet.objects.create(
-            learning_package_id=learning_package_id,
-            changed_at=set_at,
-            changed_by_id=set_by,
-        )
-        DraftChange.objects.create(
-            change_set_id=change_set.id,
-            entity_id=publishable_entity_id,
-            old_version_id=old_version_id,
-            new_version_id=publishable_entity_version_pk,
-        )
+
+        # Simple case: There is no active DraftChangeSet, so we create our own
+        # add add our DraftChange to it.
+        if not active_change_set:
+            new_change_set = DraftChangeSet.objects.create(
+                learning_package_id=learning_package_id,
+                changed_at=set_at,
+                changed_by_id=set_by,
+            )
+            DraftChange.objects.create(
+                change_set=new_change_set,
+                entity_id=publishable_entity_id,
+                old_version_id=old_version_id,
+                new_version_id=publishable_entity_version_pk,
+            )
+            return
+
+        # If we get here, it means there is an active DraftChangeSet that may
+        # have many DraftChanges associated with it. A DraftChangeSet can only
+        # have one DraftChange per PublishableEntity, e.g. the same Component
+        # can't go from v1 to v3 and v1 to v4 in the same DraftChangeSet.
+        try:
+            # If there was already a DraftChange for this PublishableEntity, we
+            # update the new_version_id. We keep the old_version_id value
+            # though, because that represents what it was before this
+            # DraftChangeSet.
+            change = DraftChange.objects.get(
+                change_set=active_change_set,
+                entity_id=publishable_entity_id,
+            )
+            change.new_version_id = publishable_entity_version_pk
+            change.save()
+        except DraftChange.DoesNotExist:
+            # If we're here, this is the first DraftChange we're making for this
+            # PublishableEntity in this DraftChangeSet. 
+            DraftChange.objects.create(
+                change_set=active_change_set,
+                entity_id=publishable_entity_id,
+                old_version_id=old_version_id,
+                new_version_id=publishable_entity_version_pk,
+            )
 
 
 def soft_delete_draft(publishable_entity_id: int, /, deleted_by: int | None = None) -> None:
@@ -1030,74 +1064,10 @@ def get_containers_with_entity(
     return qs
 
 
-def changeset(learning_package_id):
-    pass
+def draft_changes_for(learning_package_id: int) -> DraftChangeSet:
+    """
+    Context manager to do a single batch of Draft changes in.
 
-
-import django.dispatch
-
-
-from django.db.transaction import Atomic
-
-# This should never be used outside of this module
-_request_draft_change_set = django.dispatch.Signal()
-
-# TODO: This should take a learning_package_id to make sure we don't completely
-# mess up the data model in weird ways.
-def _get_active_draft_change_set():
-    signal_receivers_and_responses = _request_draft_change_set.send(None)
-    if not signal_receivers_and_responses:
-        return None
-
-    _last_receiver, last_draft_change_set = signal_receivers_and_responses[-1]
-    return last_draft_change_set
-
-
-from contextvars import ContextVar
-
-class DraftChangeSetContext(Atomic):
-
-    _draft_change_sets: ContextVar[list | None] = ContextVar('_draft_change_sets', default=None)
-    
-    def __init__(self, learning_package_id, changed_by=None, changed_at=None):
-        super().__init__(using=None, savepoint=False, durable=False)
-
-        self.learning_package_id = learning_package_id
-        self.changed_by = changed_by
-        self.changed_at = changed_at or datetime.now(tz=timezone.utc)
-        self._drafts_changed = {}
-
-    @classmethod
-    def get_active_draft_change_set(cls, learning_package_id):
-        draft_change_sets = cls._draft_change_sets.get()
-        if draft_change_sets is None:
-            return None
-
-        for draft_change_set in reversed(draft_change_sets):
-            if draft_change_set.learning_package_id == learning_package_id:
-                return draft_change_set
-
-        return None
-
-    def __enter__(self):
-        super().__enter__()
-
-        self.draft_change_set = DraftChangeSet.objects.create(
-            learning_package_id=self.learning_package_id,
-            changed_by=self.changed_by,
-            changed_at=self.changed_at,
-        )
-        draft_change_sets = self._draft_change_sets.get()
-        if not draft_change_sets:
-            draft_change_sets = []
-        draft_change_sets.append(self.draft_change_set)
-        self._draft_change_sets.set(draft_change_sets)
-
-        return self.draft_change_set
-
-    def __exit__(self, type, value, traceback):
-        draft_change_sets = self._draft_change_sets.get()
-        draft_change_sets.pop()
-        self._draft_change_sets.set(draft_change_sets)
-
-        return super().__exit__(type, value, traceback)
+    TODO: better description here with example usage.
+    """
+    return DraftChangeSetContext(learning_package_id)
