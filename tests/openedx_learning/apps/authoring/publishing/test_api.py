@@ -129,7 +129,7 @@ class DraftTestCase(TestCase):
         )
 
     def test_simple_draft_changeset(self) -> None:
-        with publishing_api.draft_changes_for(self.learning_package_1.id):
+        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
             entity = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity",
@@ -186,7 +186,7 @@ class DraftTestCase(TestCase):
         """
         Test that multiple changes to the same entity are collapsed.
         """
-        with publishing_api.draft_changes_for(self.learning_package_1.id):
+        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
             entity = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity",

@@ -78,7 +78,7 @@ __all__ = [
     "get_entities_in_container",
     "contains_unpublished_changes",
     "get_containers_with_entity",
-    "draft_changes_for",
+    "bulk_draft_changes_for",
 ]
 
 
@@ -1092,7 +1092,7 @@ def get_containers_with_entity(
     return qs
 
 
-def draft_changes_for(learning_package_id: int) -> DraftChangeSet:
+def bulk_draft_changes_for(learning_package_id: int) -> DraftChangeSet:
     """
     Context manager to do a single batch of Draft changes in.
 
