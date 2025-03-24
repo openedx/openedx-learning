@@ -412,6 +412,7 @@ class UnitTestCase(ComponentTestCase):
             components=[self.component_1],
             created=self.now,
             created_by=None,
+            entities_action=authoring_api.ChildrenEntitiesAction.APPEND,
         )
         # Now the unit should have unpublished changes:
         unit.refresh_from_db()  # Reloading the unit is necessary
@@ -697,8 +698,9 @@ class UnitTestCase(ComponentTestCase):
         authoring_api.create_next_unit_version(
             unit=unit,
             title="Revised with component 2 deleted",
-            components=[self.component_1],  # component 2 is gone
+            components=[self.component_2],
             created=self.now,
+            entities_action=authoring_api.ChildrenEntitiesAction.REMOVE,
         )
 
         # Now it should not be listed in the unit:
@@ -768,8 +770,9 @@ class UnitTestCase(ComponentTestCase):
         authoring_api.create_next_unit_version(
             unit=unit,
             title="Revised with component 2 deleted",
-            components=[self.component_1],
+            components=[self.component_2],
             created=self.now,
+            entities_action=authoring_api.ChildrenEntitiesAction.REMOVE,
         )
 
         # Now it should not be listed in the unit:

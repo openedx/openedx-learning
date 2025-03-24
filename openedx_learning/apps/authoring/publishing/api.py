@@ -803,6 +803,20 @@ def get_next_entity_list(
             # append given publishable_entities_pks and entity_version_pks
             publishable_entities_pks = [entity[0] for entity in last_entities] + publishable_entities_pks
             entity_version_pks = [entity[1] for entity in last_entities] + entity_version_pks
+        elif entities_action == ChildrenEntitiesAction.REMOVE:
+            # get previous entity list rows
+            last_entities = last_version.entity_list.entitylistrow_set.values_list(
+                "entity_id",
+                "entity_version_id"
+            )
+            # Remove entities that are in publishable_entities_pks
+            new_entities = [
+                entity
+                for entity in last_entities
+                if entity[0] not in publishable_entities_pks
+            ]
+            publishable_entities_pks = [entity[0] for entity in new_entities]
+            entity_version_pks = [entity[1] for entity in new_entities]
         next_entity_list = create_entity_list_with_rows(
             entity_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
