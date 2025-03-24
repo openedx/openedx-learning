@@ -592,18 +592,46 @@ def reset_drafts_to_published(
             changed_at=reset_at,
             changed_by_id=reset_by,
         )
+
         for draft in draft_qset:
             if hasattr(draft.entity, 'published'):
                 published_version_id = draft.entity.published.version_id
             else:
                 published_version_id = None
 
-            DraftChange.objects.create(
-                change_set_id=change_set.id,
-                entity_id=draft.entity_id,
-                old_version_id=draft.version_id,
-                new_version_id=published_version_id,
-            )
+            if active_change_set:
+                # We're inside a draft_changes_for() context call and we need to
+                # attach our DraftChanges to an existing DraftChangeSet.
+                try:
+                    # If there was already a DraftChange for this publishable
+                    # entity, we update the new_version_id. We keep the
+                    # old_version_id value though, because that represents what
+                    # it was before this DraftChangeSet.
+                    change = DraftChange.objects.get(
+                        change_set=active_change_set,
+                        entity_id=draft.entity_id,
+                    )
+                    change.new_version_id = published_version_id
+                    change.save()
+                except DraftChange.DoesNotExist:
+                    # If we're here, this is the first DraftChange we're making for this
+                    # PublishableEntity in this DraftChangeSet. 
+                    DraftChange.objects.create(
+                        change_set=active_change_set,
+                        entity_id=draft.entity_id,
+                        old_version_id=draft.version_id,
+                        new_version_id=published_version_id,
+                    )
+            else:
+                DraftChange.objects.create(
+                    change_set=change_set,
+                    entity_id=draft.entity_id,
+                    old_version_id=draft.version_id,
+                    new_version_id=published_version_id,
+                )
+
+            # Now that we're done with our change set bookkeeping, modify the
+            # actual Draft's version_id to point to the published version.
             draft.version_id = published_version_id
             draft.save()
 
