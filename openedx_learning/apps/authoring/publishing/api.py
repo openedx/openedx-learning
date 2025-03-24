@@ -806,7 +806,7 @@ def get_next_entity_list(
         next_entity_list = last_version.entity_list
     else:
         if entity_version_pks is None:
-            entity_version_pks: list[int | None] = [None] * len(publishable_entities_pks)
+            entity_version_pks: list[int | None] = [None] * len(publishable_entities_pks)  # type: ignore[no-redef]
         if entities_action == ChildrenEntitiesAction.APPEND:
             # get previous entity list rows
             last_entities = last_version.entity_list.entitylistrow_set.values_list(
@@ -815,7 +815,10 @@ def get_next_entity_list(
             )
             # append given publishable_entities_pks and entity_version_pks
             publishable_entities_pks = [entity[0] for entity in last_entities] + publishable_entities_pks
-            entity_version_pks = [entity[1] for entity in last_entities] + entity_version_pks
+            entity_version_pks = [  # type: ignore[operator, assignment]
+                entity[1]
+                for entity in last_entities
+            ] + entity_version_pks
         elif entities_action == ChildrenEntitiesAction.REMOVE:
             # get previous entity list rows
             last_entities = last_version.entity_list.entitylistrow_set.values_list(
@@ -832,7 +835,7 @@ def get_next_entity_list(
             entity_version_pks = [entity[1] for entity in new_entities]
         next_entity_list = create_entity_list_with_rows(
             entity_pks=publishable_entities_pks,
-            entity_version_pks=entity_version_pks,
+            entity_version_pks=entity_version_pks,  # type: ignore[arg-type]
             learning_package_id=learning_package_id,
         )
     return next_entity_list
