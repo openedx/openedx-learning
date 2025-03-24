@@ -95,7 +95,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.7.0
+coverage[toml]==7.7.1
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -134,7 +134,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
-django-debug-toolbar==5.0.1
+django-debug-toolbar==5.1.0
     # via
     #   -r requirements/dev.in
     #   -r requirements/quality.txt
@@ -176,11 +176,11 @@ edx-django-utils==7.2.0
     #   edx-drf-extensions
 edx-drf-extensions==10.5.0
     # via -r requirements/quality.txt
-edx-i18n-tools==1.6.3
+edx-i18n-tools==1.7.0
     # via -r requirements/dev.in
 edx-lint==5.6.0
     # via -r requirements/quality.txt
-edx-opaque-keys==2.11.0
+edx-opaque-keys==2.12.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
@@ -212,7 +212,7 @@ importlib-metadata==8.6.1
     # via
     #   -r requirements/quality.txt
     #   keyring
-iniconfig==2.0.0
+iniconfig==2.1.0
     # via
     #   -r requirements/quality.txt
     #   pytest
@@ -313,7 +313,7 @@ pbr==6.1.1
     #   stevedore
 pip-tools==7.4.1
     # via -r requirements/pip-tools.txt
-platformdirs==4.3.6
+platformdirs==4.3.7
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -356,7 +356,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.3.5
+pylint==3.3.6
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -376,7 +376,7 @@ pylint-plugin-utils==0.8.2
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.11.2
+pymongo==4.11.3
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
