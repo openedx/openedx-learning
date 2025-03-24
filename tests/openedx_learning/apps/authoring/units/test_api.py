@@ -968,6 +968,54 @@ class UnitTestCase(ComponentTestCase):
             ]
         assert result2 == [unit4_unpinned]
 
+    def test_add_remove_container_children(self):
+        """
+        Test adding and removing children components from containers.
+        """
+        unit, unit_version = authoring_api.create_unit_and_version(
+            learning_package_id=self.learning_package.id,
+            key="unit:key",
+            title="Unit",
+            components=[self.component_1],
+            created=self.now,
+            created_by=None,
+        )
+        assert authoring_api.get_components_in_unit(unit, published=False) == [
+            Entry(self.component_1.versioning.draft),
+        ]
+        # Add component_2
+        unit_version_v2 = authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            components=[self.component_2],
+            created=self.now,
+            created_by=None,
+            entities_action=authoring_api.ChildrenEntitiesAction.APPEND,
+        )
+        unit.refresh_from_db()
+        assert unit_version_v2.version_num == 2
+        assert unit_version_v2 in unit.versioning.versions.all()
+        # Verify that component_2 is added to end
+        assert authoring_api.get_components_in_unit(unit, published=False) == [
+            Entry(self.component_1.versioning.draft),
+            Entry(self.component_2.versioning.draft),
+        ]
+
+        # Remove component_1
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            components=[self.component_1],
+            created=self.now,
+            created_by=None,
+            entities_action=authoring_api.ChildrenEntitiesAction.REMOVE,
+        )
+        unit.refresh_from_db()
+        # Verify that component_1 is removed
+        assert authoring_api.get_components_in_unit(unit, published=False) == [
+            Entry(self.component_2.versioning.draft),
+        ]
+
     # Tests TODO:
     # Test that I can get a [PublishLog] history of a given unit and all its children, including children that aren't
     #     currently in the unit and excluding children that are only in other units.
