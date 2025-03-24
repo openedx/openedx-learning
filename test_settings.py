@@ -81,3 +81,5 @@ OPENEDX_LEARNING = {
         }
     }
 }
+
+STATIC_URL = 'static/'
