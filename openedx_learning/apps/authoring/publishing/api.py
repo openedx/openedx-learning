@@ -79,6 +79,7 @@ __all__ = [
     "get_entities_in_container",
     "contains_unpublished_changes",
     "get_containers_with_entity",
+    "get_container_children_count",
 ]
 
 
@@ -1086,3 +1087,25 @@ def get_containers_with_entity(
     #     publishable_entity__draft__version__containerversion__entity_list__in=lists
     # )
     return qs
+
+
+def get_container_children_count(
+    container: Container,
+    *,
+    published: bool,
+):
+    """
+    [ 🛑 UNSTABLE ]
+    Get the count of entities in the current draft or published version of the given container.
+
+    Args:
+        container: The Container, e.g. returned by `get_container()`
+        published: `True` if we want the published version of the container, or
+            `False` for the draft version.
+    """
+    assert isinstance(container, Container)
+    container_version = container.versioning.published if published else container.versioning.draft
+    if container_version is None:
+        raise ContainerVersion.DoesNotExist  # This container has not been published yet, or has been deleted.
+    assert isinstance(container_version, ContainerVersion)
+    return container_version.entity_list.entitylistrow_set.count()
