@@ -782,12 +782,25 @@ class ChildrenEntitiesAction(Enum):
 
 
 def get_next_entity_list(
-    entity,
+    learning_package_id: int,
     last_version: ContainerVersion,
-    entity_version_pks: list[int | None] | None,
     publishable_entities_pks: list[int] | None,
+    entity_version_pks: list[int | None] | None,
     entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
 ) -> EntityList:
+    """
+    Creates next entity list based on the given entities_action.
+
+    Args:
+        learning_package_id: Learning package ID
+        last_version: Last version of container.
+        publishable_entities_pks: The IDs of the members current members of the container. Or None for no change.
+        entity_version_pks: The IDs of the versions to pin to, if pinning is desired.
+        entities_action: APPEND, REMOVE or REPLACE given entities from/to the container
+
+    Returns:
+        The newly created entity list.
+    """
     if publishable_entities_pks is None:
         # We're only changing metadata. Keep the same entity list.
         next_entity_list = last_version.entity_list
@@ -820,7 +833,7 @@ def get_next_entity_list(
         next_entity_list = create_entity_list_with_rows(
             entity_pks=publishable_entities_pks,
             entity_version_pks=entity_version_pks,
-            learning_package_id=entity.learning_package_id,
+            learning_package_id=learning_package_id,
         )
     return next_entity_list
 
@@ -867,10 +880,10 @@ def create_next_container_version(
         assert last_version is not None
         next_version_num = last_version.version_num + 1
         next_entity_list = get_next_entity_list(
-            entity,
+            entity.learning_package_id,
             last_version,
-            entity_version_pks,
             publishable_entities_pks,
+            entity_version_pks,
             entities_action
         )
 
