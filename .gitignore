@@ -64,8 +64,14 @@ requirements/private.txt
 # database file
 dev.db*
 
-.vscode
+# virtualenv
 venv/
+
+### Visual Studio Code ###
+# Generally ignore VS Code configuration, except... 
+.vscode/*
+# included for test settings, so VS Code's Testing bar works out of the box
+!.vscode/settings.json
 
 # Media files (for uploads)
 media/
