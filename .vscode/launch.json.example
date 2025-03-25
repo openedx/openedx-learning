@@ -15,7 +15,10 @@
 
             // This is needed because pytest-cov is incompatible with using the
             // debugger. See https://code.visualstudio.com/docs/python/testing#_pytest-configuration-settings
-            "env": {"PYTEST_ADDOPTS": "--no-cov"}
+            "env": {"PYTEST_ADDOPTS": "--no-cov"},
+
+            // Adds some magic for Django templates.
+            "django": true
           }
     ]
 }
