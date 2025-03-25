@@ -1016,6 +1016,28 @@ class UnitTestCase(ComponentTestCase):
             Entry(self.component_2.versioning.draft),
         ]
 
+    def test_get_container_children_count(self):
+        """
+        Test get_container_children_count()
+        """
+        unit = self.create_unit_with_components([self.component_1])
+        assert authoring_api.get_container_children_count(unit.container, published=False) == 1
+        # publish
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit_version = unit.versioning.draft
+        authoring_api.create_next_unit_version(
+            unit=unit,
+            title=unit_version.title,
+            components=[self.component_2],
+            created=self.now,
+            created_by=None,
+            entities_action=authoring_api.ChildrenEntitiesAction.APPEND,
+        )
+        unit.refresh_from_db()
+        # Should have two components in draft version and 1 in published version
+        assert authoring_api.get_container_children_count(unit.container, published=False) == 2
+        assert authoring_api.get_container_children_count(unit.container, published=True) == 1
+
     # Tests TODO:
     # Test that I can get a [PublishLog] history of a given unit and all its children, including children that aren't
     #     currently in the unit and excluding children that are only in other units.
