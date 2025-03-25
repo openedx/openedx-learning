@@ -70,8 +70,9 @@ venv/
 ### Visual Studio Code ###
 # Generally ignore VS Code configuration, except... 
 .vscode/*
-# included for test settings, so VS Code's Testing bar works out of the box
-!.vscode/settings.json
+# Example settings to let people quickly get up to speed with testing.
+!.vscode/launch.json.example
+!.vscode/settings.json.example
 
 # Media files (for uploads)
 media/

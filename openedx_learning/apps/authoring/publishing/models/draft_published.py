@@ -170,3 +170,8 @@ class DraftChange(models.Model):
         ]
         verbose_name = "Draft Change"
         verbose_name_plural = "Draft Changes"
+
+
+#class DraftChangeDependency(models.Model):
+#    source_change = models.ForeignKey(DraftChange, on_delete=models.RESTRICT)
+#    causes_change = models.ForeignKey(DraftChange, on_delete=models.RESTRICT)

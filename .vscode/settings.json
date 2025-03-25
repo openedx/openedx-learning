@@ -1,7 +1,0 @@
-{
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "python.testing.pytestArgs": [
-        "--ds=test_settings",
-    ],
-}
