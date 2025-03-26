@@ -1,5 +1,5 @@
 """
-Draft and Published models
+Models relating to the creation and management of Draft information.
 """
 from django.conf import settings
 from django.db import models
@@ -8,7 +8,6 @@ from django.utils.translation import gettext_lazy as _
 from openedx_learning.lib.fields import immutable_uuid_field, manual_date_time_field
 
 from .learning_package import LearningPackage
-from .publish_log import PublishLogRecord
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
 
 
@@ -56,50 +55,6 @@ class Draft(models.Model):
     )
 
 
-class Published(models.Model):
-    """
-    Find the currently published version of an entity.
-
-    Notes:
-
-    * There is only ever one published PublishableEntityVersion per
-      PublishableEntity at any given time.
-    * It may be possible for a PublishableEntity to exist only as a Draft (and thus
-      not show up in this table).
-    * If a row exists for a PublishableEntity, but the ``version`` field is
-      None, it means that the entity was published at some point, but is no
-      longer published now–i.e. it's functionally "deleted", even though all
-      the version history is preserved behind the scenes.
-
-    TODO: Do we need to create a (redundant) title field in this model so that
-    we can more efficiently search across titles within a LearningPackage?
-    Probably not an immediate concern because the number of rows currently
-    shouldn't be > 10,000 in the more extreme cases.
-
-    TODO: Do we need to make a "most_recently" published version when an entry
-    is unpublished/deleted?
-    """
-
-    entity = models.OneToOneField(
-        PublishableEntity,
-        on_delete=models.CASCADE,
-        primary_key=True,
-    )
-    version = models.OneToOneField(
-        PublishableEntityVersion,
-        on_delete=models.RESTRICT,
-        null=True,
-    )
-    publish_log_record = models.ForeignKey(
-        PublishLogRecord,
-        on_delete=models.RESTRICT,
-    )
-
-    class Meta:
-        verbose_name = "Published Entity"
-        verbose_name_plural = "Published Entities"
-
-
 class DraftChangeSet(models.Model):
     """
     There is one row in this table for every time Drafts are created/modified.
@@ -126,7 +81,27 @@ class DraftChangeSet(models.Model):
 
 class DraftChange(models.Model):
     """
-    A single change in the Draft version of a Publishable Entity
+    A single change in the Draft version of a Publishable Entity.
+
+    We have one unusual convention here, which is that if we have a DraftChange
+    where the old_version == new_version, it means that a Draft's defined
+    version hasn't changed, but the data associated with the Draft has changed
+    because some other entity has changed.
+
+    The main example we have of this are containers. Imagine that we have a
+    Unit that is at version 1, and has unpinned references to various Components
+    that are its children. The Unit's version does not get incremented when the
+    Components are edited, because the Unit container is defined to always get
+    the most recent version of those Components. We would only make a new
+    version of the Unit if we changed the metadata of the Unit itself (e.g. the
+    title), or if we added, removed, or reordered the children.
+
+    Yet updating a Component intuitively changes what we think of as the content
+    of the Unit. Users who are working on Units also expect that a change to a
+    Component will be reflected when looking at a Unit's "last updated" info.
+
+    TODO: Add more info here, especially about how we're going to store multiple
+    layers of hierarchy. And speculation on other dependency types.
     """
     change_set = models.ForeignKey(
         DraftChangeSet,
@@ -172,6 +147,27 @@ class DraftChange(models.Model):
         verbose_name_plural = "Draft Changes"
 
 
-#class DraftChangeDependency(models.Model):
-#    source_change = models.ForeignKey(DraftChange, on_delete=models.RESTRICT)
-#    causes_change = models.ForeignKey(DraftChange, on_delete=models.RESTRICT)
+class DraftChangeSideEffect(models.Model):
+    """
+    Model to track when a change in one Draft may affect other Drafts.
+
+    Our first use case for this is that changes involving child components are
+    thought to affect parent Units, even if the Unit's version doesn't change.
+    So this model allows us to do a query that amounts to, "Tell me the last
+    time this container or any descendent of this container was modified."
+
+    The DraftChanged caused by a DraftChangeSideEffect will have its old_version
+    set to be the same as its new_version to denote that the Draft version
+    itself hasn't changed. See the docstring for DraftChange for more details.
+
+    Some notes:
+
+    1. An entry only shows up here if the side-effect draft does not already
+       have a DraftChange entry in the current DraftChangeSet. So for instance,
+       if a DraftChangeSet changes a Unit's metadata and updates a child
+       Component at the same time, then the Unit's DraftChange (e.g. v1->v2)
+       already exists and no DraftChangeSideEffect is needed to denote that the
+       Unit was changed due to the child Component update.
+    """
+    source_change = models.ForeignKey(DraftChange, on_delete=models.RESTRICT, related_name='+')
+    causes_change = models.ForeignKey(DraftChange, on_delete=models.RESTRICT, related_name='+')

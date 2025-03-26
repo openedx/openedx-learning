@@ -6,6 +6,7 @@ from __future__ import annotations
 from django.contrib import admin
 from django.db.models import Count
 
+from .models.publish_log import Published
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin, one_to_one_related_model_html
 
 from .models import (
@@ -13,7 +14,6 @@ from .models import (
     DraftChangeSet,
     LearningPackage,
     PublishableEntity,
-    Published,
     PublishLog,
     PublishLogRecord,
 )

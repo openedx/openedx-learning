@@ -14,6 +14,8 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
 from django.db.transaction import atomic
 
+from .models.publish_log import Published
+
 from .contextmanagers import DraftChangeSetContext
 from .models import (
     Container,
@@ -29,7 +31,6 @@ from .models import (
     PublishableEntityMixin,
     PublishableEntityVersion,
     PublishableEntityVersionMixin,
-    Published,
     PublishLog,
     PublishLogRecord,
 )
@@ -470,46 +471,53 @@ def set_draft_version(
         # draft_changes_for() API call), or if we have to make our own.
         active_change_set = DraftChangeSetContext.get_active_draft_change_set(learning_package_id)
 
-        # Simple case: There is no active DraftChangeSet, so we create our own
-        # add add our DraftChange to it.
-        if not active_change_set:
+        if active_change_set:
+            # If we get here, it means there is an active DraftChangeSet that may
+            # have many DraftChanges associated with it. A DraftChangeSet can only
+            # have one DraftChange per PublishableEntity, e.g. the same Component
+            # can't go from v1 to v3 and v1 to v4 in the same DraftChangeSet.
+            try:
+                # If there was already a DraftChange for this PublishableEntity,
+                # we update the new_version_id. We keep the old_version_id value
+                # though, because that represents what it was before this
+                # DraftChangeSet, and we don't want to lose that information.
+                change = DraftChange.objects.get(
+                    change_set=active_change_set,
+                    entity_id=publishable_entity_id,
+                )
+                change.new_version_id = publishable_entity_version_pk
+                change.save()
+            except DraftChange.DoesNotExist:
+                # If we're here, this is the first DraftChange we're making for
+                # this PublishableEntity in the active DraftChangeSet. 
+                change = DraftChange.objects.create(
+                    change_set=active_change_set,
+                    entity_id=publishable_entity_id,
+                    old_version_id=old_version_id,
+                    new_version_id=publishable_entity_version_pk,
+                )
+        else:
+            # This means there is no active DraftChangeSet, so we create our own
+            # add add our DraftChange to it. This has the minor optimization
+            # that we don't have to check for an existing DraftChange, because
+            # we're creating the whole DraftChangeSet right here.
             new_change_set = DraftChangeSet.objects.create(
                 learning_package_id=learning_package_id,
                 changed_at=set_at,
                 changed_by_id=set_by,
             )
-            DraftChange.objects.create(
+            change = DraftChange.objects.create(
                 change_set=new_change_set,
                 entity_id=publishable_entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
-            return
 
-        # If we get here, it means there is an active DraftChangeSet that may
-        # have many DraftChanges associated with it. A DraftChangeSet can only
-        # have one DraftChange per PublishableEntity, e.g. the same Component
-        # can't go from v1 to v3 and v1 to v4 in the same DraftChangeSet.
-        try:
-            # If there was already a DraftChange for this PublishableEntity, we
-            # update the new_version_id. We keep the old_version_id value
-            # though, because that represents what it was before this
-            # DraftChangeSet.
-            change = DraftChange.objects.get(
-                change_set=active_change_set,
-                entity_id=publishable_entity_id,
-            )
-            change.new_version_id = publishable_entity_version_pk
-            change.save()
-        except DraftChange.DoesNotExist:
-            # If we're here, this is the first DraftChange we're making for this
-            # PublishableEntity in this DraftChangeSet. 
-            DraftChange.objects.create(
-                change_set=active_change_set,
-                entity_id=publishable_entity_id,
-                old_version_id=old_version_id,
-                new_version_id=publishable_entity_version_pk,
-            )
+        # One way or another, we've created our DraftChange at this point. Now
+        # to see if we need to add any parent Draft containers...
+        containers = get_containers_with_entity(publishable_entity_id, ignore_pinned=True)
+
+
 
 
 def soft_delete_draft(publishable_entity_id: int, /, deleted_by: int | None = None) -> None:
