@@ -10,8 +10,8 @@ from .models.publish_log import Published
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin, one_to_one_related_model_html
 
 from .models import (
-    DraftChange,
-    DraftChangeSet,
+    DraftChangeLogRecord,
+    DraftChangeLog,
     LearningPackage,
     PublishableEntity,
     PublishLog,
@@ -179,7 +179,7 @@ class PublishedAdmin(ReadOnlyModelAdmin):
 
 
 class DraftChangeTabularInline(admin.TabularInline):
-    model = DraftChange
+    model = DraftChangeLogRecord
 
     fields = (
         "entity",
@@ -194,17 +194,17 @@ class DraftChangeTabularInline(admin.TabularInline):
         return queryset.select_related("entity", "old_version", "new_version") \
                        .order_by("entity__key")
 
-    def old_version_num(self, draft_change: DraftChange):
+    def old_version_num(self, draft_change: DraftChangeLogRecord):
         if draft_change.old_version is None:
             return "-"
         return draft_change.old_version.version_num
 
-    def new_version_num(self, draft_change: DraftChange):
+    def new_version_num(self, draft_change: DraftChangeLogRecord):
         if draft_change.new_version is None:
             return "-"
         return draft_change.new_version.version_num
 
-    def title(self, draft_change: DraftChange):
+    def title(self, draft_change: DraftChangeLogRecord):
         """
         Get the title to display for the DraftChange
         """
@@ -215,7 +215,7 @@ class DraftChangeTabularInline(admin.TabularInline):
         return ""
 
 
-@admin.register(DraftChangeSet)
+@admin.register(DraftChangeLog)
 class DraftChangeSetAdmin(ReadOnlyModelAdmin):
     """
     Read-only admin to view Draft changes (via inline tables)

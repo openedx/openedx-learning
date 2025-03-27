@@ -16,13 +16,13 @@ from django.db.transaction import atomic
 
 from .models.publish_log import Published
 
-from .contextmanagers import DraftChangeSetContext
+from .contextmanagers import DraftChangeLogContext
 from .models import (
     Container,
     ContainerVersion,
     Draft,
-    DraftChange,
-    DraftChangeSet,
+    DraftChangeLogRecord,
+    DraftChangeLog,
     EntityList,
     EntityListRow,
     LearningPackage,
@@ -454,6 +454,10 @@ def set_draft_version(
     edited some content). Setting a Draft's version to None is like deleting it
     from Studio's editing point of view (see ``soft_delete_draft`` for more
     details).
+
+    Calling this function attaches a new DraftChange and attaches it to a
+    DraftChangeLog.
+
     """
     if set_at is None:
         set_at = datetime.now(tz=timezone.utc)
@@ -467,54 +471,56 @@ def set_draft_version(
         learning_package_id = draft.entity.learning_package_id
 
         # Check to see if we're inside a context manager for an active
-        # DraftChangeSet (i.e. what happens if the caller is using the public
-        # draft_changes_for() API call), or if we have to make our own.
-        active_change_set = DraftChangeSetContext.get_active_draft_change_set(learning_package_id)
+        # DraftChangeLog (i.e. what happens if the caller is using the public
+        # bulk_draft_changes_for() API call), or if we have to make our own.
+        active_change_log = DraftChangeLogContext.get_active_draft_change_log(learning_package_id)
 
-        if active_change_set:
-            # If we get here, it means there is an active DraftChangeSet that may
-            # have many DraftChanges associated with it. A DraftChangeSet can only
+        if active_change_log:
+            # If we get here, it means there is an active DraftChangeLog that may
+            # have many DraftChanges associated with it. A DraftChangeLog can only
             # have one DraftChange per PublishableEntity, e.g. the same Component
-            # can't go from v1 to v3 and v1 to v4 in the same DraftChangeSet.
+            # can't go from v1 to v3 and v1 to v4 in the same DraftChangeLog.
             try:
                 # If there was already a DraftChange for this PublishableEntity,
                 # we update the new_version_id. We keep the old_version_id value
                 # though, because that represents what it was before this
-                # DraftChangeSet, and we don't want to lose that information.
-                change = DraftChange.objects.get(
-                    change_set=active_change_set,
+                # DraftChangeLog, and we don't want to lose that information.
+                change = DraftChangeLogRecord.objects.get(
+                    draft_change_log=active_change_log,
                     entity_id=publishable_entity_id,
                 )
                 change.new_version_id = publishable_entity_version_pk
                 change.save()
-            except DraftChange.DoesNotExist:
+            except DraftChangeLogRecord.DoesNotExist:
                 # If we're here, this is the first DraftChange we're making for
-                # this PublishableEntity in the active DraftChangeSet. 
-                change = DraftChange.objects.create(
-                    change_set=active_change_set,
+                # this PublishableEntity in the active DraftChangeLog. 
+                change = DraftChangeLogRecord.objects.create(
+                    draft_change_log=active_change_log,
                     entity_id=publishable_entity_id,
                     old_version_id=old_version_id,
                     new_version_id=publishable_entity_version_pk,
                 )
         else:
-            # This means there is no active DraftChangeSet, so we create our own
+            # This means there is no active DraftChangeLog, so we create our own
             # add add our DraftChange to it. This has the minor optimization
             # that we don't have to check for an existing DraftChange, because
-            # we're creating the whole DraftChangeSet right here.
-            new_change_set = DraftChangeSet.objects.create(
+            # we're creating the whole DraftChangeLog right here.
+            new_change_log = DraftChangeLog.objects.create(
                 learning_package_id=learning_package_id,
                 changed_at=set_at,
                 changed_by_id=set_by,
             )
-            change = DraftChange.objects.create(
-                change_set=new_change_set,
+            change = DraftChangeLogRecord.objects.create(
+                draft_change_log=new_change_log,
                 entity_id=publishable_entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
 
         # One way or another, we've created our DraftChange at this point. Now
-        # to see if we need to add any parent Draft containers...
+        # to see if we need to add any parent Draft containers that this change
+        # may have affected (i.e. all unpinned references from Draft containers
+        # to the entity that we just changed the Draft entry for)...
         containers = get_containers_with_entity(publishable_entity_id, ignore_pinned=True)
 
 
@@ -585,7 +591,7 @@ def reset_drafts_to_published(
                       )
     # If there's nothing to reset because there are no changes from the
     # published version, just return early rather than making an empty
-    # DraftChangeSet.
+    # DraftChangeLog.
     if not draft_qset:
         return
 
@@ -594,8 +600,8 @@ def reset_drafts_to_published(
     # rework this into a bulk update or custom SQL if it becomes a performance
     # issue.
     with atomic():
-        active_change_set = DraftChangeSetContext.get_active_draft_change_set(learning_package_id)
-        change_set = active_change_set or DraftChangeSet.objects.create(
+        active_change_log = DraftChangeLogContext.get_active_draft_change_log(learning_package_id)
+        change_log = active_change_log or DraftChangeLog.objects.create(
             learning_package_id=learning_package_id,
             changed_at=reset_at,
             changed_by_id=reset_by,
@@ -607,32 +613,32 @@ def reset_drafts_to_published(
             else:
                 published_version_id = None
 
-            if active_change_set:
+            if active_change_log:
                 # We're inside a draft_changes_for() context call and we need to
-                # attach our DraftChanges to an existing DraftChangeSet.
+                # attach our DraftChanges to an existing DraftChangeLog.
                 try:
                     # If there was already a DraftChange for this publishable
                     # entity, we update the new_version_id. We keep the
                     # old_version_id value though, because that represents what
-                    # it was before this DraftChangeSet.
-                    change = DraftChange.objects.get(
-                        change_set=active_change_set,
+                    # it was before this DraftChangeLog.
+                    change = DraftChangeLogRecord.objects.get(
+                        draft_change_log=active_change_log,
                         entity_id=draft.entity_id,
                     )
                     change.new_version_id = published_version_id
                     change.save()
-                except DraftChange.DoesNotExist:
+                except DraftChangeLogRecord.DoesNotExist:
                     # If we're here, this is the first DraftChange we're making for this
-                    # PublishableEntity in this DraftChangeSet. 
-                    DraftChange.objects.create(
-                        change_set=active_change_set,
+                    # PublishableEntity in this DraftChangeLog. 
+                    DraftChangeLogRecord.objects.create(
+                        draft_change_log=active_change_log,
                         entity_id=draft.entity_id,
                         old_version_id=draft.version_id,
                         new_version_id=published_version_id,
                     )
             else:
-                DraftChange.objects.create(
-                    change_set=change_set,
+                DraftChangeLogRecord.objects.create(
+                    draft_change_log=change_log,
                     entity_id=draft.entity_id,
                     old_version_id=draft.version_id,
                     new_version_id=published_version_id,
@@ -1082,6 +1088,7 @@ def get_containers_with_entity(
         ignore_pinned: if true, ignore any pinned references to the entity.
     """
     if ignore_pinned:
+        # TODO: Do we need to run distinct() on this?
         qs = Container.objects.filter(
             # Note: these two conditions must be in the same filter() call, or the query won't be correct.
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
@@ -1100,10 +1107,10 @@ def get_containers_with_entity(
     return qs
 
 
-def bulk_draft_changes_for(learning_package_id: int) -> DraftChangeSet:
+def bulk_draft_changes_for(learning_package_id: int) -> DraftChangeLog:
     """
     Context manager to do a single batch of Draft changes in.
 
     TODO: better description here with example usage.
     """
-    return DraftChangeSetContext(learning_package_id)
+    return DraftChangeLogContext(learning_package_id)

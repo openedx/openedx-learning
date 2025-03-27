@@ -55,7 +55,7 @@ class Draft(models.Model):
     )
 
 
-class DraftChangeSet(models.Model):
+class DraftChangeLog(models.Model):
     """
     There is one row in this table for every time Drafts are created/modified.
 
@@ -75,11 +75,11 @@ class DraftChangeSet(models.Model):
     )
 
     class Meta:
-        verbose_name = "Draft Change Set"
-        verbose_name_plural = "Draft Change Sets"
+        verbose_name = "Draft Change Log"
+        verbose_name_plural = "Draft Change Logs"
 
 
-class DraftChange(models.Model):
+class DraftChangeLogRecord(models.Model):
     """
     A single change in the Draft version of a Publishable Entity.
 
@@ -103,8 +103,8 @@ class DraftChange(models.Model):
     TODO: Add more info here, especially about how we're going to store multiple
     layers of hierarchy. And speculation on other dependency types.
     """
-    change_set = models.ForeignKey(
-        DraftChangeSet,
+    draft_change_log = models.ForeignKey(
+        DraftChangeLog,
         on_delete=models.CASCADE,
         related_name="changes",
     )
@@ -128,10 +128,10 @@ class DraftChange(models.Model):
             # time; or delete a Draft and set it to version 2 at the same time.
             models.UniqueConstraint(
                 fields=[
-                    "change_set",
+                    "draft_change_log",
                     "entity",
                 ],
-                name="oel_dc_uniq_changeset_entity",
+                name="oel_dlr_uniq_dcl",
             )
         ]
         indexes = [
@@ -139,15 +139,15 @@ class DraftChange(models.Model):
             #   * Find the history of draft changes for a given entity, starting
             #     with the most recent (since IDs are ascending ints).
             models.Index(
-                fields=["entity", "-change_set"],
-                name="oel_dc_idx_entity_rchangeset",
+                fields=["entity", "-draft_change_log"],
+                name="oel_dlr_idx_entity_rdcl",
             ),
         ]
-        verbose_name = "Draft Change"
-        verbose_name_plural = "Draft Changes"
+        verbose_name = "Draft Log"
+        verbose_name_plural = "Draft Log"
 
 
-class DraftChangeSideEffect(models.Model):
+class DraftSideEffect(models.Model):
     """
     Model to track when a change in one Draft may affect other Drafts.
 
@@ -160,14 +160,22 @@ class DraftChangeSideEffect(models.Model):
     set to be the same as its new_version to denote that the Draft version
     itself hasn't changed. See the docstring for DraftChange for more details.
 
-    Some notes:
+    Side Effects 
 
-    1. An entry only shows up here if the side-effect draft does not already
-       have a DraftChange entry in the current DraftChangeSet. So for instance,
-       if a DraftChangeSet changes a Unit's metadata and updates a child
-       Component at the same time, then the Unit's DraftChange (e.g. v1->v2)
-       already exists and no DraftChangeSideEffect is needed to denote that the
-       Unit was changed due to the child Component update.
+    An entry only shows up here if the side-effect draft does not already have a
+    DraftChange entry in the current DraftChangeSet. So for instance, if a
+    DraftChangeSet changes a Unit's metadata and updates a child Component at
+    the same time, then the Unit's DraftChange (e.g. v1->v2) already exists and
+    no DraftChangeSideEffect is needed to denote that the Unit was changed due
+    to the child Component update.
+
+    I'm intentionally framing these changes as side effects and not as parent-
+    child relations at this layer. I don't think this layer needs to understand
+    hierarchy, only that one change implies another.
+
+    Other possible use cases:
+    * inheritance
+    * configuration, e.g. LTI 
     """
-    source_change = models.ForeignKey(DraftChange, on_delete=models.RESTRICT, related_name='+')
-    causes_change = models.ForeignKey(DraftChange, on_delete=models.RESTRICT, related_name='+')
+    cause = models.ForeignKey(DraftChangeLogRecord, on_delete=models.RESTRICT, related_name='+')
+    effect = models.ForeignKey(DraftChangeLogRecord, on_delete=models.RESTRICT, related_name='+')

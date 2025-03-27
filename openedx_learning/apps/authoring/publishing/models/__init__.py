@@ -14,7 +14,7 @@ support the logic for the management of the publishing process:
 """
 
 from .container import Container, ContainerVersion
-from .draft import Draft, DraftChange, DraftChangeSet
+from .draft import Draft, DraftChangeLogRecord, DraftChangeLog
 from .entity_list import EntityList, EntityListRow
 from .learning_package import LearningPackage
 from .publish_log import PublishLog, PublishLogRecord, Published

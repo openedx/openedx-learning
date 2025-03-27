@@ -10,7 +10,7 @@ import pytest
 from django.core.exceptions import ValidationError
 
 from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntity, DraftChangeSet
+from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntity, DraftChangeLog
 from openedx_learning.lib.test_utils import TestCase
 
 
@@ -156,7 +156,7 @@ class DraftTestCase(TestCase):
                 created=self.now,
                 created_by=None,
             )
-        draft_sets = list(DraftChangeSet.objects.all())
+        draft_sets = list(DraftChangeLog.objects.all())
         assert len(draft_sets) == 1
         assert len(draft_sets[0].changes.all()) == 2
 
@@ -175,7 +175,7 @@ class DraftTestCase(TestCase):
             created=self.now,
             created_by=None,
         )
-        draft_sets = list(DraftChangeSet.objects.all().order_by('id'))
+        draft_sets = list(DraftChangeLog.objects.all().order_by('id'))
         assert len(draft_sets) == 2
         assert len(draft_sets[1].changes.all()) == 1
 
@@ -207,7 +207,7 @@ class DraftTestCase(TestCase):
                 created=self.now,
                 created_by=None,
             )
-        draft_sets = list(DraftChangeSet.objects.all().order_by('id'))
+        draft_sets = list(DraftChangeLog.objects.all().order_by('id'))
         assert len(draft_sets) == 1
         changes = list(draft_sets[0].changes.all())
         assert len(changes) == 1

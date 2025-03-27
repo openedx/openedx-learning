@@ -3,10 +3,10 @@ from datetime import datetime, timezone
 
 from django.db.transaction import Atomic
 
-from .models import DraftChangeSet
+from .models import DraftChangeLog
 
 
-class DraftChangeSetContext(Atomic):
+class DraftChangeLogContext(Atomic):
     """
     Context manager for batching draft changes into DraftChangeSets.
 
@@ -50,7 +50,7 @@ class DraftChangeSetContext(Atomic):
         self.changed_at = changed_at or datetime.now(tz=timezone.utc)
 
     @classmethod
-    def get_active_draft_change_set(cls, learning_package_id: int) -> DraftChangeSet | None:
+    def get_active_draft_change_log(cls, learning_package_id: int) -> DraftChangeLog | None:
         """
         Get the DraftChangeSet that new DraftChanges should be attached to.
 
@@ -88,7 +88,7 @@ class DraftChangeSetContext(Atomic):
     def __enter__(self):
         super().__enter__()
 
-        self.draft_change_set = DraftChangeSet.objects.create(
+        self.draft_change_set = DraftChangeLog.objects.create(
             learning_package_id=self.learning_package_id,
             changed_by=self.changed_by,
             changed_at=self.changed_at,

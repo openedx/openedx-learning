@@ -21,7 +21,7 @@ from django.db import migrations
 logger = logging.getLogger(__name__)
 
 
-def bootstrap_draft_change_sets(apps, schema_editor):
+def bootstrap_draft_change_logs(apps, schema_editor):
     """
     Create a fake DraftChangeSet that encompasses the state of current Drafts.
     """
@@ -29,8 +29,8 @@ def bootstrap_draft_change_sets(apps, schema_editor):
     PublishableEntityVersion = apps.get_model("oel_publishing", "PublishableEntityVersion")
 
     Draft = apps.get_model("oel_publishing", "Draft")
-    DraftChange = apps.get_model("oel_publishing", "DraftChange")
-    DraftChangeSet = apps.get_model("oel_publishing", "DraftChangeSet")
+    DraftChangeLogRecord = apps.get_model("oel_publishing", "DraftChangeLogRecord")
+    DraftChangeLog = apps.get_model("oel_publishing", "DraftChangeLog")
     now = datetime.now(tz=timezone.utc)
 
     for learning_package in LearningPackage.objects.all().order_by("key"):
@@ -42,13 +42,13 @@ def bootstrap_draft_change_sets(apps, schema_editor):
         # First cycle though all the simple create/edit operations...
         last_version_seen = {}  # PublishableEntity.id -> PublishableEntityVersion.id
         for pub_ent_version in pub_ent_versions.order_by("pk"):
-            change_set = DraftChangeSet.objects.create(
+            draft_change_log = DraftChangeLog.objects.create(
                 learning_package=learning_package,
                 changed_at=pub_ent_version.created,
                 changed_by=pub_ent_version.created_by,
             )
-            DraftChange.objects.create(
-                change_set=change_set,
+            DraftChangeLogRecord.objects.create(
+                draft_change_log=draft_change_log,
                 entity=pub_ent_version.entity,
                 old_version_id=last_version_seen.get(pub_ent_version.entity.id),
                 new_version_id=pub_ent_version.id,
@@ -63,31 +63,31 @@ def bootstrap_draft_change_sets(apps, schema_editor):
             if draft.version_id == last_version_id:
                 continue
             # We don't really know who did this or when, so we use None and now.
-            change_set = DraftChangeSet.objects.create(
+            draft_change_log = DraftChangeLog.objects.create(
                 learning_package=learning_package,
                 changed_at=now,
                 changed_by=None,
             )
-            DraftChange.objects.create(
-                change_set=change_set,
+            DraftChangeLogRecord.objects.create(
+                draft_change_log=draft_change_log,
                 entity_id=draft.entity_id,
                 old_version_id=last_version_id,
                 new_version_id=draft.version_id,
             )
 
 
-def delete_draft_change_sets(apps, schema_editor):
-    logger.info(f"Deleting all DraftChangeSets (reversre migration)")
-    DraftChangeSet = apps.get_model("oel_publishing", "DraftChangeSet")
-    DraftChangeSet.objects.all().delete()
+def delete_draft_change_logs(apps, schema_editor):
+    logger.info(f"Deleting all DraftChangeLogs (reverse migration)")
+    DraftChangeLog = apps.get_model("oel_publishing", "DraftChangeLog")
+    DraftChangeLog.objects.all().delete()
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('oel_publishing', '0004_draftchangeset_and_more'),
+        ('oel_publishing', '0004_draftchangelog'),
     ]
 
     operations = [
-        migrations.RunPython(bootstrap_draft_change_sets, reverse_code=delete_draft_change_sets)
+        migrations.RunPython(bootstrap_draft_change_logs, reverse_code=delete_draft_change_logs)
     ]
