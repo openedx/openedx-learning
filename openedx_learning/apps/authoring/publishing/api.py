@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from typing import TypeVar
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -73,10 +74,12 @@ __all__ = [
     "get_container",
     "get_container_by_key",
     "get_containers",
+    "ChildrenEntitiesAction",
     "ContainerEntityListEntry",
     "get_entities_in_container",
     "contains_unpublished_changes",
     "get_containers_with_entity",
+    "get_container_children_count",
 ]
 
 
@@ -771,6 +774,70 @@ def create_container_version(
     return container_version
 
 
+class ChildrenEntitiesAction(Enum):
+    """Possible actions for children entities"""
+
+    APPEND = "append"
+    REMOVE = "remove"
+    REPLACE = "replace"
+
+
+def create_next_entity_list(
+    learning_package_id: int,
+    last_version: ContainerVersion,
+    publishable_entities_pks: list[int],
+    entity_version_pks: list[int | None] | None,
+    entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
+) -> EntityList:
+    """
+    Creates next entity list based on the given entities_action.
+
+    Args:
+        learning_package_id: Learning package ID
+        last_version: Last version of container.
+        publishable_entities_pks: The IDs of the members current members of the container.
+        entity_version_pks: The IDs of the versions to pin to, if pinning is desired.
+        entities_action: APPEND, REMOVE or REPLACE given entities from/to the container
+
+    Returns:
+        The newly created entity list.
+    """
+    if entity_version_pks is None:
+        entity_version_pks: list[int | None] = [None] * len(publishable_entities_pks)  # type: ignore[no-redef]
+    if entities_action == ChildrenEntitiesAction.APPEND:
+        # get previous entity list rows
+        last_entities = last_version.entity_list.entitylistrow_set.only(
+            "entity_id",
+            "entity_version_id"
+        ).order_by("order_num")
+        # append given publishable_entities_pks and entity_version_pks
+        publishable_entities_pks = [entity.entity_id for entity in last_entities] + publishable_entities_pks
+        entity_version_pks = [  # type: ignore[operator, assignment]
+            entity.entity_version_id
+            for entity in last_entities
+        ] + entity_version_pks
+    elif entities_action == ChildrenEntitiesAction.REMOVE:
+        # get previous entity list rows
+        last_entities = last_version.entity_list.entitylistrow_set.only(
+            "entity_id",
+            "entity_version_id"
+        ).order_by("order_num")
+        # Remove entities that are in publishable_entities_pks
+        new_entities = [
+            entity
+            for entity in last_entities
+            if entity.entity_id not in publishable_entities_pks
+        ]
+        publishable_entities_pks = [entity.entity_id for entity in new_entities]
+        entity_version_pks = [entity.entity_version_id for entity in new_entities]
+    next_entity_list = create_entity_list_with_rows(
+        entity_pks=publishable_entities_pks,
+        entity_version_pks=entity_version_pks,  # type: ignore[arg-type]
+        learning_package_id=learning_package_id,
+    )
+    return next_entity_list
+
+
 def create_next_container_version(
     container_pk: int,
     *,
@@ -780,6 +847,7 @@ def create_next_container_version(
     created: datetime,
     created_by: int | None,
     container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+    entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
 ) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
@@ -815,13 +883,14 @@ def create_next_container_version(
             # We're only changing metadata. Keep the same entity list.
             next_entity_list = last_version.entity_list
         else:
-            if entity_version_pks is None:
-                entity_version_pks = [None] * len(publishable_entities_pks)
-            next_entity_list = create_entity_list_with_rows(
-                entity_pks=publishable_entities_pks,
-                entity_version_pks=entity_version_pks,
-                learning_package_id=entity.learning_package_id,
+            next_entity_list = create_next_entity_list(
+                entity.learning_package_id,
+                last_version,
+                publishable_entities_pks,
+                entity_version_pks,
+                entities_action
             )
+
         next_container_version = _create_container_version(
             container,
             next_version_num,
@@ -1018,3 +1087,29 @@ def get_containers_with_entity(
     #     publishable_entity__draft__version__containerversion__entity_list__in=lists
     # )
     return qs
+
+
+def get_container_children_count(
+    container: Container,
+    *,
+    published: bool,
+):
+    """
+    [ 🛑 UNSTABLE ]
+    Get the count of entities in the current draft or published version of the given container.
+
+    Args:
+        container: The Container, e.g. returned by `get_container()`
+        published: `True` if we want the published version of the container, or
+            `False` for the draft version.
+    """
+    assert isinstance(container, Container)
+    container_version = container.versioning.published if published else container.versioning.draft
+    if container_version is None:
+        raise ContainerVersion.DoesNotExist  # This container has not been published yet, or has been deleted.
+    assert isinstance(container_version, ContainerVersion)
+    if published:
+        filter_deleted = {"entity__published__version__isnull": False}
+    else:
+        filter_deleted = {"entity__draft__version__isnull": False}
+    return container_version.entity_list.entitylistrow_set.filter(**filter_deleted).count()
