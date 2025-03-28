@@ -782,7 +782,7 @@ class ChildrenEntitiesAction(Enum):
     REPLACE = "replace"
 
 
-def get_next_entity_list(
+def create_next_entity_list(
     learning_package_id: int,
     last_version: ContainerVersion,
     publishable_entities_pks: list[int],
@@ -877,7 +877,7 @@ def create_next_container_version(
             # We're only changing metadata. Keep the same entity list.
             next_entity_list = last_version.entity_list
         else:
-            next_entity_list = get_next_entity_list(
+            next_entity_list = create_next_entity_list(
                 entity.learning_package_id,
                 last_version,
                 publishable_entities_pks,
