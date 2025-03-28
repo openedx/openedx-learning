@@ -806,7 +806,10 @@ def create_next_entity_list(
         entity_version_pks: list[int | None] = [None] * len(publishable_entities_pks)  # type: ignore[no-redef]
     if entities_action == ChildrenEntitiesAction.APPEND:
         # get previous entity list rows
-        last_entities = last_version.entity_list.entitylistrow_set.only("entity_id", "entity_version_id")
+        last_entities = last_version.entity_list.entitylistrow_set.only(
+            "entity_id",
+            "entity_version_id"
+        ).order_by("order_num")
         # append given publishable_entities_pks and entity_version_pks
         publishable_entities_pks = [entity.entity_id for entity in last_entities] + publishable_entities_pks
         entity_version_pks = [  # type: ignore[operator, assignment]
@@ -815,7 +818,10 @@ def create_next_entity_list(
         ] + entity_version_pks
     elif entities_action == ChildrenEntitiesAction.REMOVE:
         # get previous entity list rows
-        last_entities = last_version.entity_list.entitylistrow_set.only("entity_id", "entity_version_id")
+        last_entities = last_version.entity_list.entitylistrow_set.only(
+            "entity_id",
+            "entity_version_id"
+        ).order_by("order_num")
         # Remove entities that are in publishable_entities_pks
         new_entities = [
             entity
