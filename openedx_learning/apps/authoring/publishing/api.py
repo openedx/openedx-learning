@@ -1102,4 +1102,8 @@ def get_container_children_count(
     if container_version is None:
         raise ContainerVersion.DoesNotExist  # This container has not been published yet, or has been deleted.
     assert isinstance(container_version, ContainerVersion)
-    return container_version.entity_list.entitylistrow_set.count()
+    if published:
+        filter_deleted = {"entity__published__version__isnull": False}
+    else:
+        filter_deleted = {"entity__draft__version__isnull": False}
+    return container_version.entity_list.entitylistrow_set.filter(**filter_deleted).count()

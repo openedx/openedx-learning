@@ -983,11 +983,15 @@ class UnitTestCase(ComponentTestCase):
         assert authoring_api.get_components_in_unit(unit, published=False) == [
             Entry(self.component_1.versioning.draft),
         ]
-        # Add component_2
+        component_3, _ = self.create_component(
+            key="Query Counting (3)",
+            title="Querying Counting Problem (3)",
+        )
+        # Add component_2 and component_3
         unit_version_v2 = authoring_api.create_next_unit_version(
             unit=unit,
             title=unit_version.title,
-            components=[self.component_2],
+            components=[self.component_2, component_3],
             created=self.now,
             created_by=None,
             entities_action=authoring_api.ChildrenEntitiesAction.APPEND,
@@ -995,10 +999,11 @@ class UnitTestCase(ComponentTestCase):
         unit.refresh_from_db()
         assert unit_version_v2.version_num == 2
         assert unit_version_v2 in unit.versioning.versions.all()
-        # Verify that component_2 is added to end
+        # Verify that component_2 and component_3 is added to end
         assert authoring_api.get_components_in_unit(unit, published=False) == [
             Entry(self.component_1.versioning.draft),
             Entry(self.component_2.versioning.draft),
+            Entry(component_3.versioning.draft),
         ]
 
         # Remove component_1
@@ -1014,6 +1019,7 @@ class UnitTestCase(ComponentTestCase):
         # Verify that component_1 is removed
         assert authoring_api.get_components_in_unit(unit, published=False) == [
             Entry(self.component_2.versioning.draft),
+            Entry(component_3.versioning.draft),
         ]
 
     def test_get_container_children_count(self):
@@ -1036,6 +1042,18 @@ class UnitTestCase(ComponentTestCase):
         unit.refresh_from_db()
         # Should have two components in draft version and 1 in published version
         assert authoring_api.get_container_children_count(unit.container, published=False) == 2
+        assert authoring_api.get_container_children_count(unit.container, published=True) == 1
+        # publish
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit.refresh_from_db()
+        assert authoring_api.get_container_children_count(unit.container, published=True) == 2
+        # Soft delete component_1
+        authoring_api.soft_delete_draft(self.component_1.pk)
+        unit.refresh_from_db()
+        # Should contain only 1 child
+        assert authoring_api.get_container_children_count(unit.container, published=False) == 1
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        unit.refresh_from_db()
         assert authoring_api.get_container_children_count(unit.container, published=True) == 1
 
     # Tests TODO:
