@@ -74,6 +74,16 @@ class DraftChangeLog(models.Model):
         blank=True,
     )
 
+    @property
+    def changes(self):
+        """
+        Alias for "records".
+
+        We use "records" for consistency with PublishLogRecord, but somteimes
+        it's more natural to call these "changes".
+        """
+        return self.records
+
     class Meta:
         verbose_name = "Draft Change Log"
         verbose_name_plural = "Draft Change Logs"
@@ -83,10 +93,10 @@ class DraftChangeLogRecord(models.Model):
     """
     A single change in the Draft version of a Publishable Entity.
 
-    We have one unusual convention here, which is that if we have a DraftChange
-    where the old_version == new_version, it means that a Draft's defined
-    version hasn't changed, but the data associated with the Draft has changed
-    because some other entity has changed.
+    We have one unusual convention here, which is that if we have a
+    DraftChangeLogRecord where the old_version == new_version, it means that a 
+    Draft's defined version hasn't changed, but the data associated with the
+    Draft has changed because some other entity has changed.
 
     The main example we have of this are containers. Imagine that we have a
     Unit that is at version 1, and has unpinned references to various Components
@@ -99,14 +109,14 @@ class DraftChangeLogRecord(models.Model):
     Yet updating a Component intuitively changes what we think of as the content
     of the Unit. Users who are working on Units also expect that a change to a
     Component will be reflected when looking at a Unit's "last updated" info.
-
-    TODO: Add more info here, especially about how we're going to store multiple
-    layers of hierarchy. And speculation on other dependency types.
+    The old_version == new_version convention lets us represent that in a useful
+    way because that Unit *is* a part of the change set represented by a
+    DraftChangeLog, even if its own versioned data hasn't changed.
     """
     draft_change_log = models.ForeignKey(
         DraftChangeLog,
         on_delete=models.CASCADE,
-        related_name="changes",
+        related_name="records",
     )
     entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
     old_version = models.ForeignKey(
@@ -149,33 +159,40 @@ class DraftChangeLogRecord(models.Model):
 
 class DraftSideEffect(models.Model):
     """
-    Model to track when a change in one Draft may affect other Drafts.
+    Model to track when a change in one Draft affects other Drafts.
 
     Our first use case for this is that changes involving child components are
-    thought to affect parent Units, even if the Unit's version doesn't change.
-    So this model allows us to do a query that amounts to, "Tell me the last
-    time this container or any descendent of this container was modified."
+    thought to affect parent Units, even if the parent's version doesn't change.
+
+    A DraftSideEffect will always be created linking child to parent when a 
+    child's draft version is updated. If the parent 
+
+    ...
 
     The DraftChanged caused by a DraftChangeSideEffect will have its old_version
     set to be the same as its new_version to denote that the Draft version
     itself hasn't changed. See the docstring for DraftChange for more details.
 
-    Side Effects 
-
-    An entry only shows up here if the side-effect draft does not already have a
-    DraftChange entry in the current DraftChangeSet. So for instance, if a
-    DraftChangeSet changes a Unit's metadata and updates a child Component at
-    the same time, then the Unit's DraftChange (e.g. v1->v2) already exists and
-    no DraftChangeSideEffect is needed to denote that the Unit was changed due
-    to the child Component update.
-
-    I'm intentionally framing these changes as side effects and not as parent-
-    child relations at this layer. I don't think this layer needs to understand
-    hierarchy, only that one change implies another.
-
-    Other possible use cases:
-    * inheritance
-    * configuration, e.g. LTI 
     """
-    cause = models.ForeignKey(DraftChangeLogRecord, on_delete=models.RESTRICT, related_name='+')
-    effect = models.ForeignKey(DraftChangeLogRecord, on_delete=models.RESTRICT, related_name='+')
+    cause = models.ForeignKey(
+        DraftChangeLogRecord,
+        on_delete=models.RESTRICT,
+        related_name='causes',
+    )
+    effect = models.ForeignKey(
+        DraftChangeLogRecord,
+        on_delete=models.RESTRICT,
+        related_name='caused_by',
+    )
+
+    # TODO: unique contraint here on (cause, effect) because extra rows are
+    # redundant.
+    class Meta:
+        constraints = [
+            # Duplicate entries for cause & effect are just redundant. This is
+            # here to guard against weird bugs that might introduce this state. 
+            models.UniqueConstraint(
+                fields=["cause", "effect"],
+                name="oel_pub_dse_uniq_c_e",
+            )
+        ]

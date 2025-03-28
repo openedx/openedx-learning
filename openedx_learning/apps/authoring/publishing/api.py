@@ -23,6 +23,7 @@ from .models import (
     Draft,
     DraftChangeLogRecord,
     DraftChangeLog,
+    DraftSideEffect,
     EntityList,
     EntityListRow,
     LearningPackage,
@@ -474,57 +475,148 @@ def set_draft_version(
         # DraftChangeLog (i.e. what happens if the caller is using the public
         # bulk_draft_changes_for() API call), or if we have to make our own.
         active_change_log = DraftChangeLogContext.get_active_draft_change_log(learning_package_id)
+        change_log = active_change_log or DraftChangeLog.objects.create(
+            learning_package_id=learning_package_id,
+            changed_at=set_at,
+            changed_by_id=set_by,
+        )
 
         if active_change_log:
-            # If we get here, it means there is an active DraftChangeLog that may
-            # have many DraftChanges associated with it. A DraftChangeLog can only
-            # have one DraftChange per PublishableEntity, e.g. the same Component
-            # can't go from v1 to v3 and v1 to v4 in the same DraftChangeLog.
-            try:
-                # If there was already a DraftChange for this PublishableEntity,
-                # we update the new_version_id. We keep the old_version_id value
-                # though, because that represents what it was before this
-                # DraftChangeLog, and we don't want to lose that information.
-                change = DraftChangeLogRecord.objects.get(
-                    draft_change_log=active_change_log,
-                    entity_id=publishable_entity_id,
-                )
-                change.new_version_id = publishable_entity_version_pk
-                change.save()
-            except DraftChangeLogRecord.DoesNotExist:
-                # If we're here, this is the first DraftChange we're making for
-                # this PublishableEntity in the active DraftChangeLog. 
-                change = DraftChangeLogRecord.objects.create(
-                    draft_change_log=active_change_log,
-                    entity_id=publishable_entity_id,
-                    old_version_id=old_version_id,
-                    new_version_id=publishable_entity_version_pk,
-                )
+            change = _add_to_existing_draft_change_log(
+                active_change_log,
+                publishable_entity_id,
+                old_version_id=old_version_id,
+                new_version_id=publishable_entity_version_pk,
+            )
+            # We explicitly *don't* create container side effects here because
+            # there may be many changes in this DraftChangeLog, some of which
+            # haven't been made yet. It wouldn't make sense to create a side
+            # effect that says, "this Unit changed because this Component in it
+            # changed" if we were changing that same Unit later on in the same
+            # DraftChangeLog, because that new Unit version might not even
+            # include the child Component. So we'll do that work when the
+            # DraftChangeLogContext context manager closes.
         else:
             # This means there is no active DraftChangeLog, so we create our own
             # add add our DraftChange to it. This has the minor optimization
             # that we don't have to check for an existing DraftChange, because
             # we're creating the whole DraftChangeLog right here.
-            new_change_log = DraftChangeLog.objects.create(
-                learning_package_id=learning_package_id,
-                changed_at=set_at,
-                changed_by_id=set_by,
-            )
             change = DraftChangeLogRecord.objects.create(
-                draft_change_log=new_change_log,
+                draft_change_log=change_log,
                 entity_id=publishable_entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
-            )
-
-        # One way or another, we've created our DraftChange at this point. Now
-        # to see if we need to add any parent Draft containers that this change
-        # may have affected (i.e. all unpinned references from Draft containers
-        # to the entity that we just changed the Draft entry for)...
-        containers = get_containers_with_entity(publishable_entity_id, ignore_pinned=True)
+            )    
+            _create_container_side_effects_for_draft_change(change)
 
 
+def _add_to_existing_draft_change_log(
+    active_change_log: DraftChangeLog,
+    entity_id: int,
+    old_version_id: int | None,
+    new_version_id: int | None,
+) -> DraftChangeLogRecord:
+    # If we get here, it means there is an active DraftChangeLog that may
+    # have many DraftChanges associated with it. A DraftChangeLog can only
+    # have one DraftChange per PublishableEntity, e.g. the same Component
+    # can't go from v1 to v3 and v1 to v4 in the same DraftChangeLog.
+    try:
+        # If there was already a DraftChange for this PublishableEntity,
+        # we update the new_version_id. We keep the old_version_id value
+        # though, because that represents what it was before this
+        # DraftChangeLog, and we don't want to lose that information.
+        change = DraftChangeLogRecord.objects.get(
+            draft_change_log=active_change_log,
+            entity_id=entity_id,
+        )
+        change.new_version_id = new_version_id
+        change.save()
+    except DraftChangeLogRecord.DoesNotExist:
+        # If we're here, this is the first DraftChange we're making for
+        # this PublishableEntity in the active DraftChangeLog. 
+        change = DraftChangeLogRecord.objects.create(
+            draft_change_log=active_change_log,
+            entity_id=entity_id,
+            old_version_id=old_version_id,
+            new_version_id=new_version_id,
+        )
 
+    return change
+
+
+def _create_container_side_effects_for_draft_change_log(change_log: DraftChangeLogRecord):
+    seen_container_pks = set()
+    for change in change_log.changes.all():
+        _create_container_side_effects_for_draft_change(
+            change,
+            already_processed_containers_pks=seen_container_pks,
+        )
+
+
+def _create_container_side_effects_for_draft_change(
+    original_change: DraftChangeLogRecord,
+    already_processed_containers_pks=None
+):
+    """
+    Given a draft change, add side effects for all affected containers.
+
+    This should only be run after the DraftChangeLogRecord has been otherwise
+    fully written out. We want to avoid the scenario where we create a
+    side-effect that a Component change affects a Unit if the Unit version is
+    also changed in the same DraftChangeLog.
+
+    TODO: This could get very expensive with the get_containers_with_entity
+    calls. We should measure the impact of this.
+    """
+    if already_processed_containers_pks is not None:
+        seen_container_pks = already_processed_containers_pks
+    else:
+        seen_container_pks = set()
+
+    changes_and_containers = [
+        (original_change, container)
+        for container
+        in get_containers_with_entity(original_change.entity_id, ignore_pinned=True)
+    ]
+    while changes_and_containers:
+        change, container = changes_and_containers.pop()
+        # If we've already seen this container, no need to handle it again.
+        # This also guards against infinite cycle chains of containers.
+        if container.pk in seen_container_pks:
+            continue
+        seen_container_pks.add(container.pk)
+
+        # If the container is not already in the DraftChangeLog, we need to
+        # add it. Since it's being caused as a DraftSideEffect, we're going
+        # add it with the old_version == new_version convention.
+        container_draft_version_pk = container.versioning.draft.pk
+        container_change, _created = DraftChangeLogRecord.objects.get_or_create(
+            draft_change_log=change.draft_change_log,
+            entity_id=container.pk,
+            old_version_id=container_draft_version_pk,
+            defaults={
+                'new_version_id': container_draft_version_pk
+            }
+        )
+
+        # Mark that change in the current loop has the side effect of changing
+        # the parent. We'll do this regardless of whether the container version
+        # itself also changed. If a Unit has a Component and both the Unit and
+        # Component have their versions incremented, then the Unit has changed
+        # in both ways (the Unit's internal metadata as well as the new version
+        # of the child component).
+        DraftSideEffect.objects.get_or_create(cause=change, effect=container_change)
+
+        # Now we find the next layer up of containers. So if the originally
+        # passed in publishable_entity_id was for a Component, then the
+        # ``container`` we've been creating the side effect for in this loop
+        # is the Unit, and ``parents_of_container`` would be any Sequences
+        # that contain the Unit.
+        parents_of_container = get_containers_with_entity(container.pk, ignore_pinned=True)
+        changes_and_containers.extend(
+            (container_change, container_parent)
+            for container_parent in parents_of_container
+        )
 
 def soft_delete_draft(publishable_entity_id: int, /, deleted_by: int | None = None) -> None:
     """
@@ -1107,10 +1199,17 @@ def get_containers_with_entity(
     return qs
 
 
-def bulk_draft_changes_for(learning_package_id: int) -> DraftChangeLog:
+def bulk_draft_changes_for(learning_package_id: int, changed_by=None, changed_at=None) -> DraftChangeLog:
     """
     Context manager to do a single batch of Draft changes in.
 
     TODO: better description here with example usage.
     """
-    return DraftChangeLogContext(learning_package_id)
+    return DraftChangeLogContext(
+        learning_package_id,
+        changed_by=changed_by,
+        changed_at=changed_at,
+        exit_callbacks=[
+            _create_container_side_effects_for_draft_change_log,
+        ]
+    )

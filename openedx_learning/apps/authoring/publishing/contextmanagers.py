@@ -40,14 +40,15 @@ class DraftChangeLogContext(Atomic):
     any operation on multiple Drafts as part of a DraftChangeSet will want to be
     an atomic operation. 
     """
-    _draft_change_sets: ContextVar[list | None] = ContextVar('_draft_change_sets', default=None)
+    _draft_change_logs: ContextVar[list | None] = ContextVar('_draft_change_logs', default=None)
     
-    def __init__(self, learning_package_id, changed_by=None, changed_at=None):
+    def __init__(self, learning_package_id, changed_by=None, changed_at=None, exit_callbacks=None):
         super().__init__(using=None, savepoint=False, durable=False)
 
         self.learning_package_id = learning_package_id
         self.changed_by = changed_by
         self.changed_at = changed_at or datetime.now(tz=timezone.utc)
+        self.exit_callbacks = exit_callbacks or []
 
     @classmethod
     def get_active_draft_change_log(cls, learning_package_id: int) -> DraftChangeLog | None:
@@ -58,10 +59,10 @@ class DraftChangeLogContext(Atomic):
         modifies Drafts. If there is no active DraftChangeSet, this method will
         return None, and the caller should create their own DraftChangeSet.
         """
-        draft_change_sets = cls._draft_change_sets.get()
+        draft_change_logs = cls._draft_change_logs.get()
 
         # If we've never used this manager...
-        if draft_change_sets is None:
+        if draft_change_logs is None:
             return None
 
         # Otherwise, find the most recently created DraftChangeSet *that matches
@@ -76,9 +77,9 @@ class DraftChangeLogContext(Atomic):
         #    a performance penalty", as opposed to, "we accidentally gave you a
         #    DraftChangeSet for an entirely different LearningPackage, and now
         #    your Draft data is corrupted."
-        for draft_change_set in reversed(draft_change_sets):
-            if draft_change_set.learning_package_id == learning_package_id:
-                return draft_change_set
+        for draft_change_log in reversed(draft_change_logs):
+            if draft_change_log.learning_package_id == learning_package_id:
+                return draft_change_log
 
         # If we got here, then either the list was empty (the manager was used
         # at some point but exited), or none of the DraftChangeSets are for the
@@ -88,23 +89,26 @@ class DraftChangeLogContext(Atomic):
     def __enter__(self):
         super().__enter__()
 
-        self.draft_change_set = DraftChangeLog.objects.create(
+        self.draft_change_log = DraftChangeLog.objects.create(
             learning_package_id=self.learning_package_id,
             changed_by=self.changed_by,
             changed_at=self.changed_at,
         )
-        draft_change_sets = self._draft_change_sets.get()
+        draft_change_sets = self._draft_change_logs.get()
         if not draft_change_sets:
             draft_change_sets = []
-        draft_change_sets.append(self.draft_change_set)
-        self._draft_change_sets.set(draft_change_sets)
+        draft_change_sets.append(self.draft_change_log)
+        self._draft_change_logs.set(draft_change_sets)
 
-        return self.draft_change_set
+        return self.draft_change_log
 
     def __exit__(self, type, value, traceback):
-        draft_change_sets = self._draft_change_sets.get()
-        if draft_change_sets:
-            draft_change_sets.pop()
-        self._draft_change_sets.set(draft_change_sets)
+        draft_change_logs = self._draft_change_logs.get()
+        if draft_change_logs:
+            draft_change_log = draft_change_logs.pop()
+            for exit_callback in self.exit_callbacks:
+                exit_callback(draft_change_log)
+
+        self._draft_change_logs.set(draft_change_logs)
 
         return super().__exit__(type, value, traceback)
