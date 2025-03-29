@@ -4,11 +4,19 @@ Django admin for publishing models
 from __future__ import annotations
 
 from django.contrib import admin
+from django.db.models import Count
 
+from .models.publish_log import Published
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin, one_to_one_related_model_html
 
-from .models import LearningPackage, PublishableEntity, Published, PublishLog, PublishLogRecord
-
+from .models import (
+    DraftChangeLogRecord,
+    DraftChangeLog,
+    LearningPackage,
+    PublishableEntity,
+    PublishLog,
+    PublishLogRecord,
+)
 
 @admin.register(LearningPackage)
 class LearningPackageAdmin(ReadOnlyModelAdmin):
@@ -171,3 +179,66 @@ class PublishedAdmin(ReadOnlyModelAdmin):
 
     def message(self, published_obj):
         return published_obj.publish_log_record.publish_log.message
+
+
+class DraftChangeTabularInline(admin.TabularInline):
+    model = DraftChangeLogRecord
+
+    fields = (
+        "entity",
+        "title",
+        "old_version_num",
+        "new_version_num",
+    )
+    readonly_fields = fields
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related("entity", "old_version", "new_version") \
+                       .order_by("entity__key")
+
+    def old_version_num(self, draft_change: DraftChangeLogRecord):
+        if draft_change.old_version is None:
+            return "-"
+        return draft_change.old_version.version_num
+
+    def new_version_num(self, draft_change: DraftChangeLogRecord):
+        if draft_change.new_version is None:
+            return "-"
+        return draft_change.new_version.version_num
+
+    def title(self, draft_change: DraftChangeLogRecord):
+        """
+        Get the title to display for the DraftChange
+        """
+        if draft_change.new_version:
+            return draft_change.new_version.title
+        if draft_change.old_version:
+            return draft_change.old_version.title
+        return ""
+
+
+@admin.register(DraftChangeLog)
+class DraftChangeSetAdmin(ReadOnlyModelAdmin):
+    """
+    Read-only admin to view Draft changes (via inline tables)
+    """
+    inlines = [DraftChangeTabularInline]
+    fields = (
+        "uuid",
+        "learning_package",
+        "num_changes",
+        "changed_at",
+        "changed_by",
+    )
+    readonly_fields = fields
+    list_display = fields
+    list_filter = ["learning_package",]
+
+    def num_changes(self, draft_change_set):
+        return draft_change_set.num_changes
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related("learning_package", "changed_by") \
+                       .annotate(num_changes=Count("changes"))
