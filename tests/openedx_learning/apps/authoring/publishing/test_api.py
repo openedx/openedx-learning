@@ -11,8 +11,8 @@ from django.core.exceptions import ValidationError
 
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import (
-    Container,
     DraftChangeLog,
+    DraftSideEffect,
     LearningPackage,
     PublishableEntity, 
 )
@@ -630,7 +630,7 @@ class ContainerTestCase(TestCase):
             created=self.now,
             created_by=None,
         )
-        child_2_v1 = publishing_api.create_publishable_entity_version(
+        publishing_api.create_publishable_entity_version(
             child_2.id,
             version_num=1,
             title="Child 2 🌴",
@@ -676,6 +676,14 @@ class ContainerTestCase(TestCase):
         )
         assert container_change.old_version == container_v1.publishable_entity_version
         assert container_change.new_version == container_v1.publishable_entity_version
+
+        # Exactly one side-effect should have been created because we changed
+        # child_1 after it was part of a container.
+        side_effects = DraftSideEffect.objects.all()
+        assert side_effects.count() == 1
+        side_effect = side_effects.first()
+        assert side_effect.cause == child_1_change
+        assert side_effect.effect == container_change
 
 
     def test_bulk_parent_child_side_effects(self) -> None:
@@ -743,11 +751,23 @@ class ContainerTestCase(TestCase):
         child_1_change = last_change_log.changes.get(entity=child_1)
         assert child_1_change.old_version == None
         assert child_1_change.new_version == child_1_v2
-        
-        # The container should be here, but the versions should be the same for
-        # before and after:
+
+        child_2_change = last_change_log.changes.get(entity=child_2)
+        assert child_2_change.old_version == None
+        assert child_2_change.new_version == child_2_v1
+
         container_change = last_change_log.changes.get(
             entity=container.publishable_entity
         )
-        assert container_change.old_version == container_v1.publishable_entity_version
+        assert container_change.old_version == None
         assert container_change.new_version == container_v1.publishable_entity_version
+
+        # There are two side effects here, because we grouped our draft edits
+        # together using bulk_draft_changes_for, so changes to both children
+        # count towards side-effects on the container.
+        side_effects = DraftSideEffect.objects.all()
+        assert side_effects.count() == 2
+        caused_by_child_1 = side_effects.get(cause=child_1_change)
+        caused_by_child_2 = side_effects.get(cause=child_2_change)
+        assert caused_by_child_1.effect == container_change
+        assert caused_by_child_2.effect == container_change
