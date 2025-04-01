@@ -638,8 +638,8 @@ def _create_container_side_effects_for_draft_change(
         container_change, _created = DraftChangeLogRecord.objects.get_or_create(
             draft_change_log=change.draft_change_log,
             entity_id=container.pk,
-            old_version_id=container_draft_version_pk,
             defaults={
+                'old_version_id': container_draft_version_pk,
                 'new_version_id': container_draft_version_pk
             }
         )
