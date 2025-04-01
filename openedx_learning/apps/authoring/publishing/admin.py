@@ -241,4 +241,4 @@ class DraftChangeSetAdmin(ReadOnlyModelAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related("learning_package", "changed_by") \
-                       .annotate(num_changes=Count("changes"))
+                       .annotate(num_changes=Count("records"))
