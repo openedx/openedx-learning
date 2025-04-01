@@ -177,13 +177,13 @@ class DraftSideEffect(models.Model):
     simpler, so we don't have to differentiate between direct side-effects and
     transitive side-effects in the model.
 
-    Side-effects will also be be recorded for parent containers when children
-    change even if the container also changes at the same time. This is to make
-    it consistent so that every time a child changes it is reflected that it
-    affected the parent (was a child at that point in time), even if the parent
-    is also changing its own metadata in different ways. When we're doing this,
-    we only record side-effects from children if they are part of the new
-    version of the container. To give concrete examples:
+    We will record side-effects on a parent container whenever a child changes,
+    even if the parent container is also changing in the same DraftChangeLog.
+    The child change is still affecting the parent container, whether the
+    container happens to be changing for other reasons as well. Whether a parent
+    -child relationship exists or not depends on the draft state of the
+    container at the *end* of a bulk_draft_changes_for context. To give concrete
+    examples:
 
     Setup: A Unit version U1.v1 has defined C1 to be a child. The current draft
     version of C1 is C1.v1.
@@ -193,7 +193,10 @@ class DraftSideEffect(models.Model):
     - a DraftChangeLogRecord is created for C1.v1 -> C1.v2
     - a DraftChangeLogRecord is created for U1.v1 -> U1.v1
     - a DraftSideEffect is created with cause (C1.v1 -> C1.v2) and effect
-      (U1.v1 -> U1.v1)
+      (U1.v1 -> U1.v1). The Unit draft version has not been incremented because
+      the metadata a Unit defines for itself hasn't been altered, but the Unit
+      has *changed* in some way because of the side effect of its child being
+      edited. 
 
     Scenario 2: In a bulk_draft_changes_for context, we edit C1 so that the
     draft version of C1 is now C1.v2. In the same context, we edit U1's metadata
@@ -210,7 +213,9 @@ class DraftSideEffect(models.Model):
     - a DraftChangeLogRecord is created for C1.v1 -> C1.v2
     - a DraftChangeLogRecord is created for U1.v1 -> U1.v2
     - no SideEffect is created, since changing C1 does not have an impact on the
-      current draft of U1 (U1.v2).
+      current draft of U1 (U1.v2). A DraftChangeLog is considered a single
+      atomic operation, so there was never a point at which C1.v1 -> C1.v2
+      affected the draft state of U1.
     """
     cause = models.ForeignKey(
         DraftChangeLogRecord,
