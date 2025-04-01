@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('oel_publishing', '0003_containers'),
+        ('oel_publishing', '0004_publishableentity_can_stand_alone'),
     ]
 
     operations = [

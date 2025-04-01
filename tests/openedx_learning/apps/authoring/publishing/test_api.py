@@ -10,7 +10,12 @@ import pytest
 from django.core.exceptions import ValidationError
 
 from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntity, DraftChangeLog
+from openedx_learning.apps.authoring.publishing.models import (
+    Container,
+    DraftChangeLog,
+    LearningPackage,
+    PublishableEntity, 
+)
 from openedx_learning.lib.test_utils import TestCase
 
 
@@ -586,3 +591,163 @@ class DraftTestCase(TestCase):
         if draft_version is not None:
             return draft_version.version_num
         return None
+
+
+class ContainerTestCase(TestCase):
+    """
+    Test basic operations with Drafts.
+    """
+    now: datetime
+    learning_package: LearningPackage
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.now = datetime(2024, 1, 28, 16, 45, 30, tzinfo=timezone.utc)
+        cls.learning_package = publishing_api.create_learning_package(
+            "containers_package_key",
+            "Container Testing LearningPackage 🔥 1",
+            created=cls.now,
+        )
+
+    def test_parent_child_side_effects(self) -> None:
+        """Test that modifying a child has side-effects on its parent."""
+        child_1 = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "child_1",
+            created=self.now,
+            created_by=None, 
+        )
+        child_1_v1 = publishing_api.create_publishable_entity_version(
+            child_1.id,
+            version_num=1,
+            title="Child 1 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        child_2 = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "child_2",
+            created=self.now,
+            created_by=None,
+        )
+        child_2_v1 = publishing_api.create_publishable_entity_version(
+            child_2.id,
+            version_num=1,
+            title="Child 2 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        container = publishing_api.create_container(
+            self.learning_package.id,
+            "my_container",
+            created=self.now,
+            created_by=None,
+        )
+        container_v1 = publishing_api.create_container_version(
+            container.pk,
+            1,
+            title="My Container",
+            publishable_entities_pks=[child_1.id, child_2.id],
+            entity_version_pks=None,
+            created=self.now,
+            created_by=None,
+        )
+
+        # All this was just set up. Now that we have our container-child
+        # relationships, altering a child should add the parent container to
+        # the DraftChangeLog.
+        child_1_v2 = publishing_api.create_publishable_entity_version(
+            child_1.id,
+            version_num=2,
+            title="Child 1 v2",
+            created=self.now,
+            created_by=None,
+        )
+        last_change_log = DraftChangeLog.objects.order_by('-id').first()
+        assert last_change_log.changes.count() == 2
+        child_1_change = last_change_log.changes.get(entity=child_1)
+        assert child_1_change.old_version == child_1_v1
+        assert child_1_change.new_version == child_1_v2
+        
+        # The container should be here, but the versions should be the same for
+        # before and after:
+        container_change = last_change_log.changes.get(
+            entity=container.publishable_entity
+        )
+        assert container_change.old_version == container_v1.publishable_entity_version
+        assert container_change.new_version == container_v1.publishable_entity_version
+
+
+    def test_bulk_parent_child_side_effects(self) -> None:
+        """Test that modifying a child has side-effects on its parent. (bulk version)"""
+        with publishing_api.bulk_draft_changes_for(self.learning_package.id):
+            child_1 = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                "child_1",
+                created=self.now,
+                created_by=None, 
+            )
+            child_1_v1 = publishing_api.create_publishable_entity_version(
+                child_1.id,
+                version_num=1,
+                title="Child 1 🌴",
+                created=self.now,
+                created_by=None,
+            )
+            child_2 = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                "child_2",
+                created=self.now,
+                created_by=None,
+            )
+            child_2_v1 = publishing_api.create_publishable_entity_version(
+                child_2.id,
+                version_num=1,
+                title="Child 2 🌴",
+                created=self.now,
+                created_by=None,
+            )
+            container = publishing_api.create_container(
+                self.learning_package.id,
+                "my_container",
+                created=self.now,
+                created_by=None,
+            )
+            container_v1 = publishing_api.create_container_version(
+                container.pk,
+                1,
+                title="My Container",
+                publishable_entities_pks=[child_1.id, child_2.id],
+                entity_version_pks=None,
+                created=self.now,
+                created_by=None,
+            )
+
+            # All this was just set up. Now that we have our container-child
+            # relationships, altering a child should add the parent container to
+            # the DraftChangeLog.
+            child_1_v2 = publishing_api.create_publishable_entity_version(
+                child_1.id,
+                version_num=2,
+                title="Child 1 v2",
+                created=self.now,
+                created_by=None,
+            )
+
+        # Because we're doing it in bulk, there's only one DraftChangeLog entry.
+        assert DraftChangeLog.objects.count() == 1
+        last_change_log = DraftChangeLog.objects.first()
+        # There's only ever one change entry per publishable entity
+        assert last_change_log.changes.count() == 3
+
+        child_1_change = last_change_log.changes.get(entity=child_1)
+        assert child_1_change.old_version == None
+        assert child_1_change.new_version == child_1_v2
+        
+        # The container should be here, but the versions should be the same for
+        # before and after:
+        container_change = last_change_log.changes.get(
+            entity=container.publishable_entity
+        )
+        assert container_change.old_version == container_v1.publishable_entity_version
+        assert container_change.new_version == container_v1.publishable_entity_version
