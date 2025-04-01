@@ -771,3 +771,7 @@ class ContainerTestCase(TestCase):
         caused_by_child_2 = side_effects.get(cause=child_2_change)
         assert caused_by_child_1.effect == container_change
         assert caused_by_child_2.effect == container_change
+
+    def test_multiple_layers_of_containers(self):
+        """Test stacking containers three layers deep."""
+        pass
