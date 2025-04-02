@@ -6,8 +6,8 @@ from __future__ import annotations
 from django.contrib import admin
 from django.db.models import Count
 
-from .models.publish_log import Published
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin, one_to_one_related_model_html
+from .models.publish_log import Published
 
 from .models import (
     DraftChangeLogRecord,
@@ -181,7 +181,10 @@ class PublishedAdmin(ReadOnlyModelAdmin):
         return published_obj.publish_log_record.publish_log.message
 
 
-class DraftChangeTabularInline(admin.TabularInline):
+class DraftChangeLogRecordTabularInline(admin.TabularInline):
+    """
+    Tabular inline for a single Draft change.
+    """
     model = DraftChangeLogRecord
 
     fields = (
@@ -223,7 +226,7 @@ class DraftChangeSetAdmin(ReadOnlyModelAdmin):
     """
     Read-only admin to view Draft changes (via inline tables)
     """
-    inlines = [DraftChangeTabularInline]
+    inlines = [DraftChangeLogRecordTabularInline]
     fields = (
         "uuid",
         "learning_package",

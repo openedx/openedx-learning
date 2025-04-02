@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from functools import singledispatch
-from typing import TypeVar
+from typing import ContextManager, TypeVar
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
@@ -488,7 +488,7 @@ def set_draft_version(
     """
     if set_at is None:
         set_at = datetime.now(tz=timezone.utc)
-    
+
     tx_context = atomic() if create_transaction else nullcontext()
 
     with tx_context:
@@ -533,7 +533,7 @@ def set_draft_version(
                 entity_id=draft.entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
-            )    
+            )
             _create_container_side_effects_for_draft_change(change)
 
 
@@ -568,12 +568,24 @@ def _add_to_existing_draft_change_log(
     old_version_id: int | None,
     new_version_id: int | None,
 ) -> DraftChangeLogRecord:
-    # If we get here, it means there is an active DraftChangeLog that may
-    # have many DraftChanges associated with it. A DraftChangeLog can only
-    # have one DraftChangeLogRecordper PublishableEntity, e.g. the same Component
-    # can't go from v1 to v3 and v1 to v4 in the same DraftChangeLog.
+    """
+    Create or update a DraftChangeLogRecord for the active_change_log passed in.
+
+    The an active_change_log may have many DraftChangeLogRecords already
+    associated with it. A DraftChangeLog can only have one DraftChangeLogRecord
+    per PublishableEntity, e.g. the same Component can't go from v1 to v2 and v2
+    to v3 in the same DraftChangeLog. The DraftChangeLogRecord is meant to
+    capture the before and after states of the Draft version for that entity,
+    so we always keep the first value for old_version, while updating to the
+    most recent value for new_version.
+
+    So for example, if we called this function with the same active_change_log
+    and the same entity_id but with versions: (None, v1), (v1, v2), (v2, v3);
+    we would collapse them into one DraftChangeLogrecord with old_version = None
+    and new_version = v3.
+    """
     try:
-        # If there was already a DraftChangeLogRecordfor this PublishableEntity,
+        # If there is already a DraftChangeLogRecord for this PublishableEntity,
         # we update the new_version_id. We keep the old_version_id value
         # though, because that represents what it was before this
         # DraftChangeLog, and we don't want to lose that information.
@@ -584,8 +596,8 @@ def _add_to_existing_draft_change_log(
         change.new_version_id = new_version_id
         change.save()
     except DraftChangeLogRecord.DoesNotExist:
-        # If we're here, this is the first DraftChangeLogRecordwe're making for
-        # this PublishableEntity in the active DraftChangeLog. 
+        # If we're here, this is the first DraftChangeLogRecord we're making for
+        # this PublishableEntity in the active DraftChangeLog.
         change = DraftChangeLogRecord.objects.create(
             draft_change_log=active_change_log,
             entity_id=entity_id,
@@ -596,8 +608,11 @@ def _add_to_existing_draft_change_log(
     return change
 
 
-def _create_container_side_effects_for_draft_change_log(change_log: DraftChangeLogRecord):
-    processed_entity_ids = set()
+def _create_container_side_effects_for_draft_change_log(change_log: DraftChangeLog):
+    """
+    Iterate through the whole DraftChangeLog and process side-effects.
+    """
+    processed_entity_ids: set[int] = set()
     for change in change_log.records.all():
         _create_container_side_effects_for_draft_change(
             change,
@@ -740,6 +755,7 @@ def reset_drafts_to_published(
 
     # If there's an active DraftChangeLog, we're already in a transaction, so
     # there's no need to open a new one.
+    tx_context: ContextManager
     if active_change_log:
         tx_context = nullcontext()
     else:
@@ -1385,7 +1401,7 @@ def get_container_children_count(
     return container_version.entity_list.entitylistrow_set.filter(**filter_deleted).count()
 
 
-def bulk_draft_changes_for(learning_package_id: int, changed_by=None, changed_at=None) -> DraftChangeLog:
+def bulk_draft_changes_for(learning_package_id: int, changed_by=None, changed_at=None) -> DraftChangeLogContext:
     """
     Context manager to do a single batch of Draft changes in.
     """
