@@ -87,27 +87,97 @@ class DraftChangeLog(models.Model):
 
 class DraftChangeLogRecord(models.Model):
     """
-    A single change in the Draft version of a Publishable Entity.
+    A single change in the PublishableEntity that Draft points to.
 
-    We have one unusual convention here, which is that if we have a
-    DraftChangeLogRecord where the old_version == new_version, it means that a
-    Draft's defined version hasn't changed, but the data associated with the
-    Draft has changed because some other entity has changed.
+    Within a single DraftChangeLog, there can be only one DraftChangeLogRecord
+    per PublishableEntity. If a PublishableEntity goes from v1 -> v2 and then v2
+    -> v3 within the same DraftChangeLog, the expectation is that these will be
+    collapsed into one DraftChangeLogRecord that goes from v1 -> v3. A single
+    PublishableEntity may have many DraftChangeLogRecords that describe its full
+    draft edit history, but each DraftChangeLogRecord will be a part of a
+    different DraftChangeLog.
 
-    The main example we have of this are containers. Imagine that we have a
-    Unit that is at version 1, and has unpinned references to various Components
-    that are its children. The Unit's version does not get incremented when the
-    Components are edited, because the Unit container is defined to always get
-    the most recent version of those Components. We would only make a new
-    version of the Unit if we changed the metadata of the Unit itself (e.g. the
-    title), or if we added, removed, or reordered the children.
+    New PublishableEntityVersions are created with a monotonically increasing
+    version_num for their PublishableEntity. However, knowing that is not enough
+    to accurately reconstruct how the Draft changes over time because the Draft
+    does not always point to the most recently created PublishableEntityVersion.
+    We also have the concept of side-effects, where we consider a
+    PublishableEntity to have changed in some way, even if no new version is
+    explicitly created.
 
-    Yet updating a Component intuitively changes what we think of as the content
-    of the Unit. Users who are working on Units also expect that a change to a
-    Component will be reflected when looking at a Unit's "last updated" info.
-    The old_version == new_version convention lets us represent that in a useful
-    way because that Unit *is* a part of the change set represented by a
-    DraftChangeLog, even if its own versioned data hasn't changed.
+    The following scenarios may occur:
+
+    Scenario 1: old_version is None, new_version.version_num = 1
+
+      This is the common case when we're creating the first version for editing.
+
+    Scenario 2: old_version.version_num + 1 == new_version.version_num
+
+      This is the common case when we've made an edit to something, which
+      creates the next version of an entity, which we then point the Draft at.
+
+    Scenario 3: old_version.version_num >=1, new_version is None
+
+      This is a soft-deletion. We never actually delete a row from the
+      PublishableEntity model, but set its current Draft version to be None
+      instead.
+
+    Scenario 4: old_version.version_num > new_version.version_num
+
+      This can happen if we "discard changes", meaning that we call
+      reset_drafts_to_published(). The versions we created before resetting
+      don't get deleted, but the Draft model's pointer to the current version
+      has been reset to match the Published model.
+
+    Scenario 5: old_version.version_num <<< new_version.version_num
+
+      Sometimes we'll have a gap between the two version numbers that is > 1.
+      This can happen if we make edits (new versions) after we called
+      reset_drafts_to_published. PublishableEntityVersions are created with a
+      monotonically incrementing version_num which will continue to go up with
+      the next edit, regardless of whether Draft is pointing to the most
+      recently created version or not. In terms of (old_version, new version)
+      changes, it could look like this:
+
+      - (None, v1): Initial creation
+      - # Publish happens here, so v1 of this PublishableEntity is published.
+      - (v1, v2): Normal edit in draft
+      - (v2, v3): Normal edit in draft
+      - (v3, v1): Reset to published happened here.
+      - (v1, v4): Normal edit in draft
+
+      This could also technically happen if we change the same entity more than
+      once in the the same bulk_draft_changes_for() context, thereby putting
+      them into the same DraftChangeLog, which forces us to squash the changes
+      together into one DraftChangeLogRecord.
+
+    Scenario 6: old_version is None, new_version > 1
+
+      This edge case can happen if we soft-deleted a published entity, and then
+      called reset_drafts_to_published before we published that soft-deletion.
+      It would effectively undo our soft-delete because the published version
+      was not yet marked as deleted.
+
+    Scenario 7: old_version == new_version
+
+      This means that the data associated with the Draft version of an entity
+      has changed purely as a side-effect of some other entity changing.
+
+      The main example we have of this are containers. Imagine that we have a
+      Unit that is at v1, and has unpinned references to various Components that
+      are its children. The Unit's version does not get incremented when the
+      Components are edited, because the Unit container is defined to always get
+      the most recent version of those Components. We would only make a new
+      version of the Unit if we changed the metadata of the Unit itself (e.g.
+      the title), or if we added, removed, or reordered the children.
+
+      Yet updating a Component intuitively changes what we think of as the
+      content of the Unit. Users who are working on Units also expect that a
+      change to a Component will be reflected when looking at a Unit's
+      "last updated" info. The old_version == new_version convention lets us
+      represent that in a useful way because that Unit *is* a part of the change
+      set represented by a DraftChangeLog, even if its own versioned data hasn't
+      changed.
     """
     draft_change_log = models.ForeignKey(
         DraftChangeLog,
