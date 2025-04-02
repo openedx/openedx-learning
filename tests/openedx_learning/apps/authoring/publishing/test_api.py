@@ -14,7 +14,7 @@ from openedx_learning.apps.authoring.publishing.models import (
     DraftChangeLog,
     DraftSideEffect,
     LearningPackage,
-    PublishableEntity, 
+    PublishableEntity,
 )
 from openedx_learning.lib.test_utils import TestCase
 
@@ -615,7 +615,7 @@ class ContainerTestCase(TestCase):
             self.learning_package.id,
             "child_1",
             created=self.now,
-            created_by=None, 
+            created_by=None,
         )
         child_1_v1 = publishing_api.create_publishable_entity_version(
             child_1.id,
@@ -668,7 +668,7 @@ class ContainerTestCase(TestCase):
         child_1_change = last_change_log.records.get(entity=child_1)
         assert child_1_change.old_version == child_1_v1
         assert child_1_change.new_version == child_1_v2
-        
+
         # The container should be here, but the versions should be the same for
         # before and after:
         container_change = last_change_log.records.get(
@@ -693,9 +693,9 @@ class ContainerTestCase(TestCase):
                 self.learning_package.id,
                 "child_1",
                 created=self.now,
-                created_by=None, 
+                created_by=None,
             )
-            child_1_v1 = publishing_api.create_publishable_entity_version(
+            publishing_api.create_publishable_entity_version(
                 child_1.id,
                 version_num=1,
                 title="Child 1 🌴",
@@ -749,17 +749,17 @@ class ContainerTestCase(TestCase):
         assert last_change_log.records.count() == 3
 
         child_1_change = last_change_log.records.get(entity=child_1)
-        assert child_1_change.old_version == None
+        assert child_1_change.old_version is None
         assert child_1_change.new_version == child_1_v2
 
         child_2_change = last_change_log.records.get(entity=child_2)
-        assert child_2_change.old_version == None
+        assert child_2_change.old_version is None
         assert child_2_change.new_version == child_2_v1
 
         container_change = last_change_log.records.get(
             entity=container.publishable_entity
         )
-        assert container_change.old_version == None
+        assert container_change.old_version is None
         assert container_change.new_version == container_v1.publishable_entity_version
 
         # There are two side effects here, because we grouped our draft edits
@@ -774,4 +774,3 @@ class ContainerTestCase(TestCase):
 
     def test_multiple_layers_of_containers(self):
         """Test stacking containers three layers deep."""
-        pass

@@ -1,3 +1,9 @@
+"""
+Context Managers for internal use in the publishing app.
+
+Do not use this directly outside the publishing app. Use the public API's
+bulk_draft_changes_for instead (which will invoke this internally).
+"""
 from contextvars import ContextVar
 from datetime import datetime, timezone
 
@@ -43,15 +49,18 @@ class DraftChangeLogContext(Atomic):
     an atomic operation. 
     """
     _draft_change_logs: ContextVar[list | None] = ContextVar('_draft_change_logs', default=None)
-    
+
     def __init__(self, learning_package_id, changed_at=None, changed_by=None, exit_callbacks=None):
         super().__init__(using=None, savepoint=False, durable=False)
 
         self.learning_package_id = learning_package_id
         self.changed_by = changed_by
         self.changed_at = changed_at or datetime.now(tz=timezone.utc)
-        
-        # We currently use self.exit_callbacks as a way to ruh parent/child
+
+        # This will get properly initialized on __enter__()
+        self.draft_change_log = None
+
+        # We currently use self.exit_callbacks as a way to run parent/child
         # side-effect creation. DraftChangeLogContext itself is a lower-level
         # part of the code that doesn't understand what containers are.
         self.exit_callbacks = exit_callbacks or []
@@ -93,6 +102,11 @@ class DraftChangeLogContext(Atomic):
         return None
 
     def __enter__(self):
+        """
+        Enter our context.
+
+        This starts the transaction and sets up our active DraftChangeLog.
+        """
         super().__enter__()
 
         self.draft_change_log = DraftChangeLog.objects.create(
@@ -108,7 +122,14 @@ class DraftChangeLogContext(Atomic):
 
         return self.draft_change_log
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):
+        """
+        Exit our context.
+
+        Pops the active DraftChangeLog off of our stack and run any
+        post-processing callbacks needed. This callback mechanism is how child-
+        parent side-effects are calculated.
+        """
         draft_change_logs = self._draft_change_logs.get()
         if draft_change_logs:
             draft_change_log = draft_change_logs.pop()
@@ -117,4 +138,4 @@ class DraftChangeLogContext(Atomic):
 
         self._draft_change_logs.set(draft_change_logs)
 
-        return super().__exit__(type, value, traceback)
+        return super().__exit__(exc_type, exc_value, traceback)

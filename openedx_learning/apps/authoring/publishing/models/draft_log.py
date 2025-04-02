@@ -59,10 +59,16 @@ class DraftChangeLog(models.Model):
     """
     There is one row in this table for every time Drafts are created/modified.
 
-    Most of the time we'll only be changing one Draft at a time, and this will
-    be 1:1 with DraftChangeLogRecord. But there are some operations that affect
-    many Drafts at once, such as discarding changes (i.e. reset to the published
-    version) or doing an import.
+    There are some operations that affect many Drafts at once, such as
+    discarding changes (i.e. reset to the published versions) or doing an
+    import. These would be represented by one DraftChangeLog with many
+    DraftChangeLogRecords in it--one DraftChangeLogRecord for every
+    PublishableEntity that was modified.
+
+    Even if we're only directly changing the draft version of one
+    PublishableEntity, we will get multiple DraftChangeLogRecords if changing
+    that entity causes side-effects. See the docstrings for DraftChangeLogRecord
+    and DraftSideEffect for more details.
     """
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
@@ -75,8 +81,8 @@ class DraftChangeLog(models.Model):
     )
 
     class Meta:
-        verbose_name = "Draft Change Log"
-        verbose_name_plural = "Draft Change Logs"
+        verbose_name = _("Draft Change Log")
+        verbose_name_plural = _("Draft Change Logs")
 
 
 class DraftChangeLogRecord(models.Model):
@@ -84,7 +90,7 @@ class DraftChangeLogRecord(models.Model):
     A single change in the Draft version of a Publishable Entity.
 
     We have one unusual convention here, which is that if we have a
-    DraftChangeLogRecord where the old_version == new_version, it means that a 
+    DraftChangeLogRecord where the old_version == new_version, it means that a
     Draft's defined version hasn't changed, but the data associated with the
     Draft has changed because some other entity has changed.
 
@@ -143,8 +149,8 @@ class DraftChangeLogRecord(models.Model):
                 name="oel_dlr_idx_entity_rdcl",
             ),
         ]
-        verbose_name = "Draft Log"
-        verbose_name_plural = "Draft Log"
+        verbose_name = _("Draft Change Log Record")
+        verbose_name_plural = _("Draft Change Log Records")
 
 
 class DraftSideEffect(models.Model):
@@ -186,7 +192,7 @@ class DraftSideEffect(models.Model):
       (U1.v1 -> U1.v1). The Unit draft version has not been incremented because
       the metadata a Unit defines for itself hasn't been altered, but the Unit
       has *changed* in some way because of the side effect of its child being
-      edited. 
+      edited.
 
     Scenario 2: In a bulk_draft_changes_for context, we edit C1 so that the
     draft version of C1 is now C1.v2. In the same context, we edit U1's metadata
@@ -221,9 +227,11 @@ class DraftSideEffect(models.Model):
     class Meta:
         constraints = [
             # Duplicate entries for cause & effect are just redundant. This is
-            # here to guard against weird bugs that might introduce this state. 
+            # here to guard against weird bugs that might introduce this state.
             models.UniqueConstraint(
                 fields=["cause", "effect"],
                 name="oel_pub_dse_uniq_c_e",
             )
         ]
+        verbose_name = _("Draft Side Effect")
+        verbose_name_plural = _("Draft Side Effects")
