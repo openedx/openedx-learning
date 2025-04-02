@@ -163,7 +163,7 @@ class DraftTestCase(TestCase):
             )
         draft_sets = list(DraftChangeLog.objects.all())
         assert len(draft_sets) == 1
-        assert len(draft_sets[0].changes.all()) == 2
+        assert len(draft_sets[0].records.all()) == 2
 
         # Now that we're outside of the context manager, check that we're making
         # a new DraftChangeSet...
@@ -182,7 +182,7 @@ class DraftTestCase(TestCase):
         )
         draft_sets = list(DraftChangeLog.objects.all().order_by('id'))
         assert len(draft_sets) == 2
-        assert len(draft_sets[1].changes.all()) == 1
+        assert len(draft_sets[1].records.all()) == 1
 
     def test_nested_draft_changesets(self) -> None:
         pass
@@ -214,7 +214,7 @@ class DraftTestCase(TestCase):
             )
         draft_sets = list(DraftChangeLog.objects.all().order_by('id'))
         assert len(draft_sets) == 1
-        changes = list(draft_sets[0].changes.all())
+        changes = list(draft_sets[0].records.all())
         assert len(changes) == 1
         assert changes[0].old_version is None
         assert changes[0].new_version.version_num == 2
@@ -664,14 +664,14 @@ class ContainerTestCase(TestCase):
             created_by=None,
         )
         last_change_log = DraftChangeLog.objects.order_by('-id').first()
-        assert last_change_log.changes.count() == 2
-        child_1_change = last_change_log.changes.get(entity=child_1)
+        assert last_change_log.records.count() == 2
+        child_1_change = last_change_log.records.get(entity=child_1)
         assert child_1_change.old_version == child_1_v1
         assert child_1_change.new_version == child_1_v2
         
         # The container should be here, but the versions should be the same for
         # before and after:
-        container_change = last_change_log.changes.get(
+        container_change = last_change_log.records.get(
             entity=container.publishable_entity
         )
         assert container_change.old_version == container_v1.publishable_entity_version
@@ -746,17 +746,17 @@ class ContainerTestCase(TestCase):
         assert DraftChangeLog.objects.count() == 1
         last_change_log = DraftChangeLog.objects.first()
         # There's only ever one change entry per publishable entity
-        assert last_change_log.changes.count() == 3
+        assert last_change_log.records.count() == 3
 
-        child_1_change = last_change_log.changes.get(entity=child_1)
+        child_1_change = last_change_log.records.get(entity=child_1)
         assert child_1_change.old_version == None
         assert child_1_change.new_version == child_1_v2
 
-        child_2_change = last_change_log.changes.get(entity=child_2)
+        child_2_change = last_change_log.records.get(entity=child_2)
         assert child_2_change.old_version == None
         assert child_2_change.new_version == child_2_v1
 
-        container_change = last_change_log.changes.get(
+        container_change = last_change_log.records.get(
             entity=container.publishable_entity
         )
         assert container_change.old_version == None

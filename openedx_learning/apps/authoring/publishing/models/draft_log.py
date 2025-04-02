@@ -60,8 +60,8 @@ class DraftChangeLog(models.Model):
     There is one row in this table for every time Drafts are created/modified.
 
     Most of the time we'll only be changing one Draft at a time, and this will
-    be 1:1 with DraftChange. But there are some operations that affect many
-    Drafts at once, such as discarding changes (i.e. reset to the published
+    be 1:1 with DraftChangeLogRecord. But there are some operations that affect
+    many Drafts at once, such as discarding changes (i.e. reset to the published
     version) or doing an import.
     """
     uuid = immutable_uuid_field()
@@ -73,16 +73,6 @@ class DraftChangeLog(models.Model):
         null=True,
         blank=True,
     )
-
-    @property
-    def changes(self):
-        """
-        Alias for "records".
-
-        We use "records" for consistency with PublishLogRecord, but somteimes
-        it's more natural to call these "changes".
-        """
-        return self.records
 
     class Meta:
         verbose_name = "Draft Change Log"

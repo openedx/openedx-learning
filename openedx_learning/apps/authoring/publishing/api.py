@@ -476,7 +476,7 @@ def set_draft_version(
     from Studio's editing point of view (see ``soft_delete_draft`` for more
     details).
 
-    Calling this function attaches a new DraftChange and attaches it to a
+    Calling this function attaches a new DraftChangeLogRecordand attaches it to a
     DraftChangeLog.
 
     This function will create DraftSideEffect entries and properly add any
@@ -570,10 +570,10 @@ def _add_to_existing_draft_change_log(
 ) -> DraftChangeLogRecord:
     # If we get here, it means there is an active DraftChangeLog that may
     # have many DraftChanges associated with it. A DraftChangeLog can only
-    # have one DraftChange per PublishableEntity, e.g. the same Component
+    # have one DraftChangeLogRecordper PublishableEntity, e.g. the same Component
     # can't go from v1 to v3 and v1 to v4 in the same DraftChangeLog.
     try:
-        # If there was already a DraftChange for this PublishableEntity,
+        # If there was already a DraftChangeLogRecordfor this PublishableEntity,
         # we update the new_version_id. We keep the old_version_id value
         # though, because that represents what it was before this
         # DraftChangeLog, and we don't want to lose that information.
@@ -584,7 +584,7 @@ def _add_to_existing_draft_change_log(
         change.new_version_id = new_version_id
         change.save()
     except DraftChangeLogRecord.DoesNotExist:
-        # If we're here, this is the first DraftChange we're making for
+        # If we're here, this is the first DraftChangeLogRecordwe're making for
         # this PublishableEntity in the active DraftChangeLog. 
         change = DraftChangeLogRecord.objects.create(
             draft_change_log=active_change_log,
@@ -598,7 +598,7 @@ def _add_to_existing_draft_change_log(
 
 def _create_container_side_effects_for_draft_change_log(change_log: DraftChangeLogRecord):
     processed_entity_ids = set()
-    for change in change_log.changes.all():
+    for change in change_log.records.all():
         _create_container_side_effects_for_draft_change(
             change,
             processed_entity_ids=processed_entity_ids,
