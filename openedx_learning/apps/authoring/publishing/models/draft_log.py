@@ -129,7 +129,7 @@ class DraftChangeLogRecord(models.Model):
       don't get deleted, but the Draft model's pointer to the current version
       has been reset to match the Published model.
 
-    Scenario 5: old_version.version_num <<< new_version.version_num
+    Scenario 5: old_version.version_num + 1 < new_version.version_num
 
       Sometimes we'll have a gap between the two version numbers that is > 1.
       This can happen if we make edits (new versions) after we called
