@@ -692,7 +692,6 @@ class ContainerTestCase(TestCase):
         assert side_effect.cause == child_1_change
         assert side_effect.effect == container_change
 
-
     def test_bulk_parent_child_side_effects(self) -> None:
         """Test that modifying a child has side-effects on its parent. (bulk version)"""
         with publishing_api.bulk_draft_changes_for(self.learning_package.id):

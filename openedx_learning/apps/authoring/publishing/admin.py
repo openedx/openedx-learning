@@ -18,6 +18,7 @@ from .models import (
     PublishLogRecord,
 )
 
+
 @admin.register(LearningPackage)
 class LearningPackageAdmin(ReadOnlyModelAdmin):
     """
@@ -236,7 +237,7 @@ class DraftChangeSetAdmin(ReadOnlyModelAdmin):
     )
     readonly_fields = fields
     list_display = fields
-    list_filter = ["learning_package",]
+    list_filter = ["learning_package"]
 
     def num_changes(self, draft_change_set):
         return draft_change_set.num_changes
