@@ -20,7 +20,7 @@ class DraftChangeLogContext(Atomic):
     should use the bulk_draft_changes_for() API call instead of using this
     manager directly, since this is a bit experimental and the implementation
     may shift around a bit.
-    
+
     The main idea is that we want to create a context manager that will keep
     track of what the "active" DraftChangeChangeLogs is for a given
     LearningPackage. The problem is that declaring the context can happen many
@@ -46,7 +46,7 @@ class DraftChangeLogContext(Atomic):
 
     DraftChangeLogContext also subclasses Django's Atomic context manager, since
     any operation on multiple Drafts as part of a DraftChangeLog will want to be
-    an atomic operation. 
+    an atomic operation.
     """
     _draft_change_logs: ContextVar[list | None] = ContextVar('_draft_change_logs', default=None)
 
