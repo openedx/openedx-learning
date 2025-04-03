@@ -7,16 +7,16 @@ from django.contrib import admin
 from django.db.models import Count
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin, one_to_one_related_model_html
-from .models.publish_log import Published
 
 from .models import (
-    DraftChangeLogRecord,
     DraftChangeLog,
+    DraftChangeLogRecord,
     LearningPackage,
     PublishableEntity,
     PublishLog,
     PublishLogRecord,
 )
+from .models.publish_log import Published
 
 
 @admin.register(LearningPackage)
