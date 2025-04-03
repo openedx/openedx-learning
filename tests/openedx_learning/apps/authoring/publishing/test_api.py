@@ -11,6 +11,8 @@ from django.core.exceptions import ValidationError
 
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import (
+    Container,
+    ContainerVersion,
     DraftChangeLog,
     DraftSideEffect,
     LearningPackage,
@@ -118,6 +120,7 @@ class DraftTestCase(TestCase):
     """
     now: datetime
     learning_package_1: LearningPackage
+    learning_package_2: LearningPackage
 
     @classmethod
     def setUpTestData(cls) -> None:
@@ -216,8 +219,10 @@ class DraftTestCase(TestCase):
         assert len(draft_sets) == 1
         changes = list(draft_sets[0].records.all())
         assert len(changes) == 1
-        assert changes[0].old_version is None
-        assert changes[0].new_version.version_num == 2
+        change = changes[0]
+        assert change.old_version is None
+        assert change.new_version is not None
+        assert change.new_version.version_num == 2
 
     def test_draft_lifecycle(self) -> None:
         """
@@ -637,13 +642,13 @@ class ContainerTestCase(TestCase):
             created=self.now,
             created_by=None,
         )
-        container = publishing_api.create_container(
+        container: Container = publishing_api.create_container(
             self.learning_package.id,
             "my_container",
             created=self.now,
             created_by=None,
         )
-        container_v1 = publishing_api.create_container_version(
+        container_v1: ContainerVersion = publishing_api.create_container_version(
             container.pk,
             1,
             title="My Container",
@@ -664,6 +669,7 @@ class ContainerTestCase(TestCase):
             created_by=None,
         )
         last_change_log = DraftChangeLog.objects.order_by('-id').first()
+        assert last_change_log is not None
         assert last_change_log.records.count() == 2
         child_1_change = last_change_log.records.get(entity=child_1)
         assert child_1_change.old_version == child_1_v1
@@ -682,6 +688,7 @@ class ContainerTestCase(TestCase):
         side_effects = DraftSideEffect.objects.all()
         assert side_effects.count() == 1
         side_effect = side_effects.first()
+        assert side_effect is not None
         assert side_effect.cause == child_1_change
         assert side_effect.effect == container_change
 
@@ -715,13 +722,13 @@ class ContainerTestCase(TestCase):
                 created=self.now,
                 created_by=None,
             )
-            container = publishing_api.create_container(
+            container: Container = publishing_api.create_container(
                 self.learning_package.id,
                 "my_container",
                 created=self.now,
                 created_by=None,
             )
-            container_v1 = publishing_api.create_container_version(
+            container_v1: ContainerVersion = publishing_api.create_container_version(
                 container.pk,
                 1,
                 title="My Container",
@@ -745,6 +752,7 @@ class ContainerTestCase(TestCase):
         # Because we're doing it in bulk, there's only one DraftChangeLog entry.
         assert DraftChangeLog.objects.count() == 1
         last_change_log = DraftChangeLog.objects.first()
+        assert last_change_log is not None
         # There's only ever one change entry per publishable entity
         assert last_change_log.records.count() == 3
 

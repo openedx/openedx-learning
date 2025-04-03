@@ -460,6 +460,24 @@ def get_published_version(publishable_entity_id: int, /) -> PublishableEntityVer
 
 @singledispatch
 def set_draft_version(
+    arg: object,
+    publishable_entity_version_pk: int | None,
+    /,
+    set_at: datetime | None = None,
+    set_by: int | None = None,  # User.id
+    create_transaction: bool = True,
+) -> None:
+    """
+    The fallback for singledispatch is supposed to take a superclass of the
+    different registered versions (Draft and int in this case). This is that
+    fallback, but the "real" implementation is the Draft-registered version
+    below.
+    """
+    raise NotImplementedError()
+
+
+@set_draft_version.register(Draft)
+def _(
     draft: Draft,
     publishable_entity_version_pk: int | None,
     /,
