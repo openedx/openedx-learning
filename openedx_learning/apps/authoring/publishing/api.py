@@ -17,15 +17,13 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
 from django.db.transaction import atomic
 
-from .models.publish_log import Published
-
 from .contextmanagers import DraftChangeLogContext
 from .models import (
     Container,
     ContainerVersion,
     Draft,
-    DraftChangeLogRecord,
     DraftChangeLog,
+    DraftChangeLogRecord,
     DraftSideEffect,
     EntityList,
     EntityListRow,
@@ -38,6 +36,7 @@ from .models import (
     PublishLog,
     PublishLogRecord,
 )
+from .models.publish_log import Published
 
 # A few of the APIs in this file are generic and can be used for Containers in
 # general, or e.g. Units (subclass of Container) in particular. These type
