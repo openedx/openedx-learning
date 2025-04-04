@@ -663,7 +663,7 @@ def _create_container_side_effects_for_draft_change(
     This should only be run after the DraftChangeLogRecord has been otherwise
     fully written out. We want to avoid the scenario where we create a
     side-effect that a Component change affects a Unit if the Unit version is
-    also changed in the same DraftChangeLog.
+    also changed (maybe even deleted) in the same DraftChangeLog.
 
     The `processed_entity_ids` set holds the entity IDs that we've already
     calculated side-effects for. This is to save us from recalculating side-
@@ -676,6 +676,7 @@ def _create_container_side_effects_for_draft_change(
     calls. We should measure the impact of this.
     """
     if processed_entity_ids is None:
+        # An optimization, but also a guard against infinite side-effect loops.
         processed_entity_ids = set()
 
     changes_and_containers = [
