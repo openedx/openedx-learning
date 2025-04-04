@@ -232,7 +232,6 @@ def create_publishable_entity_version(
             version.id,
             set_at=created,
             set_by=created_by,
-            create_transaction=False,
         )
 
     return version
@@ -464,7 +463,6 @@ def set_draft_version(
     /,
     set_at: datetime | None = None,
     set_by: int | None = None,  # User.id
-    create_transaction: bool = True,
 ) -> None:
     """
     The fallback for singledispatch is supposed to take a superclass of the
@@ -482,7 +480,6 @@ def _(
     /,
     set_at: datetime | None = None,
     set_by: int | None = None,  # User.id
-    create_transaction: bool = True,
 ) -> None:
     """
     Modify the Draft of a PublishableEntity to be a PublishableEntityVersion.
@@ -506,19 +503,24 @@ def _(
     if set_at is None:
         set_at = datetime.now(tz=timezone.utc)
 
-    tx_context = atomic() if create_transaction else nullcontext()
+    # If the Draft is already pointing at this version, there's nothing to do.
+    old_version_id = draft.version_id
+    if old_version_id == publishable_entity_version_pk:
+        return
 
-    with tx_context:
-        old_version_id = draft.version_id
+    with atomic(savepoint=False):
+        # The actual update of the Draft model is here. Everything after this
+        # block is bookkeeping in our DraftChangeLog.
         draft.version_id = publishable_entity_version_pk
         draft.save()
-
-        learning_package_id = draft.entity.learning_package_id
 
         # Check to see if we're inside a context manager for an active
         # DraftChangeLog (i.e. what happens if the caller is using the public
         # bulk_draft_changes_for() API call), or if we have to make our own.
-        active_change_log = DraftChangeLogContext.get_active_draft_change_log(learning_package_id)
+        learning_package_id = draft.entity.learning_package_id
+        active_change_log = DraftChangeLogContext.get_active_draft_change_log(
+            learning_package_id
+        )
         change_log = active_change_log or DraftChangeLog.objects.create(
             learning_package_id=learning_package_id,
             changed_at=set_at,
@@ -561,13 +563,11 @@ def _(
     /,
     set_at: datetime | None = None,
     set_by: int | None = None,  # User.id
-    create_transaction: bool = True,
 ) -> None:
     """
     Alias for set_draft_version taking PublishableEntity.id instead of a Draft.
     """
-    tx_context = atomic() if create_transaction else nullcontext()
-    with tx_context:
+    with atomic(savepoint=False):
         draft, _created = Draft.objects.select_related("entity") \
                                         .get_or_create(entity_id=publishable_entity_id)
         set_draft_version(
@@ -575,7 +575,6 @@ def _(
             publishable_entity_version_pk,
             set_at=set_at,
             set_by=set_by,
-            create_transaction=False,
         )
 
 
@@ -602,16 +601,33 @@ def _add_to_existing_draft_change_log(
     and new_version = v3.
     """
     try:
-        # If there is already a DraftChangeLogRecord for this PublishableEntity,
-        # we update the new_version_id. We keep the old_version_id value
-        # though, because that represents what it was before this
-        # DraftChangeLog, and we don't want to lose that information.
+        # Check to see if this PublishableEntity has already been changed in
+        # this DraftChangeLog. If so, we update that record instead of creating
+        # a new one.
         change = DraftChangeLogRecord.objects.get(
             draft_change_log=active_change_log,
             entity_id=entity_id,
         )
-        change.new_version_id = new_version_id
-        change.save()
+        if change.old_version_id == new_version_id:
+            # Special case: This change undoes the previous change(s). The value
+            # in change.old_version_id represents the Draft version before the
+            # DraftChangeLog was started, regardless of how many times we've
+            # changed it since we entered the bulk_draft_changes_for() context.
+            # If we get here in the code, it means that we're now setting the
+            # Draft version of this entity to be exactly what it was at the
+            # start, and we should remove it entirely from the DraftChangeLog.
+            #
+            # It's important that we remove these cases, because we use the
+            # old_version == new_version convention to record entities that have
+            # changed purely due to side-effects.
+            change.delete()
+        else:
+            # Normal case: We update the new_version, but leave the old_version
+            # as is. The old_version represents what the Draft was pointing to
+            # when the bulk_draft_changes_for() context started, so it persists
+            # if we change the same entity multiple times in the DraftChangeLog.
+            change.new_version_id = new_version_id
+            change.save()
     except DraftChangeLogRecord.DoesNotExist:
         # If we're here, this is the first DraftChangeLogRecord we're making for
         # this PublishableEntity in the active DraftChangeLog.
@@ -648,6 +664,13 @@ def _create_container_side_effects_for_draft_change(
     fully written out. We want to avoid the scenario where we create a
     side-effect that a Component change affects a Unit if the Unit version is
     also changed in the same DraftChangeLog.
+
+    The `processed_entity_ids` set holds the entity IDs that we've already
+    calculated side-effects for. This is to save us from recalculating side-
+    effects for the same ancestor relationships over and over again. So if we're
+    calling this function in a loop for all the Components in a Unit, we won't
+    be recalculating the Unit's side-effect on its Subsection, and its
+    Subsection's side-effect on its Section.
 
     TODO: This could get very expensive with the get_containers_with_entity
     calls. We should measure the impact of this.
@@ -792,7 +815,7 @@ def reset_drafts_to_published(
             else:
                 published_version_id = None
 
-            set_draft_version(draft, published_version_id, create_transaction=False)
+            set_draft_version(draft, published_version_id)
 
 
 def register_content_models(
