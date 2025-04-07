@@ -36,7 +36,7 @@ cachetools==5.5.2
     # via
     #   -r requirements/ci.txt
     #   tox
-celery==5.4.0
+celery==5.5.0
     # via -r requirements/quality.txt
 certifi==2025.1.31
     # via
@@ -174,7 +174,7 @@ edx-django-utils==7.2.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-edx-drf-extensions==10.5.0
+edx-drf-extensions==10.6.0
     # via -r requirements/quality.txt
 edx-i18n-tools==1.7.0
     # via -r requirements/dev.in
@@ -250,7 +250,7 @@ kombu==5.5.2
     # via
     #   -r requirements/quality.txt
     #   celery
-lxml[html-clean,html_clean]==5.3.1
+lxml[html-clean,html_clean]==5.3.2
     # via
     #   edx-i18n-tools
     #   lxml-html-clean
@@ -287,7 +287,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.7
     # via -r requirements/quality.txt
-newrelic==10.8.0
+newrelic==10.8.1
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -398,9 +398,9 @@ pytest==8.3.5
     #   -r requirements/quality.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==6.0.0
+pytest-cov==6.1.1
     # via -r requirements/quality.txt
-pytest-django==4.10.0
+pytest-django==4.11.1
     # via -r requirements/quality.txt
 python-dateutil==2.9.0.post0
     # via
@@ -482,7 +482,7 @@ tox==4.25.0
     # via -r requirements/ci.txt
 twine==6.1.0
     # via -r requirements/quality.txt
-types-pyyaml==6.0.12.20250326
+types-pyyaml==6.0.12.20250402
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -491,7 +491,7 @@ types-requests==2.32.0.20250328
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-typing-extensions==4.13.0
+typing-extensions==4.13.1
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -505,7 +505,6 @@ typing-extensions==4.13.0
 tzdata==2025.2
     # via
     #   -r requirements/quality.txt
-    #   celery
     #   kombu
 urllib3==2.2.3
     # via
@@ -520,7 +519,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.29.3
+virtualenv==20.30.0
     # via
     #   -r requirements/ci.txt
     #   tox
