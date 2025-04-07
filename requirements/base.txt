@@ -12,7 +12,7 @@ attrs==25.3.0
     # via -r requirements/base.in
 billiard==4.2.1
     # via celery
-celery==5.4.0
+celery==5.5.0
     # via -r requirements/base.in
 certifi==2025.1.31
     # via requests
@@ -64,7 +64,7 @@ drf-jwt==1.19.2
     # via edx-drf-extensions
 edx-django-utils==7.2.0
     # via edx-drf-extensions
-edx-drf-extensions==10.5.0
+edx-drf-extensions==10.6.0
     # via -r requirements/base.in
 edx-opaque-keys==2.12.0
     # via edx-drf-extensions
@@ -72,7 +72,7 @@ idna==3.10
     # via requests
 kombu==5.5.2
     # via celery
-newrelic==10.8.0
+newrelic==10.8.1
     # via edx-django-utils
 pbr==6.1.1
     # via stevedore
@@ -106,12 +106,10 @@ stevedore==5.4.1
     # via
     #   edx-django-utils
     #   edx-opaque-keys
-typing-extensions==4.13.0
+typing-extensions==4.13.1
     # via edx-opaque-keys
 tzdata==2025.2
-    # via
-    #   celery
-    #   kombu
+    # via kombu
 urllib3==2.2.3
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt

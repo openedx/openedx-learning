@@ -25,7 +25,7 @@ billiard==4.2.1
     # via
     #   -r requirements/test.txt
     #   celery
-celery==5.4.0
+celery==5.5.0
     # via -r requirements/test.txt
 certifi==2025.1.31
     # via
@@ -136,7 +136,7 @@ edx-django-utils==7.2.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-drf-extensions==10.5.0
+edx-drf-extensions==10.6.0
     # via -r requirements/test.txt
 edx-lint==5.6.0
     # via -r requirements/quality.in
@@ -212,7 +212,7 @@ mypy-extensions==1.0.0
     #   mypy
 mysqlclient==2.2.7
     # via -r requirements/test.txt
-newrelic==10.8.0
+newrelic==10.8.1
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -285,9 +285,9 @@ pytest==8.3.5
     #   -r requirements/test.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==6.0.0
+pytest-cov==6.1.1
     # via -r requirements/test.txt
-pytest-django==4.10.0
+pytest-django==4.11.1
     # via -r requirements/test.txt
 python-dateutil==2.9.0.post0
     # via
@@ -352,7 +352,7 @@ tomlkit==0.13.2
     # via pylint
 twine==6.1.0
     # via -r requirements/quality.in
-types-pyyaml==6.0.12.20250326
+types-pyyaml==6.0.12.20250402
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -361,7 +361,7 @@ types-requests==2.32.0.20250328
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-typing-extensions==4.13.0
+typing-extensions==4.13.1
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -374,7 +374,6 @@ typing-extensions==4.13.0
 tzdata==2025.2
     # via
     #   -r requirements/test.txt
-    #   celery
     #   kombu
 urllib3==2.2.3
     # via
