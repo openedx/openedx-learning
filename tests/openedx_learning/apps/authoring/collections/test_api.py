@@ -51,6 +51,7 @@ class CollectionsTestCase(CollectionTestCase):
     collection1: Collection
     collection2: Collection
     collection3: Collection
+    another_library_collection: Collection
     disabled_collection: Collection
 
     @classmethod
@@ -74,15 +75,22 @@ class CollectionsTestCase(CollectionTestCase):
             description="Description of Collection 2",
         )
         cls.collection3 = api.create_collection(
-            cls.learning_package_2.id,
+            cls.learning_package.id,
             key="COL3",
             created_by=None,
             title="Collection 3",
             description="Description of Collection 3",
         )
+        cls.another_library_collection = api.create_collection(
+            cls.learning_package_2.id,
+            key="another_library",
+            created_by=None,
+            title="Collection 4",
+            description="Description of Collection 4",
+        )
         cls.disabled_collection = api.create_collection(
             cls.learning_package.id,
-            key="COL4",
+            key="disabled_collection",
             created_by=None,
             title="Disabled Collection",
             description="Description of Disabled Collection",
@@ -113,7 +121,7 @@ class GetCollectionTestCase(CollectionsTestCase):
         Test getting a collection that doesn't exist in the requested learning package.
         """
         with self.assertRaises(ObjectDoesNotExist):
-            api.get_collection(self.learning_package.pk, self.collection3.key)
+            api.get_collection(self.learning_package.pk, self.another_library_collection.key)
 
     def test_get_collections(self):
         """
@@ -123,6 +131,7 @@ class GetCollectionTestCase(CollectionsTestCase):
         assert list(collections) == [
             self.collection1,
             self.collection2,
+            self.collection3,
         ]
 
     def test_get_invalid_collections(self):
@@ -140,6 +149,7 @@ class GetCollectionTestCase(CollectionsTestCase):
         self.assertQuerySetEqual(collections, [
             self.collection1,
             self.collection2,
+            self.collection3,
             self.disabled_collection,
         ], ordered=True)
 
@@ -151,6 +161,7 @@ class GetCollectionTestCase(CollectionsTestCase):
         self.assertQuerySetEqual(collections, [
             self.collection1,
             self.collection2,
+            self.collection3,
         ], ordered=True)
 
     def test_get_all_disabled_collections(self):
@@ -301,6 +312,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             self.draft_component.publishable_entity,
         ]
         assert not list(self.collection3.entities.all())
+        assert not list(self.another_library_collection.entities.all())
 
     def test_add_to_collection(self):
         """
@@ -352,13 +364,13 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         with self.assertRaises(ValidationError):
             api.add_to_collection(
                 self.learning_package_2.id,
-                self.collection3.key,
+                self.another_library_collection.key,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_component.pk,
                 ]),
             )
 
-        assert not list(self.collection3.entities.all())
+        assert not list(self.another_library_collection.entities.all())
 
     def test_remove_from_collection(self):
         """
@@ -404,6 +416,10 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         assert not list(api.get_collection_components(
             self.learning_package.id,
             self.collection3.key,
+        ))
+        assert not list(api.get_collection_components(
+            self.learning_package.id,
+            self.another_library_collection.key,
         ))
 
 
@@ -572,4 +588,100 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         assert list(collection.entities.all()) == [
             self.published_component.publishable_entity,
             self.draft_component.publishable_entity,
+        ]
+
+
+class SetCollectionsTestCase(CollectionEntitiesTestCase):
+    """
+    Test setting multiple collections in a component.
+    """
+    def test_set_collections(self):
+        """
+        Test setting collections in a component
+        """
+        modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(modified_time):
+            api.set_collections(
+                self.learning_package.id,
+                self.draft_component.publishable_entity,
+                collection_qset=Collection.objects.filter(id__in=[
+                    self.collection1.pk,
+                    self.collection2.pk,
+                ]),
+                created_by=self.user.id,
+            )
+        assert list(self.collection1.entities.all()) == [
+            self.published_component.publishable_entity,
+            self.draft_component.publishable_entity,
+        ]
+        assert list(self.collection2.entities.all()) == [
+            self.published_component.publishable_entity,
+            self.draft_component.publishable_entity,
+        ]
+
+        for collection_entity in CollectionPublishableEntity.objects.filter(
+            entity=self.draft_component.publishable_entity
+        ):
+            if collection_entity.collection == self.collection1:
+                # The collection1 was newly associated, so it has a created_by
+                assert collection_entity.created_by == self.user
+            else:
+                # The collection2 was already associated, with no created_by
+                assert collection_entity.created_by is None
+
+        # The collection1 was newly associated, so the modified time is set
+        assert Collection.objects.get(id=self.collection1.pk).modified == modified_time
+        # The collection2 was already associated, so the modified time is unchanged
+        assert Collection.objects.get(id=self.collection2.pk).modified != modified_time
+
+        # Set collections again, but this time remove collection1 and add collection3
+        # Expected result: collection2 & collection3 associated to component and collection1 is excluded.
+        new_modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
+        with freeze_time(new_modified_time):
+            api.set_collections(
+                self.learning_package.id,
+                self.draft_component.publishable_entity,
+                collection_qset=Collection.objects.filter(id__in=[
+                    self.collection3.pk,
+                    self.collection2.pk,
+                ]),
+                created_by=self.user.id,
+            )
+        assert list(self.collection1.entities.all()) == [
+            self.published_component.publishable_entity,
+        ]
+        assert list(self.collection2.entities.all()) == [
+            self.published_component.publishable_entity,
+            self.draft_component.publishable_entity,
+        ]
+        assert list(self.collection3.entities.all()) == [
+            self.draft_component.publishable_entity,
+        ]
+        # update modified time of all three collections as they were all updated
+        assert Collection.objects.get(id=self.collection1.pk).modified == new_modified_time
+        # collection2 was unchanged, so it should have the same modified time as before
+        assert Collection.objects.get(id=self.collection2.pk).modified != new_modified_time
+        assert Collection.objects.get(id=self.collection3.pk).modified == new_modified_time
+
+    def test_set_collection_wrong_learning_package(self):
+        """
+        We cannot set collections with a different learning package than the component.
+        """
+        learning_package_3 = api.create_learning_package(
+            key="ComponentTestCase-test-key-3",
+            title="Components Test Case Learning Package-3",
+        )
+
+        with self.assertRaises(ValidationError):
+            api.set_collections(
+                learning_package_3.id,
+                self.draft_component.publishable_entity,
+                collection_qset=Collection.objects.filter(id__in=[
+                    self.collection1.pk,
+                ]),
+                created_by=self.user.id,
+            )
+
+        assert list(self.collection1.entities.all()) == [
+            self.published_component.publishable_entity,
         ]
