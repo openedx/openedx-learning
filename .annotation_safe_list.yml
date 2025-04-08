@@ -13,9 +13,59 @@ auth.Group:
   ".. no_pii:": "This model has no PII"
 auth.Permission:
   ".. no_pii:": "This model has no PII"
+auth.User:
+  ".. no_pii:": "This model has no PII"
 contenttypes.ContentType:
   ".. no_pii:": "This model has no PII"
-sessions.Session:
+oel_collections.Collection:
+  ".. no_pii:": "This model has no PII"
+oel_collections.CollectionPublishableEntity:
+  ".. no_pii:": "This model has no PII"
+oel_components.Component:
+  ".. no_pii:": "This model has no PII"
+oel_components.ComponentType:
+  ".. no_pii:": "This model has no PII"
+oel_components.ComponentVersion:
+  ".. no_pii:": "This model has no PII"
+oel_components.ComponentVersionContent:
+  ".. no_pii:": "This model has no PII"
+oel_contents.Content:
+  ".. no_pii:": "This model has no PII"
+oel_contents.MediaType:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.Container:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.ContainerVersion:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.Draft:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.EntityList:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.EntityListRow:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.LearningPackage:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.PublishLog:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.PublishLogRecord:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.PublishableEntity:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.PublishableEntityVersion:
+  ".. no_pii:": "This model has no PII"
+oel_publishing.Published:
+  ".. no_pii:": "This model has no PII"
+oel_tagging.ObjectTag:
+  ".. no_pii:": "This model has no PII"
+oel_tagging.Tag:
+  ".. no_pii:": "This model has no PII"
+oel_tagging.TagImportTask:
+  ".. no_pii:": "This model has no PII"
+oel_tagging.Taxonomy:
+  ".. no_pii:": "This model has no PII"
+oel_units.Unit:
+  ".. no_pii:": "This model has no PII"
+oel_units.UnitVersion:
   ".. no_pii:": "This model has no PII"
 social_django.Association:
   ".. no_pii:": "This model has no PII"
@@ -28,6 +78,8 @@ social_django.Nonce:
 social_django.Partial:
   ".. no_pii:": "This model has no PII"
 social_django.UserSocialAuth:
+  ".. no_pii:": "This model has no PII"
+sessions.Session:
   ".. no_pii:": "This model has no PII"
 waffle.Flag:
   ".. no_pii:": "This model has no PII"
