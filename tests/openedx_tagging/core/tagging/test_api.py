@@ -1046,3 +1046,27 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             assert object_tag.taxonomy == expected_tags[index]["taxonomy"]
             assert object_tag.object_id == obj2
             assert object_tag.is_copied == expected_tags[index]["copied"]
+
+    def test_unmark_copied_tags(self) -> None:
+        obj1 = "object_id1"
+        obj2 = "object_id2"
+
+        # Put 2 tags on obj1
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.language_taxonomy, tags=["English"])
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
+
+        # Copy tags from obj1 to obj2
+        tagging_api.copy_tags(obj1, obj2)
+
+        # Update obj2's tags to include one non-copied tag
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.system_taxonomy, tags=["System Tag 1", "System Tag 2"])
+
+        tags = tagging_api.get_object_tags(obj2)
+        assert tags.filter(is_copied=False).count() == 1
+        assert tags.filter(is_copied=True).count() == 2
+
+        tagging_api.unmark_copied_tags(obj2)
+
+        tags = tagging_api.get_object_tags(obj2)
+        assert tags.filter(is_copied=False).count() == 3
+        assert tags.filter(is_copied=True).count() == 0

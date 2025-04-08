@@ -4,6 +4,7 @@ Basic tests of the Components API.
 from datetime import datetime, timezone
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from freezegun import freeze_time
 
@@ -42,6 +43,17 @@ class ComponentTestCase(TestCase):
         cls.html_type = components_api.get_or_create_component_type("xblock.v1", "html")
         cls.problem_type = components_api.get_or_create_component_type("xblock.v1", "problem")
         cls.video_type = components_api.get_or_create_component_type("xblock.v1", "video")
+
+    def publish_component(self, component: Component):
+        """
+        Helper method to publish a single component.
+        """
+        publishing_api.publish_from_drafts(
+            self.learning_package.pk,
+            draft_qset=publishing_api.get_all_drafts(self.learning_package.pk).filter(
+                entity=component.publishable_entity,
+            ),
+        )
 
 
 class PerformanceTestCase(ComponentTestCase):
@@ -310,6 +322,7 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
             local_key='my_component',
             created=cls.now,
             created_by=None,
+            can_stand_alone=False,
         )
 
     def test_simple_get(self):
@@ -320,6 +333,16 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
     def test_publishing_entity_key_convention(self):
         """Our mapping convention is {namespace}:{component_type}:{local_key}"""
         assert self.problem.key == "xblock.v1:problem:my_component"
+
+    def test_stand_alone_flag(self):
+        """Check if can_stand_alone flag is set"""
+        component = components_api.get_component_by_key(
+            self.learning_package.id,
+            namespace='xblock.v1',
+            type_name='html',
+            local_key='my_component',
+        )
+        assert not component.publishable_entity.can_stand_alone
 
     def test_get_by_key(self):
         assert self.html == components_api.get_component_by_key(
@@ -541,7 +564,7 @@ class SetCollectionsTestCase(ComponentTestCase):
     collection2: Collection
     collection3: Collection
     published_problem: Component
-    user: User  # type: ignore [valid-type]
+    user: UserType
 
     @classmethod
     def setUpTestData(cls) -> None:

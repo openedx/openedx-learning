@@ -83,6 +83,8 @@ def create_component(
     local_key: str,
     created: datetime,
     created_by: int | None,
+    *,
+    can_stand_alone: bool = True,
 ) -> Component:
     """
     Create a new Component (an entity like a Problem or Video)
@@ -90,7 +92,11 @@ def create_component(
     key = f"{component_type.namespace}:{component_type.name}:{local_key}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
-            learning_package_id, key, created, created_by
+            learning_package_id,
+            key,
+            created,
+            created_by,
+            can_stand_alone=can_stand_alone
         )
         component = Component.objects.create(
             publishable_entity=publishable_entity,
@@ -231,7 +237,7 @@ def create_next_component_version(
         return component_version
 
 
-def create_component_and_version(
+def create_component_and_version(  # pylint: disable=too-many-positional-arguments
     learning_package_id: int,
     /,
     component_type: ComponentType,
@@ -239,13 +245,20 @@ def create_component_and_version(
     title: str,
     created: datetime,
     created_by: int | None = None,
+    *,
+    can_stand_alone: bool = True,
 ) -> tuple[Component, ComponentVersion]:
     """
     Create a Component and associated ComponentVersion atomically
     """
     with atomic():
         component = create_component(
-            learning_package_id, component_type, local_key, created, created_by
+            learning_package_id,
+            component_type,
+            local_key,
+            created,
+            created_by,
+            can_stand_alone=can_stand_alone,
         )
         component_version = create_component_version(
             component.pk,
@@ -326,7 +339,7 @@ def component_exists_by_key(
         return False
 
 
-def get_components(
+def get_components(  # pylint: disable=too-many-positional-arguments
     learning_package_id: int,
     /,
     draft: bool | None = None,
@@ -468,7 +481,7 @@ def _get_component_version_info_headers(component_version: ComponentVersion) -> 
         "X-Open-edX-Component-Uuid": component.uuid,
         # Component Version
         "X-Open-edX-Component-Version-Uuid": component_version.uuid,
-        "X-Open-edX-Component-Version-Num": component_version.version_num,
+        "X-Open-edX-Component-Version-Num": str(component_version.version_num),
         # Learning Package
         "X-Open-edX-Learning-Package-Key": learning_package.key,
         "X-Open-edX-Learning-Package-Uuid": learning_package.uuid,

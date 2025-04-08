@@ -382,7 +382,7 @@ class Taxonomy(models.Model):
 
         return self
 
-    def get_filtered_tags(
+    def get_filtered_tags(  # pylint: disable=too-many-positional-arguments
         self,
         depth: int | None = TAXONOMY_MAX_DEPTH,
         parent_tag_value: str | None = None,

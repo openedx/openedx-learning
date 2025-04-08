@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "openedx_learning.apps.authoring.contents.apps.ContentsConfig",
     "openedx_learning.apps.authoring.publishing.apps.PublishingConfig",
     "openedx_tagging.core.tagging.apps.TaggingConfig",
+    "openedx_learning.apps.authoring.units.apps.UnitsConfig",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -80,3 +81,5 @@ OPENEDX_LEARNING = {
         }
     }
 }
+
+STATIC_URL = 'static/'

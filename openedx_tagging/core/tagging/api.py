@@ -28,7 +28,7 @@ from .models.utils import ConcatNull, StringAgg
 TagDoesNotExist = Tag.DoesNotExist
 
 
-def create_taxonomy(
+def create_taxonomy(  # pylint: disable=too-many-positional-arguments
     name: str,
     description: str | None = None,
     enabled=True,
@@ -191,9 +191,9 @@ def get_object_tags(
     )
     if not include_deleted:
         # Exclude if the whole taxonomy was deleted
-        base_qs = base_qs.exclude(taxonomy_id=None)  # type: ignore
+        base_qs = base_qs.exclude(taxonomy=None)
         # Exclude if just the tag is deleted
-        base_qs = base_qs.exclude(tag_id=None, taxonomy__allow_free_text=False)  # type: ignore
+        base_qs = base_qs.exclude(tag=None, taxonomy__allow_free_text=False)
     tags = (
         base_qs
         # Preload related objects, including data for the "get_lineage" method on ObjectTag/Tag:
@@ -321,7 +321,7 @@ def _get_current_tags(
     return current_tags
 
 
-def tag_object(
+def tag_object(  # pylint: disable=too-many-positional-arguments
     object_id: str,
     taxonomy: Taxonomy | None,
     tags: list[str],
@@ -516,3 +516,10 @@ def copy_tags(source_object_id: str, dest_object_id: str):
                 defaults={"is_copied": True},
                 # Note: _value and _export_id are set automatically
             )
+
+
+def unmark_copied_tags(object_id: str) -> None:
+    """
+    Update copied object tags on the given object to mark them as "not copied".
+    """
+    ObjectTag.objects.filter(object_id=object_id).update(is_copied=False)
