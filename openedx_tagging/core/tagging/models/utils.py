@@ -2,7 +2,7 @@
 Utilities for tagging and taxonomy models
 """
 from django.db import connection as db_connection
-from django.db.models import Aggregate, CharField
+from django.db.models import Aggregate, CharField, TextField
 from django.db.models.expressions import Combinable, Func
 
 RESERVED_TAG_CHARS = [
@@ -60,24 +60,16 @@ class StringAgg(Aggregate, Combinable):
         if 'postgresql' in db_connection.vendor.lower():
             self.function = 'STRING_AGG'
             self.template = '%(function)s(%(distinct)s%(expressions)s, %(delimiter)s)'
-            extra.update({"delimiter": delimiter})
+            extra.update({
+                "delimiter": ",",
+                "output_field": TextField(),
+            })
 
         # Initialize the parent class with the necessary parameters
         super().__init__(
             expression,
             **extra,
         )
-
-    def as_sql(self, compiler, connection, **extra_context):
-        # If PostgreSQL, we use STRING_AGG with a separator
-        if 'postgresql' in connection.vendor.lower():
-            # Ensure that expressions are cast to TEXT for PostgreSQL
-            expressions_sql, params = compiler.compile(self.source_expressions[0])
-            expressions_sql = f"({expressions_sql})::TEXT"  # Cast to TEXT for PostgreSQL
-            return f"{self.function}({expressions_sql}, {self.delimiter!r})", params
-        else:
-            # MySQL/SQLite handles GROUP_CONCAT with SEPARATOR
-            return super().as_sql(compiler, connection, **extra_context)
 
     # Implementing abstract methods from Combinable
     def __rand__(self, other):
