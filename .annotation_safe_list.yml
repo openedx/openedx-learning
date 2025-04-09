@@ -14,7 +14,9 @@ auth.Group:
 auth.Permission:
   ".. no_pii:": "This model has no PII"
 auth.User:
-  ".. no_pii:": "This model has no PII"
+  ".. pii": "This model minimally contains a username, password, and email"
+  ".. pii_types": "username, email_address, password"
+  ".. pii_retirement": "consumer_api"
 contenttypes.ContentType:
   ".. no_pii:": "This model has no PII"
 oel_collections.Collection:
