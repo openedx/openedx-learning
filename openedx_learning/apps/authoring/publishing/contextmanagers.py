@@ -136,6 +136,13 @@ class DraftChangeLogContext(Atomic):
             for exit_callback in self.exit_callbacks:
                 exit_callback(draft_change_log)
 
+            # Edge case: the draft changes that accumulated during our context
+            # cancel each other out, and there are no actual
+            # DraftChangeLogRecords at the end. In this case, we might as well
+            # delete the entire DraftChangeLog.
+            if not draft_change_log.records.exists():
+                draft_change_log.delete()
+
         self._draft_change_logs.set(draft_change_logs)
 
         return super().__exit__(exc_type, exc_value, traceback)
