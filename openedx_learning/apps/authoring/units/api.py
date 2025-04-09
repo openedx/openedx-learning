@@ -62,8 +62,7 @@ def create_unit_version(
     version_num: int,
     *,
     title: str,
-    publishable_entities_pks: list[int],
-    entity_version_pks: list[int | None],
+    entity_rows: list[publishing_api.ContainerEntityRow],
     created: datetime,
     created_by: int | None = None,
 ) -> UnitVersion:
@@ -75,11 +74,10 @@ def create_unit_version(
     `create_next_unit_version()` instead.
 
     Args:
-        unit_pk: The unit ID.
+        unit: The unit object.
         version_num: The version number.
         title: The title.
-        publishable_entities_pk: The publishable entities.
-        entity: The entity.
+        entity_rows: child entities/versions
         created: The creation date.
         created_by: The user who created the unit.
     """
@@ -87,8 +85,7 @@ def create_unit_version(
         unit.pk,
         version_num,
         title=title,
-        publishable_entities_pks=publishable_entities_pks,
-        entity_version_pks=entity_version_pks,
+        entity_rows=entity_rows,
         created=created,
         created_by=created_by,
         container_version_cls=UnitVersion,
@@ -97,30 +94,34 @@ def create_unit_version(
 
 def _pub_entities_for_components(
     components: list[Component | ComponentVersion] | None,
-) -> tuple[list[int], list[int | None]] | tuple[None, None]:
+) -> list[publishing_api.ContainerEntityRow] | None:
     """
     Helper method: given a list of Component | ComponentVersion, return the
-    lists of publishable_entities_pks and entity_version_pks needed for the
-    base container APIs.
+    list of ContainerEntityRows needed for the base container APIs.
 
     ComponentVersion is passed when we want to pin a specific version, otherwise
     Component is used for unpinned.
     """
     if components is None:
         # When these are None, that means don't change the entities in the list.
-        return None, None
+        return None
     for c in components:
         if not isinstance(c, (Component, ComponentVersion)):
             raise TypeError("Unit components must be either Component or ComponentVersion.")
-    publishable_entities_pks = [
-        (c.publishable_entity_id if isinstance(c, Component) else c.component.publishable_entity_id)
+    return [
+        (
+            publishing_api.ContainerEntityRow(
+                entity_pk=c.publishable_entity_id,
+                version_pk=None,
+            ) if isinstance(c, Component)
+            else  # isinstance(c, ComponentVersion)
+            publishing_api.ContainerEntityRow(
+                entity_pk=c.component.publishable_entity_id,
+                version_pk=c.pk,
+            )
+        )
         for c in components
     ]
-    entity_version_pks = [
-        (cv.pk if isinstance(cv, ComponentVersion) else None)
-        for cv in components
-    ]
-    return publishable_entities_pks, entity_version_pks
 
 
 def create_next_unit_version(
@@ -143,12 +144,11 @@ def create_next_unit_version(
         created: The creation date.
         created_by: The user who created the unit.
     """
-    publishable_entities_pks, entity_version_pks = _pub_entities_for_components(components)
+    entity_rows = _pub_entities_for_components(components)
     unit_version = publishing_api.create_next_container_version(
         unit.pk,
         title=title,
-        publishable_entities_pks=publishable_entities_pks,
-        entity_version_pks=entity_version_pks,
+        entity_rows=entity_rows,
         created=created,
         created_by=created_by,
         container_version_cls=UnitVersion,
@@ -177,7 +177,7 @@ def create_unit_and_version(
         created_by: The user who created the unit.
         can_stand_alone: Set to False when created as part of containers
     """
-    publishable_entities_pks, entity_version_pks = _pub_entities_for_components(components)
+    entity_rows = _pub_entities_for_components(components)
     with atomic():
         unit = create_unit(
             learning_package_id,
@@ -190,8 +190,7 @@ def create_unit_and_version(
             unit,
             1,
             title=title,
-            publishable_entities_pks=publishable_entities_pks or [],
-            entity_version_pks=entity_version_pks or [],
+            entity_rows=entity_rows or [],
             created=created,
             created_by=created_by,
         )
