@@ -1322,7 +1322,11 @@ def contains_unpublished_changes(container_id: int) -> bool:
         return True
 
     # We only care about children that are un-pinned, since published changes to pinned children don't matter
-    entity_list = container.versioning.draft.entity_list
+    entity_list = getattr(container.versioning.draft, "entity_list", None)
+    # ?FOR REVIEW: Is this correct?
+    if entity_list is None:
+        # This container has not been published yet, or has been deleted.
+        return False
 
     # This is a naive and inefficient implementation but should be correct.
     # TODO: Once we have expanded the containers system to support multiple levels (not just Units and Components but
