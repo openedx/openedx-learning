@@ -456,26 +456,8 @@ def get_published_version(publishable_entity_id: int, /) -> PublishableEntityVer
     return published.version
 
 
-@singledispatch
 def set_draft_version(
-    arg: object,
-    publishable_entity_version_pk: int | None,
-    /,
-    set_at: datetime | None = None,
-    set_by: int | None = None,  # User.id
-) -> None:
-    """
-    The fallback for singledispatch is supposed to take a superclass of the
-    different registered versions (Draft and int in this case). This is that
-    fallback, but the "real" implementation is the Draft-registered version
-    below.
-    """
-    raise NotImplementedError()
-
-
-@set_draft_version.register(Draft)
-def _(
-    draft: Draft,
+    draft_or_id: Draft | int,
     publishable_entity_version_pk: int | None,
     /,
     set_at: datetime | None = None,
@@ -483,6 +465,10 @@ def _(
 ) -> None:
     """
     Modify the Draft of a PublishableEntity to be a PublishableEntityVersion.
+
+    The ``draft`` argument can be either a Draft model object, or the primary
+    key of a Draft/PublishableEntity (Draft is defined so these will be the same
+    value).
 
     This would most commonly be used to set the Draft to point to a newly
     created PublishableEntityVersion that was created in Studio (because someone
@@ -503,12 +489,23 @@ def _(
     if set_at is None:
         set_at = datetime.now(tz=timezone.utc)
 
-    # If the Draft is already pointing at this version, there's nothing to do.
-    old_version_id = draft.version_id
-    if old_version_id == publishable_entity_version_pk:
-        return
-
     with atomic(savepoint=False):
+        if isinstance(draft_or_id, Draft):
+            draft = draft_or_id
+        elif isinstance(draft_or_id, int):
+            draft, _created = Draft.objects.select_related("entity") \
+                                           .get_or_create(entity_id=draft_or_id)
+        else:
+            class_name = draft_or_id.__class__.__name__
+            raise TypeError(
+                f"draft_or_id must be a Draft or int, not ({class_name})"
+            )
+
+        # If the Draft is already pointing at this version, there's nothing to do.
+        old_version_id = draft.version_id
+        if old_version_id == publishable_entity_version_pk:
+            return
+
         # The actual update of the Draft model is here. Everything after this
         # block is bookkeeping in our DraftChangeLog.
         draft.version_id = publishable_entity_version_pk
@@ -554,28 +551,6 @@ def _(
                 new_version_id=publishable_entity_version_pk,
             )
             _create_container_side_effects_for_draft_change(change)
-
-
-@set_draft_version.register(int)
-def _(
-    publishable_entity_id: int,
-    publishable_entity_version_pk: int | None,
-    /,
-    set_at: datetime | None = None,
-    set_by: int | None = None,  # User.id
-) -> None:
-    """
-    Alias for set_draft_version taking PublishableEntity.id instead of a Draft.
-    """
-    with atomic(savepoint=False):
-        draft, _created = Draft.objects.select_related("entity") \
-                                        .get_or_create(entity_id=publishable_entity_id)
-        set_draft_version(
-            draft,
-            publishable_entity_version_pk,
-            set_at=set_at,
-            set_by=set_by,
-        )
 
 
 def _add_to_existing_draft_change_log(
