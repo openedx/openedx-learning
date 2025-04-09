@@ -6,6 +6,7 @@ bulk_draft_changes_for instead (which will invoke this internally).
 """
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from typing import Callable
 
 from django.db.transaction import Atomic
 
@@ -50,7 +51,13 @@ class DraftChangeLogContext(Atomic):
     """
     _draft_change_logs: ContextVar[list | None] = ContextVar('_draft_change_logs', default=None)
 
-    def __init__(self, learning_package_id, changed_at=None, changed_by=None, exit_callbacks=None):
+    def __init__(
+        self,
+        learning_package_id: int,
+        changed_at: datetime | None = None,
+        changed_by: int | None = None,
+        exit_callbacks: list[Callable] | None = None
+    ) -> None:
         super().__init__(using=None, savepoint=False, durable=False)
 
         self.learning_package_id = learning_package_id
@@ -111,7 +118,7 @@ class DraftChangeLogContext(Atomic):
 
         self.draft_change_log = DraftChangeLog.objects.create(
             learning_package_id=self.learning_package_id,
-            changed_by=self.changed_by,
+            changed_by_id=self.changed_by,
             changed_at=self.changed_at,
         )
         draft_change_sets = self._draft_change_logs.get()

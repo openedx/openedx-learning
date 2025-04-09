@@ -1416,7 +1416,11 @@ def get_container_children_count(
     return container_version.entity_list.entitylistrow_set.filter(**filter_deleted).count()
 
 
-def bulk_draft_changes_for(learning_package_id: int, changed_by=None, changed_at=None) -> DraftChangeLogContext:
+def bulk_draft_changes_for(
+    learning_package_id: int,
+    changed_by: int | None = None,
+    changed_at: datetime | None = None
+) -> DraftChangeLogContext:
     """
     Context manager to do a single batch of Draft changes in.
     """
