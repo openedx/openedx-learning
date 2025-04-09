@@ -195,7 +195,7 @@ class DraftTestCase(TestCase):
 
         # Unrecognized type
         with pytest.raises(TypeError):
-            publishing_api.set_draft_version(1.0, entity_version.pk)
+            publishing_api.set_draft_version(1.0, entity_version.pk)  # type: ignore[arg-type]
 
     def test_soft_deletes(self) -> None:
         """Test the publishing behavior of soft deletes."""
@@ -1022,13 +1022,13 @@ class ContainerTestCase(TestCase):
         component = publishing_api.create_publishable_entity(
             self.learning_package.id, "component_1", created=self.now, created_by=None,
         )
-        component_v1 = publishing_api.create_publishable_entity_version(
+        publishing_api.create_publishable_entity_version(
             component.id, version_num=1, title="Component 1 🌴", created=self.now, created_by=None,
         )
         unit = publishing_api.create_container(
             self.learning_package.id, "unit_1", created=self.now, created_by=None,
         )
-        unit_v1: ContainerVersion = publishing_api.create_container_version(
+        publishing_api.create_container_version(
             unit.pk,
             1,
             title="My Unit",
@@ -1040,7 +1040,7 @@ class ContainerTestCase(TestCase):
         subsection = publishing_api.create_container(
             self.learning_package.id, "subsection_1", created=self.now, created_by=None,
         )
-        subsection_v1: ContainerVersion = publishing_api.create_container_version(
+        publishing_api.create_container_version(
             subsection.pk,
             1,
             title="My Subsection",

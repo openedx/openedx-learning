@@ -10,7 +10,6 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from functools import singledispatch
 from typing import ContextManager, TypeVar
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
