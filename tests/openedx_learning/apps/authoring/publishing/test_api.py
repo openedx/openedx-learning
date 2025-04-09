@@ -171,7 +171,7 @@ class DraftTestCase(TestCase):
         """Make sure it works with Draft and int, and raises exception otherwise"""
         entity = publishing_api.create_publishable_entity(
             self.learning_package_1.id,
-            "my_entity",
+            "my_set_draft_args_entity",
             created=self.now,
             created_by=None,
         )
@@ -184,12 +184,12 @@ class DraftTestCase(TestCase):
         )
 
         # Int calling version
-        publishing_api.soft_delete_draft(entity_version.id)
+        publishing_api.soft_delete_draft(entity.id)
         publishing_api.set_draft_version(entity.draft.pk, entity_version.pk)
         assert Draft.objects.get(entity=entity).version == entity_version
 
         # Draft calling version
-        publishing_api.soft_delete_draft(entity_version.id)
+        publishing_api.soft_delete_draft(entity.id)
         publishing_api.set_draft_version(entity.draft, entity_version.pk)
         assert Draft.objects.get(entity=entity).version == entity_version
 
