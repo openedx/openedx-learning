@@ -817,20 +817,19 @@ def create_next_entity_list(
             for entity in last_entities
         ] + entity_rows
     elif entities_action == ChildrenEntitiesAction.REMOVE:
-        # get previous entity list rows
+        # get previous entity list, excluding the entities in entity_rows
         last_entities = last_version.entity_list.entitylistrow_set.only(
             "entity_id",
             "entity_version_id"
+        ).exclude(
+            entity_id__in=[entity.entity_pk for entity in entity_rows]
         ).order_by("order_num")
-        # Remove existing children found in entity_rows
-        remove_entity_pks = [entity.entity_pk for entity in entity_rows]
         entity_rows = [
             ContainerEntityRow(
                 entity_pk=entity.entity_id,
                 version_pk=entity.entity_version_id,
             )
             for entity in last_entities.all()
-            if entity.entity_id not in remove_entity_pks
         ]
 
     return create_entity_list_with_rows(
