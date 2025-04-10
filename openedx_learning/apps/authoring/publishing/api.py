@@ -665,6 +665,19 @@ def create_entity_list_with_rows(
         ).exists():
             raise ValidationError("Container entities must be from the same learning package.")
 
+    # Ensure that any pinned entity versions are linked to the correct entity
+    pinned_entities = {
+        entity.version_pk: entity.entity_pk
+        for entity in entity_rows if entity.pinned
+    }
+    if pinned_entities:
+        entity_versions = PublishableEntityVersion.objects.filter(
+            pk__in=pinned_entities.keys(),
+        ).only('pk', 'entity_id')
+        for entity_version in entity_versions:
+            if pinned_entities[entity_version.pk] != entity_version.entity_id:
+                raise ValidationError("Container entity versions must belong to the specified entity.")
+
     with atomic(savepoint=False):
 
         entity_list = create_entity_list()
@@ -967,6 +980,10 @@ class ContainerEntityRow:
     """
     entity_pk: int
     version_pk: int | None = None
+
+    @property
+    def pinned(self):
+        return self.entity_pk and self.version_pk is not None
 
 
 def get_entities_in_container(
