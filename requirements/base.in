@@ -5,7 +5,7 @@ attrs                     # Reduces boilerplate code involving class attributes
 
 celery                    # Asynchronous task execution library
 
-Django<5.0                # Web application framework
+Django                    # Web application framework
 
 djangorestframework<4.0   # REST API
 edx-drf-extensions        # Extensions to the Django REST Framework used by Open edX
