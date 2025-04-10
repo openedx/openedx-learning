@@ -18,6 +18,7 @@ from openedx_learning.api.authoring_models import (
     LearningPackage,
     PublishableEntity,
 )
+from openedx_learning.apps.authoring.units.models import Unit
 from openedx_learning.lib.test_utils import TestCase
 
 User = get_user_model()
@@ -221,10 +222,11 @@ class CollectionCreateTestCase(CollectionTestCase):
 
 class CollectionEntitiesTestCase(CollectionsTestCase):
     """
-    Base class with collections that contain components.
+    Base class with collections that contain entities.
     """
     published_component: Component
     draft_component: Component
+    draft_unit: Unit
     user: UserType
     html_type: ComponentType
     problem_type: ComponentType
@@ -243,6 +245,13 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
 
         cls.html_type = api.get_or_create_component_type("xblock.v1", "html")
         cls.problem_type = api.get_or_create_component_type("xblock.v1", "problem")
+        created_time = datetime(2025, 4, 1, tzinfo=timezone.utc)
+        cls.draft_unit = api.create_unit(
+            learning_package_id=cls.learning_package.id,
+            key="unit-1",
+            created=created_time,
+            created_by=cls.user.id,
+        )
 
         # Make and publish one Component
         cls.published_component, _ = api.create_component_and_version(
@@ -284,6 +293,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
             entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_component.pk,
                 cls.draft_component.pk,
+                cls.draft_unit.pk,
             ]),
         )
         cls.disabled_collection = api.add_to_collection(
@@ -308,6 +318,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             self.published_component.publishable_entity,
         ]
         assert list(self.collection2.entities.all()) == [
+            self.draft_unit.publishable_entity,
             self.published_component.publishable_entity,
             self.draft_component.publishable_entity,
         ]
@@ -325,11 +336,13 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.collection1.key,
                 PublishableEntity.objects.filter(id__in=[
                     self.draft_component.pk,
+                    self.draft_unit.pk,
                 ]),
                 created_by=self.user.id,
             )
 
         assert list(self.collection1.entities.all()) == [
+            self.draft_unit.publishable_entity,
             self.published_component.publishable_entity,
             self.draft_component.publishable_entity,
         ]
@@ -352,6 +365,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             )
 
         assert list(self.collection2.entities.all()) == [
+            self.draft_unit.publishable_entity,
             self.published_component.publishable_entity,
             self.draft_component.publishable_entity,
         ]
@@ -383,6 +397,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.collection2.key,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_component.pk,
+                    self.draft_unit.pk,
                 ]),
             )
 
@@ -418,6 +433,24 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             self.collection3.key,
         ))
         assert not list(api.get_collection_components(
+            self.learning_package.id,
+            self.another_library_collection.key,
+        ))
+
+    def test_get_collection_containers(self):
+        assert not list(api.get_collection_containers(
+            self.learning_package.id,
+            self.collection1.key,
+        ))
+        assert list(api.get_collection_containers(
+            self.learning_package.id,
+            self.collection2.key,
+        )) == [self.draft_unit.container]
+        assert not list(api.get_collection_containers(
+            self.learning_package.id,
+            self.collection3.key,
+        ))
+        assert not list(api.get_collection_containers(
             self.learning_package.id,
             self.another_library_collection.key,
         ))
@@ -533,6 +566,7 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         assert collection == api.get_collection(self.learning_package.id, collection.key)
         # ...and the collection's entities remain intact.
         assert list(collection.entities.all()) == [
+            self.draft_unit.publishable_entity,
             self.published_component.publishable_entity,
             self.draft_component.publishable_entity,
         ]
@@ -586,6 +620,7 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         assert collection == api.get_collection(self.learning_package.id, collection.key)
         # ...and the collection's entities remain intact.
         assert list(collection.entities.all()) == [
+            self.draft_unit.publishable_entity,
             self.published_component.publishable_entity,
             self.draft_component.publishable_entity,
         ]
@@ -615,6 +650,7 @@ class SetCollectionsTestCase(CollectionEntitiesTestCase):
             self.draft_component.publishable_entity,
         ]
         assert list(self.collection2.entities.all()) == [
+            self.draft_unit.publishable_entity,
             self.published_component.publishable_entity,
             self.draft_component.publishable_entity,
         ]
@@ -651,6 +687,7 @@ class SetCollectionsTestCase(CollectionEntitiesTestCase):
             self.published_component.publishable_entity,
         ]
         assert list(self.collection2.entities.all()) == [
+            self.draft_unit.publishable_entity,
             self.published_component.publishable_entity,
             self.draft_component.publishable_entity,
         ]
