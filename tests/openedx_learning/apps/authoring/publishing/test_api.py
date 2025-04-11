@@ -886,8 +886,10 @@ class ContainerTestCase(TestCase):
             container.pk,
             1,
             title="My Container",
-            publishable_entities_pks=[child_1.id, child_2.id],
-            entity_version_pks=None,
+            entity_rows=[
+                publishing_api.ContainerEntityRow(entity_pk=child_1.pk),
+                publishing_api.ContainerEntityRow(entity_pk=child_2.pk),
+            ],
             created=self.now,
             created_by=None,
         )
@@ -965,8 +967,10 @@ class ContainerTestCase(TestCase):
                 container.pk,
                 1,
                 title="My Container",
-                publishable_entities_pks=[child_1.id, child_2.id],
-                entity_version_pks=None,
+                entity_rows=[
+                    publishing_api.ContainerEntityRow(entity_pk=child_1.pk),
+                    publishing_api.ContainerEntityRow(entity_pk=child_2.pk),
+                ],
                 created=self.now,
                 created_by=None,
             )
@@ -1032,8 +1036,9 @@ class ContainerTestCase(TestCase):
             unit.pk,
             1,
             title="My Unit",
-            publishable_entities_pks=[component.pk],
-            entity_version_pks=None,
+            entity_rows=[
+                publishing_api.ContainerEntityRow(entity_pk=component.pk),
+            ],
             created=self.now,
             created_by=None,
         )
@@ -1044,8 +1049,9 @@ class ContainerTestCase(TestCase):
             subsection.pk,
             1,
             title="My Subsection",
-            publishable_entities_pks=[unit.pk],
-            entity_version_pks=None,
+            entity_rows=[
+                publishing_api.ContainerEntityRow(entity_pk=unit.pk),
+            ],
             created=self.now,
             created_by=None,
         )
