@@ -38,6 +38,8 @@ class Draft(models.Model):
     separation of lifecycle events: i.e. this table *only* changes when drafts
     are updated, not when publishing happens. The Published model only changes
     when something is published.
+
+    .. no_pii
     """
     # If we're removing a PublishableEntity entirely, also remove the Draft
     # entry for it. This isn't a normal operation, but can happen if you're
@@ -69,6 +71,8 @@ class DraftChangeLog(models.Model):
     PublishableEntity, we will get multiple DraftChangeLogRecords if changing
     that entity causes side-effects. See the docstrings for DraftChangeLogRecord
     and DraftSideEffect for more details.
+
+    .. no_pii:
     """
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
@@ -178,6 +182,8 @@ class DraftChangeLogRecord(models.Model):
       represent that in a useful way because that Unit *is* a part of the change
       set represented by a DraftChangeLog, even if its own versioned data hasn't
       changed.
+
+    .. no_pii:
     """
     draft_change_log = models.ForeignKey(
         DraftChangeLog,
@@ -282,6 +288,8 @@ class DraftSideEffect(models.Model):
       current draft of U1 (U1.v2). A DraftChangeLog is considered a single
       atomic operation, so there was never a point at which C1.v1 -> C1.v2
       affected the draft state of U1.
+
+    .. no_pii:
     """
     cause = models.ForeignKey(
         DraftChangeLogRecord,
