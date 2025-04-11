@@ -637,7 +637,6 @@ class SetCollectionsTestCase(CollectionEntitiesTestCase):
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
             api.set_collections(
-                self.learning_package.id,
                 self.draft_component.publishable_entity,
                 collection_qset=Collection.objects.filter(id__in=[
                     self.collection1.pk,
@@ -675,7 +674,6 @@ class SetCollectionsTestCase(CollectionEntitiesTestCase):
         new_modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(new_modified_time):
             api.set_collections(
-                self.learning_package.id,
                 self.draft_component.publishable_entity,
                 collection_qset=Collection.objects.filter(id__in=[
                     self.collection3.pk,
@@ -708,13 +706,19 @@ class SetCollectionsTestCase(CollectionEntitiesTestCase):
             key="ComponentTestCase-test-key-3",
             title="Components Test Case Learning Package-3",
         )
+        collection = api.create_collection(
+            learning_package_3.id,
+            key="MYCOL",
+            title="My Collection",
+            created_by=None,
+            description="Description of Collection",
+        )
 
         with self.assertRaises(ValidationError):
             api.set_collections(
-                learning_package_3.id,
                 self.draft_component.publishable_entity,
                 collection_qset=Collection.objects.filter(id__in=[
-                    self.collection1.pk,
+                    collection.pk,
                 ]),
                 created_by=self.user.id,
             )

@@ -234,15 +234,12 @@ def set_collections(
     removed_collections = set(
         r.collection for r in current_relations.exclude(collection__in=collection_qset)
     )
-    removed_collections = set(
-        r.collection for r in current_relations.exclude(collection__in=collection_qset)
-    )
     new_collections = set(collection_qset.exclude(
         id__in=current_relations.values_list('collection', flat=True)
     ))
     # Triggers a m2m_changed signal
     publishable_entity.collections.set(
-        objs=new_collections,
+        objs=collection_qset,
         through_defaults={"created_by_id": created_by},
     )
     # Update modified date via update to avoid triggering post_save signal for all collections, which can be very slow.
