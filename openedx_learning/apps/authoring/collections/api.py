@@ -208,7 +208,6 @@ def get_collections(learning_package_id: int, enabled: bool | None = True) -> Qu
 
 
 def set_collections(
-    learning_package_id: int,
     publishable_entity: PublishableEntity,
     collection_qset: QuerySet[Collection],
     created_by: int | None = None,
@@ -224,12 +223,9 @@ def set_collections(
     Returns the updated collections.
     """
     # Disallow adding entities outside the collection's learning package
-    invalid_collection = collection_qset.exclude(learning_package_id=learning_package_id).first()
-    if invalid_collection:
+    if collection_qset.exclude(learning_package_id=publishable_entity.learning_package_id).count():
         raise ValidationError(
-            f"Cannot add collection {invalid_collection.pk} in learning package  "
-            f"{invalid_collection.learning_package_id} to entity {publishable_entity} in "
-            f"learning package {learning_package_id}."
+            "Collection entities must be from the same learning package as the collection.",
         )
     current_relations = CollectionPublishableEntity.objects.filter(
         entity=publishable_entity
@@ -238,19 +234,18 @@ def set_collections(
     removed_collections = set(
         r.collection for r in current_relations.exclude(collection__in=collection_qset)
     )
+    removed_collections = set(
+        r.collection for r in current_relations.exclude(collection__in=collection_qset)
+    )
     new_collections = set(collection_qset.exclude(
         id__in=current_relations.values_list('collection', flat=True)
     ))
-    # Use `remove` instead of `CollectionPublishableEntity.delete()` to trigger m2m_changed signal which will handle
-    # updating entity index.
-    publishable_entity.collections.remove(*removed_collections)
-    publishable_entity.collections.add(
-        *new_collections,
+    # Triggers a m2m_changed signal
+    publishable_entity.collections.set(
+        objs=new_collections,
         through_defaults={"created_by_id": created_by},
     )
-    # Update modified date via update to avoid triggering post_save signal for collections
-    # The signal triggers index update for each collection synchronously which will be very slow in this case.
-    # Instead trigger the index update in the caller function asynchronously.
+    # Update modified date via update to avoid triggering post_save signal for all collections, which can be very slow.
     affected_collection = removed_collections | new_collections
     Collection.objects.filter(
         id__in=[collection.id for collection in affected_collection]
