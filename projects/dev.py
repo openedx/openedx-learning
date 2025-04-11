@@ -35,6 +35,7 @@ INSTALLED_APPS = (
     "openedx_learning.apps.authoring.components.apps.ComponentsConfig",
     "openedx_learning.apps.authoring.contents.apps.ContentsConfig",
     "openedx_learning.apps.authoring.publishing.apps.PublishingConfig",
+    "openedx_learning.apps.authoring.sections.apps.SectionsConfig",
     "openedx_learning.apps.authoring.subsections.apps.SubsectionsConfig",
     "openedx_learning.apps.authoring.units.apps.UnitsConfig",
     # Learning Contrib Apps
