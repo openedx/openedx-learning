@@ -1,6 +1,8 @@
 """
 Basic tests for the units API.
 """
+from unittest.mock import patch
+
 import ddt  # type: ignore[import]
 import pytest
 from django.core.exceptions import ValidationError
@@ -171,7 +173,7 @@ class UnitTestCase(ComponentTestCase):
         # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
         with self.assertNumQueries(22):
             _empty_unit = self.create_unit_with_components([])
-        with self.assertNumQueries(25):
+        with self.assertNumQueries(26):
             # And try with a non-empty unit:
             self.create_unit_with_components([self.component_1, self.component_2_v1], key="u2")
 
@@ -229,6 +231,28 @@ class UnitTestCase(ComponentTestCase):
             authoring_api.create_next_unit_version(
                 unit=unit,
                 title="Unit Containing an External Component",
+                components=[self.component_1],
+                created=self.now,
+                created_by=None,
+            )
+
+    @patch('openedx_learning.apps.authoring.units.api._pub_entities_for_components')
+    def test_adding_mismatched_versions(self, mock_entities_for_components):
+        """
+        Test that versioned components must match their entities.
+        """
+        mock_entities_for_components.return_value = [
+            authoring_api.ContainerEntityRow(
+                entity_pk=self.component_1.pk,
+                version_pk=self.component_2_v1.pk,
+            ),
+        ]
+        # Try adding a a component from LP 1 (self.learning_package) to a unit from LP 2
+        with pytest.raises(ValidationError, match="Container entity versions must belong to the specified entity"):
+            authoring_api.create_unit_and_version(
+                learning_package_id=self.component_1.learning_package.id,
+                key="unit:key",
+                title="Unit",
                 components=[self.component_1],
                 created=self.now,
                 created_by=None,
