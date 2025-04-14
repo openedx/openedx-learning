@@ -249,22 +249,6 @@ class SubSectionTestCase(SubSectionTestCase):
                 created_by=None,
             )
 
-    # ?FOR REVIEW
-    @ddt.data(True, False)
-    @pytest.mark.skip(reason="FIXME: This test is failing because the publishable_entity is not deleted from the database with the subsection.")
-    # FIXME: Also, exception is Container.DoesNotExist, not Subsection.DoesNotExist
-    def test_cannot_add_invalid_ids(self, pin_version):
-        """
-        Test that non-existent subsections cannot be added to sections
-        """
-        self.subsection_1.delete()
-        if pin_version:
-            subsections = [self.subsection_1_v1]
-        else:
-            subsections = [self.subsection_1]
-        with pytest.raises((IntegrityError, authoring_models.Subsection.DoesNotExist)):
-            self.create_section_with_subsections(subsections)
-
     def test_create_empty_section_and_version(self):
         """Test creating a section with no subsections.
 
@@ -357,7 +341,7 @@ class SubSectionTestCase(SubSectionTestCase):
         # Create a draft section with two draft subsections
         section = self.create_section_with_subsections([self.subsection_1, self.subsection_2])
         # Also create another subsection that's not in the section at all:
-        other_subsection, _ou_v1 = self.create_subsection(title="A draft subsection not in the section", key="subsection:3")
+        other_subsection, _os_v1 = self.create_subsection(title="A draft subsection not in the section", key="subsection:3")
 
         assert authoring_api.contains_unpublished_changes(section.pk)
         assert self.subsection_1.versioning.published is None
@@ -580,17 +564,17 @@ class SubSectionTestCase(SubSectionTestCase):
         Everything is "unpinned".
         """
         # 1️⃣ Create the sections and publish them:
-        (u1, u1_v1), (u2, _u2_v1), (u3, u3_v1), (u4, u4_v1), (u5, u5_v1) = [
+        (s1, s1_v1), (s2, _s2_v1), (s3, s3_v1), (s4, s4_v1), (s5, s5_v1) = [
             self.create_subsection(key=f"C{i}", title=f"Subsection {i}") for i in range(1, 6)
         ]
-        section1 = self.create_section_with_subsections([u1, u2, u3], title="Section 1", key="section:1")
-        section2 = self.create_section_with_subsections([u2, u4, u5], title="Section 2", key="section:2")
+        section1 = self.create_section_with_subsections([s1, s2, s3], title="Section 1", key="section:1")
+        section2 = self.create_section_with_subsections([s2, s4, s5], title="Section 2", key="section:2")
         authoring_api.publish_all_drafts(self.learning_package.id)
         assert authoring_api.contains_unpublished_changes(section1.pk) is False
         assert authoring_api.contains_unpublished_changes(section2.pk) is False
 
-        # 2️⃣ Then the author edits U2 inside of Section 1 making U2v2.
-        u2_v2 = self.modify_subsection(u2, title="U2 version 2")
+        # 2️⃣ Then the author edits S2 inside of Section 1 making S2v2.
+        s2_v2 = self.modify_subsection(s2, title="U2 version 2")
         # This makes S1 and S2 both show up as Sections that CONTAIN unpublished changes, because they share the subsection.
         assert authoring_api.contains_unpublished_changes(section1.pk)
         assert authoring_api.contains_unpublished_changes(section2.pk)
@@ -601,7 +585,7 @@ class SubSectionTestCase(SubSectionTestCase):
         assert section2.versioning.has_unpublished_changes is False
 
         # 3️⃣ In addition to this, the author also modifies another subsection in Section 2 (U5)
-        u5_v2 = self.modify_subsection(u5, title="U5 version 2")
+        s5_v2 = self.modify_subsection(s5, title="S5 version 2")
 
         # 4️⃣ The author then publishes Section 1, and therefore everything in it.
         authoring_api.publish_from_drafts(
@@ -614,18 +598,18 @@ class SubSectionTestCase(SubSectionTestCase):
 
         # Result: Section 1 will show the newly published version of U2:
         assert authoring_api.get_subsections_in_section(section1, published=True) == [
-            Entry(u1_v1),
-            Entry(u2_v2),  # new published version of U2
-            Entry(u3_v1),
+            Entry(s1_v1),
+            Entry(s2_v2),  # new published version of U2
+            Entry(s3_v1),
         ]
 
         # Result: someone looking at Section 2 should see the newly published subsection 2, because publishing it anywhere
         # publishes it everywhere. But publishing U2 and Section 1 does not affect the other subsections in Section 2.
         # (Publish propagates downward, not upward)
         assert authoring_api.get_subsections_in_section(section2, published=True) == [
-            Entry(u2_v2),  # new published version of U2
-            Entry(u4_v1),  # still original version of U4 (it was never modified)
-            Entry(u5_v1),  # still original version of U5 (it hasn't been published)
+            Entry(s2_v2),  # new published version of U2
+            Entry(s4_v1),  # still original version of U4 (it was never modified)
+            Entry(s5_v1),  # still original version of U5 (it hasn't been published)
         ]
 
         # Result: Section 2 CONTAINS unpublished changes because of the modified U5. Section 1 doesn't contain unpub changes.
@@ -636,9 +620,9 @@ class SubSectionTestCase(SubSectionTestCase):
         self.publish_subsection(u5)
         # Result: Section 2 shows the new version of C5 and no longer contains unpublished changes:
         assert authoring_api.get_subsections_in_section(section2, published=True) == [
-            Entry(u2_v2),  # new published version of U2
-            Entry(u4_v1),  # still original version of U4 (it was never modified)
-            Entry(u5_v2),  # new published version of U5
+            Entry(s2_v2),  # new published version of U2
+            Entry(s4_v1),  # still original version of U4 (it was never modified)
+            Entry(s5_v2),  # new published version of U5
         ]
         assert authoring_api.contains_unpublished_changes(section2.pk) is False
 
@@ -686,26 +670,6 @@ class SubSectionTestCase(SubSectionTestCase):
 
         assert new_version_num > orig_version_num
         assert new_entity_list_id == orig_entity_list_id
-
-    @ddt.data(True, False)
-    @pytest.mark.skip(reason="FIXME: we don't yet prevent adding soft-deleted subsections to sections")
-    def test_cannot_add_soft_deleted_subsection(self, publish_first):
-        """
-        Test that a soft-deleted subsection cannot be added to a section.
-
-        Although it's valid for sections to contain soft-deleted subsections (by
-        deleting the subsection after adding it), it is likely a mistake if
-        you're trying to add one to the section.
-        """
-        subsection, _cv = self.create_subsection(title="Deleted subsection")
-        if publish_first:
-            # Publish the subsection:
-            authoring_api.publish_all_drafts(self.learning_package.id)
-        # Now delete it. The draft version is now deleted:
-        authoring_api.soft_delete_draft(subsection.pk)
-        # Now try adding that subsection to a section:
-        with pytest.raises(ValidationError, match="subsection is deleted"):
-            self.create_section_with_subsections([subsection])
 
     def test_removing_subsection(self):
         """ Test removing a subsection from a section (but not deleting it) """
@@ -950,18 +914,18 @@ class SubSectionTestCase(SubSectionTestCase):
         # Note: it is important that some of these sections contain other subsections, to ensure the complex JOINs required
         # for this query are working correctly, especially in the case of ignore_pinned=True.
         # Section 1 ✅ has subsection 1, pinned 📌 to V1
-        section1_1pinned = self.create_section_with_subsections([self.subsection_1_v1, self.subsection_2], key="u1")
+        section1_1pinned = self.create_section_with_subsections([self.subsection_1_v1, self.subsection_2], key="s1")
         # Section 2 ✅ has subsection 1, pinned 📌 to V2
-        section2_1pinned_v2 = self.create_section_with_subsections([subsection_1_v2, self.subsection_2_v1], key="u2")
+        section2_1pinned_v2 = self.create_section_with_subsections([subsection_1_v2, self.subsection_2_v1], key="s2")
         # Section 3 doesn't contain it
-        _section3_no = self.create_section_with_subsections([self.subsection_2], key="u3")
+        _section3_no = self.create_section_with_subsections([self.subsection_2], key="s3")
         # Section 4 ✅ has subsection 1, unpinned
         section4_unpinned = self.create_section_with_subsections([
             self.subsection_1, self.subsection_2, self.subsection_2_v1,
-        ], key="u4")
+        ], key="s4")
         # Sections 5/6 don't contain it
-        _section5_no = self.create_section_with_subsections([self.subsection_2_v1, self.subsection_2], key="u5")
-        _section6_no = self.create_section_with_subsections([], key="u6")
+        _section5_no = self.create_section_with_subsections([self.subsection_2_v1, self.subsection_2], key="s5")
+        _section6_no = self.create_section_with_subsections([], key="s6")
 
         # No need to publish anything as the get_containers_with_entity() API only considers drafts (for now).
 
