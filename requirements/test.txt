@@ -19,7 +19,7 @@ billiard==4.2.1
     # via
     #   -r requirements/base.txt
     #   celery
-celery==5.5.0
+celery==5.5.1
     # via -r requirements/base.txt
 certifi==2025.1.31
     # via
@@ -56,7 +56,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
-code-annotations==2.2.0
+code-annotations==2.3.0
     # via -r requirements/test.in
 coverage[toml]==7.8.0
     # via
@@ -112,7 +112,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
-edx-django-utils==7.2.0
+edx-django-utils==7.4.0
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
@@ -124,7 +124,7 @@ edx-opaque-keys==2.12.0
     #   edx-drf-extensions
 freezegun==1.5.1
     # via -r requirements/test.in
-grimp==3.7.1
+grimp==3.8
     # via import-linter
 idna==3.10
     # via
@@ -150,7 +150,7 @@ mypy-extensions==1.0.0
     # via mypy
 mysqlclient==2.2.7
     # via -r requirements/test.in
-newrelic==10.8.1
+newrelic==10.9.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
@@ -179,7 +179,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.11.3
+pymongo==4.12.0
     # via
     #   -r requirements/base.txt
     #   edx-opaque-keys
@@ -239,7 +239,7 @@ types-pyyaml==6.0.12.20250402
     #   djangorestframework-stubs
 types-requests==2.32.0.20250328
     # via djangorestframework-stubs
-typing-extensions==4.13.1
+typing-extensions==4.13.2
     # via
     #   -r requirements/base.txt
     #   django-stubs
