@@ -4,7 +4,6 @@ Basic tests for the subsections API.
 import ddt  # type: ignore[import]
 import pytest
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
 
 from openedx_learning.api import authoring as authoring_api
 from openedx_learning.api import authoring_models
@@ -15,7 +14,7 @@ Entry = authoring_api.SectionListEntry
 
 
 @ddt.ddt
-class SubSectionTestCase(SubSectionTestCase):
+class SectionTestCase(SubSectionTestCase):
     """ Test cases for Sections (containers of subsections) """
 
     def setUp(self) -> None:
@@ -320,7 +319,10 @@ class SubSectionTestCase(SubSectionTestCase):
         section_version_v2 = authoring_api.create_next_section_version(
             section=section,
             title="Section",
-            subsections=[self.subsection_1, self.subsection_2_v1],  # Note the "v1" pinning 📌 the second one to version 1
+            subsections=[
+                self.subsection_1,
+                self.subsection_2_v1
+            ],  # Note the "v1" pinning 📌 the second one to version 1
             created=self.now,
             created_by=None,
         )
@@ -341,7 +343,9 @@ class SubSectionTestCase(SubSectionTestCase):
         # Create a draft section with two draft subsections
         section = self.create_section_with_subsections([self.subsection_1, self.subsection_2])
         # Also create another subsection that's not in the section at all:
-        other_subsection, _os_v1 = self.create_subsection(title="A draft subsection not in the section", key="subsection:3")
+        other_subsection, _os_v1 = self.create_subsection(
+            title="A draft subsection not in the section", key="subsection:3"
+        )
 
         assert authoring_api.contains_unpublished_changes(section.pk)
         assert self.subsection_1.versioning.published is None
@@ -403,7 +407,7 @@ class SubSectionTestCase(SubSectionTestCase):
         # Publish the empty section:
         authoring_api.publish_all_drafts(self.learning_package.id)
         section.refresh_from_db()  # Reloading the section is necessary
-        assert section.versioning.has_unpublished_changes is False  # Shallow check for just the section itself, not children
+        assert section.versioning.has_unpublished_changes is False  # Shallow check for the section itself, not children
         assert authoring_api.contains_unpublished_changes(section.pk) is False  # Deeper check
 
         # Add a published subsection (unpinned):
@@ -449,7 +453,7 @@ class SubSectionTestCase(SubSectionTestCase):
         # The subsection now has unpublished changes; the section doesn't directly but does contain
         section.refresh_from_db()  # Reloading the section is necessary, or 'section.versioning' will be outdated
         self.subsection_1.refresh_from_db()
-        assert section.versioning.has_unpublished_changes is False  # Shallow check should be false - section is unchanged
+        assert section.versioning.has_unpublished_changes is False  # Shallow check should be false - section unchanged
         assert authoring_api.contains_unpublished_changes(section.pk)  # But section DOES contain changes
         assert self.subsection_1.versioning.has_unpublished_changes
 
@@ -511,17 +515,21 @@ class SubSectionTestCase(SubSectionTestCase):
         subsections in each section.
         """
         # Create a section with subsection 2 unpinned, subsection 2 pinned 📌, and subsection 1:
-        section1 = self.create_section_with_subsections([self.subsection_2, self.subsection_2_v1, self.subsection_1], key="u1")
+        section1 = self.create_section_with_subsections(
+            [self.subsection_2, self.subsection_2_v1, self.subsection_1], key="u1"
+        )
         # Create a second section with subsection 1 pinned 📌, subsection 2, and subsection 1 unpinned:
-        section2 = self.create_section_with_subsections([self.subsection_1_v1, self.subsection_2, self.subsection_1], key="u2")
+        section2 = self.create_section_with_subsections(
+            [self.subsection_1_v1, self.subsection_2, self.subsection_1], key="u2"
+        )
 
         # Check that the contents are as expected:
-        assert [row.subsection_version for row in authoring_api.get_subsections_in_section(section1, published=False)] == [
-            self.subsection_2_v1, self.subsection_2_v1, self.subsection_1_v1,
-        ]
-        assert [row.subsection_version for row in authoring_api.get_subsections_in_section(section2, published=False)] == [
-            self.subsection_1_v1, self.subsection_2_v1, self.subsection_1_v1,
-        ]
+        assert [
+            row.subsection_version for row in authoring_api.get_subsections_in_section(section1, published=False)
+        ] == [self.subsection_2_v1, self.subsection_2_v1, self.subsection_1_v1,]
+        assert [
+            row.subsection_version for row in authoring_api.get_subsections_in_section(section2, published=False)
+        ] == [self.subsection_1_v1, self.subsection_2_v1, self.subsection_1_v1,]
 
         # Modify subsection 1
         subsection_1_v2 = self.modify_subsection(self.subsection_1, title="subsection 1 v2")
@@ -575,7 +583,7 @@ class SubSectionTestCase(SubSectionTestCase):
 
         # 2️⃣ Then the author edits S2 inside of Section 1 making S2v2.
         s2_v2 = self.modify_subsection(s2, title="U2 version 2")
-        # This makes S1 and S2 both show up as Sections that CONTAIN unpublished changes, because they share the subsection.
+        # This makes S1, S2 both show up as Sections that CONTAIN unpublished changes, because they share the subsection
         assert authoring_api.contains_unpublished_changes(section1.pk)
         assert authoring_api.contains_unpublished_changes(section2.pk)
         # (But the sections themselves are unchanged:)
@@ -603,8 +611,9 @@ class SubSectionTestCase(SubSectionTestCase):
             Entry(s3_v1),
         ]
 
-        # Result: someone looking at Section 2 should see the newly published subsection 2, because publishing it anywhere
-        # publishes it everywhere. But publishing U2 and Section 1 does not affect the other subsections in Section 2.
+        # Result: someone looking at Section 2 should see the newly published subsection 2,
+        # because publishing it anywhere publishes it everywhere.
+        # But publishing U2 and Section 1 does not affect the other subsections in Section 2.
         # (Publish propagates downward, not upward)
         assert authoring_api.get_subsections_in_section(section2, published=True) == [
             Entry(s2_v2),  # new published version of U2
@@ -612,12 +621,13 @@ class SubSectionTestCase(SubSectionTestCase):
             Entry(s5_v1),  # still original version of U5 (it hasn't been published)
         ]
 
-        # Result: Section 2 CONTAINS unpublished changes because of the modified U5. Section 1 doesn't contain unpub changes.
+        # Result: Section 2 CONTAINS unpublished changes because of the modified U5.
+        # Section 1 doesn't contain unpub changes.
         assert authoring_api.contains_unpublished_changes(section1.pk) is False
         assert authoring_api.contains_unpublished_changes(section2.pk)
 
         # 5️⃣ Publish subsection U5, which should be the only thing unpublished in the learning package
-        self.publish_subsection(u5)
+        self.publish_subsection(s5)
         # Result: Section 2 shows the new version of C5 and no longer contains unpublished changes:
         assert authoring_api.get_subsections_in_section(section2, published=True) == [
             Entry(s2_v2),  # new published version of U2
@@ -723,11 +733,11 @@ class SubSectionTestCase(SubSectionTestCase):
             Entry(self.subsection_1_v1),
             # subsection 2 is soft deleted from the draft.
             # TODO: should we return some kind of placeholder here, to indicate that a subsection is still listed in the
-            # section's subsection list but has been soft deleted, and will be fully deleted when published, or restored if
-            # reverted?
+            # section's subsection list but has been soft deleted, and will be fully deleted when published,
+            # or restored if reverted?
         ]
-        assert section.versioning.has_unpublished_changes is False  # The section itself and its subsection list is not changed
-        assert authoring_api.contains_unpublished_changes(section.pk)  # But it CONTAINS an unpublished change (a deletion)
+        assert section.versioning.has_unpublished_changes is False  # The section and its subsection list is not changed
+        assert authoring_api.contains_unpublished_changes(section.pk)  # But it CONTAINS unpublished change (deletion)
         # The published version of the section is not yet affected:
         assert authoring_api.get_subsections_in_section(section, published=True) == [
             Entry(self.subsection_1_v1),
@@ -789,7 +799,7 @@ class SubSectionTestCase(SubSectionTestCase):
             Entry(self.subsection_1_v1, pinned=True),
             Entry(self.subsection_2_v1, pinned=True),
         ]
-        assert section.versioning.has_unpublished_changes is False  # The section itself and its subsection list is not changed
+        assert section.versioning.has_unpublished_changes is False  # The section and its subsection list is not changed
         assert authoring_api.contains_unpublished_changes(section.pk) is False  # nor does it contain changes
         # The published version of the section is also not affected:
         assert authoring_api.get_subsections_in_section(section, published=True) == [
@@ -812,7 +822,7 @@ class SubSectionTestCase(SubSectionTestCase):
         # Delete the section:
         authoring_api.soft_delete_draft(section_to_delete.publishable_entity_id)
         section_to_delete.refresh_from_db()
-        # Now the draft section is [soft] deleted, but the subsections, published section, and other section is unaffected:
+        # Now draft section is [soft] deleted, but the subsections, published section, and other section is unaffected:
         assert section_to_delete.versioning.draft is None  # Section is soft deleted.
         assert section_to_delete.versioning.published is not None
         self.subsection_1.refresh_from_db()
@@ -911,7 +921,7 @@ class SubSectionTestCase(SubSectionTestCase):
         subsection_1_v2 = self.modify_subsection(self.subsection_1, title="modified subsection 1")
 
         # Create a few sections, some of which contain subsection 1 and others which don't:
-        # Note: it is important that some of these sections contain other subsections, to ensure the complex JOINs required
+        # Note: it is important that some of these sections contain other subsections, to ensure complex JOINs required
         # for this query are working correctly, especially in the case of ignore_pinned=True.
         # Section 1 ✅ has subsection 1, pinned 📌 to V1
         section1_1pinned = self.create_section_with_subsections([self.subsection_1_v1, self.subsection_2], key="s1")
@@ -946,7 +956,9 @@ class SubSectionTestCase(SubSectionTestCase):
         with self.assertNumQueries(1):
             result2 = [
                 c.section for c in
-                authoring_api.get_containers_with_entity(self.subsection_1.pk, ignore_pinned=True).select_related("section")
+                authoring_api.get_containers_with_entity(
+                    self.subsection_1.pk, ignore_pinned=True
+                ).select_related("section")
             ]
         assert result2 == [section4_unpinned]
 
@@ -1042,5 +1054,5 @@ class SubSectionTestCase(SubSectionTestCase):
     # Test that I can get a [PublishLog] history of a given section and all its children, including children that aren't
     #     currently in the section and excluding children that are only in other sections.
     # Test that I can get a [PublishLog] history of a given section and its children, that includes changes made to the
-    #     child subsections while they were part of the section but excludes changes made to those children while they were
+    #     child subsections while they were part of section but excludes changes made to those children while they were
     #     not part of the section. 🫣
