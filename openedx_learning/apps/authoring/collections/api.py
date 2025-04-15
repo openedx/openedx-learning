@@ -10,7 +10,7 @@ from django.db.models import QuerySet
 
 from ..publishing import api as publishing_api
 from ..publishing.models import PublishableEntity
-from .models import Collection
+from .models import Collection, CollectionPublishableEntity
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -27,6 +27,7 @@ __all__ = [
     "remove_from_collection",
     "restore_collection",
     "update_collection",
+    "set_collections",
 ]
 
 
@@ -204,3 +205,47 @@ def get_collections(learning_package_id: int, enabled: bool | None = True) -> Qu
     if enabled is not None:
         qs = qs.filter(enabled=enabled)
     return qs.select_related("learning_package").order_by('pk')
+
+
+def set_collections(
+    publishable_entity: PublishableEntity,
+    collection_qset: QuerySet[Collection],
+    created_by: int | None = None,
+) -> set[Collection]:
+    """
+    Set collections for a given publishable entity.
+
+    These Collections must belong to the same LearningPackage as the PublishableEntity,
+    or a ValidationError will be raised.
+
+    Modified date of all collections related to entity is updated.
+
+    Returns the updated collections.
+    """
+    # Disallow adding entities outside the collection's learning package
+    if collection_qset.exclude(learning_package_id=publishable_entity.learning_package_id).count():
+        raise ValidationError(
+            "Collection entities must be from the same learning package as the collection.",
+        )
+    current_relations = CollectionPublishableEntity.objects.filter(
+        entity=publishable_entity
+    ).select_related('collection')
+    # Clear other collections for given entity and add only new collections from collection_qset
+    removed_collections = set(
+        r.collection for r in current_relations.exclude(collection__in=collection_qset)
+    )
+    new_collections = set(collection_qset.exclude(
+        id__in=current_relations.values_list('collection', flat=True)
+    ))
+    # Triggers a m2m_changed signal
+    publishable_entity.collections.set(
+        objs=collection_qset,
+        through_defaults={"created_by_id": created_by},
+    )
+    # Update modified date via update to avoid triggering post_save signal for all collections, which can be very slow.
+    affected_collection = removed_collections | new_collections
+    Collection.objects.filter(
+        id__in=[collection.id for collection in affected_collection]
+    ).update(modified=datetime.now(tz=timezone.utc))
+
+    return affected_collection

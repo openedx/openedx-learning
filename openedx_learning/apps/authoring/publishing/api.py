@@ -74,6 +74,7 @@ __all__ = [
     "get_container",
     "get_container_by_key",
     "get_containers",
+    "get_collection_containers",
     "ChildrenEntitiesAction",
     "ContainerEntityListEntry",
     "ContainerEntityRow",
@@ -952,6 +953,21 @@ def get_containers(
     """
     assert issubclass(container_cls, Container)
     return container_cls.objects.filter(publishable_entity__learning_package=learning_package_id)
+
+
+def get_collection_containers(
+    learning_package_id: int,
+    collection_key: str,
+) -> QuerySet[Container]:
+    """
+    Returns a QuerySet of Containers relating to the PublishableEntities in a Collection.
+
+    Containers have a one-to-one relationship with PublishableEntity, but the reverse may not always be true.
+    """
+    return Container.objects.filter(
+        publishable_entity__learning_package_id=learning_package_id,
+        publishable_entity__collections__key=collection_key,
+    ).order_by('pk')
 
 
 @dataclass(frozen=True)
