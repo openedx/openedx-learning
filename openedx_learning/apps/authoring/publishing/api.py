@@ -1323,9 +1323,8 @@ def contains_unpublished_changes(container_id: int) -> bool:
 
     # We only care about children that are un-pinned, since published changes to pinned children don't matter
     entity_list = getattr(container.versioning.draft, "entity_list", None)
-    # ?FOR REVIEW: Is this correct?
     if entity_list is None:
-        # This container has not been published yet, or has been deleted.
+        # This container has been soft-deleted, so it has no children.
         return False
 
     # This is a naive and inefficient implementation but should be correct.

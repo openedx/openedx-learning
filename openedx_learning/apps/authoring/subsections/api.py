@@ -62,8 +62,7 @@ def create_subsection_version(
     version_num: int,
     *,
     title: str,
-    publishable_entities_pks: list[int],
-    entity_version_pks: list[int | None],
+    entity_rows: list[publishing_api.ContainerEntityRow],
     created: datetime,
     created_by: int | None = None,
 ) -> SubsectionVersion:
@@ -78,8 +77,7 @@ def create_subsection_version(
         subsection_pk: The subsection ID.
         version_num: The version number.
         title: The title.
-        publishable_entities_pk: The publishable entities.
-        entity: The entity.
+        entity_rows: child entities/versions
         created: The creation date.
         created_by: The user who created the subsection.
     """
@@ -87,8 +85,7 @@ def create_subsection_version(
         subsection.pk,
         version_num,
         title=title,
-        publishable_entities_pks=publishable_entities_pks,
-        entity_version_pks=entity_version_pks,
+        entity_rows=entity_rows,
         created=created,
         created_by=created_by,
         container_version_cls=SubsectionVersion,
@@ -97,30 +94,33 @@ def create_subsection_version(
 
 def _pub_entities_for_units(
     units: list[Unit | UnitVersion] | None,
-) -> tuple[list[int], list[int | None]] | tuple[None, None]:
+) -> list[publishing_api.ContainerEntityRow] | None:
     """
     Helper method: given a list of Unit | UnitVersion, return the
-    lists of publishable_entities_pks and entity_version_pks needed for the
-    base container APIs.
+    list of ContainerEntityRows needed for the base container APIs.
 
     UnitVersion is passed when we want to pin a specific version, otherwise
     Unit is used for unpinned.
     """
     if units is None:
         # When these are None, that means don't change the entities in the list.
-        return None, None
+        return None
     for u in units:
         if not isinstance(u, (Unit, UnitVersion)):
             raise TypeError("Subsection units must be either Unit or UnitVersion.")
-    publishable_entities_pks = [
-        (u.publishable_entity_id if isinstance(u, Unit) else u.unit.publishable_entity_id)
+    return [
+        (
+            publishing_api.ContainerEntityRow(
+                entity_pk=u.container.publishable_entity_id,
+                version_pk=None,
+            ) if isinstance(u, Unit)
+            else publishing_api.ContainerEntityRow(
+                entity_pk=u.unit.container.publishable_entity_id,
+                version_pk=u.container_version.publishable_entity_version_id,
+            )
+        )
         for u in units
     ]
-    entity_version_pks = [
-        (uv.pk if isinstance(uv, UnitVersion) else None)
-        for uv in units
-    ]
-    return publishable_entities_pks, entity_version_pks
 
 
 def create_next_subsection_version(
@@ -143,12 +143,11 @@ def create_next_subsection_version(
         created: The creation date.
         created_by: The user who created the subsection.
     """
-    publishable_entities_pks, entity_version_pks = _pub_entities_for_units(units)
+    entity_rows = _pub_entities_for_units(units)
     subsection_version = publishing_api.create_next_container_version(
         subsection.pk,
         title=title,
-        publishable_entities_pks=publishable_entities_pks,
-        entity_version_pks=entity_version_pks,
+        entity_rows=entity_rows,
         created=created,
         created_by=created_by,
         container_version_cls=SubsectionVersion,
@@ -177,7 +176,7 @@ def create_subsection_and_version(
         created_by: The user who created the subsection.
         can_stand_alone: Set to False when created as part of containers
     """
-    publishable_entities_pks, entity_version_pks = _pub_entities_for_units(units)
+    entity_rows = _pub_entities_for_units(units)
     with atomic():
         subsection = create_subsection(
             learning_package_id,
@@ -190,8 +189,7 @@ def create_subsection_and_version(
             subsection,
             1,
             title=title,
-            publishable_entities_pks=publishable_entities_pks or [],
-            entity_version_pks=entity_version_pks or [],
+            entity_rows=entity_rows or [],
             created=created,
             created_by=created_by,
         )
@@ -286,7 +284,9 @@ def get_units_in_published_subsection_as_of(
           ancestors of every modified PublishableEntity in the publish.
     """
     assert isinstance(subsection, Subsection)
-    subsection_pub_entity_version = publishing_api.get_published_version_as_of(subsection.publishable_entity_id, publish_log_id)
+    subsection_pub_entity_version = publishing_api.get_published_version_as_of(
+        subsection.publishable_entity_id, publish_log_id
+    )
     if subsection_pub_entity_version is None:
         return None  # This subsection was not published as of the given PublishLog ID.
     container_version = subsection_pub_entity_version.containerversion
@@ -303,5 +303,7 @@ def get_units_in_published_subsection_as_of(
             # This is not optimized. It could be done in one query per subsection rather than one query per unit.
             pub_entity_version = publishing_api.get_published_version_as_of(row.entity_id, publish_log_id)
             if pub_entity_version:
-                entity_list.append(SubsectionListEntry(unit_version=pub_entity_version.containerversion.unitversion, pinned=False))
+                entity_list.append(
+                    SubsectionListEntry(unit_version=pub_entity_version.containerversion.unitversion, pinned=False)
+                )
     return entity_list

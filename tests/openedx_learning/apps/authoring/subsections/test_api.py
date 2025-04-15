@@ -1,6 +1,8 @@
 """
-Basic tests for the units API.
+Basic tests for the subsections API.
 """
+from unittest.mock import patch
+
 import ddt  # type: ignore[import]
 import pytest
 from django.core.exceptions import ValidationError
@@ -180,7 +182,7 @@ class SubSectionTestCase(UnitTestCase):
         # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
         with self.assertNumQueries(22):
             _empty_subsection = self.create_subsection_with_units([])
-        with self.assertNumQueries(26):
+        with self.assertNumQueries(27):
             # And try with a non-empty subsection:
             self.create_subsection_with_units([self.unit_1, self.unit_2_v1], key="u2")
 
@@ -243,7 +245,28 @@ class SubSectionTestCase(UnitTestCase):
                 created_by=None,
             )
 
-    # ?FOR REVIEW
+    @patch('openedx_learning.apps.authoring.subsections.api._pub_entities_for_units')
+    def test_adding_mismatched_versions(self, mock_entities_for_units):
+        """
+        Test that versioned units must match their entities.
+        """
+        mock_entities_for_units.return_value = [
+            authoring_api.ContainerEntityRow(
+                entity_pk=self.unit_1.pk,
+                version_pk=self.unit_2_v1.pk,
+            ),
+        ]
+        # Try adding a a unit from LP 1 (self.learning_package) to a subsection from LP 2
+        with pytest.raises(ValidationError, match="Container entity versions must belong to the specified entity"):
+            authoring_api.create_subsection_and_version(
+                learning_package_id=self.unit_1.container.publishable_entity.learning_package.pk,
+                key="subsection:key",
+                title="Subsection",
+                units=[self.unit_1],
+                created=self.now,
+                created_by=None,
+            )
+
     @ddt.data(True, False)
     @pytest.mark.skip(reason="FIXME: This test is failing because the publishable_entity is not deleted from the database with the unit.")
     # FIXME: Also, exception is Container.DoesNotExist, not Unit.DoesNotExist
@@ -360,7 +383,9 @@ class SubSectionTestCase(UnitTestCase):
         # Publish ONLY the subsection. This should however also auto-publish units 1 & 2 since they're children
         authoring_api.publish_from_drafts(
             self.learning_package.pk,
-            draft_qset=authoring_api.get_all_drafts(self.learning_package.pk).filter(entity=subsection.publishable_entity),
+            draft_qset=authoring_api.get_all_drafts(self.learning_package.pk).filter(
+                entity=subsection.publishable_entity
+            ),
         )
         # Now all changes to the subsection and to unit 1 are published:
         subsection.refresh_from_db()
@@ -976,7 +1001,9 @@ class SubSectionTestCase(UnitTestCase):
         with self.assertNumQueries(1):
             result2 = [
                 c.subsection for c in
-                authoring_api.get_containers_with_entity(self.unit_1.pk, ignore_pinned=True).select_related("subsection")
+                authoring_api.get_containers_with_entity(
+                    self.unit_1.pk, ignore_pinned=True
+                ).select_related("subsection")
             ]
         assert result2 == [subsection4_unpinned]
 
