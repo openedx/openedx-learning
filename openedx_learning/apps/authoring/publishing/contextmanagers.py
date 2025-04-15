@@ -4,6 +4,8 @@ Context Managers for internal use in the publishing app.
 Do not use this directly outside the publishing app. Use the public API's
 bulk_draft_changes_for instead (which will invoke this internally).
 """
+from __future__ import annotations
+
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Callable
@@ -56,7 +58,7 @@ class DraftChangeLogContext(Atomic):
         learning_package_id: int,
         changed_at: datetime | None = None,
         changed_by: int | None = None,
-        exit_callbacks: list[Callable] | None = None
+        exit_callbacks: list[Callable[[DraftChangeLog], None]] | None = None
     ) -> None:
         super().__init__(using=None, savepoint=False, durable=False)
 
