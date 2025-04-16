@@ -1419,6 +1419,32 @@ def bulk_draft_changes_for(
 ) -> DraftChangeLogContext:
     """
     Context manager to do a single batch of Draft changes in.
+
+    Each publishable entity that is edited in this context will be tied to a
+    single DraftChangeLogRecord, representing the cumulative changes made to
+    that entity. Upon closing of the context, side effects of these changes will
+    be calcuated, which may result in more DraftChangeLogRecords being created
+    or updated. The resulting DraftChangeLogRecords and DraftChangeSideEffects
+    will be tied together into a single DraftChangeLog, representing the
+    collective changes to the learning package that happened in this context.
+    All changes will be committed in a single atomic transaction.
+
+    Example::
+
+        with bulk_draft_changes_for(learning_package.id):
+            for section in course:
+                update_section_drafts(learning_package.id, section)
+
+    If you make a change to an entity *without* using this context manager, then
+    the individual change (and its side effects) will be automatically wrapped
+    in a one-off change context. For example, this::
+
+        update_one_component(component.learning_package, component)
+
+    is identical to this::
+
+        with bulk_draft_changes_for(component.learning_package.id):
+            update_one_component(component.learning_package.id, component)
     """
     return DraftChangeLogContext(
         learning_package_id,
