@@ -517,12 +517,6 @@ def set_draft_version(
         active_change_log = DraftChangeLogContext.get_active_draft_change_log(
             learning_package_id
         )
-        change_log = active_change_log or DraftChangeLog.objects.create(
-            learning_package_id=learning_package_id,
-            changed_at=set_at,
-            changed_by_id=set_by,
-        )
-
         if active_change_log:
             change = _add_to_existing_draft_change_log(
                 active_change_log,
@@ -543,6 +537,11 @@ def set_draft_version(
             # and add our DraftChangeLogRecord to it. This has the minor
             # optimization that we don't have to check for an existing
             # DraftChangeLogRecord, because we know it can't exist yet.
+            change_log = DraftChangeLog.objects.create(
+                learning_package_id=learning_package_id,
+                changed_at=set_at,
+                changed_by_id=set_by,
+            )
             change = DraftChangeLogRecord.objects.create(
                 draft_change_log=change_log,
                 entity_id=draft.entity_id,
