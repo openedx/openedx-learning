@@ -104,3 +104,47 @@ class PublishLogRecord(models.Model):
         ]
         verbose_name = "Publish Log Record"
         verbose_name_plural = "Publish Log Records"
+
+
+class Published(models.Model):
+    """
+    Find the currently published version of an entity.
+
+    Notes:
+
+    * There is only ever one published PublishableEntityVersion per
+      PublishableEntity at any given time.
+    * It may be possible for a PublishableEntity to exist only as a Draft (and thus
+      not show up in this table).
+    * If a row exists for a PublishableEntity, but the ``version`` field is
+      None, it means that the entity was published at some point, but is no
+      longer published now–i.e. it's functionally "deleted", even though all
+      the version history is preserved behind the scenes.
+
+    TODO: Do we need to create a (redundant) title field in this model so that
+    we can more efficiently search across titles within a LearningPackage?
+    Probably not an immediate concern because the number of rows currently
+    shouldn't be > 10,000 in the more extreme cases.
+
+    TODO: Do we need to make a "most_recently" published version when an entry
+    is unpublished/deleted?
+    """
+
+    entity = models.OneToOneField(
+        PublishableEntity,
+        on_delete=models.CASCADE,
+        primary_key=True,
+    )
+    version = models.OneToOneField(
+        PublishableEntityVersion,
+        on_delete=models.RESTRICT,
+        null=True,
+    )
+    publish_log_record = models.ForeignKey(
+        PublishLogRecord,
+        on_delete=models.RESTRICT,
+    )
+
+    class Meta:
+        verbose_name = "Published Entity"
+        verbose_name_plural = "Published Entities"
