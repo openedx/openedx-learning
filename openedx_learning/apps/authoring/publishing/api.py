@@ -738,9 +738,6 @@ def reset_drafts_to_published(
     it's important that the code creating the "next" version_num looks at the
     latest version created for a PublishableEntity (its ``latest`` attribute),
     rather than basing it off of the version that Draft points to.
-
-    Also, there is no current immutable record for when a reset happens. It's
-    not like a publish that leaves an entry in the ``PublishLog``.
     """
     if reset_at is None:
         reset_at = datetime.now(tz=timezone.utc)
