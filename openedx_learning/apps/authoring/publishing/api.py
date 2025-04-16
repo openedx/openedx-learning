@@ -1371,7 +1371,7 @@ def get_containers_with_entity(
         ignore_pinned: if true, ignore any pinned references to the entity.
     """
     if ignore_pinned:
-        # TODO: Do we need to run distinct() on this?
+        # TODO: Do we need to run distinct() on this? Will fix in https://github.com/openedx/openedx-learning/issues/303
         qs = Container.objects.filter(
             # Note: these two conditions must be in the same filter() call, or the query won't be correct.
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
