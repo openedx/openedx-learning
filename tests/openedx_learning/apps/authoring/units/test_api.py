@@ -968,6 +968,11 @@ class UnitTestCase(ComponentTestCase):
         # Units 5/6 don't contain it
         _unit5_no = self.create_unit_with_components([self.component_2_v1, self.component_2], key="u5")
         _unit6_no = self.create_unit_with_components([], key="u6")
+        # To test unique results, unit 7 ✅ contains several copies of component 1. Also tests matching against
+        # components that aren't in the first position.
+        unit7_several = self.create_unit_with_components([
+            self.component_2, self.component_1, self.component_1_v1, self.component_1,
+        ], key="u7")
 
         # No need to publish anything as the get_containers_with_entity() API only considers drafts (for now).
 
@@ -980,6 +985,7 @@ class UnitTestCase(ComponentTestCase):
             unit1_1pinned,
             unit2_1pinned_v2,
             unit4_unpinned,
+            unit7_several,  # This should only appear once, not several times.
         ]
 
         # Test retrieving only "unpinned", for cases like potential deletion of a component, where we wouldn't care
@@ -990,7 +996,7 @@ class UnitTestCase(ComponentTestCase):
                 c.unit for c in
                 authoring_api.get_containers_with_entity(self.component_1.pk, ignore_pinned=True).select_related("unit")
             ]
-        assert result2 == [unit4_unpinned]
+        assert result2 == [unit4_unpinned, unit7_several]
 
     def test_add_remove_container_children(self):
         """
