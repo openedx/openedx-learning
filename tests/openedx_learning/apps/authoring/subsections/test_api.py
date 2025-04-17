@@ -17,7 +17,7 @@ Entry = authoring_api.SubsectionListEntry
 
 
 @ddt.ddt
-class SubSectionTestCase(UnitTestCase):
+class SubSectionTestCase(UnitTestCase):  # pylint: disable=test-inherits-tests
     """ Test cases for Subsections (containers of units) """
 
     def setUp(self) -> None:
@@ -246,7 +246,7 @@ class SubSectionTestCase(UnitTestCase):
             )
 
     @patch('openedx_learning.apps.authoring.subsections.api._pub_entities_for_units')
-    def test_adding_mismatched_versions(self, mock_entities_for_units):
+    def test_adding_mismatched_versions(self, mock_entities_for_units):  # pylint: disable=arguments-renamed
         """
         Test that versioned units must match their entities.
         """
@@ -268,7 +268,7 @@ class SubSectionTestCase(UnitTestCase):
             )
 
     @ddt.data(True, False)
-    @pytest.mark.skip(reason="FIXME: This test is failing because the publishable_entity is not deleted from the database with the unit.")
+    @pytest.mark.skip(reason="FIXME: publishable_entity is not deleted from the database with the unit.")
     # FIXME: Also, exception is Container.DoesNotExist, not Unit.DoesNotExist
     def test_cannot_add_invalid_ids(self, pin_version):
         """
@@ -438,7 +438,7 @@ class SubSectionTestCase(UnitTestCase):
         # Publish the empty subsection:
         authoring_api.publish_all_drafts(self.learning_package.id)
         subsection.refresh_from_db()  # Reloading the subsection is necessary
-        assert subsection.versioning.has_unpublished_changes is False  # Shallow check for just the subsection itself, not children
+        assert subsection.versioning.has_unpublished_changes is False  # Shallow check for subsection only, not children
         assert authoring_api.contains_unpublished_changes(subsection.pk) is False  # Deeper check
 
         # Add a published unit (unpinned):
@@ -453,7 +453,7 @@ class SubSectionTestCase(UnitTestCase):
         )
         # Now the subsection should have unpublished changes:
         subsection.refresh_from_db()  # Reloading the subsection is necessary
-        assert subsection.versioning.has_unpublished_changes  # Shallow check - adding a child is a change to the subsection
+        assert subsection.versioning.has_unpublished_changes  # Shallow check: adding a child changes the subsection
         assert authoring_api.contains_unpublished_changes(subsection.pk)  # Deeper check
         assert subsection.versioning.draft == subsection_version_v2
         assert subsection.versioning.published == subsection_version
@@ -482,9 +482,9 @@ class SubSectionTestCase(UnitTestCase):
         unit_1_v2 = self.modify_unit(self.unit_1, title="Modified Counting Problem with new title")
 
         # The unit now has unpublished changes; the subsection doesn't directly but does contain
-        subsection.refresh_from_db()  # Reloading the subsection is necessary, or 'subsection.versioning' will be outdated
+        subsection.refresh_from_db()  # Refresh to avoid stale 'versioning' cache
         self.unit_1.refresh_from_db()
-        assert subsection.versioning.has_unpublished_changes is False  # Shallow check should be false - subsection is unchanged
+        assert subsection.versioning.has_unpublished_changes is False  # Shallow check: subsection unchanged
         assert authoring_api.contains_unpublished_changes(subsection.pk)  # But subsection DOES contain changes
         assert self.unit_1.versioning.has_unpublished_changes
 
@@ -504,7 +504,7 @@ class SubSectionTestCase(UnitTestCase):
         assert authoring_api.get_units_in_subsection(subsection, published=True) == [
             Entry(unit_1_v2),  # new version
         ]
-        assert authoring_api.contains_unpublished_changes(subsection.pk) is False  # No longer contains unpublished changes
+        assert authoring_api.contains_unpublished_changes(subsection.pk) is False  # No more unpublished changes
 
     def test_modify_pinned_unit(self):
         """
@@ -526,7 +526,7 @@ class SubSectionTestCase(UnitTestCase):
         self.modify_unit(self.unit_1, title="Modified Counting Problem with new title")
 
         # The unit now has unpublished changes; the subsection is entirely unaffected
-        subsection.refresh_from_db()  # Reloading the subsection is necessary, or 'subsection.versioning' will be outdated
+        subsection.refresh_from_db()  # Refresh to avoid stale 'versioning' cache
         self.unit_1.refresh_from_db()
         assert subsection.versioning.has_unpublished_changes is False  # Shallow check
         assert authoring_api.contains_unpublished_changes(subsection.pk) is False  # Deep check
@@ -610,7 +610,7 @@ class SubSectionTestCase(UnitTestCase):
 
         # 2️⃣ Then the author edits U2 inside of Subsection 1 making U2v2.
         u2_v2 = self.modify_unit(u2, title="U2 version 2")
-        # This makes S1 and S2 both show up as Subsections that CONTAIN unpublished changes, because they share the unit.
+        # Both S1 and S2 now contain unpublished changes since they share the unit.
         assert authoring_api.contains_unpublished_changes(subsection1.pk)
         assert authoring_api.contains_unpublished_changes(subsection2.pk)
         # (But the subsections themselves are unchanged:)
@@ -647,7 +647,7 @@ class SubSectionTestCase(UnitTestCase):
             Entry(u5_v1),  # still original version of U5 (it hasn't been published)
         ]
 
-        # Result: Subsection 2 CONTAINS unpublished changes because of the modified U5. Subsection 1 doesn't contain unpub changes.
+        # Result: Subsection 2 contains unpublished changes due to modified U5; Subsection 1 does not.
         assert authoring_api.contains_unpublished_changes(subsection1.pk) is False
         assert authoring_api.contains_unpublished_changes(subsection2.pk)
 
@@ -781,8 +781,8 @@ class SubSectionTestCase(UnitTestCase):
             # subsection's unit list but has been soft deleted, and will be fully deleted when published, or restored if
             # reverted?
         ]
-        assert subsection.versioning.has_unpublished_changes is False  # The subsection itself and its unit list is not changed
-        assert authoring_api.contains_unpublished_changes(subsection.pk)  # But it CONTAINS an unpublished change (a deletion)
+        assert subsection.versioning.has_unpublished_changes is False  # Subsection and unit list unchanged
+        assert authoring_api.contains_unpublished_changes(subsection.pk)  # It still contains an unpublished deletion
         # The published version of the subsection is not yet affected:
         assert authoring_api.get_units_in_subsection(subsection, published=True) == [
             Entry(self.unit_1_v1),
@@ -844,7 +844,7 @@ class SubSectionTestCase(UnitTestCase):
             Entry(self.unit_1_v1, pinned=True),
             Entry(self.unit_2_v1, pinned=True),
         ]
-        assert subsection.versioning.has_unpublished_changes is False  # The subsection itself and its unit list is not changed
+        assert subsection.versioning.has_unpublished_changes is False  # Subsection and unit list unchanged
         assert authoring_api.contains_unpublished_changes(subsection.pk) is False  # nor does it contain changes
         # The published version of the subsection is also not affected:
         assert authoring_api.get_units_in_subsection(subsection, published=True) == [
@@ -867,7 +867,7 @@ class SubSectionTestCase(UnitTestCase):
         # Delete the subsection:
         authoring_api.soft_delete_draft(subsection_to_delete.publishable_entity_id)
         subsection_to_delete.refresh_from_db()
-        # Now the draft subsection is [soft] deleted, but the units, published subsection, and other subsection is unaffected:
+        # Now the draft subsection is soft deleted; units, published subsection, and other subsection are unaffected:
         assert subsection_to_delete.versioning.draft is None  # Subsection is soft deleted.
         assert subsection_to_delete.versioning.published is not None
         self.unit_1.refresh_from_db()
@@ -1096,8 +1096,8 @@ class SubSectionTestCase(UnitTestCase):
         assert authoring_api.get_container_children_count(subsection.container, published=True) == 1
 
     # Tests TODO:
-    # Test that I can get a [PublishLog] history of a given subsection and all its children, including children that aren't
-    #     currently in the subsection and excluding children that are only in other subsections.
-    # Test that I can get a [PublishLog] history of a given subsection and its children, that includes changes made to the
-    #     child units while they were part of the subsection but excludes changes made to those children while they were
-    #     not part of the subsection. 🫣
+    # Test that I can get a [PublishLog] history of a given subsection and all its children, including children
+    #     that aren't currently in the subsection and excluding children that are only in other subsections.
+    # Test that I can get a [PublishLog] history of a given subsection and its children, that includes changes
+    #     made to the child units while they were part of the subsection but excludes changes
+    #     made to those children while they were not part of the subsection. 🫣
