@@ -14,7 +14,7 @@ Entry = authoring_api.SectionListEntry
 
 
 @ddt.ddt
-class SectionTestCase(SubSectionTestCase):
+class SectionTestCase(SubSectionTestCase):  # pylint: disable=test-inherits-tests
     """ Test cases for Sections (containers of subsections) """
 
     def setUp(self) -> None:
@@ -185,7 +185,7 @@ class SectionTestCase(SubSectionTestCase):
         # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
         with self.assertNumQueries(22):
             _empty_section = self.create_section_with_subsections([])
-        with self.assertNumQueries(26):
+        with self.assertNumQueries(27):
             # And try with a non-empty section:
             self.create_section_with_subsections([self.subsection_1, self.subsection_2_v1], key="u2")
 

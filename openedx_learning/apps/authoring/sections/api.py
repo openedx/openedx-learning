@@ -62,8 +62,7 @@ def create_section_version(
     version_num: int,
     *,
     title: str,
-    publishable_entities_pks: list[int],
-    entity_version_pks: list[int | None],
+    entity_rows: list[publishing_api.ContainerEntityRow],
     created: datetime,
     created_by: int | None = None,
 ) -> SectionVersion:
@@ -78,8 +77,7 @@ def create_section_version(
         section_pk: The section ID.
         version_num: The version number.
         title: The title.
-        publishable_entities_pk: The publishable entities.
-        entity: The entity.
+        entity_rows: child entities/versions
         created: The creation date.
         created_by: The user who created the section.
     """
@@ -87,8 +85,7 @@ def create_section_version(
         section.pk,
         version_num,
         title=title,
-        publishable_entities_pks=publishable_entities_pks,
-        entity_version_pks=entity_version_pks,
+        entity_rows=entity_rows,
         created=created,
         created_by=created_by,
         container_version_cls=SectionVersion,
@@ -97,7 +94,7 @@ def create_section_version(
 
 def _pub_entities_for_subsections(
     subsections: list[Subsection | SubsectionVersion] | None,
-) -> tuple[list[int], list[int | None]] | tuple[None, None]:
+) -> list[publishing_api.ContainerEntityRow] | None:
     """
     Helper method: given a list of Subsection | SubsectionVersion, return the
     lists of publishable_entities_pks and entity_version_pks needed for the
@@ -108,19 +105,23 @@ def _pub_entities_for_subsections(
     """
     if subsections is None:
         # When these are None, that means don't change the entities in the list.
-        return None, None
+        return None
     for u in subsections:
         if not isinstance(u, (Subsection, SubsectionVersion)):
             raise TypeError("Section subsections must be either Subsection or SubsectionVersion.")
-    publishable_entities_pks = [
-        (u.publishable_entity_id if isinstance(u, Subsection) else u.subsection.publishable_entity_id)
-        for u in subsections
+    return [
+        (
+            publishing_api.ContainerEntityRow(
+                entity_pk=s.container.publishable_entity_id,
+                version_pk=None,
+            ) if isinstance(s, Subsection)
+            else publishing_api.ContainerEntityRow(
+                entity_pk=s.subsection.container.publishable_entity_id,
+                version_pk=s.container_version.publishable_entity_version_id,
+            )
+        )
+        for s in subsections
     ]
-    entity_version_pks = [
-        (uv.pk if isinstance(uv, SubsectionVersion) else None)
-        for uv in subsections
-    ]
-    return publishable_entities_pks, entity_version_pks
 
 
 def create_next_section_version(
@@ -138,17 +139,16 @@ def create_next_section_version(
     Args:
         section_pk: The section ID.
         title: The title. Leave as None to keep the current title.
-        subsections: The subsections, as a list of Subsections (unpinned) and/or SubsectionVersions (pinned). Passing None
-           will leave the existing subsections unchanged.
+        subsections: The subsections, as a list of Subsections (unpinned) and/or SubsectionVersions (pinned).
+            Passing None will leave the existing subsections unchanged.
         created: The creation date.
         created_by: The user who created the section.
     """
-    publishable_entities_pks, entity_version_pks = _pub_entities_for_subsections(subsections)
+    entity_rows = _pub_entities_for_subsections(subsections)
     section_version = publishing_api.create_next_container_version(
         section.pk,
         title=title,
-        publishable_entities_pks=publishable_entities_pks,
-        entity_version_pks=entity_version_pks,
+        entity_rows=entity_rows,
         created=created,
         created_by=created_by,
         container_version_cls=SectionVersion,
@@ -177,7 +177,7 @@ def create_section_and_version(
         created_by: The user who created the section.
         can_stand_alone: Set to False when created as part of containers
     """
-    publishable_entities_pks, entity_version_pks = _pub_entities_for_subsections(subsections)
+    entity_rows = _pub_entities_for_subsections(subsections)
     with atomic():
         section = create_section(
             learning_package_id,
@@ -190,8 +190,7 @@ def create_section_and_version(
             section,
             1,
             title=title,
-            publishable_entities_pks=publishable_entities_pks or [],
-            entity_version_pks=entity_version_pks or [],
+            entity_rows=entity_rows or [],
             created=created,
             created_by=created_by,
         )
@@ -286,7 +285,9 @@ def get_subsections_in_published_section_as_of(
           ancestors of every modified PublishableEntity in the publish.
     """
     assert isinstance(section, Section)
-    section_pub_entity_version = publishing_api.get_published_version_as_of(section.publishable_entity_id, publish_log_id)
+    section_pub_entity_version = publishing_api.get_published_version_as_of(
+        section.publishable_entity_id, publish_log_id
+    )
     if section_pub_entity_version is None:
         return None  # This section was not published as of the given PublishLog ID.
     container_version = section_pub_entity_version.containerversion
@@ -303,5 +304,7 @@ def get_subsections_in_published_section_as_of(
             # This is not optimized. It could be done in one query per section rather than one query per subsection.
             pub_entity_version = publishing_api.get_published_version_as_of(row.entity_id, publish_log_id)
             if pub_entity_version:
-                entity_list.append(SectionListEntry(subsection_version=pub_entity_version.containerversion.subsectionversion, pinned=False))
+                entity_list.append(SectionListEntry(
+                    subsection_version=pub_entity_version.containerversion.subsectionversion, pinned=False
+                ))
     return entity_list
