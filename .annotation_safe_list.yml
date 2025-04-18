@@ -65,6 +65,10 @@ oel_tagging.TagImportTask:
   ".. no_pii:": "This model has no PII"
 oel_tagging.Taxonomy:
   ".. no_pii:": "This model has no PII"
+oel_subsections.Subsection:
+  ".. no_pii:": "This model has no PII"
+oel_subsections.SubsectionVersion:
+  ".. no_pii:": "This model has no PII"
 oel_units.Unit:
   ".. no_pii:": "This model has no PII"
 oel_units.UnitVersion:
