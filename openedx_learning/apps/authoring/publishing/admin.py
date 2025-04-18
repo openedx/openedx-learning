@@ -97,6 +97,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     list_display = [
         "key",
         "draft_version",
+        "draft_state",
         "published_version",
         "uuid",
         "learning_package",
@@ -110,6 +111,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     fields = [
         "key",
         "draft_version",
+        "draft_state",
         "published_version",
         "uuid",
         "learning_package",
@@ -121,6 +123,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     readonly_fields = [
         "key",
         "draft_version",
+        "draft_state",
         "published_version",
         "uuid",
         "learning_package",
@@ -144,6 +147,20 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
 
     def see_also(self, entity):
         return one_to_one_related_model_html(entity)
+
+    def draft_version(self, entity):
+        if entity.draft.version:
+            return entity.draft.version.version_num
+        return None
+
+    def draft_state(self, entity):
+        if entity.draft:
+            return entity.draft.state_hash
+
+    def published_version(self, entity):
+        if entity.published.version:
+            return entity.published.version.version_num
+        return None
 
 
 @admin.register(Published)

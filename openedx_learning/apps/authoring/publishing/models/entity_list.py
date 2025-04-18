@@ -1,6 +1,8 @@
 """
 Entity List models
 """
+from functools import cached_property
+
 from django.db import models
 
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
@@ -16,6 +18,9 @@ class EntityList(models.Model):
     anonymous in a sense–they're pointed to by ContainerVersions and
     other models, rather than being looked up by their own identifiers.
     """
+    @cached_property
+    def rows(self):
+        return self.entitylistrow_set.order_by("order_num")
 
 
 class EntityListRow(models.Model):
