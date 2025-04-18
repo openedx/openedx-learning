@@ -17,7 +17,7 @@ from .container import Container, ContainerVersion
 from .draft_log import Draft, DraftChangeLog, DraftChangeLogRecord, DraftSideEffect
 from .entity_list import EntityList, EntityListRow
 from .learning_package import LearningPackage
-from .publish_log import Published, PublishLog, PublishLogRecord
+from .publish_log import Published, PublishLog, PublishLogRecord, PublishSideEffect
 from .publishable_entity import (
     PublishableContentModelRegistry,
     PublishableEntity,

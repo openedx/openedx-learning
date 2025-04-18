@@ -19,6 +19,7 @@ from openedx_learning.apps.authoring.publishing.models import (
     DraftSideEffect,
     LearningPackage,
     PublishableEntity,
+    PublishLog,
 )
 from openedx_learning.lib.test_utils import TestCase
 
@@ -832,6 +833,108 @@ class DraftChangeLogTestCase(TestCase):
         assert DraftChangeLog.objects.all().count() == 1
 
 
+class PublishLogTestCase(TestCase):
+    """
+    Test basic operations with PublishLogs and PublishSideEffects.
+    """
+    now: datetime
+    learning_package_1: LearningPackage
+    learning_package_2: LearningPackage
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.now = datetime(2024, 1, 28, 16, 45, 30, tzinfo=timezone.utc)
+        cls.learning_package_1 = publishing_api.create_learning_package(
+            "my_package_key_1",
+            "PublishLog Testing LearningPackage 🔥 1",
+            created=cls.now,
+        )
+        cls.learning_package_2 = publishing_api.create_learning_package(
+            "my_package_key_2",
+            "PublishLog Testing LearningPackage 🔥 2",
+            created=cls.now,
+        )
+
+    def test_simple_publish_log(self) -> None:
+        """
+        Simplest test that multiple writes make it into one PublishLog.
+        """
+        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+            entity1 = publishing_api.create_publishable_entity(
+                self.learning_package_1.id,
+                "my_entity",
+                created=self.now,
+                created_by=None,
+            )
+            entity1_v1 = publishing_api.create_publishable_entity_version(
+                entity1.id,
+                version_num=1,
+                title="An Entity 🌴",
+                created=self.now,
+                created_by=None,
+            )
+            entity2 = publishing_api.create_publishable_entity(
+                self.learning_package_1.id,
+                "my_entity2",
+                created=self.now,
+                created_by=None,
+            )
+            entity2_v1 = publishing_api.create_publishable_entity_version(
+                entity2.id,
+                version_num=1,
+                title="An Entity 🌴 2",
+                created=self.now,
+                created_by=None,
+            )
+
+        # Check simplest publish of two things...
+        publish_log = publishing_api.publish_all_drafts(self.learning_package_1.id)
+        assert PublishLog.objects.all().count() == 1
+        assert publish_log.records.all().count() == 2
+
+        record_1 = publish_log.records.get(entity=entity1)
+        assert record_1 is not None
+        assert record_1.old_version is None
+        assert record_1.new_version == entity1_v1
+
+        record_2 = publish_log.records.get(entity=entity2)
+        assert record_2 is not None
+        assert record_2.old_version is None
+        assert record_2.new_version == entity2_v1
+
+        # Check that an empty publish still creates a PublishLog, just one with
+        # no records. This may be useful for triggering tasks that trigger off
+        # of publishing events, though I'm not confident about that at the
+        # moment.
+        publish_log = publishing_api.publish_all_drafts(self.learning_package_1.id)
+        assert publish_log.records.count() == 0
+
+        # Check that we can publish a subset...
+        entity1_v2 = publishing_api.create_publishable_entity_version(
+            entity1.id,
+            version_num=2,
+            title="An Entity 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity2.id,
+            version_num=2,
+            title="An Entity 🌴 2",
+            created=self.now,
+            created_by=None,
+        )
+        publish_e1_log = publishing_api.publish_from_drafts(
+            self.learning_package_1.id,
+            Draft.objects.filter(pk=entity1.pk),
+        )
+        assert publish_e1_log.records.count() == 1
+        e1_pub_record = publish_e1_log.records.get(entity=entity1)
+        assert e1_pub_record is not None
+        assert e1_pub_record.old_version == entity1_v1
+        assert e1_pub_record.new_version == entity1_v2
+
+
 class ContainerTestCase(TestCase):
     """
     Test basic operations with Drafts.
@@ -1075,3 +1178,24 @@ class ContainerTestCase(TestCase):
         assert unit_change.affected_by.first().cause == component_change
         assert subsection_change.affected_by.count() == 1
         assert subsection_change.affected_by.first().cause == unit_change
+
+        publish_log = publishing_api.publish_all_drafts(self.learning_package.id)
+        assert publish_log.records.count() == 3
+
+        publishing_api.create_publishable_entity_version(
+            component.pk, version_num=3, title="Component v2", created=self.now, created_by=None,
+        )
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(entity_id=component.pk),
+        )
+        assert publish_log.records.count() == 3
+        component_publish = publish_log.records.get(entity=component)
+        unit_publish = publish_log.records.get(entity=unit.publishable_entity)
+        subsection_publish = publish_log.records.get(entity=subsection.publishable_entity)
+
+        assert not component_publish.affected_by.exists()
+        assert unit_publish.affected_by.count() == 1
+        assert unit_publish.affected_by.first().cause == component_publish
+        assert subsection_publish.affected_by.count() == 1
+        assert subsection_publish.affected_by.first().cause == unit_publish
