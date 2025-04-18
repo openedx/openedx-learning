@@ -13,8 +13,9 @@ from enum import Enum
 from typing import ContextManager, Optional, TypeVar
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db.models import F, Q, QuerySet
+from django.db.models import F, Prefetch, Q, QuerySet
 from django.db.transaction import atomic
+from openedx_learning.lib.fields import create_hash_digest
 
 from .contextmanagers import DraftChangeLogContext
 from .models import (
@@ -31,9 +32,11 @@ from .models import (
     PublishableEntity,
     PublishableEntityMixin,
     PublishableEntityVersion,
+    PublishableEntityVersionDependency,
     PublishableEntityVersionMixin,
     PublishLog,
     PublishLogRecord,
+    PublishSideEffect,
 )
 from .models.publish_log import Published
 
@@ -212,6 +215,7 @@ def create_publishable_entity_version(
     title: str,
     created: datetime,
     created_by: int | None,
+    dependencies: list[int] | None = None,  # PublishableEntity IDs
 ) -> PublishableEntityVersion:
     """
     Create a PublishableEntityVersion.
@@ -219,7 +223,7 @@ def create_publishable_entity_version(
     You'd typically want to call this right before creating your own content
     version model that points to it.
     """
-    with atomic():
+    with atomic(savepoint=False):
         version = PublishableEntityVersion.objects.create(
             entity_id=entity_id,
             version_num=version_num,
@@ -227,14 +231,65 @@ def create_publishable_entity_version(
             created=created,
             created_by_id=created_by,
         )
+        if dependencies:
+            set_version_dependencies(version.id, dependencies)
+
         set_draft_version(
             entity_id,
             version.id,
             set_at=created,
             set_by=created_by,
         )
-
     return version
+
+
+def set_version_dependencies(
+    version_id: int,  # PublishableEntityVersion.id,
+    /,
+    dependencies: list[int]  # List of PublishableEntity.id
+) -> None:
+    """
+    Set the depenencies of a publishable entity version.
+
+    In general, callers should not modify dependencies after creation (i.e. use
+    the optional param in create_publishable_entity_version() instead of using
+    this function). **This function is not atomic.** If you're doing backfills,
+    you must wrap calls to this function with a transaction.atomic() call.
+
+    The idea behind dependencies is that a PublishableEntityVersion may be
+    declared to reference unpinned PublishableEntities. Changes to those
+    referenced PublishableEntities still affect the draft or published state of
+    the PublisahbleEntity, even if the version of the PublishableEntity is not
+    incremented.
+
+    For example, a Unit does not get a new version when unpinned child
+    Components are updated, but we do consider a Unit version to be changed when
+    that happens. So the child Components would be dependencies of the Unit
+    version in this case.
+
+    Guidelines:
+
+    1. Only declare one level of dependencies, e.g. immediate parent-child
+       relationships. The publishing app will calculate transitive dependencies
+       like "all descendants" based on this. This is important for saving space,
+       because the DAG of trasitive dependency relationships can explode out to
+       tens of thousands of nodes per version.
+    2. Declare dependencies from the bottom-up when possible. In other words, if
+       you're building an entire Subsection, set the Component dependencies for
+       the Units before you set the Unit dependencies for the Subsection. This
+       code will still work if you build from the top-down, but we'll end up
+       doing many redundant re-calculations, since every change to a lower layer
+       will cause recalculation to the higher levels that depend on it.
+    3. Do not create circular dependencies.
+    """
+    PublishableEntityVersionDependency.objects.bulk_create(
+        [
+            PublishableEntityVersionDependency(
+                version_id=version_id, entity_id=dep_entity_id
+            )
+            for dep_entity_id in set(dependencies)  # dependencies have no ordering
+        ],
+    )
 
 
 def get_publishable_entity(publishable_entity_id: int, /) -> PublishableEntity:
@@ -284,7 +339,8 @@ def get_entities_with_unpublished_changes(
     """
     Fetch entities that have unpublished changes.
 
-    By default, this excludes soft-deleted drafts but can be included using include_deleted_drafts option.
+    By default, this excludes soft-deleted drafts but can be included using
+    include_deleted_drafts option.
     """
     entities_qs = (
         PublishableEntity.objects
@@ -332,65 +388,74 @@ def publish_all_drafts(
     Publish everything that is a Draft and is not already published.
     """
     draft_qset = (
-        Draft.objects.select_related("entity__published")
-        .filter(entity__learning_package_id=learning_package_id)
-
-        # Exclude entities where the Published version already matches the
-        # Draft version.
-        .exclude(entity__published__version_id=F("version_id"))
-
-        # Account for soft-deletes:
-        # NULL != NULL in SQL, so simply excluding entities where the Draft
-        # and Published versions match will not catch the case where a
-        # soft-delete has been published (i.e. both the Draft and Published
-        # versions are NULL). We need to explicitly check for that case
-        # instead, or else we will re-publish the same soft-deletes over
-        # and over again.
-        .exclude(Q(version__isnull=True) & Q(entity__published__version__isnull=True))
+        Draft.objects
+             .filter(entity__learning_package_id=learning_package_id)
+             .with_unpublished_changes()
     )
     return publish_from_drafts(
         learning_package_id, draft_qset, message, published_at, published_by
     )
 
 
+def _get_dependencies_with_unpublished_changes(
+    draft_qset: QuerySet[Draft]
+) -> list[QuerySet[Draft]]:
+    """
+    Return all dependencies to publish as a list of Draft QuerySets.
+
+    This should only return the Drafts that have actual changes, not pure side-
+    effects. The side-effect calculations will happen separately.
+    """
+    # First we have to do a full crawl of *all* dependencies, regardless of
+    # whether they have unpublished changes or not. this is because we might
+    # have a dependency-of-a-dependency that has changed somewhere down the
+    # line. Example: The draft_qset includes a Subsection. Even if the Unit
+    # versions are still the same, there might be a changed Component that needs
+    # to be published.
+    all_dependent_drafts = []
+    dependent_drafts = Draft.objects.filter(
+        entity__affects__in=draft_qset.all().values_list("entity_id", flat=True)
+    ).distinct()
+
+    while dependent_drafts:
+        all_dependent_drafts.append(dependent_drafts)
+        dependent_drafts = Draft.objects.filter(
+            entity__affects__in=dependent_drafts.all().values_list("entity_id", flat=True)
+        ).distinct()
+
+    if not all_dependent_drafts:
+        return Draft.objects.none()
+
+    unpublished_dependent_drafts = [
+        dependent_drafts_qset.with_unpublished_changes()
+        for dependent_drafts_qset in all_dependent_drafts
+    ]
+    return unpublished_dependent_drafts
+
+
 def publish_from_drafts(
     learning_package_id: int,  # LearningPackage.id
     /,
-    draft_qset: QuerySet,
+    draft_qset: QuerySet[Draft],
     message: str = "",
     published_at: datetime | None = None,
     published_by: int | None = None,  # User.id
+    publish_dependencies: bool = True,
 ) -> PublishLog:
     """
     Publish the rows in the ``draft_model_qsets`` args passed in.
+
+    By default, this will also publish all dependencies (e.g. children) of the
+    Drafts that are passed in.
     """
     if published_at is None:
         published_at = datetime.now(tz=timezone.utc)
 
     with atomic():
-        # If the drafts include any containers, we need to auto-publish their descendants:
-        # TODO: this only handles one level deep and would need to be updated to support sections > subsections > units
-
-        # Get the IDs of the ContainerVersion for any Containers whose drafts are slated to be published.
-        container_version_ids = (
-            Container.objects.filter(publishable_entity__draft__in=draft_qset)
-            .values_list("publishable_entity__draft__version__containerversion__pk", flat=True)
-        )
-        if container_version_ids:
-            # We are publishing at least one container. Check if it has any child components that aren't already slated
-            # to be published.
-            unpublished_draft_children = EntityListRow.objects.filter(
-                entity_list__container_versions__pk__in=container_version_ids,
-                entity_version=None,  # Unpinned entities only
-            ).exclude(
-                entity__draft__version=F("entity__published__version")  # Exclude already published things
-            ).values_list("entity__draft__pk", flat=True)
-            if unpublished_draft_children:
-                # Force these additional child components to be published at the same time by adding them to the qset:
-                draft_qset = Draft.objects.filter(
-                    Q(pk__in=draft_qset.values_list("pk", flat=True)) |
-                    Q(pk__in=unpublished_draft_children)
-                )
+        if publish_dependencies:
+            dependency_drafts_qsets = _get_dependencies_with_unpublished_changes(draft_qset)
+        else:
+            dependency_drafts_qsets = []
 
         # One PublishLog for this entire publish operation.
         publish_log = PublishLog(
@@ -402,32 +467,51 @@ def publish_from_drafts(
         publish_log.full_clean()
         publish_log.save(force_insert=True)
 
-        for draft in draft_qset.select_related("entity__published__version"):
-            try:
-                old_version = draft.entity.published.version
-            except ObjectDoesNotExist:
-                # This means there is no published version yet.
-                old_version = None
+        # We're intentionally avoiding union() here because Django ORM unions
+        # introduce cumbersome restrictions (can only union once, can't
+        # select_related on it after, the extra rows must be exactly compatible
+        # in unioned qsets, etc.) Instead, we're going to have one queryset per
+        # dependency layer.
+        all_draft_qsets = [
+            draft_qset.select_related("entity__published__version"),
+            *dependency_drafts_qsets,  # one QuerySet per layer of dependencies
+        ]
+        published_draft_ids = set()
+        for qset in all_draft_qsets:
+            for draft in qset:
+                # Skip duplicates that we might get from expanding dependencies.
+                if draft.pk in published_draft_ids:
+                    continue
 
-            # Create a record describing publishing this particular Publishable
-            # (useful for auditing and reverting).
-            publish_log_record = PublishLogRecord(
-                publish_log=publish_log,
-                entity=draft.entity,
-                old_version=old_version,
-                new_version=draft.version,
-            )
-            publish_log_record.full_clean()
-            publish_log_record.save(force_insert=True)
+                try:
+                    old_version = draft.entity.published.version
+                except ObjectDoesNotExist:
+                    # This means there is no published version yet.
+                    old_version = None
 
-            # Update the lookup we use to fetch the published versions
-            Published.objects.update_or_create(
-                entity=draft.entity,
-                defaults={
-                    "version": draft.version,
-                    "publish_log_record": publish_log_record,
-                },
-            )
+                # Create a record describing publishing this particular
+                # Publishable (useful for auditing and reverting).
+                publish_log_record = PublishLogRecord(
+                    publish_log=publish_log,
+                    entity=draft.entity,
+                    old_version=old_version,
+                    new_version=draft.version,
+                )
+                publish_log_record.full_clean()
+                publish_log_record.save(force_insert=True)
+
+                # Update the lookup we use to fetch the published versions
+                Published.objects.update_or_create(
+                    entity=draft.entity,
+                    defaults={
+                        "version": draft.version,
+                        "publish_log_record": publish_log_record,
+                    },
+                )
+
+                published_draft_ids.add(draft.pk)
+
+        _create_side_effects_for_change_log(publish_log)
 
     return publish_log
 
@@ -571,14 +655,13 @@ def set_draft_version(
                 changed_at=set_at,
                 changed_by_id=set_by,
             )
-            change = DraftChangeLogRecord.objects.create(
+            DraftChangeLogRecord.objects.create(
                 draft_change_log=change_log,
                 entity_id=draft.entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
-            _create_container_side_effects_for_draft_change(change)
-
+            _create_side_effects_for_change_log(change_log)
 
 def _add_to_existing_draft_change_log(
     active_change_log: DraftChangeLog,
@@ -643,86 +726,270 @@ def _add_to_existing_draft_change_log(
     return change
 
 
-def _create_container_side_effects_for_draft_change_log(change_log: DraftChangeLog):
+def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog):
     """
-    Iterate through the whole DraftChangeLog and process side-effects.
+    Create the side-effects for a DraftChangeLog or PublishLog.
+
+    A side-effect is created whenever a dependency of a draft or published
+    entity version is altered.
+
+    For example, say we have a published Unit at version 1 (``U1.v1``).
+    ``U1.v1`` is defined to have unpinned references to Components ``C1`` and
+    ``C2``, i.e. ``U1.v1 = [C1, C2]``. This means that ``U1.v1`` always shows
+    the latest published versions of ``C1`` and ``C2``. While we do have a more
+    sophisticated encoding for the ordered parent-child relationships, we
+    capture the basic dependency relationship using the M:M
+    ``PublishableEntityVersionDependency`` model. In this scenario, C1 and C2
+    are dependencies of ``U1.v1``
+
+    In the above example, publishing a newer version of ``C1`` does *not*
+    increment the version for Unit ``U1``. But we still want to record that
+    ``U1.v1`` was affected by the change in ``C1``. We record this in the
+    ``DraftSideEffect`` and ``PublishSideEffect`` models. We also add an entry
+    for ``U1`` in the change log, saying that it went from version 1 to version
+    1--i.e nothing about the Unit's defintion changed, but it was still affected
+    by other changes in the log.
+
+    Only call this function after all the records have already been created.
+
+    Note: The interface between ``DraftChangeLog`` and ``PublishLog`` is similar
+    enough that this function has been made to work with both.
     """
+    if isinstance(change_log, DraftChangeLog):
+        branch_cls = Draft
+        change_record_cls = DraftChangeLogRecord
+        side_effect_cls = DraftSideEffect
+    elif isinstance(change_log, PublishLog):
+        branch_cls = Published
+        change_record_cls = PublishLogRecord
+        side_effect_cls = PublishSideEffect
+    else:
+        raise TypeError(
+            f"expected DraftChangeLog or PublishLog, not {type(change_log)}"
+        )
+
+    # processed_entity_ids holds the entity IDs that we've already calculated
+    # side-effects for. This is to save us from recalculating side-effects for
+    # the same dependency relationships over and over again. So if we're calling
+    # this function in a loop for all the Components in a Unit, we won't be
+    # recalculating the Unit's side-effect on its Subsection, and its
+    # Subsection's side-effect on its Section each time through the loop.
+    # It also guards against infinite parent-child relationship loops, though
+    # those aren't *supposed* to be allowed anyhow.
     processed_entity_ids: set[int] = set()
-    for change in change_log.records.all():
-        _create_container_side_effects_for_draft_change(
-            change,
-            processed_entity_ids=processed_entity_ids,
+    for original_change in change_log.records.all():
+        affected_by_original_change = branch_cls.objects.filter(
+            version__dependencies=original_change.entity
+        )
+        changes_and_affected = [
+            (original_change, current) for current in affected_by_original_change
+        ]
+        while changes_and_affected:
+            original_change, affected = changes_and_affected.pop()
+
+            # If the Draft or Published that is affected by this change is not
+            # already in the change_log, then we have to add it.
+            affected_version_pk = affected.version_id
+
+            if branch_cls == Draft:
+                change_log_param = {'draft_change_log': original_change.draft_change_log}
+            elif branch_cls == Published:
+                change_log_param = {'publish_log': original_change.publish_log}
+
+            # Example: If the original_change is a DraftChangeLogRecord that
+            # represents editing a Component, the side_effect_change is the
+            # DraftChangeLogRecord that represents the fact that the containing
+            # Unit was also altered (even if the Unit version doesn't change).
+            side_effect_change, _created = change_record_cls.objects.get_or_create(
+                **change_log_param,
+                entity_id=affected.entity_id,
+                defaults={
+                    # If a change record already exists because the affected
+                    # entity was separately modified, then we don't touch the
+                    # old/new version entries. But if we're creating this change
+                    # record as a pure side-effect, then we use the (old_version
+                    # == new_version) convention to indicate that.
+                    'old_version_id': affected_version_pk,
+                    'new_version_id': affected_version_pk
+                }
+            )
+
+            # Create a new side effect (DraftSideEffect or PublishSideEffect) to
+            # record the relationship between the ``original_change`` and
+            # the corresponding ``side_effect_change``. We'll do this regardless
+            # of whether we created the ``side_effect_change`` or just pulled
+            # back an existing one. This addresses two things:
+            #
+            # 1. A change in multiple dependencies can generate multiple
+            #    side effects that point to the same change log record, i.e.
+            #    multiple changes can cause the same ``effect``.
+            #    Example: Two draft components in a Unit are changed. Two
+            #    DraftSideEffects will be created and point to the same Unit
+            #    DraftChangeLogRecord.
+            # 2. A entity and its dependency can change at the same time.
+            #    Example: If a Unit has a Component, and both the Unit and
+            #    Component are edited in the same DraftChangeLog, then the Unit
+            #    has changed in both ways (the Unit's internal metadata as well
+            #    as the new version of the child component). The version of the
+            #    Unit will be incremented, but we'll also create the
+            #    DraftSideEffect.
+            side_effect_cls.objects.get_or_create(
+                cause=original_change,
+                effect=side_effect_change,
+            )
+
+            # Now we find the next layer up by looking at Drafts or Published
+            # that have ``affected.entity`` as a dependency.
+            next_layer_of_affected = branch_cls.objects.filter(
+                version__dependencies=affected.entity
+            )
+
+            # Make sure we never re-add the change we just processed when we
+            # queue up the next layer.
+            processed_entity_ids.add(original_change.entity_id)
+
+            changes_and_affected.extend(
+                (side_effect_change, affected)
+                for affected in next_layer_of_affected
+                if affected.entity_id not in processed_entity_ids
+            )
+
+    _update_branch_dependencies_hash_digests(change_log)
+
+
+def _update_branch_dependencies_hash_digests(
+    change_log: DraftChangeLog | PublishLog,
+) -> None:
+    """
+    Update dependencies_hash_digest for Drafts or Published in a change log.
+
+    Args:
+        change_log: A DraftChangeLog or PublishLog that already has all
+            side-effects added to it. The Draft and Published models should
+            already be updated to point to the post-change versions.
+    """
+    if isinstance(change_log, DraftChangeLog):
+        branch = "draft"
+        branch_cls = Draft
+    elif isinstance(change_log, PublishLog):
+        branch = "published"
+        branch_cls = Published
+    else:
+        raise TypeError(
+            f"expected DraftChangeLog or PublishLog, not {type(change_log)}"
         )
 
+    dependencies_versions_prefetch = Prefetch(
+        "new_version__dependencies",
+        queryset=(
+            PublishableEntity.objects
+                             .select_related(f"{branch}__version")
+                             .order_by(f"{branch}__version__uuid")
+        )
+    )
+    records = (
+        change_log.records
+                  .filter(new_version__isnull=False)
+                  .select_related("new_version", f"entity__{branch}")
+                  .prefetch_related(dependencies_versions_prefetch)
+    )
 
-def _create_container_side_effects_for_draft_change(
-    original_change: DraftChangeLogRecord,
-    processed_entity_ids: set | None = None
-):
+    changed_to_dependencies: dict[Draft, list[Draft]] | dict[Published, list[Published]]
+    changed_to_dependencies = {}
+    for record in records:
+        if record.new_version is None:
+            continue
+
+        changed_branch_item = getattr(record.entity, branch, None)
+        if (not changed_branch_item) or (not changed_branch_item.version):
+            branch_item_dependencies = []
+        else:
+            branch_item_dependencies = [
+                getattr(entity, branch)
+                for entity in record.new_version.dependencies.all()
+                if hasattr(entity, branch) and getattr(entity, branch).version
+            ]
+
+        changed_to_dependencies[changed_branch_item] = branch_item_dependencies
+
+    branch_items_to_update = []
+    already_computed_hashes = {}
+    for changed_branch_item in changed_to_dependencies:
+        new_digest = hash_for_branch_item(
+            changed_branch_item, changed_to_dependencies, already_computed_hashes
+        )
+        if new_digest != changed_branch_item.dependencies_hash_digest:
+            changed_branch_item.dependencies_hash_digest = new_digest
+            branch_items_to_update.append(changed_branch_item)
+
+    branch_cls.objects.bulk_update(
+        branch_items_to_update,
+        ["dependencies_hash_digest"],
+    )
+
+
+def hash_for_branch_item(
+    branch_item: Draft | Published,
+    changed_items: dict[Draft, list[Draft]] | dict[Published, list[Published]],
+    already_computed_hashes: dict[Draft, str] | dict[Published, str],
+) -> str:
     """
-    Given a draft change, add side effects for all affected containers.
+    Recursively calculate the dependencies_hash_digest for Draft or Published.
 
-    This should only be run after the DraftChangeLogRecord has been otherwise
-    fully written out. We want to avoid the scenario where we create a
-    side-effect that a Component change affects a Unit if the Unit version is
-    also changed (maybe even deleted) in the same DraftChangeLog.
+    We have to be extremely careful about changing the signature or behavior of
+    this function, as it's used in the 0010_backfill_dependencies data migration
+    that will be used to upgrade people from Teak to future versions.
 
-    The `processed_entity_ids` set holds the entity IDs that we've already
-    calculated side-effects for. This is to save us from recalculating side-
-    effects for the same ancestor relationships over and over again. So if we're
-    calling this function in a loop for all the Components in a Unit, we won't
-    be recalculating the Unit's side-effect on its Subsection, and its
-    Subsection's side-effect on its Section.
-
-    TODO: This could get very expensive with the get_containers_with_entity
-    calls. We should measure the impact of this.
+    Args:
+        branch_item: The Draft or Published entry we want to recalculate the
+            dependencies hash for.
+        changed_items: A dict mapping Draft or Published to a list of Dependency
+            Draft or Published. The keys represent the full set of what has
+            changed in the change log (DraftChangeLog or PublishLog), and
+            includes things that were added as side-effects. The value lists
+            in this dict can include things that *didn't* change, if they happen
+            to be dependencies of things that did change.
+        already_computed_hashes: A cache to ensure we don't recompute the same
+            nodes over and over again.
     """
-    if processed_entity_ids is None:
-        # An optimization, but also a guard against infinite side-effect loops.
-        processed_entity_ids = set()
+    if branch_item in already_computed_hashes:
+        return already_computed_hashes[branch_item]
 
-    changes_and_containers = [
-        (original_change, container)
-        for container
-        in get_containers_with_entity(original_change.entity_id, ignore_pinned=True)
+    # Base case #1: The branch_item is a dependency of something that was
+    # affected by a change, but the dependency itself did not change in any way
+    # (neither directly, nor as a side-effect).
+    #
+    # Example: A Unit has two Components. One of the Components changed, forcing
+    # us to recalculate the dependencies_hash_digest for that Unit. Doing that
+    # recalculation requires us to fetch the dependencies_hash_digest of the
+    # unchanged child as well.
+    #
+    # These are the only values for dependencies_hash_digest that we can trust,
+    # because we know that the change log (DraftChangeLog or PublishLog) being
+    # processed right now will not alter them.
+    if branch_item not in changed_items:
+        return branch_item.dependencies_hash_digest
+
+    # Base case #2: If there are no dependencies, the hash digest is set to ''.
+    # Note that it's possible that something that used to have a hash digest to
+    # get reset to '' if those dependencies are later removed.
+    dependencies = changed_items[branch_item]
+    if not dependencies:
+        return ''
+
+    # Normal recursive case
+    dependencies.sort(key=lambda d: d.version.uuid)
+    dep_state_entries = [
+        f"{dep_item.version.uuid}:"
+        f"{hash_for_branch_item(dep_item, changed_items, already_computed_hashes)}"
+        for dep_item in dependencies
     ]
-    while changes_and_containers:
-        change, container = changes_and_containers.pop()
+    summary_text = "\n".join(dep_state_entries)
 
-        # If the container is not already in the DraftChangeLog, we need to
-        # add it. Since it's being caused as a DraftSideEffect, we're going
-        # add it with the old_version == new_version convention.
-        container_draft_version_pk = container.versioning.draft.pk
-        container_change, _created = DraftChangeLogRecord.objects.get_or_create(
-            draft_change_log=change.draft_change_log,
-            entity_id=container.pk,
-            defaults={
-                'old_version_id': container_draft_version_pk,
-                'new_version_id': container_draft_version_pk
-            }
-        )
+    digest = create_hash_digest(summary_text.encode(), num_bytes=4)
+    already_computed_hashes[branch_item] = digest
 
-        # Mark that change in the current loop has the side effect of changing
-        # the parent container. We'll do this regardless of whether the
-        # container version itself also changed. If a Unit has a Component and
-        # both the Unit and Component have their versions incremented, then the
-        # Unit has changed in both ways (the Unit's internal metadata as well as
-        # the new version of the child component).
-        DraftSideEffect.objects.get_or_create(cause=change, effect=container_change)
-        processed_entity_ids.add(change.entity_id)
-
-        # Now we find the next layer up of containers. So if the originally
-        # passed in publishable_entity_id was for a Component, then the
-        # ``container`` we've been creating the side effect for in this loop
-        # is the Unit, and ``parents_of_container`` would be any Sequences
-        # that contain the Unit.
-        parents_of_container = get_containers_with_entity(container.pk, ignore_pinned=True)
-
-        changes_and_containers.extend(
-            (container_change, container_parent)
-            for container_parent in parents_of_container
-            if container_parent.pk not in processed_entity_ids
-        )
+    return digest
 
 
 def soft_delete_draft(publishable_entity_id: int, /, deleted_by: int | None = None) -> None:
@@ -973,7 +1240,6 @@ def create_entity_list_with_rows(
                 raise ValidationError("Container entity versions must belong to the specified entity.")
 
     with atomic(savepoint=False):
-
         entity_list = create_entity_list()
         EntityListRow.objects.bulk_create(
             [
@@ -1011,6 +1277,11 @@ def _create_container_version(
             title=title,
             created=created,
             created_by=created_by,
+            dependencies=[
+                entity_row.entity_id
+                for entity_row in entity_list.rows
+                if entity_row.is_unpinned()
+            ]
         )
         container_version = container_version_cls.objects.create(
             publishable_entity_version=publishable_entity_version,
@@ -1362,6 +1633,11 @@ def contains_unpublished_changes(container_id: int) -> bool:
     [ 🛑 UNSTABLE ]
     Check recursively if a container has any unpublished changes.
 
+    Note: I've preserved the API signature for now, but we probably eventually
+    want to make a more general function that operates on PublishableEntities
+    and dependencies, once we introduce those with courses and their files,
+    grading policies, etc.
+
     Note: unlike this method, the similar-sounding
     `container.versioning.has_unpublished_changes` property only reports
     if the container itself has unpublished changes, not
@@ -1370,50 +1646,20 @@ def contains_unpublished_changes(container_id: int) -> bool:
     that's in the container, it will be `False`. This method will return `True`
     in either case.
     """
-    # This is similar to 'get_container(container.container_id)' but pre-loads more data.
-    container = Container.objects.select_related(
-        "publishable_entity__draft__version__containerversion__entity_list",
-    ).get(pk=container_id)
-
+    container = Container.objects.get(pk=container_id)
     if container.versioning.has_unpublished_changes:
         return True
 
-    # We only care about children that are un-pinned, since published changes to pinned children don't matter
-    entity_list = getattr(container.versioning.draft, "entity_list", None)
-    if entity_list is None:
-        # This container has been soft-deleted, so it has no children.
-        return False
+    draft = container.publishable_entity.draft
+    published = container.publishable_entity.published
 
-    # This is a naive and inefficient implementation but should be correct.
-    # TODO: Once we have expanded the containers system to support multiple levels (not just Units and Components but
-    # also subsections and sections) and we have an expanded test suite for correctness, then we can optimize.
-    # We will likely change to a tracking-based approach rather than a "scan for changes" based approach.
-    for row in entity_list.entitylistrow_set.filter(entity_version=None).select_related(
-        "entity__container",
-        "entity__draft__version",
-        "entity__published__version",
-    ):
-        try:
-            child_container = row.entity.container
-        except Container.DoesNotExist:
-            child_container = None
-        if child_container:
-            # This is itself a container - check recursively:
-            if contains_unpublished_changes(child_container.pk):
-                return True
-        else:
-            # This is not a container:
-            draft_pk = row.entity.draft.version_id if row.entity.draft else None
-            published_pk = row.entity.published.version_id if hasattr(row.entity, "published") else None
-            if draft_pk != published_pk:
-                return True
-    return False
-
+    return draft.dependencies_hash_digest != published.dependencies_hash_digest
 
 def get_containers_with_entity(
     publishable_entity_pk: int,
     *,
     ignore_pinned=False,
+    published=False,
 ) -> QuerySet[Container]:
     """
     [ 🛑 UNSTABLE ]
@@ -1426,20 +1672,31 @@ def get_containers_with_entity(
         publishable_entity_pk: The ID of the PublishableEntity to search for.
         ignore_pinned: if true, ignore any pinned references to the entity.
     """
+    branch = "published" if published else "draft"
     if ignore_pinned:
-        qs = Container.objects.filter(
-            # Note: these two conditions must be in the same filter() call, or the query won't be correct.
-            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
-            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_version_id=None,  # pylint: disable=line-too-long # noqa: E501
-        )
+        filter_dict = {
+            # Note: these two conditions must be in the same filter() call,
+            # or the query won't be correct.
+            (
+                f"publishable_entity__{branch}__version__"
+                "containerversion__entity_list__entitylistrow__entity_id"
+            ): publishable_entity_pk,
+            (
+                f"publishable_entity__{branch}__version__"
+                "containerversion__entity_list__entitylistrow__entity_version_id"
+            ): None,
+        }
+        qs = Container.objects.filter(**filter_dict)
     else:
-        qs = Container.objects.filter(
-            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
-        )
-    return qs.select_related(
-        "publishable_entity__draft__version__containerversion",
-        "publishable_entity__published__version__containerversion",
-    ).order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
+        filter_dict = {
+            (
+                f"publishable_entity__{branch}__version__"
+                "containerversion__entity_list__entitylistrow__entity_id"
+            ): publishable_entity_pk
+        }
+        qs = Container.objects.filter(**filter_dict)
+
+    return qs.order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
 
 
 def get_container_children_count(
@@ -1507,6 +1764,6 @@ def bulk_draft_changes_for(
         changed_at=changed_at,
         changed_by=changed_by,
         exit_callbacks=[
-            _create_container_side_effects_for_draft_change_log,
+            _create_side_effects_for_change_log,
         ]
     )

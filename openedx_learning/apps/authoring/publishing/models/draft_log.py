@@ -3,9 +3,14 @@ Models relating to the creation and management of Draft information.
 """
 from django.conf import settings
 from django.db import models
+from django.db.models import F, Q, QuerySet
 from django.utils.translation import gettext_lazy as _
 
-from openedx_learning.lib.fields import immutable_uuid_field, manual_date_time_field
+from openedx_learning.lib.fields import (
+    hash_field,
+    immutable_uuid_field,
+    manual_date_time_field,
+)
 
 from .learning_package import LearningPackage
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
@@ -55,6 +60,60 @@ class Draft(models.Model):
         null=True,
         blank=True,
     )
+
+    # The dependencies_hash_digest is used when the version alone isn't enough
+    # to let us know the full draft state of an entity. This happens any time a
+    # Draft version has dependencies (see the PublishableEntityVersionDependency
+    # model), because changes in those dependencies will cause changes to the
+    # state of the Draft. The main example of this is containers, where changing
+    # an unpinned child affects the state of the parent container, even if that
+    # container's definition (and thus version) does not change.
+    #
+    # If a Draft has no dependencies, then its entire state is captured by its
+    # version, and the dependencies_hash_digest is blank. (Blank is slightly
+    # more convenient for database comparisons than NULL.)
+    #
+    # Note: There is an equivalent of this field in the Published model and the
+    # the values may drift away from each other.
+    dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
+
+
+    class DraftQuerySet(models.QuerySet):
+        """
+        Custom QuerySet/Manager so we can chain common queries.
+        """
+
+        def with_unpublished_changes(self):
+            """
+            Drafts with versions that are different from what is Published.
+
+            This will not return Drafts that have unpublished changes in their
+            dependencies. Example: A Unit is published with a Component as one
+            of its child. Then someone modifies the draft of the Component. If
+            both the Unit and the Component Drafts were part of the queryset,
+            this method would return only the changed Component, and not the
+            Unit. (We can add this as an optional flag later if we want.)
+            """
+            return (
+                self.select_related("entity__published__version")
+                    # Exclude where draft and published versions are the same
+                    .exclude(entity__published__version_id=F("version_id"))
+
+                    # Account for soft-deletes:
+                    # NULL != NULL in SQL, so simply excluding entities where
+                    # the Draft and Published versions match will not catch the
+                    # case where a soft-delete has been published (i.e. both the
+                    # Draft and Published versions are NULL). We need to
+                    # explicitly check for that case instead, or else we will
+                    # re-publish the same soft-deletes over and over again.
+                    .exclude(
+                        Q(version__isnull=True) &
+                        Q(entity__published__version__isnull=True)
+                    )
+            )
+
+    objects = DraftQuerySet.as_manager()
+
 
 
 class DraftChangeLog(models.Model):

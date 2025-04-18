@@ -19,11 +19,12 @@ from .collations import MultiCollationMixin
 from .validators import validate_utc_datetime
 
 
-def create_hash_digest(data_bytes: bytes) -> str:
+def create_hash_digest(data_bytes: bytes, num_bytes=20) -> str:
     """
-    Create a 40-byte, lower-case hex string representation of a hash digest.
+    Create a lower-case hex string representation of a hash digest.
 
-    The hash digest itself is 20-bytes using BLAKE2b.
+    The hash digest itself is 20-bytes using BLAKE2b (so 40 characters when hex
+    encoded).
 
     DON'T JUST MODIFY THIS HASH BEHAVIOR!!! We use hashing for de-duplication
     purposes. If this hash function ever changes, that deduplication will fail
@@ -32,7 +33,7 @@ def create_hash_digest(data_bytes: bytes) -> str:
     If we want to change this representation one day, we should create a new
     function for that and do the appropriate data migration.
     """
-    return hashlib.blake2b(data_bytes, digest_size=20).hexdigest()
+    return hashlib.blake2b(data_bytes, digest_size=num_bytes).hexdigest()
 
 
 def case_insensitive_char_field(**kwargs) -> MultiCollationCharField:
@@ -123,7 +124,7 @@ def key_field(**kwargs) -> MultiCollationCharField:
     return case_sensitive_char_field(max_length=500, blank=False, **kwargs)
 
 
-def hash_field() -> models.CharField:
+def hash_field(**kwargs) -> models.CharField:
     """
     Holds a hash digest meant to identify a piece of content.
 
@@ -144,13 +145,13 @@ def hash_field() -> models.CharField:
        didn't seem worthwhile, particularly the possibility of case-sensitivity
        related bugs.
     """
-    return models.CharField(
-        max_length=40,
-        blank=False,
-        null=False,
-        editable=False,
-    )
-
+    default_kwargs = {
+        "max_length": 40,
+        "blank": False,
+        "null": False,
+        "editable": False,
+    }
+    return models.CharField(**(default_kwargs | kwargs))
 
 def manual_date_time_field() -> models.DateTimeField:
     """

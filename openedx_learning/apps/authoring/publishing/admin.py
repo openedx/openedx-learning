@@ -6,7 +6,7 @@ from __future__ import annotations
 import functools
 
 from django.contrib import admin
-from django.db.models import Count
+from django.db.models import Count, F, Q
 from django.utils.html import format_html
 from django.utils.safestring import SafeText
 
@@ -21,6 +21,8 @@ from .models import (
     EntityListRow,
     LearningPackage,
     PublishableEntity,
+    PublishableEntityVersion,
+    PublishableEntityVersionDependency,
     PublishLog,
     PublishLogRecord,
 )
@@ -89,28 +91,84 @@ class PublishLogAdmin(ReadOnlyModelAdmin):
     list_filter = ["learning_package"]
 
 
+class PublishableEntityVersionTabularInline(admin.TabularInline):
+    """
+    Tabular inline for a single Draft change.
+    """
+    model = PublishableEntityVersion
+
+    fields = (
+        "version_num",
+        "title",
+        "created",
+        "created_by",
+        "dependencies_list",
+    )
+    readonly_fields = fields
+
+    def dependencies_list(self, version: PublishableEntityVersion):
+        identifiers = sorted(
+            [str(dep.key) for dep in version.dependencies.all()]
+        )
+        return "\n".join(identifiers)
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return (
+            queryset
+            .order_by('-version_num')
+            .select_related('created_by', 'entity')
+            .prefetch_related('dependencies')
+        )
+
+class PublishStatusFilter(admin.SimpleListFilter):
+    title = "publish status"
+    parameter_name = "publish_status"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("unpublished_changes", "Has unpublished changes"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == "unpublished_changes":
+            return (
+                queryset
+                .exclude(
+                    published__version__isnull=True,
+                    draft__version__isnull=True,
+                )
+                .exclude(
+                    published__version=F("draft__version"),
+                    published__dependencies_hash_digest=F("draft__dependencies_hash_digest")
+                )
+            )
+
+
 @admin.register(PublishableEntity)
 class PublishableEntityAdmin(ReadOnlyModelAdmin):
     """
     Read-only admin view for Publishable Entities
     """
+    inlines = [PublishableEntityVersionTabularInline]
+
     list_display = [
         "key",
-        "draft_version",
         "published_version",
+        "draft_version",
         "uuid",
         "learning_package",
         "created",
         "created_by",
         "can_stand_alone",
     ]
-    list_filter = ["learning_package"]
+    list_filter = ["learning_package", PublishStatusFilter]
     search_fields = ["key", "uuid"]
 
     fields = [
         "key",
-        "draft_version",
         "published_version",
+        "draft_version",
         "uuid",
         "learning_package",
         "created",
@@ -120,8 +178,8 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     ]
     readonly_fields = [
         "key",
-        "draft_version",
         "published_version",
+        "draft_version",
         "uuid",
         "learning_package",
         "created",
@@ -131,7 +189,23 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     ]
 
     def draft_version(self, entity: PublishableEntity):
-        return entity.draft.version.version_num if entity.draft.version else None
+        from django.utils.html import format_html
+
+        if hasattr(entity, "draft") and entity.draft.version:
+            if entity.draft.dependencies_hash_digest:
+                version_str = (
+                    f"{entity.draft.version.version_num} "
+                    f"({entity.draft.dependencies_hash_digest})"
+                )
+            else:
+                version_str = str(entity.draft.version.version_num)
+
+            if version_str == self.published_version(entity):
+                return version_str
+            else:
+                return format_html("<em>{}</em>", version_str)
+
+        return None
 
     def published_version(self, entity: PublishableEntity):
         return entity.published.version.version_num if entity.published and entity.published.version else None
@@ -139,11 +213,29 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related(
-            "learning_package", "published__version",
+            "learning_package", "published__version", "draft__version", "created_by"
         )
 
     def see_also(self, entity):
         return one_to_one_related_model_html(entity)
+
+    def published_version(self, entity):
+        if entity.published.version:
+            return entity.published.version.version_num
+        return None
+
+    def published_version(self, entity: PublishableEntity):
+        if hasattr(entity, "published") and entity.published.version:
+            if entity.published.dependencies_hash_digest:
+                return (
+                    f"{entity.published.version.version_num} "
+                    f"({entity.published.dependencies_hash_digest})"
+                )
+            else:
+                return str(entity.published.version.version_num)
+
+        return None
+
 
 
 @admin.register(Published)
