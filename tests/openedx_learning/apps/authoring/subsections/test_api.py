@@ -16,6 +16,9 @@ from ..units.test_api import UnitTestCase
 Entry = authoring_api.SubsectionListEntry
 
 
+# TODO: Turn UnitTestCase into UnitTestMixin and remove the
+# test-inherits-tests pylint warning below.
+# https://github.com/openedx/openedx-learning/issues/308
 @ddt.ddt
 class SubSectionTestCase(UnitTestCase):  # pylint: disable=test-inherits-tests
     """ Test cases for Subsections (containers of units) """
