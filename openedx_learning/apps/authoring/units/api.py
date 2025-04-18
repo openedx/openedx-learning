@@ -177,22 +177,21 @@ def create_unit_and_version(
         can_stand_alone: Set to False when created as part of containers
     """
     entity_rows = _pub_entities_for_components(components)
-    with atomic():
-        unit = create_unit(
-            learning_package_id,
-            key,
-            created,
-            created_by,
-            can_stand_alone=can_stand_alone,
-        )
-        unit_version = create_unit_version(
-            unit,
-            1,
-            title=title,
-            entity_rows=entity_rows or [],
-            created=created,
-            created_by=created_by,
-        )
+    unit = create_unit(
+        learning_package_id,
+        key,
+        created,
+        created_by,
+        can_stand_alone=can_stand_alone,
+    )
+    unit_version = create_unit_version(
+        unit,
+        1,
+        title=title,
+        entity_rows=entity_rows or [],
+        created=created,
+        created_by=created_by,
+    )
     return unit, unit_version
 
 

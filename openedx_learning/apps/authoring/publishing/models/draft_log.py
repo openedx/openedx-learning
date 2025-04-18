@@ -5,7 +5,11 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from openedx_learning.lib.fields import immutable_uuid_field, manual_date_time_field
+from openedx_learning.lib.fields import (
+    hash_field,
+    immutable_uuid_field,
+    manual_date_time_field,
+)
 
 from .learning_package import LearningPackage
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
@@ -55,6 +59,19 @@ class Draft(models.Model):
         null=True,
         blank=True,
     )
+
+    # The state_hash is used when the version alone isn't enough to let us know
+    # the full draft state of an entity. This happens any time a Draft has
+    # dependencies (see the DraftDependency model), because changes in those
+    # dependencies will cause changes to the state of the Draft. An example of
+    # this is contianers, where changing an unpinned child affects the state of
+    # the parent container, even if that container's definition (and thus
+    # version) does not change.
+    #
+    # If a Draft has no dependencies, then its entire state is captured by its
+    # version, and the state_hash is blank. (Blank is slightly more convenient
+    # for database comparisons than NULL.)
+    state_hash = hash_field(blank=True, default='')
 
 
 class DraftChangeLog(models.Model):
@@ -313,3 +330,46 @@ class DraftSideEffect(models.Model):
         ]
         verbose_name = _("Draft Side Effect")
         verbose_name_plural = _("Draft Side Effects")
+
+
+# This needs to go in the Draft model?
+# The new_state_hash is used when the version alone isn't enough to let us
+# know the full published state of an entity. This happens with Containers,
+# where the published state of the container can change because its children
+# are published.
+# state_hash = hash_field(blank=True, default='')
+#
+# It needs to exist in the Published model too, but we *can't assume it'll copy*
+# because different subsets of children could be published, so we need to be
+# able to recalculate based on the published state of the dependencies.
+
+
+class DraftDependency(models.Model):
+    """
+
+    """
+    target = models.ForeignKey(
+        Draft,
+        on_delete=models.CASCADE,
+        related_name="dependencies",
+    )
+    dependency = models.ForeignKey(
+        Draft,
+        on_delete=models.CASCADE,
+        related_name="causes_side_effects_for",
+    )
+    version_at_creation = models.ForeignKey(
+        PublishableEntityVersion,
+        related_name="draft_dependencies_created",
+        on_delete=models.RESTRICT,
+    )
+
+    class Meta:
+        constraints = [
+            # Duplicate entries for a dependency are just redundant. This is
+            # here to guard against weird bugs that might introduce this state.
+            models.UniqueConstraint(
+                fields=["target", "dependency"],
+                name="oel_pub_dd_uniq_target_dep",
+            )
+        ]
