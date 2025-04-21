@@ -136,7 +136,7 @@ iniconfig==2.1.0
     # via pytest
 jinja2==3.1.6
     # via code-annotations
-kombu==5.5.2
+kombu==5.5.3
     # via
     #   -r requirements/base.txt
     #   celery
@@ -154,7 +154,7 @@ newrelic==10.9.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-packaging==24.2
+packaging==25.0
     # via pytest
 pbr==6.1.1
     # via
@@ -162,7 +162,7 @@ pbr==6.1.1
     #   stevedore
 pluggy==1.5.0
     # via pytest
-prompt-toolkit==3.0.50
+prompt-toolkit==3.0.51
     # via
     #   -r requirements/base.txt
     #   click-repl

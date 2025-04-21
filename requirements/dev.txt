@@ -108,7 +108,7 @@ ddt==1.7.2
     # via -r requirements/quality.txt
 diff-cover==9.2.4
     # via -r requirements/dev.in
-dill==0.3.9
+dill==0.4.0
     # via
     #   -r requirements/quality.txt
     #   pylint
@@ -246,7 +246,7 @@ keyring==25.6.0
     # via
     #   -r requirements/quality.txt
     #   twine
-kombu==5.5.2
+kombu==5.5.3
     # via
     #   -r requirements/quality.txt
     #   celery
@@ -295,7 +295,7 @@ nh3==0.2.21
     # via
     #   -r requirements/quality.txt
     #   readme-renderer
-packaging==24.2
+packaging==25.0
     # via
     #   -r requirements/ci.txt
     #   -r requirements/pip-tools.txt
@@ -329,7 +329,7 @@ pluggy==1.5.0
     #   tox
 polib==1.2.0
     # via edx-i18n-tools
-prompt-toolkit==3.0.50
+prompt-toolkit==3.0.51
     # via
     #   -r requirements/quality.txt
     #   click-repl
