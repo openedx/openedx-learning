@@ -1370,23 +1370,16 @@ def get_containers_with_entity(
         ignore_pinned: if true, ignore any pinned references to the entity.
     """
     if ignore_pinned:
-        # TODO: Do we need to run distinct() on this? Will fix in https://github.com/openedx/openedx-learning/issues/303
         qs = Container.objects.filter(
             # Note: these two conditions must be in the same filter() call, or the query won't be correct.
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_version_id=None,  # pylint: disable=line-too-long # noqa: E501
-        ).order_by("pk")  # Ordering is mostly for consistent test cases.
+        )
     else:
         qs = Container.objects.filter(
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
-        ).order_by("pk")  # Ordering is mostly for consistent test cases.
-    # Could alternately do this query in two steps. Not sure which is more efficient; depends on how the DB plans it.
-    # # Find all the EntityLists that contain the given entity:
-    # lists = EntityList.objects.filter(entitylistrow__entity_id=publishable_entity_pk).values_list('pk', flat=True)
-    # qs = Container.objects.filter(
-    #     publishable_entity__draft__version__containerversion__entity_list__in=lists
-    # )
-    return qs
+        )
+    return qs.order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
 
 
 def get_container_children_count(
