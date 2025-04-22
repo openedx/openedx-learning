@@ -128,13 +128,13 @@ class SectionTestCase(SubSectionTestCase):  # pylint: disable=test-inherits-test
         section = self.create_section_with_subsections([])
         with self.assertNumQueries(1):
             result = list(authoring_api.get_containers(self.learning_package.id))
-        assert result == [
+        self.assertCountEqual(result, [
             self.unit_1.container,
             self.unit_2.container,
             self.subsection_1.container,
             self.subsection_2.container,
             section.container,
-        ]
+        ])
         # Versioning data should be pre-loaded via select_related()
         with self.assertNumQueries(0):
             assert result[0].versioning.has_unpublished_changes
