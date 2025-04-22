@@ -1,5 +1,5 @@
 """
-Models that implement subsections
+Models that implement sections
 """
 from django.db import models
 

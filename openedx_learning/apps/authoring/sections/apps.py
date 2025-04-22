@@ -17,7 +17,7 @@ class SectionsConfig(AppConfig):
 
     def ready(self):
         """
-        Register Subsection and SubsectionVersion.
+        Register Section and SectionVersion.
         """
         from ..publishing.api import register_content_models  # pylint: disable=import-outside-toplevel
         from .models import Section, SectionVersion  # pylint: disable=import-outside-toplevel
