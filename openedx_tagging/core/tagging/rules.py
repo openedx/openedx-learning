@@ -112,7 +112,7 @@ def can_view_object_tag(
 
     # Checks the permission for the taxonomy
     taxonomy_perm = user.has_perm(
-        "oel_tagging.view_objecttag_taxonomy", perm_obj.taxonomy
+        "oel_tagging.view_objecttag_taxonomy", perm_obj.taxonomy  # type: ignore[arg-type]
     )
     if not taxonomy_perm:
         return False
@@ -160,7 +160,7 @@ def can_change_object_tag(
 
     # Checks the permission for the taxonomy
     taxonomy_perm = user.has_perm(
-        "oel_tagging.change_objecttag_taxonomy", perm_obj.taxonomy
+        "oel_tagging.change_objecttag_taxonomy", perm_obj.taxonomy  # type: ignore[arg-type]
     )
     if not taxonomy_perm:
         return False
