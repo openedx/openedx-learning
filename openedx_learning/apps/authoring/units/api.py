@@ -21,6 +21,7 @@ __all__ = [
     "create_unit_and_version",
     "get_unit",
     "get_unit_version",
+    "get_unit_by_key",
     "get_latest_unit_version",
     "UnitListEntry",
     "get_components_in_unit",
@@ -215,6 +216,24 @@ def get_unit_version(unit_version_pk: int) -> UnitVersion:
         unit_version_pk: The unit version ID.
     """
     return UnitVersion.objects.get(pk=unit_version_pk)
+
+
+def get_unit_by_key(learning_package_id: int, /, key: str) -> Unit:
+    """
+    [ 🛑 UNSTABLE ]
+    Get a unit by its learning package and primary key.
+
+    Args:
+        learning_package_id: The ID of the learning package that contains the unit.
+        key: The primary key of the unit.
+
+    Returns:
+        The unit with the given primary key.
+    """
+    return Unit.objects.get(
+        container__publishable_entity__learning_package_id=learning_package_id,
+        container__publishable_entity__key=key,
+    )
 
 
 def get_latest_unit_version(unit_pk: int) -> UnitVersion:

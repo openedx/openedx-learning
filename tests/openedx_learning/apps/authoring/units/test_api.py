@@ -92,6 +92,14 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(0):
             assert result.versioning.has_unpublished_changes
 
+    def test_get_unit_by_key(self):
+        unit = self.create_unit_with_components([self.component_1, self.component_2])
+        unit_key = unit.container.key
+        learning_package_id = unit.container.publishable_entity.learning_package.pk
+        with self.assertNumQueries(1):
+            result = authoring_api.get_unit_by_key(learning_package_id, unit_key)
+        assert result == unit
+
     def test_get_unit_version(self):
         """
         Test get_unit_version()

@@ -41,7 +41,7 @@ class UnitVersion(ContainerVersion):
     )
 
     # True if the visibility is Staff Only
-    # False if the visibility is Student Visible 
+    # False if the visibility is Student Visible
     hide_from_learners = models.BooleanField(default=False)
 
     enable_discussion = models.BooleanField(default=True)
