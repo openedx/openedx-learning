@@ -40,6 +40,12 @@ class UnitVersion(ContainerVersion):
         primary_key=True,
     )
 
+    # True if the visibility is Staff Only
+    # False if the visibility is Student Visible 
+    hide_from_learners = models.BooleanField(default=False)
+
+    enable_discussion = models.BooleanField(default=True)
+
     @property
     def unit(self):
         """ Convenience accessor to the Unit this version is associated with """
