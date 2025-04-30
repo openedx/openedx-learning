@@ -1212,7 +1212,7 @@ def get_containers(
     Args:
         learning_package_id: The primary key of the learning package
         container_cls: The subclass of Container to use, if applicable
-        include_deleted: If True, include deleted containers in the result.
+        include_deleted: If True, include deleted containers (with no draft version) in the result.
 
     Returns:
         A queryset containing the container associated with the given learning package.
