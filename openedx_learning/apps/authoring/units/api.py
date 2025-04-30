@@ -231,8 +231,8 @@ def get_unit_by_key(learning_package_id: int, /, key: str) -> Unit:
         The unit with the given primary key.
     """
     return Unit.objects.get(
-        container__publishable_entity__learning_package_id=learning_package_id,
-        container__publishable_entity__key=key,
+        publishable_entity__learning_package_id=learning_package_id,
+        publishable_entity__key=key,
     )
 
 
