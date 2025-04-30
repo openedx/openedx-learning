@@ -124,6 +124,20 @@ class UnitTestCase(ComponentTestCase):
         with self.assertNumQueries(0):
             assert result[0].versioning.has_unpublished_changes
 
+    def test_get_containers_deleted(self):
+        """
+        Test that get_containers() does not return soft-deleted units.
+        """
+        unit = self.create_unit_with_components([])
+        authoring_api.soft_delete_draft(unit.pk)
+        with self.assertNumQueries(1):
+            result = list(authoring_api.get_containers(self.learning_package.id, include_deleted=True))
+        assert result == [unit.container]
+
+        with self.assertNumQueries(1):
+            result = list(authoring_api.get_containers(self.learning_package.id))
+        assert not result
+
     def test_get_container(self):
         """
         Test get_container()
