@@ -1203,6 +1203,7 @@ def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
 def get_containers(
     learning_package_id: int,
     container_cls: type[ContainerModel] = Container,  # type: ignore[assignment]
+    include_deleted: bool | None = False,
 ) -> QuerySet[ContainerModel]:
     """
     [ 🛑 UNSTABLE ]
@@ -1211,12 +1212,17 @@ def get_containers(
     Args:
         learning_package_id: The primary key of the learning package
         container_cls: The subclass of Container to use, if applicable
+        include_deleted: If True, include deleted containers (with no draft version) in the result.
 
     Returns:
         A queryset containing the container associated with the given learning package.
     """
     assert issubclass(container_cls, Container)
-    return container_cls.objects.filter(publishable_entity__learning_package=learning_package_id)
+    container_qset = container_cls.objects.filter(publishable_entity__learning_package=learning_package_id)
+    if not include_deleted:
+        container_qset = container_qset.filter(publishable_entity__draft__version__isnull=False)
+
+    return container_qset.order_by('pk')
 
 
 def get_collection_containers(
