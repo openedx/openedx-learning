@@ -34,6 +34,7 @@ from .models import (
     PublishableEntityVersionMixin,
     PublishLog,
     PublishLogRecord,
+    PublishSideEffect,
 )
 from .models.publish_log import Published
 
@@ -357,10 +358,9 @@ def publish_from_drafts(
         # TODO: this only handles one level deep and would need to be updated to support sections > subsections > units
 
         # Get the IDs of the ContainerVersion for any Containers whose drafts are slated to be published.
-        container_version_ids = (
-            Container.objects.filter(publishable_entity__draft__in=draft_qset)
-            .values_list("publishable_entity__draft__version__containerversion__pk", flat=True)
-        )
+        container_version_ids = draft_qset.filter(entity__container__isnull=False) \
+                                          .values_list("version_id", flat=True)
+
         if container_version_ids:
             # We are publishing at least one container. Check if it has any child components that aren't already slated
             # to be published.
@@ -413,6 +413,9 @@ def publish_from_drafts(
                     "publish_log_record": publish_log_record,
                 },
             )
+
+        # We calculate side-effects as the last step in the process.
+        _create_container_side_effects_for_publish_log(publish_log)
 
     return publish_log
 
@@ -614,6 +617,89 @@ def _add_to_existing_draft_change_log(
     return change
 
 
+def _create_container_side_effects_for_publish_log(publish_log: PublishLog):
+    """
+    Iterate through PublishLog and add the appropriate PublishSideEffects.
+
+    A container is considered to have been "published" if any of its descendents
+    were published. So publishing a Component implicitly publishes any Units it
+    was in, which publishes the Subsections those Units were in, etc. If the
+    Container is not already in the PublishLog (i.e. its own metadata did not
+    change), then we create a PublishLogRecord where the old_version is equal
+    to the new_version. We also create a PublishSideEffect for every child
+    change that affects a container, regardless of whether that container also
+    changed.
+
+    This is a slightly simplified version of the work we have to do with Drafts,
+    because we don't have to worry about being called from a bulk context or
+    whether we're calculating for an entire log or just one log record.
+
+    Note: I first tried to combine this logic with its draft-related counterpart
+    because of their obvious similaries, but I felt that the resulting code was
+    overly confusing, and that it was better to just repeat ourselves slightly,
+    rather than to try to parameterize things like the model classes, and have
+    ugly if-else blocks to work out the small differences.
+    """
+    # processed_entity_ids holds the entity IDs that we've already calculated
+    # side-effects for. This is to save us from recalculating side-effects for
+    # the same ancestor relationships over and over again. So if we're calling
+    # this function in a loop for all the Components in a Unit, we won't be
+    # recalculating the Unit's side-effect on its Subsection, and its
+    # Subsection's side-effect on its Section each time through the loop.
+    # It also guards against infinite parent-child relationship loops, though
+    # those aren't *supposed* to be allowed anyhow.
+    processed_entity_ids: set[int] = set()
+    for original_change in publish_log.records.all():
+        changes_and_containers = [
+            (original_change, container)
+            for container
+            in get_containers_with_entity(
+                original_change.entity_id,
+                ignore_pinned=True,
+                published=True,
+            )
+        ]
+        while changes_and_containers:
+            change, container = changes_and_containers.pop()
+
+            # If the container is not already in the PublishLog, we need to
+            # add it. Since it's being caused as a PublishSideEffect, we're
+            # going add it with the old_version == new_version convention, i.e.
+            # the *only* change is because of one its children.
+            container_published_version_pk = container.versioning.published.pk
+            container_change, _created = PublishLogRecord.objects.get_or_create(
+                publish_log=change.publish_log,
+                entity_id=container.pk,
+                defaults={
+                    'old_version_id': container_published_version_pk,
+                    'new_version_id': container_published_version_pk
+                }
+            )
+
+            # Mark that change in the current loop has the side effect of
+            # changing the parent container. We'll do this regardless of whether
+            # the container version itself also changed. If a Unit has a
+            # Component and both the Unit and Component have their versions
+            # incremented, then the Unit has changed in both ways (the Unit's
+            # internal metadata as well as the new version of the child
+            # component).
+            PublishSideEffect.objects.get_or_create(cause=change, effect=container_change)
+            processed_entity_ids.add(change.entity_id)
+
+            # Now we find the next layer up of containers. So if the originally
+            # passed in publishable_entity_id was for a Component, then the
+            # ``container`` we've been creating the side effect for in this loop
+            # is the Unit, and ``parents_of_container`` would be any Subsections
+            # that contain the Unit.
+            parents_of_container = get_containers_with_entity(container.pk, ignore_pinned=True)
+
+            changes_and_containers.extend(
+                (container_change, container_parent)
+                for container_parent in parents_of_container
+                if container_parent.pk not in processed_entity_ids
+            )
+
+
 def _create_container_side_effects_for_draft_change_log(change_log: DraftChangeLog):
     """
     Iterate through the whole DraftChangeLog and process side-effects.
@@ -685,7 +771,7 @@ def _create_container_side_effects_for_draft_change(
         # Now we find the next layer up of containers. So if the originally
         # passed in publishable_entity_id was for a Component, then the
         # ``container`` we've been creating the side effect for in this loop
-        # is the Unit, and ``parents_of_container`` would be any Sequences
+        # is the Unit, and ``parents_of_container`` would be any Subsections
         # that contain the Unit.
         parents_of_container = get_containers_with_entity(container.pk, ignore_pinned=True)
 
@@ -1363,6 +1449,7 @@ def get_containers_with_entity(
     publishable_entity_pk: int,
     *,
     ignore_pinned=False,
+    published=False,
 ) -> QuerySet[Container]:
     """
     [ 🛑 UNSTABLE ]
@@ -1375,16 +1462,36 @@ def get_containers_with_entity(
         publishable_entity_pk: The ID of the PublishableEntity to search for.
         ignore_pinned: if true, ignore any pinned references to the entity.
     """
+    relation_model = "published" if published else "draft"
     if ignore_pinned:
-        qs = Container.objects.filter(
-            # Note: these two conditions must be in the same filter() call, or the query won't be correct.
-            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
-            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_version_id=None,  # pylint: disable=line-too-long # noqa: E501
-        )
+        # TODO: Do we need to run distinct() on this? Will fix in https://github.com/openedx/openedx-learning/issues/303
+        filter_dict = {
+            # Note: these two conditions must be in the same filter() call,
+            # or the query won't be correct.
+            (
+                f"publishable_entity__{relation_model}__version__"
+                "containerversion__entity_list__entitylistrow__entity_id"
+            ): publishable_entity_pk,
+            (
+                f"publishable_entity__{relation_model}__version__"
+                "containerversion__entity_list__entitylistrow__entity_version_id"
+            ): None,
+        }
+        qs = Container.objects.filter(**filter_dict)
     else:
-        qs = Container.objects.filter(
-            publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
-        )
+        filter_dict = {
+            (
+                f"publishable_entity__{relation_model}__version__"
+                "containerversion__entity_list__entitylistrow__entity_id"
+            ): publishable_entity_pk
+        }
+        qs = Container.objects.filter(**filter_dict)
+    # Could alternately do this query in two steps. Not sure which is more efficient; depends on how the DB plans it.
+    # # Find all the EntityLists that contain the given entity:
+    # lists = EntityList.objects.filter(entitylistrow__entity_id=publishable_entity_pk).values_list('pk', flat=True)
+    # qs = Container.objects.filter(
+    #     publishable_entity__draft__version__containerversion__entity_list__in=lists
+    # )
     return qs.order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
 
 
