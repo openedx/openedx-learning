@@ -152,10 +152,10 @@ def create_next_unit_version(
     entity_rows = _pub_entities_for_components(components)
     latest_unit_version = get_latest_unit_version(unit.pk)
     metadata = {
-        'hide_from_learners': hide_from_learners if hide_from_learners is not None 
-                                else latest_unit_version.hide_from_learners,
+        'hide_from_learners': hide_from_learners if hide_from_learners is not None
+        else latest_unit_version.hide_from_learners,
         'enable_discussion': enable_discussion if enable_discussion is not None
-                                else latest_unit_version.enable_discussion,
+        else latest_unit_version.enable_discussion,
     }
 
     unit_version = publishing_api.create_next_container_version(

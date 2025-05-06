@@ -1137,7 +1137,7 @@ def create_next_container_version(
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
         container_version_cls: The subclass of ContainerVersion to use, if applicable.
-        metadata: Dict with the metadata to be saved in the new `container_version_cls` object. 
+        metadata: Dict with the metadata to be saved in the new `container_version_cls` object.
         Be careful, at this point the None in metadata values DOES generate changes unlike other fields.
 
     Returns:
