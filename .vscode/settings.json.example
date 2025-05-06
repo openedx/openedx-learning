@@ -1,0 +1,14 @@
+{
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
+        // We have to override this here instead of in pytest.ini because tutor
+        // sets the DJANGO_SETTINGS_MODULE env variable in our container to be
+        // the one for LMS or Studio, and that takes precedence over any value
+        // set in pytest.ini. The only thing that takes higher precedence than
+        // the env variable is the explicit command line parameter:
+        //
+        // https://pytest-django.readthedocs.io/en/stable/configuring_django.html#order-of-choosing-settings
+        "--ds=test_settings"
+    ],
+}
