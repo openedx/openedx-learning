@@ -21,6 +21,7 @@ __all__ = [
     "create_unit_and_version",
     "get_unit",
     "get_unit_version",
+    "get_unit_by_key",
     "get_latest_unit_version",
     "UnitListEntry",
     "get_components_in_unit",
@@ -131,6 +132,8 @@ def create_next_unit_version(
     components: list[Component | ComponentVersion] | None = None,
     created: datetime,
     created_by: int | None = None,
+    hide_from_learners: bool | None = None,
+    enable_discussion: bool | None = None,
     entities_action: publishing_api.ChildrenEntitiesAction = publishing_api.ChildrenEntitiesAction.REPLACE,
 ) -> UnitVersion:
     """
@@ -142,9 +145,19 @@ def create_next_unit_version(
         components: The components, as a list of Components (unpinned) and/or ComponentVersions (pinned). Passing None
            will leave the existing components unchanged.
         created: The creation date.
+        hide_from_learners: Visibility of the Unit. Leave as None to keep the current visibility.
+        enable_discussion: Enable or disable discussion on the Unit. Leave as None to keep the current value.
         created_by: The user who created the unit.
     """
     entity_rows = _pub_entities_for_components(components)
+    latest_unit_version = get_latest_unit_version(unit.pk)
+    metadata = {
+        'hide_from_learners': hide_from_learners if hide_from_learners is not None
+        else latest_unit_version.hide_from_learners,
+        'enable_discussion': enable_discussion if enable_discussion is not None
+        else latest_unit_version.enable_discussion,
+    }
+
     unit_version = publishing_api.create_next_container_version(
         unit.pk,
         title=title,
@@ -153,6 +166,7 @@ def create_next_unit_version(
         created_by=created_by,
         container_version_cls=UnitVersion,
         entities_action=entities_action,
+        metadata=metadata,
     )
     return unit_version
 
@@ -215,6 +229,24 @@ def get_unit_version(unit_version_pk: int) -> UnitVersion:
         unit_version_pk: The unit version ID.
     """
     return UnitVersion.objects.get(pk=unit_version_pk)
+
+
+def get_unit_by_key(learning_package_id: int, /, key: str) -> Unit:
+    """
+    [ 🛑 UNSTABLE ]
+    Get a unit by its learning package and primary key.
+
+    Args:
+        learning_package_id: The ID of the learning package that contains the unit.
+        key: The primary key of the unit.
+
+    Returns:
+        The unit with the given primary key.
+    """
+    return Unit.objects.get(
+        publishable_entity__learning_package_id=learning_package_id,
+        publishable_entity__key=key,
+    )
 
 
 def get_latest_unit_version(unit_pk: int) -> UnitVersion:
