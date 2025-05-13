@@ -571,6 +571,10 @@ class PublishableEntityVersionMixin(models.Model):
         return self.publishable_entity_version.created
 
     @property
+    def created_by(self):
+        return self.publishable_entity_version.created_by
+
+    @property
     def version_num(self) -> int:
         return self.publishable_entity_version.version_num
 
