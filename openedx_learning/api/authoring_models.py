@@ -10,6 +10,7 @@ consistent.
 from ..apps.authoring.collections.models import *
 from ..apps.authoring.components.models import *
 from ..apps.authoring.contents.models import *
+from ..apps.authoring.outline_roots.models import *
 from ..apps.authoring.publishing.models import *
 from ..apps.authoring.sections.models import *
 from ..apps.authoring.subsections.models import *
