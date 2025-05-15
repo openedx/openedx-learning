@@ -62,6 +62,15 @@ class PublishLogRecord(models.Model):
 
     To revert a publish, we would make a new publish that swaps ``old_version``
     and ``new_version`` field values.
+
+    If the old_version and new_version of a PublishLogRecord match, it means
+    that the definition of the entity itself did not change (i.e. no new
+    PublishableEntityVersion was created), but something else was published that
+    had the side-effect of changing the published state of this entity. For
+    instance, if a Unit has unpinned references to its child Components (which
+    it almost always will), then publishing one of those Components will alter
+    the published state of the Unit, even if the UnitVersion does not change. In
+    that case, we still consider the Unit to have been "published".
     """
 
     publish_log = models.ForeignKey(

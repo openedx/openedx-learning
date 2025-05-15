@@ -1464,7 +1464,6 @@ def get_containers_with_entity(
     """
     relation_model = "published" if published else "draft"
     if ignore_pinned:
-        # TODO: Do we need to run distinct() on this? Will fix in https://github.com/openedx/openedx-learning/issues/303
         filter_dict = {
             # Note: these two conditions must be in the same filter() call,
             # or the query won't be correct.
@@ -1486,12 +1485,7 @@ def get_containers_with_entity(
             ): publishable_entity_pk
         }
         qs = Container.objects.filter(**filter_dict)
-    # Could alternately do this query in two steps. Not sure which is more efficient; depends on how the DB plans it.
-    # # Find all the EntityLists that contain the given entity:
-    # lists = EntityList.objects.filter(entitylistrow__entity_id=publishable_entity_pk).values_list('pk', flat=True)
-    # qs = Container.objects.filter(
-    #     publishable_entity__draft__version__containerversion__entity_list__in=lists
-    # )
+
     return qs.order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
 
 
