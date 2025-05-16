@@ -34,15 +34,15 @@ def create_outline_root(
     *,
     created: datetime,
     created_by: int | None,
-) -> Section:
+) -> OutlineRoot:
     """
-    [ 🛑 UNSTABLE ] Create a new section.
+    [ 🛑 UNSTABLE ] Create a new OutlineRoot.
 
     Args:
         learning_package_id: The learning package ID.
         key: The key.
         created: The creation date.
-        created_by: The user who created the section.
+        created_by: The user who created the OutlineRoot.
     """
     return publishing_api.create_container(
         learning_package_id,
@@ -50,7 +50,7 @@ def create_outline_root(
         created,
         created_by,
         can_stand_alone=True,  # Not created as part of another container.
-        container_cls=Section,
+        container_cls=OutlineRoot,
     )
 
 
@@ -170,7 +170,9 @@ def create_outline_root_and_version(
 
     Args:
         learning_package_id: The learning package ID.
-        key: The key.
+        key: The key. We don't really want a "key" for our OutlineRoots, but
+            we're required to set something here, so by convention this should
+            be the course ID in the form 'course-root-v1:org+course_id+run'.
         created: The creation date.
         created_by: The user who created the section.
         can_stand_alone: Set to False when created as part of containers

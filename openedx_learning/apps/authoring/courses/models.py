@@ -29,9 +29,9 @@ class CatalogCourse(models.Model):
     A catalog course is a collection of course runs.
 
     So for example, "Stanford Python 101" is a catalog course, and "Stanford
-    Python 101 Spring 2025" is a CourseRun of that course. Almost all
-    interesting use cases are based around the CourseRun - e.g. enrollment
-    happens in a CourseRun, content is authored in a CourseRun, etc. But
+    Python 101 Spring 2025" is a course run of that course. Almost all
+    interesting use cases are based around the course run - e.g. enrollment
+    happens in a course run, content is authored in a course run, etc. But
     sometimes we need to deal with the related runs of the same course, so this
     model exists for those few times we need a reference to all of them.
 
@@ -100,7 +100,8 @@ class Course(models.Model):
     This model is not versioned nor publishable. It also doesn't have much data,
     including even the name of the course. All useful data is available via
     versioned, related models like CourseMetadata (in edx-platform) or
-    OutlineRoot.
+    OutlineRoot. The name/title of the course is stored as the 'title' field of
+    the OutlineRootVersion.PublishableEntityVersion.
     """
     catalog_course = models.ForeignKey(CatalogCourse, on_delete=models.CASCADE)
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
