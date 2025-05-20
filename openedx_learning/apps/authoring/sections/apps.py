@@ -1,5 +1,5 @@
 """
-Subsection Django application initialization.
+Sections Django application initialization.
 """
 
 from django.apps import AppConfig
@@ -7,7 +7,7 @@ from django.apps import AppConfig
 
 class SectionsConfig(AppConfig):
     """
-    Configuration for the subsections Django application.
+    Configuration for the Sections Django application.
     """
 
     name = "openedx_learning.apps.authoring.sections"
