@@ -24,7 +24,6 @@ __all__ = [
     "get_latest_section_version",
     "SectionListEntry",
     "get_subsections_in_section",
-    "get_subsections_in_section",
     "get_subsections_in_published_section_as_of",
 ]
 
