@@ -24,7 +24,6 @@ __all__ = [
     "get_latest_unit_version",
     "UnitListEntry",
     "get_components_in_unit",
-    "get_components_in_unit",
     "get_components_in_published_unit_as_of",
 ]
 
