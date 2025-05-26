@@ -40,7 +40,7 @@ charset-normalizer==3.4.2
     # via
     #   -r requirements/test.txt
     #   requests
-click==8.2.0
+click==8.2.1
     # via
     #   -r requirements/test.txt
     #   celery
@@ -70,11 +70,11 @@ code-annotations==2.3.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.8.0
+coverage[toml]==7.8.2
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==45.0.2
+cryptography==45.0.3
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -132,7 +132,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==7.4.0
+edx-django-utils==8.0.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -144,7 +144,7 @@ edx-opaque-keys==3.0.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-freezegun==1.5.1
+freezegun==1.5.2
     # via -r requirements/test.txt
 grimp==3.9
     # via
@@ -182,7 +182,7 @@ jinja2==3.1.6
     # via
     #   -r requirements/test.txt
     #   code-annotations
-joblib==1.5.0
+joblib==1.5.1
     # via
     #   -r requirements/test.txt
     #   grimp
@@ -216,10 +216,6 @@ mypy-extensions==1.1.0
     #   mypy
 mysqlclient==2.2.7
     # via -r requirements/test.txt
-newrelic==10.12.0
-    # via
-    #   -r requirements/test.txt
-    #   edx-django-utils
 nh3==0.2.21
     # via readme-renderer
 packaging==25.0

@@ -32,7 +32,7 @@ build==1.2.2.post1
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
-cachetools==5.5.2
+cachetools==6.0.0
     # via
     #   -r requirements/ci.txt
     #   tox
@@ -56,7 +56,7 @@ charset-normalizer==3.4.2
     # via
     #   -r requirements/quality.txt
     #   requests
-click==8.2.0
+click==8.2.1
     # via
     #   -r requirements/ci.txt
     #   -r requirements/pip-tools.txt
@@ -95,18 +95,18 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.8.0
+coverage[toml]==7.8.2
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
-cryptography==45.0.2
+cryptography==45.0.3
     # via
     #   -r requirements/quality.txt
     #   pyjwt
     #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
-diff-cover==9.2.4
+diff-cover==9.3.1
     # via -r requirements/dev.in
 dill==0.4.0
     # via
@@ -170,7 +170,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-edx-django-utils==7.4.0
+edx-django-utils==8.0.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
@@ -189,7 +189,7 @@ filelock==3.18.0
     #   -r requirements/ci.txt
     #   tox
     #   virtualenv
-freezegun==1.5.1
+freezegun==1.5.2
     # via -r requirements/quality.txt
 grimp==3.9
     # via
@@ -242,7 +242,7 @@ jinja2==3.1.6
     #   -r requirements/quality.txt
     #   code-annotations
     #   diff-cover
-joblib==1.5.0
+joblib==1.5.1
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -292,10 +292,6 @@ mypy-extensions==1.1.0
     #   mypy
 mysqlclient==2.2.7
     # via -r requirements/quality.txt
-newrelic==10.12.0
-    # via
-    #   -r requirements/quality.txt
-    #   edx-django-utils
 nh3==0.2.21
     # via
     #   -r requirements/quality.txt
