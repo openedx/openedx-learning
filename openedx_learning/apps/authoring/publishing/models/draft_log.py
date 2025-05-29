@@ -5,7 +5,11 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from openedx_learning.lib.fields import immutable_uuid_field, manual_date_time_field
+from openedx_learning.lib.fields import (
+    hash_field,
+    immutable_uuid_field,
+    manual_date_time_field,
+)
 
 from .learning_package import LearningPackage
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
@@ -313,3 +317,31 @@ class DraftSideEffect(models.Model):
         ]
         verbose_name = _("Draft Side Effect")
         verbose_name_plural = _("Draft Side Effects")
+
+
+# This needs to go in the Draft model?
+# The new_state_hash is used when the version alone isn't enough to let us
+# know the full published state of an entity. This happens with Containers,
+# where the published state of the container can change because its children
+# are published.
+# state_hash = hash_field(blank=True, default='')
+#
+# It needs to exist in the Published model too, but we *can't assume it'll copy*
+# because different subsets of children could be published, so we need to be
+# able to recalculate based on the published state of the dependencies.
+
+
+class DraftDependency(models.Model):
+    """
+
+    """
+    draft = models.ForeignKey(
+        Draft,
+        on_delete=models.CASCADE,
+        related_name="dependencies",
+    )
+    dependency = models.ForeignKey(
+        PublishableEntity,
+        on_delete=models.CASCADE,
+        related_name="causes_side_effects_for",
+    )

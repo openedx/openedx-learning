@@ -414,10 +414,19 @@ def publish_from_drafts(
                 },
             )
 
-        # We calculate side-effects as the last step in the process.
+        # Calculate the side-effects...
         _create_container_side_effects_for_publish_log(publish_log)
 
+        # Calculate state updates...
+        _update_state_hash(publish_log)
+
     return publish_log
+
+
+def _update_state_hash(publish_log: PublishLog) -> None:
+    """
+    Find all records where
+    """
 
 
 def get_draft_version(publishable_entity_id: int, /) -> PublishableEntityVersion | None:
