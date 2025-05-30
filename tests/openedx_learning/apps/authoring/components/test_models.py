@@ -2,6 +2,7 @@
 Tests related to the Component models
 """
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING, assert_type
 
 from freezegun import freeze_time
 
@@ -10,7 +11,7 @@ from openedx_learning.apps.authoring.components.api import (
     get_component,
     get_or_create_component_type,
 )
-from openedx_learning.apps.authoring.components.models import ComponentType
+from openedx_learning.apps.authoring.components.models import Component, ComponentType, ComponentVersion
 from openedx_learning.apps.authoring.publishing.api import (
     LearningPackage,
     create_learning_package,
@@ -18,6 +19,15 @@ from openedx_learning.apps.authoring.publishing.api import (
     publish_all_drafts,
 )
 from openedx_learning.lib.test_utils import TestCase
+
+if TYPE_CHECKING:
+    # Test that our mixins on Component.objects and PublishableEntityVersionMixin etc. haven't broken manager typing
+    assert_type(Component.objects.create(), Component)
+    assert_type(Component.objects.get(), Component)
+    assert_type(Component.with_publishing_relations.create(), Component)
+    assert_type(Component.with_publishing_relations.get(), Component)
+    assert_type(ComponentVersion.objects.create(), ComponentVersion)
+    assert_type(ComponentVersion.objects.get(), ComponentVersion)
 
 
 class TestModelVersioningQueries(TestCase):
