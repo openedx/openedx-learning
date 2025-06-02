@@ -29,7 +29,7 @@ billiard==4.2.1
     # via
     #   -r requirements/test.txt
     #   celery
-celery==5.5.2
+celery==5.5.3
     # via -r requirements/test.txt
 certifi==2025.4.26
     # via
@@ -172,7 +172,7 @@ joblib==1.5.1
     # via
     #   -r requirements/test.txt
     #   grimp
-kombu==5.5.3
+kombu==5.5.4
     # via
     #   -r requirements/test.txt
     #   celery
@@ -182,7 +182,7 @@ markupsafe==3.0.2
     #   jinja2
 mock==5.2.0
     # via -r requirements/test.txt
-mypy==1.15.0
+mypy==1.16.0
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -195,9 +195,14 @@ nh3==0.2.21
 packaging==25.0
     # via
     #   -r requirements/test.txt
+    #   kombu
     #   pydata-sphinx-theme
     #   pytest
     #   sphinx
+pathspec==0.12.1
+    # via
+    #   -r requirements/test.txt
+    #   mypy
 pbr==6.1.1
     # via
     #   -r requirements/test.txt

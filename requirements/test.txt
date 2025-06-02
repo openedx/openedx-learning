@@ -19,7 +19,7 @@ billiard==4.2.1
     # via
     #   -r requirements/base.txt
     #   celery
-celery==5.5.2
+celery==5.5.3
     # via -r requirements/base.txt
 certifi==2025.4.26
     # via
@@ -138,7 +138,7 @@ jinja2==3.1.6
     # via code-annotations
 joblib==1.5.1
     # via grimp
-kombu==5.5.3
+kombu==5.5.4
     # via
     #   -r requirements/base.txt
     #   celery
@@ -146,14 +146,19 @@ markupsafe==3.0.2
     # via jinja2
 mock==5.2.0
     # via -r requirements/test.in
-mypy==1.15.0
+mypy==1.16.0
     # via -r requirements/test.in
 mypy-extensions==1.1.0
     # via mypy
 mysqlclient==2.2.7
     # via -r requirements/test.in
 packaging==25.0
-    # via pytest
+    # via
+    #   -r requirements/base.txt
+    #   kombu
+    #   pytest
+pathspec==0.12.1
+    # via mypy
 pbr==6.1.1
     # via
     #   -r requirements/base.txt
