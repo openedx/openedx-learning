@@ -509,7 +509,7 @@ class Taxonomy(models.Model):
                 count=models.Func(F('id'), function='Count')
             )
             qs = qs.annotate(usage_count=models.Subquery(obj_tags.values('count')))
-        return qs
+        return qs  # type: ignore[return-value]
 
     def _get_filtered_tags_deep(
         self,
