@@ -60,6 +60,19 @@ class Draft(models.Model):
         blank=True,
     )
 
+    # The state_hash is used when the version alone isn't enough to let us know
+    # the full draft state of an entity. This happens any time a Draft has
+    # dependencies (see the DraftDependency model), because changes in those
+    # dependencies will cause changes to the state of the Draft. An example of
+    # this is contianers, where changing an unpinned child affects the state of
+    # the parent container, even if that container's definition (and thus
+    # version) does not change.
+    #
+    # If a Draft has no dependencies, then its entire state is captured by its
+    # version, and the state_hash is blank. (Blank is slightly more convenient
+    # for database comparisons than NULL.)
+    state_hash = hash_field(blank=True, default='')
+
 
 class DraftChangeLog(models.Model):
     """
@@ -341,7 +354,22 @@ class DraftDependency(models.Model):
         related_name="dependencies",
     )
     dependency = models.ForeignKey(
-        PublishableEntity,
+        Draft,
         on_delete=models.CASCADE,
         related_name="causes_side_effects_for",
     )
+    version_at_creation = models.ForeignKey(
+        PublishableEntityVersion,
+        related_name="draft_dependencies_created",
+        on_delete=models.RESTRICT,
+    )
+
+    class Meta:
+        constraints = [
+            # Duplicate entries for a dependency are just redundant. This is
+            # here to guard against weird bugs that might introduce this state.
+            models.UniqueConstraint(
+                fields=["draft", "dependency"],
+                name="oel_pub_dd_uniq_draft_dep",
+            )
+        ]

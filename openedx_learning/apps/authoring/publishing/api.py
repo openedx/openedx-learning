@@ -15,6 +15,7 @@ from typing import ContextManager, TypeVar
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
 from django.db.transaction import atomic
+from openedx_learning.lib.fields import create_hash_digest
 
 from .contextmanagers import DraftChangeLogContext
 from .models import (
@@ -23,6 +24,7 @@ from .models import (
     Draft,
     DraftChangeLog,
     DraftChangeLogRecord,
+    DraftDependency,
     DraftSideEffect,
     EntityList,
     EntityListRow,
@@ -791,6 +793,102 @@ def _create_container_side_effects_for_draft_change(
         )
 
 
+def set_draft_dependencies(draft: Draft, dependency_drafts: QuerySet[Draft]) -> None:
+    """
+    Declare the set of Drafts that this Draft depends on.
+
+    This call *replaces* whatever the last set of dependencies for this Draft
+    was, so you should only call it once when the draft's dependencies change.
+
+    Something is a dependency if a change in it is considered to be a change in
+    the ``draft``, even if ``draft`` itself does not change. For example, a
+    Unit does not get a new version when unpinned child Components are updated,
+    but we do consider a Unit to be changed when that happens. So the Drafts of
+    the child Components would be dependencies of the Unit.
+
+    1. Only declare one level of dependencies, e.g. immediate parent-child
+       relationships. The publishing app can calculate transitive dependencies
+       like "all descendants" based on this.
+    2. Declare dependencies from the bottom-up. In other words, if you're
+       building an entire Subsection, set the Component dependencies for the
+       Units before you set the Unit dependencies for the Subsection.
+    3. Circular dependencies are not supported. It might not blow up when you
+       set them, and it won't bring down the system when you do operations on
+       them, but the behavior is undefined. See note below.
+
+    We're not currently guarding against the creation of circular dependencies
+    because a) checking can become expensive; and b) it's an edge case that is
+    unlikely to occur given the different types involved (e.g. Subsections can
+    contain Units but Units can't contain Subsections).
+
+    We *will* guard against infinite loops in the actions we want to take with
+    dependencies, like publishing them or calculating their side-effects.
+
+    That being said, we're defining the state for a Draft to be a function of
+    the UUIDs + states of all of its dependencies, and making a circular
+    dependency means that the state calculation will be incorrect and will
+    probably result in weird behavior.
+    """
+    new_dependency_drafts = (
+        dependency_drafts.exclude(pk=draft.pk)  # draft can't depend on itself
+                         .distinct()            # duplicates not allowed
+    )
+    new_state_hash = _calcuate_dependencies_state_hash(new_dependency_drafts)
+
+    # We're going to delete any DraftDependency rows that currently exist for
+    # this draft but aren't represented in the new_dependency_drafts Draft qset.
+    old_dependencies: QuerySet[DraftDependency] = draft.dependencies.all()
+    dependencies_to_delete = old_dependencies.exclude(
+        dependency__in=new_dependency_drafts.values_list("pk", flat=True)
+    )
+    dependency_drafts_to_add = new_dependency_drafts.exclude(
+        pk__in=old_dependencies.values_list("dependency_id", flat=True)
+    )
+    with atomic(savepoint=False):
+        dependencies_to_delete.delete()
+        DraftDependency.objects.bulk_create(
+            [
+                DraftDependency(
+                    draft=draft,
+                    dependency_id=dependency_draft.pk,
+                    version_at_creation_id=draft.version_id,
+                )
+                for dependency_draft in dependency_drafts_to_add
+            ],
+            # If a conflict exists, then we want to ignore instead of update,
+            # because our value for "version_at_creation" will be incorrect.
+            ignore_conflicts=True,
+        )
+        draft.state_hash = new_state_hash
+
+
+def _calcuate_dependencies_state_hash(dependency_drafts: QuerySet[Draft]) -> str:
+    """
+    Generate a new value that can be put in Draft.state_hash.
+
+    Edge case: Deleted Drafts (i.e. draft.version == None)
+
+    When this happens, the deleted Draft still counts as a dependency because
+    un-deleting it will cause a side-effect. But it has no version UUID to use
+    in state calculation, so we skip it entirely. We can safely skip this even
+    if there are transitive dependencies (e.g. a deleted Unit with undeleted
+    Components), because changes in those transitive Component dependencies
+    won't affect the top level Draft until the Unit is un-deleted, at which
+    point we'd have to recalcuate the state_hash anyway.
+    """
+    # We need to re-order for deterministic state calculation
+    dependency_drafts = dependency_drafts.order_by("version__uuid").select_related("version")
+
+    dependency_states = [
+        f"{dep_draft.version.uuid}:{dep_draft.state_hash}"
+        for dep_draft in dependency_drafts
+        if dep_draft.version  # skip deleted drafts
+    ]
+    # Example line: [TODO: Fill this in]
+    dependency_summary_text = "\n".join(dependency_states)
+    return create_hash_digest(dependency_summary_text.encode())
+
+
 def soft_delete_draft(publishable_entity_id: int, /, deleted_by: int | None = None) -> None:
     """
     Sets the Draft version to None.
@@ -1131,6 +1229,12 @@ def create_container_version(
             created=created,
             created_by=created_by,
             container_version_cls=container_version_cls,
+        )
+        set_draft_dependencies(
+            Draft.objects.get(pk=container_id),
+            Draft.objects.filter(
+                pk__in=[entity_row.entity_pk for entity_row in entity_rows]
+            )
         )
 
     return container_version
