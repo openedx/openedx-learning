@@ -861,6 +861,28 @@ def set_draft_dependencies(draft: Draft, dependency_drafts: QuerySet[Draft]) -> 
         )
         draft.state_hash = new_state_hash
 
+        # We've updated this Draft's state_hash based on its dependencies, but
+        # now we have to re-calculate the state_hash for things that are
+        # dependent on it.
+        updated_draft_pks = {draft.pk}
+        drafts_with_outdated_state = list(draft.causes_side_effects_for.all())
+        while drafts_with_outdated_state:
+            draft_with_outdated_state = drafts_with_outdated_state.pop()
+            if draft_with_outdated_state.pk in updated_draft_pks:
+                raise ValueError(
+                    f"Cannot set draft dependencies for {draft} to "
+                    f"{list(dependency_drafts_to_add)} because it introduces a "
+                    "circular dependency."
+                )
+
+            # Maybe always write the DraftDependency rows first so this function always works on one
+            # queryset type?
+            draft_with_outdated_state.state_hash = _calcuate_dependencies_state_hash(
+                Draft.objects.filter(
+                    pk__in=draft_with_outdated_state.dependencies.all().values_list("draft_id", flat=True)
+                )
+            )
+
 
 def _calcuate_dependencies_state_hash(dependency_drafts: QuerySet[Draft]) -> str:
     """
