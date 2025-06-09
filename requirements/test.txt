@@ -177,6 +177,8 @@ pycparser==2.22
     # via
     #   -r requirements/base.txt
     #   cffi
+pygments==2.19.1
+    # via pytest
 pyjwt[crypto]==2.10.1
     # via
     #   -r requirements/base.txt
@@ -190,7 +192,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-pytest==8.3.5
+pytest==8.4.0
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -240,9 +242,9 @@ types-pyyaml==6.0.12.20250516
     # via
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20250515
+types-requests==2.32.0.20250602
     # via djangorestframework-stubs
-typing-extensions==4.13.2
+typing-extensions==4.14.0
     # via
     #   -r requirements/base.txt
     #   django-stubs
