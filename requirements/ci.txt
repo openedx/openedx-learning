@@ -38,7 +38,7 @@ pyproject-api==1.9.1
     # via tox
 tox==4.26.0
     # via -r requirements/ci.in
-typing-extensions==4.13.2
+typing-extensions==4.14.0
     # via
     #   grimp
     #   import-linter

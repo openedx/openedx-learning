@@ -78,7 +78,7 @@ cryptography==45.0.3
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==4.2.21
+django==4.2.22
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -229,9 +229,11 @@ pydata-sphinx-theme==0.15.4
     # via sphinx-book-theme
 pygments==2.19.1
     # via
+    #   -r requirements/test.txt
     #   accessible-pygments
     #   doc8
     #   pydata-sphinx-theme
+    #   pytest
     #   readme-renderer
     #   sphinx
 pyjwt[crypto]==2.10.1
@@ -247,7 +249,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.3.5
+pytest==8.4.0
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -338,11 +340,11 @@ types-pyyaml==6.0.12.20250516
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20250515
+types-requests==2.32.0.20250602
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-typing-extensions==4.13.2
+typing-extensions==4.14.0
     # via
     #   -r requirements/test.txt
     #   beautifulsoup4
