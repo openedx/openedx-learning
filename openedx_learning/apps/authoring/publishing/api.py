@@ -359,6 +359,9 @@ def publish_from_drafts(
         # If the drafts include any containers, we need to auto-publish their descendants:
         # TODO: this only handles one level deep and would need to be updated to support sections > subsections > units
 
+        # note to self; manytomany through table for
+        # dependencies = draft_qset.filter(dependency_set)
+
         # Get the IDs of the ContainerVersion for any Containers whose drafts are slated to be published.
         container_version_ids = draft_qset.filter(entity__container__isnull=False) \
                                           .values_list("version_id", flat=True)
@@ -417,7 +420,7 @@ def publish_from_drafts(
             )
 
         # Calculate the side-effects...
-        _create_container_side_effects_for_publish_log(publish_log)
+        _create_side_effects_for_publish_log(publish_log)
 
         # Calculate state updates...
         _update_state_hash(publish_log)
@@ -562,7 +565,7 @@ def set_draft_version(
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
-            _create_container_side_effects_for_draft_change(change)
+            _create_side_effects_for_draft_change(change)
 
 
 def _add_to_existing_draft_change_log(
@@ -628,7 +631,7 @@ def _add_to_existing_draft_change_log(
     return change
 
 
-def _create_container_side_effects_for_publish_log(publish_log: PublishLog):
+def _create_side_effects_for_publish_log(publish_log: PublishLog):
     """
     Iterate through PublishLog and add the appropriate PublishSideEffects.
 
@@ -711,24 +714,24 @@ def _create_container_side_effects_for_publish_log(publish_log: PublishLog):
             )
 
 
-def _create_container_side_effects_for_draft_change_log(change_log: DraftChangeLog):
+def _create_side_effects_for_draft_change_log(change_log: DraftChangeLog):
     """
     Iterate through the whole DraftChangeLog and process side-effects.
     """
     processed_entity_ids: set[int] = set()
     for change in change_log.records.all():
-        _create_container_side_effects_for_draft_change(
+        _create_side_effects_for_draft_change(
             change,
             processed_entity_ids=processed_entity_ids,
         )
 
 
-def _create_container_side_effects_for_draft_change(
+def _create_side_effects_for_draft_change(
     original_change: DraftChangeLogRecord,
     processed_entity_ids: set | None = None
 ):
     """
-    Given a draft change, add side effects for all affected containers.
+    Given a draft change, add side effects for all affected Drafts.
 
     This should only be run after the DraftChangeLogRecord has been otherwise
     fully written out. We want to avoid the scenario where we create a
@@ -741,32 +744,34 @@ def _create_container_side_effects_for_draft_change(
     calling this function in a loop for all the Components in a Unit, we won't
     be recalculating the Unit's side-effect on its Subsection, and its
     Subsection's side-effect on its Section.
-
-    TODO: This could get very expensive with the get_containers_with_entity
-    calls. We should measure the impact of this.
     """
     if processed_entity_ids is None:
         # An optimization, but also a guard against infinite side-effect loops.
         processed_entity_ids = set()
 
-    changes_and_containers = [
-        (original_change, container)
-        for container
-        in get_containers_with_entity(original_change.entity_id, ignore_pinned=True)
+    # This is basically original_change.entity.draft.causes_side_effects_for,
+    # but faster and safer (handles deleted drafts).
+    target_dependencies = (
+        DraftDependency.objects
+                       .filter(dependency_id=original_change.entity_id)
+                       .select_related("draft")
+    )
+    changes_and_side_effect_target_drafts = [
+        (original_change, target_dep.target) for target_dep in target_dependencies
     ]
-    while changes_and_containers:
-        change, container = changes_and_containers.pop()
+    while changes_and_side_effect_target_drafts:
+        change, draft = changes_and_side_effect_target_drafts.pop()
 
         # If the container is not already in the DraftChangeLog, we need to
         # add it. Since it's being caused as a DraftSideEffect, we're going
         # add it with the old_version == new_version convention.
-        container_draft_version_pk = container.versioning.draft.pk
-        container_change, _created = DraftChangeLogRecord.objects.get_or_create(
+        target_draft_version_pk = draft.version_id
+        target_change, _created = DraftChangeLogRecord.objects.get_or_create(
             draft_change_log=change.draft_change_log,
-            entity_id=container.pk,
+            entity_id=draft.pk,
             defaults={
-                'old_version_id': container_draft_version_pk,
-                'new_version_id': container_draft_version_pk
+                'old_version_id': target_draft_version_pk,
+                'new_version_id': target_draft_version_pk
             }
         )
 
@@ -776,7 +781,7 @@ def _create_container_side_effects_for_draft_change(
         # both the Unit and Component have their versions incremented, then the
         # Unit has changed in both ways (the Unit's internal metadata as well as
         # the new version of the child component).
-        DraftSideEffect.objects.get_or_create(cause=change, effect=container_change)
+        DraftSideEffect.objects.get_or_create(cause=change, effect=target_change)
         processed_entity_ids.add(change.entity_id)
 
         # Now we find the next layer up of containers. So if the originally
@@ -784,12 +789,12 @@ def _create_container_side_effects_for_draft_change(
         # ``container`` we've been creating the side effect for in this loop
         # is the Unit, and ``parents_of_container`` would be any Subsections
         # that contain the Unit.
-        parents_of_container = get_containers_with_entity(container.pk, ignore_pinned=True)
+        target_deps_of_draft = list(draft.causes_side_effects_for.all().select_related("draft"))
 
-        changes_and_containers.extend(
-            (container_change, container_parent)
-            for container_parent in parents_of_container
-            if container_parent.pk not in processed_entity_ids
+        changes_and_side_effect_target_drafts.extend(
+            (target_change, target_dep.draft)
+            for target_dep in target_deps_of_draft
+            if target_dep.pk not in processed_entity_ids
         )
 
 
@@ -811,29 +816,16 @@ def set_draft_dependencies(draft: Draft, dependency_drafts: QuerySet[Draft]) -> 
        like "all descendants" based on this.
     2. Declare dependencies from the bottom-up. In other words, if you're
        building an entire Subsection, set the Component dependencies for the
-       Units before you set the Unit dependencies for the Subsection.
-    3. Circular dependencies are not supported. It might not blow up when you
-       set them, and it won't bring down the system when you do operations on
-       them, but the behavior is undefined. See note below.
-
-    We're not currently guarding against the creation of circular dependencies
-    because a) checking can become expensive; and b) it's an edge case that is
-    unlikely to occur given the different types involved (e.g. Subsections can
-    contain Units but Units can't contain Subsections).
-
-    We *will* guard against infinite loops in the actions we want to take with
-    dependencies, like publishing them or calculating their side-effects.
-
-    That being said, we're defining the state for a Draft to be a function of
-    the UUIDs + states of all of its dependencies, and making a circular
-    dependency means that the state calculation will be incorrect and will
-    probably result in weird behavior.
+       Units before you set the Unit dependencies for the Subsection. This code
+       will still work if you build from the top-down, but we'll end up doing
+       many redundant re-calculations, since every change to a lower layer will
+       cause recalculation to the higher levels that depend on it.
+    3. Circular dependencies are not supported, and will raise a ``ValueError``.
     """
     new_dependency_drafts = (
         dependency_drafts.exclude(pk=draft.pk)  # draft can't depend on itself
                          .distinct()            # duplicates not allowed
     )
-    new_state_hash = _calcuate_dependencies_state_hash(new_dependency_drafts)
 
     # We're going to delete any DraftDependency rows that currently exist for
     # this draft but aren't represented in the new_dependency_drafts Draft qset.
@@ -849,7 +841,7 @@ def set_draft_dependencies(draft: Draft, dependency_drafts: QuerySet[Draft]) -> 
         DraftDependency.objects.bulk_create(
             [
                 DraftDependency(
-                    draft=draft,
+                    target=draft,
                     dependency_id=dependency_draft.pk,
                     version_at_creation_id=draft.version_id,
                 )
@@ -859,7 +851,7 @@ def set_draft_dependencies(draft: Draft, dependency_drafts: QuerySet[Draft]) -> 
             # because our value for "version_at_creation" will be incorrect.
             ignore_conflicts=True,
         )
-        draft.state_hash = new_state_hash
+        draft.state_hash = _calcuate_state_hash(draft)
 
         # We've updated this Draft's state_hash based on its dependencies, but
         # now we have to re-calculate the state_hash for things that are
@@ -875,18 +867,22 @@ def set_draft_dependencies(draft: Draft, dependency_drafts: QuerySet[Draft]) -> 
                     "circular dependency."
                 )
 
-            # Maybe always write the DraftDependency rows first so this function always works on one
-            # queryset type?
-            draft_with_outdated_state.state_hash = _calcuate_dependencies_state_hash(
-                Draft.objects.filter(
-                    pk__in=draft_with_outdated_state.dependencies.all().values_list("draft_id", flat=True)
-                )
+            draft_with_outdated_state.state_hash = _calcuate_state_hash(draft_with_outdated_state)
+            drafts_with_outdated_state.extend(
+                dep.target for dep in draft_with_outdated_state.causes_side_effects_for.all().select_related("target")
             )
 
 
-def _calcuate_dependencies_state_hash(dependency_drafts: QuerySet[Draft]) -> str:
+def _calcuate_state_hash(draft: Draft) -> str:
     """
     Generate a new value that can be put in Draft.state_hash.
+
+    We calculate the state hash based on the versions (UUIDs) and state_hash
+    values of all of its dependencies. There is no sense of ordering with these
+    dependencies. A Unit with Components [C1, C2] is the same to us as a Unit
+    with [C2, C1], and both will have the same state_hash. We rely on the fact
+    that containers store their ordering and that changes in that ordering mean
+    that the version of the container itself (e.g. the Unit) changes.
 
     Edge case: Deleted Drafts (i.e. draft.version == None)
 
@@ -898,13 +894,17 @@ def _calcuate_dependencies_state_hash(dependency_drafts: QuerySet[Draft]) -> str
     won't affect the top level Draft until the Unit is un-deleted, at which
     point we'd have to recalcuate the state_hash anyway.
     """
-    # We need to re-order for deterministic state calculation
-    dependency_drafts = dependency_drafts.order_by("version__uuid").select_related("version")
-
+    dependencies: QuerySet[DraftDependency] = (
+        draft.dependencies
+             .all()
+             .select_related("dependency__version")
+             # need to guarantee order for deterministic state calculation
+             .order_by("dependency__version__uuid")
+    )
     dependency_states = [
-        f"{dep_draft.version.uuid}:{dep_draft.state_hash}"
-        for dep_draft in dependency_drafts
-        if dep_draft.version  # skip deleted drafts
+        f"{dd.dependency.version.uuid}:{dd.dependency.state_hash}"
+        for dd in dependencies
+        if dd.dependency.version  # skip deleted drafts
     ]
     # Example line: [TODO: Fill this in]
     dependency_summary_text = "\n".join(dependency_states)
@@ -1689,6 +1689,6 @@ def bulk_draft_changes_for(
         changed_at=changed_at,
         changed_by=changed_by,
         exit_callbacks=[
-            _create_container_side_effects_for_draft_change_log,
+            _create_side_effects_for_draft_change_log,
         ]
     )

@@ -207,3 +207,6 @@ class PublishSideEffect(models.Model):
         ]
         verbose_name = _("Publish Side Effect")
         verbose_name_plural = _("Publish Side Effects")
+
+
+

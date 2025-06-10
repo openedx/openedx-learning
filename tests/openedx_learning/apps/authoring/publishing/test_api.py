@@ -1199,3 +1199,48 @@ class ContainerTestCase(TestCase):
         assert unit_publish.affected_by.first().cause == component_publish
         assert subsection_publish.affected_by.count() == 1
         assert subsection_publish.affected_by.first().cause == unit_publish
+
+    def test_publish_all_layers(self):
+        """Test that we can publish multiple layers from one root."""
+        # Note that these aren't real "components" and "units". Everything being
+        # tested is confined to the publishing app, so those concepts shouldn't
+        # be imported here. They're just named this way to make it more obvious
+        # what the intended hierarchy is for testing container nesting.
+        component = publishing_api.create_publishable_entity(
+            self.learning_package.id, "component_1", created=self.now, created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            component.id, version_num=1, title="Component 1 🌴", created=self.now, created_by=None,
+        )
+        unit = publishing_api.create_container(
+            self.learning_package.id, "unit_1", created=self.now, created_by=None,
+        )
+        publishing_api.create_container_version(
+            unit.pk,
+            1,
+            title="My Unit",
+            entity_rows=[
+                publishing_api.ContainerEntityRow(entity_pk=component.pk),
+            ],
+            created=self.now,
+            created_by=None,
+        )
+        subsection = publishing_api.create_container(
+            self.learning_package.id, "subsection_1", created=self.now, created_by=None,
+        )
+        publishing_api.create_container_version(
+            subsection.pk,
+            1,
+            title="My Subsection",
+            entity_rows=[
+                publishing_api.ContainerEntityRow(entity_pk=unit.pk),
+            ],
+            created=self.now,
+            created_by=None,
+        )
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(pk=subsection.pk),
+        )
+        assert publish_log.records.count() == 3
+

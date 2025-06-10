@@ -348,7 +348,7 @@ class DraftDependency(models.Model):
     """
 
     """
-    draft = models.ForeignKey(
+    target = models.ForeignKey(
         Draft,
         on_delete=models.CASCADE,
         related_name="dependencies",
@@ -369,7 +369,7 @@ class DraftDependency(models.Model):
             # Duplicate entries for a dependency are just redundant. This is
             # here to guard against weird bugs that might introduce this state.
             models.UniqueConstraint(
-                fields=["draft", "dependency"],
-                name="oel_pub_dd_uniq_draft_dep",
+                fields=["target", "dependency"],
+                name="oel_pub_dd_uniq_target_dep",
             )
         ]
