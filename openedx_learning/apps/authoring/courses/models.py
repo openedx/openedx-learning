@@ -11,10 +11,9 @@ from logging import getLogger
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-
 from ....lib.fields import case_insensitive_char_field
-from ..publishing.models import LearningPackage
 from ..outline_roots.models import OutlineRoot
+from ..publishing.models import LearningPackage
 
 logger = getLogger()
 
@@ -71,7 +70,6 @@ class CatalogCourse(models.Model):
         ]
 
 
-
 class Course(models.Model):
     """
     A course [run] is a specific instance of a catalog course.
@@ -96,7 +94,7 @@ class Course(models.Model):
           runs; for example, CCX may result in many Course variants of the same
           CatalogCourse - these aren't exactly "runs" but may still use separate
           instances of this model. TODO: validate this?
-    
+
     This model is not versioned nor publishable. It also doesn't have much data,
     including even the name of the course. All useful data is available via
     versioned, related models like CourseMetadata (in edx-platform) or

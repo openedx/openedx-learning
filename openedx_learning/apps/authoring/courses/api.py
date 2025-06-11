@@ -12,8 +12,8 @@ from typing import Any
 
 from django.db.transaction import atomic
 
-from .models import CatalogCourse, Course
 from ..outline_roots import api as outline_roots
+from .models import CatalogCourse, Course
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -42,7 +42,7 @@ def create_course_and_run(
 ) -> Course:
     """
     Create a new course (CatalogCourse and Course / run).
-    
+
     If initial_blank_version is True (default), the course outline will have an
     existing empty version 1, which can be used for building a course from
     scratch. For other use cases like importing a course, it could be better to
