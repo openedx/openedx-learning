@@ -1,5 +1,5 @@
 """
-Basic tests for the units API.
+Basic tests for the courses API.
 """
 from datetime import datetime, timezone
 

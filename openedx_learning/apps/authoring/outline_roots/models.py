@@ -23,8 +23,6 @@ class OutlineRoot(Container):
 
     The requirements for OutlineRoot are:
     - One OutlineRoot per course run
-    - Children must all be containers (Sections, Subsections, or Units) and
-      all children must be the same type
     - Never used in libraries
     - Never added as a child of another container type
 

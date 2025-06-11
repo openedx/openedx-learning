@@ -12,6 +12,7 @@ from openedx_learning.apps.authoring.subsections.models import Subsection, Subse
 from openedx_learning.apps.authoring.units.models import Unit, UnitVersion
 
 from ..publishing import api as publishing_api
+from ..publishing.models import Container, ContainerVersion
 from .models import OutlineRoot, OutlineRootVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
@@ -90,7 +91,7 @@ def create_outline_root_version(
 
 
 def _make_entity_rows(
-    children: list[Section | SectionVersion] | list[Subsection | SubsectionVersion] | list[Unit | UnitVersion] | None,
+    children: list[Section | SectionVersion | Subsection | SubsectionVersion | Unit | UnitVersion] | None,
 ) -> list[publishing_api.ContainerEntityRow] | None:
     """
     Helper method: given a list of children for the outline root, return the
@@ -103,12 +104,6 @@ def _make_entity_rows(
     if children is None:
         # When these are None, that means don't change the entities in the list.
         return None
-    if not (
-        all(isinstance(c, (Section, SectionVersion)) for c in children) or
-        all(isinstance(c, (Subsection, SubsectionVersion)) for c in children) or
-        all(isinstance(c, (Unit, UnitVersion)) for c in children)
-    ):
-        raise TypeError("OutlineRoot children must be Section[Version], Subsection[Version], or Unit[Version] objects.")
     return [
         (
             publishing_api.ContainerEntityRow(
@@ -128,7 +123,7 @@ def create_next_outline_root_version(
     outline_root: OutlineRoot,
     *,
     title: str | None = None,
-    children: list[Section | SectionVersion] | list[Subsection | SubsectionVersion] | list[Unit | UnitVersion] | None = None,  # pylint: disable=line-too-long # noqa: E501
+    children: list[Section | SectionVersion | Subsection | SubsectionVersion | Unit | UnitVersion] | None = None,
     created: datetime,
     created_by: int | None = None,
     entities_action: publishing_api.ChildrenEntitiesAction = publishing_api.ChildrenEntitiesAction.REPLACE,
@@ -161,7 +156,7 @@ def create_outline_root_and_version(
     key: str,
     *,
     title: str,
-    children: list[Section | SectionVersion] | list[Subsection | SubsectionVersion] | list[Unit | UnitVersion] | None = None,  # pylint: disable=line-too-long # noqa: E501
+    children: list[Section | SectionVersion | Subsection | SubsectionVersion | Unit | UnitVersion] | None = None,
     created: datetime,
     created_by: int | None = None,
 ) -> tuple[OutlineRoot, OutlineRootVersion]:
@@ -226,11 +221,11 @@ class OutlineRootListEntry:
     pinned: bool = False
 
     @property
-    def container(self):
+    def container(self) -> Container:
         return self.container_version.container
 
     @property
-    def container_version(self):
+    def container_version(self) -> ContainerVersion:
         return self.child_version.container_version
 
 
