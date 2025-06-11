@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from logging import getLogger
+from typing import Any
 
 from django.db.transaction import atomic
 
@@ -50,7 +51,7 @@ def create_course_and_run(
     history. In that case, set initial_blank_version to False. Note that the
     provided "title" is ignored in that case.
     """
-    outline_root_args = {
+    outline_root_args: dict[str, Any] = {
         "learning_package_id": learning_package_id,
         "key": f'course-root-v1:{org_id}+{course_id}+{run}',  # See docstring of create_outline_root_and_version()
         "created": created,
