@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from django.contrib import admin
 from django.db.models import Count
+from django.urls import reverse
+from django.utils.html import format_html
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin, one_to_one_related_model_html
 
@@ -15,6 +17,8 @@ from .models import (
     PublishableEntity,
     PublishLog,
     PublishLogRecord,
+    Container,
+    ContainerVersion,
 )
 from .models.publish_log import Published
 
@@ -246,3 +250,86 @@ class DraftChangeSetAdmin(ReadOnlyModelAdmin):
         queryset = super().get_queryset(request)
         return queryset.select_related("learning_package", "changed_by") \
                        .annotate(num_changes=Count("records"))
+
+
+class ContainerVersionInline(admin.TabularInline):
+    """
+    Inline admin view of ContainerVersions from the Container Admin
+    """
+    model = ContainerVersion
+    fields = ["version_num", "created", "title", "format_uuid"]
+    readonly_fields = ["version_num", "created", "title", "uuid", "format_uuid"]
+    extra = 0
+
+    @admin.display(description="UUID")
+    def format_uuid(self, cv_obj):
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse("admin:oel_publishing_containerversion_change", args=(cv_obj.pk,)),
+            cv_obj.uuid,
+        )
+
+    def see_also(self, entity):
+        return one_to_one_related_model_html(entity)
+
+
+@admin.register(Container)
+class ContainerAdmin(ReadOnlyModelAdmin):
+    """
+    Django admin configuration for Container
+    """
+    list_display = ("key", "uuid", "created")
+    readonly_fields = [
+        "learning_package",
+        "uuid",
+        "key",
+        "created",
+    ]
+    search_fields = ["publishable_entity__uuid", "publishable_entity__key"]
+    inlines = [ContainerVersionInline]
+
+    def learning_package(self, obj: Container) -> LearningPackage:
+        return obj.publishable_entity.learning_package
+
+    def see_also(self, entity):
+        return one_to_one_related_model_html(entity)
+
+
+# @@TODO
+# class EntityListInline(admin.TabularInline):
+#     """
+#     Inline admin view of entities from the Container admin
+#     """
+
+
+@admin.register(ContainerVersion)
+class ContainerVersionAdmin(ReadOnlyModelAdmin):
+    """
+    Django admin configuration for ContaienrVersion
+    """
+    readonly_fields = [
+        "container",
+        "uuid",
+        "title",
+        "version_num",
+        "created",
+        "entity_list"
+    ]
+    fields = [
+        "container",
+        "uuid",
+        "title",
+        "version_num",
+        "created",
+        "entity_list"
+    ]
+    list_display = ["container", "version_num", "uuid", "created"]
+    # inlines = [EntityListInline]  @@TODO
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related(
+            "container",
+            "container__publishable_entity",
+            "publishable_entity_version",
+        )
