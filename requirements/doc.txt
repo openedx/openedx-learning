@@ -31,7 +31,7 @@ billiard==4.2.1
     #   celery
 celery==5.5.3
     # via -r requirements/test.txt
-certifi==2025.4.26
+certifi==2025.6.15
     # via
     #   -r requirements/test.txt
     #   requests
@@ -68,17 +68,17 @@ click-repl==0.3.0
     #   celery
 code-annotations==2.3.0
     # via -r requirements/test.txt
-coverage[toml]==7.8.2
+coverage[toml]==7.9.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==45.0.3
+cryptography==45.0.4
     # via
     #   -r requirements/test.txt
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==4.2.22
+django==4.2.23
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -106,7 +106,7 @@ django-stubs-ext==5.2.0
     # via
     #   -r requirements/test.txt
     #   django-stubs
-django-waffle==4.2.0
+django-waffle==5.0.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -122,7 +122,7 @@ dnspython==2.7.0
     # via
     #   -r requirements/test.txt
     #   pymongo
-doc8==1.1.2
+doc8==2.0.0
     # via -r requirements/doc.in
 docutils==0.21.2
     # via
@@ -211,6 +211,7 @@ pluggy==1.6.0
     # via
     #   -r requirements/test.txt
     #   pytest
+    #   pytest-cov
 pprintpp==0.4.0
     # via sphinxcontrib-django
 prompt-toolkit==3.0.51
@@ -241,7 +242,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.13.0
+pymongo==4.13.1
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -254,7 +255,7 @@ pytest==8.4.0
     #   -r requirements/test.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==6.1.1
+pytest-cov==6.2.1
     # via -r requirements/test.txt
 pytest-django==4.11.1
     # via -r requirements/test.txt
@@ -273,7 +274,7 @@ pyyaml==6.0.2
     #   code-annotations
 readme-renderer==44.0
     # via -r requirements/doc.in
-requests==2.32.3
+requests==2.32.4
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
@@ -340,7 +341,7 @@ types-pyyaml==6.0.12.20250516
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20250602
+types-requests==2.32.4.20250611
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
