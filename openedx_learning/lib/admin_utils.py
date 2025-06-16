@@ -109,7 +109,7 @@ def model_detail_link(obj: models.Model, link_text: str) -> SafeText:
     return format_html(
         '<a href="{}">{}</a>',
         reverse(
-            f"admin:{obj._meta.app_label}_{obj._meta.model_name.lower()}_change",
+            f"admin:{obj._meta.app_label}_{(obj._meta.model_name or obj.__class__.__name__).lower()}_change",
             args=(obj.pk,),
         ),
         link_text,

@@ -293,14 +293,16 @@ class ContainerAdmin(ReadOnlyModelAdmin):
     """
     Django admin configuration for Container
     """
-    list_display = ("key", "uuid", "created", "see_also")
+    list_display = ("key", "uuid", "created", "draft", "published", "see_also")
     fields = [
         "publishable_entity",
         "learning_package",
-        "draft_version",
-        "published_version",
+        "draft",
+        "published",
         "created",
-        "created_by"
+        "created_by",
+        "see_also",
+        "most_recent_parent_entity_list",
     ]
     readonly_fields = fields  # type: ignore[assignment]
     search_fields = ["publishable_entity__uuid", "publishable_entity__key"]
@@ -323,14 +325,23 @@ class ContainerAdmin(ReadOnlyModelAdmin):
             "publishable_entity__draft__version",
         )
 
-    def draft_version(self, entity: PublishableEntity):
-        return entity.draft.version.version_num if entity.draft.version else None
+    def draft(self, obj: Container) -> SafeText:
+        if draft := obj.versioning.draft:
+            return format_html("Version {} ({})", draft.version_num, _entity_list_detail_link(draft.entity_list))
+        return SafeText("-")
 
-    def published_version(self, entity: PublishableEntity):
-        return entity.published.version.version_num if entity.published and entity.published.version else None
+    def published(self, obj: Container) -> SafeText:
+        if published := obj.versioning.published:
+            return format_html("Version {} ({})", published.version_num, _entity_list_detail_link(published.entity_list))
+        return SafeText("-")
 
-    def see_also(self, entity: PublishableEntity):
-        return one_to_one_related_model_html(entity)
+    def see_also(self, obj: Container):
+        return one_to_one_related_model_html(obj)
+
+    def most_recent_parent_entity_list(self, obj: Container) -> SafeText:
+        if latest_row := EntityListRow.objects.filter(entity_id=obj.publishable_entity_id).order_by("-pk").first():
+            return _entity_list_detail_link(latest_row.entity_list)
+        return SafeText("-")
 
 
 class ContainerVersionInlineForEntityList(admin.TabularInline):
@@ -367,13 +378,12 @@ class EntityListRowInline(admin.TabularInline):
     """
     Table of entity rows in the entitylist admin
     """
-    verbose_name = "Row"
     model = EntityListRow
     readonly_fields = [
         "order_num",
-        "entity_and_connected_models",
         "pinned_version_num",
-        "connected_container_models",
+        "entity_models",
+        "container_models",
         "container_children",
     ]
     fields = readonly_fields  # type: ignore[assignment]
@@ -384,20 +394,24 @@ class EntityListRowInline(admin.TabularInline):
             "entity_version",
         )
 
-    def entity_and_connected_models(self, obj: EntityListRow):
+    def pinned_version_num(self, obj: EntityListRow):
+        return str(obj.entity_version.version_num) if obj.entity_version else "(Unpinned)"
+
+    def entity_models(self, obj: EntityListRow):
         return format_html(
             "{}<ul>{}</ul>",
             model_detail_link(obj.entity, obj.entity.key),
             one_to_one_related_model_html(obj.entity),
         )
 
-    def pinned_version_num(self, obj: EntityListRow):
-        return str(obj.entity_version.version_num) if obj.entity_version else "(Unpinned)"
-
-    def connected_container_models(self, obj: EntityListRow) -> SafeText:
+    def container_models(self, obj: EntityListRow) -> SafeText:
         if not hasattr(obj.entity, "container"):
             return SafeText("(Not a Container)")
-        return one_to_one_related_model_html(obj.entity.container)
+        return format_html(
+            "{}<ul>{}</ul>",
+            model_detail_link(obj.entity.container, str(obj.entity.container)),
+            one_to_one_related_model_html(obj.entity.container),
+        )
 
     def container_children(self, obj: EntityListRow) -> SafeText:
         """
@@ -428,7 +442,7 @@ class EntityListAdmin(ReadOnlyModelAdmin):
         "recent_container",
         "recent_container_package"
     ]
-    inlines = [EntityListRowInline, ContainerVersionInlineForEntityList]
+    inlines = [ContainerVersionInlineForEntityList, EntityListRowInline]
 
     def entity_list(self, obj: EntityList) -> SafeText:
         return model_detail_link(obj, f"EntityList #{obj.pk}")
