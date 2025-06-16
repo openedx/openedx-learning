@@ -38,7 +38,7 @@ cachetools==6.0.0
     #   tox
 celery==5.5.3
     # via -r requirements/quality.txt
-certifi==2025.4.26
+certifi==2025.6.15
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -95,11 +95,11 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.8.2
+coverage[toml]==7.9.1
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
-cryptography==45.0.3
+cryptography==45.0.4
     # via
     #   -r requirements/quality.txt
     #   pyjwt
@@ -116,7 +116,7 @@ distlib==0.3.9
     # via
     #   -r requirements/ci.txt
     #   virtualenv
-django==4.2.22
+django==4.2.23
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/quality.txt
@@ -146,7 +146,7 @@ django-stubs-ext==5.2.0
     # via
     #   -r requirements/quality.txt
     #   django-stubs
-django-waffle==4.2.0
+django-waffle==5.0.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -332,6 +332,7 @@ pluggy==1.6.0
     #   -r requirements/quality.txt
     #   diff-cover
     #   pytest
+    #   pytest-cov
     #   tox
 polib==1.2.0
     # via edx-i18n-tools
@@ -383,7 +384,7 @@ pylint-plugin-utils==0.8.2
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.13.0
+pymongo==4.13.1
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
@@ -405,7 +406,7 @@ pytest==8.4.0
     #   -r requirements/quality.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==6.1.1
+pytest-cov==6.2.1
     # via -r requirements/quality.txt
 pytest-django==4.11.1
     # via -r requirements/quality.txt
@@ -427,7 +428,7 @@ readme-renderer==44.0
     # via
     #   -r requirements/quality.txt
     #   twine
-requests==2.32.3
+requests==2.32.4
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
@@ -494,7 +495,7 @@ types-pyyaml==6.0.12.20250516
     #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.0.20250602
+types-requests==2.32.4.20250611
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
