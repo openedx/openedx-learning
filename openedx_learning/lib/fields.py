@@ -123,7 +123,7 @@ def key_field(**kwargs) -> MultiCollationCharField:
     return case_sensitive_char_field(max_length=500, blank=False, **kwargs)
 
 
-def hash_field() -> models.CharField:
+def hash_field(**kwargs) -> models.CharField:
     """
     Holds a hash digest meant to identify a piece of content.
 
@@ -144,13 +144,13 @@ def hash_field() -> models.CharField:
        didn't seem worthwhile, particularly the possibility of case-sensitivity
        related bugs.
     """
-    return models.CharField(
-        max_length=40,
-        blank=False,
-        null=False,
-        editable=False,
-    )
-
+    default_kwargs = {
+        "max_length": 40,
+        "blank": False,
+        "null": False,
+        "editable": False,
+    }
+    return models.CharField(**(default_kwargs | kwargs))
 
 def manual_date_time_field() -> models.DateTimeField:
     """
