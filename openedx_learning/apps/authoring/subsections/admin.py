@@ -12,7 +12,7 @@ from .models import Subsection
 @admin.register(Subsection)
 class SubsectionAdmin(ReadOnlyModelAdmin):
     """
-    Django admin for Subsection model
+    Very minimal interface... just direct the admin user's attention towards the related Container model admin.
     """
     list_display = ["subsection_id", "key"]
     fields = ["see"]
