@@ -16,7 +16,6 @@ asgiref==3.8.1
     # via
     #   -r requirements/test.txt
     #   django
-    #   django-stubs
 attrs==25.3.0
     # via -r requirements/test.txt
 babel==2.17.0
@@ -98,11 +97,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==5.2.0
     # via -r requirements/test.txt
-django-stubs==5.2.0
+django-stubs==5.2.1
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.0
+django-stubs-ext==5.2.1
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -182,7 +181,7 @@ markupsafe==3.0.2
     #   jinja2
 mock==5.2.0
     # via -r requirements/test.txt
-mypy==1.16.0
+mypy==1.16.1
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -228,7 +227,7 @@ pycparser==2.22
     #   cffi
 pydata-sphinx-theme==0.15.4
     # via sphinx-book-theme
-pygments==2.19.1
+pygments==2.19.2
     # via
     #   -r requirements/test.txt
     #   accessible-pygments
@@ -242,7 +241,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.13.1
+pymongo==4.13.2
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -250,7 +249,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.4.0
+pytest==8.4.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov

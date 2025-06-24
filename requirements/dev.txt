@@ -12,7 +12,6 @@ asgiref==3.8.1
     # via
     #   -r requirements/quality.txt
     #   django
-    #   django-stubs
 astroid==3.3.10
     # via
     #   -r requirements/quality.txt
@@ -32,7 +31,7 @@ build==1.2.2.post1
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
-cachetools==6.0.0
+cachetools==6.1.0
     # via
     #   -r requirements/ci.txt
     #   tox
@@ -106,7 +105,7 @@ cryptography==45.0.4
     #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
-diff-cover==9.3.2
+diff-cover==9.4.1
     # via -r requirements/dev.in
 dill==0.4.0
     # via
@@ -138,11 +137,11 @@ django-debug-toolbar==5.2.0
     # via
     #   -r requirements/dev.in
     #   -r requirements/quality.txt
-django-stubs==5.2.0
+django-stubs==5.2.1
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.0
+django-stubs-ext==5.2.1
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -228,7 +227,7 @@ jaraco-context==6.0.1
     # via
     #   -r requirements/quality.txt
     #   keyring
-jaraco-functools==4.1.0
+jaraco-functools==4.2.1
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -284,7 +283,7 @@ more-itertools==10.7.0
     #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.16.0
+mypy==1.16.1
     # via -r requirements/quality.txt
 mypy-extensions==1.1.0
     # via
@@ -344,7 +343,7 @@ psutil==7.0.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
-pycodestyle==2.13.0
+pycodestyle==2.14.0
     # via -r requirements/quality.txt
 pycparser==2.22
     # via
@@ -352,7 +351,7 @@ pycparser==2.22
     #   cffi
 pydocstyle==6.3.0
     # via -r requirements/quality.txt
-pygments==2.19.1
+pygments==2.19.2
     # via
     #   -r requirements/quality.txt
     #   diff-cover
@@ -379,12 +378,12 @@ pylint-django==2.6.1
     # via
     #   -r requirements/quality.txt
     #   edx-lint
-pylint-plugin-utils==0.8.2
+pylint-plugin-utils==0.9.0
     # via
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.13.1
+pymongo==4.13.2
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
@@ -401,7 +400,7 @@ pyproject-hooks==1.2.0
     #   -r requirements/pip-tools.txt
     #   build
     #   pip-tools
-pytest==8.4.0
+pytest==8.4.1
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -486,7 +485,7 @@ tomlkit==0.13.3
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==4.26.0
+tox==4.27.0
     # via -r requirements/ci.txt
 twine==6.1.0
     # via -r requirements/quality.txt

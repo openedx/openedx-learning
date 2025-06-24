@@ -12,7 +12,6 @@ asgiref==3.8.1
     # via
     #   -r requirements/test.txt
     #   django
-    #   django-stubs
 astroid==3.3.10
     # via
     #   pylint
@@ -102,11 +101,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==5.2.0
     # via -r requirements/test.txt
-django-stubs==5.2.0
+django-stubs==5.2.1
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.0
+django-stubs-ext==5.2.1
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -172,7 +171,7 @@ jaraco-classes==3.4.0
     # via keyring
 jaraco-context==6.0.1
     # via keyring
-jaraco-functools==4.1.0
+jaraco-functools==4.2.1
     # via keyring
 jeepney==0.9.0
     # via
@@ -208,7 +207,7 @@ more-itertools==10.7.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.16.0
+mypy==1.16.1
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -247,7 +246,7 @@ psutil==7.0.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pycodestyle==2.13.0
+pycodestyle==2.14.0
     # via -r requirements/quality.in
 pycparser==2.22
     # via
@@ -255,7 +254,7 @@ pycparser==2.22
     #   cffi
 pydocstyle==6.3.0
     # via -r requirements/quality.in
-pygments==2.19.1
+pygments==2.19.2
     # via
     #   -r requirements/test.txt
     #   pytest
@@ -276,11 +275,11 @@ pylint-celery==0.3
     # via edx-lint
 pylint-django==2.6.1
     # via edx-lint
-pylint-plugin-utils==0.8.2
+pylint-plugin-utils==0.9.0
     # via
     #   pylint-celery
     #   pylint-django
-pymongo==4.13.1
+pymongo==4.13.2
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -288,7 +287,7 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.4.0
+pytest==8.4.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
