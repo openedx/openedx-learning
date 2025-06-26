@@ -1300,7 +1300,18 @@ def get_entities_in_container(
         raise ContainerVersion.DoesNotExist  # This container has not been published yet, or has been deleted.
     assert isinstance(container_version, ContainerVersion)
     entity_list = []
-    for row in container_version.entity_list.entitylistrow_set.order_by("order_num"):
+    for row in container_version.entity_list.entitylistrow_set.select_related(
+        "entity_version",
+        "entity_version__componentversion",
+        "entity__published__version",
+        "entity__published__version__componentversion",
+        "entity__published__version__containerversion__unitversion",
+        "entity__published__version__containerversion__subsectionversion",
+        "entity__draft__version",
+        "entity__draft__version__componentversion",
+        "entity__draft__version__containerversion__unitversion",
+        "entity__draft__version__containerversion__subsectionversion",
+    ).order_by("order_num"):
         entity_version = row.entity_version  # This will be set if pinned
         if not entity_version:  # If this entity is "unpinned", use the latest published/draft version:
             entity_version = row.entity.published.version if published else row.entity.draft.version
@@ -1393,7 +1404,10 @@ def get_containers_with_entity(
         qs = Container.objects.filter(
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
         )
-    return qs.order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
+    return qs.select_related(
+        "publishable_entity__draft__version__containerversion",
+        "publishable_entity__published__version__containerversion",
+    ).order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
 
 
 def get_container_children_count(
