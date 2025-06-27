@@ -3,8 +3,13 @@ PublishLog and PublishLogRecord models
 """
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
-from openedx_learning.lib.fields import case_insensitive_char_field, immutable_uuid_field, manual_date_time_field
+from openedx_learning.lib.fields import (
+    case_insensitive_char_field,
+    immutable_uuid_field,
+    manual_date_time_field,
+)
 
 from .learning_package import LearningPackage
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
@@ -61,6 +66,15 @@ class PublishLogRecord(models.Model):
 
     To revert a publish, we would make a new publish that swaps ``old_version``
     and ``new_version`` field values.
+
+    If the old_version and new_version of a PublishLogRecord match, it means
+    that the definition of the entity itself did not change (i.e. no new
+    PublishableEntityVersion was created), but something else was published that
+    had the side-effect of changing the published state of this entity. For
+    instance, if a Unit has unpinned references to its child Components (which
+    it almost always will), then publishing one of those Components will alter
+    the published state of the Unit, even if the UnitVersion does not change. In
+    that case, we still consider the Unit to have been "published".
     """
 
     publish_log = models.ForeignKey(
@@ -148,3 +162,51 @@ class Published(models.Model):
     class Meta:
         verbose_name = "Published Entity"
         verbose_name_plural = "Published Entities"
+
+
+class PublishSideEffect(models.Model):
+    """
+    Model to track when a change in one Published entity affects others.
+
+    Our first use case for this is that changes involving child components are
+    thought to affect parent Units, even if the parent's version doesn't change.
+
+    Side-effects are recorded in a collapsed form that only captures one level.
+    So if Components C1 and C2 are both published and they are part of Unit U1,
+    which is in turn a part of Subsection SS1, then the PublishSideEffect
+    entries are::
+
+      (C1, U1)
+      (C2, U1)
+      (U1, SS1)
+
+    We do not keep entries for (C1, SS1) or (C2, SS1). This is to make the model
+    simpler, so we don't have to differentiate between direct side-effects and
+    transitive side-effects in the model.
+    .. no_pii:
+    """
+    cause = models.ForeignKey(
+        PublishLogRecord,
+        on_delete=models.RESTRICT,
+        related_name='causes',
+    )
+    effect = models.ForeignKey(
+        PublishLogRecord,
+        on_delete=models.RESTRICT,
+        related_name='affected_by',
+    )
+
+    class Meta:
+        constraints = [
+            # Duplicate entries for cause & effect are just redundant. This is
+            # here to guard against weird bugs that might introduce this state.
+            models.UniqueConstraint(
+                fields=["cause", "effect"],
+                name="oel_pub_pse_uniq_c_e",
+            )
+        ]
+        verbose_name = _("Publish Side Effect")
+        verbose_name_plural = _("Publish Side Effects")
+
+
+
