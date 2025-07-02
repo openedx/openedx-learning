@@ -1301,16 +1301,15 @@ def get_entities_in_container(
     assert isinstance(container_version, ContainerVersion)
     entity_list = []
     for row in container_version.entity_list.entitylistrow_set.select_related(
-        "entity_version",
-        "entity_version__componentversion",
-        "entity__published__version",
-        "entity__published__version__componentversion",
-        "entity__published__version__containerversion__unitversion",
-        "entity__published__version__containerversion__subsectionversion",
-        "entity__draft__version",
-        "entity__draft__version__componentversion",
-        "entity__draft__version__containerversion__unitversion",
-        "entity__draft__version__containerversion__subsectionversion",
+        "entity_version__componentversion__component",
+        "entity_version__containerversion__container",
+        "entity__published__version__containerversion__unitversion__container__unit",
+        "entity__published__version__containerversion__subsectionversion__container__subsection",
+        "entity__published__version__containerversion__sectionversion__container__section",
+        "entity__draft__version__componentversion__component",
+        "entity__draft__version__containerversion__unitversion__container__unit",
+        "entity__draft__version__containerversion__subsectionversion__container__subsection",
+        "entity__draft__version__containerversion__sectionversion__container__section",
     ).order_by("order_num"):
         entity_version = row.entity_version  # This will be set if pinned
         if not entity_version:  # If this entity is "unpinned", use the latest published/draft version:
