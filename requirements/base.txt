@@ -6,7 +6,7 @@
 #
 amqp==5.3.1
     # via kombu
-asgiref==3.8.1
+asgiref==3.9.0
     # via django
 attrs==25.3.0
     # via -r requirements/base.in
@@ -35,7 +35,7 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==45.0.4
+cryptography==45.0.5
     # via pyjwt
 django==4.2.23
     # via
@@ -106,7 +106,7 @@ stevedore==5.4.1
     # via
     #   edx-django-utils
     #   edx-opaque-keys
-typing-extensions==4.14.0
+typing-extensions==4.14.1
     # via edx-opaque-keys
 tzdata==2025.2
     # via kombu
