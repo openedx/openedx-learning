@@ -1,17 +1,20 @@
 """
 Django management commands to handle backup and restore learning packages (WIP)
 """
+import logging
 
 from django.core.management.base import BaseCommand
 
 from openedx_learning.apps.authoring.backup_restore.api import create_zip_file
 
+logger = logging.getLogger(__name__)
+
 
 class Command(BaseCommand):
     """
-    Django management command to export a learning package on a zip file
+    Django management command to export a learning package to a zip file.
     """
-    help = 'Export a learning package on a zip file'
+    help = 'Export a learning package to a zip file.'
 
     def add_arguments(self, parser):
         parser.add_argument('lp_key', type=str, help='The key of the LearningPackage to dump')
@@ -22,8 +25,13 @@ class Command(BaseCommand):
         file_name = options['file_name']
         try:
             create_zip_file(lp_key, file_name)
-            message = f'The [{file_name}] was created with [{lp_key}] learning package key'
+            message = f'{lp_key} written to {file_name}'
             self.stdout.write(self.style.SUCCESS(message))
         except Exception as e:  # pylint: disable=broad-exception-caught
-            message = f"Error on create the zip file {e}"
-            self.stdout.write(self.style.ERROR(message))
+            message = f"Error creating zip file: error {e}"
+            self.stderr.write(self.style.ERROR(message))
+            logger.exception(
+                "Failed to create zip file %s (learning‑package key %s)",
+                file_name,
+                lp_key,
+            )

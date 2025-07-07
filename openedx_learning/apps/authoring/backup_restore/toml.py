@@ -9,7 +9,7 @@ from tomlkit import comment, document, dumps, nl, table
 from tomlkit.items import Table
 
 
-class LpTomlFile():
+class TOMLLearningPackageFile():
     """
     Class to create a .toml file of a learning package (WIP)
     """
@@ -20,7 +20,6 @@ class LpTomlFile():
     def _create_header(self) -> None:
         self.doc.add(comment(f"Datetime of the export: {datetime.now()}"))
         self.doc.add(nl())
-        self.doc.add("title", "Learning package example")
 
     def _create_table(self, params: Dict[str, Any]) -> Table:
         section = table()
@@ -40,7 +39,7 @@ class LpTomlFile():
             "created": "",
             "updated": ""
         })
-        self.doc.add("Learning package", section)
+        self.doc.add("learning_package", section)
 
     def get(self) -> str:
         return dumps(self.doc)

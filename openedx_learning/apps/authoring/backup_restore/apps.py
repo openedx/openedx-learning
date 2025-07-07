@@ -1,5 +1,5 @@
 """
-Unit Django application initialization.
+Backup/Restore application initialization.
 """
 
 from django.apps import AppConfig
