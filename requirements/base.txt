@@ -106,6 +106,8 @@ stevedore==5.4.1
     # via
     #   edx-django-utils
     #   edx-opaque-keys
+tomlkit==0.13.3
+    # via -r requirements/base.in
 typing-extensions==4.14.1
     # via edx-opaque-keys
 tzdata==2025.2

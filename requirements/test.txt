@@ -239,6 +239,8 @@ stevedore==5.4.1
     #   edx-opaque-keys
 text-unidecode==1.3
     # via python-slugify
+tomlkit==0.13.3
+    # via -r requirements/base.txt
 types-pyyaml==6.0.12.20250516
     # via
     #   django-stubs
