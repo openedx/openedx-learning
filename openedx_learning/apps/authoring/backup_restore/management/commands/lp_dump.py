@@ -3,6 +3,7 @@ Django management commands to handle backup and restore learning packages (WIP)
 """
 import logging
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand
 
 from openedx_learning.apps.authoring.backup_restore.api import create_zip_file
@@ -27,6 +28,9 @@ class Command(BaseCommand):
             create_zip_file(lp_key, file_name)
             message = f'{lp_key} written to {file_name}'
             self.stdout.write(self.style.SUCCESS(message))
+        except ObjectDoesNotExist:
+            message = f"Learning package with key {lp_key} not found"
+            self.stderr.write(self.style.ERROR(message))
         except Exception as e:  # pylint: disable=broad-exception-caught
             message = f"Error creating zip file: error {e}"
             self.stderr.write(self.style.ERROR(message))
