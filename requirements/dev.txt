@@ -102,7 +102,6 @@ cryptography==45.0.5
     # via
     #   -r requirements/quality.txt
     #   pyjwt
-    #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
 diff-cover==9.4.1
@@ -231,11 +230,6 @@ jaraco-functools==4.2.1
     # via
     #   -r requirements/quality.txt
     #   keyring
-jeepney==0.9.0
-    # via
-    #   -r requirements/quality.txt
-    #   keyring
-    #   secretstorage
 jinja2==3.1.6
     # via
     #   -r requirements/quality.txt
@@ -449,10 +443,6 @@ rich==14.0.0
     #   twine
 rules==3.5
     # via -r requirements/quality.txt
-secretstorage==3.3.3
-    # via
-    #   -r requirements/quality.txt
-    #   keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/quality.txt

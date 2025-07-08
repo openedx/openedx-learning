@@ -38,6 +38,7 @@ INSTALLED_APPS = (
     "openedx_learning.apps.authoring.sections.apps.SectionsConfig",
     "openedx_learning.apps.authoring.subsections.apps.SubsectionsConfig",
     "openedx_learning.apps.authoring.units.apps.UnitsConfig",
+    "openedx_learning.apps.authoring.backup_restore.apps.BackupRestoreConfig",
     # Learning Contrib Apps
     "openedx_learning.contrib.media_server.apps.MediaServerConfig",
     # Apps that don't belong in this repo in the long term, but are here to make

@@ -335,6 +335,8 @@ text-unidecode==1.3
     # via
     #   -r requirements/test.txt
     #   python-slugify
+tomlkit==0.13.3
+    # via -r requirements/test.txt
 types-pyyaml==6.0.12.20250516
     # via
     #   -r requirements/test.txt

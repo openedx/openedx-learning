@@ -50,6 +50,9 @@ layers=
     # Its only dependency should be the publishing app.
     openedx_learning.apps.authoring.collections
 
+    # The "backup_restore" app handle the new export and import mechanism.
+    openedx_learning.apps.authoring.backup_restore
+
     # The lowest layer is "publishing", which holds the basic primitives needed
     # to create Learning Packages and manage the draft and publish states for
     # various types of content.
