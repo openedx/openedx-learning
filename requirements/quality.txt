@@ -26,7 +26,7 @@ billiard==4.2.1
     #   celery
 celery==5.5.3
     # via -r requirements/test.txt
-certifi==2025.7.9
+certifi==2025.7.14
     # via
     #   -r requirements/test.txt
     #   requests
@@ -101,11 +101,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==5.2.0
     # via -r requirements/test.txt
-django-stubs==5.2.1
+django-stubs==5.2.2
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.1
+django-stubs-ext==5.2.2
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -119,7 +119,7 @@ djangorestframework==3.16.0
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.16.0
+djangorestframework-stubs==3.16.1
     # via -r requirements/test.txt
 dnspython==2.7.0
     # via
@@ -207,7 +207,7 @@ more-itertools==10.7.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.16.1
+mypy==1.17.0
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -215,7 +215,7 @@ mypy-extensions==1.1.0
     #   mypy
 mysqlclient==2.2.7
     # via -r requirements/test.txt
-nh3==0.2.21
+nh3==0.3.0
     # via readme-renderer
 packaging==25.0
     # via
