@@ -12,7 +12,13 @@ from .models import Subsection, SubsectionVersion
 
 class SubsectionVersionInline(admin.TabularInline):
     """
-    Minimal table for subsecdtion versions in a subsection
+    Minimal table for subsection versions in a subsection.
+
+    (Generally, this information is useless, because each SubsectionVersion should have a
+     matching ContainerVersion, shown in much more detail on the Container detail page.
+     But we've hit at least one bug where ContainerVersions were being created without
+     their connected SubsectionVersions, so we'll leave this table here for debugging
+     at least until we've made the APIs more robust against that sort of data corruption.)
     """
     model = SubsectionVersion
     fields = ["pk"]

@@ -13,6 +13,12 @@ from .models import Unit, UnitVersion
 class UnitVersionInline(admin.TabularInline):
     """
     Minimal table for unit versions in a unit
+
+    (Generally, this information is useless, because each UnitVersion should have a
+     matching ContainerVersion, shown in much more detail on the Container detail page.
+     But we've hit at least one bug where ContainerVersions were being created without
+     their connected UnitVersions, so we'll leave this table here for debugging
+     at least until we've made the APIs more robust against that sort of data corruption.)
     """
     model = UnitVersion
     fields = ["pk"]
