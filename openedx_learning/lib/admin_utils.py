@@ -2,9 +2,11 @@
 Convenience utilities for the Django Admin.
 """
 from django.contrib import admin
+from django.db import models
 from django.db.models.fields.reverse_related import OneToOneRel
 from django.urls import NoReverseMatch, reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import SafeText
 
 
 class ReadOnlyModelAdmin(admin.ModelAdmin):
@@ -31,7 +33,7 @@ class ReadOnlyModelAdmin(admin.ModelAdmin):
         return False
 
 
-def one_to_one_related_model_html(model_obj):
+def one_to_one_related_model_html(model_obj: models.Model) -> SafeText:
     """
     HTML for clickable list of a models that are 1:1-related to ``model_obj``.
 
@@ -98,3 +100,17 @@ def one_to_one_related_model_html(model_obj):
         text.append(html)
 
     return format_html_join("\n", "<li>{}</li>", ((t,) for t in text))
+
+
+def model_detail_link(obj: models.Model, link_text: str) -> SafeText:
+    """
+    Render an HTML link to the admin focus page for `obj`.
+    """
+    return format_html(
+        '<a href="{}">{}</a>',
+        reverse(
+            f"admin:{obj._meta.app_label}_{(obj._meta.model_name or obj.__class__.__name__).lower()}_change",
+            args=(obj.pk,),
+        ),
+        link_text,
+    )

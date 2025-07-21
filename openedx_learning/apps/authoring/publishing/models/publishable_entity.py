@@ -221,6 +221,9 @@ class PublishableEntityVersion(models.Model):
         blank=True,
     )
 
+    def __str__(self):
+        return f"{self.entity.key} @ v{self.version_num} - {self.title}"
+
     class Meta:
         constraints = [
             # Prevent the situation where we have multiple
@@ -302,6 +305,9 @@ class PublishableEntityMixin(models.Model):
     @property
     def created_by(self):
         return self.publishable_entity.created_by
+
+    def __str__(self) -> str:
+        return str(self.publishable_entity)
 
     class Meta:
         abstract = True
@@ -571,8 +577,15 @@ class PublishableEntityVersionMixin(models.Model):
         return self.publishable_entity_version.created
 
     @property
+    def created_by(self):
+        return self.publishable_entity_version.created_by
+
+    @property
     def version_num(self) -> int:
         return self.publishable_entity_version.version_num
+
+    def __str__(self) -> str:
+        return str(self.publishable_entity_version)
 
     class Meta:
         abstract = True
