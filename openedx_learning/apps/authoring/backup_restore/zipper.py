@@ -3,6 +3,7 @@ This module provides functionality to create a zip file containing the learning 
 including a TOML representation of the learning package and its entities.
 """
 import zipfile
+from pathlib import Path
 
 from openedx_learning.apps.authoring.backup_restore.toml import TOMLLearningPackageFile, TOMLPublishableEntityFile
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
@@ -28,22 +29,18 @@ class LearningPackageZipper:
         """
         package_toml_file = TOMLLearningPackageFile(self.learning_package)
         package_toml_file.create()
-        packafe_toml_content: str = package_toml_file.get()
+        package_toml_content: str = package_toml_file.get()
 
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
-            # Add the package.toml string as a file in the ZIP
-            zipf.writestr(TOML_PACKAGE_NAME, packafe_toml_content)
-
-            # Add entities folder
-            target_folder = "entities"
-            zip_info = zipfile.ZipInfo(target_folder + '/')
-            zipf.writestr(zip_info, '')
+            # Add the package.toml string
+            zipf.writestr(TOML_PACKAGE_NAME, package_toml_content)
 
             # Add the entities
+            entities_folder = Path("entities")
             for entity in self.learning_package.component_set.all():
                 entity_toml = TOMLPublishableEntityFile(entity)
                 entity_toml.create()
                 entity_toml_content = entity_toml.get()
-                filename = f"{entity.key}.toml"
-                arcname = f"{target_folder.rstrip('/')}/{filename}"
-                zipf.writestr(arcname, entity_toml_content)
+                entity_toml_filename = f"{entity.key}.toml"
+                entity_toml_path = entities_folder / entity_toml_filename
+                zipf.writestr(str(entity_toml_path), entity_toml_content)

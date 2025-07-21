@@ -83,11 +83,10 @@ class LpDumpCommandTestCase(TestCase):
         Check that the zip file has the expected structure.
         """
 
-        with zipfile.ZipFile(zip_path, 'r') as zip_file:
+        with zipfile.ZipFile(zip_path, "r") as zip_file:
             # Check that the zip file contains the expected files
             expected_files = [
                 "package.toml",
-                "entities/",
                 "entities/xblock.v1:problem:my_published_example.toml",
                 "entities/xblock.v1:html:my_draft_example.toml",
             ]
