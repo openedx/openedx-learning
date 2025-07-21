@@ -233,7 +233,7 @@ class DraftChangeSetAdmin(ReadOnlyModelAdmin):
     """
     inlines = [DraftChangeLogRecordTabularInline]
     fields = (
-        "uuid",
+        "pk",
         "learning_package",
         "num_changes",
         "changed_at",
@@ -256,7 +256,9 @@ def _entity_list_detail_link(el: EntityList) -> SafeText:
     """
     A link to the detail page for an EntityList which includes its PK and length.
     """
-    return model_detail_link(el, f"EntityList #{el.pk} with {el.entitylistrow_set.count()} row(s)")
+    num_rows = el.entitylistrow_set.count()
+    rows_noun = "row" if num_rows == 1 else "rows"
+    return model_detail_link(el, f"EntityList #{el.pk} with {num_rows} {rows_noun}")
 
 
 class ContainerVersionInlineForContainer(admin.TabularInline):
@@ -266,7 +268,7 @@ class ContainerVersionInlineForContainer(admin.TabularInline):
     model = ContainerVersion
     ordering = ["-publishable_entity_version__version_num"]
     fields = [
-        "uuid",
+        "pk",
         "version_num",
         "title",
         "children",
@@ -290,8 +292,9 @@ class ContainerAdmin(ReadOnlyModelAdmin):
     """
     Django admin configuration for Container
     """
-    list_display = ("key", "uuid", "created", "draft", "published", "see_also")
+    list_display = ("key", "created", "draft", "published", "see_also")
     fields = [
+        "pk",
         "publishable_entity",
         "learning_package",
         "draft",
@@ -304,9 +307,6 @@ class ContainerAdmin(ReadOnlyModelAdmin):
     readonly_fields = fields  # type: ignore[assignment]
     search_fields = ["publishable_entity__uuid", "publishable_entity__key"]
     inlines = [ContainerVersionInlineForContainer]
-
-    def uuid(self, obj: Container) -> SafeText:
-        return model_detail_link(obj, obj.uuid)
 
     def learning_package(self, obj: Container) -> SafeText:
         return model_detail_link(
@@ -322,33 +322,36 @@ class ContainerAdmin(ReadOnlyModelAdmin):
             "publishable_entity__draft__version",
         )
 
-    def draft(self, obj: Container) -> SafeText:
+    def draft(self, obj: Container) -> str:
         """
         Link to this Container's draft ContainerVersion
         """
         if draft := obj.versioning.draft:
             return format_html(
-                "Version {} ({})", draft.version_num, _entity_list_detail_link(draft.entity_list)
+                'Version {} "{}" ({})', draft.version_num, draft.title, _entity_list_detail_link(draft.entity_list)
             )
-        return SafeText("-")
+        return "-"
 
-    def published(self, obj: Container) -> SafeText:
+    def published(self, obj: Container) -> str:
         """
         Link to this Container's published ContainerVersion
         """
         if published := obj.versioning.published:
             return format_html(
-                "Version {} ({})", published.version_num, _entity_list_detail_link(published.entity_list)
+                'Version {} "{}" ({})',
+                published.version_num,
+                published.title,
+                _entity_list_detail_link(published.entity_list),
             )
-        return SafeText("-")
+        return "-"
 
     def see_also(self, obj: Container):
         return one_to_one_related_model_html(obj)
 
-    def most_recent_parent_entity_list(self, obj: Container) -> SafeText:
+    def most_recent_parent_entity_list(self, obj: Container) -> str:
         if latest_row := EntityListRow.objects.filter(entity_id=obj.publishable_entity_id).order_by("-pk").first():
             return _entity_list_detail_link(latest_row.entity_list)
-        return SafeText("-")
+        return "-"
 
 
 class ContainerVersionInlineForEntityList(admin.TabularInline):
@@ -360,7 +363,7 @@ class ContainerVersionInlineForEntityList(admin.TabularInline):
     verbose_name_plural = "Container Versions that reference this Entity List"
     ordering = ["-pk"]  # Newest first
     fields = [
-        "uuid",
+        "pk",
         "version_num",
         "container_key",
         "title",
