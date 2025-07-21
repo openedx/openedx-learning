@@ -6,6 +6,7 @@ import zipfile
 from pathlib import Path
 
 from openedx_learning.apps.authoring.backup_restore.toml import TOMLLearningPackageFile, TOMLPublishableEntityFile
+from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 
 TOML_PACKAGE_NAME = "package.toml"
@@ -35,9 +36,18 @@ class LearningPackageZipper:
             # Add the package.toml string
             zipf.writestr(TOML_PACKAGE_NAME, package_toml_content)
 
-            # Add the entities
+            # Add the entities directory
             entities_folder = Path("entities")
-            for entity in self.learning_package.component_set.all():
+            zip_info = zipfile.ZipInfo(str(entities_folder) + "/")  # Ensure trailing slash
+            zipf.writestr(zip_info, "")  # Add explicit empty directory entry
+
+            # Add the collections directory
+            collections_folder = Path("collections")
+            collections_info = zipfile.ZipInfo(str(collections_folder) + "/")  # Ensure trailing slash
+            zipf.writestr(collections_info, "")  # Add explicit empty directory
+
+            # Add each entity's TOML file
+            for entity in components_api.get_components(self.learning_package.pk):
                 entity_toml = TOMLPublishableEntityFile(entity)
                 entity_toml.create()
                 entity_toml_content = entity_toml.get()

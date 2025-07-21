@@ -64,7 +64,6 @@ class TOMLPublishableEntityFile(TOMLMixin):
         entity = self._create_table({
             "uuid": str(self.publishable_entity.uuid),
             "can_stand_alone": self.publishable_entity.can_stand_alone,
-            "created": self.publishable_entity.created,
         })
         self.doc.add("entity", entity)
 
