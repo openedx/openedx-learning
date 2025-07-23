@@ -5,7 +5,11 @@ including a TOML representation of the learning package and its entities.
 import zipfile
 from pathlib import Path
 
-from openedx_learning.apps.authoring.backup_restore.toml import TOMLLearningPackageFile, TOMLPublishableEntityFile
+from openedx_learning.apps.authoring.backup_restore.toml import (
+    TOMLLearningPackageFile,
+    TOMLPublishableEntityFile,
+    TOMLPublishableEntityVersionFile,
+)
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 
@@ -48,8 +52,18 @@ class LearningPackageZipper:
 
             # Add each entity's TOML file
             for entity in components_api.get_components(self.learning_package.pk):
+                # Create a TOML representation of the entity
                 entity_toml = TOMLPublishableEntityFile(entity)
                 entity_toml.create()
+
+                for entity_version in entity.versioning.versions.all():
+                    # Create a TOML representation of the entity version
+                    entity_version_toml = TOMLPublishableEntityVersionFile(
+                        entity_version, entity_toml.aot, entity_toml.get_document()
+                    )
+                    entity_version_toml.create()
+
+                entity_toml.add_versions_to_document()
                 entity_toml_content = entity_toml.get()
                 entity_toml_filename = f"{entity.key}.toml"
                 entity_toml_path = entities_folder / entity_toml_filename
