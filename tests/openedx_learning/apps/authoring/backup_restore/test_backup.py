@@ -166,14 +166,21 @@ class LpDumpCommandTestCase(TestCase):
                     '[entity]',
                     f'uuid = "{entity.uuid}"',
                     'can_stand_alone = true',
-                    '[entity_draft]',
+                    '[entity.draft]',
                     f'version_num = {entity.versioning.draft.version_num}',
-                    '[entity_published]',
+                    '[entity.published]',
                 ]
                 if entity.versioning.published:
                     expected_content.append(f'version_num = {entity.versioning.published.version_num}')
                 else:
                     expected_content.append('# unpublished: no published_version_num')
+
+                for entity_version in entity.versioning.versions.all():
+                    expected_content.append(f'title = "{entity_version.title}"')
+                    expected_content.append(f'uuid = "{entity_version.uuid}"')
+                    expected_content.append(f'version_num = {entity_version.version_num}')
+                    expected_content.append('[version.container]')
+                    expected_content.append('[version.container.unit]')
 
                 self.check_toml_file(
                     zip_path,
