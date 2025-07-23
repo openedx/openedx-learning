@@ -3,10 +3,10 @@ Utilities for backup and restore app
 """
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from tomlkit import aot, comment, document, dumps, nl, table
-from tomlkit.items import Table
+from tomlkit import TOMLDocument, aot, comment, document, dumps, nl, table
+from tomlkit.items import AoT, Table
 
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 from openedx_learning.apps.authoring.publishing.models.publishable_entity import (
@@ -21,7 +21,7 @@ class TOMLMixin:
     This class can be extended by other classes that need to generate TOML files.
     """
 
-    def __init__(self, existing_doc: document = None):
+    def __init__(self, existing_doc: Optional[TOMLDocument] = None):
         self.doc = document() if existing_doc is None else existing_doc
 
     def add_nl(self) -> None:
@@ -40,7 +40,7 @@ class TOMLMixin:
         self.doc.add(comment(text))
         self.add_nl()
 
-    def _create_table(self, params: Dict[str, Any], comment_text: str = None) -> Table:
+    def _create_table(self, params: Dict[str, Any], comment_text: Optional[str] = None) -> Table:
         """
         Builds a TOML table section from a dictionary of key-value pairs.
         """
@@ -59,7 +59,7 @@ class TOMLMixin:
         """
         return dumps(self.doc)
 
-    def get_document(self) -> document:
+    def get_document(self) -> TOMLDocument:
         """
         Returns:
             document: The TOML document object.
@@ -79,8 +79,8 @@ class TOMLPublishableEntityVersionFile(TOMLMixin):
     def __init__(
             self,
             publishable_entity_version: PublishableEntityVersionMixin,
-            versions: aot,
-            existing_doc: document = None
+            versions: AoT,
+            existing_doc: Optional[TOMLDocument] = None
     ):
         super().__init__(existing_doc)
         self.publishable_entity_version = publishable_entity_version
