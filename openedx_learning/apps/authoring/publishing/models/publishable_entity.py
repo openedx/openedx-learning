@@ -295,6 +295,10 @@ class PublishableEntityMixin(models.Model):
         return self.publishable_entity.uuid
 
     @property
+    def can_stand_alone(self) -> bool:
+        return self.publishable_entity.can_stand_alone
+
+    @property
     def key(self) -> str:
         return self.publishable_entity.key
 
