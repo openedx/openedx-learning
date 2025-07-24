@@ -19,7 +19,7 @@ class PublishingConfig(AppConfig):
         """
         Register Container and ContainerVersion.
         """
-        from .api import register_content_models  # pylint: disable=import-outside-toplevel
+        from .api import register_publishable_models  # pylint: disable=import-outside-toplevel
         from .models import Container, ContainerVersion  # pylint: disable=import-outside-toplevel
 
-        register_content_models(Container, ContainerVersion)
+        register_publishable_models(Container, ContainerVersion)

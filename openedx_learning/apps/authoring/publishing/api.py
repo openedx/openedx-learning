@@ -69,7 +69,7 @@ __all__ = [
     "set_draft_version",
     "soft_delete_draft",
     "reset_drafts_to_published",
-    "register_content_models",
+    "register_publishable_models",
     "filter_publishable_entities",
     # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
     #              out our approach to dynamic content (randomized, A/B tests, etc.)
@@ -789,7 +789,7 @@ def reset_drafts_to_published(
             set_draft_version(draft, published_version_id)
 
 
-def register_content_models(
+def register_publishable_models(
     content_model_cls: type[PublishableEntityMixin],
     content_version_model_cls: type[PublishableEntityVersionMixin],
 ) -> PublishableContentModelRegistry:
@@ -805,10 +805,10 @@ def register_content_models(
     method. For example, in the components app, this looks like:
 
         def ready(self):
-            from ..publishing.api import register_content_models
+            from ..publishing.api import register_publishable_models
             from .models import Component, ComponentVersion
 
-            register_content_models(Component, ComponentVersion)
+            register_publishable_models(Component, ComponentVersion)
 
     There may be a more clever way to introspect this information from the model
     metadata, but this is simple and explicit.

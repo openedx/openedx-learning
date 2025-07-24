@@ -272,7 +272,7 @@ class PublishableEntityMixin(models.Model):
     Please see docstring for PublishableEntity for more details.
 
     If you use this class, you *MUST* also use PublishableEntityVersionMixin and
-    the publishing app's api.register_content_models (see its docstring for
+    the publishing app's api.register_publishable_models (see its docstring for
     details).
     """
     # select these related entities by default for all queries
@@ -551,7 +551,7 @@ class PublishableEntityVersionMixin(models.Model):
     Please see docstring for PublishableEntityVersion for more details.
 
     If you use this class, you *MUST* also use PublishableEntityMixin and the
-    publishing app's api.register_content_models (see its docstring for
+    publishing app's api.register_publishable_models (see its docstring for
     details).
     """
 
@@ -609,7 +609,7 @@ class PublishableContentModelRegistry:
         Register what content model maps to what content version model.
 
         If you want to call this from another app, please use the
-        ``register_content_models`` function in this app's ``api`` module
+        ``register_publishable_models`` function in this app's ``api`` module
         instead.
         """
         if not issubclass(content_model_cls, PublishableEntityMixin):
