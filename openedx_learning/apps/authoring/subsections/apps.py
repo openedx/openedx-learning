@@ -19,7 +19,7 @@ class SubsectionsConfig(AppConfig):
         """
         Register Subsection and SubsectionVersion.
         """
-        from ..publishing.api import register_content_models  # pylint: disable=import-outside-toplevel
+        from ..publishing.api import register_publishable_models  # pylint: disable=import-outside-toplevel
         from .models import Subsection, SubsectionVersion  # pylint: disable=import-outside-toplevel
 
-        register_content_models(Subsection, SubsectionVersion)
+        register_publishable_models(Subsection, SubsectionVersion)

@@ -18,7 +18,7 @@ class ComponentsConfig(AppConfig):
         """
         Register Component and ComponentVersion.
         """
-        from ..publishing.api import register_content_models  # pylint: disable=import-outside-toplevel
+        from ..publishing.api import register_publishable_models  # pylint: disable=import-outside-toplevel
         from .models import Component, ComponentVersion  # pylint: disable=import-outside-toplevel
 
-        register_content_models(Component, ComponentVersion)
+        register_publishable_models(Component, ComponentVersion)

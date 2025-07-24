@@ -19,7 +19,7 @@ class UnitsConfig(AppConfig):
         """
         Register Unit and UnitVersion.
         """
-        from ..publishing.api import register_content_models  # pylint: disable=import-outside-toplevel
+        from ..publishing.api import register_publishable_models  # pylint: disable=import-outside-toplevel
         from .models import Unit, UnitVersion  # pylint: disable=import-outside-toplevel
 
-        register_content_models(Unit, UnitVersion)
+        register_publishable_models(Unit, UnitVersion)

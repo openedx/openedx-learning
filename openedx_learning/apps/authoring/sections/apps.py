@@ -19,7 +19,7 @@ class SectionsConfig(AppConfig):
         """
         Register Section and SectionVersion.
         """
-        from ..publishing.api import register_content_models  # pylint: disable=import-outside-toplevel
+        from ..publishing.api import register_publishable_models  # pylint: disable=import-outside-toplevel
         from .models import Section, SectionVersion  # pylint: disable=import-outside-toplevel
 
-        register_content_models(Section, SectionVersion)
+        register_publishable_models(Section, SectionVersion)
