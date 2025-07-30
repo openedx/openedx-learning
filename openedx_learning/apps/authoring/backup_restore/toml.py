@@ -8,8 +8,8 @@ import tomlkit
 
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 from openedx_learning.apps.authoring.publishing.models.publishable_entity import (
-    PublishableEntity,
-    PublishableEntityVersion,
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
 )
 
 
@@ -27,7 +27,7 @@ def toml_learning_package(learning_package: LearningPackage) -> str:
     return tomlkit.dumps(doc)
 
 
-def toml_publishable_entity(entity: PublishableEntity) -> str:
+def toml_publishable_entity(entity: PublishableEntityMixin) -> str:
     """Create a TOML representation of a publishable entity."""
     doc = tomlkit.document()
     entity_table = tomlkit.table()
@@ -46,17 +46,19 @@ def toml_publishable_entity(entity: PublishableEntity) -> str:
     entity_table.add("published", published)
 
     doc.add("entity", entity_table)
+    doc.add(tomlkit.nl())
     doc.add(tomlkit.comment("### Versions"))
-    doc.add("version", tomlkit.aot())  # Add empty AoT or fill as needed
 
     for entity_version in entity.versioning.versions.all():
+        version = tomlkit.aot()
         version_table = toml_publishable_entity_version(entity_version)
-        doc["version"].append(version_table)
+        version.append(version_table)
+        doc.add("version", version)
 
     return tomlkit.dumps(doc)
 
 
-def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlkit.items.Table:
+def toml_publishable_entity_version(version: PublishableEntityVersionMixin) -> tomlkit.items.Table:
     """Create a TOML representation of a publishable entity version."""
     version_table = tomlkit.table()
     version_table.add("title", version.title)
