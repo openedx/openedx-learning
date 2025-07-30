@@ -5,11 +5,7 @@ including a TOML representation of the learning package and its entities.
 import zipfile
 from pathlib import Path
 
-from openedx_learning.apps.authoring.backup_restore.toml import (
-    TOMLLearningPackageFile,
-    TOMLPublishableEntityFile,
-    TOMLPublishableEntityVersionFile,
-)
+from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 
@@ -32,9 +28,7 @@ class LearningPackageZipper:
         Raises:
             Exception: If the learning package cannot be found or if the zip creation fails.
         """
-        package_toml_file = TOMLLearningPackageFile(self.learning_package)
-        package_toml_file.create()
-        package_toml_content: str = package_toml_file.get()
+        package_toml_content: str = toml_learning_package(self.learning_package)
 
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             # Add the package.toml string
@@ -53,18 +47,7 @@ class LearningPackageZipper:
             # Add each entity's TOML file
             for entity in components_api.get_components(self.learning_package.pk):
                 # Create a TOML representation of the entity
-                entity_toml = TOMLPublishableEntityFile(entity)
-                entity_toml.create()
-
-                for entity_version in entity.versioning.versions.all():
-                    # Create a TOML representation of the entity version
-                    entity_version_toml = TOMLPublishableEntityVersionFile(
-                        entity_version, entity_toml.aot, entity_toml.get_document()
-                    )
-                    entity_version_toml.create()
-
-                entity_toml.add_versions_to_document()
-                entity_toml_content = entity_toml.get()
+                entity_toml_content: str = toml_publishable_entity(entity)
                 entity_toml_filename = f"{entity.key}.toml"
                 entity_toml_path = entities_folder / entity_toml_filename
                 zipf.writestr(str(entity_toml_path), entity_toml_content)
