@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "openedx_learning.apps.authoring.sections.apps.SectionsConfig",
     "openedx_learning.apps.authoring.subsections.apps.SubsectionsConfig",
     "openedx_learning.apps.authoring.units.apps.UnitsConfig",
+    "openedx_learning.apps.authoring.backup_restore.apps.BackupRestoreConfig",
 ]
 
 AUTHENTICATION_BACKENDS = [

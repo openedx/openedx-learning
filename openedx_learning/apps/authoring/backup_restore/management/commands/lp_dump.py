@@ -33,7 +33,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(message))
         except LearningPackage.DoesNotExist as exc:
             message = f"Learning package with key {lp_key} not found"
-            logger.exception(message)
             raise CommandError(message) from exc
         except Exception as e:
             message = f"Failed to export learning package '{lp_key}': {e}"

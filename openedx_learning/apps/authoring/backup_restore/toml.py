@@ -1,72 +1,73 @@
 """
-Utilities for backup and restore app
+TOML serialization for learning packages and publishable entities.
 """
 
 from datetime import datetime
-from typing import Any, Dict
 
-from tomlkit import comment, document, dumps, nl, table
-from tomlkit.items import Table
+import tomlkit
 
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
+from openedx_learning.apps.authoring.publishing.models.publishable_entity import (
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 
 
-class TOMLLearningPackageFile():
-    """
-    Class to create a .toml representation of a LearningPackage instance.
+def toml_learning_package(learning_package: LearningPackage) -> str:
+    """Create a TOML representation of the learning package."""
+    doc = tomlkit.document()
+    doc.add(tomlkit.comment(f"Datetime of the export: {datetime.now()}"))
+    section = tomlkit.table()
+    section.add("title", learning_package.title)
+    section.add("key", learning_package.key)
+    section.add("description", learning_package.description)
+    section.add("created", learning_package.created)
+    section.add("updated", learning_package.updated)
+    doc.add("learning_package", section)
+    return tomlkit.dumps(doc)
 
-    This class builds a structured TOML document using `tomlkit` with metadata and fields
-    extracted from a `LearningPackage` object. The output can later be saved to a file or used elsewhere.
-    """
 
-    def __init__(self, learning_package: LearningPackage):
-        self.doc = document()
-        self.learning_package = learning_package
+def toml_publishable_entity(entity: PublishableEntityMixin) -> str:
+    """Create a TOML representation of a publishable entity."""
+    doc = tomlkit.document()
+    entity_table = tomlkit.table()
+    entity_table.add("uuid", str(entity.uuid))
+    entity_table.add("can_stand_alone", entity.can_stand_alone)
 
-    def _create_header(self) -> None:
-        """
-        Adds a comment with the current datetime to indicate when the export occurred.
-        This helps with traceability and file versioning.
-        """
-        self.doc.add(comment(f"Datetime of the export: {datetime.now()}"))
-        self.doc.add(nl())
+    draft = tomlkit.table()
+    draft.add("version_num", entity.versioning.draft.version_num)
+    entity_table.add("draft", draft)
 
-    def _create_table(self, params: Dict[str, Any]) -> Table:
-        """
-        Builds a TOML table section from a dictionary of key-value pairs.
+    published = tomlkit.table()
+    if entity.versioning.published:
+        published.add("version_num", entity.versioning.published.version_num)
+    else:
+        published.add(tomlkit.comment("unpublished: no published_version_num"))
+    entity_table.add("published", published)
 
-        Args:
-            params (Dict[str, Any]): A dictionary containing keys and values to include in the TOML table.
+    doc.add("entity", entity_table)
+    doc.add(tomlkit.nl())
+    doc.add(tomlkit.comment("### Versions"))
 
-        Returns:
-            Table: A TOML table populated with the provided keys and values.
-        """
-        section = table()
-        for key, value in params.items():
-            section.add(key, value)
-        return section
+    for entity_version in entity.versioning.versions.all():
+        version = tomlkit.aot()
+        version_table = toml_publishable_entity_version(entity_version)
+        version.append(version_table)
+        doc.add("version", version)
 
-    def create(self) -> None:
-        """
-        Populates the TOML document with a header and a table containing
-        metadata from the LearningPackage instance.
+    return tomlkit.dumps(doc)
 
-        This method must be called before calling `get()`, otherwise the document will be empty.
-        """
-        self._create_header()
-        section = self._create_table({
-            "title": self.learning_package.title,
-            "key": self.learning_package.key,
-            "description": self.learning_package.description,
-            "created": self.learning_package.created,
-            "updated": self.learning_package.updated
-        })
-        self.doc.add("learning_package", section)
 
-    def get(self) -> str:
-        """
-        Returns:
-            str: The string representation of the generated TOML document.
-            Ensure `create()` has been called beforehand to get meaningful output.
-        """
-        return dumps(self.doc)
+def toml_publishable_entity_version(version: PublishableEntityVersionMixin) -> tomlkit.items.Table:
+    """Create a TOML representation of a publishable entity version."""
+    version_table = tomlkit.table()
+    version_table.add("title", version.title)
+    version_table.add("uuid", str(version.uuid))
+    version_table.add("version_num", version.version_num)
+    container_table = tomlkit.table()
+    container_table.add("children", [])
+    unit_table = tomlkit.table()
+    unit_table.add("graded", True)
+    container_table.add("unit", unit_table)
+    version_table.add("container", container_table)
+    return version_table  # For use in AoT
