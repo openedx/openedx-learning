@@ -1075,3 +1075,66 @@ class ContainerTestCase(TestCase):
         assert unit_change.affected_by.first().cause == component_change
         assert subsection_change.affected_by.count() == 1
         assert subsection_change.affected_by.first().cause == unit_change
+
+
+class GeneralTestCase(TestCase):
+    """
+    Test general operations with the publishing API.
+    """
+    now: datetime
+    learning_package_1: LearningPackage
+    learning_package_2: LearningPackage
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.now = datetime(2024, 1, 28, 16, 45, 30, tzinfo=timezone.utc)
+        cls.learning_package_1 = publishing_api.create_learning_package(
+            "my_package_key_1",
+            "Draft Testing LearningPackage 🔥 1",
+            created=cls.now,
+        )
+        cls.learning_package_2 = publishing_api.create_learning_package(
+            "my_package_key_2",
+            "Draft Testing LearningPackage 🔥 2",
+            created=cls.now,
+        )
+
+    def test_get_entities(self) -> None:
+        """
+        Simplest test that multiple entities can be created and fetched.
+        2 entities should be created, and both should be returned.
+        """
+        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+            entity = publishing_api.create_publishable_entity(
+                self.learning_package_1.id,
+                "my_entity",
+                created=self.now,
+                created_by=None,
+            )
+            publishing_api.create_publishable_entity_version(
+                entity.id,
+                version_num=1,
+                title="An Entity 🌴",
+                created=self.now,
+                created_by=None,
+            )
+            entity2 = publishing_api.create_publishable_entity(
+                self.learning_package_1.id,
+                "my_entity2",
+                created=self.now,
+                created_by=None,
+            )
+            publishing_api.create_publishable_entity_version(
+                entity2.id,
+                version_num=1,
+                title="An Entity 🌴 2",
+                created=self.now,
+                created_by=None,
+            )
+        entities = publishing_api.get_entities(self.learning_package_1.id)
+        assert entities.count() == 2
+        for entity in entities:
+            assert isinstance(entity, PublishableEntity)
+            assert entity.learning_package_id == self.learning_package_1.id
+            assert entity.created == self.now
+            assert entity.created_by is None
