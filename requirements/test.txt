@@ -20,7 +20,7 @@ billiard==4.2.1
     #   celery
 celery==5.5.3
     # via -r requirements/base.txt
-certifi==2025.7.14
+certifi==2025.8.3
     # via
     #   -r requirements/base.txt
     #   requests
@@ -57,7 +57,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==2.3.0
     # via -r requirements/test.in
-coverage[toml]==7.10.1
+coverage[toml]==7.10.2
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -68,7 +68,7 @@ cryptography==45.0.5
 ddt==1.7.2
     # via -r requirements/test.in
     # via
-    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
+    #   -c https:/raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/base.txt
     #   django-crum
     #   django-debug-toolbar
@@ -121,7 +121,7 @@ edx-opaque-keys==3.0.0
     # via
     #   -r requirements/base.txt
     #   edx-drf-extensions
-freezegun==1.5.3
+freezegun==1.5.4
     # via -r requirements/test.in
 grimp==3.9
     # via import-linter
@@ -145,7 +145,7 @@ markupsafe==3.0.2
     # via jinja2
 mock==5.2.0
     # via -r requirements/test.in
-mypy==1.17.0
+mypy==1.17.1
     # via -r requirements/test.in
 mypy-extensions==1.1.0
     # via mypy
@@ -261,9 +261,8 @@ tzdata==2025.2
     # via
     #   -r requirements/base.txt
     #   kombu
-urllib3==2.2.3
+urllib3==2.5.0
     # via
-    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/base.txt
     #   requests
     #   types-requests

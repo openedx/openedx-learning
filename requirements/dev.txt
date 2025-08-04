@@ -27,7 +27,7 @@ billiard==4.2.1
     # via
     #   -r requirements/quality.txt
     #   celery
-build==1.2.2.post1
+build==1.3.0
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
@@ -37,7 +37,7 @@ cachetools==6.1.0
     #   tox
 celery==5.5.3
     # via -r requirements/quality.txt
-certifi==2025.7.14
+certifi==2025.8.3
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -94,7 +94,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.10.1
+coverage[toml]==7.10.2
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -117,7 +117,7 @@ distlib==0.4.0
     #   virtualenv
 django==4.2.23
     # via
-    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
+    #   -c https:/raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/quality.txt
     #   django-crum
     #   django-debug-toolbar
@@ -161,7 +161,7 @@ dnspython==2.7.0
     # via
     #   -r requirements/quality.txt
     #   pymongo
-docutils==0.21.2
+docutils==0.22
     # via
     #   -r requirements/quality.txt
     #   readme-renderer
@@ -188,7 +188,7 @@ filelock==3.18.0
     #   -r requirements/ci.txt
     #   tox
     #   virtualenv
-freezegun==1.5.3
+freezegun==1.5.4
     # via -r requirements/quality.txt
 grimp==3.9
     # via
@@ -254,7 +254,7 @@ kombu==5.5.4
     # via
     #   -r requirements/quality.txt
     #   celery
-lxml[html-clean,html_clean]==6.0.0
+lxml[html-clean]==6.0.0
     # via
     #   edx-i18n-tools
     #   lxml-html-clean
@@ -283,7 +283,7 @@ more-itertools==10.7.0
     #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.17.0
+mypy==1.17.1
     # via -r requirements/quality.txt
 mypy-extensions==1.1.0
     # via
@@ -316,7 +316,7 @@ pbr==6.1.1
     # via
     #   -r requirements/quality.txt
     #   stevedore
-pip-tools==7.4.1
+pip-tools==7.5.0
     # via -r requirements/pip-tools.txt
 platformdirs==4.3.8
     # via
@@ -485,7 +485,7 @@ tomlkit==0.13.3
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==4.28.3
+tox==4.28.4
     # via -r requirements/ci.txt
 twine==6.1.0
     # via -r requirements/quality.txt
@@ -513,9 +513,8 @@ tzdata==2025.2
     # via
     #   -r requirements/quality.txt
     #   kombu
-urllib3==2.2.3
+urllib3==2.5.0
     # via
-    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/quality.txt
     #   requests
     #   twine
@@ -526,7 +525,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.32.0
+virtualenv==20.33.0
     # via
     #   -r requirements/ci.txt
     #   tox
