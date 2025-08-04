@@ -1077,9 +1077,9 @@ class ContainerTestCase(TestCase):
         assert subsection_change.affected_by.first().cause == unit_change
 
 
-class GeneralTestCase(TestCase):
+class EntitiesQueryTestCase(TestCase):
     """
-    Test general operations with the publishing API.
+    Tests for querying PublishableEntity objects.
     """
     now: datetime
     learning_package_1: LearningPackage
@@ -1087,22 +1087,21 @@ class GeneralTestCase(TestCase):
 
     @classmethod
     def setUpTestData(cls) -> None:
-        cls.now = datetime(2024, 1, 28, 16, 45, 30, tzinfo=timezone.utc)
+        cls.now = datetime(2025, 8, 4, 12, 00, 00, tzinfo=timezone.utc)
         cls.learning_package_1 = publishing_api.create_learning_package(
             "my_package_key_1",
-            "Draft Testing LearningPackage 🔥 1",
+            "Entities Testing LearningPackage 🔥 1",
             created=cls.now,
         )
         cls.learning_package_2 = publishing_api.create_learning_package(
             "my_package_key_2",
-            "Draft Testing LearningPackage 🔥 2",
+            "Entities Testing LearningPackage 🔥 2",
             created=cls.now,
         )
 
     def test_get_entities(self) -> None:
         """
-        Simplest test that multiple entities can be created and fetched.
-        2 entities should be created, and both should be returned.
+        Test that get_entities returns all entities for a learning package.
         """
         with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
             entity = publishing_api.create_publishable_entity(
