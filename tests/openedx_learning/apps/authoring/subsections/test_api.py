@@ -1024,6 +1024,32 @@ class SubSectionTestCase(UnitTestCase):  # pylint: disable=test-inherits-tests
             ]
         assert result2 == [subsection4_unpinned]
 
+    def test_get_units_in_subsection_queries(self):
+        """
+        Test the query count of get_units_in_subsection()
+        This also tests the generic method get_entities_in_container()
+        """
+        subsection = self.create_subsection_with_units([
+            self.unit_1,
+            self.unit_2,
+            self.unit_2_v1,
+        ])
+        with self.assertNumQueries(4):
+            result = authoring_api.get_units_in_subsection(subsection, published=False)
+        assert result == [
+            Entry(self.unit_1.versioning.draft),
+            Entry(self.unit_2.versioning.draft),
+            Entry(self.unit_2.versioning.draft, pinned=True),
+        ]
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        with self.assertNumQueries(4):
+            result = authoring_api.get_units_in_subsection(subsection, published=True)
+        assert result == [
+            Entry(self.unit_1.versioning.draft),
+            Entry(self.unit_2.versioning.draft),
+            Entry(self.unit_2.versioning.draft, pinned=True),
+        ]
+
     def test_add_remove_container_children(self):
         """
         Test adding and removing children units from subsections.

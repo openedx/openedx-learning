@@ -1012,6 +1012,32 @@ class UnitTestCase(ComponentTestCase):
             ]
         assert result2 == [unit4_unpinned, unit7_several]
 
+    def test_get_components_in_unit_queries(self):
+        """
+        Test the query count of get_components_in_unit()
+        This also tests the generic method get_entities_in_container()
+        """
+        unit = self.create_unit_with_components([
+            self.component_1,
+            self.component_2,
+            self.component_2_v1,
+        ])
+        with self.assertNumQueries(3):
+            result = authoring_api.get_components_in_unit(unit, published=False)
+        assert result == [
+            Entry(self.component_1.versioning.draft),
+            Entry(self.component_2.versioning.draft),
+            Entry(self.component_2.versioning.draft, pinned=True),
+        ]
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        with self.assertNumQueries(3):
+            result = authoring_api.get_components_in_unit(unit, published=True)
+        assert result == [
+            Entry(self.component_1.versioning.draft),
+            Entry(self.component_2.versioning.draft),
+            Entry(self.component_2.versioning.draft, pinned=True),
+        ]
+
     def test_add_remove_container_children(self):
         """
         Test adding and removing children components from containers.
