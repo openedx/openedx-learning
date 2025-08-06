@@ -111,6 +111,8 @@ class LpDumpCommandTestCase(TestCase):
                 "package.toml",
                 "entities/",
                 "collections/",
+                "entities/xblock.v1/",
+                "entities/xblock.v1/html/",
             ]
 
             # Add expected entity files
