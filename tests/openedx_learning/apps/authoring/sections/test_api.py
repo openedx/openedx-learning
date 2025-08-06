@@ -993,6 +993,32 @@ class SectionTestCase(SubSectionTestCase):  # pylint: disable=test-inherits-test
             ]
         assert result2 == [section4_unpinned]
 
+    def test_get_subsections_in_section_queries(self):
+        """
+        Test the query count of get_subsections_in_section()
+        This also tests the generic method get_entities_in_container()
+        """
+        section = self.create_section_with_subsections([
+            self.subsection_1,
+            self.subsection_2,
+            self.subsection_2_v1,
+        ])
+        with self.assertNumQueries(4):
+            result = authoring_api.get_subsections_in_section(section, published=False)
+        assert result == [
+            Entry(self.subsection_1.versioning.draft),
+            Entry(self.subsection_2.versioning.draft),
+            Entry(self.subsection_2.versioning.draft, pinned=True),
+        ]
+        authoring_api.publish_all_drafts(self.learning_package.id)
+        with self.assertNumQueries(4):
+            result = authoring_api.get_subsections_in_section(section, published=True)
+        assert result == [
+            Entry(self.subsection_1.versioning.draft),
+            Entry(self.subsection_2.versioning.draft),
+            Entry(self.subsection_2.versioning.draft, pinned=True),
+        ]
+
     def test_add_remove_container_children(self):
         """
         Test adding and removing children subsections from sections.

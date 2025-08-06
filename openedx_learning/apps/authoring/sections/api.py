@@ -257,7 +257,12 @@ def get_subsections_in_section(
     """
     assert isinstance(section, Section)
     subsections = []
-    for entry in publishing_api.get_entities_in_container(section, published=published):
+    entries = publishing_api.get_entities_in_container(
+        section,
+        published=published,
+        select_related_version="containerversion__subsectionversion",
+    )
+    for entry in entries:
         # Convert from generic PublishableEntityVersion to SubsectionVersion:
         subsection_version = entry.entity_version.containerversion.subsectionversion
         assert isinstance(subsection_version, SubsectionVersion)
