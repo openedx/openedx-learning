@@ -6,11 +6,8 @@ from datetime import datetime
 
 import tomlkit
 
+from openedx_learning.apps.authoring.publishing.models import PublishableEntity, PublishableEntityVersion
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
-from openedx_learning.apps.authoring.publishing.models.publishable_entity import (
-    PublishableEntityMixin,
-    PublishableEntityVersionMixin,
-)
 
 
 def toml_learning_package(learning_package: LearningPackage) -> str:
@@ -27,29 +24,34 @@ def toml_learning_package(learning_package: LearningPackage) -> str:
     return tomlkit.dumps(doc)
 
 
-def toml_publishable_entity(entity: PublishableEntityMixin) -> str:
+def toml_publishable_entity(entity: PublishableEntity) -> str:
     """Create a TOML representation of a publishable entity."""
+
+    current_draft_version = getattr(entity, "draft", None)
+    current_published_version = getattr(entity, "published", None)
+
     doc = tomlkit.document()
     entity_table = tomlkit.table()
     entity_table.add("uuid", str(entity.uuid))
     entity_table.add("can_stand_alone", entity.can_stand_alone)
 
-    draft = tomlkit.table()
-    draft.add("version_num", entity.versioning.draft.version_num)
-    entity_table.add("draft", draft)
+    if current_draft_version:
+        draft_table = tomlkit.table()
+        draft_table.add("version_num", current_draft_version.version.version_num)
+        entity_table.add("draft", draft_table)
 
-    published = tomlkit.table()
-    if entity.versioning.published:
-        published.add("version_num", entity.versioning.published.version_num)
+    published_table = tomlkit.table()
+    if current_published_version:
+        published_table.add("version_num", current_published_version.version.version_num)
     else:
-        published.add(tomlkit.comment("unpublished: no published_version_num"))
-    entity_table.add("published", published)
+        published_table.add(tomlkit.comment("unpublished: no published_version_num"))
+    entity_table.add("published", published_table)
 
     doc.add("entity", entity_table)
     doc.add(tomlkit.nl())
     doc.add(tomlkit.comment("### Versions"))
 
-    for entity_version in entity.versioning.versions.all():
+    for entity_version in entity.versions.all():
         version = tomlkit.aot()
         version_table = toml_publishable_entity_version(entity_version)
         version.append(version_table)
@@ -58,7 +60,7 @@ def toml_publishable_entity(entity: PublishableEntityMixin) -> str:
     return tomlkit.dumps(doc)
 
 
-def toml_publishable_entity_version(version: PublishableEntityVersionMixin) -> tomlkit.items.Table:
+def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlkit.items.Table:
     """Create a TOML representation of a publishable entity version."""
     version_table = tomlkit.table()
     version_table.add("title", version.title)
