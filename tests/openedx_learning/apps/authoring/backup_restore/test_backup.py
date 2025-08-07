@@ -86,8 +86,7 @@ class LpDumpCommandTestCase(TestCase):
             created_by=cls.user.id,
         )
 
-        # components = self.learning_package.publishable_entities.all()
-        components = api.get_components(cls.learning_package)
+        components = api.get_entities(cls.learning_package)
         cls.all_components = components
 
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):
@@ -113,6 +112,15 @@ class LpDumpCommandTestCase(TestCase):
                 "collections/",
                 "entities/xblock.v1/",
                 "entities/xblock.v1/html/",
+                "entities/xblock.v1/html/my_draft_example/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v1/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v1/static/",
+                "entities/xblock.v1/problem/",
+                "entities/xblock.v1/problem/my_published_example/",
+                "entities/xblock.v1/problem/my_published_example/component_versions/",
+                "entities/xblock.v1/problem/my_published_example/component_versions/v1/",
+                "entities/xblock.v1/problem/my_published_example/component_versions/v1/static/",
             ]
 
             # Add expected entity files
@@ -164,20 +172,22 @@ class LpDumpCommandTestCase(TestCase):
 
             # Check the content of the entity TOML files
             for entity in self.all_components:
+                current_draft_version = getattr(entity, "draft", None)
+                current_published_version = getattr(entity, "published", None)
                 expected_content = [
                     '[entity]',
                     f'uuid = "{entity.uuid}"',
                     'can_stand_alone = true',
                     '[entity.draft]',
-                    f'version_num = {entity.versioning.draft.version_num}',
+                    f'version_num = {current_draft_version.version.version_num}',
                     '[entity.published]',
                 ]
-                if entity.versioning.published:
-                    expected_content.append(f'version_num = {entity.versioning.published.version_num}')
+                if current_published_version:
+                    expected_content.append(f'version_num = {current_published_version.version.version_num}')
                 else:
                     expected_content.append('# unpublished: no published_version_num')
 
-                for entity_version in entity.versioning.versions.all():
+                for entity_version in entity.versions.all():
                     expected_content.append(f'title = "{entity_version.title}"')
                     expected_content.append(f'uuid = "{entity_version.uuid}"')
                     expected_content.append(f'version_num = {entity_version.version_num}')
