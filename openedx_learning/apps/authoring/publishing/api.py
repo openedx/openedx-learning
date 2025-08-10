@@ -977,11 +977,14 @@ def _create_container_version(
     created: datetime,
     created_by: int | None,
     container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
+    metadata: dict | None = None,
 ) -> ContainerVersionModel:
     """
     Private internal method for logic shared by create_container_version() and
     create_next_container_version().
     """
+    if metadata is None:
+        metadata = {}
     assert issubclass(container_version_cls, ContainerVersion)
     with atomic(savepoint=False):  # Make sure this will happen atomically but we don't need to create a new savepoint.
         publishable_entity_version = create_publishable_entity_version(
@@ -995,6 +998,7 @@ def _create_container_version(
             publishable_entity_version=publishable_entity_version,
             container_id=container.pk,
             entity_list=entity_list,
+            **metadata,
         )
 
     return container_version
@@ -1120,6 +1124,7 @@ def create_next_container_version(
     created_by: int | None,
     container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
     entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
+    metadata: dict | None = None,
 ) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
@@ -1140,10 +1145,14 @@ def create_next_container_version(
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
         container_version_cls: The subclass of ContainerVersion to use, if applicable.
+        metadata: Dict with the metadata to be saved in the new `container_version_cls` object.
+        Be careful, at this point the None in metadata values DOES generate changes unlike other fields.
 
     Returns:
         The newly created container version.
     """
+    if metadata is None:
+        metadata = {}
     assert issubclass(container_version_cls, ContainerVersion)
     with atomic():
         container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
@@ -1171,6 +1180,7 @@ def create_next_container_version(
             created=created,
             created_by=created_by,
             container_version_cls=container_version_cls,
+            metadata=metadata,
         )
 
     return next_container_version
