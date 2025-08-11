@@ -51,7 +51,7 @@ chardet==5.2.0
     #   -r requirements/ci.txt
     #   diff-cover
     #   tox
-charset-normalizer==3.4.2
+charset-normalizer==3.4.3
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -94,11 +94,11 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.10.2
+coverage[toml]==7.10.3
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
-cryptography==45.0.5
+cryptography==45.0.6
     # via
     #   -r requirements/quality.txt
     #   pyjwt
@@ -150,7 +150,7 @@ django-waffle==5.0.0
     #   -r requirements/quality.txt
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.16.0
+djangorestframework==3.16.1
     # via
     #   -r requirements/quality.txt
     #   drf-jwt
@@ -188,7 +188,7 @@ filelock==3.18.0
     #   -r requirements/ci.txt
     #   tox
     #   virtualenv
-freezegun==1.5.4
+freezegun==1.5.5
     # via -r requirements/quality.txt
 grimp==3.9
     # via
@@ -363,7 +363,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.3.7
+pylint==3.3.8
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -383,7 +383,7 @@ pylint-plugin-utils==0.9.0
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.13.2
+pymongo==4.14.0
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
@@ -489,12 +489,12 @@ tox==4.28.4
     # via -r requirements/ci.txt
 twine==6.1.0
     # via -r requirements/quality.txt
-types-pyyaml==6.0.12.20250516
+types-pyyaml==6.0.12.20250809
     # via
     #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.4.20250611
+types-requests==2.32.4.20250809
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
@@ -525,7 +525,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.33.0
+virtualenv==20.33.1
     # via
     #   -r requirements/ci.txt
     #   tox
