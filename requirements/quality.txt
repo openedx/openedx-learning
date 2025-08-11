@@ -35,7 +35,7 @@ cffi==1.17.1
     #   -r requirements/test.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.4.2
+charset-normalizer==3.4.3
     # via
     #   -r requirements/test.txt
     #   requests
@@ -69,11 +69,11 @@ code-annotations==2.3.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.10.2
+coverage[toml]==7.10.3
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==45.0.5
+cryptography==45.0.6
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -114,7 +114,7 @@ django-waffle==5.0.0
     #   -r requirements/test.txt
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.16.0
+djangorestframework==3.16.1
     # via
     #   -r requirements/test.txt
     #   drf-jwt
@@ -143,7 +143,7 @@ edx-opaque-keys==3.0.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-freezegun==1.5.4
+freezegun==1.5.5
     # via -r requirements/test.txt
 grimp==3.9
     # via
@@ -265,7 +265,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.3.7
+pylint==3.3.8
     # via
     #   edx-lint
     #   pylint-celery
@@ -279,7 +279,7 @@ pylint-plugin-utils==0.9.0
     # via
     #   pylint-celery
     #   pylint-django
-pymongo==4.13.2
+pymongo==4.14.0
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -361,12 +361,12 @@ tomlkit==0.13.3
     #   pylint
 twine==6.1.0
     # via -r requirements/quality.in
-types-pyyaml==6.0.12.20250516
+types-pyyaml==6.0.12.20250809
     # via
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.4.20250611
+types-requests==2.32.4.20250809
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
