@@ -257,7 +257,12 @@ def get_components_in_unit(
     """
     assert isinstance(unit, Unit)
     components = []
-    for entry in publishing_api.get_entities_in_container(unit, published=published):
+    entries = publishing_api.get_entities_in_container(
+        unit,
+        published=published,
+        select_related_version="componentversion",
+    )
+    for entry in entries:
         # Convert from generic PublishableEntityVersion to ComponentVersion:
         component_version = entry.entity_version.componentversion
         assert isinstance(component_version, ComponentVersion)

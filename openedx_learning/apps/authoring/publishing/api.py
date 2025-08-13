@@ -1283,6 +1283,7 @@ def get_entities_in_container(
     container: Container,
     *,
     published: bool,
+    select_related_version: str | None = None,
 ) -> list[ContainerEntityListEntry]:
     """
     [ 🛑 UNSTABLE ]
@@ -1293,14 +1294,35 @@ def get_entities_in_container(
         container: The Container, e.g. returned by `get_container()`
         published: `True` if we want the published version of the container, or
             `False` for the draft version.
+        select_related_version: An optional optimization; specify a relationship
+        on ContainerVersion, like `componentversion` or `containerversion__x`
+        to preload via select_related.
     """
     assert isinstance(container, Container)
-    container_version = container.versioning.published if published else container.versioning.draft
+    if published:
+        # Very minor optimization: reload the container with related 1:1 entities
+        container = Container.objects.select_related(
+            "publishable_entity__published__version__containerversion__entity_list").get(pk=container.pk)
+        container_version = container.versioning.published
+        select_related = ["entity__published__version"]
+        if select_related_version:
+            select_related.append(f"entity__published__version__{select_related_version}")
+    else:
+        # Very minor optimization: reload the container with related 1:1 entities
+        container = Container.objects.select_related(
+            "publishable_entity__draft__version__containerversion__entity_list").get(pk=container.pk)
+        container_version = container.versioning.draft
+        select_related = ["entity__draft__version"]
+        if select_related_version:
+            select_related.append(f"entity__draft__version__{select_related_version}")
     if container_version is None:
         raise ContainerVersion.DoesNotExist  # This container has not been published yet, or has been deleted.
     assert isinstance(container_version, ContainerVersion)
-    entity_list = []
-    for row in container_version.entity_list.entitylistrow_set.order_by("order_num"):
+    entity_list: list[ContainerEntityListEntry] = []
+    for row in container_version.entity_list.entitylistrow_set.select_related(
+        "entity_version",
+        *select_related,
+    ).order_by("order_num"):
         entity_version = row.entity_version  # This will be set if pinned
         if not entity_version:  # If this entity is "unpinned", use the latest published/draft version:
             entity_version = row.entity.published.version if published else row.entity.draft.version
@@ -1393,7 +1415,10 @@ def get_containers_with_entity(
         qs = Container.objects.filter(
             publishable_entity__draft__version__containerversion__entity_list__entitylistrow__entity_id=publishable_entity_pk,  # pylint: disable=line-too-long # noqa: E501
         )
-    return qs.order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
+    return qs.select_related(
+        "publishable_entity__draft__version__containerversion",
+        "publishable_entity__published__version__containerversion",
+    ).order_by("pk").distinct()  # Ordering is mostly for consistent test cases.
 
 
 def get_container_children_count(
