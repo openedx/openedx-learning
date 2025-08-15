@@ -68,6 +68,14 @@ class LpDumpCommandTestCase(TestCase):
             published_at=cls.now,
         )
 
+        api.create_component_version(
+            cls.published_component.pk,
+            version_num=cls.published_component.versioning.draft.version_num + 1,
+            title="My published problem draft v2",
+            created=cls.now,
+            created_by=cls.user.id,
+        )
+
         # Create a Draft component, one in each learning package
         cls.draft_component, _ = api.create_component_and_version(
             cls.learning_package.id,
@@ -114,8 +122,8 @@ class LpDumpCommandTestCase(TestCase):
                 "entities/xblock.v1/html/",
                 "entities/xblock.v1/html/my_draft_example/",
                 "entities/xblock.v1/html/my_draft_example/component_versions/",
-                "entities/xblock.v1/html/my_draft_example/component_versions/v1/",
-                "entities/xblock.v1/html/my_draft_example/component_versions/v1/static/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/",
                 "entities/xblock.v1/problem/",
                 "entities/xblock.v1/problem/my_published_example/",
                 "entities/xblock.v1/problem/my_published_example/component_versions/",
