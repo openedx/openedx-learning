@@ -133,7 +133,10 @@ class LpDumpCommandTestCase(TestCase):
 
             # Add expected entity files
             for entity in self.all_components:
-                expected_files.append(f"entities/{entity.key}.toml")
+                if hasattr(entity, 'component'):
+                    component_type_name = entity.component.component_type.name
+                    file_path = f"entities/xblock.v1/{component_type_name}/{entity.component.local_key}.toml"
+                    expected_files.append(file_path)
 
             # Check that all expected files are present
             for expected_file in expected_files:
@@ -180,33 +183,29 @@ class LpDumpCommandTestCase(TestCase):
 
             # Check the content of the entity TOML files
             for entity in self.all_components:
-                current_draft_version = getattr(entity, "draft", None)
-                current_published_version = getattr(entity, "published", None)
-                expected_content = [
-                    '[entity]',
-                    f'uuid = "{entity.uuid}"',
-                    'can_stand_alone = true',
-                    '[entity.draft]',
-                    f'version_num = {current_draft_version.version.version_num}',
-                    '[entity.published]',
-                ]
-                if current_published_version:
-                    expected_content.append(f'version_num = {current_published_version.version.version_num}')
-                else:
-                    expected_content.append('# unpublished: no published_version_num')
+                if hasattr(entity, 'component'):
+                    current_draft_version = getattr(entity, "draft", None)
+                    current_published_version = getattr(entity, "published", None)
+                    expected_content = [
+                        '[entity]',
+                        f'uuid = "{entity.uuid}"',
+                        'can_stand_alone = true',
+                        '[entity.draft]',
+                        f'version_num = {current_draft_version.version.version_num}',
+                        '[entity.published]',
+                    ]
+                    if current_published_version:
+                        expected_content.append(f'version_num = {current_published_version.version.version_num}')
+                    else:
+                        expected_content.append('# unpublished: no published_version_num')
 
-                for entity_version in entity.versions.all():
-                    expected_content.append(f'title = "{entity_version.title}"')
-                    expected_content.append(f'uuid = "{entity_version.uuid}"')
-                    expected_content.append(f'version_num = {entity_version.version_num}')
-                    expected_content.append('[version.container]')
-                    expected_content.append('[version.container.unit]')
-
-                self.check_toml_file(
-                    zip_path,
-                    Path(f"entities/{entity.key}.toml"),
-                    expected_content
-                )
+                    component_type_name = entity.component.component_type.name
+                    file_path = f"entities/xblock.v1/{component_type_name}/{entity.component.local_key}.toml"
+                    self.check_toml_file(
+                        zip_path,
+                        Path(file_path),
+                        expected_content
+                    )
 
             # Check the output message
             message = f'{lp_key} written to {file_name}'

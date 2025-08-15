@@ -67,9 +67,11 @@ class LearningPackageZipper:
 
                 # Create a TOML representation of the entity
                 entity_toml_content: str = toml_publishable_entity(entity)
-                entity_toml_filename = f"{entity.key}.toml"
-                entity_toml_path = entities_folder / entity_toml_filename
-                zipf.writestr(str(entity_toml_path), entity_toml_content)
+
+                if hasattr(entity, 'container'):
+                    entity_toml_filename = f"{entity.key}.toml"
+                    entity_toml_path = entities_folder / entity_toml_filename
+                    zipf.writestr(str(entity_toml_path), entity_toml_content)
 
                 if hasattr(entity, 'component'):
                     # Create the component folder structure for the entity. The structure is as follows:
