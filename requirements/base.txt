@@ -74,7 +74,7 @@ kombu==5.5.4
     # via celery
 packaging==25.0
     # via kombu
-pbr==6.1.1
+pbr==7.0.0
     # via stevedore
 prompt-toolkit==3.0.51
     # via click-repl

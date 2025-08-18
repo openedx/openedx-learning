@@ -94,7 +94,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.10.3
+coverage[toml]==7.10.4
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -155,7 +155,7 @@ djangorestframework==3.16.1
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.16.1
+djangorestframework-stubs==3.16.2
     # via -r requirements/quality.txt
 dnspython==2.7.0
     # via
@@ -183,7 +183,7 @@ edx-opaque-keys==3.0.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-filelock==3.18.0
+filelock==3.19.1
     # via
     #   -r requirements/ci.txt
     #   tox
@@ -203,7 +203,7 @@ idna==3.10
     # via
     #   -r requirements/quality.txt
     #   requests
-import-linter==2.3
+import-linter==2.4
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -260,7 +260,7 @@ lxml[html-clean]==6.0.0
     #   lxml-html-clean
 lxml-html-clean==0.4.2
     # via lxml
-markdown-it-py==3.0.0
+markdown-it-py==4.0.0
     # via
     #   -r requirements/quality.txt
     #   rich
@@ -312,7 +312,7 @@ pathspec==0.12.1
     # via
     #   -r requirements/quality.txt
     #   mypy
-pbr==6.1.1
+pbr==7.0.0
     # via
     #   -r requirements/quality.txt
     #   stevedore
@@ -525,7 +525,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==20.33.1
+virtualenv==20.34.0
     # via
     #   -r requirements/ci.txt
     #   tox

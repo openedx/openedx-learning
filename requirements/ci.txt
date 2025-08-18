@@ -14,13 +14,13 @@ colorama==0.4.6
     # via tox
 distlib==0.4.0
     # via virtualenv
-filelock==3.18.0
+filelock==3.19.1
     # via
     #   tox
     #   virtualenv
 grimp==3.9
     # via import-linter
-import-linter==2.3
+import-linter==2.4
     # via -r requirements/ci.in
 joblib==1.5.1
     # via grimp
@@ -42,5 +42,5 @@ typing-extensions==4.14.1
     # via
     #   grimp
     #   import-linter
-virtualenv==20.33.1
+virtualenv==20.34.0
     # via tox
