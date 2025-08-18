@@ -69,7 +69,7 @@ code-annotations==2.3.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.10.3
+coverage[toml]==7.10.4
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -119,7 +119,7 @@ djangorestframework==3.16.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.16.1
+djangorestframework-stubs==3.16.2
     # via -r requirements/test.txt
 dnspython==2.7.0
     # via
@@ -155,7 +155,7 @@ idna==3.10
     # via
     #   -r requirements/test.txt
     #   requests
-import-linter==2.3
+import-linter==2.4
     # via -r requirements/test.txt
 importlib-metadata==8.7.0
     # via keyring
@@ -191,7 +191,7 @@ kombu==5.5.4
     # via
     #   -r requirements/test.txt
     #   celery
-markdown-it-py==3.0.0
+markdown-it-py==4.0.0
     # via rich
 markupsafe==3.0.2
     # via
@@ -227,7 +227,7 @@ pathspec==0.12.1
     # via
     #   -r requirements/test.txt
     #   mypy
-pbr==6.1.1
+pbr==7.0.0
     # via
     #   -r requirements/test.txt
     #   stevedore

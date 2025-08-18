@@ -67,7 +67,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==2.3.0
     # via -r requirements/test.txt
-coverage[toml]==7.10.3
+coverage[toml]==7.10.4
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -115,7 +115,7 @@ djangorestframework==3.16.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.16.1
+djangorestframework-stubs==3.16.2
     # via -r requirements/test.txt
 dnspython==2.7.0
     # via
@@ -156,7 +156,7 @@ idna==3.10
     #   requests
 imagesize==1.4.1
     # via sphinx
-import-linter==2.3
+import-linter==2.4
     # via -r requirements/test.txt
 iniconfig==2.1.0
     # via
@@ -202,7 +202,7 @@ pathspec==0.12.1
     # via
     #   -r requirements/test.txt
     #   mypy
-pbr==6.1.1
+pbr==7.0.0
     # via
     #   -r requirements/test.txt
     #   stevedore
