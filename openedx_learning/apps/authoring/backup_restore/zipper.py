@@ -62,7 +62,7 @@ class LearningPackageZipper:
             self.create_folder(collections_folder, zipf)
 
             # Add each entity's TOML file
-            for entity in publishing_api.get_entities(self.learning_package.pk):
+            for entity in publishing_api.get_publishable_entities(self.learning_package.pk):
                 # entity: PublishableEntity = entity  # Type hint for clarity
 
                 # Create a TOML representation of the entity

@@ -7,8 +7,10 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
+from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import (
     Container,
@@ -21,6 +23,8 @@ from openedx_learning.apps.authoring.publishing.models import (
     PublishableEntity,
 )
 from openedx_learning.lib.test_utils import TestCase
+
+User = get_user_model()
 
 
 class LearningPackageTestCase(TestCase):
@@ -1083,57 +1087,115 @@ class EntitiesQueryTestCase(TestCase):
     """
     now: datetime
     learning_package_1: LearningPackage
-    learning_package_2: LearningPackage
 
     @classmethod
     def setUpTestData(cls) -> None:
+        """
+        Initialize our content data
+        """
+
         cls.now = datetime(2025, 8, 4, 12, 00, 00, tzinfo=timezone.utc)
         cls.learning_package_1 = publishing_api.create_learning_package(
             "my_package_key_1",
             "Entities Testing LearningPackage 🔥 1",
             created=cls.now,
         )
-        cls.learning_package_2 = publishing_api.create_learning_package(
-            "my_package_key_2",
-            "Entities Testing LearningPackage 🔥 2",
-            created=cls.now,
+
+        # Create a user for the test
+        user = User.objects.create(
+            username="user",
+            email="user@example.com",
         )
 
-    def test_get_entities(self) -> None:
+        # Create component namespace
+        xblock_v1_namespace = "xblock.v1"
+
+        # Create component types
+        html_type = components_api.get_or_create_component_type(xblock_v1_namespace, "html")
+        problem_type = components_api.get_or_create_component_type(xblock_v1_namespace, "problem")
+
+        # Make and publish one Component
+        published_component, _ = components_api.create_component_and_version(
+            cls.learning_package_1.id,
+            problem_type,
+            local_key="my_published_example",
+            title="My published problem",
+            created=cls.now,
+            created_by=user.id,
+        )
+
+        # Create a Content entry for the published Component
+        publishing_api.publish_all_drafts(
+            cls.learning_package_1.id,
+            message="Publish from CollectionTestCase.setUpTestData",
+            published_at=cls.now,
+        )
+
+        # Create a Draft component for the published_component
+        components_api.create_component_version(
+            published_component.pk,
+            version_num=published_component.versioning.draft.version_num + 1,
+            title="My published problem draft v2",
+            created=cls.now,
+            created_by=user.id,
+        )
+
+        # Create a Draft component
+        draft_component, _ = components_api.create_component_and_version(
+            cls.learning_package_1.id,
+            html_type,
+            local_key="my_draft_example",
+            title="My draft html",
+            created=cls.now,
+            created_by=user.id,
+        )
+
+        components_api.create_component_version(
+            draft_component.pk,
+            version_num=draft_component.versioning.draft.version_num + 1,
+            title="My draft html v2",
+            created=cls.now,
+            created_by=user.id,
+        )
+
+    def test_get_publishable_entities(self) -> None:
         """
         Test that get_entities returns all entities for a learning package.
         """
-        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
-            entity = publishing_api.create_publishable_entity(
-                self.learning_package_1.id,
-                "my_entity",
-                created=self.now,
-                created_by=None,
-            )
-            publishing_api.create_publishable_entity_version(
-                entity.id,
-                version_num=1,
-                title="An Entity 🌴",
-                created=self.now,
-                created_by=None,
-            )
-            entity2 = publishing_api.create_publishable_entity(
-                self.learning_package_1.id,
-                "my_entity2",
-                created=self.now,
-                created_by=None,
-            )
-            publishing_api.create_publishable_entity_version(
-                entity2.id,
-                version_num=1,
-                title="An Entity 🌴 2",
-                created=self.now,
-                created_by=None,
-            )
-        entities = publishing_api.get_entities(self.learning_package_1.id)
+        entities = publishing_api.get_publishable_entities(self.learning_package_1.id)
         assert entities.count() == 2
         for entity in entities:
             assert isinstance(entity, PublishableEntity)
             assert entity.learning_package_id == self.learning_package_1.id
             assert entity.created == self.now
-            assert entity.created_by is None
+
+    def test_get_publishable_entities_n_plus_problem(self) -> None:
+        """
+        Check get_publishable_entities if N+1 query problem exists when accessing related entities.
+        """
+        entities = publishing_api.get_publishable_entities(self.learning_package_1.id)
+
+        # assert that only 1 query is made even when accessing related entities
+        with self.assertNumQueries(1):
+            # Related entities to review:
+            # - draft.version
+            # - published.version
+            # - container
+            # - component
+            # - component.component_type
+
+            for e in entities:
+                draft = getattr(e, 'draft', None)
+                published = getattr(e, 'published', None)
+
+                _ = getattr(draft, 'version', None)
+                _ = getattr(published, 'version', None)
+
+                assert hasattr(e, 'container') or hasattr(e, 'component')
+
+                if hasattr(e, 'container'):
+                    _ = e.container
+
+                if hasattr(e, 'component'):
+                    _ = e.component
+                    _ = e.component.component_type

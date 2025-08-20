@@ -58,9 +58,9 @@ __all__ = [
     "create_publishable_entity_version",
     "get_publishable_entity",
     "get_publishable_entity_by_key",
+    "get_publishable_entities",
     "get_last_publish",
     "get_all_drafts",
-    "get_entities",
     "get_entities_with_unpublished_changes",
     "get_entities_with_unpublished_deletes",
     "publish_all_drafts",
@@ -262,11 +262,23 @@ def get_all_drafts(learning_package_id: int, /) -> QuerySet[Draft]:
     )
 
 
-def get_entities(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
+def get_publishable_entities(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
     """
     Get all entities in a learning package.
     """
-    return PublishableEntity.objects.filter(learning_package_id=learning_package_id)
+    return (
+        PublishableEntity.objects
+        .filter(learning_package_id=learning_package_id)
+        .select_related(
+            "draft",
+            "published",
+            "draft__version",
+            "published__version",
+            "component",
+            "container",
+            "component__component_type",
+        )
+    )
 
 
 def get_entities_with_unpublished_changes(
