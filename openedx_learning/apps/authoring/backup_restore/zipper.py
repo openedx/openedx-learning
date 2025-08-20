@@ -114,23 +114,17 @@ class LearningPackageZipper:
                     draft_version: Optional[PublishableEntityVersion] = getattr(current_draft, "version", None)
                     published_version: Optional[PublishableEntityVersion] = getattr(current_published, "version", None)
 
-                    # Creating draft version folder
-                    if draft_version:
-                        # Create a folder for the draft version
-                        draft_version_number = f"v{draft_version.version_num}"
-                        draft_version_folder = component_version_folder / draft_version_number
-                        self.create_folder(draft_version_folder, zipf)
-
-                        # Add static folder for the draft version
-                        static_folder = draft_version_folder / "static"
-                        self.create_folder(static_folder, zipf)
+                    versions_to_write = [draft_version] if draft_version else []
 
                     if published_version and published_version != draft_version:
-                        # Create a folder for the published version
-                        published_version_number = f"v{published_version.version_num}"
-                        published_version_folder = component_version_folder / published_version_number
-                        self.create_folder(published_version_folder, zipf)
+                        versions_to_write.append(published_version)
 
-                        # Add static folder for the published version
-                        static_folder = published_version_folder / "static"
+                    for version in versions_to_write:
+                        # Create a folder for the version
+                        version_number = f"v{version.version_num}"
+                        version_folder = component_version_folder / version_number
+                        self.create_folder(version_folder, zipf)
+
+                        # Add static folder for the version
+                        static_folder = version_folder / "static"
                         self.create_folder(static_folder, zipf)
