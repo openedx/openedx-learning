@@ -4,10 +4,17 @@ including a TOML representation of the learning package and its entities.
 """
 import zipfile
 from pathlib import Path
+from typing import Optional
+
+from django.db.models import QuerySet
 
 from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
 from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
+from openedx_learning.apps.authoring.publishing.models import (
+    LearningPackage,
+    PublishableEntity,
+    PublishableEntityVersion,
+)
 
 TOML_PACKAGE_NAME = "package.toml"
 
@@ -19,15 +26,19 @@ class LearningPackageZipper:
 
     def __init__(self, learning_package: LearningPackage):
         self.learning_package = learning_package
+        self.folders_already_created: set[Path] = set()
 
     def create_folder(self, folder_path: Path, zip_file: zipfile.ZipFile) -> None:
         """
         Create a folder for the zip file structure.
+        Skips creating the folder if it already exists based on the folder path.
         Args:
             folder_path (Path): The path of the folder to create.
         """
-        zip_info = zipfile.ZipInfo(str(folder_path) + "/")
-        zip_file.writestr(zip_info, "")  # Add explicit empty directory entry
+        if folder_path not in self.folders_already_created:
+            zip_info = zipfile.ZipInfo(str(folder_path) + "/")
+            zip_file.writestr(zip_info, "")  # Add explicit empty directory entry
+            self.folders_already_created.add(folder_path)
 
     def create_zip(self, path: str) -> None:
         """
@@ -38,7 +49,7 @@ class LearningPackageZipper:
             Exception: If the learning package cannot be found or if the zip creation fails.
         """
         package_toml_content: str = toml_learning_package(self.learning_package)
-        folders_already_created = set()
+        lp_id = self.learning_package.pk
 
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             # Add the package.toml string
@@ -53,14 +64,18 @@ class LearningPackageZipper:
             self.create_folder(collections_folder, zipf)
 
             # Add each entity's TOML file
-            for entity in publishing_api.get_entities(self.learning_package.pk):
+            publishable_entities: QuerySet[PublishableEntity] = publishing_api.get_publishable_entities(lp_id)
+            publishable_entities = publishable_entities.select_related("container", "component__component_type")
+            for entity in publishable_entities:
                 # entity: PublishableEntity = entity  # Type hint for clarity
 
                 # Create a TOML representation of the entity
                 entity_toml_content: str = toml_publishable_entity(entity)
-                entity_toml_filename = f"{entity.key}.toml"
-                entity_toml_path = entities_folder / entity_toml_filename
-                zipf.writestr(str(entity_toml_path), entity_toml_content)
+
+                if hasattr(entity, 'container'):
+                    entity_toml_filename = f"{entity.key}.toml"
+                    entity_toml_path = entities_folder / entity_toml_filename
+                    zipf.writestr(str(entity_toml_path), entity_toml_content)
 
                 if hasattr(entity, 'component'):
                     # Create the component folder structure for the entity. The structure is as follows:
@@ -75,21 +90,15 @@ class LearningPackageZipper:
 
                     component_namespace_folder = entities_folder / entity.component.component_type.namespace
                     # Example of component namespace is: "xblock.v1"
-                    if component_namespace_folder not in folders_already_created:
-                        self.create_folder(component_namespace_folder, zipf)
-                        folders_already_created.add(component_namespace_folder)
+                    self.create_folder(component_namespace_folder, zipf)
 
                     component_type_folder = component_namespace_folder / entity.component.component_type.name
                     # Example of component type is: "html"
-                    if component_type_folder not in folders_already_created:
-                        self.create_folder(component_type_folder, zipf)
-                        folders_already_created.add(component_type_folder)
+                    self.create_folder(component_type_folder, zipf)
 
                     component_id_folder = component_type_folder / entity.component.local_key  # entity.key
                     # Example of component id is: "i-dont-like-the-sidebar-aa1645ade4a7"
-                    if component_id_folder not in folders_already_created:
-                        self.create_folder(component_id_folder, zipf)
-                        folders_already_created.add(component_id_folder)
+                    self.create_folder(component_id_folder, zipf)
 
                     # Add the entity TOML file inside the component type folder as well
                     component_entity_toml_path = component_type_folder / f"{entity.component.local_key}.toml"
@@ -97,19 +106,26 @@ class LearningPackageZipper:
 
                     # Add component version folder into the component id folder
                     component_version_folder = component_id_folder / "component_versions"
-                    if component_version_folder not in folders_already_created:
-                        self.create_folder(component_version_folder, zipf)
-                        folders_already_created.add(component_version_folder)
+                    self.create_folder(component_version_folder, zipf)
 
-                    for entity_version in entity.component.versions.all():
-                        component_number_version_folder = component_version_folder / f"v{entity_version.version_num}"
-                        # Create a folder for each version of the component. Example: "v1", "v2", etc.
-                        if component_number_version_folder not in folders_already_created:
-                            self.create_folder(component_number_version_folder, zipf)
-                            folders_already_created.add(component_number_version_folder)
+                    # ------ COMPONENT VERSIONING -------------
+                    # Focusing on draft and published versions
 
-                        # Add the static folder inside the component version folder
-                        static_folder = component_number_version_folder / "static"
-                        if static_folder not in folders_already_created:
-                            self.create_folder(static_folder, zipf)
-                            folders_already_created.add(static_folder)
+                    # Get the draft and published versions
+                    draft_version: Optional[PublishableEntityVersion] = publishing_api.get_draft_version(entity)
+                    published_version: Optional[PublishableEntityVersion] = publishing_api.get_published_version(entity)
+
+                    versions_to_write = [draft_version] if draft_version else []
+
+                    if published_version and published_version != draft_version:
+                        versions_to_write.append(published_version)
+
+                    for version in versions_to_write:
+                        # Create a folder for the version
+                        version_number = f"v{version.version_num}"
+                        version_folder = component_version_folder / version_number
+                        self.create_folder(version_folder, zipf)
+
+                        # Add static folder for the version
+                        static_folder = version_folder / "static"
+                        self.create_folder(static_folder, zipf)

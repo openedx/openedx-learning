@@ -10,7 +10,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import ContextManager, TypeVar
+from typing import ContextManager, Optional, TypeVar
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
@@ -58,9 +58,9 @@ __all__ = [
     "create_publishable_entity_version",
     "get_publishable_entity",
     "get_publishable_entity_by_key",
+    "get_publishable_entities",
     "get_last_publish",
     "get_all_drafts",
-    "get_entities",
     "get_entities_with_unpublished_changes",
     "get_entities_with_unpublished_deletes",
     "publish_all_drafts",
@@ -262,11 +262,18 @@ def get_all_drafts(learning_package_id: int, /) -> QuerySet[Draft]:
     )
 
 
-def get_entities(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
+def get_publishable_entities(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
     """
     Get all entities in a learning package.
     """
-    return PublishableEntity.objects.filter(learning_package_id=learning_package_id)
+    return (
+        PublishableEntity.objects
+        .filter(learning_package_id=learning_package_id)
+        .select_related(
+            "draft__version",
+            "published__version",
+        )
+    )
 
 
 def get_entities_with_unpublished_changes(
@@ -425,15 +432,22 @@ def publish_from_drafts(
     return publish_log
 
 
-def get_draft_version(publishable_entity_id: int, /) -> PublishableEntityVersion | None:
+def get_draft_version(publishable_entity_or_id: PublishableEntity | int, /) -> PublishableEntityVersion | None:
     """
     Return current draft PublishableEntityVersion for this PublishableEntity.
 
     This function will return None if there is no current draft.
     """
+    if isinstance(publishable_entity_or_id, PublishableEntity):
+        # Fetches the draft version for a given PublishableEntity.
+        # Gracefully handles cases where no draft is present.
+        draft: Optional[Draft] = getattr(publishable_entity_or_id, "draft", None)
+        if draft is None:
+            return None
+        return draft.version
     try:
         draft = Draft.objects.select_related("version").get(
-            entity_id=publishable_entity_id
+            entity_id=publishable_entity_or_id
         )
     except Draft.DoesNotExist:
         # No draft was ever created.
@@ -445,15 +459,22 @@ def get_draft_version(publishable_entity_id: int, /) -> PublishableEntityVersion
     return draft.version
 
 
-def get_published_version(publishable_entity_id: int, /) -> PublishableEntityVersion | None:
+def get_published_version(publishable_entity_or_id: PublishableEntity | int, /) -> PublishableEntityVersion | None:
     """
     Return current published PublishableEntityVersion for this PublishableEntity.
 
     This function will return None if there is no current published version.
     """
+    if isinstance(publishable_entity_or_id, PublishableEntity):
+        # Fetches the published version for a given PublishableEntity.
+        # Gracefully handles cases where no published version is present.
+        published: Optional[Published] = getattr(publishable_entity_or_id, "published", None)
+        if published is None:
+            return None
+        return published.version
     try:
         published = Published.objects.select_related("version").get(
-            entity_id=publishable_entity_id
+            entity_id=publishable_entity_or_id
         )
     except Published.DoesNotExist:
         return None

@@ -68,6 +68,13 @@ class LpDumpCommandTestCase(TestCase):
             published_at=cls.now,
         )
 
+        api.create_next_component_version(
+            cls.published_component.pk,
+            title="My published problem draft v2",
+            content_to_replace={},
+            created=cls.now,
+        )
+
         # Create a Draft component, one in each learning package
         cls.draft_component, _ = api.create_component_and_version(
             cls.learning_package.id,
@@ -78,15 +85,14 @@ class LpDumpCommandTestCase(TestCase):
             created_by=cls.user.id,
         )
 
-        api.create_component_version(
+        api.create_next_component_version(
             cls.draft_component.pk,
-            version_num=cls.draft_component.versioning.draft.version_num + 1,
             title="My draft html v2",
+            content_to_replace={},
             created=cls.now,
-            created_by=cls.user.id,
         )
 
-        components = api.get_entities(cls.learning_package)
+        components = api.get_publishable_entities(cls.learning_package)
         cls.all_components = components
 
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):
@@ -103,43 +109,31 @@ class LpDumpCommandTestCase(TestCase):
         """
         Check that the zip file has the expected structure.
         """
-
         with zipfile.ZipFile(zip_path, "r") as zip_file:
             # Check that the zip file contains the expected files
-            expected_files = [
+            expected_paths = [
                 "package.toml",
                 "entities/",
                 "collections/",
                 "entities/xblock.v1/",
                 "entities/xblock.v1/html/",
+                "entities/xblock.v1/html/my_draft_example.toml",
                 "entities/xblock.v1/html/my_draft_example/",
                 "entities/xblock.v1/html/my_draft_example/component_versions/",
-                "entities/xblock.v1/html/my_draft_example/component_versions/v1/",
-                "entities/xblock.v1/html/my_draft_example/component_versions/v1/static/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/",
                 "entities/xblock.v1/problem/",
                 "entities/xblock.v1/problem/my_published_example/",
+                "entities/xblock.v1/problem/my_published_example.toml",
                 "entities/xblock.v1/problem/my_published_example/component_versions/",
                 "entities/xblock.v1/problem/my_published_example/component_versions/v1/",
                 "entities/xblock.v1/problem/my_published_example/component_versions/v1/static/",
             ]
 
-            # Add expected entity files
-            for entity in self.all_components:
-                expected_files.append(f"entities/{entity.key}.toml")
-
-            # Check that all expected files are present
-            for expected_file in expected_files:
-                self.assertIn(expected_file, zip_file.namelist())
-
-    def check_content_in_zip(self, zip_path: Path, expected_file_path: Path, zip_member_name: str):
-        """
-        Compare a file inside the zip with an expected file.
-        """
-        with zipfile.ZipFile(zip_path, "r") as zip_file:
-            with zip_file.open(zip_member_name) as content_file:
-                actual_content = content_file.read().decode("utf-8")
-        expected_content = expected_file_path.read_text()
-        self.assertEqual(actual_content, expected_content)
+            # Check that all expected paths are present
+            zip_name_list = zip_file.namelist()
+            for expected_path in expected_paths:
+                self.assertIn(expected_path, zip_name_list)
 
     def test_lp_dump_command(self):
         lp_key = self.learning_package.key
@@ -171,34 +165,29 @@ class LpDumpCommandTestCase(TestCase):
             )
 
             # Check the content of the entity TOML files
-            for entity in self.all_components:
-                current_draft_version = getattr(entity, "draft", None)
-                current_published_version = getattr(entity, "published", None)
-                expected_content = [
+            expected_files = {
+                "entities/xblock.v1/problem/my_published_example.toml": [
                     '[entity]',
-                    f'uuid = "{entity.uuid}"',
+                    f'uuid = "{self.published_component.uuid}"',
                     'can_stand_alone = true',
                     '[entity.draft]',
-                    f'version_num = {current_draft_version.version.version_num}',
+                    'version_num = 2',
                     '[entity.published]',
-                ]
-                if current_published_version:
-                    expected_content.append(f'version_num = {current_published_version.version.version_num}')
-                else:
-                    expected_content.append('# unpublished: no published_version_num')
+                    'version_num = 1',
+                ],
+                "entities/xblock.v1/html/my_draft_example.toml": [
+                    '[entity]',
+                    f'uuid = "{self.draft_component.uuid}"',
+                    'can_stand_alone = true',
+                    '[entity.draft]',
+                    'version_num = 2',
+                    '[entity.published]',
+                    '# unpublished: no published_version_num',
+                ],
+            }
 
-                for entity_version in entity.versions.all():
-                    expected_content.append(f'title = "{entity_version.title}"')
-                    expected_content.append(f'uuid = "{entity_version.uuid}"')
-                    expected_content.append(f'version_num = {entity_version.version_num}')
-                    expected_content.append('[version.container]')
-                    expected_content.append('[version.container.unit]')
-
-                self.check_toml_file(
-                    zip_path,
-                    Path(f"entities/{entity.key}.toml"),
-                    expected_content
-                )
+            for file_path, expected_content in expected_files.items():
+                self.check_toml_file(zip_path, Path(file_path), expected_content)
 
             # Check the output message
             message = f'{lp_key} written to {file_name}'
