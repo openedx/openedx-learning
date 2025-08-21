@@ -10,7 +10,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import ContextManager, TypeVar
+from typing import ContextManager, Optional, TypeVar
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Q, QuerySet
@@ -437,12 +437,17 @@ def publish_from_drafts(
     return publish_log
 
 
-def get_draft_version(publishable_entity_id: int, /) -> PublishableEntityVersion | None:
+def get_draft_version(publishable_entity_id: PublishableEntity | int, /) -> PublishableEntityVersion | None:
     """
     Return current draft PublishableEntityVersion for this PublishableEntity.
 
     This function will return None if there is no current draft.
     """
+    if isinstance(publishable_entity_id, PublishableEntity):
+        # The following code retrieves the draft version for a given PublishableEntity.
+        # Useful for preloading the draft version in certain contexts.
+        draft: Optional[Draft] = getattr(publishable_entity_id, "draft", None)
+        return getattr(draft, "version", None)
     try:
         draft = Draft.objects.select_related("version").get(
             entity_id=publishable_entity_id
@@ -457,12 +462,17 @@ def get_draft_version(publishable_entity_id: int, /) -> PublishableEntityVersion
     return draft.version
 
 
-def get_published_version(publishable_entity_id: int, /) -> PublishableEntityVersion | None:
+def get_published_version(publishable_entity_id: PublishableEntity | int, /) -> PublishableEntityVersion | None:
     """
     Return current published PublishableEntityVersion for this PublishableEntity.
 
     This function will return None if there is no current published version.
     """
+    # The following code retrieves the published version for a given PublishableEntity.
+    # Useful for preloading the published version in certain contexts.
+    if isinstance(publishable_entity_id, PublishableEntity):
+        published: Optional[Published] = getattr(publishable_entity_id, "published", None)
+        return getattr(published, "version", None)
     try:
         published = Published.objects.select_related("version").get(
             entity_id=publishable_entity_id

@@ -6,6 +6,7 @@ from datetime import datetime
 
 import tomlkit
 
+from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import PublishableEntity, PublishableEntityVersion
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 
@@ -27,8 +28,8 @@ def toml_learning_package(learning_package: LearningPackage) -> str:
 def toml_publishable_entity(entity: PublishableEntity) -> str:
     """Create a TOML representation of a publishable entity."""
 
-    current_draft_version = getattr(entity, "draft", None)
-    current_published_version = getattr(entity, "published", None)
+    current_draft_version = publishing_api.get_draft_version(entity)
+    current_published_version = publishing_api.get_published_version(entity)
 
     doc = tomlkit.document()
     entity_table = tomlkit.table()
@@ -37,12 +38,12 @@ def toml_publishable_entity(entity: PublishableEntity) -> str:
 
     if current_draft_version:
         draft_table = tomlkit.table()
-        draft_table.add("version_num", current_draft_version.version.version_num)
+        draft_table.add("version_num", current_draft_version.version_num)
         entity_table.add("draft", draft_table)
 
     published_table = tomlkit.table()
     if current_published_version:
-        published_table.add("version_num", current_published_version.version.version_num)
+        published_table.add("version_num", current_published_version.version_num)
     else:
         published_table.add(tomlkit.comment("unpublished: no published_version_num"))
     entity_table.add("published", published_table)

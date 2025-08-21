@@ -8,12 +8,7 @@ from typing import Optional
 
 from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
 from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import (
-    Draft,
-    LearningPackage,
-    PublishableEntityVersion,
-    Published,
-)
+from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntityVersion
 
 TOML_PACKAGE_NAME = "package.toml"
 
@@ -108,11 +103,8 @@ class LearningPackageZipper:
                     # Focusing on draft and published versions
 
                     # Get the draft and published versions
-                    current_draft: Optional[Draft] = getattr(entity, "draft", None)
-                    current_published: Optional[Published] = getattr(entity, "published", None)
-
-                    draft_version: Optional[PublishableEntityVersion] = getattr(current_draft, "version", None)
-                    published_version: Optional[PublishableEntityVersion] = getattr(current_published, "version", None)
+                    draft_version: Optional[PublishableEntityVersion] = publishing_api.get_draft_version(entity)
+                    published_version: Optional[PublishableEntityVersion] = publishing_api.get_published_version(entity)
 
                     versions_to_write = [draft_version] if draft_version else []
 
