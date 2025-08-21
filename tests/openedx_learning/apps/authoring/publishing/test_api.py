@@ -10,7 +10,6 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import (
     Container,
@@ -1101,62 +1100,33 @@ class EntitiesQueryTestCase(TestCase):
             created=cls.now,
         )
 
-        # Create a user for the test
-        user = User.objects.create(
-            username="user",
-            email="user@example.com",
-        )
-
-        # Create component namespace
-        xblock_v1_namespace = "xblock.v1"
-
-        # Create component types
-        html_type = components_api.get_or_create_component_type(xblock_v1_namespace, "html")
-        problem_type = components_api.get_or_create_component_type(xblock_v1_namespace, "problem")
-
-        # Make and publish one Component
-        published_component, _ = components_api.create_component_and_version(
-            cls.learning_package_1.id,
-            problem_type,
-            local_key="my_published_example",
-            title="My published problem",
-            created=cls.now,
-            created_by=user.id,
-        )
-
-        # Create a Content entry for the published Component
-        publishing_api.publish_all_drafts(
-            cls.learning_package_1.id,
-            message="Publish from CollectionTestCase.setUpTestData",
-            published_at=cls.now,
-        )
-
-        # Create a Draft component for the published_component
-        components_api.create_component_version(
-            published_component.pk,
-            version_num=published_component.versioning.draft.version_num + 1,
-            title="My published problem draft v2",
-            created=cls.now,
-            created_by=user.id,
-        )
-
-        # Create a Draft component
-        draft_component, _ = components_api.create_component_and_version(
-            cls.learning_package_1.id,
-            html_type,
-            local_key="my_draft_example",
-            title="My draft html",
-            created=cls.now,
-            created_by=user.id,
-        )
-
-        components_api.create_component_version(
-            draft_component.pk,
-            version_num=draft_component.versioning.draft.version_num + 1,
-            title="My draft html v2",
-            created=cls.now,
-            created_by=user.id,
-        )
+        with publishing_api.bulk_draft_changes_for(cls.learning_package_1.id):
+            entity = publishing_api.create_publishable_entity(
+                cls.learning_package_1.id,
+                "my_entity",
+                created=cls.now,
+                created_by=None,
+            )
+            publishing_api.create_publishable_entity_version(
+                entity.id,
+                version_num=1,
+                title="An Entity 🌴",
+                created=cls.now,
+                created_by=None,
+            )
+            entity2 = publishing_api.create_publishable_entity(
+                cls.learning_package_1.id,
+                "my_entity2",
+                created=cls.now,
+                created_by=None,
+            )
+            publishing_api.create_publishable_entity_version(
+                entity2.id,
+                version_num=1,
+                title="An Entity 🌴 2",
+                created=cls.now,
+                created_by=None,
+            )
 
     def test_get_publishable_entities(self) -> None:
         """
@@ -1180,9 +1150,6 @@ class EntitiesQueryTestCase(TestCase):
             # Related entities to review:
             # - draft.version
             # - published.version
-            # - container
-            # - component
-            # - component.component_type
 
             for e in entities:
                 draft = getattr(e, 'draft', None)
@@ -1190,12 +1157,3 @@ class EntitiesQueryTestCase(TestCase):
 
                 _ = getattr(draft, 'version', None)
                 _ = getattr(published, 'version', None)
-
-                assert hasattr(e, 'container') or hasattr(e, 'component')
-
-                if hasattr(e, 'container'):
-                    _ = e.container
-
-                if hasattr(e, 'component'):
-                    _ = e.component
-                    _ = e.component.component_type

@@ -6,9 +6,15 @@ import zipfile
 from pathlib import Path
 from typing import Optional
 
+from django.db.models import QuerySet
+
 from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
 from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import LearningPackage, PublishableEntityVersion
+from openedx_learning.apps.authoring.publishing.models import (
+    LearningPackage,
+    PublishableEntity,
+    PublishableEntityVersion,
+)
 
 TOML_PACKAGE_NAME = "package.toml"
 
@@ -43,6 +49,7 @@ class LearningPackageZipper:
             Exception: If the learning package cannot be found or if the zip creation fails.
         """
         package_toml_content: str = toml_learning_package(self.learning_package)
+        lp_id = self.learning_package.pk
 
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             # Add the package.toml string
@@ -57,7 +64,9 @@ class LearningPackageZipper:
             self.create_folder(collections_folder, zipf)
 
             # Add each entity's TOML file
-            for entity in publishing_api.get_publishable_entities(self.learning_package.pk):
+            publishable_entities: QuerySet[PublishableEntity] = publishing_api.get_publishable_entities(lp_id)
+            publishable_entities = publishable_entities.select_related("container", "component__component_type")
+            for entity in publishable_entities:
                 # entity: PublishableEntity = entity  # Type hint for clarity
 
                 # Create a TOML representation of the entity
