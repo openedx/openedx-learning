@@ -15,6 +15,7 @@ from openedx_learning.apps.authoring.publishing.models import (
     PublishableEntity,
     PublishableEntityVersion,
 )
+from openedx_learning.lib.dump_naming import hash_slugify_filename
 
 TOML_PACKAGE_NAME = "package.toml"
 
@@ -73,7 +74,8 @@ class LearningPackageZipper:
                 entity_toml_content: str = toml_publishable_entity(entity)
 
                 if hasattr(entity, 'container'):
-                    entity_toml_filename = f"{entity.key}.toml"
+                    entity_slugify_hash = hash_slugify_filename(entity.key)
+                    entity_toml_filename = f"{entity_slugify_hash}.toml"
                     entity_toml_path = entities_folder / entity_toml_filename
                     zipf.writestr(str(entity_toml_path), entity_toml_content)
 
@@ -87,7 +89,7 @@ class LearningPackageZipper:
                     #                 component_versions/
                     #                     v1/
                     #                         static/
-
+                    entity_slugify_hash = hash_slugify_filename(entity.component.local_key)
                     component_namespace_folder = entities_folder / entity.component.component_type.namespace
                     # Example of component namespace is: "xblock.v1"
                     self.create_folder(component_namespace_folder, zipf)
@@ -96,12 +98,12 @@ class LearningPackageZipper:
                     # Example of component type is: "html"
                     self.create_folder(component_type_folder, zipf)
 
-                    component_id_folder = component_type_folder / entity.component.local_key  # entity.key
+                    component_id_folder = component_type_folder / entity_slugify_hash
                     # Example of component id is: "i-dont-like-the-sidebar-aa1645ade4a7"
                     self.create_folder(component_id_folder, zipf)
 
                     # Add the entity TOML file inside the component type folder as well
-                    component_entity_toml_path = component_type_folder / f"{entity.component.local_key}.toml"
+                    component_entity_toml_path = component_type_folder / f"{entity_slugify_hash}.toml"
                     zipf.writestr(str(component_entity_toml_path), entity_toml_content)
 
                     # Add component version folder into the component id folder

@@ -117,17 +117,17 @@ class LpDumpCommandTestCase(TestCase):
                 "collections/",
                 "entities/xblock.v1/",
                 "entities/xblock.v1/html/",
-                "entities/xblock.v1/html/my_draft_example.toml",
-                "entities/xblock.v1/html/my_draft_example/",
-                "entities/xblock.v1/html/my_draft_example/component_versions/",
-                "entities/xblock.v1/html/my_draft_example/component_versions/v2/",
-                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/",
+                "entities/xblock.v1/html/my_draft_example_ac6d7.toml",
+                "entities/xblock.v1/html/my_draft_example_ac6d7/",
+                "entities/xblock.v1/html/my_draft_example_ac6d7/component_versions/",
+                "entities/xblock.v1/html/my_draft_example_ac6d7/component_versions/v2/",
+                "entities/xblock.v1/html/my_draft_example_ac6d7/component_versions/v2/static/",
                 "entities/xblock.v1/problem/",
-                "entities/xblock.v1/problem/my_published_example/",
-                "entities/xblock.v1/problem/my_published_example.toml",
-                "entities/xblock.v1/problem/my_published_example/component_versions/",
-                "entities/xblock.v1/problem/my_published_example/component_versions/v1/",
-                "entities/xblock.v1/problem/my_published_example/component_versions/v1/static/",
+                "entities/xblock.v1/problem/my_published_example_fff05/",
+                "entities/xblock.v1/problem/my_published_example_fff05.toml",
+                "entities/xblock.v1/problem/my_published_example_fff05/component_versions/",
+                "entities/xblock.v1/problem/my_published_example_fff05/component_versions/v1/",
+                "entities/xblock.v1/problem/my_published_example_fff05/component_versions/v1/static/",
             ]
 
             # Check that all expected paths are present
@@ -166,7 +166,7 @@ class LpDumpCommandTestCase(TestCase):
 
             # Check the content of the entity TOML files
             expected_files = {
-                "entities/xblock.v1/problem/my_published_example.toml": [
+                "entities/xblock.v1/problem/my_published_example_fff05.toml": [
                     '[entity]',
                     f'uuid = "{self.published_component.uuid}"',
                     'can_stand_alone = true',
@@ -175,7 +175,7 @@ class LpDumpCommandTestCase(TestCase):
                     '[entity.published]',
                     'version_num = 1',
                 ],
-                "entities/xblock.v1/html/my_draft_example.toml": [
+                "entities/xblock.v1/html/my_draft_example_ac6d7.toml": [
                     '[entity]',
                     f'uuid = "{self.draft_component.uuid}"',
                     'can_stand_alone = true',
