@@ -68,12 +68,11 @@ class LpDumpCommandTestCase(TestCase):
             published_at=cls.now,
         )
 
-        api.create_component_version(
+        api.create_next_component_version(
             cls.published_component.pk,
-            version_num=cls.published_component.versioning.draft.version_num + 1,
             title="My published problem draft v2",
+            content_to_replace={},
             created=cls.now,
-            created_by=cls.user.id,
         )
 
         # Create a Draft component, one in each learning package
@@ -86,12 +85,11 @@ class LpDumpCommandTestCase(TestCase):
             created_by=cls.user.id,
         )
 
-        api.create_component_version(
+        api.create_next_component_version(
             cls.draft_component.pk,
-            version_num=cls.draft_component.versioning.draft.version_num + 1,
             title="My draft html v2",
+            content_to_replace={},
             created=cls.now,
-            created_by=cls.user.id,
         )
 
         components = api.get_publishable_entities(cls.learning_package)

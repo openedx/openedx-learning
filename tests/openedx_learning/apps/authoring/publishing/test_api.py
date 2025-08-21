@@ -1127,6 +1127,7 @@ class EntitiesQueryTestCase(TestCase):
                 created=cls.now,
                 created_by=None,
             )
+            publishing_api.publish_all_drafts(cls.learning_package_1.id)
 
     def test_get_publishable_entities(self) -> None:
         """
@@ -1152,8 +1153,9 @@ class EntitiesQueryTestCase(TestCase):
             # - published.version
 
             for e in entities:
+                # Instead of just checking the version number, we verify the related query count.
+                # If an N+1 issue exists, accessing versions or other related fields would trigger more than one query.
                 draft = getattr(e, 'draft', None)
                 published = getattr(e, 'published', None)
-
-                _ = getattr(draft, 'version', None)
-                _ = getattr(published, 'version', None)
+                assert draft and draft.version.version_num == 1
+                assert published and published.version.version_num == 1
