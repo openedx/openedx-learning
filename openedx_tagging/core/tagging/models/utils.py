@@ -61,7 +61,7 @@ class StringAgg(Aggregate, Combinable):
             self.function = 'STRING_AGG'
             self.template = '%(function)s(%(distinct)s%(expressions)s, %(delimiter)s)'
             extra.update({
-                "delimiter": ",",
+                "delimiter": self.delimiter,
                 "output_field": TextField(),
             })
 
