@@ -74,7 +74,7 @@ kombu==5.5.4
     # via celery
 packaging==25.0
     # via kombu
-pbr==7.0.0
+pbr==7.0.1
     # via stevedore
 prompt-toolkit==3.0.51
     # via click-repl
@@ -86,13 +86,13 @@ pyjwt[crypto]==2.10.1
     # via
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.14.0
+pymongo==4.14.1
     # via edx-opaque-keys
 pynacl==1.5.0
     # via edx-django-utils
 python-dateutil==2.9.0.post0
     # via celery
-requests==2.32.4
+requests==2.32.5
     # via edx-drf-extensions
 rules==3.5
     # via -r requirements/base.in

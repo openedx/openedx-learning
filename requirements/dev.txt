@@ -94,7 +94,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.10.4
+coverage[toml]==7.10.5
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -227,7 +227,7 @@ jaraco-context==6.0.1
     # via
     #   -r requirements/quality.txt
     #   keyring
-jaraco-functools==4.2.1
+jaraco-functools==4.3.0
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -254,7 +254,7 @@ kombu==5.5.4
     # via
     #   -r requirements/quality.txt
     #   celery
-lxml[html-clean]==6.0.0
+lxml[html-clean]==6.0.1
     # via
     #   edx-i18n-tools
     #   lxml-html-clean
@@ -312,7 +312,7 @@ pathspec==0.12.1
     # via
     #   -r requirements/quality.txt
     #   mypy
-pbr==7.0.0
+pbr==7.0.1
     # via
     #   -r requirements/quality.txt
     #   stevedore
@@ -383,7 +383,7 @@ pylint-plugin-utils==0.9.0
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.14.0
+pymongo==4.14.1
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
@@ -427,7 +427,7 @@ readme-renderer==44.0
     # via
     #   -r requirements/quality.txt
     #   twine
-requests==2.32.4
+requests==2.32.5
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
@@ -489,7 +489,7 @@ tox==4.28.4
     # via -r requirements/ci.txt
 twine==6.1.0
     # via -r requirements/quality.txt
-types-pyyaml==6.0.12.20250809
+types-pyyaml==6.0.12.20250822
     # via
     #   -r requirements/quality.txt
     #   django-stubs
