@@ -2,11 +2,13 @@
 This module provides functionality to create a zip file containing the learning package data,
 including a TOML representation of the learning package and its entities.
 """
+import hashlib
 import zipfile
 from pathlib import Path
 from typing import Optional
 
 from django.db.models import QuerySet
+from django.utils.text import slugify
 
 from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
 from openedx_learning.apps.authoring.publishing import api as publishing_api
@@ -17,6 +19,32 @@ from openedx_learning.apps.authoring.publishing.models import (
 )
 
 TOML_PACKAGE_NAME = "package.toml"
+
+
+def slugify_hashed_filename(identifier: str) -> str:
+    """
+    Generate a filesystem-safe filename from an identifier.
+
+    Why:
+        Identifiers may contain characters that are invalid or ambiguous
+        in filesystems (e.g., slashes, colons, case differences).
+        Additionally, two different identifiers might normalize to the same
+        slug after cleaning. To avoid collisions and ensure uniqueness,
+        we append a short blake2b hash.
+
+    What:
+        - Slugify the identifier (preserves most characters, only strips
+          filesystem-invalid ones).
+        - Append a short hash for uniqueness.
+        - Result: human-readable but still unique and filesystem-safe filename.
+    """
+    slug = slugify(identifier, allow_unicode=True)
+    # Short digest ensures uniqueness without overly long filenames
+    short_hash = hashlib.blake2b(
+        identifier.encode("utf-8"),
+        digest_size=3,
+    ).hexdigest()
+    return f"{slug}_{short_hash}"
 
 
 class LearningPackageZipper:
@@ -73,7 +101,8 @@ class LearningPackageZipper:
                 entity_toml_content: str = toml_publishable_entity(entity)
 
                 if hasattr(entity, 'container'):
-                    entity_toml_filename = f"{entity.key}.toml"
+                    entity_slugify_hash = slugify_hashed_filename(entity.key)
+                    entity_toml_filename = f"{entity_slugify_hash}.toml"
                     entity_toml_path = entities_folder / entity_toml_filename
                     zipf.writestr(str(entity_toml_path), entity_toml_content)
 
@@ -87,7 +116,7 @@ class LearningPackageZipper:
                     #                 component_versions/
                     #                     v1/
                     #                         static/
-
+                    entity_slugify_hash = slugify_hashed_filename(entity.component.local_key)
                     component_namespace_folder = entities_folder / entity.component.component_type.namespace
                     # Example of component namespace is: "xblock.v1"
                     self.create_folder(component_namespace_folder, zipf)
@@ -96,12 +125,12 @@ class LearningPackageZipper:
                     # Example of component type is: "html"
                     self.create_folder(component_type_folder, zipf)
 
-                    component_id_folder = component_type_folder / entity.component.local_key  # entity.key
+                    component_id_folder = component_type_folder / entity_slugify_hash
                     # Example of component id is: "i-dont-like-the-sidebar-aa1645ade4a7"
                     self.create_folder(component_id_folder, zipf)
 
                     # Add the entity TOML file inside the component type folder as well
-                    component_entity_toml_path = component_type_folder / f"{entity.component.local_key}.toml"
+                    component_entity_toml_path = component_type_folder / f"{entity_slugify_hash}.toml"
                     zipf.writestr(str(component_entity_toml_path), entity_toml_content)
 
                     # Add component version folder into the component id folder
