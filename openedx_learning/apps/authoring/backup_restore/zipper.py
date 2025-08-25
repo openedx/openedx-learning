@@ -38,11 +38,11 @@ def slugify_hashed_filename(identifier: str) -> str:
         - Append a short hash for uniqueness.
         - Result: human-readable but still unique and filesystem-safe filename.
     """
-    slug = slugify(identifier)
+    slug = slugify(identifier, allow_unicode=True)
     # Short digest ensures uniqueness without overly long filenames
     short_hash = hashlib.blake2b(
         identifier.encode("utf-8"),
-        digest_size=3
+        digest_size=3,
     ).hexdigest()
     return f"{slug}_{short_hash}"
 
