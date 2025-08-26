@@ -11,6 +11,7 @@ from django.db.models import QuerySet
 from django.utils.text import slugify
 
 from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
+from openedx_learning.apps.authoring.components.models import ComponentVersion, ComponentVersionContent
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import (
     LearningPackage,
@@ -76,11 +77,11 @@ class LearningPackageZipper:
         Raises:
             Exception: If the learning package cannot be found or if the zip creation fails.
         """
-        package_toml_content: str = toml_learning_package(self.learning_package)
         lp_id = self.learning_package.pk
 
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
-            # Add the package.toml string
+            # Add the package.toml file
+            package_toml_content: str = toml_learning_package(self.learning_package)
             zipf.writestr(TOML_PACKAGE_NAME, package_toml_content)
 
             # Add the entities directory
@@ -91,9 +92,12 @@ class LearningPackageZipper:
             collections_folder = Path("collections")
             self.create_folder(collections_folder, zipf)
 
-            # Add each entity's TOML file
+            # ------ ENTITIES SERIALIZATION -------------
+
+            # get the publishable entities
             publishable_entities: QuerySet[PublishableEntity] = publishing_api.get_publishable_entities(lp_id)
             publishable_entities = publishable_entities.select_related("container", "component__component_type")
+
             for entity in publishable_entities:
                 # entity: PublishableEntity = entity  # Type hint for clarity
 
@@ -116,24 +120,34 @@ class LearningPackageZipper:
                     #                 component_versions/
                     #                     v1/
                     #                         static/
+
+                    # Generate the slugified hash for the component local key
+                    # Example: if the local key is "my_component", the slugified hash might be "my_component_123456"
+                    # It's a combination of the local key and a hash and should be unique
                     entity_slugify_hash = slugify_hashed_filename(entity.component.local_key)
+
+                    # Create the component namespace folder
+                    # Example of component namespace is: "entities/xblock.v1/"
                     component_namespace_folder = entities_folder / entity.component.component_type.namespace
-                    # Example of component namespace is: "xblock.v1"
                     self.create_folder(component_namespace_folder, zipf)
 
+                    # Create the component type folder
+                    # Example of component type is: "entities/xblock.v1/html/"
                     component_type_folder = component_namespace_folder / entity.component.component_type.name
-                    # Example of component type is: "html"
                     self.create_folder(component_type_folder, zipf)
 
+                    # Create the component id folder
+                    # Example of component id is: "entities/xblock.v1/html/my_component_123456/"
                     component_id_folder = component_type_folder / entity_slugify_hash
-                    # Example of component id is: "i-dont-like-the-sidebar-aa1645ade4a7"
                     self.create_folder(component_id_folder, zipf)
 
                     # Add the entity TOML file inside the component type folder as well
+                    # Example: "entities/xblock.v1/html/my_component_123456.toml"
                     component_entity_toml_path = component_type_folder / f"{entity_slugify_hash}.toml"
                     zipf.writestr(str(component_entity_toml_path), entity_toml_content)
 
                     # Add component version folder into the component id folder
+                    # Example: "entities/xblock.v1/html/my_component_123456/component_versions/"
                     component_version_folder = component_id_folder / "component_versions"
                     self.create_folder(component_version_folder, zipf)
 
@@ -158,3 +172,26 @@ class LearningPackageZipper:
                         # Add static folder for the version
                         static_folder = version_folder / "static"
                         self.create_folder(static_folder, zipf)
+
+                        # ------ COMPONENT STATIC CONTENT -------------
+                        # Get component version
+                        component_version: ComponentVersion = version.componentversion
+
+                        # Get content data associated with this version
+                        # content_list: QuerySet[Content] = component_version.contents.all()
+                        content_list: QuerySet[ComponentVersionContent] = component_version.componentversioncontent_set.all()  # pylint: disable=line-too-long  # noqa: E501
+
+                        for component_version_content in content_list:
+                            content = component_version_content.content
+
+                            if content.has_file and content.path:
+                                # Add the file to the static folder
+                                # file_path = static_folder / content.path
+                                file_path = static_folder / component_version_content.key
+                                with content.read_file() as f:
+                                    file_data = f.read()
+                                    zipf.writestr(str(file_path), file_data)
+                            elif not content.has_file and content.text:
+                                # Create file for the text file according to the mime_type attr
+                                text_file_path = static_folder / component_version_content.key
+                                zipf.writestr(str(text_file_path), content.text)
