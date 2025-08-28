@@ -3,9 +3,14 @@ Models relating to the creation and management of Draft information.
 """
 from django.conf import settings
 from django.db import models
+from django.db.models import F, Q, QuerySet
 from django.utils.translation import gettext_lazy as _
 
-from openedx_learning.lib.fields import immutable_uuid_field, manual_date_time_field
+from openedx_learning.lib.fields import (
+    hash_field,
+    immutable_uuid_field,
+    manual_date_time_field,
+)
 
 from .learning_package import LearningPackage
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
@@ -55,6 +60,49 @@ class Draft(models.Model):
         null=True,
         blank=True,
     )
+
+    # The dependencies_hash_digest is used when the version alone isn't enough to let us know
+    # the full draft state of an entity. This happens any time a Draft has
+    # dependencies (see the DraftDependency model), because changes in those
+    # dependencies will cause changes to the state of the Draft. An example of
+    # this is containers, where changing an unpinned child affects the state of
+    # the parent container, even if that container's definition (and thus
+    # version) does not change.
+    #
+    # If a Draft has no dependencies, then its entire state is captured by its
+    # version, and the dependencies_hash_digest is blank. (Blank is slightly more convenient
+    # for database comparisons than NULL.)
+    #
+    # TODO: It needs to exist in the Published model too, but we *can't assume
+    # it'll copy* because different subsets of children could be published, so
+    # we need to be able to recalculate based on the published state of the
+    # dependencies.
+    dependencies_hash_digest = hash_field(blank=True, default='')
+
+
+    class DraftQuerySet(models.QuerySet):
+
+        def with_unpublished_changes(self):
+            return (
+                self.select_related("entity__published__version")
+                    # Exclude where draft and published versions are the same
+                    .exclude(entity__published__version_id=F("version_id"))
+
+                    # Account for soft-deletes:
+                    # NULL != NULL in SQL, so simply excluding entities where
+                    # the Draft and Published versions match will not catch the
+                    # case where a soft-delete has been published (i.e. both the
+                    # Draft and Published versions are NULL). We need to
+                    # explicitly check for that case instead, or else we will
+                    # re-publish the same soft-deletes over and over again.
+                    .exclude(
+                        Q(version__isnull=True) &
+                        Q(entity__published__version__isnull=True)
+                    )
+            )
+
+    objects = DraftQuerySet.as_manager()
+
 
 
 class DraftChangeLog(models.Model):

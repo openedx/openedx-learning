@@ -221,6 +221,12 @@ class PublishableEntityVersion(models.Model):
         blank=True,
     )
 
+    dependencies = models.ManyToManyField(
+        PublishableEntity,
+        through="PublishableEntityVersionDependency",
+        related_name="affects",
+    )
+
     def __str__(self):
         return f"{self.entity.key} @ v{self.version_num} - {self.title}"
 
@@ -265,11 +271,44 @@ class PublishableEntityVersion(models.Model):
         verbose_name_plural = "Publishable Entity Versions"
 
 
+class PublishableEntityVersionDependency(models.Model):
+    """
+    Track the entities that a PublishableEntity is dependent on.
+
+    For example, a partcular version of a Unit (U1.v1) might be defined to have
+    unpinned references to Components C1 and C2. That means that any changes in
+    C1 or C2 will affect U1.v1 via DraftSideEffects and PublishedSideEffects.
+
+    An important restriction is that a PublishableEntityVersion's list of
+    dependencies are defined when the version is created. It is not modified
+    after that. No matter what happens to C1 or C2 (e.g. edit, deletion,
+    un-deletion, reset-draft-version-to-published), they will always be
+    dependencies of U1.v1.
+
+    If someone removes C2 from U1, then that requires creating a new version of
+    U1 (so U2.v2).
+
+    This restriction is very important because our ability to calculate and
+    cache the state of "this version of this publishable entity and all its
+    dependencies (children)" relies on this being true.
+    """
+    version = models.ForeignKey(PublishableEntityVersion, on_delete=models.RESTRICT)
+    entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["version", "entity"],
+                name="oel_pevd_uniq_version_entity",
+            )
+        ]
+
+
 class PublishableEntityMixin(models.Model):
     """
     Convenience mixin to link your models against PublishableEntity.
 
-    Please see docstring for PublishableEntity for more details.
+    Please see docstring for PublishableEntity for more details.FF
 
     If you use this class, you *MUST* also use PublishableEntityVersionMixin and
     the publishing app's api.register_publishable_models (see its docstring for
