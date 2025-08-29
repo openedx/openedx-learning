@@ -12,6 +12,7 @@ from django.db.models import QuerySet
 
 from openedx_learning.api import authoring as api
 from openedx_learning.api.authoring_models import Component, LearningPackage
+from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageZipper
 from openedx_learning.lib.test_utils import TestCase
 
 User = get_user_model()
@@ -19,7 +20,7 @@ User = get_user_model()
 
 class LpDumpCommandTestCase(TestCase):
     """
-    Test serving static assets (Content files, via Component lookup).
+    Test the lp_dump management command.
     """
 
     learning_package: LearningPackage
@@ -28,7 +29,7 @@ class LpDumpCommandTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         """
-        Initialize our content data
+        Initialize data for the whole TestCase
         """
 
         # Create a user for the test
@@ -46,6 +47,8 @@ class LpDumpCommandTestCase(TestCase):
         cls.now = datetime(2024, 8, 5, tzinfo=timezone.utc)
 
         cls.xblock_v1_namespace = "xblock.v1"
+        html_media_type = api.get_or_create_media_type("text/html")
+        text_media_type = api.get_or_create_media_type("text/plain")
 
         # Create component types
         cls.html_type = api.get_or_create_component_type(cls.xblock_v1_namespace, "html")
@@ -68,11 +71,23 @@ class LpDumpCommandTestCase(TestCase):
             published_at=cls.now,
         )
 
-        api.create_next_component_version(
+        new_problem_version = api.create_next_component_version(
             cls.published_component.pk,
             title="My published problem draft v2",
             content_to_replace={},
             created=cls.now,
+        )
+
+        new_txt_content = api.get_or_create_text_content(
+            cls.learning_package.pk,
+            text_media_type.id,
+            text="This is some data",
+            created=cls.now,
+        )
+        api.create_component_version_content(
+            new_problem_version.pk,
+            new_txt_content.pk,
+            key="hello.txt",
         )
 
         # Create a Draft component, one in each learning package
@@ -85,11 +100,23 @@ class LpDumpCommandTestCase(TestCase):
             created_by=cls.user.id,
         )
 
-        api.create_next_component_version(
+        new_html_version = api.create_next_component_version(
             cls.draft_component.pk,
             title="My draft html v2",
             content_to_replace={},
             created=cls.now,
+        )
+
+        cls.html_asset_content = api.get_or_create_file_content(
+            cls.learning_package.id,
+            html_media_type.id,
+            data=b"<html>hello world!</html>",
+            created=cls.now,
+        )
+        api.create_component_version_content(
+            new_html_version.pk,
+            cls.html_asset_content.id,
+            key="static/hello.html",
         )
 
         components = api.get_publishable_entities(cls.learning_package)
@@ -111,24 +138,28 @@ class LpDumpCommandTestCase(TestCase):
         """
         with zipfile.ZipFile(zip_path, "r") as zip_file:
             # Check that the zip file contains the expected files
-            expected_paths = [
-                "package.toml",
-                "entities/",
+
+            expected_directories = [
                 "collections/",
-                "entities/xblock.v1/",
-                "entities/xblock.v1/html/",
-                "entities/xblock.v1/html/my_draft_example_af06e1.toml",
-                "entities/xblock.v1/html/my_draft_example_af06e1/",
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/",
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/",
                 "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/",
-                "entities/xblock.v1/problem/",
-                "entities/xblock.v1/problem/my_published_example_386dce/",
-                "entities/xblock.v1/problem/my_published_example_386dce.toml",
-                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/",
-                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v1/",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v1/static/",
+                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/static/",
             ]
+
+            expected_files = [
+                # Learning package files
+                "package.toml",
+
+                # Entity TOML files
+                "entities/xblock.v1/html/my_draft_example_af06e1.toml",
+                "entities/xblock.v1/problem/my_published_example_386dce.toml",
+
+                # Entity static content files
+                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/hello.html",
+                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/hello.txt",
+            ]
+
+            expected_paths = expected_directories + expected_files
 
             # Check that all expected paths are present
             zip_name_list = zip_file.namelist()
@@ -207,3 +238,31 @@ class LpDumpCommandTestCase(TestCase):
             # Attempt to dump a learning package that does not exist
             call_command("lp_dump", lp_key, file_name, stdout=out)
             self.assertIn("Learning package 'nonexistent_lp' does not exist", out.getvalue())
+
+    def test_queries_n_plus_problem(self):
+        """
+        Test n plus problem over LearningPackageZipper for performance.
+        Regardless of the number of entities, the query count should remain on 3
+        Why?
+            1 query for PublishableEntity + select_related joins
+            1 query for all draft contents
+            1 query for all published contents
+        """
+        zipper = LearningPackageZipper(self.learning_package)
+        entities = zipper.get_publishable_entities()
+        with self.assertNumQueries(3):
+            list(entities)  # force evaluation
+            self.assertEqual(len(entities), 2)
+        # Add another component
+        api.create_component_and_version(
+            self.learning_package.id,
+            self.problem_type,
+            local_key="my_published_example2",
+            title="My published problem 2",
+            created=self.now,
+            created_by=self.user.id,
+        )
+        entities = zipper.get_publishable_entities()
+        with self.assertNumQueries(3):
+            list(entities)  # force evaluation
+            self.assertEqual(len(entities), 3)
