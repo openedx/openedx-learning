@@ -19,7 +19,7 @@ User = get_user_model()
 
 class LpDumpCommandTestCase(TestCase):
     """
-    Test serving static assets (Content files, via Component lookup).
+    Test the lp_dump management command.
     """
 
     learning_package: LearningPackage
@@ -28,7 +28,7 @@ class LpDumpCommandTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         """
-        Initialize our content data
+        Initialize data for the whole TestCase
         """
 
         # Create a user for the test
@@ -86,7 +86,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_content(
             new_problem_version.pk,
             new_txt_content.pk,
-            key="content/hello.txt",
+            key="hello.txt",
         )
 
         # Create a Draft component, one in each learning package
@@ -115,7 +115,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_content(
             new_html_version.pk,
             cls.html_asset_content.id,
-            key="content/hello.html",
+            key="static/hello.html",
         )
 
         components = api.get_publishable_entities(cls.learning_package)
@@ -154,8 +154,8 @@ class LpDumpCommandTestCase(TestCase):
                 "entities/xblock.v1/problem/my_published_example_386dce.toml",
 
                 # Entity static content files
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/content/hello.html",
-                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/static/content/hello.txt",
+                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/hello.html",
+                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/hello.txt",
             ]
 
             expected_paths = expected_directories + expected_files
