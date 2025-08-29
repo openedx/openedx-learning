@@ -12,6 +12,7 @@ from django.db.models import QuerySet
 
 from openedx_learning.api import authoring as api
 from openedx_learning.api.authoring_models import Component, LearningPackage
+from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageZipper
 from openedx_learning.lib.test_utils import TestCase
 
 User = get_user_model()
@@ -237,3 +238,31 @@ class LpDumpCommandTestCase(TestCase):
             # Attempt to dump a learning package that does not exist
             call_command("lp_dump", lp_key, file_name, stdout=out)
             self.assertIn("Learning package 'nonexistent_lp' does not exist", out.getvalue())
+
+    def test_queries_n_plus_problem(self):
+        """
+        Test n plus problem over LearningPackageZipper for performance.
+        Regardless of the number of entities, the query count should remain on 3
+        Why?
+            1 query for PublishableEntity + select_related joins
+            1 query for all draft contents
+            1 query for all published contents
+        """
+        zipper = LearningPackageZipper(self.learning_package)
+        entities = zipper.get_publishable_entities()
+        with self.assertNumQueries(3):
+            list(entities)  # force evaluation
+            self.assertEqual(len(entities), 2)
+        # Add another component
+        api.create_component_and_version(
+            self.learning_package.id,
+            self.problem_type,
+            local_key="my_published_example2",
+            title="My published problem 2",
+            created=self.now,
+            created_by=self.user.id,
+        )
+        entities = zipper.get_publishable_entities()
+        with self.assertNumQueries(3):
+            list(entities)  # force evaluation
+            self.assertEqual(len(entities), 3)
