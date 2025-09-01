@@ -31,7 +31,7 @@ build==1.3.0
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
-cachetools==6.1.0
+cachetools==6.2.0
     # via
     #   -r requirements/ci.txt
     #   tox
@@ -94,7 +94,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.10.5
+coverage[toml]==7.10.6
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -241,7 +241,7 @@ jinja2==3.1.6
     #   -r requirements/quality.txt
     #   code-annotations
     #   diff-cover
-joblib==1.5.1
+joblib==1.5.2
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -312,13 +312,9 @@ pathspec==0.12.1
     # via
     #   -r requirements/quality.txt
     #   mypy
-pbr==7.0.1
-    # via
-    #   -r requirements/quality.txt
-    #   stevedore
 pip-tools==7.5.0
     # via -r requirements/pip-tools.txt
-platformdirs==4.3.8
+platformdirs==4.4.0
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -335,7 +331,7 @@ pluggy==1.6.0
     #   tox
 polib==1.2.0
     # via edx-i18n-tools
-prompt-toolkit==3.0.51
+prompt-toolkit==3.0.52
     # via
     #   -r requirements/quality.txt
     #   click-repl
@@ -471,7 +467,7 @@ sqlparse==0.5.3
     #   -r requirements/quality.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.4.1
+stevedore==5.5.0
     # via
     #   -r requirements/quality.txt
     #   code-annotations
@@ -485,7 +481,7 @@ tomlkit==0.13.3
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==4.28.4
+tox==4.29.0
     # via -r requirements/ci.txt
 twine==6.1.0
     # via -r requirements/quality.txt
@@ -498,7 +494,7 @@ types-requests==2.32.4.20250809
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-typing-extensions==4.14.1
+typing-extensions==4.15.0
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
