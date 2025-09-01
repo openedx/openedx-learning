@@ -57,7 +57,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==2.3.0
     # via -r requirements/test.in
-coverage[toml]==7.10.5
+coverage[toml]==7.10.6
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -135,7 +135,7 @@ iniconfig==2.1.0
     # via pytest
 jinja2==3.1.6
     # via code-annotations
-joblib==1.5.1
+joblib==1.5.2
     # via grimp
 kombu==5.5.4
     # via
@@ -158,15 +158,11 @@ packaging==25.0
     #   pytest
 pathspec==0.12.1
     # via mypy
-pbr==7.0.1
-    # via
-    #   -r requirements/base.txt
-    #   stevedore
 pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-prompt-toolkit==3.0.51
+prompt-toolkit==3.0.52
     # via
     #   -r requirements/base.txt
     #   click-repl
@@ -231,7 +227,7 @@ sqlparse==0.5.3
     #   -r requirements/base.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.4.1
+stevedore==5.5.0
     # via
     #   -r requirements/base.txt
     #   code-annotations
@@ -247,7 +243,7 @@ types-pyyaml==6.0.12.20250822
     #   djangorestframework-stubs
 types-requests==2.32.4.20250809
     # via djangorestframework-stubs
-typing-extensions==4.14.1
+typing-extensions==4.15.0
     # via
     #   -r requirements/base.txt
     #   django-stubs
@@ -276,6 +272,3 @@ wcwidth==0.2.13
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools
