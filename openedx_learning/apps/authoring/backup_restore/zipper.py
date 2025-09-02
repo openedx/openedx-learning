@@ -5,18 +5,21 @@ including a TOML representation of the learning package and its entities.
 import hashlib
 import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
-from django.db.models import QuerySet
+from django.db.models import Prefetch, QuerySet
 from django.utils.text import slugify
 
-from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
-from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import (
+from openedx_learning.api.authoring_models import (
+    ComponentVersion,
+    ComponentVersionContent,
+    Content,
     LearningPackage,
     PublishableEntity,
     PublishableEntityVersion,
 )
+from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
+from openedx_learning.apps.authoring.publishing import api as publishing_api
 
 TOML_PACKAGE_NAME = "package.toml"
 
@@ -68,6 +71,53 @@ class LearningPackageZipper:
             zip_file.writestr(zip_info, "")  # Add explicit empty directory entry
             self.folders_already_created.add(folder_path)
 
+    def get_publishable_entities(self) -> QuerySet[PublishableEntity]:
+        """
+        Retrieve the publishable entities associated with the learning package.
+        Prefetches related data for efficiency.
+        """
+        lp_id = self.learning_package.pk
+        publishable_entities: QuerySet[PublishableEntity] = publishing_api.get_publishable_entities(lp_id)
+        return (
+            publishable_entities
+            .select_related(
+                "container",
+                "component__component_type",
+                "draft__version__componentversion",
+                "published__version__componentversion",
+            )
+            .prefetch_related(
+                # We should re-evaluate the prefetching strategy here,
+                # as the current approach may cause performance issues—
+                # especially with large libraries (up to 100K items),
+                # which is too large for this type of prefetch.
+                Prefetch(
+                    "draft__version__componentversion__componentversioncontent_set",
+                    queryset=ComponentVersionContent.objects.select_related("content"),
+                    to_attr="prefetched_contents",
+                ),
+                Prefetch(
+                    "published__version__componentversion__componentversioncontent_set",
+                    queryset=ComponentVersionContent.objects.select_related("content"),
+                    to_attr="prefetched_contents",
+                ),
+            )
+        )
+
+    def get_versions_to_write(self, entity: PublishableEntity):
+        """
+        Get the versions of a publishable entity that should be written to the zip file.
+        It retrieves both draft and published versions.
+        """
+        draft_version: Optional[PublishableEntityVersion] = publishing_api.get_draft_version(entity)
+        published_version: Optional[PublishableEntityVersion] = publishing_api.get_published_version(entity)
+
+        versions_to_write = [draft_version] if draft_version else []
+
+        if published_version and published_version != draft_version:
+            versions_to_write.append(published_version)
+        return versions_to_write
+
     def create_zip(self, path: str) -> None:
         """
         Creates a zip file containing the learning package data.
@@ -76,11 +126,10 @@ class LearningPackageZipper:
         Raises:
             Exception: If the learning package cannot be found or if the zip creation fails.
         """
-        package_toml_content: str = toml_learning_package(self.learning_package)
-        lp_id = self.learning_package.pk
 
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
-            # Add the package.toml string
+            # Add the package.toml file
+            package_toml_content: str = toml_learning_package(self.learning_package)
             zipf.writestr(TOML_PACKAGE_NAME, package_toml_content)
 
             # Add the entities directory
@@ -91,9 +140,11 @@ class LearningPackageZipper:
             collections_folder = Path("collections")
             self.create_folder(collections_folder, zipf)
 
-            # Add each entity's TOML file
-            publishable_entities: QuerySet[PublishableEntity] = publishing_api.get_publishable_entities(lp_id)
-            publishable_entities = publishable_entities.select_related("container", "component__component_type")
+            # ------ ENTITIES SERIALIZATION -------------
+
+            # get the publishable entities
+            publishable_entities: QuerySet[PublishableEntity] = self.get_publishable_entities()
+
             for entity in publishable_entities:
                 # entity: PublishableEntity = entity  # Type hint for clarity
 
@@ -116,24 +167,34 @@ class LearningPackageZipper:
                     #                 component_versions/
                     #                     v1/
                     #                         static/
+
+                    # Generate the slugified hash for the component local key
+                    # Example: if the local key is "my_component", the slugified hash might be "my_component_123456"
+                    # It's a combination of the local key and a hash and should be unique
                     entity_slugify_hash = slugify_hashed_filename(entity.component.local_key)
+
+                    # Create the component namespace folder
+                    # Example of component namespace is: "entities/xblock.v1/"
                     component_namespace_folder = entities_folder / entity.component.component_type.namespace
-                    # Example of component namespace is: "xblock.v1"
                     self.create_folder(component_namespace_folder, zipf)
 
+                    # Create the component type folder
+                    # Example of component type is: "entities/xblock.v1/html/"
                     component_type_folder = component_namespace_folder / entity.component.component_type.name
-                    # Example of component type is: "html"
                     self.create_folder(component_type_folder, zipf)
 
+                    # Create the component id folder
+                    # Example of component id is: "entities/xblock.v1/html/my_component_123456/"
                     component_id_folder = component_type_folder / entity_slugify_hash
-                    # Example of component id is: "i-dont-like-the-sidebar-aa1645ade4a7"
                     self.create_folder(component_id_folder, zipf)
 
                     # Add the entity TOML file inside the component type folder as well
+                    # Example: "entities/xblock.v1/html/my_component_123456.toml"
                     component_entity_toml_path = component_type_folder / f"{entity_slugify_hash}.toml"
                     zipf.writestr(str(component_entity_toml_path), entity_toml_content)
 
                     # Add component version folder into the component id folder
+                    # Example: "entities/xblock.v1/html/my_component_123456/component_versions/"
                     component_version_folder = component_id_folder / "component_versions"
                     self.create_folder(component_version_folder, zipf)
 
@@ -141,13 +202,7 @@ class LearningPackageZipper:
                     # Focusing on draft and published versions
 
                     # Get the draft and published versions
-                    draft_version: Optional[PublishableEntityVersion] = publishing_api.get_draft_version(entity)
-                    published_version: Optional[PublishableEntityVersion] = publishing_api.get_published_version(entity)
-
-                    versions_to_write = [draft_version] if draft_version else []
-
-                    if published_version and published_version != draft_version:
-                        versions_to_write.append(published_version)
+                    versions_to_write: List[PublishableEntityVersion] = self.get_versions_to_write(entity)
 
                     for version in versions_to_write:
                         # Create a folder for the version
@@ -158,3 +213,30 @@ class LearningPackageZipper:
                         # Add static folder for the version
                         static_folder = version_folder / "static"
                         self.create_folder(static_folder, zipf)
+
+                        # ------ COMPONENT STATIC CONTENT -------------
+                        component_version: ComponentVersion = version.componentversion
+
+                        # Get content data associated with this version
+                        contents: QuerySet[
+                            ComponentVersionContent
+                        ] = component_version.prefetched_contents  # type: ignore[attr-defined]
+
+                        for component_version_content in contents:
+                            content: Content = component_version_content.content
+
+                            # Important: The component_version_content.key contains implicitly
+                            # the file name and the file extension
+                            file_path = version_folder / component_version_content.key
+
+                            if content.has_file and content.path:
+                                # If has_file, we pull it from the file system
+                                with content.read_file() as f:
+                                    file_data = f.read()
+                            elif not content.has_file and content.text:
+                                # Otherwise, we use the text content as the file data
+                                file_data = content.text
+                            else:
+                                # If no file and no text, we skip this content
+                                continue
+                            zipf.writestr(str(file_path), file_data)
