@@ -168,32 +168,29 @@ def toml_collection(collection: Collection) -> str:
     The resulting content looks like:
         [collection]
         title = "Collection 1"
+        key = "COL1"
         description = "Description of Collection 1"
-        created = 2025-09-03T17:50:59.565939Z
-
-        # ### Entities
-
-        [[entity]]
-        uuid = "f8ea9bae-b4ed-4a84-ab4f-2b9850b59cd6"
-        can_stand_alone = true
-        key = "xblock.v1:problem:my_published_example"
+        created = 2025-09-03T22:28:53.839362Z
+        entities = [
+            "xblock.v1:problem:my_published_example",
+            "xblock.v1:html:my_draft_example",
+        ]
     """
     doc = tomlkit.document()
 
+    entity_keys = collection.entities.values_list("key", flat=True)
+    entities_array = tomlkit.array()
+    for entity_key in entity_keys:
+        entities_array.append(entity_key)
+    entities_array.multiline(True)
+
     collection_table = tomlkit.table()
     collection_table.add("title", collection.title)
+    collection_table.add("key", collection.key)
     collection_table.add("description", collection.description)
     collection_table.add("created", collection.created)
+    collection_table.add("entities", entities_array)
 
     doc.add("collection", collection_table)
-    doc.add(tomlkit.nl())
-    doc.add(tomlkit.comment("### Entities"))
-
-    # Entity serialization
-    for entity in collection.entities.all():
-        entities_array = tomlkit.aot()
-        entity_table = _get_toml_publishable_entity_table(entity, include_versions=False)
-        entities_array.append(entity_table)
-        doc.add("entity", entities_array)
 
     return tomlkit.dumps(doc)
