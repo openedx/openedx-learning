@@ -1,6 +1,8 @@
 """
 PublishableEntity model and PublishableEntityVersion + mixins
 """
+from __future__ import annotations
+
 from datetime import datetime
 from functools import cached_property
 from typing import ClassVar, Self
@@ -223,7 +225,9 @@ class PublishableEntityVersion(models.Model):
         blank=True,
     )
 
-    dependencies = models.ManyToManyField(
+    dependencies: models.ManyToManyField[
+        PublishableEntity, PublishableEntityVersionDependency
+    ] = models.ManyToManyField(
         PublishableEntity,
         through="PublishableEntityVersionDependency",
         related_name="affects",

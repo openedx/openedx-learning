@@ -215,6 +215,7 @@ def create_publishable_entity_version(
     title: str,
     created: datetime,
     created_by: int | None,
+    *,
     dependencies: list[int] | None = None,  # PublishableEntity IDs
 ) -> PublishableEntityVersion:
     """
@@ -424,7 +425,7 @@ def _get_dependencies_with_unpublished_changes(
         ).distinct()
 
     if not all_dependent_drafts:
-        return Draft.objects.none()
+        return []
 
     unpublished_dependent_drafts = [
         dependent_drafts_qset.with_unpublished_changes()
@@ -440,6 +441,7 @@ def publish_from_drafts(
     message: str = "",
     published_at: datetime | None = None,
     published_by: int | None = None,  # User.id
+    *,
     publish_dependencies: bool = True,
 ) -> PublishLog:
     """
@@ -631,7 +633,7 @@ def set_draft_version(
             learning_package_id
         )
         if active_change_log:
-            change = _add_to_existing_draft_change_log(
+            _add_to_existing_draft_change_log(
                 active_change_log,
                 draft.entity_id,
                 old_version_id=old_version_id,
@@ -755,6 +757,9 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
     Note: The interface between ``DraftChangeLog`` and ``PublishLog`` is similar
     enough that this function has been made to work with both.
     """
+    branch_cls: type[Draft] | type[Published]
+    change_record_cls: type[DraftChangeLogRecord] | type[PublishLogRecord]
+    side_effect_cls: type[DraftSideEffect] | type[PublishSideEffect]
     if isinstance(change_log, DraftChangeLog):
         branch_cls = Draft
         change_record_cls = DraftChangeLogRecord
@@ -791,10 +796,11 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             # already in the change_log, then we have to add it.
             affected_version_pk = affected.version_id
 
+            change_log_param = {}
             if branch_cls == Draft:
-                change_log_param = {'draft_change_log': original_change.draft_change_log}
+                change_log_param['draft_change_log'] = original_change.draft_change_log
             elif branch_cls == Published:
-                change_log_param = {'publish_log': original_change.publish_log}
+                change_log_param['publish_log'] = original_change.publish_log
 
             # Example: If the original_change is a DraftChangeLogRecord that
             # represents editing a Component, the side_effect_change is the

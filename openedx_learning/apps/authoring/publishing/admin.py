@@ -6,7 +6,7 @@ from __future__ import annotations
 import functools
 
 from django.contrib import admin
-from django.db.models import Count, F, Q
+from django.db.models import Count, F
 from django.utils.html import format_html
 from django.utils.safestring import SafeText
 
@@ -22,7 +22,6 @@ from .models import (
     LearningPackage,
     PublishableEntity,
     PublishableEntityVersion,
-    PublishableEntityVersionDependency,
     PublishLog,
     PublishLogRecord,
 )
@@ -122,6 +121,9 @@ class PublishableEntityVersionTabularInline(admin.TabularInline):
         )
 
 class PublishStatusFilter(admin.SimpleListFilter):
+    """
+    Custom filter for entities that have unpublished changes.
+    """
     title = "publish status"
     parameter_name = "publish_status"
 
@@ -143,6 +145,7 @@ class PublishStatusFilter(admin.SimpleListFilter):
                     published__dependencies_hash_digest=F("draft__dependencies_hash_digest")
                 )
             )
+        return queryset
 
 
 @admin.register(PublishableEntity)
@@ -188,9 +191,22 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         "can_stand_alone",
     ]
 
-    def draft_version(self, entity: PublishableEntity):
-        from django.utils.html import format_html
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related(
+            "learning_package", "published__version", "draft__version", "created_by"
+        )
 
+    def see_also(self, entity):
+        return one_to_one_related_model_html(entity)
+
+    def draft_version(self, entity: PublishableEntity):
+        """
+        Version num + dependency hash if applicable, e.g. "5" or "5 (825064c2)"
+
+        If the version info is different from the published version, we
+        italicize the text for emphasis.
+        """
         if hasattr(entity, "draft") and entity.draft.version:
             if entity.draft.dependencies_hash_digest:
                 version_str = (
@@ -208,23 +224,9 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         return None
 
     def published_version(self, entity: PublishableEntity):
-        return entity.published.version.version_num if entity.published and entity.published.version else None
-
-    def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        return queryset.select_related(
-            "learning_package", "published__version", "draft__version", "created_by"
-        )
-
-    def see_also(self, entity):
-        return one_to_one_related_model_html(entity)
-
-    def published_version(self, entity):
-        if entity.published.version:
-            return entity.published.version.version_num
-        return None
-
-    def published_version(self, entity: PublishableEntity):
+        """
+        Version num + dependency hash if applicable, e.g. "5" or "5 (825064c2)"
+        """
         if hasattr(entity, "published") and entity.published.version:
             if entity.published.dependencies_hash_digest:
                 return (

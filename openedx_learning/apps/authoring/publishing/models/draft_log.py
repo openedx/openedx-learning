@@ -3,7 +3,7 @@ Models relating to the creation and management of Draft information.
 """
 from django.conf import settings
 from django.db import models
-from django.db.models import F, Q, QuerySet
+from django.db.models import F, Q
 from django.utils.translation import gettext_lazy as _
 
 from openedx_learning.lib.fields import (
