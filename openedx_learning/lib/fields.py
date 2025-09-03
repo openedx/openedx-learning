@@ -23,8 +23,8 @@ def create_hash_digest(data_bytes: bytes, num_bytes=20) -> str:
     """
     Create a lower-case hex string representation of a hash digest.
 
-    The hash digest itself is 20-bytes using BLAKE2b (so 40 characters when hex
-    encoded).
+    The hash itself is 20-bytes by default, so 40 characters when we return it
+    as a hex-encoded string. We use BLAKE2b for the hashing algorithm.
 
     DON'T JUST MODIFY THIS HASH BEHAVIOR!!! We use hashing for de-duplication
     purposes. If this hash function ever changes, that deduplication will fail

@@ -250,7 +250,7 @@ def set_version_dependencies(
     dependencies: list[int]  # List of PublishableEntity.id
 ) -> None:
     """
-    Set the depenencies of a publishable entity version.
+    Set the dependencies of a publishable entity version.
 
     In general, callers should not modify dependencies after creation (i.e. use
     the optional param in create_publishable_entity_version() instead of using
@@ -423,9 +423,6 @@ def _get_dependencies_with_unpublished_changes(
         dependent_drafts = Draft.objects.filter(
             entity__affects__in=dependent_drafts.all().values_list("entity_id", flat=True)
         ).distinct()
-
-    if not all_dependent_drafts:
-        return []
 
     unpublished_dependent_drafts = [
         dependent_drafts_qset.with_unpublished_changes()
