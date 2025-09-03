@@ -11,7 +11,7 @@ from django.core.management import CommandError, call_command
 from django.db.models import QuerySet
 
 from openedx_learning.api import authoring as api
-from openedx_learning.api.authoring_models import Component, LearningPackage
+from openedx_learning.api.authoring_models import Collection, Component, Content, LearningPackage, PublishableEntity
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageZipper
 from openedx_learning.lib.test_utils import TestCase
 
@@ -24,7 +24,15 @@ class LpDumpCommandTestCase(TestCase):
     """
 
     learning_package: LearningPackage
-    all_components: QuerySet[Component]
+    all_components: QuerySet[PublishableEntity]
+    now: datetime
+    xblock_v1_namespace: str
+    html_type: str
+    problem_type: str
+    published_component: Component
+    draft_component: Component
+    html_asset_content: Content
+    collection: Collection
 
     @classmethod
     def setUpTestData(cls):
@@ -122,7 +130,7 @@ class LpDumpCommandTestCase(TestCase):
         components = api.get_publishable_entities(cls.learning_package)
         cls.all_components = components
 
-        cls.collection1 = api.create_collection(
+        cls.collection = api.create_collection(
             cls.learning_package.id,
             key="COL1",
             created_by=cls.user.id,
@@ -132,7 +140,7 @@ class LpDumpCommandTestCase(TestCase):
 
         api.add_to_collection(
             cls.learning_package.id,
-            cls.collection1.key,
+            cls.collection.key,
             components
         )
 

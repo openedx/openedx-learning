@@ -15,6 +15,7 @@ from openedx_learning.apps.authoring.publishing.models.learning_package import L
 def toml_learning_package(learning_package: LearningPackage) -> str:
     """
     Create a TOML representation of the learning package.
+
     The resulting content looks like:
         # Datetime of the export: 2025-09-03 12:50:59.573253
 
@@ -42,6 +43,7 @@ def _get_toml_publishable_entity_table(
         include_versions: bool = True) -> tomlkit.items.Table:
     """
     Create a TOML representation of a publishable entity.
+
     The resulting content looks like:
         [entity]
         uuid = "f8ea9bae-b4ed-4a84-ab4f-2b9850b59cd6"
@@ -53,6 +55,9 @@ def _get_toml_publishable_entity_table(
 
         [entity.published]
         version_num = 1
+
+    Note: This function returns a tomlkit.items.Table, which represents
+    a string-like TOML fragment rather than a complete TOML document.
     """
     entity_table = tomlkit.table()
     entity_table.add("uuid", str(entity.uuid))
@@ -83,6 +88,7 @@ def _get_toml_publishable_entity_table(
 def toml_publishable_entity(entity: PublishableEntity) -> str:
     """
     Create a TOML representation of a publishable entity and its versions.
+
     The resulting content looks like:
         [entity]
         uuid = "f8ea9bae-b4ed-4a84-ab4f-2b9850b59cd6"
@@ -126,6 +132,7 @@ def toml_publishable_entity(entity: PublishableEntity) -> str:
 def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlkit.items.Table:
     """
     Create a TOML representation of a publishable entity version.
+
     The resulting content looks like:
         [[version]]
         title = "My published problem"
@@ -137,6 +144,9 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
 
         [version.container.unit]
         graded = true
+
+     Note: This function returns a tomlkit.items.Table, which represents
+    a string-like TOML fragment rather than a complete TOML document.
     """
     version_table = tomlkit.table()
     version_table.add("title", version.title)
@@ -154,6 +164,7 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
 def toml_collection(collection: Collection) -> str:
     """
     Create a TOML representation of a collection.
+
     The resulting content looks like:
         [collection]
         title = "Collection 1"
@@ -173,9 +184,11 @@ def toml_collection(collection: Collection) -> str:
     collection_table.add("title", collection.title)
     collection_table.add("description", collection.description)
     collection_table.add("created", collection.created)
+
     doc.add("collection", collection_table)
     doc.add(tomlkit.nl())
     doc.add(tomlkit.comment("### Entities"))
+
     # Entity serialization
     for entity in collection.entities.all():
         entities_array = tomlkit.aot()
