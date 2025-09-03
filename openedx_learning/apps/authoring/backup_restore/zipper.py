@@ -11,6 +11,7 @@ from django.db.models import Prefetch, QuerySet
 from django.utils.text import slugify
 
 from openedx_learning.api.authoring_models import (
+    Collection,
     ComponentVersion,
     ComponentVersionContent,
     Content,
@@ -18,7 +19,12 @@ from openedx_learning.api.authoring_models import (
     PublishableEntity,
     PublishableEntityVersion,
 )
-from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
+from openedx_learning.apps.authoring.backup_restore.toml import (
+    toml_collection,
+    toml_learning_package,
+    toml_publishable_entity,
+)
+from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 
 TOML_PACKAGE_NAME = "package.toml"
@@ -102,6 +108,15 @@ class LearningPackageZipper:
                     to_attr="prefetched_contents",
                 ),
             )
+        )
+
+    def get_collections(self) -> QuerySet[Collection]:
+        """
+        Get the collections associated with the learning package.
+        """
+        return (
+            collections_api.get_collections(self.learning_package.pk)
+            .prefetch_related("entities")
         )
 
     def get_versions_to_write(self, entity: PublishableEntity):
@@ -240,3 +255,11 @@ class LearningPackageZipper:
                                 # If no file and no text, we skip this content
                                 continue
                             zipf.writestr(str(file_path), file_data)
+
+            # ------ COLLECTION SERIALIZATION -------------
+            collections = self.get_collections()
+
+            for collection in collections:
+                collection_hash_slug = slugify_hashed_filename(collection.key)
+                collection_toml_file_path = collections_folder / f"{collection_hash_slug}.toml"
+                zipf.writestr(str(collection_toml_file_path), toml_collection(collection))

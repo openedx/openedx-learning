@@ -122,6 +122,20 @@ class LpDumpCommandTestCase(TestCase):
         components = api.get_publishable_entities(cls.learning_package)
         cls.all_components = components
 
+        cls.collection1 = api.create_collection(
+            cls.learning_package.id,
+            key="COL1",
+            created_by=cls.user.id,
+            title="Collection 1",
+            description="Description of Collection 1",
+        )
+
+        api.add_to_collection(
+            cls.learning_package.id,
+            cls.collection1.key,
+            components
+        )
+
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):
         """
         Check that a specific entity TOML file in the zip matches the expected content.
@@ -157,6 +171,9 @@ class LpDumpCommandTestCase(TestCase):
                 # Entity static content files
                 "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/hello.html",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/hello.txt",
+
+                # Collections
+                "collections/col1_06bb25.toml",
             ]
 
             expected_paths = expected_directories + expected_files
