@@ -85,7 +85,7 @@ def _get_toml_publishable_entity_table(
     return entity_table
 
 
-def toml_publishable_entity(entity: PublishableEntity) -> str:
+def toml_publishable_entity(entity: PublishableEntity, versions_to_write: list[PublishableEntityVersion]) -> str:
     """
     Create a TOML representation of a publishable entity and its versions.
 
@@ -120,7 +120,7 @@ def toml_publishable_entity(entity: PublishableEntity) -> str:
     doc.add(tomlkit.nl())
     doc.add(tomlkit.comment("### Versions"))
 
-    for entity_version in entity.versions.all():
+    for entity_version in versions_to_write:
         version = tomlkit.aot()
         version_table = toml_publishable_entity_version(entity_version)
         version.append(version_table)

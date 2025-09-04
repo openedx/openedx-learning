@@ -163,8 +163,11 @@ class LearningPackageZipper:
             for entity in publishable_entities:
                 # entity: PublishableEntity = entity  # Type hint for clarity
 
+                # Get the draft and published versions
+                versions_to_write: List[PublishableEntityVersion] = self.get_versions_to_write(entity)
+
                 # Create a TOML representation of the entity
-                entity_toml_content: str = toml_publishable_entity(entity)
+                entity_toml_content: str = toml_publishable_entity(entity, versions_to_write)
 
                 if hasattr(entity, 'container'):
                     entity_slugify_hash = slugify_hashed_filename(entity.key)
@@ -214,11 +217,7 @@ class LearningPackageZipper:
                     self.create_folder(component_version_folder, zipf)
 
                     # ------ COMPONENT VERSIONING -------------
-                    # Focusing on draft and published versions
-
-                    # Get the draft and published versions
-                    versions_to_write: List[PublishableEntityVersion] = self.get_versions_to_write(entity)
-
+                    # Focusing on draft and published versions only
                     for version in versions_to_write:
                         # Create a folder for the version
                         version_number = f"v{version.version_num}"
