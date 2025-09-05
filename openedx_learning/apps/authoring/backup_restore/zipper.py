@@ -271,6 +271,11 @@ class LearningPackageZipper:
                     entity, versions_to_write, draft_version, published_version
                 )
 
+                # Generate the slugified hash for the component local key
+                # Example: if the local key is "my_component", the slugified hash might be "my_component_123456"
+                # It's a combination of the local key and a hash and should be unique
+                entity_slugify_hash = slugify_hashed_filename(entity.key)
+
                 if hasattr(entity, 'container'):
                     entity_filename = self.get_entity_toml_filename(entity.key)
                     entity_toml_filename = f"{entity_filename}.toml"
