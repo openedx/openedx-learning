@@ -11,7 +11,7 @@ from django.core.management import CommandError, call_command
 from django.db.models import QuerySet
 
 from openedx_learning.api import authoring as api
-from openedx_learning.api.authoring_models import Component, LearningPackage
+from openedx_learning.api.authoring_models import Collection, Component, Content, LearningPackage, PublishableEntity
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageZipper
 from openedx_learning.lib.test_utils import TestCase
 
@@ -24,7 +24,15 @@ class LpDumpCommandTestCase(TestCase):
     """
 
     learning_package: LearningPackage
-    all_components: QuerySet[Component]
+    all_components: QuerySet[PublishableEntity]
+    now: datetime
+    xblock_v1_namespace: str
+    html_type: str
+    problem_type: str
+    published_component: Component
+    draft_component: Component
+    html_asset_content: Content
+    collection: Collection
 
     @classmethod
     def setUpTestData(cls):
@@ -122,6 +130,20 @@ class LpDumpCommandTestCase(TestCase):
         components = api.get_publishable_entities(cls.learning_package)
         cls.all_components = components
 
+        cls.collection = api.create_collection(
+            cls.learning_package.id,
+            key="COL1",
+            created_by=cls.user.id,
+            title="Collection 1",
+            description="Description of Collection 1",
+        )
+
+        api.add_to_collection(
+            cls.learning_package.id,
+            cls.collection.key,
+            components
+        )
+
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):
         """
         Check that a specific entity TOML file in the zip matches the expected content.
@@ -157,6 +179,9 @@ class LpDumpCommandTestCase(TestCase):
                 # Entity static content files
                 "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/hello.html",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/hello.txt",
+
+                # Collections
+                "collections/col1_06bb25.toml",
             ]
 
             expected_paths = expected_directories + expected_files

@@ -11,6 +11,7 @@ from django.db.models import Prefetch, QuerySet
 from django.utils.text import slugify
 
 from openedx_learning.api.authoring_models import (
+    Collection,
     ComponentVersion,
     ComponentVersionContent,
     Content,
@@ -18,7 +19,12 @@ from openedx_learning.api.authoring_models import (
     PublishableEntity,
     PublishableEntityVersion,
 )
-from openedx_learning.apps.authoring.backup_restore.toml import toml_learning_package, toml_publishable_entity
+from openedx_learning.apps.authoring.backup_restore.toml import (
+    toml_collection,
+    toml_learning_package,
+    toml_publishable_entity,
+)
+from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 
 TOML_PACKAGE_NAME = "package.toml"
@@ -104,6 +110,15 @@ class LearningPackageZipper:
             )
         )
 
+    def get_collections(self) -> QuerySet[Collection]:
+        """
+        Get the collections associated with the learning package.
+        """
+        return (
+            collections_api.get_collections(self.learning_package.pk)
+            .prefetch_related("entities")
+        )
+
     def get_versions_to_write(self, entity: PublishableEntity):
         """
         Get the versions of a publishable entity that should be written to the zip file.
@@ -148,8 +163,11 @@ class LearningPackageZipper:
             for entity in publishable_entities:
                 # entity: PublishableEntity = entity  # Type hint for clarity
 
+                # Get the draft and published versions
+                versions_to_write: List[PublishableEntityVersion] = self.get_versions_to_write(entity)
+
                 # Create a TOML representation of the entity
-                entity_toml_content: str = toml_publishable_entity(entity)
+                entity_toml_content: str = toml_publishable_entity(entity, versions_to_write)
 
                 if hasattr(entity, 'container'):
                     entity_slugify_hash = slugify_hashed_filename(entity.key)
@@ -199,11 +217,7 @@ class LearningPackageZipper:
                     self.create_folder(component_version_folder, zipf)
 
                     # ------ COMPONENT VERSIONING -------------
-                    # Focusing on draft and published versions
-
-                    # Get the draft and published versions
-                    versions_to_write: List[PublishableEntityVersion] = self.get_versions_to_write(entity)
-
+                    # Focusing on draft and published versions only
                     for version in versions_to_write:
                         # Create a folder for the version
                         version_number = f"v{version.version_num}"
@@ -240,3 +254,11 @@ class LearningPackageZipper:
                                 # If no file and no text, we skip this content
                                 continue
                             zipf.writestr(str(file_path), file_data)
+
+            # ------ COLLECTION SERIALIZATION -------------
+            collections = self.get_collections()
+
+            for collection in collections:
+                collection_hash_slug = slugify_hashed_filename(collection.key)
+                collection_toml_file_path = collections_folder / f"{collection_hash_slug}.toml"
+                zipf.writestr(str(collection_toml_file_path), toml_collection(collection))
