@@ -163,9 +163,9 @@ class LpDumpCommandTestCase(TestCase):
 
             expected_directories = [
                 "collections/",
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/",
-                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v1/static/",
-                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/static/",
+                "entities/xblock.v1/html/xblockv1htmlmy_draft_example_c5cce6/component_versions/v2/static/",
+                "entities/xblock.v1/problem/xblockv1problemmy_published_example_1360dd/component_versions/v1/static/",
+                "entities/xblock.v1/problem/xblockv1problemmy_published_example_1360dd/component_versions/v2/static/",
             ]
 
             expected_files = [
@@ -173,12 +173,12 @@ class LpDumpCommandTestCase(TestCase):
                 "package.toml",
 
                 # Entity TOML files
-                "entities/xblock.v1/html/my_draft_example_af06e1.toml",
-                "entities/xblock.v1/problem/my_published_example_386dce.toml",
+                "entities/xblock.v1/html/xblockv1htmlmy_draft_example_c5cce6.toml",
+                "entities/xblock.v1/problem/xblockv1problemmy_published_example_1360dd.toml",
 
                 # Entity static content files
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/hello.html",
-                "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/hello.txt",
+                "entities/xblock.v1/html/xblockv1htmlmy_draft_example_c5cce6/component_versions/v2/static/hello.html",
+                "entities/xblock.v1/problem/xblockv1problemmy_published_example_1360dd/component_versions/v2/hello.txt",
 
                 # Collections
                 "collections/col1_06bb25.toml",
@@ -222,7 +222,7 @@ class LpDumpCommandTestCase(TestCase):
 
             # Check the content of the entity TOML files
             expected_files = {
-                "entities/xblock.v1/problem/my_published_example_386dce.toml": [
+                "entities/xblock.v1/problem/xblockv1problemmy_published_example_1360dd.toml": [
                     '[entity]',
                     f'uuid = "{self.published_component.uuid}"',
                     'can_stand_alone = true',
@@ -231,7 +231,7 @@ class LpDumpCommandTestCase(TestCase):
                     '[entity.published]',
                     'version_num = 1',
                 ],
-                "entities/xblock.v1/html/my_draft_example_af06e1.toml": [
+                "entities/xblock.v1/html/xblockv1htmlmy_draft_example_c5cce6.toml": [
                     '[entity]',
                     f'uuid = "{self.draft_component.uuid}"',
                     'can_stand_alone = true',

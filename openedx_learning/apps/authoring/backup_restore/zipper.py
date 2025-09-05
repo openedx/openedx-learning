@@ -169,8 +169,12 @@ class LearningPackageZipper:
                 # Create a TOML representation of the entity
                 entity_toml_content: str = toml_publishable_entity(entity, versions_to_write)
 
+                # Generate the slugified hash for the component local key
+                # Example: if the local key is "my_component", the slugified hash might be "my_component_123456"
+                # It's a combination of the local key and a hash and should be unique
+                entity_slugify_hash = slugify_hashed_filename(entity.key)
+
                 if hasattr(entity, 'container'):
-                    entity_slugify_hash = slugify_hashed_filename(entity.key)
                     entity_toml_filename = f"{entity_slugify_hash}.toml"
                     entity_toml_path = entities_folder / entity_toml_filename
                     zipf.writestr(str(entity_toml_path), entity_toml_content)
@@ -185,11 +189,6 @@ class LearningPackageZipper:
                     #                 component_versions/
                     #                     v1/
                     #                         static/
-
-                    # Generate the slugified hash for the component local key
-                    # Example: if the local key is "my_component", the slugified hash might be "my_component_123456"
-                    # It's a combination of the local key and a hash and should be unique
-                    entity_slugify_hash = slugify_hashed_filename(entity.component.local_key)
 
                     # Create the component namespace folder
                     # Example of component namespace is: "entities/xblock.v1/"
