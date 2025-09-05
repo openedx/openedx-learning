@@ -178,10 +178,9 @@ def toml_collection(collection: Collection) -> str:
     """
     doc = tomlkit.document()
 
-    entity_keys = collection.entities.values_list("key", flat=True)
+    entity_keys = collection.entities.order_by("key").values_list("key", flat=True)
     entities_array = tomlkit.array()
-    for entity_key in entity_keys:
-        entities_array.append(entity_key)
+    entities_array.extend(entity_keys)
     entities_array.multiline(True)
 
     collection_table = tomlkit.table()
