@@ -5,7 +5,7 @@ including a TOML representation of the learning package and its entities.
 import hashlib
 import zipfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from django.db.models import Prefetch, QuerySet
 from django.utils.text import slugify
@@ -108,6 +108,7 @@ class LearningPackageZipper:
                     to_attr="prefetched_contents",
                 ),
             )
+            .order_by("key")
         )
 
     def get_collections(self) -> QuerySet[Collection]:
@@ -119,10 +120,20 @@ class LearningPackageZipper:
             .prefetch_related("entities")
         )
 
-    def get_versions_to_write(self, entity: PublishableEntity):
+    def get_versions_to_write(
+            self, entity: PublishableEntity
+        ) -> Tuple[List[PublishableEntityVersion],
+                   Optional[PublishableEntityVersion],
+                   Optional[PublishableEntityVersion]]:
         """
         Get the versions of a publishable entity that should be written to the zip file.
         It retrieves both draft and published versions.
+
+        Returns:
+            Tuple containing:
+            - versions_to_write: List of PublishableEntityVersion to write.
+            - draft_version: The current draft version, if any.
+            - published_version: The current published version, if any.
         """
         draft_version: Optional[PublishableEntityVersion] = publishing_api.get_draft_version(entity)
         published_version: Optional[PublishableEntityVersion] = publishing_api.get_published_version(entity)
@@ -131,7 +142,7 @@ class LearningPackageZipper:
 
         if published_version and published_version != draft_version:
             versions_to_write.append(published_version)
-        return versions_to_write
+        return versions_to_write, draft_version, published_version
 
     def create_zip(self, path: str) -> None:
         """
@@ -163,11 +174,13 @@ class LearningPackageZipper:
             for entity in publishable_entities:
                 # entity: PublishableEntity = entity  # Type hint for clarity
 
-                # Get the draft and published versions
-                versions_to_write: List[PublishableEntityVersion] = self.get_versions_to_write(entity)
+                # Get the versions to serialize for this entity
+                versions_to_write, draft_version, published_version = self.get_versions_to_write(entity)
 
                 # Create a TOML representation of the entity
-                entity_toml_content: str = toml_publishable_entity(entity, versions_to_write)
+                entity_toml_content: str = toml_publishable_entity(
+                    entity, versions_to_write, draft_version, published_version
+                )
 
                 # Generate the slugified hash for the component local key
                 # Example: if the local key is "my_component", the slugified hash might be "my_component_123456"
@@ -260,4 +273,5 @@ class LearningPackageZipper:
             for collection in collections:
                 collection_hash_slug = slugify_hashed_filename(collection.key)
                 collection_toml_file_path = collections_folder / f"{collection_hash_slug}.toml"
-                zipf.writestr(str(collection_toml_file_path), toml_collection(collection))
+                entity_keys_related = collection.entities.order_by("key").values_list("key", flat=True)
+                zipf.writestr(str(collection_toml_file_path), toml_collection(collection, entity_keys_related))
