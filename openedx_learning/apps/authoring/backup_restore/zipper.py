@@ -274,4 +274,4 @@ class LearningPackageZipper:
                 collection_hash_slug = slugify_hashed_filename(collection.key)
                 collection_toml_file_path = collections_folder / f"{collection_hash_slug}.toml"
                 entity_keys_related = collection.entities.order_by("key").values_list("key", flat=True)
-                zipf.writestr(str(collection_toml_file_path), toml_collection(collection, entity_keys_related))
+                zipf.writestr(str(collection_toml_file_path), toml_collection(collection, list(entity_keys_related)))
