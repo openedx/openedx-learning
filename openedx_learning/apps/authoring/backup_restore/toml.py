@@ -3,11 +3,11 @@ TOML serialization for learning packages and publishable entities.
 """
 
 from datetime import datetime
+from typing import Optional
 
 import tomlkit
 
 from openedx_learning.apps.authoring.collections.models import Collection
-from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import PublishableEntity, PublishableEntityVersion
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 
@@ -40,6 +40,8 @@ def toml_learning_package(learning_package: LearningPackage) -> str:
 
 def _get_toml_publishable_entity_table(
         entity: PublishableEntity,
+        draft_version: Optional[PublishableEntityVersion],
+        published_version: Optional[PublishableEntityVersion],
         include_versions: bool = True) -> tomlkit.items.Table:
     """
     Create a TOML representation of a publishable entity.
@@ -68,24 +70,25 @@ def _get_toml_publishable_entity_table(
     if not include_versions:
         return entity_table
 
-    current_draft_version = publishing_api.get_draft_version(entity)
-    current_published_version = publishing_api.get_published_version(entity)
-
-    if current_draft_version:
+    if draft_version:
         draft_table = tomlkit.table()
-        draft_table.add("version_num", current_draft_version.version_num)
+        draft_table.add("version_num", draft_version.version_num)
         entity_table.add("draft", draft_table)
 
     published_table = tomlkit.table()
-    if current_published_version:
-        published_table.add("version_num", current_published_version.version_num)
+    if published_version:
+        published_table.add("version_num", published_version.version_num)
     else:
         published_table.add(tomlkit.comment("unpublished: no published_version_num"))
     entity_table.add("published", published_table)
     return entity_table
 
 
-def toml_publishable_entity(entity: PublishableEntity, versions_to_write: list[PublishableEntityVersion]) -> str:
+def toml_publishable_entity(
+        entity: PublishableEntity,
+        versions_to_write: list[PublishableEntityVersion],
+        draft_version: Optional[PublishableEntityVersion],
+        published_version: Optional[PublishableEntityVersion]) -> str:
     """
     Create a TOML representation of a publishable entity and its versions.
 
@@ -114,7 +117,7 @@ def toml_publishable_entity(entity: PublishableEntity, versions_to_write: list[P
         [version.container.unit]
         graded = true
     """
-    entity_table = _get_toml_publishable_entity_table(entity)
+    entity_table = _get_toml_publishable_entity_table(entity, draft_version, published_version)
     doc = tomlkit.document()
     doc.add("entity", entity_table)
     doc.add(tomlkit.nl())
@@ -152,16 +155,29 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
     version_table.add("title", version.title)
     version_table.add("uuid", str(version.uuid))
     version_table.add("version_num", version.version_num)
+
     container_table = tomlkit.table()
-    container_table.add("children", [])
+
+    children = []
+    if hasattr(version, 'containerversion'):
+        children_qs = (
+            version.containerversion.entity_list.entitylistrow_set
+            .order_by("entity__key")
+            .values_list("entity__key", flat=True)
+            .distinct()
+        )
+        children = list(children_qs)
+    container_table.add("children", children)
+
     unit_table = tomlkit.table()
     unit_table.add("graded", True)
+
     container_table.add("unit", unit_table)
     version_table.add("container", container_table)
     return version_table  # For use in AoT
 
 
-def toml_collection(collection: Collection) -> str:
+def toml_collection(collection: Collection, entity_keys: list[str]) -> str:
     """
     Create a TOML representation of a collection.
 
@@ -178,7 +194,6 @@ def toml_collection(collection: Collection) -> str:
     """
     doc = tomlkit.document()
 
-    entity_keys = collection.entities.order_by("key").values_list("key", flat=True)
     entities_array = tomlkit.array()
     entities_array.extend(entity_keys)
     entities_array.multiline(True)
