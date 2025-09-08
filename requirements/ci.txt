@@ -18,12 +18,10 @@ filelock==3.19.1
     # via
     #   tox
     #   virtualenv
-grimp==3.9
+grimp==3.11
     # via import-linter
 import-linter==2.4
     # via -r requirements/ci.in
-joblib==1.5.2
-    # via grimp
 packaging==25.0
     # via
     #   pyproject-api
@@ -36,7 +34,7 @@ pluggy==1.6.0
     # via tox
 pyproject-api==1.9.1
     # via tox
-tox==4.29.0
+tox==4.30.2
     # via -r requirements/ci.in
 typing-extensions==4.15.0
     # via

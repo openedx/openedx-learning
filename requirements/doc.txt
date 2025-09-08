@@ -71,13 +71,13 @@ coverage[toml]==7.10.6
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==45.0.6
+cryptography==45.0.7
     # via
     #   -r requirements/test.txt
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==4.2.23
+django==4.2.24
     # via
     #   -c https:/raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -117,7 +117,7 @@ djangorestframework==3.16.1
     #   edx-drf-extensions
 djangorestframework-stubs==3.16.2
     # via -r requirements/test.txt
-dnspython==2.7.0
+dnspython==2.8.0
     # via
     #   -r requirements/test.txt
     #   pymongo
@@ -146,7 +146,7 @@ edx-opaque-keys==3.0.0
     #   edx-drf-extensions
 freezegun==1.5.5
     # via -r requirements/test.txt
-grimp==3.9
+grimp==3.11
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -167,10 +167,6 @@ jinja2==3.1.6
     #   -r requirements/test.txt
     #   code-annotations
     #   sphinx
-joblib==1.5.2
-    # via
-    #   -r requirements/test.txt
-    #   grimp
 kombu==5.5.4
     # via
     #   -r requirements/test.txt
@@ -245,12 +241,12 @@ pynacl==1.5.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==8.4.1
+pytest==8.4.2
     # via
     #   -r requirements/test.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==6.2.1
+pytest-cov==6.3.0
     # via -r requirements/test.txt
 pytest-django==4.11.1
     # via -r requirements/test.txt
