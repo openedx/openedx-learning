@@ -8,6 +8,7 @@ from typing import Optional
 import tomlkit
 
 from openedx_learning.apps.authoring.collections.models import Collection
+from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import PublishableEntity, PublishableEntityVersion
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 

@@ -236,7 +236,7 @@ class LpDumpCommandTestCase(TestCase):
 
             # Check the content of the entity TOML files
             expected_files = {
-                "entities/xblock.v1/problem/xblockv1problemmy_published_example_1360dd.toml": [
+                "entities/xblock.v1/problem/my_published_example_386dce.toml": [
                     '[entity]',
                     f'uuid = "{self.published_component.uuid}"',
                     'can_stand_alone = true',
