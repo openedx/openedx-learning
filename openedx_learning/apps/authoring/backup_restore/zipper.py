@@ -68,49 +68,66 @@ class LearningPackageZipper:
         self.entities_filenames_already_created: set[str] = set()
         self.utc_now = datetime.now(tz=timezone.utc)
 
-    def add_to_zip(
+    def _ensure_parent_folders(
         self,
         zip_file: zipfile.ZipFile,
         path: Path,
-        content: bytes | str | None = None,
-        timestamp: datetime | None = None,
+        timestamp: datetime,
     ) -> None:
         """
-        Add a folder or file into the zip structure.
-
-        - Creates folders only once (avoids duplicates).
-        - Adds files with the provided content (empty if None).
-        - Applies a consistent timestamp.
-
-        Args:
-            zip_file (zipfile.ZipFile): ZipFile handle.
-            path (Path): Path inside the zip (relative path).
-            content (bytes | str): Content for file.
-            timestamp (datetime): Timestamp for the entry.
+        Ensure all parent folders for the given path exist in the zip.
         """
-        if timestamp is None:
-            timestamp = self.utc_now
-
-        # Ensure parent folders exist
-        for parent in path.parents[::-1]:  # go from top to bottom
+        for parent in path.parents[::-1]:
             if parent != Path(".") and parent not in self.folders_already_created:
                 folder_info = zipfile.ZipInfo(str(parent) + "/")
                 folder_info.date_time = timestamp.timetuple()[:6]
                 zip_file.writestr(folder_info, "")
                 self.folders_already_created.add(parent)
 
-        if path.suffix:  # it's a file
-            file_info = zipfile.ZipInfo(str(path))
-            file_info.date_time = timestamp.timetuple()[:6]
-            if isinstance(content, str):
-                content = content.encode("utf-8")
-            zip_file.writestr(file_info, content or b"")
-        else:  # explicitly an empty folder
-            if path not in self.folders_already_created:
-                folder_info = zipfile.ZipInfo(str(path) + "/")
-                folder_info.date_time = timestamp.timetuple()[:6]
-                zip_file.writestr(folder_info, "")
-                self.folders_already_created.add(path)
+    def add_folder_to_zip(
+        self,
+        zip_file: zipfile.ZipFile,
+        folder: Path,
+        timestamp: datetime | None = None,
+    ) -> None:
+        """
+        Explicitly add an empty folder into the zip structure.
+        """
+        if folder in self.folders_already_created:
+            return
+
+        if timestamp is None:
+            timestamp = self.utc_now
+
+        self._ensure_parent_folders(zip_file, folder, timestamp)
+
+        folder_info = zipfile.ZipInfo(str(folder) + "/")
+        folder_info.date_time = timestamp.timetuple()[:6]
+        zip_file.writestr(folder_info, "")
+        self.folders_already_created.add(folder)
+
+    def add_file_to_zip(
+        self,
+        zip_file: zipfile.ZipFile,
+        file_path: Path,
+        content: bytes | str | None = None,
+        timestamp: datetime | None = None,
+    ) -> None:
+        """
+        Add a file into the zip structure.
+        """
+        if timestamp is None:
+            timestamp = self.utc_now
+
+        self._ensure_parent_folders(zip_file, file_path, timestamp)
+
+        file_info = zipfile.ZipInfo(str(file_path))
+        file_info.date_time = timestamp.timetuple()[:6]
+
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+
+        zip_file.writestr(file_info, content or b"")
 
     def get_publishable_entities(self) -> QuerySet[PublishableEntity]:
         """
@@ -226,15 +243,15 @@ class LearningPackageZipper:
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             # Add the package.toml file
             package_toml_content: str = toml_learning_package(self.learning_package, self.utc_now)
-            self.add_to_zip(zipf, Path(TOML_PACKAGE_NAME), package_toml_content, self.learning_package.updated)
+            self.add_file_to_zip(zipf, Path(TOML_PACKAGE_NAME), package_toml_content, self.learning_package.updated)
 
             # Add the entities directory
             entities_folder = Path("entities")
-            self.add_to_zip(zipf, entities_folder, timestamp=self.learning_package.updated)
+            self.add_folder_to_zip(zipf, entities_folder, timestamp=self.learning_package.updated)
 
             # Add the collections directory
             collections_folder = Path("collections")
-            self.add_to_zip(zipf, collections_folder, timestamp=self.learning_package.updated)
+            self.add_folder_to_zip(zipf, collections_folder, timestamp=self.learning_package.updated)
 
             # ------ ENTITIES SERIALIZATION -------------
 
@@ -258,7 +275,7 @@ class LearningPackageZipper:
                     entity_filename = self.get_entity_toml_filename(entity.key)
                     entity_toml_filename = f"{entity_filename}.toml"
                     entity_toml_path = entities_folder / entity_toml_filename
-                    self.add_to_zip(zipf, entity_toml_path, entity_toml_content, timestamp=latest_modified)
+                    self.add_file_to_zip(zipf, entity_toml_path, entity_toml_content, timestamp=latest_modified)
 
                 if hasattr(entity, 'component'):
                     # Create the component folder structure for the entity. The structure is as follows:
@@ -295,7 +312,7 @@ class LearningPackageZipper:
                     # Add the entity TOML file inside the component type folder as well
                     # Example: "entities/xblock.v1/html/my_component_123456.toml"
                     component_entity_toml_path = component_root_folder / f"{entity_filename}.toml"
-                    self.add_to_zip(zipf, component_entity_toml_path, entity_toml_content, latest_modified)
+                    self.add_file_to_zip(zipf, component_entity_toml_path, entity_toml_content, latest_modified)
 
                     # ------ COMPONENT VERSIONING -------------
                     # Focusing on draft and published versions only
@@ -303,11 +320,11 @@ class LearningPackageZipper:
                         # Create a folder for the version
                         version_number = f"v{version.version_num}"
                         version_folder = component_version_folder / version_number
-                        self.add_to_zip(zipf, version_folder, timestamp=version.created)
+                        self.add_folder_to_zip(zipf, version_folder, timestamp=version.created)
 
                         # Add static folder for the version
                         static_folder = version_folder / "static"
-                        self.add_to_zip(zipf, static_folder, timestamp=version.created)
+                        self.add_folder_to_zip(zipf, static_folder, timestamp=version.created)
 
                         # ------ COMPONENT STATIC CONTENT -------------
                         component_version: ComponentVersion = version.componentversion
@@ -334,7 +351,7 @@ class LearningPackageZipper:
                             else:
                                 # If no file and no text, we skip this content
                                 continue
-                            self.add_to_zip(zipf, file_path, file_data, timestamp=content.created)
+                            self.add_file_to_zip(zipf, file_path, file_data, timestamp=content.created)
 
             # ------ COLLECTION SERIALIZATION -------------
             collections = self.get_collections()
@@ -343,7 +360,7 @@ class LearningPackageZipper:
                 collection_hash_slug = self.get_entity_toml_filename(collection.key)
                 collection_toml_file_path = collections_folder / f"{collection_hash_slug}.toml"
                 entity_keys_related = collection.entities.order_by("key").values_list("key", flat=True)
-                self.add_to_zip(
+                self.add_file_to_zip(
                     zipf,
                     collection_toml_file_path,
                     toml_collection(collection, list(entity_keys_related)),

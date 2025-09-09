@@ -136,7 +136,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_content(
             new_html_version.pk,
             cls.html_asset_content.id,
-            key="static/hello.html",
+            key="static/other/subdirectory/hello.html",
         )
 
         components = api.get_publishable_entities(cls.learning_package)
@@ -191,7 +191,7 @@ class LpDumpCommandTestCase(TestCase):
                 "entities/xblock.v1/problem/my_published_example_386dce.toml",
 
                 # Entity static content files
-                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/hello.html",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/other/subdirectory/hello.html",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/hello.txt",
 
                 # Collections

@@ -1481,8 +1481,7 @@ def get_container_children_entities_keys(container_version: ContainerVersion) ->
     return list(
         container_version.entity_list.entitylistrow_set
         .values_list("entity__key", flat=True)
-        .order_by("entity__key")
-        .distinct()
+        .order_by("order_num")
     )
 
 
