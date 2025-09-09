@@ -89,6 +89,7 @@ __all__ = [
     "get_containers_with_entity",
     "get_container_children_count",
     "bulk_draft_changes_for",
+    "get_container_children_entities_keys",
 ]
 
 
@@ -1466,6 +1467,23 @@ def get_container_children_count(
     else:
         filter_deleted = {"entity__draft__version__isnull": False}
     return container_version.entity_list.entitylistrow_set.filter(**filter_deleted).count()
+
+
+def get_container_children_entities_keys(container_version: ContainerVersion) -> list[str]:
+    """
+    Fetch the list of entity keys for all entities in the given container version.
+
+    Args:
+        container_version: The ContainerVersion to fetch the entity keys for.
+    Returns:
+        A list of entity keys for all entities in the container version, ordered by entity key.
+    """
+    return list(
+        container_version.entity_list.entitylistrow_set
+        .values_list("entity__key", flat=True)
+        .order_by("entity__key")
+        .distinct()
+    )
 
 
 def bulk_draft_changes_for(

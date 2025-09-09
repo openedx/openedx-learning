@@ -8,11 +8,12 @@ from typing import Optional
 import tomlkit
 
 from openedx_learning.apps.authoring.collections.models import Collection
+from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import PublishableEntity, PublishableEntityVersion
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 
 
-def toml_learning_package(learning_package: LearningPackage) -> str:
+def toml_learning_package(learning_package: LearningPackage, timestamp: datetime) -> str:
     """
     Create a TOML representation of the learning package.
 
@@ -27,7 +28,7 @@ def toml_learning_package(learning_package: LearningPackage) -> str:
         updated = 2025-09-03T17:50:59.536190Z
     """
     doc = tomlkit.document()
-    doc.add(tomlkit.comment(f"Datetime of the export: {datetime.now()}"))
+    doc.add(tomlkit.comment(f"Datetime of the export: {timestamp}"))
     section = tomlkit.table()
     section.add("title", learning_package.title)
     section.add("key", learning_package.key)
@@ -40,8 +41,8 @@ def toml_learning_package(learning_package: LearningPackage) -> str:
 
 def _get_toml_publishable_entity_table(
         entity: PublishableEntity,
-        draft_version: Optional[PublishableEntityVersion],
-        published_version: Optional[PublishableEntityVersion],
+        draft_version: PublishableEntityVersion | None,
+        published_version: PublishableEntityVersion | None,
         include_versions: bool = True) -> tomlkit.items.Table:
     """
     Create a TOML representation of a publishable entity.
@@ -66,6 +67,7 @@ def _get_toml_publishable_entity_table(
     entity_table.add("can_stand_alone", entity.can_stand_alone)
     # Add key since the toml filename doesn't show the real key
     entity_table.add("key", entity.key)
+    entity_table.add("created", entity.created)
 
     if not include_versions:
         return entity_table
@@ -160,13 +162,7 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
 
     children = []
     if hasattr(version, 'containerversion'):
-        children_qs = (
-            version.containerversion.entity_list.entitylistrow_set
-            .order_by("entity__key")
-            .values_list("entity__key", flat=True)
-            .distinct()
-        )
-        children = list(children_qs)
+        children = publishing_api.get_container_children_entities_keys(version.containerversion)
     container_table.add("children", children)
 
     unit_table = tomlkit.table()

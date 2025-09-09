@@ -4,6 +4,7 @@ including a TOML representation of the learning package and its entities.
 """
 import hashlib
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -64,18 +65,52 @@ class LearningPackageZipper:
     def __init__(self, learning_package: LearningPackage):
         self.learning_package = learning_package
         self.folders_already_created: set[Path] = set()
+        self.entities_filenames_already_created: set[str] = set()
+        self.utc_now = datetime.now(tz=timezone.utc)
 
-    def create_folder(self, folder_path: Path, zip_file: zipfile.ZipFile) -> None:
+    def add_to_zip(
+        self,
+        zip_file: zipfile.ZipFile,
+        path: Path,
+        content: bytes | str | None = None,
+        timestamp: datetime | None = None,
+    ) -> None:
         """
-        Create a folder for the zip file structure.
-        Skips creating the folder if it already exists based on the folder path.
+        Add a folder or file into the zip structure.
+
+        - Creates folders only once (avoids duplicates).
+        - Adds files with the provided content (empty if None).
+        - Applies a consistent timestamp.
+
         Args:
-            folder_path (Path): The path of the folder to create.
+            zip_file (zipfile.ZipFile): ZipFile handle.
+            path (Path): Path inside the zip (relative path).
+            content (bytes | str): Content for file.
+            timestamp (datetime): Timestamp for the entry.
         """
-        if folder_path not in self.folders_already_created:
-            zip_info = zipfile.ZipInfo(str(folder_path) + "/")
-            zip_file.writestr(zip_info, "")  # Add explicit empty directory entry
-            self.folders_already_created.add(folder_path)
+        if timestamp is None:
+            timestamp = self.utc_now
+
+        # Ensure parent folders exist
+        for parent in path.parents[::-1]:  # go from top to bottom
+            if parent != Path(".") and parent not in self.folders_already_created:
+                folder_info = zipfile.ZipInfo(str(parent) + "/")
+                folder_info.date_time = timestamp.timetuple()[:6]
+                zip_file.writestr(folder_info, "")
+                self.folders_already_created.add(parent)
+
+        if path.suffix:  # it's a file
+            file_info = zipfile.ZipInfo(str(path))
+            file_info.date_time = timestamp.timetuple()[:6]
+            if isinstance(content, str):
+                content = content.encode("utf-8")
+            zip_file.writestr(file_info, content or b"")
+        else:  # explicitly an empty folder
+            if path not in self.folders_already_created:
+                folder_info = zipfile.ZipInfo(str(path) + "/")
+                folder_info.date_time = timestamp.timetuple()[:6]
+                zip_file.writestr(folder_info, "")
+                self.folders_already_created.add(path)
 
     def get_publishable_entities(self) -> QuerySet[PublishableEntity]:
         """
@@ -144,6 +179,41 @@ class LearningPackageZipper:
             versions_to_write.append(published_version)
         return versions_to_write, draft_version, published_version
 
+    def get_entity_toml_filename(self, entity_key: str) -> str:
+        """
+        Generate a unique TOML filename for a publishable entity.
+        Ensures that the filename is unique within the zip file.
+
+        Behavior:
+        - If the slugified key has not been used yet, use it as the filename.
+        - If it has been used, append a short hash to ensure uniqueness.
+
+        Args:
+            entity_key (str): The key of the publishable entity.
+
+        Returns:
+            str: A unique TOML filename for the entity.
+        """
+        slugify_name = slugify(entity_key, allow_unicode=True)
+
+        if slugify_name in self.entities_filenames_already_created:
+            filename = slugify_hashed_filename(entity_key)
+        else:
+            filename = slugify_name
+
+        self.entities_filenames_already_created.add(slugify_name)
+        return filename
+
+    def get_latest_modified(self, versions_to_check: List[PublishableEntityVersion]) -> datetime:
+        """
+        Get the latest modification timestamp among the learning package and its entities.
+        """
+        latest = self.learning_package.updated
+        for version in versions_to_check:
+            if version and version.created > latest:
+                latest = version.created
+        return latest
+
     def create_zip(self, path: str) -> None:
         """
         Creates a zip file containing the learning package data.
@@ -155,16 +225,16 @@ class LearningPackageZipper:
 
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             # Add the package.toml file
-            package_toml_content: str = toml_learning_package(self.learning_package)
-            zipf.writestr(TOML_PACKAGE_NAME, package_toml_content)
+            package_toml_content: str = toml_learning_package(self.learning_package, self.utc_now)
+            self.add_to_zip(zipf, Path(TOML_PACKAGE_NAME), package_toml_content, self.learning_package.updated)
 
             # Add the entities directory
             entities_folder = Path("entities")
-            self.create_folder(entities_folder, zipf)
+            self.add_to_zip(zipf, entities_folder, timestamp=self.learning_package.updated)
 
             # Add the collections directory
             collections_folder = Path("collections")
-            self.create_folder(collections_folder, zipf)
+            self.add_to_zip(zipf, collections_folder, timestamp=self.learning_package.updated)
 
             # ------ ENTITIES SERIALIZATION -------------
 
@@ -177,20 +247,18 @@ class LearningPackageZipper:
                 # Get the versions to serialize for this entity
                 versions_to_write, draft_version, published_version = self.get_versions_to_write(entity)
 
+                latest_modified = self.get_latest_modified(versions_to_write)
+
                 # Create a TOML representation of the entity
                 entity_toml_content: str = toml_publishable_entity(
                     entity, versions_to_write, draft_version, published_version
                 )
 
-                # Generate the slugified hash for the component local key
-                # Example: if the local key is "my_component", the slugified hash might be "my_component_123456"
-                # It's a combination of the local key and a hash and should be unique
-                entity_slugify_hash = slugify_hashed_filename(entity.key)
-
                 if hasattr(entity, 'container'):
-                    entity_toml_filename = f"{entity_slugify_hash}.toml"
+                    entity_filename = self.get_entity_toml_filename(entity.key)
+                    entity_toml_filename = f"{entity_filename}.toml"
                     entity_toml_path = entities_folder / entity_toml_filename
-                    zipf.writestr(str(entity_toml_path), entity_toml_content)
+                    self.add_to_zip(zipf, entity_toml_path, entity_toml_content, timestamp=latest_modified)
 
                 if hasattr(entity, 'component'):
                     # Create the component folder structure for the entity. The structure is as follows:
@@ -203,30 +271,31 @@ class LearningPackageZipper:
                     #                     v1/
                     #                         static/
 
-                    # Create the component namespace folder
-                    # Example of component namespace is: "entities/xblock.v1/"
-                    component_namespace_folder = entities_folder / entity.component.component_type.namespace
-                    self.create_folder(component_namespace_folder, zipf)
+                    entity_filename = self.get_entity_toml_filename(entity.component.local_key)
 
-                    # Create the component type folder
-                    # Example of component type is: "entities/xblock.v1/html/"
-                    component_type_folder = component_namespace_folder / entity.component.component_type.name
-                    self.create_folder(component_type_folder, zipf)
+                    component_root_folder = (
+                        # Example: "entities/xblock.v1/html/"
+                        entities_folder
+                        / entity.component.component_type.namespace
+                        / entity.component.component_type.name
+                    )
 
-                    # Create the component id folder
-                    # Example of component id is: "entities/xblock.v1/html/my_component_123456/"
-                    component_id_folder = component_type_folder / entity_slugify_hash
-                    self.create_folder(component_id_folder, zipf)
+                    component_folder = (
+                        # Example: "entities/xblock.v1/html/my_component_123456/"
+                        component_root_folder
+                        / entity_filename
+                    )
+
+                    component_version_folder = (
+                        # Example: "entities/xblock.v1/html/my_component_123456/component_versions/"
+                        component_folder
+                        / "component_versions"
+                    )
 
                     # Add the entity TOML file inside the component type folder as well
                     # Example: "entities/xblock.v1/html/my_component_123456.toml"
-                    component_entity_toml_path = component_type_folder / f"{entity_slugify_hash}.toml"
-                    zipf.writestr(str(component_entity_toml_path), entity_toml_content)
-
-                    # Add component version folder into the component id folder
-                    # Example: "entities/xblock.v1/html/my_component_123456/component_versions/"
-                    component_version_folder = component_id_folder / "component_versions"
-                    self.create_folder(component_version_folder, zipf)
+                    component_entity_toml_path = component_root_folder / f"{entity_filename}.toml"
+                    self.add_to_zip(zipf, component_entity_toml_path, entity_toml_content, latest_modified)
 
                     # ------ COMPONENT VERSIONING -------------
                     # Focusing on draft and published versions only
@@ -234,11 +303,11 @@ class LearningPackageZipper:
                         # Create a folder for the version
                         version_number = f"v{version.version_num}"
                         version_folder = component_version_folder / version_number
-                        self.create_folder(version_folder, zipf)
+                        self.add_to_zip(zipf, version_folder, timestamp=version.created)
 
                         # Add static folder for the version
                         static_folder = version_folder / "static"
-                        self.create_folder(static_folder, zipf)
+                        self.add_to_zip(zipf, static_folder, timestamp=version.created)
 
                         # ------ COMPONENT STATIC CONTENT -------------
                         component_version: ComponentVersion = version.componentversion
@@ -265,13 +334,18 @@ class LearningPackageZipper:
                             else:
                                 # If no file and no text, we skip this content
                                 continue
-                            zipf.writestr(str(file_path), file_data)
+                            self.add_to_zip(zipf, file_path, file_data, timestamp=content.created)
 
             # ------ COLLECTION SERIALIZATION -------------
             collections = self.get_collections()
 
             for collection in collections:
-                collection_hash_slug = slugify_hashed_filename(collection.key)
+                collection_hash_slug = self.get_entity_toml_filename(collection.key)
                 collection_toml_file_path = collections_folder / f"{collection_hash_slug}.toml"
                 entity_keys_related = collection.entities.order_by("key").values_list("key", flat=True)
-                zipf.writestr(str(collection_toml_file_path), toml_collection(collection, list(entity_keys_related)))
+                self.add_to_zip(
+                    zipf,
+                    collection_toml_file_path,
+                    toml_collection(collection, list(entity_keys_related)),
+                    timestamp=collection.modified,
+                )
