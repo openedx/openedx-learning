@@ -3,7 +3,6 @@ TOML serialization for learning packages and publishable entities.
 """
 
 from datetime import datetime
-from typing import Optional
 
 import tomlkit
 
@@ -89,8 +88,8 @@ def _get_toml_publishable_entity_table(
 def toml_publishable_entity(
         entity: PublishableEntity,
         versions_to_write: list[PublishableEntityVersion],
-        draft_version: Optional[PublishableEntityVersion],
-        published_version: Optional[PublishableEntityVersion]) -> str:
+        draft_version: PublishableEntityVersion | None,
+        published_version: PublishableEntityVersion | None) -> str:
     """
     Create a TOML representation of a publishable entity and its versions.
 
@@ -166,7 +165,6 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
     container_table.add("children", children)
 
     unit_table = tomlkit.table()
-    unit_table.add("graded", True)
 
     container_table.add("unit", unit_table)
     version_table.add("container", container_table)
