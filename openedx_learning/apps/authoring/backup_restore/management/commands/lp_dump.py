@@ -1,5 +1,5 @@
 """
-Django management commands to handle backup and restore learning packages (WIP)
+Django management commands to handle backup learning packages (WIP)
 """
 import logging
 
