@@ -30,6 +30,7 @@ class LpDumpCommandTestCase(TestCase):
     html_type: str
     problem_type: str
     published_component: Component
+    published_component2: Component
     draft_component: Component
     html_asset_content: Content
     collection: Collection
@@ -68,6 +69,17 @@ class LpDumpCommandTestCase(TestCase):
             cls.problem_type,
             local_key="my_published_example",
             title="My published problem",
+            created=cls.now,
+            created_by=cls.user.id,
+        )
+
+        # Make and publish one Component
+        # Same local key as above to test uniqueness of slugified hash
+        cls.published_component2, _ = api.create_component_and_version(
+            cls.learning_package.id,
+            cls.problem_type,
+            local_key="My_published_example",
+            title="My published problem 2",
             created=cls.now,
             created_by=cls.user.id,
         )
@@ -124,7 +136,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_content(
             new_html_version.pk,
             cls.html_asset_content.id,
-            key="static/hello.html",
+            key="static/other/subdirectory/hello.html",
         )
 
         components = api.get_publishable_entities(cls.learning_package)
@@ -163,7 +175,8 @@ class LpDumpCommandTestCase(TestCase):
 
             expected_directories = [
                 "collections/",
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/",
+                "entities/xblock.v1/problem/my_published_example/component_versions/v1/static/",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v1/static/",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/static/",
             ]
@@ -173,15 +186,16 @@ class LpDumpCommandTestCase(TestCase):
                 "package.toml",
 
                 # Entity TOML files
-                "entities/xblock.v1/html/my_draft_example_af06e1.toml",
+                "entities/xblock.v1/html/my_draft_example.toml",
+                "entities/xblock.v1/problem/my_published_example.toml",
                 "entities/xblock.v1/problem/my_published_example_386dce.toml",
 
                 # Entity static content files
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/hello.html",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/other/subdirectory/hello.html",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/hello.txt",
 
                 # Collections
-                "collections/col1_06bb25.toml",
+                "collections/col1.toml",
             ]
 
             expected_paths = expected_directories + expected_files
@@ -231,7 +245,7 @@ class LpDumpCommandTestCase(TestCase):
                     '[entity.published]',
                     'version_num = 1',
                 ],
-                "entities/xblock.v1/html/my_draft_example_af06e1.toml": [
+                "entities/xblock.v1/html/my_draft_example.toml": [
                     '[entity]',
                     f'uuid = "{self.draft_component.uuid}"',
                     'can_stand_alone = true',
@@ -277,7 +291,7 @@ class LpDumpCommandTestCase(TestCase):
         entities = zipper.get_publishable_entities()
         with self.assertNumQueries(3):
             list(entities)  # force evaluation
-            self.assertEqual(len(entities), 2)
+            self.assertEqual(len(entities), 3)
         # Add another component
         api.create_component_and_version(
             self.learning_package.id,
@@ -290,4 +304,4 @@ class LpDumpCommandTestCase(TestCase):
         entities = zipper.get_publishable_entities()
         with self.assertNumQueries(3):
             list(entities)  # force evaluation
-            self.assertEqual(len(entities), 3)
+            self.assertEqual(len(entities), 4)
