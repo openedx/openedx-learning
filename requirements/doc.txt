@@ -34,7 +34,7 @@ certifi==2025.8.3
     # via
     #   -r requirements/test.txt
     #   requests
-cffi==1.17.1
+cffi==2.0.0
     # via
     #   -r requirements/test.txt
     #   cryptography
@@ -97,11 +97,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==6.0.0
     # via -r requirements/test.txt
-django-stubs==5.2.2
+django-stubs==5.2.5
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.2
+django-stubs-ext==5.2.5
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -177,7 +177,7 @@ markupsafe==3.0.2
     #   jinja2
 mock==5.2.0
     # via -r requirements/test.txt
-mypy==1.17.1
+mypy==1.18.1
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -213,7 +213,7 @@ psutil==7.0.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pycparser==2.22
+pycparser==2.23
     # via
     #   -r requirements/test.txt
     #   cffi
@@ -233,11 +233,11 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.14.1
+pymongo==4.15.0
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
-pynacl==1.5.0
+pynacl==1.6.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -246,7 +246,7 @@ pytest==8.4.2
     #   -r requirements/test.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==6.3.0
+pytest-cov==7.0.0
     # via -r requirements/test.txt
 pytest-django==4.11.1
     # via -r requirements/test.txt
@@ -334,7 +334,7 @@ types-pyyaml==6.0.12.20250822
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.4.20250809
+types-requests==2.32.4.20250913
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
