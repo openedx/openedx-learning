@@ -1,6 +1,8 @@
 """
 Entity List models
 """
+from functools import cached_property
+
 from django.db import models
 
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
@@ -16,6 +18,17 @@ class EntityList(models.Model):
     anonymous in a sense–they're pointed to by ContainerVersions and
     other models, rather than being looked up by their own identifiers.
     """
+    @cached_property
+    def rows(self):
+        """
+        Convenience method to iterate rows.
+
+        I'd normally make this the reverse lookup name for the EntityListRow ->
+        EntityList foreign key relation, but we already have references to
+        entitylistrow_set in various places, and I thought this would be better
+        than breaking compatibility.
+        """
+        return self.entitylistrow_set.order_by("order_num")
 
 
 class EntityListRow(models.Model):
@@ -58,6 +71,12 @@ class EntityListRow(models.Model):
         null=True,
         related_name="+",  # Do we need the reverse relation?
     )
+
+    def is_pinned(self):
+        return self.entity_version_id is not None
+
+    def is_unpinned(self):
+        return self.entity_version_id is None
 
     class Meta:
         ordering = ["order_num"]
