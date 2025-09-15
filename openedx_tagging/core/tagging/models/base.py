@@ -465,7 +465,7 @@ class Taxonomy(models.Model):
         if include_counts:
             return qs.annotate(usage_count=models.Count("value"))
         else:
-            return qs.distinct()
+            return qs.distinct()  # type: ignore[return-value]
 
     def _get_filtered_tags_one_level(
         self,
@@ -486,12 +486,14 @@ class Taxonomy(models.Model):
             # Use parent_tag.value not parent_tag_value because they may differ in case
             qs = qs.annotate(parent_value=Value(parent_tag.value))
         else:
-            qs = self.tag_set.filter(parent=None).annotate(depth=Value(0))
+            qs = self.tag_set.filter(parent=None).annotate(depth=Value(0))  # type: ignore[no-redef]
             qs = qs.annotate(parent_value=Value(None, output_field=models.CharField()))
-        qs = qs.annotate(child_count=models.Count("children", distinct=True))
+        qs = qs.annotate(child_count=models.Count("children", distinct=True))  # type: ignore[no-redef]
         qs = qs.annotate(grandchild_count=models.Count("children__children", distinct=True))
         qs = qs.annotate(great_grandchild_count=models.Count("children__children__children"))
-        qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
+        qs = qs.annotate(
+            descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count")
+        )  # type: ignore[no-redef]
         # Filter by search term:
         if search_term:
             qs = qs.filter(value__icontains=search_term)
@@ -597,7 +599,7 @@ class Taxonomy(models.Model):
                 count=models.Func(F('id'), function='Count')
             )
             qs = qs.annotate(usage_count=models.Subquery(obj_tags.values('count')))
-        return qs
+        return qs  # type: ignore[return-value]
 
     def add_tag(
         self,

@@ -41,7 +41,7 @@ certifi==2025.8.3
     # via
     #   -r requirements/quality.txt
     #   requests
-cffi==1.17.1
+cffi==2.0.0
     # via
     #   -r requirements/quality.txt
     #   cryptography
@@ -137,11 +137,11 @@ django-debug-toolbar==6.0.0
     # via
     #   -r requirements/dev.in
     #   -r requirements/quality.txt
-django-stubs==5.2.2
+django-stubs==5.2.5
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.2
+django-stubs-ext==5.2.5
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -278,7 +278,7 @@ more-itertools==10.8.0
     #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.17.1
+mypy==1.18.1
     # via -r requirements/quality.txt
 mypy-extensions==1.1.0
     # via
@@ -336,7 +336,7 @@ psutil==7.0.0
     #   edx-django-utils
 pycodestyle==2.14.0
     # via -r requirements/quality.txt
-pycparser==2.22
+pycparser==2.23
     # via
     #   -r requirements/quality.txt
     #   cffi
@@ -374,11 +374,11 @@ pylint-plugin-utils==0.9.0
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.14.1
+pymongo==4.15.0
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
-pynacl==1.5.0
+pynacl==1.6.0
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -396,7 +396,7 @@ pytest==8.4.2
     #   -r requirements/quality.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==6.3.0
+pytest-cov==7.0.0
     # via -r requirements/quality.txt
 pytest-django==4.11.1
     # via -r requirements/quality.txt
@@ -440,7 +440,7 @@ rich==14.1.0
     #   twine
 rules==3.5
     # via -r requirements/quality.txt
-secretstorage==3.3.3
+secretstorage==3.4.0
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -485,7 +485,7 @@ types-pyyaml==6.0.12.20250822
     #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.4.20250809
+types-requests==2.32.4.20250913
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
