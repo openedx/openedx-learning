@@ -137,7 +137,7 @@ class LearningPackageZipper:
         lp_id = self.learning_package.pk
         publishable_entities: QuerySet[PublishableEntity] = publishing_api.get_publishable_entities(lp_id)
         return (
-            publishable_entities
+            publishable_entities  # type: ignore[no-redef]
             .select_related(
                 "container",
                 "component__component_type",
