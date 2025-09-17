@@ -6,7 +6,7 @@ import hashlib
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple
 
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
@@ -392,27 +392,7 @@ class LearningPackageUnzipper:
     # --------------------------
 
     @transaction.atomic
-    def load(self, source: Union[str, zipfile.ZipFile]) -> dict[str, Any]:
-        """
-        Extracts and restores all objects from the ZIP archive in an atomic transaction.
-
-        Args:
-            source (str | ZipFile): Path to the zip file or an open ZipFile instance.
-
-        Returns:
-            dict: Summary of restored objects.
-        """
-        if isinstance(source, str):
-            with zipfile.ZipFile(source, "r") as zipf:
-                return self._process_zip(zipf)
-
-        elif isinstance(source, zipfile.ZipFile):
-            return self._process_zip(source)
-
-        else:
-            raise TypeError("source must be a str path or a zipfile.ZipFile")
-
-    def _process_zip(self, zipf: zipfile.ZipFile) -> dict[str, Any]:
+    def load(self, zipf: zipfile.ZipFile) -> dict[str, Any]:
         """
         Extracts and restores all objects from the ZIP archive in an atomic transaction.
 
@@ -450,7 +430,7 @@ class LearningPackageUnzipper:
     # Loading methods
     # --------------------------
 
-    def _load_learning_package(self, zipf: zipfile.ZipFile, package_file: str) -> "LearningPackage":
+    def _load_learning_package(self, zipf: zipfile.ZipFile, package_file: str) -> LearningPackage:
         """Load and persist the learning package TOML file."""
         toml_content = self._read_file_from_zip(zipf, package_file)
         data = parse_learning_package_toml(toml_content)
@@ -462,21 +442,21 @@ class LearningPackageUnzipper:
         )
 
     def _restore_containers(
-        self, zipf: zipfile.ZipFile, container_files: List[str], learning_package: "LearningPackage"
+        self, zipf: zipfile.ZipFile, container_files: List[str], learning_package: LearningPackage
     ) -> None:
         """Restore containers from the zip archive."""
         for container_file in container_files:
             self._load_container(zipf, container_file, learning_package)
 
     def _restore_components(
-        self, zipf: zipfile.ZipFile, component_files: List[str], learning_package: "LearningPackage"
+        self, zipf: zipfile.ZipFile, component_files: List[str], learning_package: LearningPackage
     ) -> None:
         """Restore components from the zip archive."""
         for component_file in component_files:
             self._load_component(zipf, component_file, learning_package)
 
     def _restore_collections(
-        self, zipf: zipfile.ZipFile, collection_files: List[str], learning_package: "LearningPackage"
+        self, zipf: zipfile.ZipFile, collection_files: List[str], learning_package: LearningPackage
     ) -> None:
         """Restore collections from the zip archive (future extension)."""
         # pylint: disable=W0613
@@ -489,7 +469,7 @@ class LearningPackageUnzipper:
     # --------------------------
 
     def _load_container(
-        self, zipf: zipfile.ZipFile, container_file: str, learning_package: "LearningPackage"
+        self, zipf: zipfile.ZipFile, container_file: str, learning_package: LearningPackage
     ):  # pylint: disable=W0613
         """Load and persist a container (placeholder)."""
         # TODO: parse TOML here
@@ -509,7 +489,7 @@ class LearningPackageUnzipper:
         """
 
     def _load_component(
-        self, zipf: zipfile.ZipFile, component_file: str, learning_package: "LearningPackage"
+        self, zipf: zipfile.ZipFile, component_file: str, learning_package: LearningPackage
     ):  # pylint: disable=W0613
         """Load and persist a component (placeholder)."""
         # TODO: implement actual parsing

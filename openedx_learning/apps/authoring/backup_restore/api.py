@@ -1,6 +1,8 @@
 """
 Backup Restore API
 """
+import zipfile
+
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper, LearningPackageZipper
 from openedx_learning.apps.authoring.publishing.api import get_learning_package_by_key
 
@@ -19,4 +21,5 @@ def load_dump_zip_file(path: str) -> None:
     """
     Loads a zip file derived from create_zip_file
     """
-    LearningPackageUnzipper().load(path)
+    with zipfile.ZipFile(path, "r") as zipf:
+        LearningPackageUnzipper().load(zipf)
