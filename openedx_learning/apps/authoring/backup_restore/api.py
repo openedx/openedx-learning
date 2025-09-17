@@ -7,7 +7,7 @@ from openedx_learning.apps.authoring.publishing.api import get_learning_package_
 
 def create_zip_file(lp_key: str, path: str) -> None:
     """
-    Creates a zip file with a toml file so far (WIP)
+    Creates a dump zip file for the given learning package key at the given path.
 
     Can throw a NotFoundError at get_learning_package_by_key
     """
@@ -15,8 +15,8 @@ def create_zip_file(lp_key: str, path: str) -> None:
     LearningPackageZipper(learning_package).create_zip(path)
 
 
-def extract_zip_file(path: str) -> None:
+def load_dump_zip_file(path: str) -> None:
     """
-    Extracts a zip file (WIP)
+    Loads a zip file derived from create_zip_file
     """
-    LearningPackageUnzipper().extract_zip(path)
+    LearningPackageUnzipper().load(path)

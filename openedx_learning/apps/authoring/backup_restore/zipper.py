@@ -6,7 +6,7 @@ import hashlib
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
@@ -381,7 +381,7 @@ class LearningPackageUnzipper:
 
     Usage:
         unzipper = LearningPackageUnzipper()
-        summary = unzipper.extract_zip("/path/to/backup.zip")
+        summary = unzipper.load("/path/to/backup.zip")
     """
 
     def __init__(self) -> None:
@@ -392,12 +392,32 @@ class LearningPackageUnzipper:
     # --------------------------
 
     @transaction.atomic
-    def extract_zip(self, path: str) -> dict[str, Any]:
+    def load(self, source: Union[str, zipfile.ZipFile]) -> dict[str, Any]:
         """
         Extracts and restores all objects from the ZIP archive in an atomic transaction.
 
         Args:
-            path (str): Path to the zip file.
+            source (str | ZipFile): Path to the zip file or an open ZipFile instance.
+
+        Returns:
+            dict: Summary of restored objects.
+        """
+        if isinstance(source, str):
+            with zipfile.ZipFile(source, "r") as zipf:
+                return self._process_zip(zipf)
+
+        elif isinstance(source, zipfile.ZipFile):
+            return self._process_zip(source)
+
+        else:
+            raise TypeError("source must be a str path or a zipfile.ZipFile")
+
+    def _process_zip(self, zipf: zipfile.ZipFile) -> dict[str, Any]:
+        """
+        Extracts and restores all objects from the ZIP archive in an atomic transaction.
+
+        Args:
+            zipf (ZipFile): An open ZipFile instance.
 
         Returns:
             dict: Summary of restored objects (keys, counts, etc.).
@@ -407,24 +427,23 @@ class LearningPackageUnzipper:
             ValueError: If TOML parsing fails.
             Exception: For any database errors (transaction will rollback).
         """
-        with zipfile.ZipFile(path, "r") as zipf:
-            organized_files = self._get_organized_file_list(zipf.namelist())
+        organized_files = self._get_organized_file_list(zipf.namelist())
 
-            # Validate required files
-            if not organized_files["learning_package"]:
-                raise FileNotFoundError(f"Missing required {TOML_PACKAGE_NAME} in archive.")
+        # Validate required files
+        if not organized_files["learning_package"]:
+            raise FileNotFoundError(f"Missing required {TOML_PACKAGE_NAME} in archive.")
 
-            # Restore objects
-            learning_package = self._load_learning_package(zipf, organized_files["learning_package"])
-            self._restore_containers(zipf, organized_files["containers"], learning_package)
-            self._restore_components(zipf, organized_files["components"], learning_package)
-            self._restore_collections(zipf, organized_files["collections"], learning_package)
+        # Restore objects
+        learning_package = self._load_learning_package(zipf, organized_files["learning_package"])
+        self._restore_components(zipf, organized_files["components"], learning_package)
+        self._restore_containers(zipf, organized_files["containers"], learning_package)
+        self._restore_collections(zipf, organized_files["collections"], learning_package)
 
-            return {
-                "learning_package": learning_package.key,
-                "containers": len(organized_files["containers"]),
-                "components": len(organized_files["components"]),
-                "collections": len(organized_files["collections"]),
+        return {
+            "learning_package": learning_package.key,
+            "containers": len(organized_files["containers"]),
+            "components": len(organized_files["components"]),
+            "collections": len(organized_files["collections"]),
             }
 
     # --------------------------
