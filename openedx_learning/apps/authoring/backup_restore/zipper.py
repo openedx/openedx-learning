@@ -6,7 +6,7 @@ import hashlib
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, TypedDict
 
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
@@ -14,6 +14,7 @@ from django.utils.text import slugify
 
 from openedx_learning.api.authoring_models import (
     Collection,
+    ComponentType,
     ComponentVersion,
     ComponentVersionContent,
     Content,
@@ -23,14 +24,22 @@ from openedx_learning.api.authoring_models import (
 )
 from openedx_learning.apps.authoring.backup_restore.toml import (
     parse_learning_package_toml,
+    parse_publishable_entity_toml,
     toml_collection,
     toml_learning_package,
     toml_publishable_entity,
 )
 from openedx_learning.apps.authoring.collections import api as collections_api
+from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 
 TOML_PACKAGE_NAME = "package.toml"
+
+
+class ComponentDefaults(TypedDict):
+    content_to_replace: dict[str, int | bytes | None]
+    created: datetime
+    created_by: Optional[int]
 
 
 def slugify_hashed_filename(identifier: str) -> str:
@@ -386,6 +395,7 @@ class LearningPackageUnzipper:
 
     def __init__(self) -> None:
         self.utc_now: datetime = datetime.now(tz=timezone.utc)
+        self.component_types_cache: dict[Tuple[str, str], ComponentType] = {}
 
     # --------------------------
     # Public API
@@ -453,7 +463,8 @@ class LearningPackageUnzipper:
     ) -> None:
         """Restore components from the zip archive."""
         for component_file in component_files:
-            self._load_component(zipf, component_file, learning_package)
+            if component_file.endswith(".toml"):  # Only process .toml files
+                self._load_component(zipf, component_file, learning_package)
 
     def _restore_collections(
         self, zipf: zipfile.ZipFile, collection_files: List[str], learning_package: LearningPackage
@@ -489,11 +500,62 @@ class LearningPackageUnzipper:
         """
 
     def _load_component(
-        self, zipf: zipfile.ZipFile, component_file: str, learning_package: LearningPackage
-    ):  # pylint: disable=W0613
-        """Load and persist a component (placeholder)."""
-        # TODO: implement actual parsing
-        return None
+        self, zipf: zipfile.ZipFile, component_file_path: str, learning_package: "LearningPackage"
+    ):
+        """Load and persist a component and its versions."""
+        component_content = self._read_file_from_zip(zipf, component_file_path)
+        component_data, component_version_data = parse_publishable_entity_toml(component_content)
+
+        with publishing_api.bulk_draft_changes_for(learning_package.id):
+            # Step 1: Create the component and the associated publishable entity
+            entity_key = component_data["key"]
+            component_type, local_key = self._get_component_type(entity_key)
+            if component_type is None or local_key is None:
+                raise ValueError(f"Component type not found from key: {entity_key}")
+            component = components_api.create_component(
+                learning_package.id,
+                component_type=component_type,
+                local_key=local_key,
+                created=self.utc_now,
+                created_by=None,
+                can_stand_alone=component_data["can_stand_alone"],
+            )
+
+            # Step 2: Determine which versions to create
+            draft_version, published_version = self._get_versions_to_write(component_version_data, component_data)
+
+            component_default_kwargs: ComponentDefaults = {
+                "content_to_replace": {},
+                "created": self.utc_now,
+                "created_by": None,
+            }
+
+            # Step 3: Create the published version if it exists
+            if published_version:
+                components_api.create_next_component_version(
+                    component.publishable_entity.id,
+                    **component_default_kwargs,
+                    title=published_version["title"],
+                )
+                # At this point, we have a draft version created as well, so we need to publish it
+                # Note: We can not create a published version directly,
+                # we need to create a draft first and then publish it
+                # That's why we publish right after creating the published
+                # version and before creating the draft version
+                publishing_api.publish_from_drafts(
+                    learning_package.id,
+                    draft_qset=publishing_api.get_all_drafts(learning_package.pk).filter(
+                        entity=component.publishable_entity
+                    ),
+                )
+
+            # Step 4: Create the draft version if it exists
+            if draft_version:
+                components_api.create_next_component_version(
+                    component.publishable_entity.id,
+                    **component_default_kwargs,
+                    title=draft_version["title"],
+                )
 
     # --------------------------
     # Utilities
@@ -529,3 +591,66 @@ class LearningPackageUnzipper:
                 organized["collections"].append(path)
 
         return organized
+
+    def _get_component_type(self, entity_key: str) -> tuple[ComponentType | None, str | None]:
+        """
+        Extract the component type and local key from an entity key.
+
+        Expected format:
+            <namespace>:<type>:<filename>.toml
+
+        Args:
+            entity_key (str): The entity key string.
+
+        Returns:
+            tuple[Optional[ComponentType], Optional[str]]:
+                A tuple of (ComponentType, local_key) if valid, else (None, None).
+        """
+        if not entity_key:
+            return None, None
+
+        parts = entity_key.split(":")
+
+        # Expecting entity key structure: <namespace>:<type>:<filename>.toml
+        if len(parts) != 3:
+            return None, None
+
+        # Extract component type information
+        namespace, component_type_name, filename = parts
+        local_key = filename.rsplit(".", 1)[0]  # Remove .toml extension
+        if not local_key or not namespace or not component_type_name:
+            return None, None
+
+        # Logic for caching component types to avoid redundant DB queries
+        cache_key = (namespace, component_type_name)
+        component_type = self.component_types_cache.get(cache_key)
+        if component_type is None:
+            component_type = components_api.get_or_create_component_type(namespace, component_type_name)
+            self.component_types_cache[cache_key] = component_type
+
+        return component_type, local_key
+
+    def _get_versions_to_write(
+        self,
+        component_version_data: List[dict[str, Any]],
+        component_data: dict[str, Any]
+    ) -> Tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
+        """Return the draft and published versions to write, based on component data."""
+
+        draft_version_num = component_data.get("draft", {}).get("version_num")
+        published_version_num = component_data.get("published", {}).get("version_num")
+
+        draft_version = None
+        published_version = None
+
+        for version in component_version_data:
+            version_num = version.get("version_num")
+
+            if version_num == published_version_num:
+                published_version = version
+
+            # Only assign draft if it’s not the same as published
+            if version_num == draft_version_num and version_num != published_version_num:
+                draft_version = version
+
+        return draft_version, published_version
