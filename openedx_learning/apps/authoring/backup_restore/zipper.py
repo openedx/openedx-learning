@@ -6,8 +6,9 @@ import hashlib
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
+from django.db import transaction
 from django.db.models import Prefetch, QuerySet
 from django.utils.text import slugify
 
@@ -21,6 +22,7 @@ from openedx_learning.api.authoring_models import (
     PublishableEntityVersion,
 )
 from openedx_learning.apps.authoring.backup_restore.toml import (
+    parse_learning_package_toml,
     toml_collection,
     toml_learning_package,
     toml_publishable_entity,
@@ -366,3 +368,164 @@ class LearningPackageZipper:
                     toml_collection(collection, list(entity_keys_related)),
                     timestamp=collection.modified,
                 )
+
+
+class LearningPackageUnzipper:
+    """
+    Handles extraction and restoration of learning package data from a zip archive.
+
+    Main responsibilities:
+      - Parse and organize files from the zip structure.
+      - Restore learning package, containers, components, and collections to the database.
+      - Ensure atomicity of the restore process.
+
+    Usage:
+        unzipper = LearningPackageUnzipper()
+        summary = unzipper.load("/path/to/backup.zip")
+    """
+
+    def __init__(self) -> None:
+        self.utc_now: datetime = datetime.now(tz=timezone.utc)
+
+    # --------------------------
+    # Public API
+    # --------------------------
+
+    @transaction.atomic
+    def load(self, zipf: zipfile.ZipFile) -> dict[str, Any]:
+        """
+        Extracts and restores all objects from the ZIP archive in an atomic transaction.
+
+        Args:
+            zipf (ZipFile): An open ZipFile instance.
+
+        Returns:
+            dict: Summary of restored objects (keys, counts, etc.).
+
+        Raises:
+            FileNotFoundError: If required files are missing.
+            ValueError: If TOML parsing fails.
+            Exception: For any database errors (transaction will rollback).
+        """
+        organized_files = self._get_organized_file_list(zipf.namelist())
+
+        # Validate required files
+        if not organized_files["learning_package"]:
+            raise FileNotFoundError(f"Missing required {TOML_PACKAGE_NAME} in archive.")
+
+        # Restore objects
+        learning_package = self._load_learning_package(zipf, organized_files["learning_package"])
+        self._restore_components(zipf, organized_files["components"], learning_package)
+        self._restore_containers(zipf, organized_files["containers"], learning_package)
+        self._restore_collections(zipf, organized_files["collections"], learning_package)
+
+        return {
+            "learning_package": learning_package.key,
+            "containers": len(organized_files["containers"]),
+            "components": len(organized_files["components"]),
+            "collections": len(organized_files["collections"]),
+            }
+
+    # --------------------------
+    # Loading methods
+    # --------------------------
+
+    def _load_learning_package(self, zipf: zipfile.ZipFile, package_file: str) -> LearningPackage:
+        """Load and persist the learning package TOML file."""
+        toml_content = self._read_file_from_zip(zipf, package_file)
+        data = parse_learning_package_toml(toml_content)
+
+        return publishing_api.create_learning_package(
+            key=data["key"],
+            title=data["title"],
+            description=data["description"],
+        )
+
+    def _restore_containers(
+        self, zipf: zipfile.ZipFile, container_files: List[str], learning_package: LearningPackage
+    ) -> None:
+        """Restore containers from the zip archive."""
+        for container_file in container_files:
+            self._load_container(zipf, container_file, learning_package)
+
+    def _restore_components(
+        self, zipf: zipfile.ZipFile, component_files: List[str], learning_package: LearningPackage
+    ) -> None:
+        """Restore components from the zip archive."""
+        for component_file in component_files:
+            self._load_component(zipf, component_file, learning_package)
+
+    def _restore_collections(
+        self, zipf: zipfile.ZipFile, collection_files: List[str], learning_package: LearningPackage
+    ) -> None:
+        """Restore collections from the zip archive (future extension)."""
+        # pylint: disable=W0613
+        for collection_file in collection_files:  # pylint: disable=W0612
+            # Placeholder for collection restore logic
+            pass
+
+    # --------------------------
+    # Individual object loaders
+    # --------------------------
+
+    def _load_container(
+        self, zipf: zipfile.ZipFile, container_file: str, learning_package: LearningPackage
+    ):  # pylint: disable=W0613
+        """Load and persist a container (placeholder)."""
+        # TODO: parse TOML here
+        # pylint: disable=W0105
+        """
+        container = publishing_api.create_container(
+            learning_package_id=learning_package.id,
+            key="container_key_placeholder",
+            title="Container Title Placeholder",
+            description="Container Description Placeholder",
+        )
+        publishing_api.create_container_version(
+            container_id=container.id,
+            title="Container Version Title Placeholder",
+            created_by=None,
+        )
+        """
+
+    def _load_component(
+        self, zipf: zipfile.ZipFile, component_file: str, learning_package: LearningPackage
+    ):  # pylint: disable=W0613
+        """Load and persist a component (placeholder)."""
+        # TODO: implement actual parsing
+        return None
+
+    # --------------------------
+    # Utilities
+    # --------------------------
+
+    def _read_file_from_zip(self, zipf: zipfile.ZipFile, filename: str) -> str:
+        """Read and decode a UTF-8 file from the zip archive."""
+        with zipf.open(filename) as f:
+            return f.read().decode("utf-8")
+
+    def _get_organized_file_list(self, file_paths: List[str]) -> dict[str, Any]:
+        """
+        Organize file paths into categories: learning_package, containers, components, collections.
+        """
+        organized: dict[str, Any] = {
+            "learning_package": None,
+            "containers": [],
+            "components": [],
+            "collections": [],
+        }
+
+        for path in file_paths:
+            if path.endswith("/"):  # skip directories
+                continue
+
+            if path == TOML_PACKAGE_NAME:
+                organized["learning_package"] = path
+            elif path.startswith("entities/") and str(Path(path).parent) == "entities":
+                organized["containers"].append(path)
+            elif path.startswith("entities/"):
+                organized["components"].append(path)
+            elif path.startswith("collections/"):
+                organized["collections"].append(path)
+
+        return organized

@@ -1,5 +1,5 @@
 """
-Django management commands to handle backup and restore learning packages (WIP)
+Django management commands to handle backup learning packages (WIP)
 """
 import logging
 
@@ -25,7 +25,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         lp_key = options['lp_key']
         file_name = options['file_name']
-        if not file_name.endswith(".zip"):
+        if not file_name.lower().endswith(".zip"):
             raise CommandError("Output file name must end with .zip")
         try:
             create_zip_file(lp_key, file_name)
