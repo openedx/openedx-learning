@@ -34,6 +34,7 @@ from .models import Component, ComponentType, ComponentVersion, ComponentVersion
 # to be callable only by other apps in the authoring package.
 __all__ = [
     "get_or_create_component_type",
+    "get_or_create_component_type_by_entity_key",
     "create_component",
     "create_component_version",
     "create_next_component_version",
@@ -71,6 +72,27 @@ def get_or_create_component_type(namespace: str, name: str) -> ComponentType:
         name=name,
     )
     return component_type
+
+
+def get_or_create_component_type_by_entity_key(entity_key: str) -> tuple[ComponentType, str]:
+    """
+    Get or create a ComponentType based on a full entity key string.
+
+    The entity key is expected to be in the format
+    ``"{namespace}:{type_name}:{local_key}"``. This function will parse out the
+    ``namespace`` and ``type_name`` parts and use those to get or create the
+    ComponentType.
+
+    Raises ValueError if the entity_key is not in the expected format.
+    """
+    try:
+        namespace, type_name, _local_key = entity_key.split(':', 2)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid entity_key format: {entity_key!r}. "
+            "Expected format: '{namespace}:{type_name}:{local_key}'"
+        ) from exc
+    return get_or_create_component_type(namespace, type_name), _local_key
 
 
 def create_component(

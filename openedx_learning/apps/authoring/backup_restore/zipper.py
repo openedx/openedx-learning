@@ -22,6 +22,7 @@ from openedx_learning.api.authoring_models import (
     PublishableEntity,
     PublishableEntityVersion,
 )
+from openedx_learning.apps.authoring.backup_restore.serializers import ComponentSerializer, ComponentVersionSerializer
 from openedx_learning.apps.authoring.backup_restore.toml import (
     parse_learning_package_toml,
     parse_publishable_entity_toml,
@@ -396,6 +397,7 @@ class LearningPackageUnzipper:
     def __init__(self) -> None:
         self.utc_now: datetime = datetime.now(tz=timezone.utc)
         self.component_types_cache: dict[Tuple[str, str], ComponentType] = {}
+        self.errors: list[dict[str, Any]] = []
 
     # --------------------------
     # Public API
@@ -461,10 +463,98 @@ class LearningPackageUnzipper:
     def _restore_components(
         self, zipf: zipfile.ZipFile, component_files: List[str], learning_package: LearningPackage
     ) -> None:
-        """Restore components from the zip archive."""
-        for component_file in component_files:
-            if component_file.endswith(".toml"):  # Only process .toml files
-                self._load_component(zipf, component_file, learning_package)
+        """
+        Restore components and their versions from the zip archive.
+        This method validates all components and their versions before persisting any data.
+        If any validation errors occur, no data is persisted and errors are collected.
+        """
+
+        validated_components = []
+        validated_drafts = []
+        validated_published = []
+
+        for file in component_files:
+            if not file.endswith(".toml"):
+                # Skip non-TOML files
+                continue
+
+            # Load component data from the TOML file
+            component_data, draft_version, published_version = self._load_component_data(zipf, file)
+
+            # Validate component data
+            component_serializer = ComponentSerializer({
+                "created": self.utc_now,
+                "created_by": None,
+                **component_data,
+            })
+            if not component_serializer.is_valid():
+                # Collect errors and continue
+                self.errors.append({"file": file, "errors": component_serializer.errors})
+                continue
+            # Collect component validated data
+            validated_components.append(component_serializer.validated_data)
+
+            # Load and validate versions
+            valid_versions = self._validate_versions(
+                component_serializer.validated_data,
+                draft_version,
+                published_version
+            )
+            if valid_versions["draft"]:
+                validated_drafts.append(valid_versions["draft"])
+            if valid_versions["published"]:
+                validated_published.append(valid_versions["published"])
+
+        if self.errors:
+            return
+
+        # Persist all validated components and their versions if there are no errors
+        self._persist_components(learning_package, validated_components, validated_drafts, validated_published)
+
+    def _persist_components(
+        self,
+        learning_package: LearningPackage,
+        validated_components: List[dict[str, Any]],
+        validated_drafts: List[dict[str, Any]],
+        validated_published: List[dict[str, Any]],
+    ) -> None:
+        """
+        Persist validated components and their versions to the database.
+
+        The operation is performed within a bulk draft changes context to save
+        only one transaction on Draft Change Log.
+        """
+        components_by_key = {}  # Map entity_key to Component instance
+        # Step 1:
+        # Create components and their publishable entities
+        # Create all published versions as a draft first
+        # Publish all drafts
+        with publishing_api.bulk_draft_changes_for(learning_package.id):
+            for valid_component in validated_components:
+                entity_key = valid_component.pop("key")
+                component = components_api.create_component(
+                    learning_package.id,
+                    **valid_component,
+                )
+                components_by_key[entity_key] = component
+
+            for valid_draft in validated_published:
+                entity_key = valid_draft.pop("entity_key")
+                components_api.create_next_component_version(
+                    components_by_key[entity_key].publishable_entity.id,
+                    **valid_draft
+                )
+
+            publishing_api.publish_all_drafts(learning_package.id)
+
+        # Step 2: Create all draft versions
+        with publishing_api.bulk_draft_changes_for(learning_package.id):
+            for valid_draft in validated_drafts:
+                entity_key = valid_draft.pop("entity_key")
+                components_api.create_next_component_version(
+                    components_by_key[entity_key].publishable_entity.id,
+                    **valid_draft
+                )
 
     def _restore_collections(
         self, zipf: zipfile.ZipFile, collection_files: List[str], learning_package: LearningPackage
@@ -499,63 +589,12 @@ class LearningPackageUnzipper:
         )
         """
 
-    def _load_component(
-        self, zipf: zipfile.ZipFile, component_file_path: str, learning_package: "LearningPackage"
-    ):
-        """Load and persist a component and its versions."""
-        component_content = self._read_file_from_zip(zipf, component_file_path)
-        component_data, component_version_data = parse_publishable_entity_toml(component_content)
-
-        with publishing_api.bulk_draft_changes_for(learning_package.id):
-            # Step 1: Create the component and the associated publishable entity
-            entity_key = component_data["key"]
-            component_type, local_key = self._get_component_type(entity_key)
-            if component_type is None or local_key is None:
-                raise ValueError(f"Component type not found from key: {entity_key}")
-            component = components_api.create_component(
-                learning_package.id,
-                component_type=component_type,
-                local_key=local_key,
-                created=self.utc_now,
-                created_by=None,
-                can_stand_alone=component_data["can_stand_alone"],
-            )
-
-            # Step 2: Determine which versions to create
-            draft_version, published_version = self._get_versions_to_write(component_version_data, component_data)
-
-            component_default_kwargs: ComponentDefaults = {
-                "content_to_replace": {},
-                "created": self.utc_now,
-                "created_by": None,
-            }
-
-            # Step 3: Create the published version if it exists
-            if published_version:
-                components_api.create_next_component_version(
-                    component.publishable_entity.id,
-                    **component_default_kwargs,
-                    title=published_version["title"],
-                )
-                # At this point, we have a draft version created as well, so we need to publish it
-                # Note: We can not create a published version directly,
-                # we need to create a draft first and then publish it
-                # That's why we publish right after creating the published
-                # version and before creating the draft version
-                publishing_api.publish_from_drafts(
-                    learning_package.id,
-                    draft_qset=publishing_api.get_all_drafts(learning_package.pk).filter(
-                        entity=component.publishable_entity
-                    ),
-                )
-
-            # Step 4: Create the draft version if it exists
-            if draft_version:
-                components_api.create_next_component_version(
-                    component.publishable_entity.id,
-                    **component_default_kwargs,
-                    title=draft_version["title"],
-                )
+    def _load_component_data(self, zipf, component_file):
+        """Load component data and its versions from a TOML file."""
+        content = self._read_file_from_zip(zipf, component_file)
+        component_data, component_version_data = parse_publishable_entity_toml(content)
+        draft_version, published_version = self._get_versions_to_write(component_version_data, component_data)
+        return component_data, draft_version, published_version
 
     # --------------------------
     # Utilities
@@ -640,17 +679,30 @@ class LearningPackageUnzipper:
         draft_version_num = component_data.get("draft", {}).get("version_num")
         published_version_num = component_data.get("published", {}).get("version_num")
 
-        draft_version = None
-        published_version = None
+        # Build lookup by version_num
+        version_lookup = {v.get("version_num"): v for v in component_version_data}
 
-        for version in component_version_data:
-            version_num = version.get("version_num")
+        return (
+            version_lookup.get(draft_version_num) if draft_version_num else None,
+            version_lookup.get(published_version_num) if published_version_num else None,
+        )
 
-            if version_num == published_version_num:
-                published_version = version
-
-            # Only assign draft if it’s not the same as published
-            if version_num == draft_version_num and version_num != published_version_num:
-                draft_version = version
-
-        return draft_version, published_version
+    def _validate_versions(self, component_validated_data, draft_version, published_version):
+        """ Validate draft and published versions using ComponentVersionSerializer."""
+        valid_versions = {"draft": None, "published": None}
+        for label, version in [("draft", draft_version), ("published", published_version)]:
+            if version is None:
+                continue
+            entity_key = component_validated_data["key"]
+            version_data = {
+                "entity_key": entity_key,
+                "content_to_replace": {},
+                "created": self.utc_now,
+                "created_by": None,
+                **version,
+            }
+            serializer = ComponentVersionSerializer(version_data)
+            if not serializer.is_valid():
+                self.errors.append(f"Errors in {label} version for {entity_key}: {serializer.errors}")
+            valid_versions[label] = serializer.validated_data
+        return valid_versions
