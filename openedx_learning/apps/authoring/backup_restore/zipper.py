@@ -482,7 +482,7 @@ class LearningPackageUnzipper:
             component_data, draft_version, published_version = self._load_component_data(zipf, file)
 
             # Validate component data
-            component_serializer = ComponentSerializer({
+            component_serializer = ComponentSerializer(data={
                 "created": self.utc_now,
                 "created_by": None,
                 **component_data,
@@ -701,7 +701,7 @@ class LearningPackageUnzipper:
                 "created_by": None,
                 **version,
             }
-            serializer = ComponentVersionSerializer(version_data)
+            serializer = ComponentVersionSerializer(data=version_data)
             if not serializer.is_valid():
                 self.errors.append(f"Errors in {label} version for {entity_key}: {serializer.errors}")
             valid_versions[label] = serializer.validated_data
