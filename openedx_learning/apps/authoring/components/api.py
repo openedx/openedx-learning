@@ -86,13 +86,13 @@ def get_or_create_component_type_by_entity_key(entity_key: str) -> tuple[Compone
     Raises ValueError if the entity_key is not in the expected format.
     """
     try:
-        namespace, type_name, _local_key = entity_key.split(':', 2)
+        namespace, type_name, local_key = entity_key.split(':', 2)
     except ValueError as exc:
         raise ValueError(
             f"Invalid entity_key format: {entity_key!r}. "
             "Expected format: '{namespace}:{type_name}:{local_key}'"
         ) from exc
-    return get_or_create_component_type(namespace, type_name), _local_key
+    return get_or_create_component_type(namespace, type_name), local_key
 
 
 def create_component(
