@@ -8,7 +8,7 @@ cachetools==6.2.0
     # via tox
 chardet==5.2.0
     # via tox
-click==8.2.1
+click==8.3.0
     # via import-linter
 colorama==0.4.6
     # via tox
@@ -20,7 +20,7 @@ filelock==3.19.1
     #   virtualenv
 grimp==3.11
     # via import-linter
-import-linter==2.4
+import-linter==2.5
     # via -r requirements/ci.in
 packaging==25.0
     # via

@@ -20,7 +20,7 @@ attrs==25.3.0
     # via -r requirements/test.txt
 backports-tarfile==1.2.0
     # via jaraco-context
-billiard==4.2.1
+billiard==4.2.2
     # via
     #   -r requirements/test.txt
     #   celery
@@ -39,7 +39,7 @@ charset-normalizer==3.4.3
     # via
     #   -r requirements/test.txt
     #   requests
-click==8.2.1
+click==8.3.0
     # via
     #   -r requirements/test.txt
     #   celery
@@ -69,11 +69,11 @@ code-annotations==2.3.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.10.6
+coverage[toml]==7.10.7
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==45.0.7
+cryptography==46.0.1
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -119,13 +119,13 @@ djangorestframework==3.16.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.16.2
+djangorestframework-stubs==3.16.3
     # via -r requirements/test.txt
 dnspython==2.8.0
     # via
     #   -r requirements/test.txt
     #   pymongo
-docutils==0.22
+docutils==0.22.2
     # via readme-renderer
 drf-jwt==1.19.2
     # via
@@ -155,7 +155,7 @@ idna==3.10
     # via
     #   -r requirements/test.txt
     #   requests
-import-linter==2.4
+import-linter==2.5
     # via -r requirements/test.txt
 importlib-metadata==8.7.0
     # via keyring
@@ -203,7 +203,7 @@ more-itertools==10.8.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.18.1
+mypy==1.18.2
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -234,7 +234,7 @@ prompt-toolkit==3.0.52
     # via
     #   -r requirements/test.txt
     #   click-repl
-psutil==7.0.0
+psutil==7.1.0
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
@@ -271,7 +271,7 @@ pylint-plugin-utils==0.9.0
     # via
     #   pylint-celery
     #   pylint-django
-pymongo==4.15.0
+pymongo==4.15.1
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -353,7 +353,7 @@ tomlkit==0.13.3
     #   pylint
 twine==6.2.0
     # via -r requirements/quality.in
-types-pyyaml==6.0.12.20250822
+types-pyyaml==6.0.12.20250915
     # via
     #   -r requirements/test.txt
     #   django-stubs
