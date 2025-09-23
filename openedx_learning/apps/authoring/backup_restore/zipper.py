@@ -631,44 +631,6 @@ class LearningPackageUnzipper:
 
         return organized
 
-    def _get_component_type(self, entity_key: str) -> tuple[ComponentType | None, str | None]:
-        """
-        Extract the component type and local key from an entity key.
-
-        Expected format:
-            <namespace>:<type>:<filename>.toml
-
-        Args:
-            entity_key (str): The entity key string.
-
-        Returns:
-            tuple[Optional[ComponentType], Optional[str]]:
-                A tuple of (ComponentType, local_key) if valid, else (None, None).
-        """
-        if not entity_key:
-            return None, None
-
-        parts = entity_key.split(":")
-
-        # Expecting entity key structure: <namespace>:<type>:<filename>.toml
-        if len(parts) != 3:
-            return None, None
-
-        # Extract component type information
-        namespace, component_type_name, filename = parts
-        local_key = filename.rsplit(".", 1)[0]  # Remove .toml extension
-        if not local_key or not namespace or not component_type_name:
-            return None, None
-
-        # Logic for caching component types to avoid redundant DB queries
-        cache_key = (namespace, component_type_name)
-        component_type = self.component_types_cache.get(cache_key)
-        if component_type is None:
-            component_type = components_api.get_or_create_component_type(namespace, component_type_name)
-            self.component_types_cache[cache_key] = component_type
-
-        return component_type, local_key
-
     def _get_versions_to_write(
         self,
         component_version_data: List[dict[str, Any]],
