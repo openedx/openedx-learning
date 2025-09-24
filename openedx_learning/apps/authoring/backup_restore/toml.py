@@ -117,7 +117,6 @@ def toml_publishable_entity(
         children = []
 
         [version.container.unit]
-        graded = true
     """
     entity_table = _get_toml_publishable_entity_table(entity, draft_version, published_version)
     doc = tomlkit.document()
@@ -219,3 +218,21 @@ def parse_learning_package_toml(content: str) -> dict:
     if "key" not in lp_data["learning_package"]:
         raise ValueError("Invalid learning package TOML: missing 'key' in 'learning_package' section")
     return lp_data["learning_package"]
+
+
+def parse_publishable_entity_toml(content: str) -> tuple[Dict[str, Any], list]:
+    """
+    Parse the publishable entity TOML file and return a dict of its fields.
+    """
+    pe_data: Dict[str, Any] = tomlkit.parse(content)
+
+    # Validate the minimum required fields
+    if "entity" not in pe_data:
+        raise ValueError("Invalid publishable entity TOML: missing 'entity' section")
+    if "version" not in pe_data:
+        raise ValueError("Invalid publishable entity TOML: missing 'version' section")
+    if "key" not in pe_data["entity"]:
+        raise ValueError("Invalid publishable entity TOML: missing 'key' field")
+    if "can_stand_alone" not in pe_data["entity"]:
+        raise ValueError("Invalid publishable entity TOML: missing 'can_stand_alone' field")
+    return pe_data["entity"], pe_data.get("version", [])

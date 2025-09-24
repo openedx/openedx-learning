@@ -605,3 +605,38 @@ class SetCollectionsTestCase(ComponentTestCase):
             username="user",
             email="user@example.com",
         )
+
+
+class TestComponentTypeUtils(TestCase):
+    """
+    Test the component type utility functions.
+    """
+
+    def test_get_or_create_component_type_by_entity_key_creates_new(self):
+        comp_type, local_key = components_api.get_or_create_component_type_by_entity_key(
+            "video:youtube:abcd1234"
+        )
+
+        assert isinstance(comp_type, ComponentType)
+        assert comp_type.namespace == "video"
+        assert comp_type.name == "youtube"
+        assert local_key == "abcd1234"
+        assert ComponentType.objects.count() == 1
+
+    def test_get_or_create_component_type_by_entity_key_existing(self):
+        ComponentType.objects.create(namespace="video", name="youtube")
+
+        comp_type, local_key = components_api.get_or_create_component_type_by_entity_key(
+            "video:youtube:efgh5678"
+        )
+
+        assert comp_type.namespace == "video"
+        assert comp_type.name == "youtube"
+        assert local_key == "efgh5678"
+        assert ComponentType.objects.count() == 1
+
+    def test_get_or_create_component_type_by_entity_key_invalid_format(self):
+        with self.assertRaises(ValueError) as ctx:
+            components_api.get_or_create_component_type_by_entity_key("not-enough-parts")
+
+        self.assertIn("Invalid entity_key format", str(ctx.exception))
