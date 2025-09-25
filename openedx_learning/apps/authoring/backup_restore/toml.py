@@ -248,8 +248,4 @@ def parse_publishable_entity_toml(content: str) -> tuple[Dict[str, Any], list]:
         raise ValueError("Invalid publishable entity TOML: missing 'entity' section")
     if "version" not in pe_data:
         raise ValueError("Invalid publishable entity TOML: missing 'version' section")
-    if "key" not in pe_data["entity"]:
-        raise ValueError("Invalid publishable entity TOML: missing 'key' field")
-    if "can_stand_alone" not in pe_data["entity"]:
-        raise ValueError("Invalid publishable entity TOML: missing 'can_stand_alone' field")
     return pe_data["entity"], pe_data.get("version", [])

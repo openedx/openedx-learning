@@ -1171,17 +1171,19 @@ def create_next_container_version(
         container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
         last_version = container.versioning.latest
-        assert last_version is not None
-        next_version_num = last_version.version_num + 1
+        if last_version is None:
+            next_version_num = 1
+        else:
+            next_version_num = last_version.version_num + 1
 
-        if entity_rows is None:
+        if entity_rows is None and last_version is not None:
             # We're only changing metadata. Keep the same entity list.
             next_entity_list = last_version.entity_list
         else:
             next_entity_list = create_next_entity_list(
                 entity.learning_package_id,
                 last_version,
-                entity_rows,
+                entity_rows if entity_rows is not None else [],
                 entities_action
             )
 

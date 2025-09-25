@@ -4,6 +4,7 @@ including a TOML representation of the learning package and its entities.
 """
 import hashlib
 import zipfile
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, TypedDict
@@ -11,6 +12,7 @@ from typing import Any, List, Optional, Tuple, TypedDict
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
 from django.utils.text import slugify
+from rest_framework import serializers
 
 from openedx_learning.api.authoring_models import (
     Collection,
@@ -22,7 +24,12 @@ from openedx_learning.api.authoring_models import (
     PublishableEntity,
     PublishableEntityVersion,
 )
-from openedx_learning.apps.authoring.backup_restore.serializers import ComponentSerializer, ComponentVersionSerializer
+from openedx_learning.apps.authoring.backup_restore.serializers import (
+    ComponentSerializer,
+    ComponentVersionSerializer,
+    ContainerSerializer,
+    ContainerVersionSerializer,
+)
 from openedx_learning.apps.authoring.backup_restore.toml import (
     parse_learning_package_toml,
     parse_publishable_entity_toml,
@@ -33,6 +40,9 @@ from openedx_learning.apps.authoring.backup_restore.toml import (
 from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
+from openedx_learning.apps.authoring.sections import api as sections_api
+from openedx_learning.apps.authoring.subsections import api as subsections_api
+from openedx_learning.apps.authoring.units import api as units_api
 
 TOML_PACKAGE_NAME = "package.toml"
 
@@ -384,7 +394,7 @@ class LearningPackageUnzipper:
     """
     Handles extraction and restoration of learning package data from a zip archive.
 
-    Main responsibilities:
+    Responsibilities:
       - Parse and organize files from the zip structure.
       - Restore learning package, containers, components, and collections to the database.
       - Ensure atomicity of the restore process.
@@ -396,8 +406,13 @@ class LearningPackageUnzipper:
 
     def __init__(self) -> None:
         self.utc_now: datetime = datetime.now(tz=timezone.utc)
-        self.component_types_cache: dict[Tuple[str, str], ComponentType] = {}
+        self.component_types_cache: dict[tuple[str, str], ComponentType] = {}
         self.errors: list[dict[str, Any]] = []
+        # Maps for resolving relationships
+        self.components_map_by_key: dict[str, Any] = {}
+        self.units_map_by_key: dict[str, Any] = {}
+        self.subsections_map_by_key: dict[str, Any] = {}
+        self.sections_map_by_key: dict[str, Any] = {}
 
     # --------------------------
     # Public API
@@ -405,210 +420,243 @@ class LearningPackageUnzipper:
 
     @transaction.atomic
     def load(self, zipf: zipfile.ZipFile) -> dict[str, Any]:
-        """
-        Extracts and restores all objects from the ZIP archive in an atomic transaction.
-
-        Args:
-            zipf (ZipFile): An open ZipFile instance.
-
-        Returns:
-            dict: Summary of restored objects (keys, counts, etc.).
-
-        Raises:
-            FileNotFoundError: If required files are missing.
-            ValueError: If TOML parsing fails.
-            Exception: For any database errors (transaction will rollback).
-        """
+        """Extracts and restores all objects from the ZIP archive in an atomic transaction."""
         organized_files = self._get_organized_file_list(zipf.namelist())
 
-        # Validate required files
         if not organized_files["learning_package"]:
             raise FileNotFoundError(f"Missing required {TOML_PACKAGE_NAME} in archive.")
 
-        # Restore objects
         learning_package = self._load_learning_package(zipf, organized_files["learning_package"])
-        self._restore_components(zipf, organized_files["components"], learning_package)
-        self._restore_containers(zipf, organized_files["containers"], learning_package)
-        self._restore_collections(zipf, organized_files["collections"], learning_package)
+        components_validated = self._extract_entities(
+            zipf, organized_files["components"], ComponentSerializer, ComponentVersionSerializer
+        )
+        containers_validated = self._extract_entities(
+            zipf, organized_files["containers"], ContainerSerializer, ContainerVersionSerializer
+        )
+
+        if self.errors:
+            raise ValueError(
+                "Errors encountered during restore: "
+                + "; ".join([f"{err['file']}: {err['errors']}" for err in self.errors])
+            )
+
+        self._save(learning_package, components_validated, containers_validated)
 
         return {
             "learning_package": learning_package.key,
             "containers": len(organized_files["containers"]),
             "components": len(organized_files["components"]),
             "collections": len(organized_files["collections"]),
-            }
+        }
 
     # --------------------------
-    # Loading methods
+    # Extract + Validate
     # --------------------------
+
+    def _extract_entities(
+        self,
+        zipf: zipfile.ZipFile,
+        entity_files: list[str],
+        entity_serializer: type[serializers.Serializer],
+        version_serializer: type[serializers.Serializer],
+    ) -> dict[str, Any]:
+        """Generic extraction + validation pipeline for containers or components."""
+        results: dict[str, list[Any]] = defaultdict(list)
+
+        for file in entity_files:
+            if not file.endswith(".toml"):
+                # Skip non-TOML files
+                continue
+
+            entity_data, draft_version, published_version = self._load_entity_data(zipf, file)
+            serializer = entity_serializer(
+                data={"created": self.utc_now, "created_by": None, **entity_data}
+            )
+
+            if not serializer.is_valid():
+                self.errors.append({"file": file, "errors": serializer.errors})
+                continue
+
+            validated_data = serializer.validated_data
+            entity_type = validated_data.pop("container_type", "components")
+            results[entity_type].append(validated_data)
+
+            valid_versions = self._validate_versions(
+                validated_data,
+                draft_version,
+                published_version,
+                version_serializer
+            )
+            if valid_versions["draft"]:
+                results[f"{entity_type}_drafts"].append(valid_versions["draft"])
+            if valid_versions["published"]:
+                results[f"{entity_type}_published"].append(valid_versions["published"])
+
+        return results
+
+    # --------------------------
+    # Save Logic
+    # --------------------------
+
+    def _save(
+        self,
+        learning_package: LearningPackage,
+        components: dict[str, Any],
+        containers: dict[str, Any]
+    ) -> None:
+        """Persist all validated entities in two phases: published then drafts."""
+
+        with publishing_api.bulk_draft_changes_for(learning_package.id):
+            self._save_components(learning_package, components)
+            self._save_units(learning_package, containers)
+            self._save_subsections(learning_package, containers)
+            self._save_sections(learning_package, containers)
+            publishing_api.publish_all_drafts(learning_package.id)
+
+        with publishing_api.bulk_draft_changes_for(learning_package.id):
+            self._save_draft_versions(components, containers)
+
+    def _save_components(self, learning_package, components):
+        """Save components and published component versions."""
+        for valid_component in components.get("components", []):
+            entity_key = valid_component.pop("key")
+            component = components_api.create_component(learning_package.id, **valid_component)
+            self.components_map_by_key[entity_key] = component
+
+        for valid_published in components.get("components_published", []):
+            entity_key = valid_published.pop("entity_key")
+            components_api.create_next_component_version(
+                self.components_map_by_key[entity_key].publishable_entity.id,
+                **valid_published
+            )
+
+    def _save_units(self, learning_package, containers):
+        """Save units and published unit versions."""
+        for valid_unit in containers.get("unit", []):
+            entity_key = valid_unit.get("key")
+            unit = units_api.create_unit(learning_package.id, **valid_unit)
+            self.units_map_by_key[entity_key] = unit
+
+        for valid_published in containers.get("unit_published", []):
+            entity_key = valid_published.pop("entity_key")
+            children = self._resolve_children(valid_published, self.components_map_by_key)
+            units_api.create_next_unit_version(
+                self.units_map_by_key[entity_key], components=children, **valid_published
+            )
+
+    def _save_subsections(self, learning_package, containers):
+        """Save subsections and published subsection versions."""
+        for valid_subsection in containers.get("subsection", []):
+            entity_key = valid_subsection.get("key")
+            subsection = subsections_api.create_subsection(learning_package.id, **valid_subsection)
+            self.subsections_map_by_key[entity_key] = subsection
+
+        for valid_published in containers.get("subsection_published", []):
+            entity_key = valid_published.pop("entity_key")
+            children = self._resolve_children(valid_published, self.units_map_by_key)
+            subsections_api.create_next_subsection_version(
+                self.subsections_map_by_key[entity_key], units=children, **valid_published
+            )
+
+    def _save_sections(self, learning_package, containers):
+        """Save sections and published section versions."""
+        for valid_section in containers.get("section", []):
+            entity_key = valid_section.get("key")
+            section = sections_api.create_section(learning_package.id, **valid_section)
+            self.sections_map_by_key[entity_key] = section
+
+        for valid_published in containers.get("section_published", []):
+            entity_key = valid_published.pop("entity_key")
+            children = self._resolve_children(valid_published, self.subsections_map_by_key)
+            sections_api.create_next_section_version(
+                self.sections_map_by_key[entity_key], subsections=children, **valid_published
+            )
+
+    def _save_draft_versions(self, components, containers):
+        """Save draft versions for all entity types."""
+        for valid_draft in components.get("components_drafts", []):
+            entity_key = valid_draft.pop("entity_key")
+            components_api.create_next_component_version(
+                self.components_map_by_key[entity_key].publishable_entity.id,
+                **valid_draft
+            )
+
+        for valid_draft in containers.get("unit_drafts", []):
+            entity_key = valid_draft.pop("entity_key")
+            children = self._resolve_children(valid_draft, self.components_map_by_key)
+            units_api.create_next_unit_version(
+                self.units_map_by_key[entity_key], components=children, **valid_draft
+            )
+
+        for valid_draft in containers.get("subsection_drafts", []):
+            entity_key = valid_draft.pop("entity_key")
+            children = self._resolve_children(valid_draft, self.units_map_by_key)
+            subsections_api.create_next_subsection_version(
+                self.subsections_map_by_key[entity_key], units=children, **valid_draft
+            )
+
+        for valid_draft in containers.get("section_drafts", []):
+            entity_key = valid_draft.pop("entity_key")
+            children = self._resolve_children(valid_draft, self.subsections_map_by_key)
+            sections_api.create_next_section_version(
+                self.sections_map_by_key[entity_key], subsections=children, **valid_draft
+            )
+
+    # --------------------------
+    # Utilities
+    # --------------------------
+
+    def _resolve_children(self, entity_data: dict[str, Any], lookup_map: dict[str, Any]) -> list[Any]:
+        """Resolve child entity keys into model instances."""
+        children_keys = entity_data.pop("children", [])
+        return [lookup_map[key] for key in children_keys if key in lookup_map]
 
     def _load_learning_package(self, zipf: zipfile.ZipFile, package_file: str) -> LearningPackage:
         """Load and persist the learning package TOML file."""
         toml_content = self._read_file_from_zip(zipf, package_file)
         data = parse_learning_package_toml(toml_content)
-
         return publishing_api.create_learning_package(
             key=data["key"],
             title=data["title"],
             description=data["description"],
         )
 
-    def _restore_containers(
-        self, zipf: zipfile.ZipFile, container_files: List[str], learning_package: LearningPackage
-    ) -> None:
-        """Restore containers from the zip archive."""
-        for container_file in container_files:
-            self._load_container(zipf, container_file, learning_package)
+    def _load_entity_data(
+        self, zipf: zipfile.ZipFile, entity_file: str
+    ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
+        """Load entity data and its versions from TOML."""
+        content = self._read_file_from_zip(zipf, entity_file)
+        entity_data, version_data = parse_publishable_entity_toml(content)
+        return entity_data, *self._get_versions_to_write(version_data, entity_data)
 
-    def _restore_components(
-        self, zipf: zipfile.ZipFile, component_files: List[str], learning_package: LearningPackage
-    ) -> None:
-        """
-        Restore components and their versions from the zip archive.
-        This method validates all components and their versions before persisting any data.
-        If any validation errors occur, no data is persisted and errors are collected.
-        """
-
-        validated_components = []
-        validated_drafts = []
-        validated_published = []
-
-        for file in component_files:
-            if not file.endswith(".toml"):
-                # Skip non-TOML files
+    def _validate_versions(self, validated_data, draft, published, serializer_cls):
+        """Validate draft/published versions with serializer."""
+        valid = {"draft": None, "published": None}
+        for label, version in [("draft", draft), ("published", published)]:
+            if not version:
                 continue
-
-            # Load component data from the TOML file
-            component_data, draft_version, published_version = self._load_component_data(zipf, file)
-
-            # Validate component data
-            component_serializer = ComponentSerializer(data={
-                "created": self.utc_now,
-                "created_by": None,
-                **component_data,
-            })
-            if not component_serializer.is_valid():
-                # Collect errors and continue
-                self.errors.append({"file": file, "errors": component_serializer.errors})
-                continue
-            # Collect component validated data
-            validated_components.append(component_serializer.validated_data)
-
-            # Load and validate versions
-            valid_versions = self._validate_versions(
-                component_serializer.validated_data,
-                draft_version,
-                published_version
+            serializer = serializer_cls(
+                data={
+                    "entity_key": validated_data["key"],
+                    "content_to_replace": {},
+                    "created": self.utc_now,
+                    "created_by": None,
+                    **version
+                }
             )
-            if valid_versions["draft"]:
-                validated_drafts.append(valid_versions["draft"])
-            if valid_versions["published"]:
-                validated_published.append(valid_versions["published"])
-
-        if self.errors:
-            return
-
-        # Persist all validated components and their versions if there are no errors
-        self._persist_components(learning_package, validated_components, validated_drafts, validated_published)
-
-    def _persist_components(
-        self,
-        learning_package: LearningPackage,
-        validated_components: List[dict[str, Any]],
-        validated_drafts: List[dict[str, Any]],
-        validated_published: List[dict[str, Any]],
-    ) -> None:
-        """
-        Persist validated components and their versions to the database.
-
-        The operation is performed within a bulk draft changes context to save
-        only one transaction on Draft Change Log.
-        """
-        components_by_key = {}  # Map entity_key to Component instance
-        # Step 1:
-        # Create components and their publishable entities
-        # Create all published versions as a draft first
-        # Publish all drafts
-        with publishing_api.bulk_draft_changes_for(learning_package.id):
-            for valid_component in validated_components:
-                entity_key = valid_component.pop("key")
-                component = components_api.create_component(
-                    learning_package.id,
-                    **valid_component,
-                )
-                components_by_key[entity_key] = component
-
-            for valid_draft in validated_published:
-                entity_key = valid_draft.pop("entity_key")
-                components_api.create_next_component_version(
-                    components_by_key[entity_key].publishable_entity.id,
-                    **valid_draft
-                )
-
-            publishing_api.publish_all_drafts(learning_package.id)
-
-        # Step 2: Create all draft versions
-        with publishing_api.bulk_draft_changes_for(learning_package.id):
-            for valid_draft in validated_drafts:
-                entity_key = valid_draft.pop("entity_key")
-                components_api.create_next_component_version(
-                    components_by_key[entity_key].publishable_entity.id,
-                    **valid_draft
-                )
-
-    def _restore_collections(
-        self, zipf: zipfile.ZipFile, collection_files: List[str], learning_package: LearningPackage
-    ) -> None:
-        """Restore collections from the zip archive (future extension)."""
-        # pylint: disable=W0613
-        for collection_file in collection_files:  # pylint: disable=W0612
-            # Placeholder for collection restore logic
-            pass
-
-    # --------------------------
-    # Individual object loaders
-    # --------------------------
-
-    def _load_container(
-        self, zipf: zipfile.ZipFile, container_file: str, learning_package: LearningPackage
-    ):  # pylint: disable=W0613
-        """Load and persist a container (placeholder)."""
-        # TODO: parse TOML here
-        # pylint: disable=W0105
-        """
-        container = publishing_api.create_container(
-            learning_package_id=learning_package.id,
-            key="container_key_placeholder",
-            title="Container Title Placeholder",
-            description="Container Description Placeholder",
-        )
-        publishing_api.create_container_version(
-            container_id=container.id,
-            title="Container Version Title Placeholder",
-            created_by=None,
-        )
-        """
-
-    def _load_component_data(self, zipf, component_file):
-        """Load component data and its versions from a TOML file."""
-        content = self._read_file_from_zip(zipf, component_file)
-        component_data, component_version_data = parse_publishable_entity_toml(content)
-        draft_version, published_version = self._get_versions_to_write(component_version_data, component_data)
-        return component_data, draft_version, published_version
-
-    # --------------------------
-    # Utilities
-    # --------------------------
+            if serializer.is_valid():
+                valid[label] = serializer.validated_data
+            else:
+                self.errors.append({"file": validated_data["key"], "errors": serializer.errors})
+        return valid
 
     def _read_file_from_zip(self, zipf: zipfile.ZipFile, filename: str) -> str:
         """Read and decode a UTF-8 file from the zip archive."""
         with zipf.open(filename) as f:
             return f.read().decode("utf-8")
 
-    def _get_organized_file_list(self, file_paths: List[str]) -> dict[str, Any]:
-        """
-        Organize file paths into categories: learning_package, containers, components, collections.
-        """
+    def _get_organized_file_list(self, file_paths: list[str]) -> dict[str, Any]:
+        """Organize file paths into categories: learning_package, containers, components, collections."""
         organized: dict[str, Any] = {
             "learning_package": None,
             "containers": [],
@@ -617,9 +665,8 @@ class LearningPackageUnzipper:
         }
 
         for path in file_paths:
-            if path.endswith("/"):  # skip directories
+            if path.endswith("/"):
                 continue
-
             if path == TOML_PACKAGE_NAME:
                 organized["learning_package"] = path
             elif path.startswith("entities/") and str(Path(path).parent) == "entities":
@@ -633,38 +680,14 @@ class LearningPackageUnzipper:
 
     def _get_versions_to_write(
         self,
-        component_version_data: List[dict[str, Any]],
-        component_data: dict[str, Any]
-    ) -> Tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
-        """Return the draft and published versions to write, based on component data."""
-
-        draft_version_num = component_data.get("draft", {}).get("version_num")
-        published_version_num = component_data.get("published", {}).get("version_num")
-
-        # Build lookup by version_num
-        version_lookup = {v.get("version_num"): v for v in component_version_data}
-
+        version_data: list[dict[str, Any]],
+        entity_data: dict[str, Any]
+    ) -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
+        """Return the draft and published versions to write, based on entity data."""
+        draft_num = entity_data.get("draft", {}).get("version_num")
+        published_num = entity_data.get("published", {}).get("version_num")
+        lookup = {v.get("version_num"): v for v in version_data}
         return (
-            version_lookup.get(draft_version_num) if draft_version_num else None,
-            version_lookup.get(published_version_num) if published_version_num else None,
+            lookup.get(draft_num) if draft_num else None,
+            lookup.get(published_num) if published_num else None,
         )
-
-    def _validate_versions(self, component_validated_data, draft_version, published_version):
-        """ Validate draft and published versions using ComponentVersionSerializer."""
-        valid_versions = {"draft": None, "published": None}
-        for label, version in [("draft", draft_version), ("published", published_version)]:
-            if version is None:
-                continue
-            entity_key = component_validated_data["key"]
-            version_data = {
-                "entity_key": entity_key,
-                "content_to_replace": {},
-                "created": self.utc_now,
-                "created_by": None,
-                **version,
-            }
-            serializer = ComponentVersionSerializer(data=version_data)
-            if not serializer.is_valid():
-                self.errors.append(f"Errors in {label} version for {entity_key}: {serializer.errors}")
-            valid_versions[label] = serializer.validated_data
-        return valid_versions
