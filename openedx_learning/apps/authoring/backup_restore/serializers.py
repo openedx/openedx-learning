@@ -58,22 +58,34 @@ class ContainerSerializer(EntitySerializer):  # pylint: disable=abstract-method
     """
     Serializer for containers.
     """
-    container = serializers.DictField(child=serializers.DictField(), required=True)
+    container = serializers.DictField(required=True)
+
+    def validate_container(self, value):
+        """
+        Custom validation logic for the container field.
+        Ensures that the container dict has exactly one key which is one of
+        "section", "subsection", or "unit" values.
+        """
+        errors = []
+        if not isinstance(value, dict) or len(value) != 1:
+            errors.append("Container must be a dict with exactly one key.")
+        if len(value) == 1:  # Only check the key if there is exactly one
+            container_type = list(value.keys())[0]
+            if container_type not in ("section", "subsection", "unit"):
+                errors.append(f"Invalid container value: {container_type}")
+        if errors:
+            raise serializers.ValidationError(errors)
+        return value
 
     def validate(self, attrs):
         """
         Custom validation logic:
-        parse the entity_key into (component_type, local_key).
+        parse the container dict to extract the container type.
         """
-        try:
-            container = attrs["container"]
-            container_type = list(container.keys())[0]
-            if container_type not in ("section", "subsection", "unit"):
-                raise ValueError(f"Invalid container type: {container_type}")
-            attrs["container_type"] = container_type
-            attrs.pop("container")  # Remove the container field after processing
-        except ValueError as exc:
-            raise serializers.ValidationError({"key": str(exc)})
+        container = attrs["container"]
+        container_type = list(container.keys())[0]  # It is safe to do this after validate_container
+        attrs["container_type"] = container_type
+        attrs.pop("container")  # Remove the container field after processing
         return attrs
 
 
@@ -81,22 +93,30 @@ class ContainerVersionSerializer(EntityVersionSerializer):  # pylint: disable=ab
     """
     Serializer for container versions.
     """
-    container = serializers.DictField(child=serializers.ListField(child=serializers.CharField()), required=True)
+    container = serializers.DictField(required=True)
+
+    def validate_container(self, value):
+        """
+        Custom validation logic for the container field.
+        Ensures that the container dict has exactly one key "children" which is a list of strings.
+        """
+        errors = []
+        if not isinstance(value, dict) or len(value) != 1:
+            errors.append("Container must be a dict with exactly one key.")
+        if "children" not in value:
+            errors.append("Container must have a 'children' key.")
+        if "children" in value and not isinstance(value["children"], list):
+            errors.append("'children' must be a list.")
+        if errors:
+            raise serializers.ValidationError(errors)
+        return value
 
     def validate(self, attrs):
         """
         Custom validation logic:
-        parse the entity_key into (component_type, local_key).
+        parse the container dict to extract the children list.
         """
-        try:
-            container = attrs["container"]
-            if "children" not in container:
-                raise ValueError("Missing 'children' in container")
-            children = container["children"]
-            if not isinstance(children, list):
-                raise ValueError("'children' must be a list")
-            attrs["children"] = children
-            attrs.pop("container")  # Remove the container field after processing
-        except ValueError as exc:
-            raise serializers.ValidationError({"key": str(exc)})
+        children = attrs["container"]["children"]  # It is safe to do this after validate_container
+        attrs["children"] = children
+        attrs.pop("container")  # Remove the container field after processing
         return attrs

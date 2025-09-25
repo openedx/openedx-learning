@@ -434,13 +434,9 @@ class LearningPackageUnzipper:
             zipf, organized_files["containers"], ContainerSerializer, ContainerVersionSerializer
         )
 
-        if self.errors:
-            raise ValueError(
-                "Errors encountered during restore: "
-                + "; ".join([f"{err['file']}: {err['errors']}" for err in self.errors])
-            )
-
-        self._save(learning_package, components_validated, containers_validated)
+        self._write_errors()
+        if not self.errors:
+            self._save(learning_package, components_validated, containers_validated)
 
         return {
             "learning_package": learning_package.key,
@@ -477,15 +473,16 @@ class LearningPackageUnzipper:
                 self.errors.append({"file": file, "errors": serializer.errors})
                 continue
 
-            validated_data = serializer.validated_data
-            entity_type = validated_data.pop("container_type", "components")
-            results[entity_type].append(validated_data)
+            entity_data = serializer.validated_data
+            entity_type = entity_data.pop("container_type", "components")
+            results[entity_type].append(entity_data)
 
             valid_versions = self._validate_versions(
-                validated_data,
+                entity_data,
                 draft_version,
                 published_version,
-                version_serializer
+                version_serializer,
+                file=file
             )
             if valid_versions["draft"]:
                 results[f"{entity_type}_drafts"].append(valid_versions["draft"])
@@ -606,6 +603,32 @@ class LearningPackageUnzipper:
     # Utilities
     # --------------------------
 
+    def _write_errors(self) -> str | None:
+        """
+        Writes restore errors to a timestamped log file and prints them to console.
+
+        Args:
+            errors (list[dict]): List of {"file": ..., "errors": ...} dicts.
+            log_dir (str): Directory to save the log file (default current dir).
+        """
+        errors = self.errors
+        if not errors:
+            return None
+
+        # Create timestamped log filename
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        log_filename = f"restore_{timestamp}.log"
+
+        # Format each error on a separate line
+        lines = [f"{err['file']}: {err['errors']}" for err in errors]
+        content = "Errors encountered during restore:\n" + "\n".join(lines) + "\n"
+
+        # Write to file
+        with open(log_filename, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        return log_filename
+
     def _resolve_children(self, entity_data: dict[str, Any], lookup_map: dict[str, Any]) -> list[Any]:
         """Resolve child entity keys into model instances."""
         children_keys = entity_data.pop("children", [])
@@ -629,7 +652,7 @@ class LearningPackageUnzipper:
         entity_data, version_data = parse_publishable_entity_toml(content)
         return entity_data, *self._get_versions_to_write(version_data, entity_data)
 
-    def _validate_versions(self, validated_data, draft, published, serializer_cls):
+    def _validate_versions(self, entity_data, draft, published, serializer_cls, *, file) -> dict[str, Any]:
         """Validate draft/published versions with serializer."""
         valid = {"draft": None, "published": None}
         for label, version in [("draft", draft), ("published", published)]:
@@ -637,7 +660,7 @@ class LearningPackageUnzipper:
                 continue
             serializer = serializer_cls(
                 data={
-                    "entity_key": validated_data["key"],
+                    "entity_key": entity_data["key"],
                     "content_to_replace": {},
                     "created": self.utc_now,
                     "created_by": None,
@@ -647,7 +670,7 @@ class LearningPackageUnzipper:
             if serializer.is_valid():
                 valid[label] = serializer.validated_data
             else:
-                self.errors.append({"file": validated_data["key"], "errors": serializer.errors})
+                self.errors.append({"file": file, "errors": serializer.errors})
         return valid
 
     def _read_file_from_zip(self, zipf: zipfile.ZipFile, filename: str) -> str:

@@ -88,14 +88,10 @@ def _get_toml_publishable_entity_table(
 
     if hasattr(entity, "container"):
         container_table = tomlkit.table()
-        container_map = {
-            "section": "section",  # name of the container class : name of the toml table
-            "subsection": "subsection",
-            "unit": "unit",
-        }
+        container_types = ["section", "subsection", "unit"]
 
-        for container_class, container_type in container_map.items():
-            if hasattr(entity.container, container_class):
+        for container_type in container_types:
+            if hasattr(entity.container, container_type):
                 container_table.add(container_type, tomlkit.table())
                 break  # stop after the first match
 
