@@ -156,6 +156,13 @@ class LpDumpCommandTestCase(TestCase):
             components
         )
 
+        api.create_unit(
+            learning_package_id=cls.learning_package.id,
+            key="unit-1",
+            created=cls.now,
+            created_by=cls.user.id,
+        )
+
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):
         """
         Check that a specific entity TOML file in the zip matches the expected content.
@@ -291,7 +298,7 @@ class LpDumpCommandTestCase(TestCase):
         entities = zipper.get_publishable_entities()
         with self.assertNumQueries(3):
             list(entities)  # force evaluation
-            self.assertEqual(len(entities), 3)
+            self.assertEqual(len(entities), 4)
         # Add another component
         api.create_component_and_version(
             self.learning_package.id,
@@ -304,4 +311,4 @@ class LpDumpCommandTestCase(TestCase):
         entities = zipper.get_publishable_entities()
         with self.assertNumQueries(3):
             list(entities)  # force evaluation
-            self.assertEqual(len(entities), 4)
+            self.assertEqual(len(entities), 5)

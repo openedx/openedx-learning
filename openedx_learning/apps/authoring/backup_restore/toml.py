@@ -59,6 +59,8 @@ def _get_toml_publishable_entity_table(
         [entity.published]
         version_num = 1
 
+        [entity.container.section]
+
     Note: This function returns a tomlkit.items.Table, which represents
     a string-like TOML fragment rather than a complete TOML document.
     """
@@ -83,6 +85,18 @@ def _get_toml_publishable_entity_table(
     else:
         published_table.add(tomlkit.comment("unpublished: no published_version_num"))
     entity_table.add("published", published_table)
+
+    if hasattr(entity, "container"):
+        container_table = tomlkit.table()
+        container_types = ["section", "subsection", "unit"]
+
+        for container_type in container_types:
+            if hasattr(entity.container, container_type):
+                container_table.add(container_type, tomlkit.table())
+                break  # stop after the first match
+
+        entity_table.add("container", container_table)
+
     return entity_table
 
 
@@ -118,12 +132,14 @@ def toml_publishable_entity(
 
         [version.container.unit]
     """
+    # Create the TOML representation for the entity itself
     entity_table = _get_toml_publishable_entity_table(entity, draft_version, published_version)
     doc = tomlkit.document()
     doc.add("entity", entity_table)
+
+    # Add versions as an array of tables (AoT)
     doc.add(tomlkit.nl())
     doc.add(tomlkit.comment("### Versions"))
-
     for entity_version in versions_to_write:
         version = tomlkit.aot()
         version_table = toml_publishable_entity_version(entity_version)
@@ -164,9 +180,6 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
         children = publishing_api.get_container_children_entities_keys(version.containerversion)
     container_table.add("children", children)
 
-    unit_table = tomlkit.table()
-
-    container_table.add("unit", unit_table)
     version_table.add("container", container_table)
     return version_table  # For use in AoT
 
@@ -231,8 +244,4 @@ def parse_publishable_entity_toml(content: str) -> tuple[Dict[str, Any], list]:
         raise ValueError("Invalid publishable entity TOML: missing 'entity' section")
     if "version" not in pe_data:
         raise ValueError("Invalid publishable entity TOML: missing 'version' section")
-    if "key" not in pe_data["entity"]:
-        raise ValueError("Invalid publishable entity TOML: missing 'key' field")
-    if "can_stand_alone" not in pe_data["entity"]:
-        raise ValueError("Invalid publishable entity TOML: missing 'can_stand_alone' field")
     return pe_data["entity"], pe_data.get("version", [])
