@@ -120,3 +120,18 @@ class ContainerVersionSerializer(EntityVersionSerializer):  # pylint: disable=ab
         attrs["children"] = children
         attrs.pop("container")  # Remove the container field after processing
         return attrs
+
+
+class CollectionSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer for collections.
+    """
+    title = serializers.CharField(required=True)
+    key = serializers.CharField(required=True)
+    description = serializers.CharField(required=True, allow_blank=True)
+    created_by = serializers.IntegerField(required=True, allow_null=True)
+    entities = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        allow_empty=True,
+    )
