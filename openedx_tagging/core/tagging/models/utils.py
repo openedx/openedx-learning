@@ -59,7 +59,7 @@ class StringAgg(Aggregate, Combinable):
         # Check the database backend (PostgreSQL, MySQL, or SQLite)
         if 'postgresql' in db_connection.vendor.lower():
             self.function = 'STRING_AGG'
-            self.template = '%(function)s(%(distinct)s%(expressions)s, %(delimiter)s)'
+            self.template = "%(function)s(%(distinct)s%(expressions)s::TEXT, '%(delimiter)s')"
             extra.update({
                 "delimiter": self.delimiter,
                 "output_field": TextField(),
