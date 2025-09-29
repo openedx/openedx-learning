@@ -6,7 +6,7 @@
 #
 amqp==5.3.1
     # via kombu
-asgiref==3.9.1
+asgiref==3.9.2
     # via django
 attrs==25.3.0
     # via -r requirements/base.in
@@ -117,5 +117,5 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.13
+wcwidth==0.2.14
     # via prompt-toolkit
