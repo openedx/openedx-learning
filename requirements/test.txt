@@ -8,7 +8,7 @@ amqp==5.3.1
     # via
     #   -r requirements/base.txt
     #   kombu
-asgiref==3.9.1
+asgiref==3.9.2
     # via
     #   -r requirements/base.txt
     #   django
@@ -139,7 +139,7 @@ kombu==5.5.4
     # via
     #   -r requirements/base.txt
     #   celery
-markupsafe==3.0.2
+markupsafe==3.0.3
     # via jinja2
 mock==5.2.0
     # via -r requirements/test.in
@@ -203,7 +203,7 @@ python-dateutil==2.9.0.post0
     #   freezegun
 python-slugify==8.0.4
     # via code-annotations
-pyyaml==6.0.2
+pyyaml==6.0.3
     # via code-annotations
 requests==2.32.5
     # via
@@ -266,7 +266,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.2.13
+wcwidth==0.2.14
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit
