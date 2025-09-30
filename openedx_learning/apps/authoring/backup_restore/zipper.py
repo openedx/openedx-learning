@@ -562,7 +562,7 @@ class LearningPackageUnzipper:
                 learning_package_id=learning_package.id,
                 key=collection.key,
                 entities_qset=publishing_api.get_publishable_entities(learning_package.id).filter(key__in=entities)
-            )  # type: ignore[arg-type]
+            )
 
     def _save_components(self, learning_package, components):
         """Save components and published component versions."""
