@@ -25,12 +25,14 @@ from openedx_learning.api.authoring_models import (
     PublishableEntityVersion,
 )
 from openedx_learning.apps.authoring.backup_restore.serializers import (
+    CollectionSerializer,
     ComponentSerializer,
     ComponentVersionSerializer,
     ContainerSerializer,
     ContainerVersionSerializer,
 )
 from openedx_learning.apps.authoring.backup_restore.toml import (
+    parse_collection_toml,
     parse_learning_package_toml,
     parse_publishable_entity_toml,
     toml_collection,
@@ -413,6 +415,7 @@ class LearningPackageUnzipper:
         self.units_map_by_key: dict[str, Any] = {}
         self.subsections_map_by_key: dict[str, Any] = {}
         self.sections_map_by_key: dict[str, Any] = {}
+        self.all_publishable_entities_keys: set[str] = set()
 
     # --------------------------
     # Public API
@@ -434,9 +437,13 @@ class LearningPackageUnzipper:
             zipf, organized_files["containers"], ContainerSerializer, ContainerVersionSerializer
         )
 
+        collections_validated = self._extract_collections(
+            zipf, organized_files["collections"]
+        )
+
         self._write_errors()
         if not self.errors:
-            self._save(learning_package, components_validated, containers_validated)
+            self._save(learning_package, components_validated, containers_validated, collections_validated)
 
         return {
             "learning_package": learning_package.key,
@@ -474,6 +481,7 @@ class LearningPackageUnzipper:
                 continue
 
             entity_data = serializer.validated_data
+            self.all_publishable_entities_keys.add(entity_data["key"])
             entity_type = entity_data.pop("container_type", "components")
             results[entity_type].append(entity_data)
 
@@ -491,6 +499,36 @@ class LearningPackageUnzipper:
 
         return results
 
+    def _extract_collections(
+        self,
+        zipf: zipfile.ZipFile,
+        collection_files: list[str],
+    ) -> dict[str, Any]:
+        """Extraction + validation pipeline for collections."""
+        results: dict[str, list[Any]] = defaultdict(list)
+
+        for file in collection_files:
+            if not file.endswith(".toml"):
+                # Skip non-TOML files
+                continue
+            toml_content = self._read_file_from_zip(zipf, file)
+            collection_data = parse_collection_toml(toml_content)
+            serializer = CollectionSerializer(data={"created_by": None, **collection_data})
+            if not serializer.is_valid():
+                self.errors.append({"file": file, "errors": serializer.errors})
+                continue
+            collection_validated = serializer.validated_data
+            entities_list = collection_validated["entities"]
+            for entity_key in entities_list:
+                if entity_key not in self.all_publishable_entities_keys:
+                    self.errors.append({
+                        "file": file,
+                        "errors": f"Entity key {entity_key} not found for collection {collection_validated.get('key')}"
+                    })
+            results["collections"].append(collection_validated)
+
+        return results
+
     # --------------------------
     # Save Logic
     # --------------------------
@@ -499,7 +537,8 @@ class LearningPackageUnzipper:
         self,
         learning_package: LearningPackage,
         components: dict[str, Any],
-        containers: dict[str, Any]
+        containers: dict[str, Any],
+        collections: dict[str, Any]
     ) -> None:
         """Persist all validated entities in two phases: published then drafts."""
 
@@ -508,10 +547,22 @@ class LearningPackageUnzipper:
             self._save_units(learning_package, containers)
             self._save_subsections(learning_package, containers)
             self._save_sections(learning_package, containers)
+            self._save_collections(learning_package, collections)
             publishing_api.publish_all_drafts(learning_package.id)
 
         with publishing_api.bulk_draft_changes_for(learning_package.id):
             self._save_draft_versions(components, containers)
+
+    def _save_collections(self, learning_package, collections):
+        """Save collections and their entities."""
+        for valid_collection in collections.get("collections", []):
+            entities = valid_collection.pop("entities", [])
+            collection = collections_api.create_collection(learning_package.id, **valid_collection)
+            collection = collections_api.add_to_collection(
+                learning_package_id=learning_package.id,
+                key=collection.key,
+                entities_qset=publishing_api.get_publishable_entities(learning_package.id).filter(key__in=entities)
+            )
 
     def _save_components(self, learning_package, components):
         """Save components and published component versions."""

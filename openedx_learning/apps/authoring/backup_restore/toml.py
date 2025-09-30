@@ -245,3 +245,13 @@ def parse_publishable_entity_toml(content: str) -> tuple[Dict[str, Any], list]:
     if "version" not in pe_data:
         raise ValueError("Invalid publishable entity TOML: missing 'version' section")
     return pe_data["entity"], pe_data.get("version", [])
+
+
+def parse_collection_toml(content: str) -> dict:
+    """
+    Parse the collection TOML content and return a dict of its fields.
+    """
+    collection_data: Dict[str, Any] = tomlkit.parse(content)
+    if "collection" not in collection_data:
+        raise ValueError("Invalid collection TOML: missing 'collection' section")
+    return collection_data["collection"]
