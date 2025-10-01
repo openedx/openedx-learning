@@ -9,6 +9,7 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.db.models import QuerySet
+from django.test import override_settings
 
 from openedx_learning.api import authoring as api
 from openedx_learning.api.authoring_models import Collection, Component, Content, LearningPackage, PublishableEntity
@@ -212,6 +213,7 @@ class LpDumpCommandTestCase(TestCase):
             for expected_path in expected_paths:
                 self.assertIn(expected_path, zip_name_list)
 
+    @override_settings(CMS_BASE="http://cms.test", LMS_BASE="http://lms.test")
     def test_lp_dump_command(self):
         lp_key = self.learning_package.key
         file_name = f"{lp_key}.zip"
@@ -238,6 +240,11 @@ class LpDumpCommandTestCase(TestCase):
                     f'key = "{self.learning_package.key}"',
                     f'title = "{self.learning_package.title}"',
                     f'description = "{self.learning_package.description}"',
+                    '[meta]',
+                    'format_version = 1',
+                    'created_by = "unknown"',
+                    'origin_server = "http://cms.test"',
+                    'created_at =',
                 ]
             )
 

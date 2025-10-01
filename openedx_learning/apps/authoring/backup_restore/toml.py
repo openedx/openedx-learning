@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 import tomlkit
+from django.conf import settings
 
 from openedx_learning.apps.authoring.collections.models import Collection
 from openedx_learning.apps.authoring.publishing import api as publishing_api
@@ -13,7 +14,12 @@ from openedx_learning.apps.authoring.publishing.models import PublishableEntity,
 from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
 
 
-def toml_learning_package(learning_package: LearningPackage, timestamp: datetime) -> str:
+def toml_learning_package(
+        learning_package: LearningPackage,
+        timestamp: datetime,
+        format_version: int = 1,
+        user: str | None = None
+        ) -> str:
     """
     Create a TOML representation of the learning package.
 
@@ -28,13 +34,23 @@ def toml_learning_package(learning_package: LearningPackage, timestamp: datetime
         updated = 2025-09-03T17:50:59.536190Z
     """
     doc = tomlkit.document()
-    doc.add(tomlkit.comment(f"Datetime of the export: {timestamp}"))
+
+    # Learning package main info
     section = tomlkit.table()
     section.add("title", learning_package.title)
     section.add("key", learning_package.key)
     section.add("description", learning_package.description)
     section.add("created", learning_package.created)
     section.add("updated", learning_package.updated)
+
+    # Learning package metadata
+    metadata = tomlkit.table()
+    metadata.add("format_version", format_version)
+    metadata.add("created_by", user or "unknown")
+    metadata.add("created_at", timestamp)
+    metadata.add("origin_server", getattr(settings, "CMS_BASE", "unknown"))
+
+    doc.add("meta", metadata)
     doc.add("learning_package", section)
     return tomlkit.dumps(doc)
 
