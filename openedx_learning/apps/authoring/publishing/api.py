@@ -1142,6 +1142,7 @@ def create_next_container_version(
     created_by: int | None,
     container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
     entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
+    force_version_num: int | None = None,
 ) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
@@ -1175,6 +1176,9 @@ def create_next_container_version(
             next_version_num = 1
         else:
             next_version_num = last_version.version_num + 1
+
+        if force_version_num is not None:
+            next_version_num = force_version_num
 
         if entity_rows is None and last_version is not None:
             # We're only changing metadata. Keep the same entity list.

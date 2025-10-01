@@ -159,6 +159,8 @@ def create_next_component_version(
     created: datetime,
     title: str | None = None,
     created_by: int | None = None,
+    *,
+    force_version_num: int | None = None,
 ) -> ComponentVersion:
     """
     Create a new ComponentVersion based on the most recent version.
@@ -201,6 +203,9 @@ def create_next_component_version(
         next_version_num = last_version.version_num + 1
         if title is None:
             title = last_version.title
+
+    if force_version_num is not None:
+        next_version_num = force_version_num
 
     with atomic():
         publishable_entity_version = publishing_api.create_publishable_entity_version(

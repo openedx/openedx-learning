@@ -130,6 +130,7 @@ def create_next_subsection_version(
     created: datetime,
     created_by: int | None = None,
     entities_action: publishing_api.ChildrenEntitiesAction = publishing_api.ChildrenEntitiesAction.REPLACE,
+    force_version_num: int | None = None,
 ) -> SubsectionVersion:
     """
     [ 🛑 UNSTABLE ] Create the next subsection version.
@@ -151,6 +152,7 @@ def create_next_subsection_version(
         created_by=created_by,
         container_version_cls=SubsectionVersion,
         entities_action=entities_action,
+        force_version_num=force_version_num,
     )
     return subsection_version
 

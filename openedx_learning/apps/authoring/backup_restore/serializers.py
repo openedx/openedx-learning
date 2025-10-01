@@ -1,6 +1,8 @@
 """
 The serializers module for restoration of authoring data.
 """
+from datetime import timezone
+
 from rest_framework import serializers
 
 from openedx_learning.apps.authoring.components import api as components_api
@@ -12,7 +14,7 @@ class EntitySerializer(serializers.Serializer):  # pylint: disable=abstract-meth
     """
     can_stand_alone = serializers.BooleanField(required=True)
     key = serializers.CharField(required=True)
-    created = serializers.DateTimeField(required=True)
+    created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
     created_by = serializers.CharField(required=True, allow_null=True)
 
 
@@ -22,8 +24,9 @@ class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstra
     """
     title = serializers.CharField(required=True)
     entity_key = serializers.CharField(required=True)
-    created = serializers.DateTimeField(required=True)
+    created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
     created_by = serializers.CharField(required=True, allow_null=True)
+    version_num = serializers.IntegerField(required=True)
 
 
 class ComponentSerializer(EntitySerializer):  # pylint: disable=abstract-method
@@ -51,7 +54,6 @@ class ComponentVersionSerializer(EntityVersionSerializer):  # pylint: disable=ab
     """
     Serializer for component versions.
     """
-    content_to_replace = serializers.DictField(child=serializers.CharField(), required=True)
 
 
 class ContainerSerializer(EntitySerializer):  # pylint: disable=abstract-method
