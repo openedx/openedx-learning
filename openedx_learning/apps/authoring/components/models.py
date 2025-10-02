@@ -21,7 +21,7 @@ from typing import ClassVar
 
 from django.db import models
 
-from ....lib.fields import case_sensitive_char_field, immutable_uuid_field, key_field
+from ....lib.fields import case_sensitive_char_field, key_field
 from ....lib.managers import WithRelationsManager
 from ..contents.models import Content
 from ..publishing.models import LearningPackage, PublishableEntityMixin, PublishableEntityVersionMixin
@@ -239,8 +239,6 @@ class ComponentVersionContent(models.Model):
 
     component_version = models.ForeignKey(ComponentVersion, on_delete=models.CASCADE)
     content = models.ForeignKey(Content, on_delete=models.RESTRICT)
-
-    uuid = immutable_uuid_field()
 
     # "key" is a reserved word for MySQL, so we're temporarily using the column
     # name of "_key" to avoid breaking downstream tooling. A possible
