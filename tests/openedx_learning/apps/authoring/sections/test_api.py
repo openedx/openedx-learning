@@ -366,6 +366,27 @@ class SectionTestCase(SubSectionTestCase):  # pylint: disable=test-inherits-test
         with pytest.raises(authoring_models.ContainerVersion.DoesNotExist):
             # There is no published version of the section:
             authoring_api.get_subsections_in_section(section, published=True)
+    
+    def test_create_next_section_version_forcing_version_num(self):
+        """
+        Test creating a section version while forcing the next version number.
+        """
+        section, _section_version = authoring_api.create_section_and_version(
+            learning_package_id=self.learning_package.id,
+            key="section:key",
+            title="Section",
+            created=self.now,
+            created_by=None,
+        )
+        section_version_v2 = authoring_api.create_next_section_version(
+            section=section,
+            title="Section",
+            subsections=[self.subsection_1, self.subsection_2],
+            created=self.now,
+            created_by=None,
+            force_version_num=5,  # Forcing the next version number to be 5 (instead of the usual 2)
+        )
+        assert section_version_v2.version_num == 5
 
     def test_auto_publish_children(self):
         """

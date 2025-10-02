@@ -635,7 +635,6 @@ class LearningPackageUnzipper:
         for valid_draft in components.get("components_drafts", []):
             entity_key = valid_draft.pop("entity_key")
             content_to_replace = self._resolve_static_files(valid_draft, entity_key, component_static_files)
-            print("Entity key", valid_draft.get("version_num", "-- NO TIENE"), valid_draft)
             components_api.create_next_component_version(
                 self.components_map_by_key[entity_key].publishable_entity.id,
                 content_to_replace=content_to_replace,

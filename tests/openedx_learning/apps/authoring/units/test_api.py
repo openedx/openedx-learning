@@ -369,6 +369,27 @@ class UnitTestCase(ComponentTestCase):
         with pytest.raises(authoring_models.ContainerVersion.DoesNotExist):
             # There is no published version of the unit:
             authoring_api.get_components_in_unit(unit, published=True)
+    
+    def test_create_next_unit_version_forcing_version_num(self):
+        """
+        Test creating a unit version with forcing the version number.
+        """
+        unit, _unit_version = authoring_api.create_unit_and_version(
+            learning_package_id=self.learning_package.id,
+            key="unit:key",
+            title="Unit",
+            created=self.now,
+            created_by=None,
+        )
+        unit_version_v2 = authoring_api.create_next_unit_version(
+            unit=unit,
+            title="Unit",
+            components=[self.component_1, self.component_2_v1],  # Note the "v1" pinning 📌 the second one to version 1
+            created=self.now,
+            created_by=None,
+            force_version_num=5,
+        )
+        assert unit_version_v2.version_num == 5
 
     def test_auto_publish_children(self):
         """

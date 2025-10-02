@@ -553,6 +553,17 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             version_3.contents
                      .get(componentversioncontent__key="hello.txt")
         )
+    
+    def test_create_next_version_forcing_num_version(self):
+        """Test creating a next version with a forced version number."""
+        version_1 = components_api.create_next_component_version(
+            self.problem.pk,
+            title="Problem Version 1",
+            content_to_replace={},
+            created=self.now,
+            force_version_num=5,
+        )
+        assert version_1.version_num == 5
 
 
 class SetCollectionsTestCase(ComponentTestCase):
