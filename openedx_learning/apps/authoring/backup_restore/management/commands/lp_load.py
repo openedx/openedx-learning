@@ -29,7 +29,7 @@ class Command(BaseCommand):
             message = f'{file_name} loaded successfully'
             self.stdout.write(self.style.SUCCESS(message))
         except FileNotFoundError as exc:
-            message = f"Learning package file {file_name} not found"
+            message = f"Learning package file {file_name} not found: {exc}"
             raise CommandError(message) from exc
         except Exception as e:
             message = f"Failed to load '{file_name}': {e}"
