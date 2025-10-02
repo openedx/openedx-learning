@@ -30,9 +30,9 @@ class RestoreLearningPackageCommandTest(TestCase):
     def verify_lp(self):
         """Verify the learning package was restored correctly."""
         lp = publishing_api.LearningPackage.objects.filter(key=self.lp_key).first()
-        self.assertIsNotNone(lp, "Learning package was not restored.")
-        self.assertEqual(lp.title, "Library test")
-        self.assertEqual(lp.description, "")
+        assert lp is not None, "Learning package was not restored."
+        assert lp.title == "Library test"
+        assert lp.description == ""
         return lp
 
     def verify_containers(self, lp):
@@ -41,26 +41,26 @@ class RestoreLearningPackageCommandTest(TestCase):
         expected_container_keys = ["unit1-b7eafb", "subsection1-48afa3", "section1-8ca126"]
 
         for container in container_qs:
-            self.assertIn(container.key, expected_container_keys)
+            assert container.key in expected_container_keys
             draft_version = publishing_api.get_draft_version(container.publishable_entity.id)
             published_version = publishing_api.get_published_version(container.publishable_entity.id)
             if container.key == "unit1-b7eafb":
-                self.assertIsNotNone(getattr(container, 'unit', None))
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 1)
-                self.assertIsNone(published_version)
+                assert getattr(container, 'unit', None) is not None
+                assert draft_version is not None
+                assert draft_version.version_num == 1
+                assert published_version is None
             elif container.key == "subsection1-48afa3":
-                self.assertIsNotNone(getattr(container, 'subsection', None))
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 1)
-                self.assertIsNone(published_version)
+                assert getattr(container, 'subsection', None) is not None
+                assert draft_version is not None
+                assert draft_version.version_num == 1
+                assert published_version is None
             elif container.key == "section1-8ca126":
-                self.assertIsNotNone(getattr(container, 'section', None))
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 1)
-                self.assertIsNone(published_version)
+                assert getattr(container, 'section', None) is not None
+                assert draft_version is not None
+                assert draft_version.version_num == 1
+                assert published_version is None
             else:
-                self.fail(f"Unexpected container key: {container.key}")
+                assert False, f"Unexpected container key: {container.key}"
 
     def verify_components(self, lp):
         """Verify the components and their versions were restored correctly."""
@@ -74,62 +74,62 @@ class RestoreLearningPackageCommandTest(TestCase):
             "xblock.v1:video:22601ebd-9da8-430b-9778-cfe059a98568",
         ]
         for component in component_qs:
-            self.assertIn(component.key, expected_component_keys)
+            assert component.key in expected_component_keys
             draft_version = publishing_api.get_draft_version(component.publishable_entity.id)
             published_version = publishing_api.get_published_version(component.publishable_entity.id)
             if component.key == "xblock.v1:drag-and-drop-v2:4d1b2fac-8b30-42fb-872d-6b10ab580b27":
-                self.assertEqual(component.component_type.name, "drag-and-drop-v2")
-                self.assertEqual(component.component_type.namespace, "xblock.v1")
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 1)
-                self.assertIsNone(published_version)
+                assert component.component_type.name == "drag-and-drop-v2"
+                assert component.component_type.namespace == "xblock.v1"
+                assert draft_version is not None
+                assert draft_version.version_num == 1
+                assert published_version is None
 
             elif component.key == "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37":
-                self.assertEqual(component.component_type.name, "html")
-                self.assertEqual(component.component_type.namespace, "xblock.v1")
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 2)
-                self.assertIsNotNone(published_version)
-                self.assertEqual(published_version.version_num, 1)
+                assert component.component_type.name == "html"
+                assert component.component_type.namespace == "xblock.v1"
+                assert draft_version is not None
+                assert draft_version.version_num == 2
+                assert published_version is not None
+                assert published_version.version_num == 1
 
             elif component.key == "xblock.v1:openassessment:1ee38208-a585-4455-a27e-4930aa541f53":
-                self.assertEqual(component.component_type.name, "openassessment")
-                self.assertEqual(component.component_type.namespace, "xblock.v1")
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 1)
-                self.assertIsNone(published_version)
+                assert component.component_type.name == "openassessment"
+                assert component.component_type.namespace == "xblock.v1"
+                assert draft_version is not None
+                assert draft_version.version_num == 1
+                assert published_version is None
             elif component.key == "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b":
-                self.assertEqual(component.component_type.name, "problem")
-                self.assertEqual(component.component_type.namespace, "xblock.v1")
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 1)
-                self.assertIsNone(published_version)
+                assert component.component_type.name == "problem"
+                assert component.component_type.namespace == "xblock.v1"
+                assert draft_version is not None
+                assert draft_version.version_num == 1
+                assert published_version is None
             elif component.key == "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471":
-                self.assertEqual(component.component_type.name, "survey")
-                self.assertEqual(component.component_type.namespace, "xblock.v1")
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 1)
-                self.assertIsNone(published_version)
+                assert component.component_type.name == "survey"
+                assert component.component_type.namespace == "xblock.v1"
+                assert draft_version is not None
+                assert draft_version.version_num == 1
+                assert published_version is None
             elif component.key == "xblock.v1:video:22601ebd-9da8-430b-9778-cfe059a98568":
-                self.assertEqual(component.component_type.name, "video")
-                self.assertEqual(component.component_type.namespace, "xblock.v1")
-                self.assertIsNotNone(draft_version)
-                self.assertEqual(draft_version.version_num, 1)
-                self.assertIsNone(published_version)
+                assert component.component_type.name == "video"
+                assert component.component_type.namespace == "xblock.v1"
+                assert draft_version is not None
+                assert draft_version.version_num == 1
+                assert published_version is None
             else:
-                self.fail(f"Unexpected component key: {component.key}")
+                assert False, f"Unexpected component key: {component.key}"
 
     def verify_collections(self, lp):
         """Verify the collections were restored correctly."""
         collections = collections_api.get_collections(lp.id)
-        self.assertEqual(collections.count(), 1)
+        assert collections.count() == 1
         collection = collections.first()
-        self.assertEqual(collection.title, "Collection test1")
-        self.assertEqual(collection.key, "collection-test")
-        self.assertEqual(collection.description, "")
+        assert collection.title == "Collection test1"
+        assert collection.key == "collection-test"
+        assert collection.description == ""
         expected_entity_keys = [
             "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37",
             "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b",
         ]
         entity_keys = [entity.key for entity in collection.entities.all()]
-        self.assertCountEqual(entity_keys, expected_entity_keys)
+        assert set(entity_keys) == set(expected_entity_keys)
