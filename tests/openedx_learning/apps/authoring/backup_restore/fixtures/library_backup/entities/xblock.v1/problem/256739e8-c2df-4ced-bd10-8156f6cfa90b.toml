@@ -1,0 +1,21 @@
+[entity]
+uuid = "c5240e01-0810-4904-bd8e-5ac0d3d8370c"
+can_stand_alone = true
+key = "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b"
+created = 2025-09-04T22:37:24.780718Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+# unpublished: no published_version_num
+
+# ### Versions
+
+[[version]]
+title = "Single select"
+uuid = "a5bcdf80-f69b-4ee5-a980-e1a93c61ad03"
+version_num = 2
+
+[version.container]
+children = []

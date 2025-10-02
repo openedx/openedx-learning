@@ -1,26 +1,35 @@
 """Tests for the lp_load management command."""
 import os
 from io import StringIO
+from unittest.mock import patch
 
 from django.core.management import call_command
 
+from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper
 from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.lib.test_utils import TestCase
+from test_utils.zip_file_utils import folder_to_inmemory_zip
 
 
 class RestoreLearningPackageCommandTest(TestCase):
     """Tests for the lp_load management command."""
+
     def setUp(self):
         super().setUp()
-        self.zip_file_path = os.path.join(os.path.dirname(__file__), "fixtures/test2.zip")
+        self.fixtures_folder = os.path.join(os.path.dirname(__file__), "fixtures/library_backup")
+        self.zip_file = folder_to_inmemory_zip(self.fixtures_folder)
         self.lp_key = "lib:WGU:LIB_C001"
 
-    def test_restore_command(self):
-        # Call the Django management command
+    @patch("openedx_learning.apps.authoring.backup_restore.management.commands.lp_load.load_dump_zip_file")
+    def test_restore_command(self, mock_load_dump_zip_file):
+        # Mock load_dump_zip_file to return our in-memory zip file
+        mock_load_dump_zip_file.return_value = LearningPackageUnzipper().load(self.zip_file)
+
         out = StringIO()
-        call_command("lp_load", self.zip_file_path, stdout=out)
+        # You can pass any dummy path, since load_dump_zip_file is mocked
+        call_command("lp_load", "dummy.zip", stdout=out)
 
         lp = self.verify_lp()
         self.verify_containers(lp)
