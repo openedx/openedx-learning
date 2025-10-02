@@ -95,6 +95,23 @@ class PublishLogRecord(models.Model):
         PublishableEntityVersion, on_delete=models.RESTRICT, null=True, blank=True
     )
 
+    # The dependencies_hash_digest is used when the version alone isn't enough
+    # to let us know the full draft state of an entity. This happens any time a
+    # Published version has dependencies (see the
+    # PublishableEntityVersionDependency model), because changes in those
+    # dependencies will cause changes to the state of the Draft. The main
+    # example of this is containers, where changing an unpinned child affects
+    # the state of the parent container, even if that container's definition
+    # (and thus version) does not change.
+    #
+    # If a Published version has no dependencies, then its entire state is
+    # captured by its version, and the dependencies_hash_digest is blank. (Blank
+    # is slightly more convenient for database comparisons than NULL.)
+    #
+    # Note: There is an equivalent of this field in the Draft model and the
+    # the values may drift away from each other.
+    dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
+
     class Meta:
         constraints = [
             # A Publishable can have only one PublishLogRecord per PublishLog.
@@ -159,23 +176,6 @@ class Published(models.Model):
         PublishLogRecord,
         on_delete=models.RESTRICT,
     )
-
-    # The dependencies_hash_digest is used when the version alone isn't enough
-    # to let us know the full draft state of an entity. This happens any time a
-    # Published version has dependencies (see the
-    # PublishableEntityVersionDependency model), because changes in those
-    # dependencies will cause changes to the state of the Draft. The main
-    # example of this is containers, where changing an unpinned child affects
-    # the state of the parent container, even if that container's definition
-    # (and thus version) does not change.
-    #
-    # If a Published version has no dependencies, then its entire state is
-    # captured by its version, and the dependencies_hash_digest is blank. (Blank
-    # is slightly more convenient for database comparisons than NULL.)
-    #
-    # Note: There is an equivalent of this field in the Draft model and the
-    # the values may drift away from each other.
-    dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
 
     class Meta:
         verbose_name = "Published Entity"

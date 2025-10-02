@@ -60,23 +60,15 @@ class Draft(models.Model):
         null=True,
         blank=True,
     )
-
-    # The dependencies_hash_digest is used when the version alone isn't enough
-    # to let us know the full draft state of an entity. This happens any time a
-    # Draft version has dependencies (see the PublishableEntityVersionDependency
-    # model), because changes in those dependencies will cause changes to the
-    # state of the Draft. The main example of this is containers, where changing
-    # an unpinned child affects the state of the parent container, even if that
-    # container's definition (and thus version) does not change.
-    #
-    # If a Draft has no dependencies, then its entire state is captured by its
-    # version, and the dependencies_hash_digest is blank. (Blank is slightly
-    # more convenient for database comparisons than NULL.)
-    #
-    # Note: There is an equivalent of this field in the Published model and the
-    # the values may drift away from each other.
-    dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
-
+    # Note: this is actually a 1:1 relation in practice, but I'm keeping the
+    # definition more consistent with the Published model, which has an fkey
+    # to PublishLogRecord. Unlike PublishLogRecord, this fkey is a late
+    # addition to this data model, so we have to allow null values.
+    draft_log_record = models.ForeignKey(
+        "DraftChangeLogRecord",
+        on_delete=models.RESTRICT,
+        null=True,
+    )
 
     class DraftQuerySet(models.QuerySet):
         """
@@ -260,6 +252,22 @@ class DraftChangeLogRecord(models.Model):
     new_version = models.ForeignKey(
         PublishableEntityVersion, on_delete=models.RESTRICT, null=True, blank=True
     )
+
+    # The dependencies_hash_digest is used when the version alone isn't enough
+    # to let us know the full draft state of an entity. This happens any time a
+    # Draft version has dependencies (see the PublishableEntityVersionDependency
+    # model), because changes in those dependencies will cause changes to the
+    # state of the Draft. The main example of this is containers, where changing
+    # an unpinned child affects the state of the parent container, even if that
+    # container's definition (and thus version) does not change.
+    #
+    # If a Draft has no dependencies, then its entire state is captured by its
+    # version, and the dependencies_hash_digest is blank. (Blank is slightly
+    # more convenient for database comparisons than NULL.)
+    #
+    # Note: There is an equivalent of this field in the Published model and the
+    # the values may drift away from each other.
+    dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
 
     class Meta:
         constraints = [
