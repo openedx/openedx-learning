@@ -29,7 +29,7 @@ def toml_learning_package(
         format_version = 1
         created_by = "dormsbee"
         created_at = 2025-09-03T17:50:59.536190Z
-        origin_server = "http://cms.test"
+        origin_server = "cms.test"
 
         [learning_package]
         title = "Components Test Case Learning Package"
