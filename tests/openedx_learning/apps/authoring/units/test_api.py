@@ -369,7 +369,7 @@ class UnitTestCase(ComponentTestCase):
         with pytest.raises(authoring_models.ContainerVersion.DoesNotExist):
             # There is no published version of the unit:
             authoring_api.get_components_in_unit(unit, published=True)
-    
+
     def test_create_next_unit_version_forcing_version_num(self):
         """
         Test creating a unit version with forcing the version number.
