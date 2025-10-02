@@ -242,8 +242,6 @@ class LpDumpCommandTestCase(TestCase):
                     f'description = "{self.learning_package.description}"',
                     '[meta]',
                     'format_version = 1',
-                    'created_by = "unknown"',
-                    'origin_server = "http://cms.test"',
                     'created_at =',
                 ]
             )

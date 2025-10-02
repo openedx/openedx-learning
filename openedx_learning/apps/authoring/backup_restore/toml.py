@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 import tomlkit
-from django.conf import settings
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 
 from openedx_learning.apps.authoring.collections.models import Collection
 from openedx_learning.apps.authoring.publishing import api as publishing_api
@@ -18,13 +18,18 @@ def toml_learning_package(
         learning_package: LearningPackage,
         timestamp: datetime,
         format_version: int = 1,
-        user: str | None = None
+        user: UserType | None = None,
+        origin_server: str | None = None
         ) -> str:
     """
     Create a TOML representation of the learning package.
 
     The resulting content looks like:
-        # Datetime of the export: 2025-09-03 12:50:59.573253
+        [meta]
+        format_version = 1
+        created_by = "dormsbee"
+        created_at = 2025-09-03T17:50:59.536190Z
+        origin_server = "http://cms.test"
 
         [learning_package]
         title = "Components Test Case Learning Package"
@@ -46,9 +51,11 @@ def toml_learning_package(
     # Learning package metadata
     metadata = tomlkit.table()
     metadata.add("format_version", format_version)
-    metadata.add("created_by", user or "unknown")
+    if user:
+        metadata.add("created_by", user.username)
     metadata.add("created_at", timestamp)
-    metadata.add("origin_server", getattr(settings, "CMS_BASE", "unknown"))
+    if origin_server:
+        metadata.add("origin_server", origin_server)
 
     doc.add("meta", metadata)
     doc.add("learning_package", section)
