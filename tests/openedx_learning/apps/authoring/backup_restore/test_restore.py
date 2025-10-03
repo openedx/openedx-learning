@@ -92,7 +92,6 @@ class RestoreLearningPackageCommandTest(TestCase):
                 assert draft_version is not None
                 assert draft_version.version_num == 1
                 assert published_version is None
-
             elif component.key == "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37":
                 assert component.component_type.name == "html"
                 assert component.component_type.namespace == "xblock.v1"
@@ -100,7 +99,6 @@ class RestoreLearningPackageCommandTest(TestCase):
                 assert draft_version.version_num == 2
                 assert published_version is not None
                 assert published_version.version_num == 1
-
             elif component.key == "xblock.v1:openassessment:1ee38208-a585-4455-a27e-4930aa541f53":
                 assert component.component_type.name == "openassessment"
                 assert component.component_type.namespace == "xblock.v1"
