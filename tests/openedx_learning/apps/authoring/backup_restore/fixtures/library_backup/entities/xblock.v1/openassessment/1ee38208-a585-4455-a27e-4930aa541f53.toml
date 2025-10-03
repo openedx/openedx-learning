@@ -16,6 +16,3 @@ version_num = 2
 title = "Open Response Assessment"
 uuid = "8f3c5e83-c1bf-49ba-96dc-5ee8e8b79b83"
 version_num = 2
-
-[version.container]
-children = []

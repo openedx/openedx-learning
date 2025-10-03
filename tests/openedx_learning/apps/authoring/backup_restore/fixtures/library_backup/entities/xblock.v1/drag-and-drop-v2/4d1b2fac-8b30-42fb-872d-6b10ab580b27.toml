@@ -16,6 +16,3 @@ version_num = 2
 title = "Drag and Drop"
 uuid = "136f72d0-a793-4993-b0b1-8515e0c21e64"
 version_num = 2
-
-[version.container]
-children = []

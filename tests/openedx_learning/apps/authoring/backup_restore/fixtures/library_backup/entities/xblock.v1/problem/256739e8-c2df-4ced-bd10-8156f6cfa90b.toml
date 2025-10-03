@@ -16,6 +16,3 @@ version_num = 2
 title = "Single select"
 uuid = "a5bcdf80-f69b-4ee5-a980-e1a93c61ad03"
 version_num = 2
-
-[version.container]
-children = []

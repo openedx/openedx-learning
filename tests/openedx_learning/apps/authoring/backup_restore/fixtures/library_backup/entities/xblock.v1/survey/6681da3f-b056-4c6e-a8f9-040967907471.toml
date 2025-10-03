@@ -16,6 +16,3 @@ version_num = 1
 title = "Survey"
 uuid = "0bdcaf29-ca6b-47f2-8b16-86a900d1c837"
 version_num = 1
-
-[version.container]
-children = []
