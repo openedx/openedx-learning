@@ -6,7 +6,7 @@ import logging
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
-from openedx_learning.apps.authoring.backup_restore.api import load_dump_zip_file
+from openedx_learning.apps.authoring.backup_restore.api import load_dump_zip_file, tmp_delete_learning_package
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,9 @@ class Command(BaseCommand):
         if not file_name.lower().endswith(".zip"):
             raise CommandError("Input file name must end with .zip")
         try:
-            load_dump_zip_file(file_name)
+            tmp_delete_learning_package("lib:WGU:LIB_C001")  # Temporary line to help with testing
+            response = load_dump_zip_file(file_name)
+            print(response)  # For debugging purposes
             message = f'{file_name} loaded successfully'
             self.stdout.write(self.style.SUCCESS(message))
         except FileNotFoundError as exc:
