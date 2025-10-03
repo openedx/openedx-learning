@@ -565,6 +565,66 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         )
         assert version_1.version_num == 5
 
+    def test_create_multiple_next_versions_and_diff_content(self):
+        """
+        Test creating multiple next versions with different content.
+        This includes a case where we want to ignore previous content.
+        """
+        python_source_media_type = contents_api.get_or_create_media_type(
+            "text/x-python",
+        )
+        python_source_asset = contents_api.get_or_create_file_content(
+            self.learning_package.id,
+            python_source_media_type.id,
+            data=b"print('hello world!')",
+            created=self.now,
+        )
+        content_to_replace_for_published = {
+            'static/profile.webp': python_source_asset.pk,
+            'static/background.webp': python_source_asset.pk,
+        }
+
+        content_to_replace_for_draft = {
+            'static/profile.webp': python_source_asset.pk,
+            'static/new_file.webp': python_source_asset.pk,
+        }
+        version_1_published = components_api.create_next_component_version(
+            self.problem.pk,
+            title="Problem Version 1",
+            content_to_replace=content_to_replace_for_published,
+            created=self.now,
+        )
+        assert version_1_published.version_num == 1
+
+        publishing_api.publish_all_drafts(
+            self.learning_package.pk,
+            published_at=self.now
+        )
+
+        version_2_draft = components_api.create_next_component_version(
+            self.problem.pk,
+            title="Problem Version 2",
+            content_to_replace=content_to_replace_for_draft,
+            created=self.now,
+            ignore_previous_content=True,
+        )
+        assert version_2_draft.version_num == 2
+        assert version_2_draft.contents.count() == 2
+        assert (
+            python_source_asset ==
+            version_2_draft.contents.get(
+                componentversioncontent__key="static/profile.webp")
+        )
+        assert (
+            python_source_asset ==
+            version_2_draft.contents.get(
+                componentversioncontent__key="static/new_file.webp")
+        )
+        with self.assertRaises(ObjectDoesNotExist):
+            # This file was in the published version, but not in the draft version
+            # since we ignored previous content.
+            version_2_draft.contents.get(componentversioncontent__key="static/background.webp")
+
 
 class SetCollectionsTestCase(ComponentTestCase):
     """

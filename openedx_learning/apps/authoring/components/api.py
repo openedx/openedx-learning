@@ -161,9 +161,25 @@ def create_next_component_version(
     created_by: int | None = None,
     *,
     force_version_num: int | None = None,
+    ignore_previous_content: bool = False,
 ) -> ComponentVersion:
     """
     Create a new ComponentVersion based on the most recent version.
+
+    Args:
+        component_pk (int): The primary key of the Component to version.
+        content_to_replace (dict): Mapping of file keys to Content IDs,
+            None (for deletion), or bytes (for new file content).
+        created (datetime): The creation timestamp for the new version.
+        title (str, optional): Title for the new version. If None, uses the previous version's title.
+        created_by (int, optional): User ID of the creator.
+        force_version_num (int, optional): If provided, overrides the automatic version number increment and sets
+            this version's number explicitly. Use this if you need to restore or import a version with a specific
+            version number, such as during data migration or when synchronizing with external systems.
+        ignore_previous_content (bool): If True, do not copy over content from the previous version.
+
+    Returns:
+        ComponentVersion: The newly created ComponentVersion instance.
 
     A very common pattern for making a new ComponentVersion is going to be "make
     it just like the last version, except changing these one or two things".
@@ -184,6 +200,14 @@ def create_next_component_version(
     ``c.txt`` in the previous version. This is to make it a little more
     convenient to remove paths (e.g. due to deprecation) without having to
     always check for its existence first.
+
+    Why use force_version_num?
+        Normally, the version number is incremented automatically from the latest version. If you need to set a specific
+        version number (for example, when restoring from backup, importing legacy data, or synchronizing with another
+        system), use force_version_num to override the default behavior.
+
+    Why not use create_component_version?
+        The main reason is that we want to reuse the logic to create a static file component from a dictionary.
 
     TODO: Have to add learning_downloadable info to this when it comes time to
           support static asset download.
@@ -246,6 +270,10 @@ def create_next_component_version(
                     component_version=component_version,
                     key=key,
                 )
+
+        if ignore_previous_content:
+            return component_version
+
         # Now copy any old associations that existed, as long as they aren't
         # in conflict with the new stuff or marked for deletion.
         last_version_content_mapping = ComponentVersionContent.objects \

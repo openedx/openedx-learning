@@ -580,7 +580,8 @@ class LearningPackageUnzipper:
 
         for valid_published in components.get("components_published", []):
             entity_key = valid_published.pop("entity_key")
-            content_to_replace = self._resolve_static_files(valid_published, entity_key, component_static_files)
+            version_num = valid_published["version_num"]  # Should exist, validated earlier
+            content_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
             components_api.create_next_component_version(
                 self.components_map_by_key[entity_key].publishable_entity.id,
                 content_to_replace=content_to_replace,
@@ -634,11 +635,15 @@ class LearningPackageUnzipper:
         """Save draft versions for all entity types."""
         for valid_draft in components.get("components_drafts", []):
             entity_key = valid_draft.pop("entity_key")
-            content_to_replace = self._resolve_static_files(valid_draft, entity_key, component_static_files)
+            version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            content_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
             components_api.create_next_component_version(
                 self.components_map_by_key[entity_key].publishable_entity.id,
                 content_to_replace=content_to_replace,
                 force_version_num=valid_draft.pop("version_num", None),
+                # Drafts can diverge from published, so we allow ignoring previous content
+                # Use case: published v1 had files A, B; draft v2 only has file A
+                ignore_previous_content=True,
                 **valid_draft
             )
 
@@ -704,16 +709,12 @@ class LearningPackageUnzipper:
 
     def _resolve_static_files(
             self,
-            version_data: dict[str, Any],
+            num_version: int,
             entity_key: str,
             static_files_map: dict[str, List[str]]
     ) -> dict[str, bytes]:
         """Resolve static file paths into their binary content."""
         resolved_files: dict[str, bytes] = {}
-        num_version = version_data.get("version_num")
-
-        if not num_version:
-            return resolved_files
 
         static_file_key = f"{entity_key}:v{num_version}"  # e.g., "my_component:123:v1"
         static_files = static_files_map.get(static_file_key, [])
