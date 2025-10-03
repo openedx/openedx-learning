@@ -253,7 +253,7 @@ def parse_learning_package_toml(content: str) -> dict:
         raise ValueError("Invalid learning package TOML: missing 'title' in 'learning_package' section")
     if "key" not in lp_data["learning_package"]:
         raise ValueError("Invalid learning package TOML: missing 'key' in 'learning_package' section")
-    return lp_data["learning_package"]
+    return lp_data
 
 
 def parse_publishable_entity_toml(content: str) -> tuple[Dict[str, Any], list]:

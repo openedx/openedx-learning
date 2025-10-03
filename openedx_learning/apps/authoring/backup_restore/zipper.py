@@ -3,6 +3,7 @@ This module provides functionality to create a zip file containing the learning 
 including a TOML representation of the learning package and its entities.
 """
 import hashlib
+from io import StringIO
 import zipfile
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -429,7 +430,6 @@ class LearningPackageUnzipper:
         if not organized_files["learning_package"]:
             raise FileNotFoundError(f"Missing required {TOML_PACKAGE_NAME} in archive.")
 
-        learning_package = self._load_learning_package(zipf, organized_files["learning_package"])
         components_validated = self._extract_entities(
             zipf, organized_files["components"], ComponentSerializer, ComponentVersionSerializer
         )
@@ -441,15 +441,30 @@ class LearningPackageUnzipper:
             zipf, organized_files["collections"]
         )
 
-        self._write_errors()
-        if not self.errors:
-            self._save(learning_package, components_validated, containers_validated, collections_validated)
+        log_error_buffer = self._write_errors()
+
+        if self.errors:
+            return {
+                "status": "error",
+                "log_file_error": log_error_buffer,
+                "general_info": None
+            }
+
+        learning_package, lp_toml = self._load_learning_package(zipf, organized_files["learning_package"])
+        self._save(learning_package, components_validated, containers_validated, collections_validated)
 
         return {
-            "learning_package": learning_package.key,
-            "containers": len(organized_files["containers"]),
-            "components": len(organized_files["components"]),
-            "collections": len(organized_files["collections"]),
+            "status": "success",
+            "log_file_error": log_error_buffer,
+            "general_info": {
+                "learning_package_key": learning_package.key,
+                "learning_package_title": learning_package.title,
+                "backed_up_at": learning_package.created,
+                "containers": len(containers_validated["unit"]) + len(containers_validated["section"]) + len(containers_validated["subsection"]),
+                "components": len(components_validated["components"]),
+                "collections": len(collections_validated["collections"]),
+                "metadata": lp_toml.get("meta", {"created_at": self.utc_now}),
+            }
         }
 
     # --------------------------
@@ -654,46 +669,37 @@ class LearningPackageUnzipper:
     # Utilities
     # --------------------------
 
-    def _write_errors(self) -> str | None:
-        """
-        Writes restore errors to a timestamped log file and prints them to console.
+    def _format_errors(self) -> str:
+        """Return formatted error content as a string."""
+        if not self.errors:
+            return ""
+        lines = [f"{err['file']}: {err['errors']}" for err in self.errors]
+        return "Errors encountered during restore:\n" + "\n".join(lines) + "\n"
 
-        Args:
-            errors (list[dict]): List of {"file": ..., "errors": ...} dicts.
-            log_dir (str): Directory to save the log file (default current dir).
+    def _write_errors(self) -> StringIO | None:
         """
-        errors = self.errors
-        if not errors:
+        Write errors to a file (if requested) and return content (or buffer).
+        """
+        content = self._format_errors()
+        if not content:
             return None
-
-        # Create timestamped log filename
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        log_filename = f"restore_{timestamp}.log"
-
-        # Format each error on a separate line
-        lines = [f"{err['file']}: {err['errors']}" for err in errors]
-        content = "Errors encountered during restore:\n" + "\n".join(lines) + "\n"
-
-        # Write to file
-        with open(log_filename, "w", encoding="utf-8") as f:
-            f.write(content)
-
-        return log_filename
+        
+        return StringIO(content)
 
     def _resolve_children(self, entity_data: dict[str, Any], lookup_map: dict[str, Any]) -> list[Any]:
         """Resolve child entity keys into model instances."""
         children_keys = entity_data.pop("children", [])
         return [lookup_map[key] for key in children_keys if key in lookup_map]
 
-    def _load_learning_package(self, zipf: zipfile.ZipFile, package_file: str) -> LearningPackage:
+    def _load_learning_package(self, zipf: zipfile.ZipFile, package_file: str) -> Tuple[LearningPackage, dict[str, Any]]:
         """Load and persist the learning package TOML file."""
         toml_content = self._read_file_from_zip(zipf, package_file)
-        data = parse_learning_package_toml(toml_content)
+        lp_toml = parse_learning_package_toml(toml_content)
         return publishing_api.create_learning_package(
-            key=data["key"],
-            title=data["title"],
-            description=data["description"],
-        )
+            key=lp_toml["learning_package"]["key"],
+            title=lp_toml["learning_package"]["title"],
+            description=lp_toml["learning_package"]["description"],
+        ), lp_toml
 
     def _load_entity_data(
         self, zipf: zipfile.ZipFile, entity_file: str
