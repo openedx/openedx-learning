@@ -402,8 +402,8 @@ class LearningPackageUnzipper:
       - Ensure atomicity of the restore process.
 
     Usage:
-        unzipper = LearningPackageUnzipper()
-        summary = unzipper.load("/path/to/backup.zip")
+        unzipper = LearningPackageUnzipper(zip_file)
+        result = unzipper.load()
     """
 
     def __init__(self, zipf: zipfile.ZipFile) -> None:
