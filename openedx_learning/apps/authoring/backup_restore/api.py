@@ -22,4 +22,4 @@ def load_dump_zip_file(path: str) -> None:
     Loads a zip file derived from create_zip_file
     """
     with zipfile.ZipFile(path, "r") as zipf:
-        LearningPackageUnzipper().load(zipf)
+        LearningPackageUnzipper(zipf).load()

@@ -79,6 +79,21 @@ def create_unit_version(
         entity_rows: child entities/versions
         created: The creation date.
         created_by: The user who created the unit.
+        force_version_num (int, optional): If provided, overrides the automatic version number increment and sets
+            this version's number explicitly. Use this if you need to restore or import a version with a specific
+            version number, such as during data migration or when synchronizing with external systems.
+
+    Returns:
+        UnitVersion: The newly created UnitVersion instance.
+
+    Why use force_version_num?
+        Normally, the version number is incremented automatically from the latest version.
+        If you need to set a specific version number (for example, when restoring from backup,
+        importing legacy data, or synchronizing with another system),
+        use force_version_num to override the default behavior.
+
+    Why not use create_component_version?
+        The main reason is that we want to reuse the logic for adding entities to this container.
     """
     return publishing_api.create_container_version(
         unit.pk,
@@ -131,6 +146,7 @@ def create_next_unit_version(
     created: datetime,
     created_by: int | None = None,
     entities_action: publishing_api.ChildrenEntitiesAction = publishing_api.ChildrenEntitiesAction.REPLACE,
+    force_version_num: int | None = None,
 ) -> UnitVersion:
     """
     [ 🛑 UNSTABLE ] Create the next unit version.
@@ -152,6 +168,7 @@ def create_next_unit_version(
         created_by=created_by,
         container_version_cls=UnitVersion,
         entities_action=entities_action,
+        force_version_num=force_version_num,
     )
     return unit_version
 

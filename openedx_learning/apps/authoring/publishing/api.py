@@ -1142,6 +1142,7 @@ def create_next_container_version(
     created_by: int | None,
     container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
     entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
+    force_version_num: int | None = None,
 ) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
@@ -1162,9 +1163,18 @@ def create_next_container_version(
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
         container_version_cls: The subclass of ContainerVersion to use, if applicable.
+        force_version_num (int, optional): If provided, overrides the automatic version number increment and sets
+            this version's number explicitly. Use this if you need to restore or import a version with a specific
+            version number, such as during data migration or when synchronizing with external systems.
 
     Returns:
         The newly created container version.
+
+    Why use force_version_num?
+        Normally, the version number is incremented automatically from the latest version.
+        If you need to set a specific version number (for example, when restoring from backup,
+        importing legacy data, or synchronizing with another system),
+        use force_version_num to override the default behavior.
     """
     assert issubclass(container_version_cls, ContainerVersion)
     with atomic():
@@ -1175,6 +1185,9 @@ def create_next_container_version(
             next_version_num = 1
         else:
             next_version_num = last_version.version_num + 1
+
+        if force_version_num is not None:
+            next_version_num = force_version_num
 
         if entity_rows is None and last_version is not None:
             # We're only changing metadata. Keep the same entity list.
