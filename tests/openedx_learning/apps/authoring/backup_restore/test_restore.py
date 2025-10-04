@@ -25,7 +25,7 @@ class RestoreLearningPackageCommandTest(TestCase):
     @patch("openedx_learning.apps.authoring.backup_restore.management.commands.lp_load.load_dump_zip_file")
     def test_restore_command(self, mock_load_dump_zip_file):
         # Mock load_dump_zip_file to return our in-memory zip file
-        mock_load_dump_zip_file.return_value = LearningPackageUnzipper().load(self.zip_file)
+        mock_load_dump_zip_file.return_value = LearningPackageUnzipper(self.zip_file).load()
 
         out = StringIO()
         # You can pass any dummy path, since load_dump_zip_file is mocked
@@ -56,17 +56,17 @@ class RestoreLearningPackageCommandTest(TestCase):
             if container.key == "unit1-b7eafb":
                 assert getattr(container, 'unit', None) is not None
                 assert draft_version is not None
-                assert draft_version.version_num == 1
+                assert draft_version.version_num == 2
                 assert published_version is None
             elif container.key == "subsection1-48afa3":
                 assert getattr(container, 'subsection', None) is not None
                 assert draft_version is not None
-                assert draft_version.version_num == 1
+                assert draft_version.version_num == 2
                 assert published_version is None
             elif container.key == "section1-8ca126":
                 assert getattr(container, 'section', None) is not None
                 assert draft_version is not None
-                assert draft_version.version_num == 1
+                assert draft_version.version_num == 2
                 assert published_version is None
             else:
                 assert False, f"Unexpected container key: {container.key}"
@@ -90,26 +90,26 @@ class RestoreLearningPackageCommandTest(TestCase):
                 assert component.component_type.name == "drag-and-drop-v2"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
-                assert draft_version.version_num == 1
+                assert draft_version.version_num == 2
                 assert published_version is None
             elif component.key == "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37":
                 assert component.component_type.name == "html"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
-                assert draft_version.version_num == 2
+                assert draft_version.version_num == 5
                 assert published_version is not None
-                assert published_version.version_num == 1
+                assert published_version.version_num == 4
             elif component.key == "xblock.v1:openassessment:1ee38208-a585-4455-a27e-4930aa541f53":
                 assert component.component_type.name == "openassessment"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
-                assert draft_version.version_num == 1
+                assert draft_version.version_num == 2
                 assert published_version is None
             elif component.key == "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b":
                 assert component.component_type.name == "problem"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
-                assert draft_version.version_num == 1
+                assert draft_version.version_num == 2
                 assert published_version is None
             elif component.key == "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471":
                 assert component.component_type.name == "survey"
@@ -121,7 +121,7 @@ class RestoreLearningPackageCommandTest(TestCase):
                 assert component.component_type.name == "video"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
-                assert draft_version.version_num == 1
+                assert draft_version.version_num == 3
                 assert published_version is None
             else:
                 assert False, f"Unexpected component key: {component.key}"
