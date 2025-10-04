@@ -140,3 +140,64 @@ class RestoreLearningPackageCommandTest(TestCase):
         ]
         entity_keys = [entity.key for entity in collection.entities.all()]
         assert set(entity_keys) == set(expected_entity_keys)
+
+
+class RestoreLearningPackageTest(TestCase):
+    """Tests for restoring learning packages without using the management command."""
+
+    def test_successful_restore_with_no_command_line(self):
+        """Test restoring a learning package without using the management command."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
+        result = LearningPackageUnzipper(zip_file).load()
+
+        expected = {
+            "status": "success",
+            "log_file_error": None,
+            "general_info": {
+                "learning_package_key": "lib:WGU:LIB_C001",
+                "learning_package_title": "Library test",
+                "backed_up_at": None,
+                "containers": 3,
+                "components": 6,
+                "collections": 1,
+                "metadata": {},
+            },
+        }
+
+        assert result["status"] == expected["status"]
+        assert result["log_file_error"] == expected["log_file_error"]
+        assert (
+            result["general_info"]["learning_package_key"] == expected["general_info"]["learning_package_key"]
+        )
+        assert (
+            result["general_info"]["learning_package_title"] == expected["general_info"]["learning_package_title"]
+        )
+        assert result["general_info"]["containers"] == expected["general_info"]["containers"]
+        assert result["general_info"]["components"] == expected["general_info"]["components"]
+        assert result["general_info"]["collections"] == expected["general_info"]["collections"]
+        assert result["general_info"]["metadata"] == expected["general_info"]["metadata"]
+
+        lp = publishing_api.LearningPackage.objects.filter(key="lib:WGU:LIB_C001").first()
+        assert lp is not None, "Learning package was not restored."
+
+    def test_restore_with_missing_learning_package_file(self):
+        """Test restoring a learning package with a missing learning_package.toml file."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/missing_lp_file"))
+        result = LearningPackageUnzipper(zip_file).load()
+
+        assert result["status"] == "error"
+        assert result["general_info"] is None
+        assert result["log_file_error"] is not None
+        log_content = result["log_file_error"].getvalue()
+        assert "Missing learning package file." in log_content
+        assert "Missing required learning_package.toml in archive." not in log_content
+
+    def test_error_preliminary_check(self):
+        """Test that preliminary check catches missing learning_package.toml."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/missing_lp_file"))
+        unzipper = LearningPackageUnzipper(zip_file)
+        errors, _ = unzipper.preliminary_check()
+
+        assert len(errors) == 1
+        assert errors[0]["file"] == "package.toml"
+        assert errors[0]["errors"] == "Missing learning package file."

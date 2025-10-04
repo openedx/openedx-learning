@@ -6,6 +6,7 @@ import hashlib
 import zipfile
 from collections import defaultdict
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, TypedDict
 
@@ -425,12 +426,20 @@ class LearningPackageUnzipper:
     @transaction.atomic
     def load(self) -> dict[str, Any]:
         """Extracts and restores all objects from the ZIP archive in an atomic transaction."""
-        organized_files = self._get_organized_file_list(self.zipf.namelist())
 
-        if not organized_files["learning_package"]:
-            raise FileNotFoundError(f"Missing required {TOML_PACKAGE_NAME} in archive.")
+        # Step 1: Validate presence of mandatory files
+        _, organized_files = self.preliminary_check()
+        if self.errors:
+            # Early return if preliminary checks fail since mandatory files are missing
+            return {
+                "status": "error",
+                "log_file_error": self._write_errors(),  # return a StringIO with the errors
+                "general_info": None
+            }
 
-        learning_package = self._load_learning_package(organized_files["learning_package"])
+        # Step 2: Extract and validate learning package, entities and collections
+        # Errors are collected and reported at the end
+        # No saving to DB happens until all validations pass
         components_validated = self._extract_entities(
             organized_files["components"], ComponentSerializer, ComponentVersionSerializer
         )
@@ -442,22 +451,52 @@ class LearningPackageUnzipper:
             organized_files["collections"]
         )
 
-        self._write_errors()
-        if not self.errors:
-            self._save(
-                learning_package,
-                components_validated,
-                containers_validated,
-                collections_validated,
-                component_static_files=organized_files["component_static_files"]
-            )
+        # Step 3.1: If there are validation errors, return them without saving anything
+        if self.errors:
+            return {
+                "status": "error",
+                "log_file_error": self._write_errors(),  # return a StringIO with the errors
+                "general_info": None
+            }
 
+        # Step 3.2: Save everything to the DB
+        # All validations passed, we can proceed to save everything
+        # Save the learning package first to get its ID
+        learning_package = self._load_learning_package(organized_files["learning_package"])
+        self._save(
+            learning_package,
+            components_validated,
+            containers_validated,
+            collections_validated,
+            component_static_files=organized_files["component_static_files"]
+        )
+
+        num_containers = sum(
+            len(containers_validated.get(container_type, []))
+            for container_type in ["section", "subsection", "unit"]
+        )
         return {
-            "learning_package": learning_package.key,
-            "containers": len(organized_files["containers"]),
-            "components": len(organized_files["components"]),
-            "collections": len(organized_files["collections"]),
+            "status": "success",
+            "log_file_error": None,
+            "general_info": {
+                "learning_package_key": learning_package.key,
+                "learning_package_title": learning_package.title,
+                "backed_up_at": learning_package.created,
+                "containers": num_containers,
+                "components": len(components_validated["components"]),
+                "collections": len(collections_validated["collections"]),
+                "metadata": {},
+            }
         }
+
+    def preliminary_check(self) -> Tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Performs a preliminary check of the zip file structure and mandatory files."""
+        organized_files = self._get_organized_file_list(self.zipf.namelist())
+
+        if not organized_files["learning_package"]:
+            self.errors.append({"file": TOML_PACKAGE_NAME, "errors": "Missing learning package file."})
+
+        return self.errors, organized_files
 
     # --------------------------
     # Extract + Validate
@@ -681,31 +720,21 @@ class LearningPackageUnzipper:
     # Utilities
     # --------------------------
 
-    def _write_errors(self) -> str | None:
-        """
-        Writes restore errors to a timestamped log file and prints them to console.
+    def _format_errors(self) -> str:
+        """Return formatted error content as a string."""
+        if not self.errors:
+            return ""
+        lines = [f"{err['file']}: {err['errors']}" for err in self.errors]
+        return "Errors encountered during restore:\n" + "\n".join(lines) + "\n"
 
-        Args:
-            errors (list[dict]): List of {"file": ..., "errors": ...} dicts.
-            log_dir (str): Directory to save the log file (default current dir).
+    def _write_errors(self) -> StringIO | None:
         """
-        errors = self.errors
-        if not errors:
+        Write errors to a StringIO buffer.
+        """
+        content = self._format_errors()
+        if not content:
             return None
-
-        # Create timestamped log filename
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        log_filename = f"restore_{timestamp}.log"
-
-        # Format each error on a separate line
-        lines = [f"{err['file']}: {err['errors']}" for err in errors]
-        content = "Errors encountered during restore:\n" + "\n".join(lines) + "\n"
-
-        # Write to file
-        with open(log_filename, "w", encoding="utf-8") as f:
-            f.write(content)
-
-        return log_filename
+        return StringIO(content)
 
     def _resolve_static_files(
             self,
@@ -784,15 +813,21 @@ class LearningPackageUnzipper:
 
         for path in file_paths:
             if path.endswith("/"):
+                # Skip directories
                 continue
             if path == TOML_PACKAGE_NAME:
                 organized["learning_package"] = path
-            elif path.startswith("entities/") and str(Path(path).parent) == "entities":
+            elif path.startswith("entities/") and str(Path(path).parent) == "entities" and path.endswith(".toml"):
+                # Top-level entity TOML files are considered containers
                 organized["containers"].append(path)
             elif path.startswith("entities/"):
                 if path.endswith(".toml"):
+                    # Component entity TOML files
                     organized["components"].append(path)
                 else:
+                    # Component static files
+                    # Path structure: entities/<namespace>/<type>/<component_id>/component_versions/<version>/static/...
+                    # Example: entities/xblock.v1/html/my_component_123456/component_versions/v1/static/...
                     component_key = Path(path).parts[1:4]  # e.g., ['xblock.v1', 'html', 'my_component_123456']
                     num_version = Path(path).parts[5] if len(Path(path).parts) > 5 else "v1"  # e.g., 'v1'
                     if len(component_key) == 3:
@@ -801,7 +836,8 @@ class LearningPackageUnzipper:
                         organized["component_static_files"][component_identifier].append(path)
                     else:
                         self.errors.append({"file": path, "errors": "Invalid component static file path structure."})
-            elif path.startswith("collections/"):
+            elif path.startswith("collections/") and path.endswith(".toml"):
+                # Collection TOML files
                 organized["collections"].append(path)
         return organized
 
