@@ -17,9 +17,9 @@ def create_zip_file(lp_key: str, path: str) -> None:
     LearningPackageZipper(learning_package).create_zip(path)
 
 
-def load_dump_zip_file(path: str) -> None:
+def load_dump_zip_file(path: str) -> dict:
     """
     Loads a zip file derived from create_zip_file
     """
     with zipfile.ZipFile(path, "r") as zipf:
-        LearningPackageUnzipper(zipf).load()
+        return LearningPackageUnzipper(zipf).load()

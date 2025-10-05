@@ -31,6 +31,8 @@ from openedx_learning.apps.authoring.backup_restore.serializers import (
     ComponentVersionSerializer,
     ContainerSerializer,
     ContainerVersionSerializer,
+    LearningPackageMetadataSerializer,
+    LearningPackageSerializer,
 )
 from openedx_learning.apps.authoring.backup_restore.toml import (
     parse_collection_toml,
@@ -440,6 +442,9 @@ class LearningPackageUnzipper:
         # Step 2: Extract and validate learning package, entities and collections
         # Errors are collected and reported at the end
         # No saving to DB happens until all validations pass
+        learning_package_validated = self._extract_learning_package(organized_files["learning_package"])
+        lp_metadata = learning_package_validated.pop("metadata", {})
+
         components_validated = self._extract_entities(
             organized_files["components"], ComponentSerializer, ComponentVersionSerializer
         )
@@ -462,9 +467,8 @@ class LearningPackageUnzipper:
         # Step 3.2: Save everything to the DB
         # All validations passed, we can proceed to save everything
         # Save the learning package first to get its ID
-        learning_package = self._load_learning_package(organized_files["learning_package"])
-        self._save(
-            learning_package,
+        learning_package = self._save(
+            learning_package_validated,
             components_validated,
             containers_validated,
             collections_validated,
@@ -481,11 +485,10 @@ class LearningPackageUnzipper:
             "general_info": {
                 "learning_package_key": learning_package.key,
                 "learning_package_title": learning_package.title,
-                "backed_up_at": learning_package.created,
                 "containers": num_containers,
                 "components": len(components_validated["components"]),
                 "collections": len(collections_validated["collections"]),
-                "metadata": {},
+                "metadata": lp_metadata,
             }
         }
 
@@ -501,6 +504,28 @@ class LearningPackageUnzipper:
     # --------------------------
     # Extract + Validate
     # --------------------------
+
+    def _extract_learning_package(self, package_file: str) -> dict[str, Any]:
+        """Extract and validate the learning package TOML file."""
+        toml_content_text = self._read_file_from_zip(package_file)
+        toml_content_dict = parse_learning_package_toml(toml_content_text)
+        lp = toml_content_dict.get("learning_package")
+        lp_metadata = toml_content_dict.get("meta")
+
+        # Validate learning package data
+        lp_serializer = LearningPackageSerializer(data=lp)
+        if not lp_serializer.is_valid():
+            self.errors.append({"file": f"{package_file} learning package section", "errors": lp_serializer.errors})
+
+        # Validate metadata if present
+        lp_metadata_serializer = LearningPackageMetadataSerializer(data=lp_metadata)
+        if not lp_metadata_serializer.is_valid():
+            self.errors.append({"file": f"{package_file} meta section", "errors": lp_metadata_serializer.errors})
+
+        lp_validated = lp_serializer.validated_data if lp_serializer.is_valid() else {}
+        lp_metadata = lp_metadata_serializer.validated_data if lp_metadata_serializer.is_valid() else {}
+        lp_validated["metadata"] = lp_metadata
+        return lp_validated
 
     def _extract_entities(
         self,
@@ -557,9 +582,10 @@ class LearningPackageUnzipper:
                 continue
             toml_content = self._read_file_from_zip(file)
             collection_data = parse_collection_toml(toml_content)
+            collection_data = collection_data.get("collection", {})
             serializer = CollectionSerializer(data={"created_by": None, **collection_data})
             if not serializer.is_valid():
-                self.errors.append({"file": file, "errors": serializer.errors})
+                self.errors.append({"file": f"{file} collection section", "errors": serializer.errors})
                 continue
             collection_validated = serializer.validated_data
             entities_list = collection_validated["entities"]
@@ -579,25 +605,29 @@ class LearningPackageUnzipper:
 
     def _save(
         self,
-        learning_package: LearningPackage,
+        learning_package: dict[str, Any],
         components: dict[str, Any],
         containers: dict[str, Any],
         collections: dict[str, Any],
         *,
         component_static_files: dict[str, List[str]]
-    ) -> None:
+    ) -> LearningPackage:
         """Persist all validated entities in two phases: published then drafts."""
 
-        with publishing_api.bulk_draft_changes_for(learning_package.id):
-            self._save_components(learning_package, components, component_static_files)
-            self._save_units(learning_package, containers)
-            self._save_subsections(learning_package, containers)
-            self._save_sections(learning_package, containers)
-            self._save_collections(learning_package, collections)
-            publishing_api.publish_all_drafts(learning_package.id)
+        learning_package_obj = publishing_api.create_learning_package(**learning_package)
 
-        with publishing_api.bulk_draft_changes_for(learning_package.id):
+        with publishing_api.bulk_draft_changes_for(learning_package_obj.id):
+            self._save_components(learning_package_obj, components, component_static_files)
+            self._save_units(learning_package_obj, containers)
+            self._save_subsections(learning_package_obj, containers)
+            self._save_sections(learning_package_obj, containers)
+            self._save_collections(learning_package_obj, collections)
+            publishing_api.publish_all_drafts(learning_package_obj.id)
+
+        with publishing_api.bulk_draft_changes_for(learning_package_obj.id):
             self._save_draft_versions(components, containers, component_static_files)
+
+        return learning_package_obj
 
     def _save_collections(self, learning_package, collections):
         """Save collections and their entities."""
@@ -758,22 +788,14 @@ class LearningPackageUnzipper:
         children_keys = entity_data.pop("children", [])
         return [lookup_map[key] for key in children_keys if key in lookup_map]
 
-    def _load_learning_package(self, package_file: str) -> LearningPackage:
-        """Load and persist the learning package TOML file."""
-        toml_content = self._read_file_from_zip(package_file)
-        data = parse_learning_package_toml(toml_content)
-        return publishing_api.create_learning_package(
-            key=data["key"],
-            title=data["title"],
-            description=data["description"],
-        )
-
     def _load_entity_data(
         self, entity_file: str
     ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
         """Load entity data and its versions from TOML."""
-        content = self._read_file_from_zip(entity_file)
-        entity_data, version_data = parse_publishable_entity_toml(content)
+        entity_toml_txt = self._read_file_from_zip(entity_file)
+        entity_toml_dict = parse_publishable_entity_toml(entity_toml_txt)
+        entity_data = entity_toml_dict.get("entity", {})
+        version_data = entity_toml_dict.get("version", [])
         return entity_data, *self._get_versions_to_write(version_data, entity_data)
 
     def _validate_versions(self, entity_data, draft, published, serializer_cls, *, file) -> dict[str, Any]:

@@ -1,5 +1,6 @@
 """Tests for the lp_load management command."""
 import os
+from datetime import datetime, timezone
 from io import StringIO
 from unittest.mock import patch
 
@@ -156,26 +157,29 @@ class RestoreLearningPackageTest(TestCase):
             "general_info": {
                 "learning_package_key": "lib:WGU:LIB_C001",
                 "learning_package_title": "Library test",
-                "backed_up_at": None,
                 "containers": 3,
                 "components": 6,
                 "collections": 1,
-                "metadata": {},
+                "metadata": {
+                    "format_version": 1,
+                    "created_by": "dormsbee",
+                    "created_at": datetime(2025, 10, 5, 18, 23, 45, 180535, tzinfo=timezone.utc),
+                    "origin_server": "cms.test",
+                },
             },
         }
 
+        # Compare dicts except for dynamic fields
         assert result["status"] == expected["status"]
-        assert result["log_file_error"] == expected["log_file_error"]
-        assert (
-            result["general_info"]["learning_package_key"] == expected["general_info"]["learning_package_key"]
-        )
-        assert (
-            result["general_info"]["learning_package_title"] == expected["general_info"]["learning_package_title"]
-        )
-        assert result["general_info"]["containers"] == expected["general_info"]["containers"]
-        assert result["general_info"]["components"] == expected["general_info"]["components"]
-        assert result["general_info"]["collections"] == expected["general_info"]["collections"]
-        assert result["general_info"]["metadata"] == expected["general_info"]["metadata"]
+        assert result["log_file_error"] is None
+
+        general_info = result["general_info"]
+        expected_info = expected["general_info"]
+        metadata_general_info = general_info.pop("metadata", None)
+        metadata_expected_info = expected_info.pop("metadata", None)
+
+        assert general_info == expected_info, f"General info does not match. Got {general_info}"
+        assert metadata_general_info == metadata_expected_info, f"Meta info does not match. Got {metadata_general_info}"
 
         lp = publishing_api.LearningPackage.objects.filter(key="lib:WGU:LIB_C001").first()
         assert lp is not None, "Learning package was not restored."
@@ -201,3 +205,60 @@ class RestoreLearningPackageTest(TestCase):
         assert len(errors) == 1
         assert errors[0]["file"] == "package.toml"
         assert errors[0]["errors"] == "Missing learning package file."
+
+    def test_error_learning_package_missing_key(self):
+        """Test restoring a learning package with a learning_package.toml missing the 'key' field."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
+
+        # Mock parse_learning_package_toml to return a dict without 'key'
+        with patch(
+            "openedx_learning.apps.authoring.backup_restore.zipper.parse_learning_package_toml",
+            return_value={
+                "learning_package": {
+                    "title": "Library test",
+                    "description": "",
+                    "created": "2025-09-03T17:50:59.536190Z",
+                    "updated": "2025-09-03T17:50:59.536190Z",
+                },
+                "meta": {
+                    "format_version": 1,
+                    "created_by": "dormsbee",
+                    "created_at": "2025-09-03T17:50:59.536190Z",
+                    "origin_server": "cms.test",
+                },
+            },
+        ):
+            result = LearningPackageUnzipper(zip_file).load()
+
+        assert result["status"] == "error"
+        assert result["general_info"] is None
+        assert result["log_file_error"] is not None
+        log_content = result["log_file_error"].getvalue()
+        expected_error = "Errors encountered during restore:\npackage.toml learning package section: {'key':"
+        assert expected_error in log_content
+
+    def test_error_no_metadata_section(self):
+        """Test restoring a learning package with a learning_package.toml missing the 'meta' section."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
+
+        # Mock parse_learning_package_toml to return a dict without 'meta'
+        with patch(
+            "openedx_learning.apps.authoring.backup_restore.zipper.parse_learning_package_toml",
+            return_value={
+                "learning_package": {
+                    "title": "Library test",
+                    "key": "lib:WGU:LIB_C001",
+                    "description": "",
+                    "created": "2025-09-03T17:50:59.536190Z",
+                    "updated": "2025-09-03T17:50:59.536190Z",
+                }
+            },
+        ):
+            result = LearningPackageUnzipper(zip_file).load()
+
+        assert result["status"] == "error"
+        assert result["general_info"] is None
+        assert result["log_file_error"] is not None
+        log_content = result["log_file_error"].getvalue()
+        expected_error = "Errors encountered during restore:\npackage.toml meta section: {'non_field_errors': [Er"
+        assert expected_error in log_content

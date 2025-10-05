@@ -8,6 +8,26 @@ from rest_framework import serializers
 from openedx_learning.apps.authoring.components import api as components_api
 
 
+class LearningPackageSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer for learning packages.
+    """
+    title = serializers.CharField(required=True)
+    key = serializers.CharField(required=True)
+    description = serializers.CharField(required=True, allow_blank=True)
+    created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
+
+
+class LearningPackageMetadataSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer for learning package metadata.
+    """
+    format_version = serializers.IntegerField(required=True)
+    created_by = serializers.CharField(required=False, allow_null=True)
+    created_at = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
+    origin_server = serializers.CharField(required=False, allow_null=True)
+
+
 class EntitySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for publishable entities.

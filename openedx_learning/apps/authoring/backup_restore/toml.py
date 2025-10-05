@@ -234,29 +234,15 @@ def parse_learning_package_toml(content: str) -> dict:
     Parse the learning package TOML content and return a dict of its fields.
     """
     lp_data: Dict[str, Any] = tomlkit.parse(content)
-
-    # Validate the minimum required fields
-    if "learning_package" not in lp_data:
-        raise ValueError("Invalid learning package TOML: missing 'learning_package' section")
-    if "title" not in lp_data["learning_package"]:
-        raise ValueError("Invalid learning package TOML: missing 'title' in 'learning_package' section")
-    if "key" not in lp_data["learning_package"]:
-        raise ValueError("Invalid learning package TOML: missing 'key' in 'learning_package' section")
-    return lp_data["learning_package"]
+    return lp_data
 
 
-def parse_publishable_entity_toml(content: str) -> tuple[Dict[str, Any], list]:
+def parse_publishable_entity_toml(content: str) -> dict:
     """
     Parse the publishable entity TOML file and return a dict of its fields.
     """
     pe_data: Dict[str, Any] = tomlkit.parse(content)
-
-    # Validate the minimum required fields
-    if "entity" not in pe_data:
-        raise ValueError("Invalid publishable entity TOML: missing 'entity' section")
-    if "version" not in pe_data:
-        raise ValueError("Invalid publishable entity TOML: missing 'version' section")
-    return pe_data["entity"], pe_data.get("version", [])
+    return pe_data
 
 
 def parse_collection_toml(content: str) -> dict:
@@ -264,6 +250,4 @@ def parse_collection_toml(content: str) -> dict:
     Parse the collection TOML content and return a dict of its fields.
     """
     collection_data: Dict[str, Any] = tomlkit.parse(content)
-    if "collection" not in collection_data:
-        raise ValueError("Invalid collection TOML: missing 'collection' section")
-    return collection_data["collection"]
+    return collection_data

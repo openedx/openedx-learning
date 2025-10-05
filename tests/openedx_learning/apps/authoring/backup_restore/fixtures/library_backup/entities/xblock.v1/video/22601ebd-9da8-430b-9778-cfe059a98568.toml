@@ -1,5 +1,4 @@
 [entity]
-uuid = "5e8d8ec3-5adf-4a09-a81e-b4a86f78cbe6"
 can_stand_alone = true
 key = "xblock.v1:video:22601ebd-9da8-430b-9778-cfe059a98568"
 created = 2025-09-04T22:40:23.526816Z
@@ -14,5 +13,4 @@ version_num = 3
 
 [[version]]
 title = "Video"
-uuid = "fcd566b9-5cb4-4228-85b6-ce2b1a0bafff"
 version_num = 3

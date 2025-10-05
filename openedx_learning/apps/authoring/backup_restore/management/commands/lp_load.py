@@ -18,14 +18,20 @@ class Command(BaseCommand):
     help = 'Load a learning package from a zip file.'
 
     def add_arguments(self, parser):
-        parser.add_argument('file_name', type=str, help='The name of the input zip file to load.')
+        parser.add_argument('file_name', type=str, help='The path of the input zip file to load.')
 
     def handle(self, *args, **options):
         file_name = options['file_name']
         if not file_name.lower().endswith(".zip"):
             raise CommandError("Input file name must end with .zip")
         try:
-            load_dump_zip_file(file_name)
+            response = load_dump_zip_file(file_name)
+            if response["status"] == "error":
+                message = "Errors encountered during restore:\n"
+                log_buffer = response.get("log_file_error")
+                if log_buffer:
+                    message += log_buffer.getvalue()
+                raise CommandError(message)
             message = f'{file_name} loaded successfully'
             self.stdout.write(self.style.SUCCESS(message))
         except FileNotFoundError as exc:

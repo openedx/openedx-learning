@@ -1,5 +1,4 @@
 [entity]
-uuid = "1e5e93ef-c34b-4061-aae2-fbca91db6bcc"
 can_stand_alone = true
 key = "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37"
 created = 2025-08-19T04:25:43.685529Z
@@ -14,10 +13,8 @@ version_num = 4
 
 [[version]]
 title = "Text"
-uuid = "23dec9b0-0b2c-4706-9288-6ef4f3c888ea"
 version_num = 5
 
 [[version]]
 title = "Text"
-uuid = "f6ccd316-d603-45ef-ab96-86cf9d3645ae"
 version_num = 4
