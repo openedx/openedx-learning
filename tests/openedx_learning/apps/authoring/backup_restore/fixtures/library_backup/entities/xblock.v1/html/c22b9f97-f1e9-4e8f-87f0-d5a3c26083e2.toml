@@ -1,0 +1,16 @@
+[entity]
+can_stand_alone = true
+key = "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2"
+created = 2025-10-06T16:59:34.160314Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+version_num = 2
+
+# ### Versions
+
+[[version]]
+title = "Text"
+version_num = 2

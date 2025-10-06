@@ -420,6 +420,7 @@ class LearningPackageUnzipper:
         self.subsections_map_by_key: dict[str, Any] = {}
         self.sections_map_by_key: dict[str, Any] = {}
         self.all_publishable_entities_keys: set[str] = set()
+        self.all_published_entities_versions: set[str] = set()  # To track published entity versions
 
     # --------------------------
     # Public API
@@ -651,6 +652,9 @@ class LearningPackageUnzipper:
             entity_key = valid_published.pop("entity_key")
             version_num = valid_published["version_num"]  # Should exist, validated earlier
             content_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
+            self.all_published_entities_versions.add(
+                f"{entity_key}__v{version_num}"
+            )  # Track published version
             components_api.create_next_component_version(
                 self.components_map_by_key[entity_key].publishable_entity.id,
                 content_to_replace=content_to_replace,
@@ -668,8 +672,14 @@ class LearningPackageUnzipper:
         for valid_published in containers.get("unit_published", []):
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.components_map_by_key)
+            self.all_published_entities_versions.add(
+                f"{entity_key}__v{valid_published.get('version_num')}"
+            )  # Track published version
             units_api.create_next_unit_version(
-                self.units_map_by_key[entity_key], components=children, **valid_published
+                self.units_map_by_key[entity_key],
+                force_version_num=valid_published.pop("version_num", None),
+                components=children,
+                **valid_published
             )
 
     def _save_subsections(self, learning_package, containers):
@@ -682,8 +692,14 @@ class LearningPackageUnzipper:
         for valid_published in containers.get("subsection_published", []):
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.units_map_by_key)
+            self.all_published_entities_versions.add(
+                f"{entity_key}__v{valid_published.get('version_num')}"
+            )  # Track published version
             subsections_api.create_next_subsection_version(
-                self.subsections_map_by_key[entity_key], units=children, **valid_published
+                self.subsections_map_by_key[entity_key],
+                units=children,
+                force_version_num=valid_published.pop("version_num", None),
+                **valid_published
             )
 
     def _save_sections(self, learning_package, containers):
@@ -696,8 +712,14 @@ class LearningPackageUnzipper:
         for valid_published in containers.get("section_published", []):
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.subsections_map_by_key)
+            self.all_published_entities_versions.add(
+                f"{entity_key}__v{valid_published.get('version_num')}"
+            )  # Track published version
             sections_api.create_next_section_version(
-                self.sections_map_by_key[entity_key], subsections=children, **valid_published
+                self.sections_map_by_key[entity_key],
+                subsections=children,
+                force_version_num=valid_published.pop("version_num", None),
+                **valid_published
             )
 
     def _save_draft_versions(self, components, containers, component_static_files):
@@ -705,6 +727,14 @@ class LearningPackageUnzipper:
         for valid_draft in components.get("components_drafts", []):
             entity_key = valid_draft.pop("entity_key")
             version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            entity_version_identifier = f"{entity_key}__v{version_num}"
+            if entity_version_identifier in self.all_published_entities_versions:
+                # Skip creating draft if this version is already published
+                # Why? Because the version itself is already created and
+                # we don't want to create duplicate versions.
+                # Otherwise, we will raise an IntegrityError on PublishableEntityVersion
+                # due to unique constraints between publishable_entity and version_num.
+                continue
             content_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
             components_api.create_next_component_version(
                 self.components_map_by_key[entity_key].publishable_entity.id,
@@ -718,6 +748,15 @@ class LearningPackageUnzipper:
 
         for valid_draft in containers.get("unit_drafts", []):
             entity_key = valid_draft.pop("entity_key")
+            version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            entity_version_identifier = f"{entity_key}__v{version_num}"
+            if entity_version_identifier in self.all_published_entities_versions:
+                # Skip creating draft if this version is already published
+                # Why? Because the version itself is already created and
+                # we don't want to create duplicate versions.
+                # Otherwise, we will raise an IntegrityError on PublishableEntityVersion
+                # due to unique constraints between publishable_entity and version_num.
+                continue
             children = self._resolve_children(valid_draft, self.components_map_by_key)
             units_api.create_next_unit_version(
                 self.units_map_by_key[entity_key],
@@ -728,6 +767,15 @@ class LearningPackageUnzipper:
 
         for valid_draft in containers.get("subsection_drafts", []):
             entity_key = valid_draft.pop("entity_key")
+            version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            entity_version_identifier = f"{entity_key}__v{version_num}"
+            if entity_version_identifier in self.all_published_entities_versions:
+                # Skip creating draft if this version is already published
+                # Why? Because the version itself is already created and
+                # we don't want to create duplicate versions.
+                # Otherwise, we will raise an IntegrityError on PublishableEntityVersion
+                # due to unique constraints between publishable_entity and version_num.
+                continue
             children = self._resolve_children(valid_draft, self.units_map_by_key)
             subsections_api.create_next_subsection_version(
                 self.subsections_map_by_key[entity_key],
@@ -738,6 +786,15 @@ class LearningPackageUnzipper:
 
         for valid_draft in containers.get("section_drafts", []):
             entity_key = valid_draft.pop("entity_key")
+            version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            entity_version_identifier = f"{entity_key}__v{version_num}"
+            if entity_version_identifier in self.all_published_entities_versions:
+                # Skip creating draft if this version is already published
+                # Why? Because the version itself is already created and
+                # we don't want to create duplicate versions.
+                # Otherwise, we will raise an IntegrityError on PublishableEntityVersion
+                # due to unique constraints between publishable_entity and version_num.
+                continue
             children = self._resolve_children(valid_draft, self.subsections_map_by_key)
             sections_api.create_next_section_version(
                 self.sections_map_by_key[entity_key],

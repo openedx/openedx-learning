@@ -82,6 +82,7 @@ class RestoreLearningPackageCommandTest(TestCase):
             "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b",
             "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471",
             "xblock.v1:video:22601ebd-9da8-430b-9778-cfe059a98568",
+            "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2"
         ]
         for component in component_qs:
             assert component.key in expected_component_keys
@@ -124,6 +125,11 @@ class RestoreLearningPackageCommandTest(TestCase):
                 assert draft_version is not None
                 assert draft_version.version_num == 3
                 assert published_version is None
+            elif component.key == "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2":
+                assert draft_version is not None
+                assert draft_version.version_num == 2
+                assert published_version is not None
+                assert published_version.version_num == 2
             else:
                 assert False, f"Unexpected component key: {component.key}"
 
@@ -158,7 +164,7 @@ class RestoreLearningPackageTest(TestCase):
                 "learning_package_key": "lib:WGU:LIB_C001",
                 "learning_package_title": "Library test",
                 "containers": 3,
-                "components": 6,
+                "components": 7,
                 "collections": 1,
                 "metadata": {
                     "format_version": 1,
