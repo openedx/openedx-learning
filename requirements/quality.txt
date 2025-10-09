@@ -8,7 +8,7 @@ amqp==5.3.1
     # via
     #   -r requirements/test.txt
     #   kombu
-asgiref==3.9.2
+asgiref==3.10.0
     # via
     #   -r requirements/test.txt
     #   django
@@ -16,7 +16,7 @@ astroid==3.3.11
     # via
     #   pylint
     #   pylint-celery
-attrs==25.3.0
+attrs==25.4.0
     # via -r requirements/test.txt
 backports-tarfile==1.2.0
     # via jaraco-context
@@ -26,7 +26,7 @@ billiard==4.2.2
     #   celery
 celery==5.5.3
     # via -r requirements/test.txt
-certifi==2025.8.3
+certifi==2025.10.5
     # via
     #   -r requirements/test.txt
     #   requests
@@ -73,7 +73,7 @@ coverage[toml]==7.10.7
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==46.0.1
+cryptography==46.0.2
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -82,9 +82,9 @@ ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.4.0
     # via pylint
-django==4.2.24
+django==4.2.25
     # via
-    #   -c https:/raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
+    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
     #   django-crum
     #   django-debug-toolbar
@@ -101,11 +101,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==6.0.0
     # via -r requirements/test.txt
-django-stubs==5.2.5
+django-stubs==5.2.6
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.5
+django-stubs-ext==5.2.6
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -119,7 +119,7 @@ djangorestframework==3.16.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.16.3
+djangorestframework-stubs==3.16.4
     # via -r requirements/test.txt
 dnspython==2.8.0
     # via
@@ -131,7 +131,7 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
-edx-django-utils==8.0.0
+edx-django-utils==8.0.1
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -163,7 +163,7 @@ iniconfig==2.1.0
     # via
     #   -r requirements/test.txt
     #   pytest
-isort==6.0.1
+isort==6.1.0
     # via
     #   -r requirements/quality.in
     #   pylint
@@ -211,7 +211,7 @@ mypy-extensions==1.1.0
     #   mypy
 mysqlclient==2.2.7
     # via -r requirements/test.txt
-nh3==0.3.0
+nh3==0.3.1
     # via readme-renderer
 packaging==25.0
     # via
@@ -257,7 +257,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.3.8
+pylint==3.3.9
     # via
     #   edx-lint
     #   pylint-celery
@@ -271,7 +271,7 @@ pylint-plugin-utils==0.9.0
     # via
     #   pylint-celery
     #   pylint-django
-pymongo==4.15.1
+pymongo==4.15.2
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
