@@ -207,7 +207,7 @@ class RestoreLearningPackageTest(TestCase):
         """Test that preliminary check catches missing learning_package.toml."""
         zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/missing_lp_file"))
         unzipper = LearningPackageUnzipper(zip_file)
-        errors, _ = unzipper.preliminary_check()
+        errors, _ = unzipper.check_mandatory_files()
 
         assert len(errors) == 1
         assert errors[0]["file"] == "package.toml"
