@@ -7,7 +7,7 @@ import time
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
-from openedx_learning.apps.authoring.backup_restore.api import load_dump_zip_file
+from openedx_learning.apps.authoring.backup_restore.api import load_library_from_zip
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +27,11 @@ class Command(BaseCommand):
             raise CommandError("Input file name must end with .zip")
         try:
             start_time = time.time()
-            response = load_dump_zip_file(file_name)
+            result = load_library_from_zip(file_name)
             duration = time.time() - start_time
-            if response["status"] == "error":
+            if result["status"] == "error":
                 message = "Errors encountered during restore:\n"
-                log_buffer = response.get("log_file_error")
+                log_buffer = result.get("log_file_error")
                 if log_buffer:
                     message += log_buffer.getvalue()
                 raise CommandError(message)

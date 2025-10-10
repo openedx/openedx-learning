@@ -10,6 +10,7 @@ from openedx_learning.apps.authoring.publishing.api import get_learning_package_
 def create_zip_file(lp_key: str, path: str) -> None:
     """
     Creates a dump zip file for the given learning package key at the given path.
+    The zip file contains a TOML representation of the learning package and its contents.
 
     Can throw a NotFoundError at get_learning_package_by_key
     """
@@ -17,9 +18,11 @@ def create_zip_file(lp_key: str, path: str) -> None:
     LearningPackageZipper(learning_package).create_zip(path)
 
 
-def load_dump_zip_file(path: str) -> dict:
+def load_library_from_zip(path: str) -> dict:
     """
-    Loads a zip file derived from create_zip_file
+    Loads a learning package from a zip file at the given path.
+    Restores the learning package and its contents to the database.
+    Returns a dictionary with the status of the operation and any errors encountered.
     """
     with zipfile.ZipFile(path, "r") as zipf:
         return LearningPackageUnzipper(zipf).load()

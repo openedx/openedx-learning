@@ -11,6 +11,10 @@ from openedx_learning.apps.authoring.components import api as components_api
 class LearningPackageSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for learning packages.
+
+    Note:
+        The `key` field is serialized, but it is generally not trustworthy for restoration.
+        During restore, a new key may be generated or overridden.
     """
     title = serializers.CharField(required=True)
     key = serializers.CharField(required=True)
@@ -21,6 +25,10 @@ class LearningPackageSerializer(serializers.Serializer):  # pylint: disable=abst
 class LearningPackageMetadataSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for learning package metadata.
+
+    Note:
+        This serializer handles data exported to an archive (e.g., during backup),
+        but the metadata is not restored to the database and is meant solely for inspection.
     """
     format_version = serializers.IntegerField(required=True)
     created_by = serializers.CharField(required=False, allow_null=True)

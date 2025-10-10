@@ -23,13 +23,13 @@ class RestoreLearningPackageCommandTest(TestCase):
         self.zip_file = folder_to_inmemory_zip(self.fixtures_folder)
         self.lp_key = "lib:WGU:LIB_C001"
 
-    @patch("openedx_learning.apps.authoring.backup_restore.management.commands.lp_load.load_dump_zip_file")
-    def test_restore_command(self, mock_load_dump_zip_file):
-        # Mock load_dump_zip_file to return our in-memory zip file
-        mock_load_dump_zip_file.return_value = LearningPackageUnzipper(self.zip_file).load()
+    @patch("openedx_learning.apps.authoring.backup_restore.management.commands.lp_load.load_library_from_zip")
+    def test_restore_command(self, mock_load_library_from_zip):
+        # Mock load_library_from_zip to return our in-memory zip file
+        mock_load_library_from_zip.return_value = LearningPackageUnzipper(self.zip_file).load()
 
         out = StringIO()
-        # You can pass any dummy path, since load_dump_zip_file is mocked
+        # You can pass any dummy path, since load_library_from_zip is mocked
         call_command("lp_load", "dummy.zip", stdout=out)
 
         lp = self.verify_lp()
@@ -160,18 +160,19 @@ class RestoreLearningPackageTest(TestCase):
         expected = {
             "status": "success",
             "log_file_error": None,
-            "general_info": {
-                "learning_package_key": "lib:WGU:LIB_C001",
-                "learning_package_title": "Library test",
-                "containers": 3,
-                "components": 7,
-                "collections": 1,
-                "metadata": {
-                    "format_version": 1,
-                    "created_by": "dormsbee",
-                    "created_at": datetime(2025, 10, 5, 18, 23, 45, 180535, tzinfo=timezone.utc),
-                    "origin_server": "cms.test",
-                },
+            "lp_restored_data": {
+                "key": "lib:WGU:LIB_C001",
+                "key_from_zip": "lib:WGU:LIB_C001",
+                "title": "Library test",
+                "num_containers": 3,
+                "num_components": 7,
+                "num_collections": 1,
+            },
+            "backup_metadata": {
+                "format_version": 1,
+                "created_by": "dormsbee",
+                "created_at": datetime(2025, 10, 5, 18, 23, 45, 180535, tzinfo=timezone.utc),
+                "origin_server": "cms.test",
             },
         }
 
@@ -179,10 +180,10 @@ class RestoreLearningPackageTest(TestCase):
         assert result["status"] == expected["status"]
         assert result["log_file_error"] is None
 
-        general_info = result["general_info"]
-        expected_info = expected["general_info"]
-        metadata_general_info = general_info.pop("metadata", None)
-        metadata_expected_info = expected_info.pop("metadata", None)
+        general_info = result["lp_restored_data"]
+        expected_info = expected["lp_restored_data"]
+        metadata_general_info = general_info.pop("backup_metadata", None)
+        metadata_expected_info = expected_info.pop("backup_metadata", None)
 
         assert general_info == expected_info, f"General info does not match. Got {general_info}"
         assert metadata_general_info == metadata_expected_info, f"Meta info does not match. Got {metadata_general_info}"
@@ -196,7 +197,7 @@ class RestoreLearningPackageTest(TestCase):
         result = LearningPackageUnzipper(zip_file).load()
 
         assert result["status"] == "error"
-        assert result["general_info"] is None
+        assert result["lp_restored_data"] is None
         assert result["log_file_error"] is not None
         log_content = result["log_file_error"].getvalue()
         assert "Missing learning package file." in log_content
@@ -237,7 +238,7 @@ class RestoreLearningPackageTest(TestCase):
             result = LearningPackageUnzipper(zip_file).load()
 
         assert result["status"] == "error"
-        assert result["general_info"] is None
+        assert result["lp_restored_data"] is None
         assert result["log_file_error"] is not None
         log_content = result["log_file_error"].getvalue()
         expected_error = "Errors encountered during restore:\npackage.toml learning package section: {'key':"
@@ -263,7 +264,7 @@ class RestoreLearningPackageTest(TestCase):
             result = LearningPackageUnzipper(zip_file).load()
 
         assert result["status"] == "error"
-        assert result["general_info"] is None
+        assert result["lp_restored_data"] is None
         assert result["log_file_error"] is not None
         log_content = result["log_file_error"].getvalue()
         expected_error = "Errors encountered during restore:\npackage.toml meta section: {'non_field_errors': [Er"

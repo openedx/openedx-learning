@@ -5,10 +5,11 @@ including a TOML representation of the learning package and its entities.
 import hashlib
 import zipfile
 from collections import defaultdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, TypedDict
+from typing import Any, List, Literal, Optional, Tuple
 
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
@@ -50,12 +51,6 @@ from openedx_learning.apps.authoring.subsections import api as subsections_api
 from openedx_learning.apps.authoring.units import api as units_api
 
 TOML_PACKAGE_NAME = "package.toml"
-
-
-class ComponentDefaults(TypedDict):
-    content_to_replace: dict[str, int | bytes | None]
-    created: datetime
-    created_by: Optional[int]
 
 
 def slugify_hashed_filename(identifier: str) -> str:
@@ -395,6 +390,41 @@ class LearningPackageZipper:
                 )
 
 
+@dataclass
+class RestoreLearningPackageData:
+    """
+    Data about the restored learning package.
+    """
+    key: str
+    key_from_zip: str
+    title: str
+    num_containers: int
+    num_components: int
+    num_collections: int
+
+
+@dataclass
+class BackupMetadata:
+    """
+    Metadata about the backup operation.
+    """
+    format_version: int
+    created_at: str
+    created_by: str | None = None
+    original_server: str | None = None
+
+
+@dataclass
+class RestoreResult:
+    """
+    Result of the restore operation.
+    """
+    status: Literal["success", "error"]
+    log_file_error: StringIO | None = None
+    lp_restored_data: RestoreLearningPackageData | None = None
+    backup_metadata: BackupMetadata | None = None
+
+
 class LearningPackageUnzipper:
     """
     Handles extraction and restoration of learning package data from a zip archive.
@@ -420,7 +450,7 @@ class LearningPackageUnzipper:
         self.subsections_map_by_key: dict[str, Any] = {}
         self.sections_map_by_key: dict[str, Any] = {}
         self.all_publishable_entities_keys: set[str] = set()
-        self.all_published_entities_versions: set[str] = set()  # To track published entity versions
+        self.all_published_entities_versions: set[tuple[str, int]] = set()  # To track published entity versions
 
     # --------------------------
     # Public API
@@ -430,15 +460,17 @@ class LearningPackageUnzipper:
     def load(self) -> dict[str, Any]:
         """Extracts and restores all objects from the ZIP archive in an atomic transaction."""
 
-        # Step 1: Validate presence of mandatory files
-        _, organized_files = self.preliminary_check()
+        # Step 1: Validate presence of package.toml and basic structure
+        _, organized_files = self.check_mandatory_files()
         if self.errors:
             # Early return if preliminary checks fail since mandatory files are missing
-            return {
-                "status": "error",
-                "log_file_error": self._write_errors(),  # return a StringIO with the errors
-                "general_info": None
-            }
+            result = RestoreResult(
+                status="error",
+                log_file_error=self._write_errors(),  # return a StringIO with the errors
+                lp_restored_data=None,
+                backup_metadata=None,
+            )
+            return asdict(result)
 
         # Step 2: Extract and validate learning package, entities and collections
         # Errors are collected and reported at the end
@@ -459,11 +491,13 @@ class LearningPackageUnzipper:
 
         # Step 3.1: If there are validation errors, return them without saving anything
         if self.errors:
-            return {
-                "status": "error",
-                "log_file_error": self._write_errors(),  # return a StringIO with the errors
-                "general_info": None
-            }
+            result = RestoreResult(
+                status="error",
+                log_file_error=self._write_errors(),  # return a StringIO with the errors
+                lp_restored_data=None,
+                backup_metadata=None,
+            )
+            return asdict(result)
 
         # Step 3.2: Save everything to the DB
         # All validations passed, we can proceed to save everything
@@ -480,21 +514,31 @@ class LearningPackageUnzipper:
             len(containers_validated.get(container_type, []))
             for container_type in ["section", "subsection", "unit"]
         )
-        return {
-            "status": "success",
-            "log_file_error": None,
-            "general_info": {
-                "learning_package_key": learning_package.key,
-                "learning_package_title": learning_package.title,
-                "containers": num_containers,
-                "components": len(components_validated["components"]),
-                "collections": len(collections_validated["collections"]),
-                "metadata": lp_metadata,
-            }
-        }
 
-    def preliminary_check(self) -> Tuple[list[dict[str, Any]], dict[str, Any]]:
-        """Performs a preliminary check of the zip file structure and mandatory files."""
+        result = RestoreResult(
+            status="success",
+            log_file_error=None,
+            lp_restored_data=RestoreLearningPackageData(
+                key=learning_package.key,
+                key_from_zip=learning_package_validated["key"],
+                title=learning_package.title,
+                num_containers=num_containers,
+                num_components=len(components_validated["components"]),
+                num_collections=len(collections_validated["collections"]),
+            ),
+            backup_metadata=BackupMetadata(
+                format_version=lp_metadata.get("format_version", 1),
+                created_by=lp_metadata.get("created_by"),
+                created_at=lp_metadata.get("created_at"),
+            ) if lp_metadata else None,
+        )
+        return asdict(result)
+
+    def check_mandatory_files(self) -> Tuple[list[dict[str, Any]], dict[str, Any]]:
+        """
+        Check for the presence of mandatory files in the zip archive.
+        So far, the only mandatory file is package.toml.
+        """
         organized_files = self._get_organized_file_list(self.zipf.namelist())
 
         if not organized_files["learning_package"]:
@@ -653,7 +697,7 @@ class LearningPackageUnzipper:
             version_num = valid_published["version_num"]  # Should exist, validated earlier
             content_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
             self.all_published_entities_versions.add(
-                f"{entity_key}__v{version_num}"
+                (entity_key, version_num)
             )  # Track published version
             components_api.create_next_component_version(
                 self.components_map_by_key[entity_key].publishable_entity.id,
@@ -673,7 +717,7 @@ class LearningPackageUnzipper:
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.components_map_by_key)
             self.all_published_entities_versions.add(
-                f"{entity_key}__v{valid_published.get('version_num')}"
+                (entity_key, valid_published.get('version_num'))
             )  # Track published version
             units_api.create_next_unit_version(
                 self.units_map_by_key[entity_key],
@@ -693,7 +737,7 @@ class LearningPackageUnzipper:
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.units_map_by_key)
             self.all_published_entities_versions.add(
-                f"{entity_key}__v{valid_published.get('version_num')}"
+                (entity_key, valid_published.get('version_num'))
             )  # Track published version
             subsections_api.create_next_subsection_version(
                 self.subsections_map_by_key[entity_key],
@@ -713,7 +757,7 @@ class LearningPackageUnzipper:
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.subsections_map_by_key)
             self.all_published_entities_versions.add(
-                f"{entity_key}__v{valid_published.get('version_num')}"
+                (entity_key, valid_published.get('version_num'))
             )  # Track published version
             sections_api.create_next_section_version(
                 self.sections_map_by_key[entity_key],
@@ -727,13 +771,7 @@ class LearningPackageUnzipper:
         for valid_draft in components.get("components_drafts", []):
             entity_key = valid_draft.pop("entity_key")
             version_num = valid_draft["version_num"]  # Should exist, validated earlier
-            entity_version_identifier = f"{entity_key}__v{version_num}"
-            if entity_version_identifier in self.all_published_entities_versions:
-                # Skip creating draft if this version is already published
-                # Why? Because the version itself is already created and
-                # we don't want to create duplicate versions.
-                # Otherwise, we will raise an IntegrityError on PublishableEntityVersion
-                # due to unique constraints between publishable_entity and version_num.
+            if self._is_version_already_exists(entity_key, version_num):
                 continue
             content_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
             components_api.create_next_component_version(
@@ -749,13 +787,7 @@ class LearningPackageUnzipper:
         for valid_draft in containers.get("unit_drafts", []):
             entity_key = valid_draft.pop("entity_key")
             version_num = valid_draft["version_num"]  # Should exist, validated earlier
-            entity_version_identifier = f"{entity_key}__v{version_num}"
-            if entity_version_identifier in self.all_published_entities_versions:
-                # Skip creating draft if this version is already published
-                # Why? Because the version itself is already created and
-                # we don't want to create duplicate versions.
-                # Otherwise, we will raise an IntegrityError on PublishableEntityVersion
-                # due to unique constraints between publishable_entity and version_num.
+            if self._is_version_already_exists(entity_key, version_num):
                 continue
             children = self._resolve_children(valid_draft, self.components_map_by_key)
             units_api.create_next_unit_version(
@@ -768,13 +800,7 @@ class LearningPackageUnzipper:
         for valid_draft in containers.get("subsection_drafts", []):
             entity_key = valid_draft.pop("entity_key")
             version_num = valid_draft["version_num"]  # Should exist, validated earlier
-            entity_version_identifier = f"{entity_key}__v{version_num}"
-            if entity_version_identifier in self.all_published_entities_versions:
-                # Skip creating draft if this version is already published
-                # Why? Because the version itself is already created and
-                # we don't want to create duplicate versions.
-                # Otherwise, we will raise an IntegrityError on PublishableEntityVersion
-                # due to unique constraints between publishable_entity and version_num.
+            if self._is_version_already_exists(entity_key, version_num):
                 continue
             children = self._resolve_children(valid_draft, self.units_map_by_key)
             subsections_api.create_next_subsection_version(
@@ -787,13 +813,7 @@ class LearningPackageUnzipper:
         for valid_draft in containers.get("section_drafts", []):
             entity_key = valid_draft.pop("entity_key")
             version_num = valid_draft["version_num"]  # Should exist, validated earlier
-            entity_version_identifier = f"{entity_key}__v{version_num}"
-            if entity_version_identifier in self.all_published_entities_versions:
-                # Skip creating draft if this version is already published
-                # Why? Because the version itself is already created and
-                # we don't want to create duplicate versions.
-                # Otherwise, we will raise an IntegrityError on PublishableEntityVersion
-                # due to unique constraints between publishable_entity and version_num.
+            if self._is_version_already_exists(entity_key, version_num):
                 continue
             children = self._resolve_children(valid_draft, self.subsections_map_by_key)
             sections_api.create_next_section_version(
@@ -822,6 +842,20 @@ class LearningPackageUnzipper:
         if not content:
             return None
         return StringIO(content)
+
+    def _is_version_already_exists(self, entity_key: str, version_num: int) -> bool:
+        """
+        Check if a version already exists for a given entity key and version number.
+
+        Note:
+            Skip creating draft if this version is already published
+            Why? Because the version itself is already created and
+            we don't want to create duplicate versions.
+            Otherwise, we will raise an IntegrityError on PublishableEntityVersion
+            due to unique constraints between publishable_entity and version_num.
+        """
+        identifier = (entity_key, version_num)
+        return identifier in self.all_published_entities_versions
 
     def _resolve_static_files(
             self,
