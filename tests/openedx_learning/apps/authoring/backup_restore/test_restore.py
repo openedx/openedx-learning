@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 
-from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper
+from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
 from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
@@ -162,7 +162,7 @@ class RestoreLearningPackageTest(TestCase):
             "log_file_error": None,
             "lp_restored_data": {
                 "key": "lib:WGU:LIB_C001",
-                "key_from_zip": "lib:WGU:LIB_C001",
+                "original_key": "lib:WGU:LIB_C001",
                 "title": "Library test",
                 "num_containers": 3,
                 "num_components": 7,
@@ -190,6 +190,21 @@ class RestoreLearningPackageTest(TestCase):
 
         lp = publishing_api.LearningPackage.objects.filter(key="lib:WGU:LIB_C001").first()
         assert lp is not None, "Learning package was not restored."
+
+    def test_successful_restore_with_staged_key(self):
+        """Test restoring a learning package with a staged key."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
+        result = LearningPackageUnzipper(zip_file, use_staged_lp_key=True).load()
+
+        assert result["status"] == "success"
+        assert result["lp_restored_data"] is not None
+        restored_key = result["lp_restored_data"]["key"]
+        original_key = result["lp_restored_data"]["original_key"]
+        assert original_key == "lib:WGU:LIB_C001"
+        assert restored_key.startswith("lib-restore:command:WGU:LIB_C001:")
+
+        lp = publishing_api.LearningPackage.objects.filter(key=restored_key).first()
+        assert lp is not None, "Learning package with staged key was not restored."
 
     def test_restore_with_missing_learning_package_file(self):
         """Test restoring a learning package with a missing learning_package.toml file."""
@@ -269,3 +284,28 @@ class RestoreLearningPackageTest(TestCase):
         log_content = result["log_file_error"].getvalue()
         expected_error = "Errors encountered during restore:\npackage.toml meta section: {'non_field_errors': [Er"
         assert expected_error in log_content
+
+
+class RestoreUtilitiesTest(TestCase):
+    """Tests for utility functions used in the restore process."""
+
+    def test_generate_staged_lp_key(self):
+        """Test generating a staged learning package key."""
+
+        user_mock = type("User", (), {"username": "dan"})
+        lp_key = "lib:WGU:LIB_C001"
+        staged_key = generate_staged_lp_key(lp_key, user_mock)
+
+        assert staged_key.startswith("lib-restore:dan:WGU:LIB_C001:")
+        parts = staged_key.split(":")
+        assert len(parts) == 5
+        timestamp_part = parts[-1]
+        assert timestamp_part.isdigit()
+
+    def test_error_generate_staged_lp_key_invalid_lp_key(self):
+        """Test that generating a staged key with an invalid lp_key raises ValueError."""
+        user_mock = type("User", (), {"username": "dan"})
+        invalid_lp_key = "invalid-key-format"
+        with self.assertRaises(ValueError) as context:
+            generate_staged_lp_key(invalid_lp_key, user_mock)
+        assert "Invalid learning package key" in str(context.exception)

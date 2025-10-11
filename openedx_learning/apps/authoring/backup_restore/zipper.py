@@ -3,6 +3,7 @@ This module provides functionality to create a zip file containing the learning 
 including a TOML representation of the learning package and its entities.
 """
 import hashlib
+import time
 import zipfile
 from collections import defaultdict
 from dataclasses import asdict, dataclass
@@ -11,6 +12,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, List, Literal, Optional, Tuple
 
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
 from django.utils.text import slugify
@@ -51,6 +53,7 @@ from openedx_learning.apps.authoring.subsections import api as subsections_api
 from openedx_learning.apps.authoring.units import api as units_api
 
 TOML_PACKAGE_NAME = "package.toml"
+DEFAULT_USERNAME = "command"
 
 
 def slugify_hashed_filename(identifier: str) -> str:
@@ -395,8 +398,8 @@ class RestoreLearningPackageData:
     """
     Data about the restored learning package.
     """
-    key: str
-    key_from_zip: str
+    key: str  # The key of the restored learning package (may be different if staged)
+    original_key: str
     title: str
     num_containers: int
     num_components: int
@@ -425,9 +428,41 @@ class RestoreResult:
     backup_metadata: BackupMetadata | None = None
 
 
+def generate_staged_lp_key(lp_key: str, user: UserType | None) -> str:
+    """
+    Generate a staged learning package key based on the given base key.
+
+    Arguments:
+        lp_key (str): The base key of the learning package.
+        user (UserType | None): The user performing the restore operation.
+
+    Example:
+        Input:  "lib:WGU:LIB_C001"
+        Output: "lib-restore:dave:WGU:LIB_C001:1728575321"
+
+    The timestamp at the end ensures the key is unique.
+    """
+    username = user.username if user else DEFAULT_USERNAME
+    parts = lp_key.split(":")
+    if len(parts) < 3:
+        raise ValueError(f"Invalid learning package key: {lp_key}")
+
+    _, org_slug, lp_slug = parts[:3]
+    timestamp = int(time.time() * 1000)  # Current time in milliseconds
+    return f"lib-restore:{username}:{org_slug}:{lp_slug}:{timestamp}"
+
+
 class LearningPackageUnzipper:
     """
     Handles extraction and restoration of learning package data from a zip archive.
+
+    Args:
+        zipf (zipfile.ZipFile): The zip file containing the learning package data.
+        user (UserType | None): The user performing the restore operation. Not necessarily the creator.
+        generate_new_key (bool): Whether to generate a new key for the restored learning package.
+
+    Returns:
+        dict[str, Any]: The result of the restore operation, including any errors encountered.
 
     Responsibilities:
       - Parse and organize files from the zip structure.
@@ -439,8 +474,10 @@ class LearningPackageUnzipper:
         result = unzipper.load()
     """
 
-    def __init__(self, zipf: zipfile.ZipFile) -> None:
+    def __init__(self, zipf: zipfile.ZipFile, user: UserType | None = None, use_staged_lp_key: bool = False):
         self.zipf = zipf
+        self.user = user
+        self.use_staged_lp_key = use_staged_lp_key
         self.utc_now: datetime = datetime.now(timezone.utc)
         self.component_types_cache: dict[tuple[str, str], ComponentType] = {}
         self.errors: list[dict[str, Any]] = []
@@ -502,6 +539,7 @@ class LearningPackageUnzipper:
         # Step 3.2: Save everything to the DB
         # All validations passed, we can proceed to save everything
         # Save the learning package first to get its ID
+        original_lp_key = learning_package_validated["key"]
         learning_package = self._save(
             learning_package_validated,
             components_validated,
@@ -519,8 +557,8 @@ class LearningPackageUnzipper:
             status="success",
             log_file_error=None,
             lp_restored_data=RestoreLearningPackageData(
-                key=learning_package.key,
-                key_from_zip=learning_package_validated["key"],
+                key=learning_package.key,  # May be different if staged
+                original_key=original_lp_key,  # The original key from the backup archive
                 title=learning_package.title,
                 num_containers=num_containers,
                 num_components=len(components_validated["components"]),
@@ -659,6 +697,12 @@ class LearningPackageUnzipper:
     ) -> LearningPackage:
         """Persist all validated entities in two phases: published then drafts."""
 
+        if self.use_staged_lp_key:
+            # Generate a tmp key for the staged learning package
+            learning_package["key"] = generate_staged_lp_key(
+                lp_key=learning_package["key"],
+                user=self.user
+            )
         learning_package_obj = publishing_api.create_learning_package(**learning_package)
 
         with publishing_api.bulk_draft_changes_for(learning_package_obj.id):

@@ -3,6 +3,8 @@ Backup Restore API
 """
 import zipfile
 
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
+
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper, LearningPackageZipper
 from openedx_learning.apps.authoring.publishing.api import get_learning_package_by_key
 
@@ -18,11 +20,11 @@ def create_zip_file(lp_key: str, path: str) -> None:
     LearningPackageZipper(learning_package).create_zip(path)
 
 
-def load_library_from_zip(path: str) -> dict:
+def load_library_from_zip(path: str, user: UserType | None = None, use_staged_lp_key: bool = False) -> dict:
     """
     Loads a learning package from a zip file at the given path.
     Restores the learning package and its contents to the database.
     Returns a dictionary with the status of the operation and any errors encountered.
     """
     with zipfile.ZipFile(path, "r") as zipf:
-        return LearningPackageUnzipper(zipf).load()
+        return LearningPackageUnzipper(zipf, user, use_staged_lp_key).load()
