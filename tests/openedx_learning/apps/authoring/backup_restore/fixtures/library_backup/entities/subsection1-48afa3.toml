@@ -1,5 +1,4 @@
 [entity]
-uuid = "0b52444b-0604-4510-be71-960251e7343d"
 can_stand_alone = true
 key = "subsection1-48afa3"
 created = 2025-09-04T22:51:52.824941Z
@@ -16,7 +15,6 @@ version_num = 2
 
 [[version]]
 title = "Subsection1"
-uuid = "46642bce-0861-4e22-8b37-3cd897c99239"
 version_num = 2
 
 [version.container]

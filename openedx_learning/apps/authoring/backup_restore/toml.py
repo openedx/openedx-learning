@@ -72,7 +72,6 @@ def _get_toml_publishable_entity_table(
 
     The resulting content looks like:
         [entity]
-        uuid = "f8ea9bae-b4ed-4a84-ab4f-2b9850b59cd6"
         can_stand_alone = true
         key = "xblock.v1:problem:my_published_example"
 
@@ -88,7 +87,6 @@ def _get_toml_publishable_entity_table(
     a string-like TOML fragment rather than a complete TOML document.
     """
     entity_table = tomlkit.table()
-    entity_table.add("uuid", str(entity.uuid))
     entity_table.add("can_stand_alone", entity.can_stand_alone)
     # Add key since the toml filename doesn't show the real key
     entity_table.add("key", entity.key)
@@ -133,7 +131,6 @@ def toml_publishable_entity(
 
     The resulting content looks like:
         [entity]
-        uuid = "f8ea9bae-b4ed-4a84-ab4f-2b9850b59cd6"
         can_stand_alone = true
         key = "xblock.v1:problem:my_published_example"
 
@@ -143,17 +140,16 @@ def toml_publishable_entity(
         [entity.published]
         version_num = 1
 
+        [entity.container.section] (if applicable)
+
         # ### Versions
 
         [[version]]
         title = "My published problem"
-        uuid = "2e07511f-daa7-428a-9032-17fe12a77d06"
         version_num = 1
 
-        [version.container]
+        [version.container] (if applicable)
         children = []
-
-        [version.container.unit]
     """
     # Create the TOML representation for the entity itself
     entity_table = _get_toml_publishable_entity_table(entity, draft_version, published_version)
@@ -179,32 +175,25 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
     The resulting content looks like:
         [[version]]
         title = "My published problem"
-        uuid = "2e07511f-daa7-428a-9032-17fe12a77d06"
         version_num = 1
 
-        [version.container]
+        [version.container] (if applicable)
         children = []
 
-        [version.container.unit]
-        graded = true
-
-     Note: This function returns a tomlkit.items.Table, which represents
+    Note: This function returns a tomlkit.items.Table, which represents
     a string-like TOML fragment rather than a complete TOML document.
     """
     version_table = tomlkit.table()
     version_table.add("title", version.title)
-    version_table.add("uuid", str(version.uuid))
     version_table.add("version_num", version.version_num)
 
-    container_table = tomlkit.table()
-
-    children = []
     if hasattr(version, 'containerversion'):
+        # If the version has a container version, add its children
+        container_table = tomlkit.table()
         children = publishing_api.get_container_children_entities_keys(version.containerversion)
-    container_table.add("children", children)
-
-    version_table.add("container", container_table)
-    return version_table  # For use in AoT
+        container_table.add("children", children)
+        version_table.add("container", container_table)
+    return version_table
 
 
 def toml_collection(collection: Collection, entity_keys: list[str]) -> str:
@@ -245,29 +234,15 @@ def parse_learning_package_toml(content: str) -> dict:
     Parse the learning package TOML content and return a dict of its fields.
     """
     lp_data: Dict[str, Any] = tomlkit.parse(content)
-
-    # Validate the minimum required fields
-    if "learning_package" not in lp_data:
-        raise ValueError("Invalid learning package TOML: missing 'learning_package' section")
-    if "title" not in lp_data["learning_package"]:
-        raise ValueError("Invalid learning package TOML: missing 'title' in 'learning_package' section")
-    if "key" not in lp_data["learning_package"]:
-        raise ValueError("Invalid learning package TOML: missing 'key' in 'learning_package' section")
-    return lp_data["learning_package"]
+    return lp_data
 
 
-def parse_publishable_entity_toml(content: str) -> tuple[Dict[str, Any], list]:
+def parse_publishable_entity_toml(content: str) -> dict:
     """
     Parse the publishable entity TOML file and return a dict of its fields.
     """
     pe_data: Dict[str, Any] = tomlkit.parse(content)
-
-    # Validate the minimum required fields
-    if "entity" not in pe_data:
-        raise ValueError("Invalid publishable entity TOML: missing 'entity' section")
-    if "version" not in pe_data:
-        raise ValueError("Invalid publishable entity TOML: missing 'version' section")
-    return pe_data["entity"], pe_data.get("version", [])
+    return pe_data
 
 
 def parse_collection_toml(content: str) -> dict:
@@ -275,6 +250,4 @@ def parse_collection_toml(content: str) -> dict:
     Parse the collection TOML content and return a dict of its fields.
     """
     collection_data: Dict[str, Any] = tomlkit.parse(content)
-    if "collection" not in collection_data:
-        raise ValueError("Invalid collection TOML: missing 'collection' section")
-    return collection_data["collection"]
+    return collection_data

@@ -1,5 +1,4 @@
 [entity]
-uuid = "3c41aa22-998e-4161-bec8-8c28ccf4f006"
 can_stand_alone = true
 key = "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471"
 created = 2025-09-04T22:41:02.788509Z
@@ -14,5 +13,4 @@ version_num = 1
 
 [[version]]
 title = "Survey"
-uuid = "0bdcaf29-ca6b-47f2-8b16-86a900d1c837"
 version_num = 1

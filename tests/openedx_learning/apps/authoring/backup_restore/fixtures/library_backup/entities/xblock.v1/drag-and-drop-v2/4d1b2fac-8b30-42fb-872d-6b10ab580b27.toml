@@ -1,5 +1,4 @@
 [entity]
-uuid = "a919094d-1fd0-40bb-9fe2-66284a80effb"
 can_stand_alone = true
 key = "xblock.v1:drag-and-drop-v2:4d1b2fac-8b30-42fb-872d-6b10ab580b27"
 created = 2025-09-04T22:39:37.001432Z
@@ -14,5 +13,4 @@ version_num = 2
 
 [[version]]
 title = "Drag and Drop"
-uuid = "136f72d0-a793-4993-b0b1-8515e0c21e64"
 version_num = 2
