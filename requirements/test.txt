@@ -85,11 +85,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==6.0.0
     # via -r requirements/test.in
-django-stubs==5.2.6
+django-stubs==5.2.7
     # via
     #   -r requirements/test.in
     #   djangorestframework-stubs
-django-stubs-ext==5.2.6
+django-stubs-ext==5.2.7
     # via django-stubs
 django-waffle==5.0.0
     # via
@@ -123,13 +123,13 @@ edx-opaque-keys==3.0.0
     #   edx-drf-extensions
 freezegun==1.5.5
     # via -r requirements/test.in
-grimp==3.11
+grimp==3.12
     # via import-linter
-idna==3.10
+idna==3.11
     # via
     #   -r requirements/base.txt
     #   requests
-import-linter==2.5
+import-linter==2.5.2
     # via -r requirements/test.in
 iniconfig==2.1.0
     # via pytest
@@ -179,7 +179,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.15.2
+pymongo==4.15.3
     # via
     #   -r requirements/base.txt
     #   edx-opaque-keys
