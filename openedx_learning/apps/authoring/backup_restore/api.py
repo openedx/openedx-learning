@@ -20,11 +20,11 @@ def create_zip_file(lp_key: str, path: str) -> None:
     LearningPackageZipper(learning_package).create_zip(path)
 
 
-def load_library_from_zip(path: str, user: UserType | None = None, use_staged_lp_key: bool = False) -> dict:
+def load_learning_package(path: str, key: str | None = None, user: UserType | None = None) -> dict:
     """
     Loads a learning package from a zip file at the given path.
     Restores the learning package and its contents to the database.
     Returns a dictionary with the status of the operation and any errors encountered.
     """
     with zipfile.ZipFile(path, "r") as zipf:
-        return LearningPackageUnzipper(zipf, user, use_staged_lp_key).load()
+        return LearningPackageUnzipper(zipf, key, user).load()

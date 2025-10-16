@@ -398,10 +398,16 @@ class RestoreLearningPackageData:
     """
     Data about the restored learning package.
     """
+    id: int  # The ID of the restored learning package
     key: str  # The key of the restored learning package (may be different if staged)
-    original_key: str
+    archive_lp_key: str  # The original key from the archive
+    archive_org_key: str  # The original organization key from the archive
+    archive_slug: str  # The original slug from the archive
     title: str
     num_containers: int
+    num_sections: int
+    num_subsections: int
+    num_units: int
     num_components: int
     num_collections: int
 
@@ -428,28 +434,35 @@ class RestoreResult:
     backup_metadata: BackupMetadata | None = None
 
 
-def generate_staged_lp_key(lp_key: str, user: UserType | None) -> str:
+def unpack_lp_key(lp_key: str) -> tuple[str, str]:
+    """
+    Unpack a learning package key into its components.
+    """
+    parts = lp_key.split(":")
+    if len(parts) < 3:
+        raise ValueError(f"Invalid learning package key: {lp_key}")
+    _, org_key, lp_slug = parts[:3]
+    return org_key, lp_slug
+
+
+def generate_staged_lp_key(archive_lp_key: str, user: UserType) -> str:
     """
     Generate a staged learning package key based on the given base key.
 
     Arguments:
-        lp_key (str): The base key of the learning package.
+        archive_lp_key (str): The original learning package key from the archive.
         user (UserType | None): The user performing the restore operation.
 
     Example:
         Input:  "lib:WGU:LIB_C001"
-        Output: "lib-restore:dave:WGU:LIB_C001:1728575321"
+        Output: "lp-restore:dave:WGU:LIB_C001:1728575321"
 
     The timestamp at the end ensures the key is unique.
     """
-    username = user.username if user else DEFAULT_USERNAME
-    parts = lp_key.split(":")
-    if len(parts) < 3:
-        raise ValueError(f"Invalid learning package key: {lp_key}")
-
-    _, org_slug, lp_slug = parts[:3]
+    username = user.username
+    org_key, lp_slug = unpack_lp_key(archive_lp_key)
     timestamp = int(time.time() * 1000)  # Current time in milliseconds
-    return f"lib-restore:{username}:{org_slug}:{lp_slug}:{timestamp}"
+    return f"lp-restore:{username}:{org_key}:{lp_slug}:{timestamp}"
 
 
 class LearningPackageUnzipper:
@@ -474,10 +487,10 @@ class LearningPackageUnzipper:
         result = unzipper.load()
     """
 
-    def __init__(self, zipf: zipfile.ZipFile, user: UserType | None = None, use_staged_lp_key: bool = False):
+    def __init__(self, zipf: zipfile.ZipFile, key: str | None = None, user: UserType | None = None):
         self.zipf = zipf
         self.user = user
-        self.use_staged_lp_key = use_staged_lp_key
+        self.lp_key = key  # If provided, use this key for the restored learning package
         self.utc_now: datetime = datetime.now(timezone.utc)
         self.component_types_cache: dict[tuple[str, str], ComponentType] = {}
         self.errors: list[dict[str, Any]] = []
@@ -539,7 +552,7 @@ class LearningPackageUnzipper:
         # Step 3.2: Save everything to the DB
         # All validations passed, we can proceed to save everything
         # Save the learning package first to get its ID
-        original_lp_key = learning_package_validated["key"]
+        archive_lp_key = learning_package_validated["key"]
         learning_package = self._save(
             learning_package_validated,
             components_validated,
@@ -553,14 +566,21 @@ class LearningPackageUnzipper:
             for container_type in ["section", "subsection", "unit"]
         )
 
+        org_key, lp_slug = unpack_lp_key(archive_lp_key)
         result = RestoreResult(
             status="success",
             log_file_error=None,
             lp_restored_data=RestoreLearningPackageData(
-                key=learning_package.key,  # May be different if staged
-                original_key=original_lp_key,  # The original key from the backup archive
+                id=learning_package.id,
+                key=learning_package.key,
+                archive_lp_key=archive_lp_key,  # The original key from the backup archive
+                archive_org_key=org_key,  # The original organization key from the backup archive
+                archive_slug=lp_slug,  # The original slug from the backup archive
                 title=learning_package.title,
                 num_containers=num_containers,
+                num_sections=len(containers_validated.get("section", [])),
+                num_subsections=len(containers_validated.get("subsection", [])),
+                num_units=len(containers_validated.get("unit", [])),
                 num_components=len(components_validated["components"]),
                 num_collections=len(collections_validated["collections"]),
             ),
@@ -697,12 +717,19 @@ class LearningPackageUnzipper:
     ) -> LearningPackage:
         """Persist all validated entities in two phases: published then drafts."""
 
-        if self.use_staged_lp_key:
+        # Important: If not using a specific LP key, generate a temporary one
+        # We cannot use the original key because it may generate security issues
+        if not self.lp_key:
             # Generate a tmp key for the staged learning package
+            if not self.user:
+                raise ValueError("User is required to create lp_key")
             learning_package["key"] = generate_staged_lp_key(
-                lp_key=learning_package["key"],
+                archive_lp_key=learning_package["key"],
                 user=self.user
             )
+        else:
+            learning_package["key"] = self.lp_key
+
         learning_package_obj = publishing_api.create_learning_package(**learning_package)
 
         with publishing_api.bulk_draft_changes_for(learning_package_obj.id):

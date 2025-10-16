@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from io import StringIO
 from unittest.mock import patch
 
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.core.management import call_command
 
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
@@ -22,24 +23,26 @@ class RestoreLearningPackageCommandTest(TestCase):
         self.fixtures_folder = os.path.join(os.path.dirname(__file__), "fixtures/library_backup")
         self.zip_file = folder_to_inmemory_zip(self.fixtures_folder)
         self.lp_key = "lib:WGU:LIB_C001"
+        self.user = UserType.objects.create_user(username='lp_user', password='12345')
 
-    @patch("openedx_learning.apps.authoring.backup_restore.management.commands.lp_load.load_library_from_zip")
-    def test_restore_command(self, mock_load_library_from_zip):
-        # Mock load_library_from_zip to return our in-memory zip file
-        mock_load_library_from_zip.return_value = LearningPackageUnzipper(self.zip_file).load()
+    @patch("openedx_learning.apps.authoring.backup_restore.api.load_learning_package")
+    def test_restore_command(self, mock_load_learning_package):
+        # Mock load_learning_package to return our in-memory zip file
+        restore_result = LearningPackageUnzipper(self.zip_file, self.user).load()
+        mock_load_learning_package.return_value = restore_result
 
         out = StringIO()
-        # You can pass any dummy path, since load_library_from_zip is mocked
-        call_command("lp_load", "dummy.zip", stdout=out)
+        # You can pass any dummy path, since load_learning_package is mocked
+        call_command("lp_load", "dummy.zip", "lp_user", stdout=out)
 
-        lp = self.verify_lp()
+        lp = self.verify_lp(restore_result["lp_restored_data"]["key"])
         self.verify_containers(lp)
         self.verify_components(lp)
         self.verify_collections(lp)
 
-    def verify_lp(self):
+    def verify_lp(self, key):
         """Verify the learning package was restored correctly."""
-        lp = publishing_api.LearningPackage.objects.filter(key=self.lp_key).first()
+        lp = publishing_api.LearningPackage.objects.filter(key=key).first()
         assert lp is not None, "Learning package was not restored."
         assert lp.title == "Library test"
         assert lp.description == ""
@@ -155,18 +158,24 @@ class RestoreLearningPackageTest(TestCase):
     def test_successful_restore_with_no_command_line(self):
         """Test restoring a learning package without using the management command."""
         zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
-        result = LearningPackageUnzipper(zip_file).load()
+        result = LearningPackageUnzipper(zip_file, key="lib-xx:WGU:LIB_C001").load()
 
         expected = {
             "status": "success",
             "log_file_error": None,
             "lp_restored_data": {
-                "key": "lib:WGU:LIB_C001",
-                "original_key": "lib:WGU:LIB_C001",
+                "id": result["lp_restored_data"]["id"],  # Dynamic field
+                "key": "lib-xx:WGU:LIB_C001",
+                "archive_lp_key": "lib:WGU:LIB_C001",
+                "archive_org_key": "WGU",
+                "archive_slug": "LIB_C001",
                 "title": "Library test",
                 "num_containers": 3,
                 "num_components": 7,
                 "num_collections": 1,
+                "num_sections": 1,
+                "num_subsections": 1,
+                "num_units": 1,
             },
             "backup_metadata": {
                 "format_version": 1,
@@ -188,20 +197,21 @@ class RestoreLearningPackageTest(TestCase):
         assert general_info == expected_info, f"General info does not match. Got {general_info}"
         assert metadata_general_info == metadata_expected_info, f"Meta info does not match. Got {metadata_general_info}"
 
-        lp = publishing_api.LearningPackage.objects.filter(key="lib:WGU:LIB_C001").first()
+        lp = publishing_api.LearningPackage.objects.filter(key="lib-xx:WGU:LIB_C001").first()
         assert lp is not None, "Learning package was not restored."
 
     def test_successful_restore_with_staged_key(self):
         """Test restoring a learning package with a staged key."""
+        user = UserType.objects.create_user(username='lp_user', password='12345')
         zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
-        result = LearningPackageUnzipper(zip_file, use_staged_lp_key=True).load()
+        result = LearningPackageUnzipper(zip_file, user=user).load()
 
         assert result["status"] == "success"
         assert result["lp_restored_data"] is not None
         restored_key = result["lp_restored_data"]["key"]
-        original_key = result["lp_restored_data"]["original_key"]
-        assert original_key == "lib:WGU:LIB_C001"
-        assert restored_key.startswith("lib-restore:command:WGU:LIB_C001:")
+        archive_key = result["lp_restored_data"]["archive_lp_key"]
+        assert archive_key == "lib:WGU:LIB_C001"
+        assert restored_key.startswith("lp-restore:lp_user:WGU:LIB_C001:")
 
         lp = publishing_api.LearningPackage.objects.filter(key=restored_key).first()
         assert lp is not None, "Learning package with staged key was not restored."
@@ -296,7 +306,7 @@ class RestoreUtilitiesTest(TestCase):
         lp_key = "lib:WGU:LIB_C001"
         staged_key = generate_staged_lp_key(lp_key, user_mock)
 
-        assert staged_key.startswith("lib-restore:dan:WGU:LIB_C001:")
+        assert staged_key.startswith("lp-restore:dan:WGU:LIB_C001:")
         parts = staged_key.split(":")
         assert len(parts) == 5
         timestamp_part = parts[-1]
