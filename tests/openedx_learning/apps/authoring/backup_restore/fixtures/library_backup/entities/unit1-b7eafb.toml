@@ -1,5 +1,4 @@
 [entity]
-uuid = "c1a69936-ac68-4e1d-843a-0708fa7c755b"
 can_stand_alone = true
 key = "unit1-b7eafb"
 created = 2025-09-04T22:51:59.271334Z
@@ -16,7 +15,6 @@ version_num = 2
 
 [[version]]
 title = "Unit1"
-uuid = "f8aa4b20-8271-4838-bbe6-e0164d616c13"
 version_num = 2
 
 [version.container]

@@ -250,7 +250,6 @@ class LpDumpCommandTestCase(TestCase):
             expected_files = {
                 "entities/xblock.v1/problem/my_published_example_386dce.toml": [
                     '[entity]',
-                    f'uuid = "{self.published_component.uuid}"',
                     'can_stand_alone = true',
                     '[entity.draft]',
                     'version_num = 2',
@@ -259,7 +258,6 @@ class LpDumpCommandTestCase(TestCase):
                 ],
                 "entities/xblock.v1/html/my_draft_example.toml": [
                     '[entity]',
-                    f'uuid = "{self.draft_component.uuid}"',
                     'can_stand_alone = true',
                     '[entity.draft]',
                     'version_num = 2',

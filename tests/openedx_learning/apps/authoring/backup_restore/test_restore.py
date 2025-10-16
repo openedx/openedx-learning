@@ -1,11 +1,13 @@
 """Tests for the lp_load management command."""
 import os
+from datetime import datetime, timezone
 from io import StringIO
 from unittest.mock import patch
 
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.core.management import call_command
 
-from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper
+from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
 from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
@@ -21,24 +23,26 @@ class RestoreLearningPackageCommandTest(TestCase):
         self.fixtures_folder = os.path.join(os.path.dirname(__file__), "fixtures/library_backup")
         self.zip_file = folder_to_inmemory_zip(self.fixtures_folder)
         self.lp_key = "lib:WGU:LIB_C001"
+        self.user = UserType.objects.create_user(username='lp_user', password='12345')
 
-    @patch("openedx_learning.apps.authoring.backup_restore.management.commands.lp_load.load_dump_zip_file")
-    def test_restore_command(self, mock_load_dump_zip_file):
-        # Mock load_dump_zip_file to return our in-memory zip file
-        mock_load_dump_zip_file.return_value = LearningPackageUnzipper(self.zip_file).load()
+    @patch("openedx_learning.apps.authoring.backup_restore.api.load_learning_package")
+    def test_restore_command(self, mock_load_learning_package):
+        # Mock load_learning_package to return our in-memory zip file
+        restore_result = LearningPackageUnzipper(self.zip_file, self.user).load()
+        mock_load_learning_package.return_value = restore_result
 
         out = StringIO()
-        # You can pass any dummy path, since load_dump_zip_file is mocked
-        call_command("lp_load", "dummy.zip", stdout=out)
+        # You can pass any dummy path, since load_learning_package is mocked
+        call_command("lp_load", "dummy.zip", "lp_user", stdout=out)
 
-        lp = self.verify_lp()
+        lp = self.verify_lp(restore_result["lp_restored_data"]["key"])
         self.verify_containers(lp)
         self.verify_components(lp)
         self.verify_collections(lp)
 
-    def verify_lp(self):
+    def verify_lp(self, key):
         """Verify the learning package was restored correctly."""
-        lp = publishing_api.LearningPackage.objects.filter(key=self.lp_key).first()
+        lp = publishing_api.LearningPackage.objects.filter(key=key).first()
         assert lp is not None, "Learning package was not restored."
         assert lp.title == "Library test"
         assert lp.description == ""
@@ -81,6 +85,7 @@ class RestoreLearningPackageCommandTest(TestCase):
             "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b",
             "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471",
             "xblock.v1:video:22601ebd-9da8-430b-9778-cfe059a98568",
+            "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2"
         ]
         for component in component_qs:
             assert component.key in expected_component_keys
@@ -123,6 +128,11 @@ class RestoreLearningPackageCommandTest(TestCase):
                 assert draft_version is not None
                 assert draft_version.version_num == 3
                 assert published_version is None
+            elif component.key == "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2":
+                assert draft_version is not None
+                assert draft_version.version_num == 2
+                assert published_version is not None
+                assert published_version.version_num == 2
             else:
                 assert False, f"Unexpected component key: {component.key}"
 
@@ -140,3 +150,172 @@ class RestoreLearningPackageCommandTest(TestCase):
         ]
         entity_keys = [entity.key for entity in collection.entities.all()]
         assert set(entity_keys) == set(expected_entity_keys)
+
+
+class RestoreLearningPackageTest(TestCase):
+    """Tests for restoring learning packages without using the management command."""
+
+    def test_successful_restore_with_no_command_line(self):
+        """Test restoring a learning package without using the management command."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
+        result = LearningPackageUnzipper(zip_file, key="lib-xx:WGU:LIB_C001").load()
+
+        expected = {
+            "status": "success",
+            "log_file_error": None,
+            "lp_restored_data": {
+                "id": result["lp_restored_data"]["id"],  # Dynamic field
+                "key": "lib-xx:WGU:LIB_C001",
+                "archive_lp_key": "lib:WGU:LIB_C001",
+                "archive_org_key": "WGU",
+                "archive_slug": "LIB_C001",
+                "title": "Library test",
+                "num_containers": 3,
+                "num_components": 7,
+                "num_collections": 1,
+                "num_sections": 1,
+                "num_subsections": 1,
+                "num_units": 1,
+            },
+            "backup_metadata": {
+                "format_version": 1,
+                "created_by": "dormsbee",
+                "created_at": datetime(2025, 10, 5, 18, 23, 45, 180535, tzinfo=timezone.utc),
+                "origin_server": "cms.test",
+            },
+        }
+
+        # Compare dicts except for dynamic fields
+        assert result["status"] == expected["status"]
+        assert result["log_file_error"] is None
+
+        general_info = result["lp_restored_data"]
+        expected_info = expected["lp_restored_data"]
+        metadata_general_info = general_info.pop("backup_metadata", None)
+        metadata_expected_info = expected_info.pop("backup_metadata", None)
+
+        assert general_info == expected_info, f"General info does not match. Got {general_info}"
+        assert metadata_general_info == metadata_expected_info, f"Meta info does not match. Got {metadata_general_info}"
+
+        lp = publishing_api.LearningPackage.objects.filter(key="lib-xx:WGU:LIB_C001").first()
+        assert lp is not None, "Learning package was not restored."
+
+    def test_successful_restore_with_staged_key(self):
+        """Test restoring a learning package with a staged key."""
+        user = UserType.objects.create_user(username='lp_user', password='12345')
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
+        result = LearningPackageUnzipper(zip_file, user=user).load()
+
+        assert result["status"] == "success"
+        assert result["lp_restored_data"] is not None
+        restored_key = result["lp_restored_data"]["key"]
+        archive_key = result["lp_restored_data"]["archive_lp_key"]
+        assert archive_key == "lib:WGU:LIB_C001"
+        assert restored_key.startswith("lp-restore:lp_user:WGU:LIB_C001:")
+
+        lp = publishing_api.LearningPackage.objects.filter(key=restored_key).first()
+        assert lp is not None, "Learning package with staged key was not restored."
+
+    def test_restore_with_missing_learning_package_file(self):
+        """Test restoring a learning package with a missing learning_package.toml file."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/missing_lp_file"))
+        result = LearningPackageUnzipper(zip_file).load()
+
+        assert result["status"] == "error"
+        assert result["lp_restored_data"] is None
+        assert result["log_file_error"] is not None
+        log_content = result["log_file_error"].getvalue()
+        assert "Missing learning package file." in log_content
+        assert "Missing required learning_package.toml in archive." not in log_content
+
+    def test_error_preliminary_check(self):
+        """Test that preliminary check catches missing learning_package.toml."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/missing_lp_file"))
+        unzipper = LearningPackageUnzipper(zip_file)
+        errors, _ = unzipper.check_mandatory_files()
+
+        assert len(errors) == 1
+        assert errors[0]["file"] == "package.toml"
+        assert errors[0]["errors"] == "Missing learning package file."
+
+    def test_error_learning_package_missing_key(self):
+        """Test restoring a learning package with a learning_package.toml missing the 'key' field."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
+
+        # Mock parse_learning_package_toml to return a dict without 'key'
+        with patch(
+            "openedx_learning.apps.authoring.backup_restore.zipper.parse_learning_package_toml",
+            return_value={
+                "learning_package": {
+                    "title": "Library test",
+                    "description": "",
+                    "created": "2025-09-03T17:50:59.536190Z",
+                    "updated": "2025-09-03T17:50:59.536190Z",
+                },
+                "meta": {
+                    "format_version": 1,
+                    "created_by": "dormsbee",
+                    "created_at": "2025-09-03T17:50:59.536190Z",
+                    "origin_server": "cms.test",
+                },
+            },
+        ):
+            result = LearningPackageUnzipper(zip_file).load()
+
+        assert result["status"] == "error"
+        assert result["lp_restored_data"] is None
+        assert result["log_file_error"] is not None
+        log_content = result["log_file_error"].getvalue()
+        expected_error = "Errors encountered during restore:\npackage.toml learning package section: {'key':"
+        assert expected_error in log_content
+
+    def test_error_no_metadata_section(self):
+        """Test restoring a learning package with a learning_package.toml missing the 'meta' section."""
+        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
+
+        # Mock parse_learning_package_toml to return a dict without 'meta'
+        with patch(
+            "openedx_learning.apps.authoring.backup_restore.zipper.parse_learning_package_toml",
+            return_value={
+                "learning_package": {
+                    "title": "Library test",
+                    "key": "lib:WGU:LIB_C001",
+                    "description": "",
+                    "created": "2025-09-03T17:50:59.536190Z",
+                    "updated": "2025-09-03T17:50:59.536190Z",
+                }
+            },
+        ):
+            result = LearningPackageUnzipper(zip_file).load()
+
+        assert result["status"] == "error"
+        assert result["lp_restored_data"] is None
+        assert result["log_file_error"] is not None
+        log_content = result["log_file_error"].getvalue()
+        expected_error = "Errors encountered during restore:\npackage.toml meta section: {'non_field_errors': [Er"
+        assert expected_error in log_content
+
+
+class RestoreUtilitiesTest(TestCase):
+    """Tests for utility functions used in the restore process."""
+
+    def test_generate_staged_lp_key(self):
+        """Test generating a staged learning package key."""
+
+        user_mock = type("User", (), {"username": "dan"})
+        lp_key = "lib:WGU:LIB_C001"
+        staged_key = generate_staged_lp_key(lp_key, user_mock)
+
+        assert staged_key.startswith("lp-restore:dan:WGU:LIB_C001:")
+        parts = staged_key.split(":")
+        assert len(parts) == 5
+        timestamp_part = parts[-1]
+        assert timestamp_part.isdigit()
+
+    def test_error_generate_staged_lp_key_invalid_lp_key(self):
+        """Test that generating a staged key with an invalid lp_key raises ValueError."""
+        user_mock = type("User", (), {"username": "dan"})
+        invalid_lp_key = "invalid-key-format"
+        with self.assertRaises(ValueError) as context:
+            generate_staged_lp_key(invalid_lp_key, user_mock)
+        assert "Invalid learning package key" in str(context.exception)

@@ -3,12 +3,16 @@ This module provides functionality to create a zip file containing the learning 
 including a TOML representation of the learning package and its entities.
 """
 import hashlib
+import time
 import zipfile
 from collections import defaultdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, TypedDict
+from typing import Any, List, Literal, Optional, Tuple
 
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
 from django.utils.text import slugify
@@ -30,6 +34,8 @@ from openedx_learning.apps.authoring.backup_restore.serializers import (
     ComponentVersionSerializer,
     ContainerSerializer,
     ContainerVersionSerializer,
+    LearningPackageMetadataSerializer,
+    LearningPackageSerializer,
 )
 from openedx_learning.apps.authoring.backup_restore.toml import (
     parse_collection_toml,
@@ -47,12 +53,7 @@ from openedx_learning.apps.authoring.subsections import api as subsections_api
 from openedx_learning.apps.authoring.units import api as units_api
 
 TOML_PACKAGE_NAME = "package.toml"
-
-
-class ComponentDefaults(TypedDict):
-    content_to_replace: dict[str, int | bytes | None]
-    created: datetime
-    created_by: Optional[int]
+DEFAULT_USERNAME = "command"
 
 
 def slugify_hashed_filename(identifier: str) -> str:
@@ -392,9 +393,89 @@ class LearningPackageZipper:
                 )
 
 
+@dataclass
+class RestoreLearningPackageData:
+    """
+    Data about the restored learning package.
+    """
+    id: int  # The ID of the restored learning package
+    key: str  # The key of the restored learning package (may be different if staged)
+    archive_lp_key: str  # The original key from the archive
+    archive_org_key: str  # The original organization key from the archive
+    archive_slug: str  # The original slug from the archive
+    title: str
+    num_containers: int
+    num_sections: int
+    num_subsections: int
+    num_units: int
+    num_components: int
+    num_collections: int
+
+
+@dataclass
+class BackupMetadata:
+    """
+    Metadata about the backup operation.
+    """
+    format_version: int
+    created_at: str
+    created_by: str | None = None
+    original_server: str | None = None
+
+
+@dataclass
+class RestoreResult:
+    """
+    Result of the restore operation.
+    """
+    status: Literal["success", "error"]
+    log_file_error: StringIO | None = None
+    lp_restored_data: RestoreLearningPackageData | None = None
+    backup_metadata: BackupMetadata | None = None
+
+
+def unpack_lp_key(lp_key: str) -> tuple[str, str]:
+    """
+    Unpack a learning package key into its components.
+    """
+    parts = lp_key.split(":")
+    if len(parts) < 3:
+        raise ValueError(f"Invalid learning package key: {lp_key}")
+    _, org_key, lp_slug = parts[:3]
+    return org_key, lp_slug
+
+
+def generate_staged_lp_key(archive_lp_key: str, user: UserType) -> str:
+    """
+    Generate a staged learning package key based on the given base key.
+
+    Arguments:
+        archive_lp_key (str): The original learning package key from the archive.
+        user (UserType | None): The user performing the restore operation.
+
+    Example:
+        Input:  "lib:WGU:LIB_C001"
+        Output: "lp-restore:dave:WGU:LIB_C001:1728575321"
+
+    The timestamp at the end ensures the key is unique.
+    """
+    username = user.username
+    org_key, lp_slug = unpack_lp_key(archive_lp_key)
+    timestamp = int(time.time() * 1000)  # Current time in milliseconds
+    return f"lp-restore:{username}:{org_key}:{lp_slug}:{timestamp}"
+
+
 class LearningPackageUnzipper:
     """
     Handles extraction and restoration of learning package data from a zip archive.
+
+    Args:
+        zipf (zipfile.ZipFile): The zip file containing the learning package data.
+        user (UserType | None): The user performing the restore operation. Not necessarily the creator.
+        generate_new_key (bool): Whether to generate a new key for the restored learning package.
+
+    Returns:
+        dict[str, Any]: The result of the restore operation, including any errors encountered.
 
     Responsibilities:
       - Parse and organize files from the zip structure.
@@ -402,12 +483,14 @@ class LearningPackageUnzipper:
       - Ensure atomicity of the restore process.
 
     Usage:
-        unzipper = LearningPackageUnzipper()
-        summary = unzipper.load("/path/to/backup.zip")
+        unzipper = LearningPackageUnzipper(zip_file)
+        result = unzipper.load()
     """
 
-    def __init__(self, zipf: zipfile.ZipFile) -> None:
+    def __init__(self, zipf: zipfile.ZipFile, key: str | None = None, user: UserType | None = None):
         self.zipf = zipf
+        self.user = user
+        self.lp_key = key  # If provided, use this key for the restored learning package
         self.utc_now: datetime = datetime.now(timezone.utc)
         self.component_types_cache: dict[tuple[str, str], ComponentType] = {}
         self.errors: list[dict[str, Any]] = []
@@ -417,6 +500,7 @@ class LearningPackageUnzipper:
         self.subsections_map_by_key: dict[str, Any] = {}
         self.sections_map_by_key: dict[str, Any] = {}
         self.all_publishable_entities_keys: set[str] = set()
+        self.all_published_entities_versions: set[tuple[str, int]] = set()  # To track published entity versions
 
     # --------------------------
     # Public API
@@ -425,12 +509,25 @@ class LearningPackageUnzipper:
     @transaction.atomic
     def load(self) -> dict[str, Any]:
         """Extracts and restores all objects from the ZIP archive in an atomic transaction."""
-        organized_files = self._get_organized_file_list(self.zipf.namelist())
 
-        if not organized_files["learning_package"]:
-            raise FileNotFoundError(f"Missing required {TOML_PACKAGE_NAME} in archive.")
+        # Step 1: Validate presence of package.toml and basic structure
+        _, organized_files = self.check_mandatory_files()
+        if self.errors:
+            # Early return if preliminary checks fail since mandatory files are missing
+            result = RestoreResult(
+                status="error",
+                log_file_error=self._write_errors(),  # return a StringIO with the errors
+                lp_restored_data=None,
+                backup_metadata=None,
+            )
+            return asdict(result)
 
-        learning_package = self._load_learning_package(organized_files["learning_package"])
+        # Step 2: Extract and validate learning package, entities and collections
+        # Errors are collected and reported at the end
+        # No saving to DB happens until all validations pass
+        learning_package_validated = self._extract_learning_package(organized_files["learning_package"])
+        lp_metadata = learning_package_validated.pop("metadata", {})
+
         components_validated = self._extract_entities(
             organized_files["components"], ComponentSerializer, ComponentVersionSerializer
         )
@@ -442,26 +539,96 @@ class LearningPackageUnzipper:
             organized_files["collections"]
         )
 
-        self._write_errors()
-        if not self.errors:
-            self._save(
-                learning_package,
-                components_validated,
-                containers_validated,
-                collections_validated,
-                component_static_files=organized_files["component_static_files"]
+        # Step 3.1: If there are validation errors, return them without saving anything
+        if self.errors:
+            result = RestoreResult(
+                status="error",
+                log_file_error=self._write_errors(),  # return a StringIO with the errors
+                lp_restored_data=None,
+                backup_metadata=None,
             )
+            return asdict(result)
 
-        return {
-            "learning_package": learning_package.key,
-            "containers": len(organized_files["containers"]),
-            "components": len(organized_files["components"]),
-            "collections": len(organized_files["collections"]),
-        }
+        # Step 3.2: Save everything to the DB
+        # All validations passed, we can proceed to save everything
+        # Save the learning package first to get its ID
+        archive_lp_key = learning_package_validated["key"]
+        learning_package = self._save(
+            learning_package_validated,
+            components_validated,
+            containers_validated,
+            collections_validated,
+            component_static_files=organized_files["component_static_files"]
+        )
+
+        num_containers = sum(
+            len(containers_validated.get(container_type, []))
+            for container_type in ["section", "subsection", "unit"]
+        )
+
+        org_key, lp_slug = unpack_lp_key(archive_lp_key)
+        result = RestoreResult(
+            status="success",
+            log_file_error=None,
+            lp_restored_data=RestoreLearningPackageData(
+                id=learning_package.id,
+                key=learning_package.key,
+                archive_lp_key=archive_lp_key,  # The original key from the backup archive
+                archive_org_key=org_key,  # The original organization key from the backup archive
+                archive_slug=lp_slug,  # The original slug from the backup archive
+                title=learning_package.title,
+                num_containers=num_containers,
+                num_sections=len(containers_validated.get("section", [])),
+                num_subsections=len(containers_validated.get("subsection", [])),
+                num_units=len(containers_validated.get("unit", [])),
+                num_components=len(components_validated["components"]),
+                num_collections=len(collections_validated["collections"]),
+            ),
+            backup_metadata=BackupMetadata(
+                format_version=lp_metadata.get("format_version", 1),
+                created_by=lp_metadata.get("created_by"),
+                created_at=lp_metadata.get("created_at"),
+            ) if lp_metadata else None,
+        )
+        return asdict(result)
+
+    def check_mandatory_files(self) -> Tuple[list[dict[str, Any]], dict[str, Any]]:
+        """
+        Check for the presence of mandatory files in the zip archive.
+        So far, the only mandatory file is package.toml.
+        """
+        organized_files = self._get_organized_file_list(self.zipf.namelist())
+
+        if not organized_files["learning_package"]:
+            self.errors.append({"file": TOML_PACKAGE_NAME, "errors": "Missing learning package file."})
+
+        return self.errors, organized_files
 
     # --------------------------
     # Extract + Validate
     # --------------------------
+
+    def _extract_learning_package(self, package_file: str) -> dict[str, Any]:
+        """Extract and validate the learning package TOML file."""
+        toml_content_text = self._read_file_from_zip(package_file)
+        toml_content_dict = parse_learning_package_toml(toml_content_text)
+        lp = toml_content_dict.get("learning_package")
+        lp_metadata = toml_content_dict.get("meta")
+
+        # Validate learning package data
+        lp_serializer = LearningPackageSerializer(data=lp)
+        if not lp_serializer.is_valid():
+            self.errors.append({"file": f"{package_file} learning package section", "errors": lp_serializer.errors})
+
+        # Validate metadata if present
+        lp_metadata_serializer = LearningPackageMetadataSerializer(data=lp_metadata)
+        if not lp_metadata_serializer.is_valid():
+            self.errors.append({"file": f"{package_file} meta section", "errors": lp_metadata_serializer.errors})
+
+        lp_validated = lp_serializer.validated_data if lp_serializer.is_valid() else {}
+        lp_metadata = lp_metadata_serializer.validated_data if lp_metadata_serializer.is_valid() else {}
+        lp_validated["metadata"] = lp_metadata
+        return lp_validated
 
     def _extract_entities(
         self,
@@ -518,9 +685,10 @@ class LearningPackageUnzipper:
                 continue
             toml_content = self._read_file_from_zip(file)
             collection_data = parse_collection_toml(toml_content)
+            collection_data = collection_data.get("collection", {})
             serializer = CollectionSerializer(data={"created_by": None, **collection_data})
             if not serializer.is_valid():
-                self.errors.append({"file": file, "errors": serializer.errors})
+                self.errors.append({"file": f"{file} collection section", "errors": serializer.errors})
                 continue
             collection_validated = serializer.validated_data
             entities_list = collection_validated["entities"]
@@ -540,25 +708,42 @@ class LearningPackageUnzipper:
 
     def _save(
         self,
-        learning_package: LearningPackage,
+        learning_package: dict[str, Any],
         components: dict[str, Any],
         containers: dict[str, Any],
         collections: dict[str, Any],
         *,
         component_static_files: dict[str, List[str]]
-    ) -> None:
+    ) -> LearningPackage:
         """Persist all validated entities in two phases: published then drafts."""
 
-        with publishing_api.bulk_draft_changes_for(learning_package.id):
-            self._save_components(learning_package, components, component_static_files)
-            self._save_units(learning_package, containers)
-            self._save_subsections(learning_package, containers)
-            self._save_sections(learning_package, containers)
-            self._save_collections(learning_package, collections)
-            publishing_api.publish_all_drafts(learning_package.id)
+        # Important: If not using a specific LP key, generate a temporary one
+        # We cannot use the original key because it may generate security issues
+        if not self.lp_key:
+            # Generate a tmp key for the staged learning package
+            if not self.user:
+                raise ValueError("User is required to create lp_key")
+            learning_package["key"] = generate_staged_lp_key(
+                archive_lp_key=learning_package["key"],
+                user=self.user
+            )
+        else:
+            learning_package["key"] = self.lp_key
 
-        with publishing_api.bulk_draft_changes_for(learning_package.id):
+        learning_package_obj = publishing_api.create_learning_package(**learning_package)
+
+        with publishing_api.bulk_draft_changes_for(learning_package_obj.id):
+            self._save_components(learning_package_obj, components, component_static_files)
+            self._save_units(learning_package_obj, containers)
+            self._save_subsections(learning_package_obj, containers)
+            self._save_sections(learning_package_obj, containers)
+            self._save_collections(learning_package_obj, collections)
+            publishing_api.publish_all_drafts(learning_package_obj.id)
+
+        with publishing_api.bulk_draft_changes_for(learning_package_obj.id):
             self._save_draft_versions(components, containers, component_static_files)
+
+        return learning_package_obj
 
     def _save_collections(self, learning_package, collections):
         """Save collections and their entities."""
@@ -582,6 +767,9 @@ class LearningPackageUnzipper:
             entity_key = valid_published.pop("entity_key")
             version_num = valid_published["version_num"]  # Should exist, validated earlier
             content_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
+            self.all_published_entities_versions.add(
+                (entity_key, version_num)
+            )  # Track published version
             components_api.create_next_component_version(
                 self.components_map_by_key[entity_key].publishable_entity.id,
                 content_to_replace=content_to_replace,
@@ -599,8 +787,14 @@ class LearningPackageUnzipper:
         for valid_published in containers.get("unit_published", []):
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.components_map_by_key)
+            self.all_published_entities_versions.add(
+                (entity_key, valid_published.get('version_num'))
+            )  # Track published version
             units_api.create_next_unit_version(
-                self.units_map_by_key[entity_key], components=children, **valid_published
+                self.units_map_by_key[entity_key],
+                force_version_num=valid_published.pop("version_num", None),
+                components=children,
+                **valid_published
             )
 
     def _save_subsections(self, learning_package, containers):
@@ -613,8 +807,14 @@ class LearningPackageUnzipper:
         for valid_published in containers.get("subsection_published", []):
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.units_map_by_key)
+            self.all_published_entities_versions.add(
+                (entity_key, valid_published.get('version_num'))
+            )  # Track published version
             subsections_api.create_next_subsection_version(
-                self.subsections_map_by_key[entity_key], units=children, **valid_published
+                self.subsections_map_by_key[entity_key],
+                units=children,
+                force_version_num=valid_published.pop("version_num", None),
+                **valid_published
             )
 
     def _save_sections(self, learning_package, containers):
@@ -627,8 +827,14 @@ class LearningPackageUnzipper:
         for valid_published in containers.get("section_published", []):
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, self.subsections_map_by_key)
+            self.all_published_entities_versions.add(
+                (entity_key, valid_published.get('version_num'))
+            )  # Track published version
             sections_api.create_next_section_version(
-                self.sections_map_by_key[entity_key], subsections=children, **valid_published
+                self.sections_map_by_key[entity_key],
+                subsections=children,
+                force_version_num=valid_published.pop("version_num", None),
+                **valid_published
             )
 
     def _save_draft_versions(self, components, containers, component_static_files):
@@ -636,6 +842,8 @@ class LearningPackageUnzipper:
         for valid_draft in components.get("components_drafts", []):
             entity_key = valid_draft.pop("entity_key")
             version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            if self._is_version_already_exists(entity_key, version_num):
+                continue
             content_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
             components_api.create_next_component_version(
                 self.components_map_by_key[entity_key].publishable_entity.id,
@@ -649,6 +857,9 @@ class LearningPackageUnzipper:
 
         for valid_draft in containers.get("unit_drafts", []):
             entity_key = valid_draft.pop("entity_key")
+            version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            if self._is_version_already_exists(entity_key, version_num):
+                continue
             children = self._resolve_children(valid_draft, self.components_map_by_key)
             units_api.create_next_unit_version(
                 self.units_map_by_key[entity_key],
@@ -659,6 +870,9 @@ class LearningPackageUnzipper:
 
         for valid_draft in containers.get("subsection_drafts", []):
             entity_key = valid_draft.pop("entity_key")
+            version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            if self._is_version_already_exists(entity_key, version_num):
+                continue
             children = self._resolve_children(valid_draft, self.units_map_by_key)
             subsections_api.create_next_subsection_version(
                 self.subsections_map_by_key[entity_key],
@@ -669,6 +883,9 @@ class LearningPackageUnzipper:
 
         for valid_draft in containers.get("section_drafts", []):
             entity_key = valid_draft.pop("entity_key")
+            version_num = valid_draft["version_num"]  # Should exist, validated earlier
+            if self._is_version_already_exists(entity_key, version_num):
+                continue
             children = self._resolve_children(valid_draft, self.subsections_map_by_key)
             sections_api.create_next_section_version(
                 self.sections_map_by_key[entity_key],
@@ -681,31 +898,35 @@ class LearningPackageUnzipper:
     # Utilities
     # --------------------------
 
-    def _write_errors(self) -> str | None:
-        """
-        Writes restore errors to a timestamped log file and prints them to console.
+    def _format_errors(self) -> str:
+        """Return formatted error content as a string."""
+        if not self.errors:
+            return ""
+        lines = [f"{err['file']}: {err['errors']}" for err in self.errors]
+        return "Errors encountered during restore:\n" + "\n".join(lines) + "\n"
 
-        Args:
-            errors (list[dict]): List of {"file": ..., "errors": ...} dicts.
-            log_dir (str): Directory to save the log file (default current dir).
+    def _write_errors(self) -> StringIO | None:
         """
-        errors = self.errors
-        if not errors:
+        Write errors to a StringIO buffer.
+        """
+        content = self._format_errors()
+        if not content:
             return None
+        return StringIO(content)
 
-        # Create timestamped log filename
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        log_filename = f"restore_{timestamp}.log"
+    def _is_version_already_exists(self, entity_key: str, version_num: int) -> bool:
+        """
+        Check if a version already exists for a given entity key and version number.
 
-        # Format each error on a separate line
-        lines = [f"{err['file']}: {err['errors']}" for err in errors]
-        content = "Errors encountered during restore:\n" + "\n".join(lines) + "\n"
-
-        # Write to file
-        with open(log_filename, "w", encoding="utf-8") as f:
-            f.write(content)
-
-        return log_filename
+        Note:
+            Skip creating draft if this version is already published
+            Why? Because the version itself is already created and
+            we don't want to create duplicate versions.
+            Otherwise, we will raise an IntegrityError on PublishableEntityVersion
+            due to unique constraints between publishable_entity and version_num.
+        """
+        identifier = (entity_key, version_num)
+        return identifier in self.all_published_entities_versions
 
     def _resolve_static_files(
             self,
@@ -729,22 +950,14 @@ class LearningPackageUnzipper:
         children_keys = entity_data.pop("children", [])
         return [lookup_map[key] for key in children_keys if key in lookup_map]
 
-    def _load_learning_package(self, package_file: str) -> LearningPackage:
-        """Load and persist the learning package TOML file."""
-        toml_content = self._read_file_from_zip(package_file)
-        data = parse_learning_package_toml(toml_content)
-        return publishing_api.create_learning_package(
-            key=data["key"],
-            title=data["title"],
-            description=data["description"],
-        )
-
     def _load_entity_data(
         self, entity_file: str
     ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
         """Load entity data and its versions from TOML."""
-        content = self._read_file_from_zip(entity_file)
-        entity_data, version_data = parse_publishable_entity_toml(content)
+        entity_toml_txt = self._read_file_from_zip(entity_file)
+        entity_toml_dict = parse_publishable_entity_toml(entity_toml_txt)
+        entity_data = entity_toml_dict.get("entity", {})
+        version_data = entity_toml_dict.get("version", [])
         return entity_data, *self._get_versions_to_write(version_data, entity_data)
 
     def _validate_versions(self, entity_data, draft, published, serializer_cls, *, file) -> dict[str, Any]:
@@ -784,15 +997,21 @@ class LearningPackageUnzipper:
 
         for path in file_paths:
             if path.endswith("/"):
+                # Skip directories
                 continue
             if path == TOML_PACKAGE_NAME:
                 organized["learning_package"] = path
-            elif path.startswith("entities/") and str(Path(path).parent) == "entities":
+            elif path.startswith("entities/") and str(Path(path).parent) == "entities" and path.endswith(".toml"):
+                # Top-level entity TOML files are considered containers
                 organized["containers"].append(path)
             elif path.startswith("entities/"):
                 if path.endswith(".toml"):
+                    # Component entity TOML files
                     organized["components"].append(path)
                 else:
+                    # Component static files
+                    # Path structure: entities/<namespace>/<type>/<component_id>/component_versions/<version>/static/...
+                    # Example: entities/xblock.v1/html/my_component_123456/component_versions/v1/static/...
                     component_key = Path(path).parts[1:4]  # e.g., ['xblock.v1', 'html', 'my_component_123456']
                     num_version = Path(path).parts[5] if len(Path(path).parts) > 5 else "v1"  # e.g., 'v1'
                     if len(component_key) == 3:
@@ -801,7 +1020,8 @@ class LearningPackageUnzipper:
                         organized["component_static_files"][component_identifier].append(path)
                     else:
                         self.errors.append({"file": path, "errors": "Invalid component static file path structure."})
-            elif path.startswith("collections/"):
+            elif path.startswith("collections/") and path.endswith(".toml"):
+                # Collection TOML files
                 organized["collections"].append(path)
         return organized
 

@@ -2,6 +2,7 @@
 Django management commands to handle backup learning packages (WIP)
 """
 import logging
+import time
 
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
@@ -28,8 +29,10 @@ class Command(BaseCommand):
         if not file_name.lower().endswith(".zip"):
             raise CommandError("Output file name must end with .zip")
         try:
+            start_time = time.time()
             create_zip_file(lp_key, file_name)
-            message = f'{lp_key} written to {file_name}'
+            elapsed = time.time() - start_time
+            message = f'{lp_key} written to {file_name} (create_zip_file: {elapsed:.2f} seconds)'
             self.stdout.write(self.style.SUCCESS(message))
         except LearningPackage.DoesNotExist as exc:
             message = f"Learning package with key {lp_key} not found"

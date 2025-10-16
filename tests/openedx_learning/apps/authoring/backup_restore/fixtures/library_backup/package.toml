@@ -1,4 +1,8 @@
-# Datetime of the export: 2025-09-24 18:00:38.451670+00:00
+[meta]
+format_version = 1
+created_by = "dormsbee"
+created_at = 2025-10-05T18:23:45.180535Z
+origin_server = "cms.test"
 
 [learning_package]
 title = "Library test"
