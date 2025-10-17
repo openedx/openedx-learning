@@ -53,6 +53,8 @@ def toml_learning_package(
     metadata.add("format_version", format_version)
     if user:
         metadata.add("created_by", user.username)
+        metadata.add("created_by_email", user.email)
+        metadata.add("created_by_full_name", user.get_full_name())
     metadata.add("created_at", timestamp)
     if origin_server:
         metadata.add("origin_server", origin_server)

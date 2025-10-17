@@ -4,6 +4,7 @@ Django management commands to handle backup learning packages (WIP)
 import logging
 import time
 
+from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
@@ -22,15 +23,26 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('lp_key', type=str, help='The key of the LearningPackage to dump')
         parser.add_argument('file_name', type=str, help='The name of the output zip file')
+        parser.add_argument(
+            '--username',
+            type=str,
+            help='The username of the user performing the backup operation.',
+            default=None
+        )
 
     def handle(self, *args, **options):
         lp_key = options['lp_key']
         file_name = options['file_name']
+        username = options['username']
         if not file_name.lower().endswith(".zip"):
             raise CommandError("Output file name must end with .zip")
         try:
+            # Get the user performing the operation
+            user = None
+            if username:
+                user = UserType.objects.get(username=username)
             start_time = time.time()
-            create_zip_file(lp_key, file_name)
+            create_zip_file(lp_key, file_name, user=user)
             elapsed = time.time() - start_time
             message = f'{lp_key} written to {file_name} (create_zip_file: {elapsed:.2f} seconds)'
             self.stdout.write(self.style.SUCCESS(message))

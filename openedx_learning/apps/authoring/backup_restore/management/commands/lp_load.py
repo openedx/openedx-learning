@@ -30,7 +30,7 @@ class Command(BaseCommand):
             raise CommandError("Input file name must end with .zip")
         try:
             start_time = time.time()
-            # Create a tmp user to pass to the load function
+            # Get the user performing the operation
             user = UserType.objects.get(username=username)
 
             result = load_learning_package(file_name, user=user)
