@@ -420,6 +420,8 @@ class BackupMetadata:
     format_version: int
     created_at: str
     created_by: str | None = None
+    created_by_email: str | None = None
+    created_by_full_name: str | None = None
     original_server: str | None = None
 
 
@@ -587,7 +589,10 @@ class LearningPackageUnzipper:
             backup_metadata=BackupMetadata(
                 format_version=lp_metadata.get("format_version", 1),
                 created_by=lp_metadata.get("created_by"),
+                created_by_email=lp_metadata.get("created_by_email"),
+                created_by_full_name=lp_metadata.get("created_by_full_name"),
                 created_at=lp_metadata.get("created_at"),
+                original_server=lp_metadata.get("origin_server"),
             ) if lp_metadata else None,
         )
         return asdict(result)

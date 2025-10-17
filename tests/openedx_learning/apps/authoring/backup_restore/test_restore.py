@@ -15,8 +15,8 @@ from openedx_learning.lib.test_utils import TestCase
 from test_utils.zip_file_utils import folder_to_inmemory_zip
 
 
-class RestoreLearningPackageCommandTest(TestCase):
-    """Tests for the lp_load management command."""
+class RestoreTestCase(TestCase):
+    """Base test case for restore tests."""
 
     def setUp(self):
         super().setUp()
@@ -24,6 +24,10 @@ class RestoreLearningPackageCommandTest(TestCase):
         self.zip_file = folder_to_inmemory_zip(self.fixtures_folder)
         self.lp_key = "lib:WGU:LIB_C001"
         self.user = UserType.objects.create_user(username='lp_user', password='12345')
+
+
+class RestoreLearningPackageCommandTest(RestoreTestCase):
+    """Tests for the lp_load management command."""
 
     @patch("openedx_learning.apps.authoring.backup_restore.api.load_learning_package")
     def test_restore_command(self, mock_load_learning_package):
@@ -152,13 +156,12 @@ class RestoreLearningPackageCommandTest(TestCase):
         assert set(entity_keys) == set(expected_entity_keys)
 
 
-class RestoreLearningPackageTest(TestCase):
+class RestoreLearningPackageTest(RestoreTestCase):
     """Tests for restoring learning packages without using the management command."""
 
     def test_successful_restore_with_no_command_line(self):
         """Test restoring a learning package without using the management command."""
-        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
-        result = LearningPackageUnzipper(zip_file, key="lib-xx:WGU:LIB_C001").load()
+        result = LearningPackageUnzipper(self.zip_file, key="lib-xx:WGU:LIB_C001").load()
 
         expected = {
             "status": "success",
@@ -179,7 +182,7 @@ class RestoreLearningPackageTest(TestCase):
             },
             "backup_metadata": {
                 "format_version": 1,
-                "created_by": "dormsbee",
+                "created_by": "lp_user",
                 "created_at": datetime(2025, 10, 5, 18, 23, 45, 180535, tzinfo=timezone.utc),
                 "origin_server": "cms.test",
             },
@@ -202,9 +205,7 @@ class RestoreLearningPackageTest(TestCase):
 
     def test_successful_restore_with_staged_key(self):
         """Test restoring a learning package with a staged key."""
-        user = UserType.objects.create_user(username='lp_user', password='12345')
-        zip_file = folder_to_inmemory_zip(os.path.join(os.path.dirname(__file__), "fixtures/library_backup"))
-        result = LearningPackageUnzipper(zip_file, user=user).load()
+        result = LearningPackageUnzipper(self.zip_file, user=self.user).load()
 
         assert result["status"] == "success"
         assert result["lp_restored_data"] is not None
@@ -254,7 +255,7 @@ class RestoreLearningPackageTest(TestCase):
                 },
                 "meta": {
                     "format_version": 1,
-                    "created_by": "dormsbee",
+                    "created_by": "lp_user",
                     "created_at": "2025-09-03T17:50:59.536190Z",
                     "origin_server": "cms.test",
                 },
@@ -294,6 +295,24 @@ class RestoreLearningPackageTest(TestCase):
         log_content = result["log_file_error"].getvalue()
         expected_error = "Errors encountered during restore:\npackage.toml meta section: {'non_field_errors': [Er"
         assert expected_error in log_content
+
+    def test_success_metadata_using_user_context(self):
+        """Test that metadata is correctly extracted from learning_package.toml."""
+        restore_result = LearningPackageUnzipper(self.zip_file, user=self.user).load()
+        metadata = restore_result.get("backup_metadata", {})
+
+        assert restore_result["status"] == "success"
+
+        expected_metadata = {
+            "format_version": 1,
+            "created_by": "lp_user",
+            "created_by_full_name": "Learning Package User",
+            "created_by_email": "lp_user@example.com",
+            "created_at": datetime(2025, 10, 5, 18, 23, 45, 180535, tzinfo=timezone.utc),
+            "original_server": "cms.test",
+        }
+
+        assert metadata == expected_metadata
 
 
 class RestoreUtilitiesTest(TestCase):
