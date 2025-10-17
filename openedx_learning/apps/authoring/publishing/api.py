@@ -620,7 +620,6 @@ def set_draft_version(
         # The actual update of the Draft model is here. Everything after this
         # block is bookkeeping in our DraftChangeLog.
         draft.version_id = publishable_entity_version_pk
-        draft.save()
 
         # Check to see if we're inside a context manager for an active
         # DraftChangeLog (i.e. what happens if the caller is using the public
@@ -630,12 +629,14 @@ def set_draft_version(
             learning_package_id
         )
         if active_change_log:
-            _add_to_existing_draft_change_log(
+            draft.draft_log_record = _add_to_existing_draft_change_log(
                 active_change_log,
                 draft.entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
+            draft.save()
+
             # We explicitly *don't* create container side effects here because
             # there may be many changes in this DraftChangeLog, some of which
             # haven't been made yet. It wouldn't make sense to create a side
@@ -654,12 +655,13 @@ def set_draft_version(
                 changed_at=set_at,
                 changed_by_id=set_by,
             )
-            DraftChangeLogRecord.objects.create(
+            draft.draft_log_record = DraftChangeLogRecord.objects.create(
                 draft_change_log=change_log,
                 entity_id=draft.entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
+            draft.save()
             _create_side_effects_for_change_log(change_log)
 
 def _add_to_existing_draft_change_log(
@@ -991,6 +993,82 @@ def hash_for_branch_item(
 
     digest = create_hash_digest(summary_text.encode(), num_bytes=4)
     already_computed_hashes[branch_item] = digest
+
+    return digest
+
+
+def hash_for_branch_item(
+    log_record: DraftChangeLogRecord | PublishLogRecord,
+    changed_records: dict[DraftChangeLogRecord, list[Draft]] | dict[PublishLogRecord, list[Published]],
+    already_computed_hashes: dict[DraftChangeLogRecord, str] | dict[PublishLogRecord, str],
+) -> str:
+    """
+    Calculate the dependencies_hash_digest for a log record.
+
+    This will recursively go through the dependencies of the Draft or Published
+    altered by a DraftChangeLogRecord or a PublishLogRecord.
+
+    We have to be extremely careful about changing the signature or behavior of
+    this function, as it's used in the 0010_backfill_dependencies data migration
+    that will be used to upgrade people from Teak to future versions.
+
+    Args:
+        log_record: The DraftChangeLogRecord or PublishChangeLogRecord entry we
+            want to recalculate the dependencies hash for.
+        changed_items: A dict mapping Draft or Published to a list of Dependency
+            Draft or Published. The keys represent the full set of what has
+            changed in the change log (DraftChangeLog or PublishLog), and
+            includes things that were added as side-effects. The value lists
+            in this dict can include things that *didn't* change, if they happen
+            to be dependencies of things that did change.
+        already_computed_hashes: A cache to ensure we don't recompute the same
+            nodes over and over again.
+
+    Note that we are doing potentially re-doing calculations for Draft and
+    Published, when that data already exists in DraftChangeLogRecord or
+    PublishLogRecord. This is intentional. The dependencies_hash_digest is a late
+    addition to the data model. We will backfill all existing Draft and Published
+    entries so that the DraftChangeLogRecord and PublishChangeLogRecord that they
+    point to will have dependencies_hash_digest properly set. However, we're not
+    going to go back through the history and re-compute the state for every log
+    record in the database, meaning that sometimes an old container's PublishLogRecord
+    """
+    if log_record in already_computed_hashes:
+        return already_computed_hashes[log_record]
+
+    # Base case #1: The log_record is a dependency of something that was
+    # affected by a change, but the dependency itself did not change in any way
+    # (neither directly, nor as a side-effect).
+    #
+    # Example: A Unit has two Components. One of the Components changed, forcing
+    # us to recalculate the dependencies_hash_digest for that Unit. Doing that
+    # recalculation requires us to fetch the dependencies_hash_digest of the
+    # unchanged child as well.
+    #
+    # These are the only values for dependencies_hash_digest that we can trust,
+    # because we know that the change log (DraftChangeLog or PublishLog) being
+    # processed right now will not alter them.
+    if log_record not in changed_records:
+        return log_record.dependencies_hash_digest
+
+    # Base case #2: If there are no dependencies, the hash digest is set to ''.
+    # Note that it's possible that something that used to have a hash digest to
+    # get reset to '' if those dependencies are later removed.
+    dependencies = changed_records[log_record]
+    if not dependencies:
+        return ''
+
+    # Normal recursive case
+    dependencies.sort(key=lambda d: d.version.uuid)
+    dep_state_entries = [
+        f"{dep_record.version.uuid}:"
+        f"{hash_for_branch_item(dep_record, changed_records, already_computed_hashes)}"
+        for dep_record in dependencies
+    ]
+    summary_text = "\n".join(dep_state_entries)
+
+    digest = create_hash_digest(summary_text.encode(), num_bytes=4)
+    already_computed_hashes[log_record] = digest
 
     return digest
 
