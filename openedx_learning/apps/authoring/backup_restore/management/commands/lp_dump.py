@@ -4,7 +4,7 @@ Django management commands to handle backup learning packages (WIP)
 import logging
 import time
 
-from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
+from django.contrib.auth import get_user_model
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
@@ -12,6 +12,9 @@ from openedx_learning.apps.authoring.backup_restore.api import create_zip_file
 from openedx_learning.apps.authoring.publishing.api import LearningPackage
 
 logger = logging.getLogger(__name__)
+
+
+User = get_user_model()
 
 
 class Command(BaseCommand):
@@ -40,7 +43,7 @@ class Command(BaseCommand):
             # Get the user performing the operation
             user = None
             if username:
-                user = UserType.objects.get(username=username)
+                user = User.objects.get(username=username)
             start_time = time.time()
             create_zip_file(lp_key, file_name, user=user)
             elapsed = time.time() - start_time

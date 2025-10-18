@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from io import StringIO
 from unittest.mock import patch
 
-from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
+from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
@@ -13,6 +13,8 @@ from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.lib.test_utils import TestCase
 from test_utils.zip_file_utils import folder_to_inmemory_zip
+
+User = get_user_model()
 
 
 class RestoreTestCase(TestCase):
@@ -23,7 +25,7 @@ class RestoreTestCase(TestCase):
         self.fixtures_folder = os.path.join(os.path.dirname(__file__), "fixtures/library_backup")
         self.zip_file = folder_to_inmemory_zip(self.fixtures_folder)
         self.lp_key = "lib:WGU:LIB_C001"
-        self.user = UserType.objects.create_user(username='lp_user', password='12345')
+        self.user = User.objects.create_user(username='lp_user', password='12345')
 
 
 class RestoreLearningPackageCommandTest(RestoreTestCase):

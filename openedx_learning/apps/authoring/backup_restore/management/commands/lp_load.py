@@ -4,13 +4,15 @@ Django management commands to handle restore learning packages (WIP)
 import logging
 import time
 
-from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
+from django.contrib.auth import get_user_model
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
 from openedx_learning.apps.authoring.backup_restore.api import load_learning_package
 
 logger = logging.getLogger(__name__)
+
+User = get_user_model()
 
 
 class Command(BaseCommand):
@@ -31,7 +33,7 @@ class Command(BaseCommand):
         try:
             start_time = time.time()
             # Get the user performing the operation
-            user = UserType.objects.get(username=username)
+            user = User.objects.get(username=username)
 
             result = load_learning_package(file_name, user=user)
             duration = time.time() - start_time
