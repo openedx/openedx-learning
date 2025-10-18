@@ -1,6 +1,8 @@
 [meta]
 format_version = 1
-created_by = "dormsbee"
+created_by = "lp_user"
+created_by_full_name = "Learning Package User"
+created_by_email = "lp_user@example.com"
 created_at = 2025-10-05T18:23:45.180535Z
 origin_server = "cms.test"
 

@@ -45,6 +45,8 @@ class LpDumpCommandTestCase(TestCase):
         # Create a user for the test
         cls.user = User.objects.create(
             username="user",
+            first_name="Learning",
+            last_name="Package User",
             email="user@example.com",
         )
 
@@ -221,7 +223,7 @@ class LpDumpCommandTestCase(TestCase):
             out = StringIO()
 
             # Call the management command to dump the learning package
-            call_command("lp_dump", lp_key, file_name, stdout=out)
+            call_command("lp_dump", lp_key, file_name, username=self.user.username, stdout=out)
 
             # Check that the zip file was created
             self.assertTrue(Path(file_name).exists())
@@ -243,6 +245,9 @@ class LpDumpCommandTestCase(TestCase):
                     '[meta]',
                     'format_version = 1',
                     'created_at =',
+                    'created_by = "user"',
+                    'created_by_full_name = "Learning Package User"',
+                    'created_by_email = "user@example.com"',
                 ]
             )
 
