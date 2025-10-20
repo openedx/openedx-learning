@@ -33,7 +33,6 @@ class LearningPackageMetadataSerializer(serializers.Serializer):  # pylint: disa
     format_version = serializers.IntegerField(required=True)
     created_by = serializers.CharField(required=False, allow_null=True)
     created_by_email = serializers.EmailField(required=False, allow_null=True)
-    created_by_full_name = serializers.CharField(required=False, allow_null=True)
     created_at = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
     origin_server = serializers.CharField(required=False, allow_null=True)
 

@@ -308,7 +308,6 @@ class RestoreLearningPackageTest(RestoreTestCase):
         expected_metadata = {
             "format_version": 1,
             "created_by": "lp_user",
-            "created_by_full_name": "Learning Package User",
             "created_by_email": "lp_user@example.com",
             "created_at": datetime(2025, 10, 5, 18, 23, 45, 180535, tzinfo=timezone.utc),
             "original_server": "cms.test",

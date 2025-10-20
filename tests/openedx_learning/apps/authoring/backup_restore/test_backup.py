@@ -246,7 +246,6 @@ class LpDumpCommandTestCase(TestCase):
                     'format_version = 1',
                     'created_at =',
                     'created_by = "user"',
-                    'created_by_full_name = "Learning Package User"',
                     'created_by_email = "user@example.com"',
                 ]
             )
