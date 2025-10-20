@@ -87,8 +87,9 @@ class LearningPackageZipper:
     A class to handle the zipping of learning content for backup and restore.
     """
 
-    def __init__(self, learning_package: LearningPackage):
+    def __init__(self, learning_package: LearningPackage, user: UserType | None = None):
         self.learning_package = learning_package
+        self.user = user
         self.folders_already_created: set[Path] = set()
         self.entities_filenames_already_created: set[str] = set()
         self.utc_now = datetime.now(tz=timezone.utc)
@@ -267,7 +268,7 @@ class LearningPackageZipper:
 
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             # Add the package.toml file
-            package_toml_content: str = toml_learning_package(self.learning_package, self.utc_now)
+            package_toml_content: str = toml_learning_package(self.learning_package, self.utc_now, user=self.user)
             self.add_file_to_zip(zipf, Path(TOML_PACKAGE_NAME), package_toml_content, self.learning_package.updated)
 
             # Add the entities directory
@@ -420,6 +421,7 @@ class BackupMetadata:
     format_version: int
     created_at: str
     created_by: str | None = None
+    created_by_email: str | None = None
     original_server: str | None = None
 
 
@@ -587,7 +589,9 @@ class LearningPackageUnzipper:
             backup_metadata=BackupMetadata(
                 format_version=lp_metadata.get("format_version", 1),
                 created_by=lp_metadata.get("created_by"),
+                created_by_email=lp_metadata.get("created_by_email"),
                 created_at=lp_metadata.get("created_at"),
+                original_server=lp_metadata.get("origin_server"),
             ) if lp_metadata else None,
         )
         return asdict(result)
