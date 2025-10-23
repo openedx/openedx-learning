@@ -958,7 +958,7 @@ class LearningPackageUnzipper:
                 text_content = contents_api.get_or_create_text_content(
                     self.learning_package_id,
                     contents_api.get_or_create_media_type("application/xml").id,
-                    text=str(resolved_files[local_key]),
+                    text=resolved_files[local_key].decode('utf-8'),
                     created=self.utc_now,
                 )
                 resolved_files[local_key] = text_content.id
