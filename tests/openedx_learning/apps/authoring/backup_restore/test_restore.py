@@ -82,6 +82,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert False, f"Unexpected container key: {container.key}"
 
     def verify_components(self, lp):
+        # pylint: disable=too-many-statements
         """Verify the components and their versions were restored correctly."""
         component_qs = components_api.get_components(lp.id)
         expected_component_keys = [
@@ -103,6 +104,12 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert published_version is None
+                # Get the content associated with this component
+                contents = draft_version.componentversion.contents.all()
+                content = contents.first() if contents.exists() else None
+                assert content is not None
+                assert "<drag-and-drop-v2" in content.text
+                assert not content.has_file
             elif component.key == "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37":
                 assert component.component_type.name == "html"
                 assert component.component_type.namespace == "xblock.v1"
