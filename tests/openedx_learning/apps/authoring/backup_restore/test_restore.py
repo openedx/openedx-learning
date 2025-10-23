@@ -110,6 +110,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert content is not None
                 assert "<drag-and-drop-v2" in content.text
                 assert not content.has_file
+                assert str(content.media_type) == "application/vnd.openedx.xblock.v1.drag-and-drop-v2+xml"
             elif component.key == "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37":
                 assert component.component_type.name == "html"
                 assert component.component_type.namespace == "xblock.v1"
