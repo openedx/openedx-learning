@@ -47,6 +47,7 @@ from openedx_learning.apps.authoring.backup_restore.toml import (
 )
 from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.components import api as components_api
+from openedx_learning.apps.authoring.contents import api as contents_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.sections import api as sections_api
 from openedx_learning.apps.authoring.subsections import api as subsections_api
@@ -493,6 +494,7 @@ class LearningPackageUnzipper:
         self.zipf = zipf
         self.user = user
         self.lp_key = key  # If provided, use this key for the restored learning package
+        self.learning_package_id: int | None = None  # Will be set upon restoration
         self.utc_now: datetime = datetime.now(timezone.utc)
         self.component_types_cache: dict[tuple[str, str], ComponentType] = {}
         self.errors: list[dict[str, Any]] = []
@@ -735,6 +737,7 @@ class LearningPackageUnzipper:
             learning_package["key"] = self.lp_key
 
         learning_package_obj = publishing_api.create_learning_package(**learning_package)
+        self.learning_package_id = learning_package_obj.id
 
         with publishing_api.bulk_draft_changes_for(learning_package_obj.id):
             self._save_components(learning_package_obj, components, component_static_files)
@@ -937,16 +940,31 @@ class LearningPackageUnzipper:
             num_version: int,
             entity_key: str,
             static_files_map: dict[str, List[str]]
-    ) -> dict[str, bytes]:
+    ) -> dict[str, bytes | int]:
         """Resolve static file paths into their binary content."""
-        resolved_files: dict[str, bytes] = {}
+        resolved_files: dict[str, bytes | int] = {}
 
-        static_file_key = f"{entity_key}:v{num_version}"  # e.g., "my_component:123:v1"
+        static_file_key = f"{entity_key}:v{num_version}"  # e.g., "xblock.v1:html:my_component_123456:v1"
+        block_type = entity_key.split(":")[1]  # e.g., "html"
         static_files = static_files_map.get(static_file_key, [])
         for static_file in static_files:
             local_key = static_file.split(f"v{num_version}/")[-1]
             with self.zipf.open(static_file, "r") as f:
-                resolved_files[local_key] = f.read()
+                content_bytes = f.read()
+            if local_key == "block.xml":
+                # Special handling for block.xml to ensure
+                # storing the value as a content instance
+                if not self.learning_package_id:
+                    raise ValueError("learning_package_id must be set before resolving static files.")
+                text_content = contents_api.get_or_create_text_content(
+                    self.learning_package_id,
+                    contents_api.get_or_create_media_type(f"application/vnd.openedx.xblock.v1.{block_type}+xml").id,
+                    text=content_bytes.decode("utf-8"),
+                    created=self.utc_now,
+                )
+                resolved_files[local_key] = text_content.id
+            else:
+                resolved_files[local_key] = content_bytes
         return resolved_files
 
     def _resolve_children(self, entity_data: dict[str, Any], lookup_map: dict[str, Any]) -> list[Any]:
