@@ -61,6 +61,7 @@ __all__ = [
     "get_publishable_entities",
     "get_last_publish",
     "get_all_drafts",
+    "get_ready_to_publish_drafts",
     "get_entities_with_unpublished_changes",
     "get_entities_with_unpublished_deletes",
     "publish_all_drafts",
@@ -83,6 +84,7 @@ __all__ = [
     "get_collection_containers",
     "ChildrenEntitiesAction",
     "ContainerEntityListEntry",
+    "ContainerEntityListStructure",
     "ContainerEntityRow",
     "get_entities_in_container",
     "contains_unpublished_changes",
@@ -90,6 +92,7 @@ __all__ = [
     "get_container_children_count",
     "bulk_draft_changes_for",
     "get_container_children_entities_keys",
+    "get_entity_structure",
 ]
 
 
@@ -263,6 +266,26 @@ def get_all_drafts(learning_package_id: int, /) -> QuerySet[Draft]:
     )
 
 
+def get_ready_to_publish_drafts(learning_package_id: int, /) -> QuerySet[Draft]:
+    return (
+        Draft.objects.select_related("entity__published")
+        .filter(entity__learning_package_id=learning_package_id)
+
+        # Exclude entities where the Published version already matches the
+        # Draft version.
+        .exclude(entity__published__version_id=F("version_id"))
+
+        # Account for soft-deletes:
+        # NULL != NULL in SQL, so simply excluding entities where the Draft
+        # and Published versions match will not catch the case where a
+        # soft-delete has been published (i.e. both the Draft and Published
+        # versions are NULL). We need to explicitly check for that case
+        # instead, or else we will re-publish the same soft-deletes over
+        # and over again.
+        .exclude(Q(version__isnull=True) & Q(entity__published__version__isnull=True))
+    )
+
+
 def get_publishable_entities(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
     """
     Get all entities in a learning package.
@@ -332,23 +355,7 @@ def publish_all_drafts(
     """
     Publish everything that is a Draft and is not already published.
     """
-    draft_qset = (
-        Draft.objects.select_related("entity__published")
-        .filter(entity__learning_package_id=learning_package_id)
-
-        # Exclude entities where the Published version already matches the
-        # Draft version.
-        .exclude(entity__published__version_id=F("version_id"))
-
-        # Account for soft-deletes:
-        # NULL != NULL in SQL, so simply excluding entities where the Draft
-        # and Published versions match will not catch the case where a
-        # soft-delete has been published (i.e. both the Draft and Published
-        # versions are NULL). We need to explicitly check for that case
-        # instead, or else we will re-publish the same soft-deletes over
-        # and over again.
-        .exclude(Q(version__isnull=True) & Q(entity__published__version__isnull=True))
-    )
+    draft_qset = get_ready_to_publish_drafts(learning_package_id)
     return publish_from_drafts(
         learning_package_id, draft_qset, message, published_at, published_by
     )
@@ -369,30 +376,6 @@ def publish_from_drafts(
         published_at = datetime.now(tz=timezone.utc)
 
     with atomic():
-        # If the drafts include any containers, we need to auto-publish their descendants:
-        # TODO: this only handles one level deep and would need to be updated to support sections > subsections > units
-
-        # Get the IDs of the ContainerVersion for any Containers whose drafts are slated to be published.
-        container_version_ids = (
-            Container.objects.filter(publishable_entity__draft__in=draft_qset)
-            .values_list("publishable_entity__draft__version__containerversion__pk", flat=True)
-        )
-        if container_version_ids:
-            # We are publishing at least one container. Check if it has any child components that aren't already slated
-            # to be published.
-            unpublished_draft_children = EntityListRow.objects.filter(
-                entity_list__container_versions__pk__in=container_version_ids,
-                entity_version=None,  # Unpinned entities only
-            ).exclude(
-                entity__draft__version=F("entity__published__version")  # Exclude already published things
-            ).values_list("entity__draft__pk", flat=True)
-            if unpublished_draft_children:
-                # Force these additional child components to be published at the same time by adding them to the qset:
-                draft_qset = Draft.objects.filter(
-                    Q(pk__in=draft_qset.values_list("pk", flat=True)) |
-                    Q(pk__in=unpublished_draft_children)
-                )
-
         # One PublishLog for this entire publish operation.
         publish_log = PublishLog(
             learning_package_id=learning_package_id,
@@ -773,19 +756,7 @@ def reset_drafts_to_published(
         reset_at = datetime.now(tz=timezone.utc)
 
     # These are all the drafts that are different from the published versions.
-    draft_qset = Draft.objects \
-                      .select_related("entity__published") \
-                      .filter(entity__learning_package_id=learning_package_id) \
-                      .exclude(entity__published__version_id=F("version_id")) \
-                      .exclude(
-                          # NULL != NULL in SQL, so we want to exclude entries
-                          # where both the published version and draft version
-                          # are None. This edge case happens when we create
-                          # something and then delete it without publishing, and
-                          # then reset Drafts to their published state.
-                          Q(entity__published__version__isnull=True) &
-                          Q(version__isnull=True)
-                      )
+    draft_qset = get_ready_to_publish_drafts(learning_package_id)
     # If there's nothing to reset because there are no changes from the
     # published version, just return early rather than making an empty
     # DraftChangeLog.
@@ -1299,6 +1270,15 @@ class ContainerEntityListEntry:
         return self.entity_version.entity
 
 
+@dataclass(frozen=True)
+class ContainerEntityListStructure(ContainerEntityListEntry):
+    """
+    [ 🛑 UNSTABLE ]
+    Data about a single entity in a container, e.g. a component in a unit along with its children.
+    """
+    children: list[ContainerEntityListStructure] | list[ContainerEntityListEntry]
+
+
 @dataclass(frozen=True, kw_only=True, slots=True)
 class ContainerEntityRow:
     """
@@ -1371,6 +1351,33 @@ def get_entities_in_container(
         # else we could indicate somehow a deleted item was here, e.g. by returning a ContainerEntityListEntry with
         # deleted=True, but we don't have a use case for that yet.
     return entity_list
+
+
+def get_entity_structure(
+    container: Container, *, published: bool
+) -> list[ContainerEntityListStructure | ContainerEntityListEntry]:
+    """
+    [ 🛑 UNSTABLE ]
+    Get complete structure of entities and their versions in the current draft of published version of the given
+    container.
+    Args:
+        container: The Container, e.g. returned by `get_container()`
+        published: `True` if we want the published version of the container, or
+            `False` for the draft version.
+    """
+    structure: list[ContainerEntityListStructure | ContainerEntityListEntry] = []
+    entity_list_entries = get_entities_in_container(container, published=published)
+    for entity_list_entry in entity_list_entries:
+        if hasattr(entity_list_entry.entity, "container"):
+            structure.append(ContainerEntityListStructure(
+                entity_version=entity_list_entry.entity_version,
+                pinned=entity_list_entry.pinned,
+                children=get_entity_structure(entity_list_entry.entity.container, published=published),
+            ))
+        else:
+            structure.append(entity_list_entry)
+
+    return structure
 
 
 def contains_unpublished_changes(container_id: int) -> bool:

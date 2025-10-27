@@ -56,6 +56,9 @@ class Draft(models.Model):
         blank=True,
     )
 
+    def __str__(self):
+        return f"Draft of {self.entity}"
+
 
 class DraftChangeLog(models.Model):
     """
