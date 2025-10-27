@@ -4,10 +4,9 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-    dependencies = [
-        ("oel_publishing", "0008_alter_draftchangelogrecord_options_and_more"),
+    run_before = [
+        ("oel_publishing", "0001_initial"),
     ]
-
     operations = [
         # Create a custom case-insensitive collation for PostgreSQL.
         # This collation is used by case_insensitive_char_field() to provide
@@ -29,7 +28,7 @@ class Migration(migrations.Migration):
         CreateCollation(
             "case_insensitive",
             provider="icu",
-            locale="en-US",
+            locale="und-u-ks-level2",
             deterministic=False,
         ),
     ]

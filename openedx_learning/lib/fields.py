@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 
-from django.db import models
+from django.db import connection, models
 
 from .collations import MultiCollationMixin
 from .validators import validate_utc_datetime
@@ -38,6 +38,9 @@ def create_hash_digest(data_bytes: bytes, num_bytes=20) -> str:
 
 
 def default_case_insensitive_collations_args(**kwargs):
+    # Remove db_index from kwargs if using PostgreSQL to avoid collation issues
+    if connection.vendor == "postgresql":
+        kwargs = {k: v for k, v in kwargs.items() if k != "db_index"}
     return {
         "null": False,
         "db_collations": {
