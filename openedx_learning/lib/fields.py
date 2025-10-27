@@ -37,20 +37,8 @@ def create_hash_digest(data_bytes: bytes, num_bytes=20) -> str:
     return hashlib.blake2b(data_bytes, digest_size=num_bytes).hexdigest()
 
 
-def case_insensitive_char_field(**kwargs) -> MultiCollationCharField:
-    """
-    Return a case-insensitive ``MultiCollationCharField``.
-
-    This means that entries will sort in a case-insensitive manner, and that
-    unique indexes will be case insensitive, e.g. you would not be able to
-    insert "abc" and "ABC" into the same table field if you put a unique index
-    on this field.
-
-    You may override any argument that you would normally pass into
-    ``MultiCollationCharField`` (which is itself a subclass of ``CharField``).
-    """
-    # Set our default arguments
-    final_kwargs = {
+def default_case_insensitive_collations_args(**kwargs):
+    return {
         "null": False,
         "db_collations": {
             "sqlite": "NOCASE",
@@ -68,11 +56,40 @@ def case_insensitive_char_field(**kwargs) -> MultiCollationCharField:
             # This gives us behavior similar to MySQL's utf8mb4_unicode_ci.
             "postgresql": "case_insensitive",
         },
+        **kwargs,
     }
-    # Override our defaults with whatever is passed in.
-    final_kwargs.update(kwargs)
 
-    return MultiCollationCharField(**final_kwargs)
+
+def default_case_sensitive_collations_args(**kwargs):
+    return {
+        "null": False,
+        "db_collations": {
+            "sqlite": "BINARY",
+            "mysql": "utf8mb4_bin",
+            # PostgreSQL: Using "C" collation for case-sensitive, byte-order comparisons.
+            # This is the fastest collation and provides strict case-sensitive matching
+            # similar to MySQL's utf8mb4_bin and SQLite's BINARY.
+            # The "C" collation is always available in PostgreSQL and doesn't depend on
+            # locale settings.
+            "postgresql": "C",
+        },
+        **kwargs,
+    }
+
+
+def case_insensitive_char_field(**kwargs) -> MultiCollationCharField:
+    """
+    Return a case-insensitive ``MultiCollationCharField``.
+
+    This means that entries will sort in a case-insensitive manner, and that
+    unique indexes will be case insensitive, e.g. you would not be able to
+    insert "abc" and "ABC" into the same table field if you put a unique index
+    on this field.
+
+    You may override any argument that you would normally pass into
+    ``MultiCollationCharField`` (which is itself a subclass of ``CharField``).
+    """
+    return MultiCollationCharField(**default_case_insensitive_collations_args(**kwargs))
 
 
 def case_sensitive_char_field(**kwargs) -> MultiCollationCharField:
@@ -87,24 +104,27 @@ def case_sensitive_char_field(**kwargs) -> MultiCollationCharField:
     You may override any argument that you would normally pass into
     ``MultiCollationCharField`` (which is itself a subclass of ``CharField``).
     """
-    # Set our default arguments
-    final_kwargs = {
-        "null": False,
-        "db_collations": {
-            "sqlite": "BINARY",
-            "mysql": "utf8mb4_bin",
-            # PostgreSQL: Using "C" collation for case-sensitive, byte-order comparisons.
-            # This is the fastest collation and provides strict case-sensitive matching
-            # similar to MySQL's utf8mb4_bin and SQLite's BINARY.
-            # The "C" collation is always available in PostgreSQL and doesn't depend on
-            # locale settings.
-            "postgresql": "C",
-        },
-    }
-    # Override our defaults with whatever is passed in.
-    final_kwargs.update(kwargs)
+    return MultiCollationCharField(**default_case_sensitive_collations_args(**kwargs))
 
-    return MultiCollationCharField(**final_kwargs)
+
+def case_insensitive_text_field(**kwargs) -> MultiCollationTextField:
+    """
+    Return a case-insensitive ``MultiCollationTextField``.
+
+    You may override any argument that you would normally pass into
+    ``MultiCollationTextField`` (which is itself a subclass of ``TextField``).
+    """
+    return MultiCollationTextField(**default_case_insensitive_collations_args(**kwargs))
+
+
+def case_sensitive_text_field(**kwargs) -> MultiCollationTextField:
+    """
+    Return a case-sensitive ``MultiCollationTextField``.
+
+    You may override any argument that you would normally pass into
+    ``MultiCollationTextField`` (which is itself a subclass of ``TextField``).
+    """
+    return MultiCollationTextField(**default_case_sensitive_collations_args(**kwargs))
 
 
 def immutable_uuid_field() -> models.UUIDField:
