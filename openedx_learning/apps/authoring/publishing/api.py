@@ -587,8 +587,8 @@ def set_draft_version(
     from Studio's editing point of view (see ``soft_delete_draft`` for more
     details).
 
-    Calling this function attaches a new DraftChangeLogRecordand attaches it to a
-    DraftChangeLog.
+    Calling this function attaches a new DraftChangeLogRecordand attaches it to
+    a DraftChangeLog.
 
     This function will create DraftSideEffect entries and properly add any
     containers that may have been affected by this draft update, UNLESS it is
@@ -613,6 +613,21 @@ def set_draft_version(
             )
 
         # If the Draft is already pointing at this version, there's nothing to do.
+        #
+        # THIS IS THE EDGE CASE:
+        #
+        # If we create something and soft delete it immediately after, then 
+        # The key is this bit and the part after where we're writing the draft_version_id
+        # -- we can't do that this early. We have to let the whole log accumulate, and
+        # then write it out at once. If not, then we won't be able to see the
+        # previous version of that Draft's version... unless we look at the old
+        # draft_change_log_record? That might be even more confusing though.
+        
+        # Intuitively, we might build up the log and then execute it. But that
+        # doesn't work because in the middle of a bulk operation, you'd expect
+        # to see the new value for the draft. So we actually want to optimistically
+        # change it and then be able to roll it back in case there was no actual change.
+
         old_version_id = draft.version_id
         if old_version_id == publishable_entity_version_pk:
             return
@@ -629,19 +644,22 @@ def set_draft_version(
             learning_package_id
         )
         if active_change_log:
-            draft.draft_log_record = _add_to_existing_draft_change_log(
+            _add_to_existing_draft_change_log(
                 active_change_log,
                 draft.entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
-            draft.save()
-
-            # We explicitly *don't* create container side effects here because
-            # there may be many changes in this DraftChangeLog, some of which
-            # haven't been made yet. It wouldn't make sense to create a side
-            # effect that says, "this Unit changed because this Component in it
-            # changed" if we were changing that same Unit later on in the same
+            # We don't set the draft.draft_log_record value yet, because it's
+            # still possible that future changes in the same DraftChangeLog will
+            # undo this one. When that happens, the DraftChangeLogRecord is
+            # removed (so as not to confuse it for side-effect changes).
+            #
+            # We also *don't* create container side effects here because there
+            # may be many changes in this DraftChangeLog, some of which haven't
+            # been made yet. It wouldn't make sense to create a side effect that
+            # says, "this Unit changed because this Component in it changed" if
+            # we were changing that same Unit later on in the same
             # DraftChangeLog, because that new Unit version might not even
             # include the child Component. So we'll let DraftChangeLogContext
             # do that work when it exits its context.
@@ -655,23 +673,34 @@ def set_draft_version(
                 changed_at=set_at,
                 changed_by_id=set_by,
             )
-            draft.draft_log_record = DraftChangeLogRecord.objects.create(
+            DraftChangeLogRecord.objects.create(
                 draft_change_log=change_log,
                 entity_id=draft.entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
-            draft.save()
-            _create_side_effects_for_change_log(change_log)
+
+#            draft.draft_log_record = DraftChangeLogRecord.objects.create(
+#                draft_change_log=change_log,
+#                entity_id=draft.entity_id,
+#                old_version_id=old_version_id,
+#                new_version_id=publishable_entity_version_pk,
+#            )
+#            draft.save()
+
+            # Rename this to something like process_draft_change_log, which
+            # then calls the fn() below, and then also update the contextmanager callback.
+            _process_draft_change_log(change_log)
+#            _create_side_effects_for_change_log(change_log)
 
 def _add_to_existing_draft_change_log(
     active_change_log: DraftChangeLog,
     entity_id: int,
     old_version_id: int | None,
     new_version_id: int | None,
-) -> DraftChangeLogRecord:
+) -> DraftChangeLogRecord | None:
     """
-    Create or update a DraftChangeLogRecord for the active_change_log passed in.
+    Create, update, or delete a DraftChangeLogRecord for the active_change_log.
 
     The an active_change_log may have many DraftChangeLogRecords already
     associated with it. A DraftChangeLog can only have one DraftChangeLogRecord
@@ -685,6 +714,13 @@ def _add_to_existing_draft_change_log(
     and the same entity_id but with versions: (None, v1), (v1, v2), (v2, v3);
     we would collapse them into one DraftChangeLogrecord with old_version = None
     and new_version = v3.
+
+    This also means that if we make a change that undoes the previos change, it
+    will delete that DraftChangeLogRecord, e.g. (None, v1) -> (None, v2) -> 
+    (None -> None), then this entry can be deleted because it didn't change
+    anything. This function should never be used for creating side-effect change
+    log records (the only place where it's normal to have the same old and new
+    versions).
     """
     try:
         # Check to see if this PublishableEntity has already been changed in
@@ -707,6 +743,7 @@ def _add_to_existing_draft_change_log(
             # old_version == new_version convention to record entities that have
             # changed purely due to side-effects.
             change.delete()
+            return None
         else:
             # Normal case: We update the new_version, but leave the old_version
             # as is. The old_version represents what the Draft was pointing to
@@ -725,6 +762,22 @@ def _add_to_existing_draft_change_log(
         )
 
     return change
+
+
+def _process_draft_change_log(change_log: DraftChangeLog) -> None:
+    draft_objs_to_update = []
+    for draft_log_record in change_log.records.select_related("entity__draft").all():
+        draft = draft_log_record.entity.draft
+        draft.draft_log_record = draft_log_record
+        draft.version_id = draft_log_record.next_version_id
+        draft_objs_to_update.append(draft)
+
+    Draft.objects.bulk_update(
+        draft_objs_to_update,
+        ['draft_log_record']
+    )
+
+    _create_side_effects_for_change_log(change_log)
 
 
 def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog):
@@ -788,6 +841,12 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
         changes_and_affected = [
             (original_change, current) for current in affected_by_original_change
         ]
+
+        # These are the Published or Draft objects where we need to repoint the
+        # log_record (publish_log_record or draft_change_log) to point to the
+        # side-effects.
+        branch_objs_to_update_with_side_effects = []
+
         while changes_and_affected:
             original_change, affected = changes_and_affected.pop()
 
@@ -818,6 +877,20 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
                     'new_version_id': affected_version_pk
                 }
             )
+            # Update the current branch pointer (Draft or Published) for this
+            # entity to point to the side_effect_change (if it's not already).
+            #
+            # TODO: Make this more resilient to these objects not existing yet.          
+            if branch_cls == Published:
+                published_obj = affected.entity.published
+                if published_obj.publish_log_record != side_effect_change:
+                    published_obj.publish_log_record = side_effect_change
+                    branch_objs_to_update_with_side_effects.append(published_obj)
+            elif branch_cls == Draft:
+                draft_obj = affected.entity.draft
+                if draft_obj.draft_log_record != side_effect_change:
+                    draft_obj.draft_log_record = side_effect_change
+                    branch_objs_to_update_with_side_effects.append(draft_obj)
 
             # Create a new side effect (DraftSideEffect or PublishSideEffect) to
             # record the relationship between the ``original_change`` and
@@ -859,6 +932,12 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
                 if affected.entity_id not in processed_entity_ids
             )
 
+        if branch_cls == Published:
+            log_record_rel = "publish_log_record_id"
+        elif branch_cls == Draft:
+            log_record_rel = "draft_log_record_id"
+        branch_cls.objects.bulk_update(branch_objs_to_update_with_side_effects, [log_record_rel])
+
     _update_branch_dependencies_hash_digests(change_log)
 
 
@@ -868,6 +947,12 @@ def _update_branch_dependencies_hash_digests(
     """
     Update dependencies_hash_digest for Drafts or Published in a change log.
 
+    All the data for Draft/Published, DraftChangeLog/PublishLog, and
+    DraftChangeLogRecord/PublishLogRecord have been set at this point *except*
+    the dependencies_hash_digest of DraftChangeLogRecord/PublishLogRecord. Those
+    log records are newly created at this point, so dependencies_hash_digest are
+    set to their default values.
+
     Args:
         change_log: A DraftChangeLog or PublishLog that already has all
             side-effects added to it. The Draft and Published models should
@@ -875,65 +960,180 @@ def _update_branch_dependencies_hash_digests(
     """
     if isinstance(change_log, DraftChangeLog):
         branch = "draft"
-        branch_cls = Draft
+        log_record_relation = "draft_log_record"
+        record_cls = DraftChangeLogRecord
     elif isinstance(change_log, PublishLog):
         branch = "published"
-        branch_cls = Published
+        log_record_relation = "publish_log_record"
+        record_cls = PublishLogRecord
     else:
         raise TypeError(
             f"expected DraftChangeLog or PublishLog, not {type(change_log)}"
         )
 
-    dependencies_versions_prefetch = Prefetch(
+    dependencies_prefetch = Prefetch(
         "new_version__dependencies",
         queryset=(
             PublishableEntity.objects
-                             .select_related(f"{branch}__version")
-                             .order_by(f"{branch}__version__uuid")
+                .select_related(
+                    f"{branch}__version",
+                    f"{branch}__{log_record_relation}",
+                )
+                .order_by(f"{branch}__version__uuid")
         )
     )
-    records = (
+    changed_records = list(
         change_log.records
-                  .filter(new_version__isnull=False)
                   .select_related("new_version", f"entity__{branch}")
-                  .prefetch_related(dependencies_versions_prefetch)
+                  .prefetch_related(dependencies_prefetch)
     )
 
-    changed_to_dependencies: dict[Draft, list[Draft]] | dict[Published, list[Published]]
-    changed_to_dependencies = {}
-    for record in records:
+    record_ids_to_hash_digests: dict[int, str | None] = {}
+    record_ids_to_live_deps: dict[int, list[PublishableEntity]] = {}
+    records_that_need_hashes = []
+
+    for record in changed_records:
+        # This is a soft-deletion, so the dependency hash is default/blank. We
+        # set this value in our record_ids_to_hash_digests cache, but we don't
+        # need to write it to the database because it's just the default value.
         if record.new_version is None:
+            record_ids_to_hash_digests[record.id] = ''
             continue
 
-        changed_branch_item = getattr(record.entity, branch, None)
-        if (not changed_branch_item) or (not changed_branch_item.version):
-            branch_item_dependencies = []
-        else:
-            branch_item_dependencies = [
-                getattr(entity, branch)
-                for entity in record.new_version.dependencies.all()
-                if hasattr(entity, branch) and getattr(entity, branch).version
-            ]
-
-        changed_to_dependencies[changed_branch_item] = branch_item_dependencies
-
-    branch_items_to_update = []
-    already_computed_hashes = {}
-    for changed_branch_item in changed_to_dependencies:
-        new_digest = hash_for_branch_item(
-            changed_branch_item, changed_to_dependencies, already_computed_hashes
+        # Now check to see if the new version has "live" dependencies, i.e.
+        # dependencies that have not been deleted.
+        deps = list(
+            entity for entity in record.new_version.dependencies.all()
+            if hasattr(entity, branch) and getattr(entity, branch).version
         )
-        if new_digest != changed_branch_item.dependencies_hash_digest:
-            changed_branch_item.dependencies_hash_digest = new_digest
-            branch_items_to_update.append(changed_branch_item)
 
-    branch_cls.objects.bulk_update(
-        branch_items_to_update,
-        ["dependencies_hash_digest"],
+        # If there are no live dependencies, this log record also gets the
+        # default/blank value.
+        if not deps:
+            record_ids_to_hash_digests[record.id] = ''
+            continue
+
+        # If we've gotten this far, it means that this record has dependencies
+        # and does need to get a hash computed for it.
+        records_that_need_hashes.append(record)
+        record_ids_to_live_deps[record.id] = deps
+
+    untrusted_record_id_set = set(rec.id for rec in records_that_need_hashes)
+    for record in records_that_need_hashes:
+        record.dependencies_hash_digest = hash_for_log_record(
+            record,
+            record_ids_to_hash_digests,
+            record_ids_to_live_deps,
+            untrusted_record_id_set,
+        )
+
+    record_cls.objects.bulk_update(
+        records_that_need_hashes,
+        ['dependencies_hash_digest'],
     )
 
 
-def hash_for_branch_item(
+
+def hash_for_log_record(
+    record: DraftChangeLogRecord | PublishLogRecord,
+    record_ids_to_hash_digests: dict,
+    record_ids_to_live_deps: dict,
+    untrusted_record_id_set: set,
+) -> str:
+    """
+    This code is a little convoluted because we're working hard to minimize
+    requests.
+
+    When we say "dependency", we mean when one or more PublishableEntities are
+    dependencies of a PublishableEntityVersion. A change in the Draft or
+    Published state of the PublishableEntity causes an implicit change to the
+    PublishableEntityVersion. The common case we have at the moment is when a
+    container type like a Unit has Components as dependencies, i.e. the
+    UnitVersion specifies Component Entities as dependencies.
+
+    This means that the dependencies_hash_digest that summarizes the total state
+    of a PublishableEntity depends on:
+
+    1. The definition of the current draft/published version of that entity.
+    2. The current draft/published versions of all dependencies.
+
+    Which is why it makes sense to capture in a log record, since
+    PublishLogRecords or DraftChagneLogRecords are created whenever one of the
+    above two things changes.
+
+    Here are the possible scenarios, including edge cases:
+
+    Soft-deletions
+      If the record.new_version is None, that means we've just soft-deleted
+      something (or published the soft-delete of something). We adopt the
+      convention that if something is soft-deleted, its dependencies_hash_digest
+      is reset to the default value of ''.
+    
+    EntityVersions with no dependencies
+      If record.new_version has no dependencies, dependencies_hash_digest is
+      likewise set to the default value of ''. This will be the most common
+      case.
+    
+    EntityVersions with dependencies
+      If an EntityVersion has dependencies, we calculate the dependency hash
+      digest by taking a hash of all the UUIDs of the active version. [ fill in
+      more later]
+
+    EntityVersions with soft-deleted dependencies
+      A soft-deleted dependency isn't counted (it's as if the dependency were
+      removed). If all of an EntityVersion's dependencies are soft-deleted,
+      then it will go back to having to having the default blank string for its
+      dependencies_hash_digest.
+    """
+    # Case #1: We've already computed this, or it was bootstrapped for us in the
+    # cache because the record is a deletion or doesn't have dependencies.
+    if record.id in record_ids_to_hash_digests:
+        return record_ids_to_hash_digests[record.id]
+    
+    # Case #2: The log_record is a dependency of something that was affected by
+    # a change, but the dependency itself did not change in any way (neither
+    # directly, nor as a side-effect).
+    #
+    # Example: A Unit has two Components. One of the Components changed, forcing
+    # us to recalculate the dependencies_hash_digest for that Unit. Doing that
+    # recalculation requires us to fetch the dependencies_hash_digest of the
+    # unchanged child Component as well.
+    if record.id not in untrusted_record_id_set:
+        return record.dependencies_hash_digest
+
+    # Normal recursive case:
+    if isinstance(record, DraftChangeLogRecord):
+        branch = "draft"
+    elif isinstance(record, PublishLogRecord):
+        branch = "published"
+    else:
+        raise TypeError(
+            f"expected DraftChangeLogRecord or PublishLogRecord, not {type(record)}"
+        )
+
+    dependencies: list[PublishableEntity] = sorted(
+        record_ids_to_live_deps[record.id],
+        key=lambda entity: getattr(entity, branch).log_record.new_version_id,
+    )
+    dep_state_entries = []
+    for dep_entity in dependencies:
+        new_version_id = getattr(dep_entity, branch).log_record.new_version_id
+        hash_digest = hash_for_log_record(
+            getattr(dep_entity, branch).log_record,
+            record_ids_to_hash_digests,
+            record_ids_to_live_deps,
+            untrusted_record_id_set,
+        )
+        dep_state_entries.append(f"{new_version_id}:{hash_digest}")
+    summary_text = "\n".join(dep_state_entries)
+
+    digest = create_hash_digest(summary_text.encode(), num_bytes=4)
+    record_ids_to_hash_digests[record.id] = digest
+
+    return digest
+
+
+def __hash_for_branch_item(
     branch_item: Draft | Published,
     changed_items: dict[Draft, list[Draft]] | dict[Published, list[Published]],
     already_computed_hashes: dict[Draft, str] | dict[Published, str],
@@ -997,7 +1197,7 @@ def hash_for_branch_item(
     return digest
 
 
-def hash_for_branch_item(
+def __hash_for_branch_item(
     log_record: DraftChangeLogRecord | PublishLogRecord,
     changed_records: dict[DraftChangeLogRecord, list[Draft]] | dict[PublishLogRecord, list[Published]],
     already_computed_hashes: dict[DraftChangeLogRecord, str] | dict[PublishLogRecord, str],
@@ -1727,14 +1927,22 @@ def contains_unpublished_changes(container_id: int) -> bool:
     that's in the container, it will be `False`. This method will return `True`
     in either case.
     """
-    container = Container.objects.get(pk=container_id)
+    container = (
+        Container.objects
+            .select_related('publishable_entity__draft__draft_log_record')
+            .select_related('publishable_entity__published__publish_log_record')
+            .get(pk=container_id)
+    )
     if container.versioning.has_unpublished_changes:
         return True
 
     draft = container.publishable_entity.draft
     published = container.publishable_entity.published
 
-    return draft.dependencies_hash_digest != published.dependencies_hash_digest
+    if draft is None and published is None:
+        return False
+
+    return draft.log_record.dependencies_hash_digest != published.log_record.dependencies_hash_digest
 
 def get_containers_with_entity(
     publishable_entity_pk: int,
@@ -1845,6 +2053,6 @@ def bulk_draft_changes_for(
         changed_at=changed_at,
         changed_by=changed_by,
         exit_callbacks=[
-            _create_side_effects_for_change_log,
+            _process_draft_change_log,
         ]
     )

@@ -177,6 +177,10 @@ class Published(models.Model):
         on_delete=models.RESTRICT,
     )
 
+    @property
+    def log_record(self):
+        return self.publish_log_record
+
     class Meta:
         verbose_name = "Published Entity"
         verbose_name_plural = "Published Entities"

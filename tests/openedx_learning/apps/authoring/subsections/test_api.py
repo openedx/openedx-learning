@@ -197,9 +197,9 @@ class SubSectionTestCase(UnitTestCase):  # pylint: disable=test-inherits-tests
         Test how many database queries are required to create a subsection
         """
         # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
-        with self.assertNumQueries(29):
+        with self.assertNumQueries(28):
             _empty_subsection = self.create_subsection_with_units([])
-        with self.assertNumQueries(36):
+        with self.assertNumQueries(35):
             # And try with a non-empty subsection:
             self.create_subsection_with_units([self.unit_1, self.unit_2_v1], key="u2")
 
