@@ -317,7 +317,7 @@ class PublishableEntityMixin(models.Model):
     """
     Convenience mixin to link your models against PublishableEntity.
 
-    Please see docstring for PublishableEntity for more details.FF
+    Please see docstring for PublishableEntity for more details.
 
     If you use this class, you *MUST* also use PublishableEntityVersionMixin and
     the publishing app's api.register_publishable_models (see its docstring for

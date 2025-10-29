@@ -408,7 +408,7 @@ def _get_dependencies_with_unpublished_changes(
     effects. The side-effect calculations will happen separately.
     """
     # First we have to do a full crawl of *all* dependencies, regardless of
-    # whether they have unpublished changes or not. this is because we might
+    # whether they have unpublished changes or not. This is because we might
     # have a dependency-of-a-dependency that has changed somewhere down the
     # line. Example: The draft_qset includes a Subsection. Even if the Unit
     # versions are still the same, there might be a changed Component that needs
@@ -690,6 +690,7 @@ def set_draft_version(
             )
             draft.save()
             _create_side_effects_for_change_log(change_log)
+
 
 def _add_to_existing_draft_change_log(
     active_change_log: DraftChangeLog,
