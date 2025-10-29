@@ -293,7 +293,7 @@ class PublishableEntityVersionDependency(models.Model):
     dependencies of U1.v1.
 
     If someone removes C2 from U1, then that requires creating a new version of
-    U1 (so U2.v2).
+    U1 (so U1.v2).
 
     This restriction is important because our ability to calculate and cache the
     state of "this version of this publishable entity and all its dependencies
