@@ -301,7 +301,8 @@ def set_version_dependencies(
     PublishableEntityVersionDependency.objects.bulk_create(
         [
             PublishableEntityVersionDependency(
-                referent_version_id=version_id, referenced_entity_id=dep_entity_id
+                referring_version_id=version_id,
+                referenced_entity_id=dep_entity_id,
             )
             for dep_entity_id in set(dependencies)  # dependencies have no ordering
         ],
