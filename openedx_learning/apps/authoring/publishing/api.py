@@ -587,7 +587,7 @@ def set_draft_version(
     from Studio's editing point of view (see ``soft_delete_draft`` for more
     details).
 
-    Calling this function attaches a new DraftChangeLogRecordand attaches it to
+    Calling this function attaches a new DraftChangeLogRecord and attaches it to
     a DraftChangeLog.
 
     This function will create DraftSideEffect entries and properly add any
@@ -613,21 +613,6 @@ def set_draft_version(
             )
 
         # If the Draft is already pointing at this version, there's nothing to do.
-        #
-        # THIS IS THE EDGE CASE:
-        #
-        # If we create something and soft delete it immediately after, then 
-        # The key is this bit and the part after where we're writing the draft_version_id
-        # -- we can't do that this early. We have to let the whole log accumulate, and
-        # then write it out at once. If not, then we won't be able to see the
-        # previous version of that Draft's version... unless we look at the old
-        # draft_change_log_record? That might be even more confusing though.
-        
-        # Intuitively, we might build up the log and then execute it. But that
-        # doesn't work because in the middle of a bulk operation, you'd expect
-        # to see the new value for the draft. So we actually want to optimistically
-        # change it and then be able to roll it back in case there was no actual change.
-
         old_version_id = draft.version_id
         if old_version_id == publishable_entity_version_pk:
             return
@@ -661,6 +646,12 @@ def set_draft_version(
                 # delete the log record for this Draft state, and we have to
                 # look for the most recently created DraftLogRecord from another
                 # DraftChangeLog. This value may be None.
+                #
+                # NOTE: There may be some weird edge cases here around soft-
+                # deletions and modifications of the same Draft entry in nested
+                # bulk_draft_changes_for() calls. I haven't thought that through
+                # yet--it might be better to just throw an error rather than try
+                # to accommodate it. 
                 draft.draft_log_record = (
                     DraftChangeLogRecord.objects
                         .filter(entity_id=draft.entity_id)
@@ -669,22 +660,21 @@ def set_draft_version(
                 )
             draft.save()
 
-            # We don't set the draft.draft_log_record value yet, because it's
-            # still possible that future changes in the same DraftChangeLog will
-            # undo this one. When that happens, the DraftChangeLogRecord is
-            # removed (so as not to confuse it for side-effect changes).
-            #
             # We also *don't* create container side effects here because there
             # may be many changes in this DraftChangeLog, some of which haven't
             # been made yet. It wouldn't make sense to create a side effect that
             # says, "this Unit changed because this Component in it changed" if
             # we were changing that same Unit later on in the same
             # DraftChangeLog, because that new Unit version might not even
-            # include the child Component. So we'll let DraftChangeLogContext
-            # do that work when it exits its context.
+            # include that child Component. Also, calculating side-effects is
+            # expensive, and would result in a lot of wasted queries if we did
+            # it for every change will inside an active change log context.
+            # 
+            # Therefore we'll let DraftChangeLogContext do that work when it
+            # exits its context.
         else:
             # This means there is no active DraftChangeLog, so we create our own
-            # and add our DraftChangeLogRecord to it. This has the minor
+            # and add our DraftChangeLogRecord to it. This has the very minor
             # optimization that we don't have to check for an existing
             # DraftChangeLogRecord, because we know it can't exist yet.
             change_log = DraftChangeLog.objects.create(
@@ -699,11 +689,7 @@ def set_draft_version(
                 new_version_id=publishable_entity_version_pk,
             )
             draft.save()
-
-            # Rename this to something like process_draft_change_log, which
-            # then calls the fn() below, and then also update the contextmanager callback.
-            _process_draft_change_log(change_log)
-#            _create_side_effects_for_change_log(change_log)
+            _create_side_effects_for_change_log(change_log)
 
 def _add_to_existing_draft_change_log(
     active_change_log: DraftChangeLog,
@@ -753,7 +739,9 @@ def _add_to_existing_draft_change_log(
             #
             # It's important that we remove these cases, because we use the
             # old_version == new_version convention to record entities that have
-            # changed purely due to side-effects.
+            # changed purely due to side-effects. We could technically still
+            # differentiate those by actually looking at the DraftSideEffect and
+            # PublishSideEffect models, but this is less confusing overall.
             change.delete()
             return None
         else:
@@ -774,11 +762,6 @@ def _add_to_existing_draft_change_log(
         )
 
     return change
-
-
-def _process_draft_change_log(change_log: DraftChangeLog) -> None:
-    _create_side_effects_for_change_log(change_log)
-
 
 
 def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog):
@@ -833,7 +816,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
     # recalculating the Unit's side-effect on its Subsection, and its
     # Subsection's side-effect on its Section each time through the loop.
     # It also guards against infinite parent-child relationship loops, though
-    # those aren't *supposed* to be allowed anyhow.
+    # those aren't *supposed* to happen anyhow.
     processed_entity_ids: set[int] = set()
     for original_change in change_log.records.all():
         affected_by_original_change = branch_cls.objects.filter(
@@ -845,7 +828,10 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
 
         # These are the Published or Draft objects where we need to repoint the
         # log_record (publish_log_record or draft_change_log) to point to the
-        # side-effects.
+        # side-effect changes, e.g. the DraftChangeLogRecord that says, "This
+        # Unit's version stayed the same, but its dependency hash changed
+        # because a child Component's draft version was changed." We gather them
+        # all up in a list so we can do a bulk_update on them.
         branch_objs_to_update_with_side_effects = []
 
         while changes_and_affected:
@@ -880,8 +866,6 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             )
             # Update the current branch pointer (Draft or Published) for this
             # entity to point to the side_effect_change (if it's not already).
-            #
-            # TODO: Make this more resilient to these objects not existing yet.          
             if branch_cls == Published:
                 published_obj = affected.entity.published
                 if published_obj.publish_log_record != side_effect_change:
@@ -1034,7 +1018,6 @@ def _update_branch_dependencies_hash_digests(
     )
 
 
-
 def hash_for_log_record(
     record: DraftChangeLogRecord | PublishLogRecord,
     record_ids_to_hash_digests: dict,
@@ -1042,8 +1025,11 @@ def hash_for_log_record(
     untrusted_record_id_set: set,
 ) -> str:
     """
-    This code is a little convoluted because we're working hard to minimize
-    requests.
+    The hash digest for a given change log record.
+
+    Note that this code is a little convoluted because we're working hard to
+    minimize the number of database requests. All the data we really need could
+    be derived from just the record itself, but at a far higher cost.
 
     When we say "dependency", we mean when one or more PublishableEntities are
     dependencies of a PublishableEntityVersion. A change in the Draft or
@@ -1130,146 +1116,6 @@ def hash_for_log_record(
 
     digest = create_hash_digest(summary_text.encode(), num_bytes=4)
     record_ids_to_hash_digests[record.id] = digest
-
-    return digest
-
-
-def __hash_for_branch_item(
-    branch_item: Draft | Published,
-    changed_items: dict[Draft, list[Draft]] | dict[Published, list[Published]],
-    already_computed_hashes: dict[Draft, str] | dict[Published, str],
-) -> str:
-    """
-    Recursively calculate the dependencies_hash_digest for Draft or Published.
-
-    We have to be extremely careful about changing the signature or behavior of
-    this function, as it's used in the 0010_backfill_dependencies data migration
-    that will be used to upgrade people from Teak to future versions.
-
-    Args:
-        branch_item: The Draft or Published entry we want to recalculate the
-            dependencies hash for.
-        changed_items: A dict mapping Draft or Published to a list of Dependency
-            Draft or Published. The keys represent the full set of what has
-            changed in the change log (DraftChangeLog or PublishLog), and
-            includes things that were added as side-effects. The value lists
-            in this dict can include things that *didn't* change, if they happen
-            to be dependencies of things that did change.
-        already_computed_hashes: A cache to ensure we don't recompute the same
-            nodes over and over again.
-    """
-    if branch_item in already_computed_hashes:
-        return already_computed_hashes[branch_item]
-
-    # Base case #1: The branch_item is a dependency of something that was
-    # affected by a change, but the dependency itself did not change in any way
-    # (neither directly, nor as a side-effect).
-    #
-    # Example: A Unit has two Components. One of the Components changed, forcing
-    # us to recalculate the dependencies_hash_digest for that Unit. Doing that
-    # recalculation requires us to fetch the dependencies_hash_digest of the
-    # unchanged child as well.
-    #
-    # These are the only values for dependencies_hash_digest that we can trust,
-    # because we know that the change log (DraftChangeLog or PublishLog) being
-    # processed right now will not alter them.
-    if branch_item not in changed_items:
-        return branch_item.dependencies_hash_digest
-
-    # Base case #2: If there are no dependencies, the hash digest is set to ''.
-    # Note that it's possible that something that used to have a hash digest to
-    # get reset to '' if those dependencies are later removed.
-    dependencies = changed_items[branch_item]
-    if not dependencies:
-        return ''
-
-    # Normal recursive case
-    dependencies.sort(key=lambda d: d.version.uuid)
-    dep_state_entries = [
-        f"{dep_item.version.uuid}:"
-        f"{hash_for_branch_item(dep_item, changed_items, already_computed_hashes)}"
-        for dep_item in dependencies
-    ]
-    summary_text = "\n".join(dep_state_entries)
-
-    digest = create_hash_digest(summary_text.encode(), num_bytes=4)
-    already_computed_hashes[branch_item] = digest
-
-    return digest
-
-
-def __hash_for_branch_item(
-    log_record: DraftChangeLogRecord | PublishLogRecord,
-    changed_records: dict[DraftChangeLogRecord, list[Draft]] | dict[PublishLogRecord, list[Published]],
-    already_computed_hashes: dict[DraftChangeLogRecord, str] | dict[PublishLogRecord, str],
-) -> str:
-    """
-    Calculate the dependencies_hash_digest for a log record.
-
-    This will recursively go through the dependencies of the Draft or Published
-    altered by a DraftChangeLogRecord or a PublishLogRecord.
-
-    We have to be extremely careful about changing the signature or behavior of
-    this function, as it's used in the 0010_backfill_dependencies data migration
-    that will be used to upgrade people from Teak to future versions.
-
-    Args:
-        log_record: The DraftChangeLogRecord or PublishChangeLogRecord entry we
-            want to recalculate the dependencies hash for.
-        changed_items: A dict mapping Draft or Published to a list of Dependency
-            Draft or Published. The keys represent the full set of what has
-            changed in the change log (DraftChangeLog or PublishLog), and
-            includes things that were added as side-effects. The value lists
-            in this dict can include things that *didn't* change, if they happen
-            to be dependencies of things that did change.
-        already_computed_hashes: A cache to ensure we don't recompute the same
-            nodes over and over again.
-
-    Note that we are doing potentially re-doing calculations for Draft and
-    Published, when that data already exists in DraftChangeLogRecord or
-    PublishLogRecord. This is intentional. The dependencies_hash_digest is a late
-    addition to the data model. We will backfill all existing Draft and Published
-    entries so that the DraftChangeLogRecord and PublishChangeLogRecord that they
-    point to will have dependencies_hash_digest properly set. However, we're not
-    going to go back through the history and re-compute the state for every log
-    record in the database, meaning that sometimes an old container's PublishLogRecord
-    """
-    if log_record in already_computed_hashes:
-        return already_computed_hashes[log_record]
-
-    # Base case #1: The log_record is a dependency of something that was
-    # affected by a change, but the dependency itself did not change in any way
-    # (neither directly, nor as a side-effect).
-    #
-    # Example: A Unit has two Components. One of the Components changed, forcing
-    # us to recalculate the dependencies_hash_digest for that Unit. Doing that
-    # recalculation requires us to fetch the dependencies_hash_digest of the
-    # unchanged child as well.
-    #
-    # These are the only values for dependencies_hash_digest that we can trust,
-    # because we know that the change log (DraftChangeLog or PublishLog) being
-    # processed right now will not alter them.
-    if log_record not in changed_records:
-        return log_record.dependencies_hash_digest
-
-    # Base case #2: If there are no dependencies, the hash digest is set to ''.
-    # Note that it's possible that something that used to have a hash digest to
-    # get reset to '' if those dependencies are later removed.
-    dependencies = changed_records[log_record]
-    if not dependencies:
-        return ''
-
-    # Normal recursive case
-    dependencies.sort(key=lambda d: d.version.uuid)
-    dep_state_entries = [
-        f"{dep_record.version.uuid}:"
-        f"{hash_for_branch_item(dep_record, changed_records, already_computed_hashes)}"
-        for dep_record in dependencies
-    ]
-    summary_text = "\n".join(dep_state_entries)
-
-    digest = create_hash_digest(summary_text.encode(), num_bytes=4)
-    already_computed_hashes[log_record] = digest
 
     return digest
 
@@ -1940,10 +1786,19 @@ def contains_unpublished_changes(container_id: int) -> bool:
     draft = container.publishable_entity.draft
     published = container.publishable_entity.published
 
+    # Edge case: A container that was created and then immediately soft-deleted
+    # does not contain any unpublished changes.
     if draft is None and published is None:
         return False
 
-    return draft.log_record.dependencies_hash_digest != published.log_record.dependencies_hash_digest
+    # The dependencies_hash_digest captures the state of all descendants, so we
+    # can do this quick comparison instead of iterating through layers of
+    # containers.
+    draft_version_hash_digest = draft.log_record.dependencies_hash_digest
+    published_version_hash_digest = published.log_record.dependencies_hash_digest
+    
+    return draft_version_hash_digest != published_version_hash_digest
+
 
 def get_containers_with_entity(
     publishable_entity_pk: int,
@@ -2054,6 +1909,6 @@ def bulk_draft_changes_for(
         changed_at=changed_at,
         changed_by=changed_by,
         exit_callbacks=[
-            _process_draft_change_log,
+            _create_side_effects_for_change_log,
         ]
     )
