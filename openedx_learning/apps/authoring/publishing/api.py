@@ -644,12 +644,31 @@ def set_draft_version(
             learning_package_id
         )
         if active_change_log:
-            _add_to_existing_draft_change_log(
+            draft_log_record = _add_to_existing_draft_change_log(
                 active_change_log,
                 draft.entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
+            if draft_log_record:
+                # Normal case: a DraftChangeLogRecord was created or updated.
+                draft.draft_log_record = draft_log_record
+            else:
+                # Edge case: this change cancelled out other changes, and the
+                # net effect is that the DraftChangeLogRecord shouldn't exist,
+                # i.e. the version at the start and end of the DraftChangeLog is
+                # the same. In that case, _add_to_existing_draft_change_log will
+                # delete the log record for this Draft state, and we have to
+                # look for the most recently created DraftLogRecord from another
+                # DraftChangeLog. This value may be None.
+                draft.draft_log_record = (
+                    DraftChangeLogRecord.objects
+                        .filter(entity_id=draft.entity_id)
+                        .order_by("-pk")
+                        .first()
+                )
+            draft.save()
+
             # We don't set the draft.draft_log_record value yet, because it's
             # still possible that future changes in the same DraftChangeLog will
             # undo this one. When that happens, the DraftChangeLogRecord is
@@ -673,20 +692,13 @@ def set_draft_version(
                 changed_at=set_at,
                 changed_by_id=set_by,
             )
-            DraftChangeLogRecord.objects.create(
+            draft.draft_log_record = DraftChangeLogRecord.objects.create(
                 draft_change_log=change_log,
                 entity_id=draft.entity_id,
                 old_version_id=old_version_id,
                 new_version_id=publishable_entity_version_pk,
             )
-
-#            draft.draft_log_record = DraftChangeLogRecord.objects.create(
-#                draft_change_log=change_log,
-#                entity_id=draft.entity_id,
-#                old_version_id=old_version_id,
-#                new_version_id=publishable_entity_version_pk,
-#            )
-#            draft.save()
+            draft.save()
 
             # Rename this to something like process_draft_change_log, which
             # then calls the fn() below, and then also update the contextmanager callback.
@@ -765,19 +777,8 @@ def _add_to_existing_draft_change_log(
 
 
 def _process_draft_change_log(change_log: DraftChangeLog) -> None:
-    draft_objs_to_update = []
-    for draft_log_record in change_log.records.select_related("entity__draft").all():
-        draft = draft_log_record.entity.draft
-        draft.draft_log_record = draft_log_record
-        draft.version_id = draft_log_record.next_version_id
-        draft_objs_to_update.append(draft)
-
-    Draft.objects.bulk_update(
-        draft_objs_to_update,
-        ['draft_log_record']
-    )
-
     _create_side_effects_for_change_log(change_log)
+
 
 
 def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog):

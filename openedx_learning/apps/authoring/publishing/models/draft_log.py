@@ -66,7 +66,7 @@ class Draft(models.Model):
     # addition to this data model, so we have to allow null values.
     draft_log_record = models.ForeignKey(
         "DraftChangeLogRecord",
-        on_delete=models.RESTRICT,
+        on_delete=models.SET_NULL,
         null=True,
     )
 
