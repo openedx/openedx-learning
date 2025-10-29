@@ -63,7 +63,11 @@ class Draft(models.Model):
     # Note: this is actually a 1:1 relation in practice, but I'm keeping the
     # definition more consistent with the Published model, which has an fkey
     # to PublishLogRecord. Unlike PublishLogRecord, this fkey is a late
-    # addition to this data model, so we have to allow null values.
+    # addition to this data model, so we have to allow null values for the
+    # initial migration. But making this nullable also has another advantage,
+    # in that it allows us to set the draft_log_record to the most recent change
+    # while inside a bulk_draft_changes_for operation, and then delete that log
+    # record if it is undone in the same bulk operation.
     draft_log_record = models.ForeignKey(
         "DraftChangeLogRecord",
         on_delete=models.SET_NULL,

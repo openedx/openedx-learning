@@ -301,14 +301,14 @@ class PublishableEntityVersionDependency(models.Model):
 
     .. no_pii
     """
-    version = models.ForeignKey(PublishableEntityVersion, on_delete=models.RESTRICT)
-    entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+    referent_version = models.ForeignKey(PublishableEntityVersion, on_delete=models.RESTRICT)
+    referenced_entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["version", "entity"],
-                name="oel_pevd_uniq_version_entity",
+                fields=["referent_version", "referenced_entity"],
+                name="oel_pevd_uniq_rv_re",
             )
         ]
 
