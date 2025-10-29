@@ -415,15 +415,15 @@ def _get_dependencies_with_unpublished_changes(
     # versions are still the same, there might be a changed Component that needs
     # to be published.
     all_dependency_drafts = []
-    dependency_drafts = Draft.objects.all().filter(
-        entity__affects__in=draft_qset.values_list("entity_id", flat=True)
-    ).all().distinct()
+    dependency_drafts = Draft.objects.filter(
+        entity__affects__in=draft_qset.values_list("version_id", flat=True)
+    ).distinct()
 
     while dependency_drafts:
         all_dependency_drafts.append(dependency_drafts)
-        dependency_drafts = Draft.objects.all().filter(
-            entity__affects__in=dependency_drafts.all().values_list("entity_id", flat=True)
-        ).all().distinct()
+        dependency_drafts = Draft.objects.filter(
+            entity__affects__in=dependency_drafts.all().values_list("version_id", flat=True)
+        ).distinct()
 
     unpublished_dependency_drafts = [
         dependency_drafts_qset.all().with_unpublished_changes()

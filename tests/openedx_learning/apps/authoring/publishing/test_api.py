@@ -1297,6 +1297,7 @@ class ContainerTestCase(TestCase):
         # the publish log records.
         assert publish_log.records.count() == 3
 
+
     def test_container_next_version(self):
         """Test that next_version works for containers."""
         child_1 = publishing_api.create_publishable_entity(
