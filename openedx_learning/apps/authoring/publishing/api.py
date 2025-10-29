@@ -258,16 +258,30 @@ def set_version_dependencies(
     this function). **This function is not atomic.** If you're doing backfills,
     you must wrap calls to this function with a transaction.atomic() call.
 
-    The idea behind dependencies is that a PublishableEntityVersion may be
-    declared to reference unpinned PublishableEntities. Changes to those
+    The idea behind dependencies is that a PublishableEntity's Versions may
+    be declared to reference unpinned PublishableEntities. Changes to those
     referenced PublishableEntities still affect the draft or published state of
-    the PublisahbleEntity, even if the version of the PublishableEntity is not
+    the referent PublishableEntity, even if the referent entity's version is not
     incremented.
 
-    For example, a Unit does not get a new version when unpinned child
-    Components are updated, but we do consider a Unit version to be changed when
-    that happens. So the child Components would be dependencies of the Unit
-    version in this case.
+    For example, we only create a new UnitVersion when there are changes to the
+    metadata of the Unit itself. So this would happen when the name of the Unit
+    is changed, or if a child Component is added, removed, or reordered. No new
+    UnitVersion is created when a child Component of that Unit is modified or
+    published. Yet we still consider a Unit to be affected when one of its child
+    Components is modified or published. Therefore, we say that the child
+    Components are dependencies of the UnitVersion.
+
+    Dependencies vs. Container Rows/Children
+
+    Dependencies overlap with the concept of container child rows, but the two
+    are not exactly the same. For instance:
+
+    * Dependencies have no sense of ordering.
+    * If a row is declared to be pinned to a specific version of a child, then
+      it is NOT a dependency. For example, if U1.v1 is declared to have a pinned
+      reference to ComponentVersion C1.v1, then future changes to C1 do not
+      affect U1.v1 because U1.v1 will just ignore those new ComponentVersions.
 
     Guidelines:
 
