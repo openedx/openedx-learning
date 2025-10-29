@@ -1,0 +1,3 @@
+<problem display_name="Single select" markdown_edited="false" weight="1.0"><multiplechoiceresponse>
+<div>Single select question</div><choicegroup><choice correct="true"><div>1</div></choice><choice correct="false"><div>2</div></choice><choice correct="false"><div>3</div></choice></choicegroup></multiplechoiceresponse>
+</problem>

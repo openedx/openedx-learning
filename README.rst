@@ -108,6 +108,15 @@ Every time you develop something in this repo
 
   # Open a PR and ask for review.
 
+Configuring Visual Studio Code
+------------------------------
+
+If you are using VS Code as your editor, you can enable the Testing bar by copying from the example configuration provided in the ``.vscode`` directory::
+
+    cd .vscode/
+    cp launch.json.example launch.json
+    cp settings.json.example settings.json
+
 License
 -------
 

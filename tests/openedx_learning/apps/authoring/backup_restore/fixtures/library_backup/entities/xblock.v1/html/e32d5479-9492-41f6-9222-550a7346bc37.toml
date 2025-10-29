@@ -1,0 +1,20 @@
+[entity]
+can_stand_alone = true
+key = "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37"
+created = 2025-08-19T04:25:43.685529Z
+
+[entity.draft]
+version_num = 5
+
+[entity.published]
+version_num = 4
+
+# ### Versions
+
+[[version]]
+title = "Text"
+version_num = 5
+
+[[version]]
+title = "Text"
+version_num = 4

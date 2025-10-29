@@ -1,0 +1,21 @@
+[entity]
+can_stand_alone = true
+key = "subsection1-48afa3"
+created = 2025-09-04T22:51:52.824941Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+# unpublished: no published_version_num
+
+[entity.container.subsection]
+
+# ### Versions
+
+[[version]]
+title = "Subsection1"
+version_num = 2
+
+[version.container]
+children = ["unit1-b7eafb"]

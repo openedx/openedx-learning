@@ -1,0 +1,16 @@
+[entity]
+can_stand_alone = true
+key = "xblock.v1:drag-and-drop-v2:4d1b2fac-8b30-42fb-872d-6b10ab580b27"
+created = 2025-09-04T22:39:37.001432Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+# unpublished: no published_version_num
+
+# ### Versions
+
+[[version]]
+title = "Drag and Drop"
+version_num = 2

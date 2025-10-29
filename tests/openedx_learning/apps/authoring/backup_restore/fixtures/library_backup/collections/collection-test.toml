@@ -1,0 +1,9 @@
+[collection]
+title = "Collection test1"
+key = "collection-test"
+description = ""
+created = 2025-08-19T04:25:27.754968Z
+entities = [
+    "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37",
+    "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b",
+]

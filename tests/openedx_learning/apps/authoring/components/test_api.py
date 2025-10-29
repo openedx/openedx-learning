@@ -554,6 +554,77 @@ class CreateNewVersionsTestCase(ComponentTestCase):
                      .get(componentversioncontent__key="hello.txt")
         )
 
+    def test_create_next_version_forcing_num_version(self):
+        """Test creating a next version with a forced version number."""
+        version_1 = components_api.create_next_component_version(
+            self.problem.pk,
+            title="Problem Version 1",
+            content_to_replace={},
+            created=self.now,
+            force_version_num=5,
+        )
+        assert version_1.version_num == 5
+
+    def test_create_multiple_next_versions_and_diff_content(self):
+        """
+        Test creating multiple next versions with different content.
+        This includes a case where we want to ignore previous content.
+        """
+        python_source_media_type = contents_api.get_or_create_media_type(
+            "text/x-python",
+        )
+        python_source_asset = contents_api.get_or_create_file_content(
+            self.learning_package.id,
+            python_source_media_type.id,
+            data=b"print('hello world!')",
+            created=self.now,
+        )
+        content_to_replace_for_published = {
+            'static/profile.webp': python_source_asset.pk,
+            'static/background.webp': python_source_asset.pk,
+        }
+
+        content_to_replace_for_draft = {
+            'static/profile.webp': python_source_asset.pk,
+            'static/new_file.webp': python_source_asset.pk,
+        }
+        version_1_published = components_api.create_next_component_version(
+            self.problem.pk,
+            title="Problem Version 1",
+            content_to_replace=content_to_replace_for_published,
+            created=self.now,
+        )
+        assert version_1_published.version_num == 1
+
+        publishing_api.publish_all_drafts(
+            self.learning_package.pk,
+            published_at=self.now
+        )
+
+        version_2_draft = components_api.create_next_component_version(
+            self.problem.pk,
+            title="Problem Version 2",
+            content_to_replace=content_to_replace_for_draft,
+            created=self.now,
+            ignore_previous_content=True,
+        )
+        assert version_2_draft.version_num == 2
+        assert version_2_draft.contents.count() == 2
+        assert (
+            python_source_asset ==
+            version_2_draft.contents.get(
+                componentversioncontent__key="static/profile.webp")
+        )
+        assert (
+            python_source_asset ==
+            version_2_draft.contents.get(
+                componentversioncontent__key="static/new_file.webp")
+        )
+        with self.assertRaises(ObjectDoesNotExist):
+            # This file was in the published version, but not in the draft version
+            # since we ignored previous content.
+            version_2_draft.contents.get(componentversioncontent__key="static/background.webp")
+
 
 class SetCollectionsTestCase(ComponentTestCase):
     """
@@ -605,3 +676,38 @@ class SetCollectionsTestCase(ComponentTestCase):
             username="user",
             email="user@example.com",
         )
+
+
+class TestComponentTypeUtils(TestCase):
+    """
+    Test the component type utility functions.
+    """
+
+    def test_get_or_create_component_type_by_entity_key_creates_new(self):
+        comp_type, local_key = components_api.get_or_create_component_type_by_entity_key(
+            "video:youtube:abcd1234"
+        )
+
+        assert isinstance(comp_type, ComponentType)
+        assert comp_type.namespace == "video"
+        assert comp_type.name == "youtube"
+        assert local_key == "abcd1234"
+        assert ComponentType.objects.count() == 1
+
+    def test_get_or_create_component_type_by_entity_key_existing(self):
+        ComponentType.objects.create(namespace="video", name="youtube")
+
+        comp_type, local_key = components_api.get_or_create_component_type_by_entity_key(
+            "video:youtube:efgh5678"
+        )
+
+        assert comp_type.namespace == "video"
+        assert comp_type.name == "youtube"
+        assert local_key == "efgh5678"
+        assert ComponentType.objects.count() == 1
+
+    def test_get_or_create_component_type_by_entity_key_invalid_format(self):
+        with self.assertRaises(ValueError) as ctx:
+            components_api.get_or_create_component_type_by_entity_key("not-enough-parts")
+
+        self.assertIn("Invalid entity_key format", str(ctx.exception))

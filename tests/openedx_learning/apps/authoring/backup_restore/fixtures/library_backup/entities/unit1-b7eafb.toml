@@ -1,0 +1,21 @@
+[entity]
+can_stand_alone = true
+key = "unit1-b7eafb"
+created = 2025-09-04T22:51:59.271334Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+# unpublished: no published_version_num
+
+[entity.container.unit]
+
+# ### Versions
+
+[[version]]
+title = "Unit1"
+version_num = 2
+
+[version.container]
+children = ["xblock.v1:video:22601ebd-9da8-430b-9778-cfe059a98568"]

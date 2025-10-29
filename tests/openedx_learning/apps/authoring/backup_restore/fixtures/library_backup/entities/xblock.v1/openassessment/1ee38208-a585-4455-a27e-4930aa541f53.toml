@@ -1,0 +1,16 @@
+[entity]
+can_stand_alone = true
+key = "xblock.v1:openassessment:1ee38208-a585-4455-a27e-4930aa541f53"
+created = 2025-09-04T22:38:05.382684Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+# unpublished: no published_version_num
+
+# ### Versions
+
+[[version]]
+title = "Open Response Assessment"
+version_num = 2

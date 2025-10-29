@@ -356,6 +356,27 @@ class SubSectionTestCase(UnitTestCase):  # pylint: disable=test-inherits-tests
             # There is no published version of the subsection:
             authoring_api.get_units_in_subsection(subsection, published=True)
 
+    def test_create_next_subsection_version_forcing_version_num(self):
+        """
+        Test creating a subsection version while forcing the next version number.
+        """
+        subsection, _subsection_version = authoring_api.create_subsection_and_version(
+            learning_package_id=self.learning_package.id,
+            key="subsection:key",
+            title="Subsection",
+            created=self.now,
+            created_by=None,
+        )
+        subsection_version_v2 = authoring_api.create_next_subsection_version(
+            subsection=subsection,
+            title="Subsection",
+            units=[self.unit_1, self.unit_2],
+            created=self.now,
+            created_by=None,
+            force_version_num=4
+        )
+        assert subsection_version_v2.version_num == 4
+
     def test_create_next_subsection_version_with_unpinned_and_pinned_units(self):
         """
         Test creating a subsection version with one unpinned and one pinned 📌 unit.

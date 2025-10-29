@@ -1297,6 +1297,54 @@ class ContainerTestCase(TestCase):
         # the publish log records.
         assert publish_log.records.count() == 3
 
+    def test_container_next_version(self):
+        """Test that next_version works for containers."""
+        child_1 = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "child_1",
+            created=self.now,
+            created_by=None,
+        )
+        container = publishing_api.create_container(
+            self.learning_package.id,
+            "my_container",
+            created=self.now,
+            created_by=None,
+        )
+        assert container.versioning.latest is None
+        v1 = publishing_api.create_next_container_version(
+            container.pk,
+            title="My Container v1",
+            entity_rows=None,
+            created=self.now,
+            created_by=None,
+        )
+        assert v1.version_num == 1
+        assert container.versioning.latest == v1
+        v2 = publishing_api.create_next_container_version(
+            container.pk,
+            title="My Container v2",
+            entity_rows=[
+                publishing_api.ContainerEntityRow(entity_pk=child_1.pk)
+            ],
+            created=self.now,
+            created_by=None,
+        )
+        assert v2.version_num == 2
+        assert container.versioning.latest == v2
+        assert v2.entity_list.entitylistrow_set.count() == 1
+        v3 = publishing_api.create_next_container_version(
+            container.pk,
+            title="My Container v3",
+            entity_rows=None,
+            created=self.now,
+            created_by=None,
+        )
+        assert v3.version_num == 3
+        assert container.versioning.latest == v3
+        # Even though we didn't pass any rows, it should copy the previous version's rows
+        assert v2.entity_list.entitylistrow_set.count() == 1
+
 
 class EntitiesQueryTestCase(TestCase):
     """

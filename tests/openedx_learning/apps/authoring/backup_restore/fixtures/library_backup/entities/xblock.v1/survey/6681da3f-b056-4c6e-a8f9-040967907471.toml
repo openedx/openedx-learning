@@ -1,0 +1,16 @@
+[entity]
+can_stand_alone = true
+key = "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471"
+created = 2025-09-04T22:41:02.788509Z
+
+[entity.draft]
+version_num = 1
+
+[entity.published]
+# unpublished: no published_version_num
+
+# ### Versions
+
+[[version]]
+title = "Survey"
+version_num = 1

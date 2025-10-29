@@ -92,6 +92,7 @@ __all__ = [
     "get_containers_with_entity",
     "get_container_children_count",
     "bulk_draft_changes_for",
+    "get_container_children_entities_keys",
 ]
 
 
@@ -1541,6 +1542,7 @@ def create_next_container_version(
     created_by: int | None,
     container_version_cls: type[ContainerVersionModel] = ContainerVersion,  # type: ignore[assignment]
     entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
+    force_version_num: int | None = None,
 ) -> ContainerVersionModel:
     """
     [ 🛑 UNSTABLE ]
@@ -1561,26 +1563,40 @@ def create_next_container_version(
         created: The date and time the container version was created.
         created_by: The ID of the user who created the container version.
         container_version_cls: The subclass of ContainerVersion to use, if applicable.
+        force_version_num (int, optional): If provided, overrides the automatic version number increment and sets
+            this version's number explicitly. Use this if you need to restore or import a version with a specific
+            version number, such as during data migration or when synchronizing with external systems.
 
     Returns:
         The newly created container version.
+
+    Why use force_version_num?
+        Normally, the version number is incremented automatically from the latest version.
+        If you need to set a specific version number (for example, when restoring from backup,
+        importing legacy data, or synchronizing with another system),
+        use force_version_num to override the default behavior.
     """
     assert issubclass(container_version_cls, ContainerVersion)
     with atomic():
         container = Container.objects.select_related("publishable_entity").get(pk=container_pk)
         entity = container.publishable_entity
         last_version = container.versioning.latest
-        assert last_version is not None
-        next_version_num = last_version.version_num + 1
+        if last_version is None:
+            next_version_num = 1
+        else:
+            next_version_num = last_version.version_num + 1
 
-        if entity_rows is None:
+        if force_version_num is not None:
+            next_version_num = force_version_num
+
+        if entity_rows is None and last_version is not None:
             # We're only changing metadata. Keep the same entity list.
             next_entity_list = last_version.entity_list
         else:
             next_entity_list = create_next_entity_list(
                 entity.learning_package_id,
                 last_version,
-                entity_rows,
+                entity_rows if entity_rows is not None else [],
                 entities_action
             )
 
@@ -1869,6 +1885,22 @@ def get_container_children_count(
     else:
         filter_deleted = {"entity__draft__version__isnull": False}
     return container_version.entity_list.entitylistrow_set.filter(**filter_deleted).count()
+
+
+def get_container_children_entities_keys(container_version: ContainerVersion) -> list[str]:
+    """
+    Fetch the list of entity keys for all entities in the given container version.
+
+    Args:
+        container_version: The ContainerVersion to fetch the entity keys for.
+    Returns:
+        A list of entity keys for all entities in the container version, ordered by entity key.
+    """
+    return list(
+        container_version.entity_list.entitylistrow_set
+        .values_list("entity__key", flat=True)
+        .order_by("order_num")
+    )
 
 
 def bulk_draft_changes_for(

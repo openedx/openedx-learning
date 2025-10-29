@@ -131,6 +131,7 @@ def create_next_section_version(
     created: datetime,
     created_by: int | None = None,
     entities_action: publishing_api.ChildrenEntitiesAction = publishing_api.ChildrenEntitiesAction.REPLACE,
+    force_version_num: int | None = None,
 ) -> SectionVersion:
     """
     [ 🛑 UNSTABLE ] Create the next section version.
@@ -142,6 +143,21 @@ def create_next_section_version(
             Passing None will leave the existing subsections unchanged.
         created: The creation date.
         created_by: The user who created the section.
+        force_version_num (int, optional): If provided, overrides the automatic version number increment and sets
+            this version's number explicitly. Use this if you need to restore or import a version with a specific
+            version number, such as during data migration or when synchronizing with external systems.
+
+    Returns:
+        The newly created SectionVersion.
+
+    Why use force_version_num?
+        Normally, the version number is incremented automatically from the latest version.
+        If you need to set a specific version number (for example, when restoring from backup,
+        importing legacy data, or synchronizing with another system),
+        use force_version_num to override the default behavior.
+
+    Why not use create_component_version?
+        The main reason is that we want to reuse the logic for adding entities to this container.
     """
     entity_rows = _pub_entities_for_subsections(subsections)
     section_version = publishing_api.create_next_container_version(
@@ -152,6 +168,7 @@ def create_next_section_version(
         created_by=created_by,
         container_version_cls=SectionVersion,
         entities_action=entities_action,
+        force_version_num=force_version_num,
     )
     return section_version
 

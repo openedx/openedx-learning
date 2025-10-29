@@ -1,0 +1,16 @@
+[entity]
+can_stand_alone = true
+key = "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b"
+created = 2025-09-04T22:37:24.780718Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+# unpublished: no published_version_num
+
+# ### Versions
+
+[[version]]
+title = "Single select"
+version_num = 2

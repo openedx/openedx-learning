@@ -1,0 +1,21 @@
+[entity]
+can_stand_alone = true
+key = "section1-8ca126"
+created = 2025-09-04T22:51:40.919872Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+# unpublished: no published_version_num
+
+[entity.container.section]
+
+# ### Versions
+
+[[version]]
+title = "Section1"
+version_num = 2
+
+[version.container]
+children = ["subsection1-48afa3"]

@@ -9,9 +9,10 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.db.models import QuerySet
+from django.test import override_settings
 
 from openedx_learning.api import authoring as api
-from openedx_learning.api.authoring_models import Component, LearningPackage
+from openedx_learning.api.authoring_models import Collection, Component, Content, LearningPackage, PublishableEntity
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageZipper
 from openedx_learning.lib.test_utils import TestCase
 
@@ -24,7 +25,16 @@ class LpDumpCommandTestCase(TestCase):
     """
 
     learning_package: LearningPackage
-    all_components: QuerySet[Component]
+    all_components: QuerySet[PublishableEntity]
+    now: datetime
+    xblock_v1_namespace: str
+    html_type: str
+    problem_type: str
+    published_component: Component
+    published_component2: Component
+    draft_component: Component
+    html_asset_content: Content
+    collection: Collection
 
     @classmethod
     def setUpTestData(cls):
@@ -35,6 +45,8 @@ class LpDumpCommandTestCase(TestCase):
         # Create a user for the test
         cls.user = User.objects.create(
             username="user",
+            first_name="Learning",
+            last_name="Package User",
             email="user@example.com",
         )
 
@@ -60,6 +72,17 @@ class LpDumpCommandTestCase(TestCase):
             cls.problem_type,
             local_key="my_published_example",
             title="My published problem",
+            created=cls.now,
+            created_by=cls.user.id,
+        )
+
+        # Make and publish one Component
+        # Same local key as above to test uniqueness of slugified hash
+        cls.published_component2, _ = api.create_component_and_version(
+            cls.learning_package.id,
+            cls.problem_type,
+            local_key="My_published_example",
+            title="My published problem 2",
             created=cls.now,
             created_by=cls.user.id,
         )
@@ -116,11 +139,32 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_content(
             new_html_version.pk,
             cls.html_asset_content.id,
-            key="static/hello.html",
+            key="static/other/subdirectory/hello.html",
         )
 
         components = api.get_publishable_entities(cls.learning_package)
         cls.all_components = components
+
+        cls.collection = api.create_collection(
+            cls.learning_package.id,
+            key="COL1",
+            created_by=cls.user.id,
+            title="Collection 1",
+            description="Description of Collection 1",
+        )
+
+        api.add_to_collection(
+            cls.learning_package.id,
+            cls.collection.key,
+            components
+        )
+
+        api.create_unit(
+            learning_package_id=cls.learning_package.id,
+            key="unit-1",
+            created=cls.now,
+            created_by=cls.user.id,
+        )
 
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):
         """
@@ -141,7 +185,8 @@ class LpDumpCommandTestCase(TestCase):
 
             expected_directories = [
                 "collections/",
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/",
+                "entities/xblock.v1/problem/my_published_example/component_versions/v1/static/",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v1/static/",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/static/",
             ]
@@ -151,12 +196,16 @@ class LpDumpCommandTestCase(TestCase):
                 "package.toml",
 
                 # Entity TOML files
-                "entities/xblock.v1/html/my_draft_example_af06e1.toml",
+                "entities/xblock.v1/html/my_draft_example.toml",
+                "entities/xblock.v1/problem/my_published_example.toml",
                 "entities/xblock.v1/problem/my_published_example_386dce.toml",
 
                 # Entity static content files
-                "entities/xblock.v1/html/my_draft_example_af06e1/component_versions/v2/static/hello.html",
+                "entities/xblock.v1/html/my_draft_example/component_versions/v2/static/other/subdirectory/hello.html",
                 "entities/xblock.v1/problem/my_published_example_386dce/component_versions/v2/hello.txt",
+
+                # Collections
+                "collections/col1.toml",
             ]
 
             expected_paths = expected_directories + expected_files
@@ -166,6 +215,7 @@ class LpDumpCommandTestCase(TestCase):
             for expected_path in expected_paths:
                 self.assertIn(expected_path, zip_name_list)
 
+    @override_settings(CMS_BASE="http://cms.test", LMS_BASE="http://lms.test")
     def test_lp_dump_command(self):
         lp_key = self.learning_package.key
         file_name = f"{lp_key}.zip"
@@ -173,7 +223,7 @@ class LpDumpCommandTestCase(TestCase):
             out = StringIO()
 
             # Call the management command to dump the learning package
-            call_command("lp_dump", lp_key, file_name, stdout=out)
+            call_command("lp_dump", lp_key, file_name, username=self.user.username, stdout=out)
 
             # Check that the zip file was created
             self.assertTrue(Path(file_name).exists())
@@ -192,6 +242,11 @@ class LpDumpCommandTestCase(TestCase):
                     f'key = "{self.learning_package.key}"',
                     f'title = "{self.learning_package.title}"',
                     f'description = "{self.learning_package.description}"',
+                    '[meta]',
+                    'format_version = 1',
+                    'created_at =',
+                    'created_by = "user"',
+                    'created_by_email = "user@example.com"',
                 ]
             )
 
@@ -199,16 +254,14 @@ class LpDumpCommandTestCase(TestCase):
             expected_files = {
                 "entities/xblock.v1/problem/my_published_example_386dce.toml": [
                     '[entity]',
-                    f'uuid = "{self.published_component.uuid}"',
                     'can_stand_alone = true',
                     '[entity.draft]',
                     'version_num = 2',
                     '[entity.published]',
                     'version_num = 1',
                 ],
-                "entities/xblock.v1/html/my_draft_example_af06e1.toml": [
+                "entities/xblock.v1/html/my_draft_example.toml": [
                     '[entity]',
-                    f'uuid = "{self.draft_component.uuid}"',
                     'can_stand_alone = true',
                     '[entity.draft]',
                     'version_num = 2',
@@ -252,7 +305,7 @@ class LpDumpCommandTestCase(TestCase):
         entities = zipper.get_publishable_entities()
         with self.assertNumQueries(3):
             list(entities)  # force evaluation
-            self.assertEqual(len(entities), 2)
+            self.assertEqual(len(entities), 4)
         # Add another component
         api.create_component_and_version(
             self.learning_package.id,
@@ -265,4 +318,4 @@ class LpDumpCommandTestCase(TestCase):
         entities = zipper.get_publishable_entities()
         with self.assertNumQueries(3):
             list(entities)  # force evaluation
-            self.assertEqual(len(entities), 3)
+            self.assertEqual(len(entities), 5)
