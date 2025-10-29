@@ -49,6 +49,7 @@ class PublishLogRecordTabularInline(admin.TabularInline):
         "title",
         "old_version_num",
         "new_version_num",
+        "dependencies_hash_digest",
     )
     readonly_fields = fields
 
@@ -208,10 +209,11 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         italicize the text for emphasis.
         """
         if hasattr(entity, "draft") and entity.draft.version:
-            if entity.draft.dependencies_hash_digest:
+            draft_log_record = entity.draft.draft_log_record
+            if draft_log_record and draft_log_record.dependencies_hash_digest:
                 version_str = (
                     f"{entity.draft.version.version_num} "
-                    f"({entity.draft.dependencies_hash_digest})"
+                    f"({draft_log_record.dependencies_hash_digest})"
                 )
             else:
                 version_str = str(entity.draft.version.version_num)
@@ -228,10 +230,11 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         Version num + dependency hash if applicable, e.g. "5" or "5 (825064c2)"
         """
         if hasattr(entity, "published") and entity.published.version:
-            if entity.published.dependencies_hash_digest:
+            publish_log_record = entity.published.publish_log_record
+            if publish_log_record.dependencies_hash_digest:
                 return (
                     f"{entity.published.version.version_num} "
-                    f"({entity.published.dependencies_hash_digest})"
+                    f"({publish_log_record.dependencies_hash_digest})"
                 )
             else:
                 return str(entity.published.version.version_num)
@@ -291,6 +294,7 @@ class DraftChangeLogRecordTabularInline(admin.TabularInline):
         "title",
         "old_version_num",
         "new_version_num",
+        "dependencies_hash_digest",
     )
     readonly_fields = fields
 

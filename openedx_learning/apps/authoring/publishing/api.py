@@ -652,7 +652,7 @@ def set_draft_version(
                 # deletions and modifications of the same Draft entry in nested
                 # bulk_draft_changes_for() calls. I haven't thought that through
                 # yet--it might be better to just throw an error rather than try
-                # to accommodate it. 
+                # to accommodate it.
                 draft.draft_log_record = (
                     DraftChangeLogRecord.objects
                         .filter(entity_id=draft.entity_id)
@@ -670,7 +670,7 @@ def set_draft_version(
             # include that child Component. Also, calculating side-effects is
             # expensive, and would result in a lot of wasted queries if we did
             # it for every change will inside an active change log context.
-            # 
+            #
             # Therefore we'll let DraftChangeLogContext do that work when it
             # exits its context.
         else:
@@ -716,7 +716,7 @@ def _add_to_existing_draft_change_log(
     and new_version = v3.
 
     This also means that if we make a change that undoes the previos change, it
-    will delete that DraftChangeLogRecord, e.g. (None, v1) -> (None, v2) -> 
+    will delete that DraftChangeLogRecord, e.g. (None, v1) -> (None, v2) ->
     (None -> None), then this entry can be deleted because it didn't change
     anything. This function should never be used for creating side-effect change
     log records (the only place where it's normal to have the same old and new
@@ -802,10 +802,12 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
         branch_cls = Draft
         change_record_cls = DraftChangeLogRecord
         side_effect_cls = DraftSideEffect
+        log_record_rel = "draft_log_record_id"
     elif isinstance(change_log, PublishLog):
         branch_cls = Published
         change_record_cls = PublishLogRecord
         side_effect_cls = PublishSideEffect
+        log_record_rel = "publish_log_record_id"
     else:
         raise TypeError(
             f"expected DraftChangeLog or PublishLog, not {type(change_log)}"
@@ -845,9 +847,9 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
 
             change_log_param = {}
             if branch_cls == Draft:
-                change_log_param['draft_change_log'] = original_change.draft_change_log
+                change_log_param['draft_change_log'] = original_change.draft_change_log  # type: ignore[union-attr]
             elif branch_cls == Published:
-                change_log_param['publish_log'] = original_change.publish_log
+                change_log_param['publish_log'] = original_change.publish_log  # type: ignore[union-attr]
 
             # Example: If the original_change is a DraftChangeLogRecord that
             # represents editing a Component, the side_effect_change is the
@@ -919,11 +921,10 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
                 if affected.entity_id not in processed_entity_ids
             )
 
-        if branch_cls == Published:
-            log_record_rel = "publish_log_record_id"
-        elif branch_cls == Draft:
-            log_record_rel = "draft_log_record_id"
-        branch_cls.objects.bulk_update(branch_objs_to_update_with_side_effects, [log_record_rel])
+        branch_cls.objects.bulk_update(
+            branch_objs_to_update_with_side_effects,  # type: ignore[arg-type]
+            [log_record_rel],
+        )
 
     _update_branch_dependencies_hash_digests(change_log)
 
@@ -952,7 +953,7 @@ def _update_branch_dependencies_hash_digests(
     elif isinstance(change_log, PublishLog):
         branch = "published"
         log_record_relation = "publish_log_record"
-        record_cls = PublishLogRecord
+        record_cls = PublishLogRecord  # type: ignore[assignment]
     else:
         raise TypeError(
             f"expected DraftChangeLog or PublishLog, not {type(change_log)}"
@@ -969,7 +970,8 @@ def _update_branch_dependencies_hash_digests(
                 .order_by(f"{branch}__version__uuid")
         )
     )
-    changed_records = list(
+    changed_records: QuerySet[DraftChangeLogRecord] | QuerySet[PublishLogRecord]
+    changed_records = (
         change_log.records
                   .select_related("new_version", f"entity__{branch}")
                   .prefetch_related(dependencies_prefetch)
@@ -1015,7 +1017,7 @@ def _update_branch_dependencies_hash_digests(
         )
 
     record_cls.objects.bulk_update(
-        records_that_need_hashes,
+        records_that_need_hashes,  # type: ignore[arg-type]
         ['dependencies_hash_digest'],
     )
 
@@ -1057,12 +1059,12 @@ def hash_for_log_record(
       something (or published the soft-delete of something). We adopt the
       convention that if something is soft-deleted, its dependencies_hash_digest
       is reset to the default value of ''.
-    
+
     EntityVersions with no dependencies
       If record.new_version has no dependencies, dependencies_hash_digest is
       likewise set to the default value of ''. This will be the most common
       case.
-    
+
     EntityVersions with dependencies
       If an EntityVersion has dependencies, we calculate the dependency hash
       digest by taking a hash of all the UUIDs of the active version. [ fill in
@@ -1078,7 +1080,7 @@ def hash_for_log_record(
     # cache because the record is a deletion or doesn't have dependencies.
     if record.id in record_ids_to_hash_digests:
         return record_ids_to_hash_digests[record.id]
-    
+
     # Case #2: The log_record is a dependency of something that was affected by
     # a change, but the dependency itself did not change in any way (neither
     # directly, nor as a side-effect).
@@ -1813,7 +1815,7 @@ def contains_unpublished_changes(container_id: int) -> bool:
     # containers.
     draft_version_hash_digest = draft.log_record.dependencies_hash_digest
     published_version_hash_digest = published.log_record.dependencies_hash_digest
-    
+
     return draft_version_hash_digest != published_version_hash_digest
 
 
