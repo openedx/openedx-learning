@@ -137,6 +137,11 @@ class PublishLogRecord(models.Model):
         verbose_name = "Publish Log Record"
         verbose_name_plural = "Publish Log Records"
 
+    def __str__(self):
+        old_version_num = None if self.old_version is None else self.old_version.version_num
+        new_version_num = None if self.new_version is None else self.new_version.version_num 
+        return f"PublishLogRecord: {self.entity} ({old_version_num} -> {new_version_num})"
+
 
 class Published(models.Model):
     """
