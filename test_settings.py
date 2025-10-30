@@ -26,6 +26,21 @@ DATABASES = {
     }
 }
 
+# If you provision the 'oel'@'%' with broad permissions on your MySQL instance,
+# running the tests will auto-generate a database for running tests. This is
+# slower than the default sqlite3 setup above, but it's sometimes helpful for
+# finding things that only break in CI. 
+#
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "USER": "oel",
+#         "PASSWORD": "oel-test-pass",
+#         "HOST": "mysql",
+#         "PORT": "3306",
+#     }
+# }
+
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",

@@ -185,9 +185,9 @@ class UnitTestCase(ComponentTestCase):
         Test how many database queries are required to create a unit
         """
         # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
-        with self.assertNumQueries(25):
+        with self.assertNumQueries(26):
             _empty_unit = self.create_unit_with_components([])
-        with self.assertNumQueries(29):
+        with self.assertNumQueries(32):
             # And try with a non-empty unit:
             self.create_unit_with_components([self.component_1, self.component_2_v1], key="u2")
 
@@ -700,12 +700,12 @@ class UnitTestCase(ComponentTestCase):
         unit = self.create_unit_with_components(components)
         authoring_api.publish_all_drafts(self.learning_package.id)
         unit.refresh_from_db()
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(1):
             assert authoring_api.contains_unpublished_changes(unit.pk) is False
 
         # Modify the most recently created component:
         self.modify_component(component, title="Modified Component")
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(1):
             assert authoring_api.contains_unpublished_changes(unit.pk) is True
 
     def test_metadata_change_doesnt_create_entity_list(self):

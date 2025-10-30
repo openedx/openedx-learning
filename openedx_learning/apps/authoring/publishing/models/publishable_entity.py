@@ -1,6 +1,8 @@
 """
 PublishableEntity model and PublishableEntityVersion + mixins
 """
+from __future__ import annotations
+
 from datetime import datetime
 from functools import cached_property
 from typing import ClassVar, Self
@@ -185,6 +187,8 @@ class PublishableEntityVersion(models.Model):
     connect them using a OneToOneField with primary_key=True. The easiest way to
     do this is to inherit from PublishableEntityVersionMixin. Be sure to treat
     these versioned models in your app as immutable as well.
+
+    .. no_pii
     """
 
     uuid = immutable_uuid_field()
@@ -219,6 +223,14 @@ class PublishableEntityVersion(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+    )
+
+    dependencies: models.ManyToManyField[
+        PublishableEntity, PublishableEntityVersionDependency
+    ] = models.ManyToManyField(
+        PublishableEntity,
+        through="PublishableEntityVersionDependency",
+        related_name="affects",
     )
 
     def __str__(self):
@@ -263,6 +275,42 @@ class PublishableEntityVersion(models.Model):
         # These are for the Django Admin UI.
         verbose_name = "Publishable Entity Version"
         verbose_name_plural = "Publishable Entity Versions"
+
+
+class PublishableEntityVersionDependency(models.Model):
+    """
+    Track the PublishableEntities that a PublishableEntityVersion depends on.
+
+    For example, a partcular version of a Unit (U1.v1) might be defined to have
+    unpinned references to Components C1 and C2. That means that any changes in
+    C1 or C2 will affect U1.v1 via DraftSideEffects and PublishedSideEffects. We
+    say that C1 and C2 are dependencies of U1.v1.
+
+    An important restriction is that a PublishableEntityVersion's list of
+    dependencies are defined when the version is created. It is not modified
+    after that. No matter what happens to C1 or C2 (e.g. edit, deletion,
+    un-deletion, reset-draft-version-to-published), they will always be
+    dependencies of U1.v1.
+
+    If someone removes C2 from U1, then that requires creating a new version of
+    U1 (so U1.v2).
+
+    This restriction is important because our ability to calculate and cache the
+    state of "this version of this publishable entity and all its dependencies
+    (children)" relies on this being true.
+
+    .. no_pii
+    """
+    referring_version = models.ForeignKey(PublishableEntityVersion, on_delete=models.CASCADE)
+    referenced_entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["referring_version", "referenced_entity"],
+                name="oel_pevd_uniq_rv_re",
+            )
+        ]
 
 
 class PublishableEntityMixin(models.Model):
