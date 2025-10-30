@@ -15,6 +15,7 @@ from typing import ContextManager, Optional, TypeVar
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, Prefetch, Q, QuerySet
 from django.db.transaction import atomic
+
 from openedx_learning.lib.fields import create_hash_digest
 
 from .contextmanagers import DraftChangeLogContext
@@ -1038,10 +1039,22 @@ def update_dependencies_hash_digests_for_log(
             untrusted_record_id_set,
         )
 
-    record_cls.objects.bulk_update(
-        records_that_need_hashes,  # type: ignore[arg-type]
-        ['dependencies_hash_digest'],
-    )
+    _bulk_update_hashes(record_cls, records_that_need_hashes)
+
+
+def _bulk_update_hashes(model_cls, records):
+    """
+    bulk_update using the model class (PublishLogRecord or DraftChangeLogRecord)
+
+    The only reason this function exists is because mypy 1.18.2 throws an
+    exception in validate_bulk_update() during "make quality" checks otherwise
+    (though curiously enough, not when that same version of mypy is called
+    directly). Given that I'm writing this on the night before the Ulmo release
+    cut, I'm not really interested in tracking down the underlying issue.
+
+    The lack of type annotations on this function is very intentional.
+    """
+    model_cls.objects.bulk_update(records, ['dependencies_hash_digest'])
 
 
 def hash_for_log_record(

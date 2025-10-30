@@ -6,11 +6,7 @@ from django.db import models
 from django.db.models import F, Q
 from django.utils.translation import gettext_lazy as _
 
-from openedx_learning.lib.fields import (
-    hash_field,
-    immutable_uuid_field,
-    manual_date_time_field,
-)
+from openedx_learning.lib.fields import hash_field, immutable_uuid_field, manual_date_time_field
 
 from .learning_package import LearningPackage
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
