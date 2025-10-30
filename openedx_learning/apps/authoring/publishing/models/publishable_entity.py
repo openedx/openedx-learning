@@ -301,7 +301,7 @@ class PublishableEntityVersionDependency(models.Model):
 
     .. no_pii
     """
-    referring_version = models.ForeignKey(PublishableEntityVersion, on_delete=models.RESTRICT)
+    referring_version = models.ForeignKey(PublishableEntityVersion, on_delete=models.CASCADE)
     referenced_entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
 
     class Meta:

@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('referenced_entity', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, to='oel_publishing.publishableentity')),
-                ('referring_version', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, to='oel_publishing.publishableentityversion')),
+                ('referring_version', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='oel_publishing.publishableentityversion')),
             ],
         ),
         migrations.AddField(
