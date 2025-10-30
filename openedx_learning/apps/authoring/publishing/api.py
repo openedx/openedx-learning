@@ -670,9 +670,9 @@ def set_draft_version(
                 # to accommodate it.
                 draft.draft_log_record = (
                     DraftChangeLogRecord.objects
-                        .filter(entity_id=draft.entity_id)
-                        .order_by("-pk")
-                        .first()
+                                        .filter(entity_id=draft.entity_id)
+                                        .order_by("-pk")
+                                        .first()
                 )
             draft.save()
 
@@ -946,7 +946,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
 
 def update_dependencies_hash_digests_for_log(
     change_log: DraftChangeLog | PublishLog,
-    backfill: bool=False,
+    backfill: bool = False,
 ) -> None:
     """
     Update dependencies_hash_digest for Drafts or Published in a change log.
@@ -981,14 +981,12 @@ def update_dependencies_hash_digests_for_log(
 
     dependencies_prefetch = Prefetch(
         "new_version__dependencies",
-        queryset=(
-            PublishableEntity.objects
-                .select_related(
-                    f"{branch}__version",
-                    f"{branch}__{log_record_relation}",
-                )
-                .order_by(f"{branch}__version__uuid")
-        )
+        queryset=PublishableEntity.objects
+                                  .select_related(
+                                      f"{branch}__version",
+                                      f"{branch}__{log_record_relation}",
+                                   )
+                                  .order_by(f"{branch}__version__uuid")
     )
     changed_records: QuerySet[DraftChangeLogRecord] | QuerySet[PublishLogRecord]
     changed_records = (
@@ -1134,6 +1132,9 @@ def hash_for_log_record(
     # need to compute dependency hashes for things outside of our log (because
     # we don't trust them).
     if record.id not in record_ids_to_live_deps:
+        if record.new_version is None:
+            record_ids_to_hash_digests[record.id] = ''
+            return ''
         deps = list(
             entity for entity in record.new_version.dependencies.all()
             if hasattr(entity, branch) and getattr(entity, branch).version
@@ -1841,9 +1842,9 @@ def contains_unpublished_changes(container_id: int) -> bool:
     """
     container = (
         Container.objects
-            .select_related('publishable_entity__draft__draft_log_record')
-            .select_related('publishable_entity__published__publish_log_record')
-            .get(pk=container_id)
+                 .select_related('publishable_entity__draft__draft_log_record')
+                 .select_related('publishable_entity__published__publish_log_record')
+                 .get(pk=container_id)
     )
     if container.versioning.has_unpublished_changes:
         return True

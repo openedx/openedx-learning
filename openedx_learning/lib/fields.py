@@ -153,6 +153,7 @@ def hash_field(**kwargs) -> models.CharField:
     }
     return models.CharField(**(default_kwargs | kwargs))
 
+
 def manual_date_time_field() -> models.DateTimeField:
     """
     DateTimeField that does not auto-generate values.

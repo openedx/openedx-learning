@@ -1169,7 +1169,6 @@ class ContainerTestCase(TestCase):
         assert side_effects.filter(effect__entity=unit_1.publishable_entity).count() == 1
         assert side_effects.filter(effect__entity=unit_2.publishable_entity).count() == 1
 
-
     def test_multiple_layers_of_containers(self):
         """Test stacking containers three layers deep."""
         # Note that these aren't real "components" and "units". Everything being
@@ -1296,7 +1295,6 @@ class ContainerTestCase(TestCase):
         # The component, unit, and subsection should all be accounted for in
         # the publish log records.
         assert publish_log.records.count() == 3
-
 
     def test_container_next_version(self):
         """Test that next_version works for containers."""

@@ -121,6 +121,7 @@ class PublishableEntityVersionTabularInline(admin.TabularInline):
             .prefetch_related('dependencies')
         )
 
+
 class PublishStatusFilter(admin.SimpleListFilter):
     """
     Custom filter for entities that have unpublished changes.
@@ -240,7 +241,6 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
                 return str(entity.published.version.version_num)
 
         return None
-
 
 
 @admin.register(Published)

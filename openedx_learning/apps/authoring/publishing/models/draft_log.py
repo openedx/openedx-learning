@@ -96,16 +96,17 @@ class Draft(models.Model):
             """
             return (
                 self.select_related("entity__published__version")
-                    # Exclude where draft and published versions are the same
+
+                # Exclude where draft and published versions are the same
                     .exclude(entity__published__version_id=F("version_id"))
 
-                    # Account for soft-deletes:
-                    # NULL != NULL in SQL, so simply excluding entities where
-                    # the Draft and Published versions match will not catch the
-                    # case where a soft-delete has been published (i.e. both the
-                    # Draft and Published versions are NULL). We need to
-                    # explicitly check for that case instead, or else we will
-                    # re-publish the same soft-deletes over and over again.
+                # Account for soft-deletes:
+                # NULL != NULL in SQL, so simply excluding entities where
+                # the Draft and Published versions match will not catch the
+                # case where a soft-delete has been published (i.e. both the
+                # Draft and Published versions are NULL). We need to
+                # explicitly check for that case instead, or else we will
+                # re-publish the same soft-deletes over and over again.
                     .exclude(
                         Q(version__isnull=True) &
                         Q(entity__published__version__isnull=True)
@@ -113,7 +114,6 @@ class Draft(models.Model):
             )
 
     objects = DraftQuerySet.as_manager()
-
 
 
 class DraftChangeLog(models.Model):
