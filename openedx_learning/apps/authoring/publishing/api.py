@@ -941,11 +941,12 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             [log_record_rel],
         )
 
-    _update_branch_dependencies_hash_digests(change_log)
+    update_dependencies_hash_digests_for_log(change_log)
 
 
-def _update_branch_dependencies_hash_digests(
+def update_dependencies_hash_digests_for_log(
     change_log: DraftChangeLog | PublishLog,
+    backfill: bool=False,
 ) -> None:
     """
     Update dependencies_hash_digest for Drafts or Published in a change log.
@@ -960,6 +961,10 @@ def _update_branch_dependencies_hash_digests(
         change_log: A DraftChangeLog or PublishLog that already has all
             side-effects added to it. The Draft and Published models should
             already be updated to point to the post-change versions.
+        backfill: If this is true, we will not trust the hash values stored on
+            log records outside of our log, i.e. things that we would normally
+            expect to be pre-calculated. This will be important for the initial
+            data migration.
     """
     if isinstance(change_log, DraftChangeLog):
         branch = "draft"
@@ -1022,7 +1027,11 @@ def _update_branch_dependencies_hash_digests(
         records_that_need_hashes.append(record)
         record_ids_to_live_deps[record.id] = deps
 
-    untrusted_record_id_set = set(rec.id for rec in records_that_need_hashes)
+    if backfill:
+        untrusted_record_id_set = None
+    else:
+        untrusted_record_id_set = set(rec.id for rec in records_that_need_hashes)
+
     for record in records_that_need_hashes:
         record.dependencies_hash_digest = hash_for_log_record(
             record,
@@ -1041,7 +1050,7 @@ def hash_for_log_record(
     record: DraftChangeLogRecord | PublishLogRecord,
     record_ids_to_hash_digests: dict,
     record_ids_to_live_deps: dict,
-    untrusted_record_id_set: set,
+    untrusted_record_id_set: set | None,
 ) -> str:
     """
     The hash digest for a given change log record.
@@ -1104,10 +1113,14 @@ def hash_for_log_record(
     # us to recalculate the dependencies_hash_digest for that Unit. Doing that
     # recalculation requires us to fetch the dependencies_hash_digest of the
     # unchanged child Component as well.
-    if record.id not in untrusted_record_id_set:
+    #
+    # If we aren't given an explicit untrusted_record_id_set, it means we can't
+    # trust anything. This would happen when we're bootstrapping things with an
+    # initial data migration.
+    if (untrusted_record_id_set is not None) and (record.id not in untrusted_record_id_set):
         return record.dependencies_hash_digest
 
-    # Normal recursive case:
+    # Normal recursive case starts here:
     if isinstance(record, DraftChangeLogRecord):
         branch = "draft"
     elif isinstance(record, PublishLogRecord):
@@ -1117,6 +1130,24 @@ def hash_for_log_record(
             f"expected DraftChangeLogRecord or PublishLogRecord, not {type(record)}"
         )
 
+    # This is extra work that only happens in case of a backfill, where we might
+    # need to compute dependency hashes for things outside of our log (because
+    # we don't trust them).
+    if record.id not in record_ids_to_live_deps:
+        deps = list(
+            entity for entity in record.new_version.dependencies.all()
+            if hasattr(entity, branch) and getattr(entity, branch).version
+        )
+        # If there are no live dependencies, this log record also gets the
+        # default/blank value.
+        if not deps:
+            record_ids_to_hash_digests[record.id] = ''
+            return ''
+
+        record_ids_to_live_deps[record.id] = deps
+    # End special handling for backfill.
+
+    # Begin normal
     dependencies: list[PublishableEntity] = sorted(
         record_ids_to_live_deps[record.id],
         key=lambda entity: getattr(entity, branch).log_record.new_version_id,
