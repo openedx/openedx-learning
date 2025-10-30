@@ -90,7 +90,6 @@ def _update_draft_dependencies_hashes(apps):
     from ..api import update_dependencies_hash_digests_for_log
     from ..models import DraftChangeLog
 
-    Draft = apps.get_model("oel_publishing", "Draft")
     # All DraftChangeLogs that have records that are pointed to by the current
     # Draft and have a possibility of having dependencies.
     change_logs = DraftChangeLog.objects.filter(
@@ -112,7 +111,6 @@ def _update_published_dependencies_hashes(apps):
     from ..api import update_dependencies_hash_digests_for_log
     from ..models import PublishLog
 
-    Published = apps.get_model("oel_publishing", "Published")
     # All PublishLogs that have records that are pointed to by the current
     # Published and have a possibility of having dependencies.
     change_logs = PublishLog.objects.filter(
