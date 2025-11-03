@@ -74,8 +74,7 @@ class PublishLogRecord(models.Model):
     had the side-effect of changing the published state of this entity. For
     instance, if a Unit has unpinned references to its child Components (which
     it almost always will), then publishing one of those Components will alter
-    the published state of the Unit, even if the UnitVersion does not change. In
-    that case, we still consider the Unit to have been "published".
+    the published state of the Unit, even if the UnitVersion does not change.
     """
 
     publish_log = models.ForeignKey(

@@ -461,8 +461,8 @@ def publish_from_drafts(
     """
     Publish the rows in the ``draft_model_qsets`` args passed in.
 
-    By default, this will also publish all dependencies (e.g. children) of the
-    Drafts that are passed in.
+    By default, this will also publish all dependencies (e.g. unpinned children)
+    of the Drafts that are passed in.
     """
     if published_at is None:
         published_at = datetime.now(tz=timezone.utc)
@@ -847,25 +847,20 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
         ]
 
         # These are the Published or Draft objects where we need to repoint the
-        # log_record (publish_log_record or draft_change_log) to point to the
-        # side-effect changes, e.g. the DraftChangeLogRecord that says, "This
-        # Unit's version stayed the same, but its dependency hash changed
+        # log_record (publish_log_record or draft_change_log_record) to point to
+        # the side-effect changes, e.g. the DraftChangeLogRecord that says,
+        # "This Unit's version stayed the same, but its dependency hash changed
         # because a child Component's draft version was changed." We gather them
         # all up in a list so we can do a bulk_update on them.
         branch_objs_to_update_with_side_effects = []
 
         while changes_and_affected:
-            original_change, affected = changes_and_affected.pop()
-
-            # If the Draft or Published that is affected by this change is not
-            # already in the change_log, then we have to add it.
-            affected_version_pk = affected.version_id
-
+            change, affected = changes_and_affected.pop()
             change_log_param = {}
             if branch_cls == Draft:
-                change_log_param['draft_change_log'] = original_change.draft_change_log  # type: ignore[union-attr]
+                change_log_param['draft_change_log'] = change.draft_change_log  # type: ignore[union-attr]
             elif branch_cls == Published:
-                change_log_param['publish_log'] = original_change.publish_log  # type: ignore[union-attr]
+                change_log_param['publish_log'] = change.publish_log  # type: ignore[union-attr]
 
             # Example: If the original_change is a DraftChangeLogRecord that
             # represents editing a Component, the side_effect_change is the
@@ -880,8 +875,8 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
                     # old/new version entries. But if we're creating this change
                     # record as a pure side-effect, then we use the (old_version
                     # == new_version) convention to indicate that.
-                    'old_version_id': affected_version_pk,
-                    'new_version_id': affected_version_pk
+                    'old_version_id': affected.version_id,
+                    'new_version_id': affected.version_id,
                 }
             )
             # Update the current branch pointer (Draft or Published) for this
@@ -898,10 +893,10 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
                     branch_objs_to_update_with_side_effects.append(draft_obj)
 
             # Create a new side effect (DraftSideEffect or PublishSideEffect) to
-            # record the relationship between the ``original_change`` and
-            # the corresponding ``side_effect_change``. We'll do this regardless
-            # of whether we created the ``side_effect_change`` or just pulled
-            # back an existing one. This addresses two things:
+            # record the relationship between the ``change`` and the
+            # corresponding ``side_effect_change``. We'll do this regardless of
+            # whether we created the ``side_effect_change`` or just pulled back
+            # an existing one. This addresses two things:
             #
             # 1. A change in multiple dependencies can generate multiple
             #    side effects that point to the same change log record, i.e.
@@ -917,7 +912,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             #    Unit will be incremented, but we'll also create the
             #    DraftSideEffect.
             side_effect_cls.objects.get_or_create(
-                cause=original_change,
+                cause=change,
                 effect=side_effect_change,
             )
 
@@ -929,7 +924,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
 
             # Make sure we never re-add the change we just processed when we
             # queue up the next layer.
-            processed_entity_ids.add(original_change.entity_id)
+            processed_entity_ids.add(change.entity_id)
 
             changes_and_affected.extend(
                 (side_effect_change, affected)
