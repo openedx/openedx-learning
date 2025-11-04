@@ -1096,9 +1096,12 @@ def hash_for_log_record(
       case.
 
     EntityVersions with dependencies
-      If an EntityVersion has dependencies, we calculate the dependency hash
-      digest by taking a hash of all the UUIDs of the active version. [ fill in
-      more later]
+    EntityVersions with dependencies
+      If an EntityVersion has dependencies, then its draft/published state
+      hash is based on the concatenation of, for each non-deleted dependency:
+        (i)  the dependency's draft/published EntityVersion primary key, and
+        (ii) the dependency's own draft/published state hash, recursively re-
+             calculated if necessary.
 
     EntityVersions with soft-deleted dependencies
       A soft-deleted dependency isn't counted (it's as if the dependency were
