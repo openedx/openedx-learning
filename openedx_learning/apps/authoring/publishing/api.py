@@ -1063,45 +1063,58 @@ def hash_for_log_record(
 
     Note that this code is a little convoluted because we're working hard to
     minimize the number of database requests. All the data we really need could
-    be derived from just the record itself, but at a far higher cost.
+    be derived from querying various relations off the record that's passed in
+    as the first parameter, but at a far higher cost.
 
-    When we say "dependency", we mean when one or more PublishableEntities are
-    dependencies of a PublishableEntityVersion. A change in the Draft or
-    Published state of the PublishableEntity causes an implicit change to the
-    PublishableEntityVersion. The common case we have at the moment is when a
-    container type like a Unit has Components as dependencies, i.e. the
-    UnitVersion specifies Component Entities as dependencies.
+    The hash calculated here will be used for the dependencies_hash_digest
+    attribute of DraftChangeLogRecord and PublishLogRecord. The hash is intended
+    to calculate the currently "live" (current draft or published) state of all
+    dependencies (and transitive dependencies) of the PublishableEntityVersion
+    pointed to by DraftChangeLogRecord.new_version/PublishLogRecord.new_version.
 
-    This means that the dependencies_hash_digest that summarizes the total state
-    of a PublishableEntity depends on:
+    The common case we have at the moment is when a container type like a Unit
+    has unpinned child Components as dependencies. In the data model, those
+    dependency relationships are represented by the "dependencies" M:M relation
+    on PublishableEntityVersion. Since the Unit version's references to its
+    child Components are unpinned, the draft Unit is always pointing to the
+    latest draft versions of those Components and the published Unit is always
+    pointing to the latest published versions of those Components.
+
+    This means that the total draft or published state of any PublishableEntity
+    depends on the combination of:
 
     1. The definition of the current draft/published version of that entity.
-    2. The current draft/published versions of all dependencies.
+       Example: Version 1 of a Unit would define that it had children [C1, C2].
+       Version 2 of the same Unit might have children [C1, C2, C3].
+    2. The current draft/published versions of all dependencies. Example: What
+       are the current draft and published versions of C1, C2, and C3.
 
-    Which is why it makes sense to capture in a log record, since
-    PublishLogRecords or DraftChagneLogRecords are created whenever one of the
+    This is why it makes sense to capture in a log record, since
+    PublishLogRecords or DraftChangeLogRecords are created whenever one of the
     above two things changes.
 
     Here are the possible scenarios, including edge cases:
 
-    Soft-deletions
-      If the record.new_version is None, that means we've just soft-deleted
-      something (or published the soft-delete of something). We adopt the
-      convention that if something is soft-deleted, its dependencies_hash_digest
-      is reset to the default value of ''.
-
     EntityVersions with no dependencies
       If record.new_version has no dependencies, dependencies_hash_digest is
-      likewise set to the default value of ''. This will be the most common
-      case.
+      set to the default value of ''. This will be the most common case.
 
-    EntityVersions with dependencies
     EntityVersions with dependencies
       If an EntityVersion has dependencies, then its draft/published state
       hash is based on the concatenation of, for each non-deleted dependency:
         (i)  the dependency's draft/published EntityVersion primary key, and
         (ii) the dependency's own draft/published state hash, recursively re-
              calculated if necessary.
+
+    Soft-deletions
+      If the record.new_version is None, that means we've just soft-deleted
+      something (or published the soft-delete of something). We adopt the
+      convention that if something is soft-deleted, its dependencies_hash_digest
+      is reset to the default value of ''. This is not strictly necessary for
+      the recursive hash calculation, but deleted entities will not have their
+      hash updated even as their non-deleted dependencies are updated underneath
+      them, so we set to '' to avoid falsely implying that the deleted entity's
+      dep hash is up to date.
 
     EntityVersions with soft-deleted dependencies
       A soft-deleted dependency isn't counted (it's as if the dependency were
