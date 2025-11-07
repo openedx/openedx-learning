@@ -88,9 +88,25 @@ class LearningPackageZipper:
     A class to handle the zipping of learning content for backup and restore.
     """
 
-    def __init__(self, learning_package: LearningPackage, user: UserType | None = None):
+    def __init__(
+            self,
+            learning_package: LearningPackage,
+            path: str,
+            user: UserType | None = None,
+            origin_server: str | None = None):
+        """
+        Initialize the LearningPackageZipper.
+
+        Args:
+            learning_package (LearningPackage): The learning package to zip.
+            path (str): The path where the zip file will be created.
+            user (UserType | None): The user initiating the backup.
+            origin_server (str | None): The origin server for the backup.
+        """
         self.learning_package = learning_package
+        self.path = path
         self.user = user
+        self.origin_server = origin_server
         self.folders_already_created: set[Path] = set()
         self.entities_filenames_already_created: set[str] = set()
         self.utc_now = datetime.now(tz=timezone.utc)
@@ -258,18 +274,18 @@ class LearningPackageZipper:
                 latest = version.created
         return latest
 
-    def create_zip(self, path: str) -> None:
+    def create_zip(self) -> None:
         """
         Creates a zip file containing the learning package data.
-        Args:
-            path (str): The path where the zip file will be created.
         Raises:
             Exception: If the learning package cannot be found or if the zip creation fails.
         """
 
-        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(self.path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             # Add the package.toml file
-            package_toml_content: str = toml_learning_package(self.learning_package, self.utc_now, user=self.user)
+            package_toml_content: str = toml_learning_package(
+                self.learning_package, self.utc_now, user=self.user, origin_server=self.origin_server
+            )
             self.add_file_to_zip(zipf, Path(TOML_PACKAGE_NAME), package_toml_content, self.learning_package.updated)
 
             # Add the entities directory
