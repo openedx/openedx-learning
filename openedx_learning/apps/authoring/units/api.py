@@ -194,7 +194,7 @@ def create_unit_and_version(
         can_stand_alone: Set to False when created as part of containers
     """
     entity_rows = _pub_entities_for_components(components)
-    with atomic():
+    with atomic(savepoint=False):
         unit = create_unit(
             learning_package_id,
             key,

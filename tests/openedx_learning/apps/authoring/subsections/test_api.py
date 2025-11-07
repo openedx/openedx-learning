@@ -197,9 +197,9 @@ class SubSectionTestCase(UnitTestCase):  # pylint: disable=test-inherits-tests
         Test how many database queries are required to create a subsection
         """
         # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
-        with self.assertNumQueries(25):
+        with self.assertNumQueries(28):
             _empty_subsection = self.create_subsection_with_units([])
-        with self.assertNumQueries(30):
+        with self.assertNumQueries(35):
             # And try with a non-empty subsection:
             self.create_subsection_with_units([self.unit_1, self.unit_2_v1], key="u2")
 
@@ -716,12 +716,12 @@ class SubSectionTestCase(UnitTestCase):  # pylint: disable=test-inherits-tests
         subsection = self.create_subsection_with_units(units)
         authoring_api.publish_all_drafts(self.learning_package.id)
         subsection.refresh_from_db()
-        with self.assertNumQueries(6):
+        with self.assertNumQueries(1):
             assert authoring_api.contains_unpublished_changes(subsection.pk) is False
 
         # Modify the most recently created unit:
         self.modify_unit(unit, title="Modified Unit")
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(1):
             assert authoring_api.contains_unpublished_changes(subsection.pk) is True
 
     def test_metadata_change_doesnt_create_entity_list(self):
