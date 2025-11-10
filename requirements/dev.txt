@@ -94,7 +94,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.11.1
+coverage[toml]==7.11.3
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -102,6 +102,7 @@ cryptography==46.0.3
     # via
     #   -r requirements/quality.txt
     #   pyjwt
+    #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
 diff-cover==9.7.1
@@ -230,6 +231,11 @@ jaraco-functools==4.3.0
     # via
     #   -r requirements/quality.txt
     #   keyring
+jeepney==0.9.0
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
+    #   secretstorage
 jinja2==3.1.6
     # via
     #   -r requirements/quality.txt
@@ -385,7 +391,7 @@ pyproject-hooks==1.2.0
     #   -r requirements/pip-tools.txt
     #   build
     #   pip-tools
-pytest==8.4.2
+pytest==9.0.0
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -434,6 +440,10 @@ rich==14.2.0
     #   twine
 rules==3.5
     # via -r requirements/quality.txt
+secretstorage==3.4.0
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/quality.txt
