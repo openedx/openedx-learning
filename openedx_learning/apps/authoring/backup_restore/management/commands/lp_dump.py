@@ -32,11 +32,18 @@ class Command(BaseCommand):
             help='The username of the user performing the backup operation.',
             default=None
         )
+        parser.add_argument(
+            '--origin_server',
+            type=str,
+            help='The origin server for the backup operation.',
+            default=None
+        )
 
     def handle(self, *args, **options):
         lp_key = options['lp_key']
         file_name = options['file_name']
         username = options['username']
+        origin_server = options['origin_server']
         if not file_name.lower().endswith(".zip"):
             raise CommandError("Output file name must end with .zip")
         try:
@@ -45,7 +52,7 @@ class Command(BaseCommand):
             if username:
                 user = User.objects.get(username=username)
             start_time = time.time()
-            create_zip_file(lp_key, file_name, user=user)
+            create_zip_file(lp_key, file_name, user=user, origin_server=origin_server)
             elapsed = time.time() - start_time
             message = f'{lp_key} written to {file_name} (create_zip_file: {elapsed:.2f} seconds)'
             self.stdout.write(self.style.SUCCESS(message))

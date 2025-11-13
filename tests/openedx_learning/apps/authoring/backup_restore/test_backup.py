@@ -9,7 +9,6 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.db.models import QuerySet
-from django.test import override_settings
 
 from openedx_learning.api import authoring as api
 from openedx_learning.api.authoring_models import Collection, Component, Content, LearningPackage, PublishableEntity
@@ -215,15 +214,18 @@ class LpDumpCommandTestCase(TestCase):
             for expected_path in expected_paths:
                 self.assertIn(expected_path, zip_name_list)
 
-    @override_settings(CMS_BASE="http://cms.test", LMS_BASE="http://lms.test")
     def test_lp_dump_command(self):
         lp_key = self.learning_package.key
         file_name = f"{lp_key}.zip"
         try:
             out = StringIO()
 
+            origin_server = "http://origin.server"
+
             # Call the management command to dump the learning package
-            call_command("lp_dump", lp_key, file_name, username=self.user.username, stdout=out)
+            call_command(
+                "lp_dump", lp_key, file_name, username=self.user.username, origin_server=origin_server, stdout=out
+            )
 
             # Check that the zip file was created
             self.assertTrue(Path(file_name).exists())
@@ -244,6 +246,7 @@ class LpDumpCommandTestCase(TestCase):
                     f'description = "{self.learning_package.description}"',
                     '[meta]',
                     'format_version = 1',
+                    'origin_server = "http://origin.server"',
                     'created_at =',
                     'created_by = "user"',
                     'created_by_email = "user@example.com"',
@@ -301,7 +304,8 @@ class LpDumpCommandTestCase(TestCase):
             1 query for all draft contents
             1 query for all published contents
         """
-        zipper = LearningPackageZipper(self.learning_package)
+        dummy_path = "dummy/path"
+        zipper = LearningPackageZipper(self.learning_package, dummy_path)
         entities = zipper.get_publishable_entities()
         with self.assertNumQueries(3):
             list(entities)  # force evaluation
