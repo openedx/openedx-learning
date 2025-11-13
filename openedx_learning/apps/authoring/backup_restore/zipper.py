@@ -91,7 +91,6 @@ class LearningPackageZipper:
     def __init__(
             self,
             learning_package: LearningPackage,
-            path: str,
             user: UserType | None = None,
             origin_server: str | None = None):
         """
@@ -99,12 +98,10 @@ class LearningPackageZipper:
 
         Args:
             learning_package (LearningPackage): The learning package to zip.
-            path (str): The path where the zip file will be created.
             user (UserType | None): The user initiating the backup.
             origin_server (str | None): The origin server for the backup.
         """
         self.learning_package = learning_package
-        self.path = path
         self.user = user
         self.origin_server = origin_server
         self.folders_already_created: set[Path] = set()
@@ -274,14 +271,16 @@ class LearningPackageZipper:
                 latest = version.created
         return latest
 
-    def create_zip(self) -> None:
+    def create_zip(self, path: str) -> None:
         """
         Creates a zip file containing the learning package data.
+        Args:
+            path (str): The path where the zip file will be created.
         Raises:
             Exception: If the learning package cannot be found or if the zip creation fails.
         """
 
-        with zipfile.ZipFile(self.path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             # Add the package.toml file
             package_toml_content: str = toml_learning_package(
                 self.learning_package, self.utc_now, user=self.user, origin_server=self.origin_server

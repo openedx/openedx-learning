@@ -17,7 +17,7 @@ def create_zip_file(lp_key: str, path: str, user: UserType | None = None, origin
     Can throw a NotFoundError at get_learning_package_by_key
     """
     learning_package = get_learning_package_by_key(lp_key)
-    LearningPackageZipper(learning_package, path, user, origin_server).create_zip()
+    LearningPackageZipper(learning_package, user, origin_server).create_zip(path)
 
 
 def load_learning_package(path: str, key: str | None = None, user: UserType | None = None) -> dict:
