@@ -24,13 +24,13 @@ babel==2.17.0
     #   sphinx
 beautifulsoup4==4.14.2
     # via pydata-sphinx-theme
-billiard==4.2.2
+billiard==4.2.3
     # via
     #   -r requirements/test.txt
     #   celery
 celery==5.5.3
     # via -r requirements/test.txt
-certifi==2025.10.5
+certifi==2025.11.12
     # via
     #   -r requirements/test.txt
     #   requests
@@ -43,7 +43,7 @@ charset-normalizer==3.4.4
     # via
     #   -r requirements/test.txt
     #   requests
-click==8.3.0
+click==8.3.1
     # via
     #   -r requirements/test.txt
     #   celery
@@ -156,7 +156,7 @@ idna==3.11
     #   requests
 imagesize==1.4.1
     # via sphinx
-import-linter==2.5.2
+import-linter==2.6
     # via -r requirements/test.txt
 iniconfig==2.3.0
     # via
@@ -233,15 +233,15 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.15.3
+pymongo==4.15.4
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
-pynacl==1.6.0
+pynacl==1.6.1
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==9.0.0
+pytest==9.0.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
