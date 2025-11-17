@@ -4,11 +4,11 @@
 #
 #    make upgrade
 #
-cachetools==6.2.1
+cachetools==6.2.2
     # via tox
 chardet==5.2.0
     # via tox
-click==8.3.0
+click==8.3.1
     # via import-linter
 colorama==0.4.6
     # via tox
@@ -20,7 +20,7 @@ filelock==3.20.0
     #   virtualenv
 grimp==3.13
     # via import-linter
-import-linter==2.5.2
+import-linter==2.6
     # via -r requirements/ci.in
 packaging==25.0
     # via
