@@ -12,7 +12,7 @@ amqp==5.3.1
     # via
     #   -r requirements/test.txt
     #   kombu
-asgiref==3.10.0
+asgiref==3.11.0
     # via
     #   -r requirements/test.txt
     #   django
@@ -67,7 +67,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==2.3.0
     # via -r requirements/test.txt
-coverage[toml]==7.11.3
+coverage[toml]==7.12.0
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -156,7 +156,7 @@ idna==3.11
     #   requests
 imagesize==1.4.1
     # via sphinx
-import-linter==2.6
+import-linter==2.7
     # via -r requirements/test.txt
 iniconfig==2.3.0
     # via
@@ -171,10 +171,18 @@ kombu==5.5.4
     # via
     #   -r requirements/test.txt
     #   celery
+markdown-it-py==4.0.0
+    # via
+    #   -r requirements/test.txt
+    #   rich
 markupsafe==3.0.3
     # via
     #   -r requirements/test.txt
     #   jinja2
+mdurl==0.1.2
+    # via
+    #   -r requirements/test.txt
+    #   markdown-it-py
 mock==5.2.0
     # via -r requirements/test.txt
 mypy==1.18.2
@@ -227,6 +235,7 @@ pygments==2.19.2
     #   pydata-sphinx-theme
     #   pytest
     #   readme-renderer
+    #   rich
     #   sphinx
 pyjwt[crypto]==2.10.1
     # via
@@ -271,8 +280,12 @@ requests==2.32.5
     #   djangorestframework-stubs
     #   edx-drf-extensions
     #   sphinx
-restructuredtext-lint==1.4.0
+restructuredtext-lint==2.0.2
     # via doc8
+rich==14.2.0
+    # via
+    #   -r requirements/test.txt
+    #   import-linter
 roman-numerals-py==3.1.0
     # via sphinx
 rules==3.5
@@ -316,7 +329,7 @@ sqlparse==0.5.3
     #   -r requirements/test.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.5.0
+stevedore==5.6.0
     # via
     #   -r requirements/test.txt
     #   code-annotations

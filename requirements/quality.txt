@@ -8,7 +8,7 @@ amqp==5.3.1
     # via
     #   -r requirements/test.txt
     #   kombu
-asgiref==3.10.0
+asgiref==3.11.0
     # via
     #   -r requirements/test.txt
     #   django
@@ -69,7 +69,7 @@ code-annotations==2.3.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.11.3
+coverage[toml]==7.12.0
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -155,7 +155,7 @@ idna==3.11
     # via
     #   -r requirements/test.txt
     #   requests
-import-linter==2.6
+import-linter==2.7
     # via -r requirements/test.txt
 importlib-metadata==8.7.0
     # via keyring
@@ -188,7 +188,9 @@ kombu==5.5.4
     #   -r requirements/test.txt
     #   celery
 markdown-it-py==4.0.0
-    # via rich
+    # via
+    #   -r requirements/test.txt
+    #   rich
 markupsafe==3.0.3
     # via
     #   -r requirements/test.txt
@@ -196,7 +198,9 @@ markupsafe==3.0.3
 mccabe==0.7.0
     # via pylint
 mdurl==0.1.2
-    # via markdown-it-py
+    # via
+    #   -r requirements/test.txt
+    #   markdown-it-py
 mock==5.2.0
     # via -r requirements/test.txt
 more-itertools==10.8.0
@@ -316,10 +320,13 @@ requests-toolbelt==1.0.0
 rfc3986==2.0.0
     # via twine
 rich==14.2.0
-    # via twine
+    # via
+    #   -r requirements/test.txt
+    #   import-linter
+    #   twine
 rules==3.5
     # via -r requirements/test.txt
-secretstorage==3.4.1
+secretstorage==3.5.0
     # via keyring
 semantic-version==2.10.0
     # via
@@ -337,7 +344,7 @@ sqlparse==0.5.3
     #   -r requirements/test.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.5.0
+stevedore==5.6.0
     # via
     #   -r requirements/test.txt
     #   code-annotations
