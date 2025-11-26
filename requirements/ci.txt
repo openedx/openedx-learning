@@ -20,8 +20,12 @@ filelock==3.20.0
     #   virtualenv
 grimp==3.13
     # via import-linter
-import-linter==2.6
+import-linter==2.7
     # via -r requirements/ci.in
+markdown-it-py==4.0.0
+    # via rich
+mdurl==0.1.2
+    # via markdown-it-py
 packaging==25.0
     # via
     #   pyproject-api
@@ -32,8 +36,12 @@ platformdirs==4.5.0
     #   virtualenv
 pluggy==1.6.0
     # via tox
+pygments==2.19.2
+    # via rich
 pyproject-api==1.10.0
     # via tox
+rich==14.2.0
+    # via import-linter
 tox==4.32.0
     # via -r requirements/ci.in
 typing-extensions==4.15.0

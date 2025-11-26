@@ -8,7 +8,7 @@ amqp==5.3.1
     # via
     #   -r requirements/quality.txt
     #   kombu
-asgiref==3.10.0
+asgiref==3.11.0
     # via
     #   -r requirements/quality.txt
     #   django
@@ -94,7 +94,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.11.3
+coverage[toml]==7.12.0
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -203,7 +203,7 @@ idna==3.11
     # via
     #   -r requirements/quality.txt
     #   requests
-import-linter==2.6
+import-linter==2.7
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -257,6 +257,7 @@ lxml-html-clean==0.4.3
     # via lxml
 markdown-it-py==4.0.0
     # via
+    #   -r requirements/ci.txt
     #   -r requirements/quality.txt
     #   rich
 markupsafe==3.0.3
@@ -269,6 +270,7 @@ mccabe==0.7.0
     #   pylint
 mdurl==0.1.2
     # via
+    #   -r requirements/ci.txt
     #   -r requirements/quality.txt
     #   markdown-it-py
 mock==5.2.0
@@ -344,6 +346,7 @@ pydocstyle==6.3.0
     # via -r requirements/quality.txt
 pygments==2.19.2
     # via
+    #   -r requirements/ci.txt
     #   -r requirements/quality.txt
     #   diff-cover
     #   pytest
@@ -436,11 +439,13 @@ rfc3986==2.0.0
     #   twine
 rich==14.2.0
     # via
+    #   -r requirements/ci.txt
     #   -r requirements/quality.txt
+    #   import-linter
     #   twine
 rules==3.5
     # via -r requirements/quality.txt
-secretstorage==3.4.1
+secretstorage==3.5.0
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -462,7 +467,7 @@ sqlparse==0.5.3
     #   -r requirements/quality.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.5.0
+stevedore==5.6.0
     # via
     #   -r requirements/quality.txt
     #   code-annotations
