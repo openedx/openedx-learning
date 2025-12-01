@@ -22,13 +22,13 @@ babel==2.17.0
     # via
     #   pydata-sphinx-theme
     #   sphinx
-beautifulsoup4==4.14.2
+beautifulsoup4==4.14.3
     # via pydata-sphinx-theme
-billiard==4.2.3
+billiard==4.2.4
     # via
     #   -r requirements/test.txt
     #   celery
-celery==5.5.3
+celery==5.6.0
     # via -r requirements/test.txt
 certifi==2025.11.12
     # via
@@ -144,6 +144,10 @@ edx-opaque-keys==3.0.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
+exceptiongroup==1.3.1
+    # via
+    #   -r requirements/test.txt
+    #   celery
 freezegun==1.5.5
     # via -r requirements/test.txt
 grimp==3.13
@@ -167,10 +171,14 @@ jinja2==3.1.6
     #   -r requirements/test.txt
     #   code-annotations
     #   sphinx
-kombu==5.5.4
+kombu==5.6.1
     # via
     #   -r requirements/test.txt
     #   celery
+librt==0.6.3
+    # via
+    #   -r requirements/test.txt
+    #   mypy
 markdown-it-py==4.0.0
     # via
     #   -r requirements/test.txt
@@ -185,7 +193,7 @@ mdurl==0.1.2
     #   markdown-it-py
 mock==5.2.0
     # via -r requirements/test.txt
-mypy==1.18.2
+mypy==1.19.0
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -286,7 +294,7 @@ rich==14.2.0
     # via
     #   -r requirements/test.txt
     #   import-linter
-roman-numerals-py==3.1.0
+roman-numerals==3.1.0
     # via sphinx
 rules==3.5
     # via -r requirements/test.txt
@@ -302,7 +310,7 @@ snowballstemmer==3.0.1
     # via sphinx
 soupsieve==2.8
     # via beautifulsoup4
-sphinx==8.2.3
+sphinx==9.0.0
     # via
     #   -r requirements/doc.in
     #   pydata-sphinx-theme
@@ -324,7 +332,7 @@ sphinxcontrib-qthelp==2.0.0
     # via sphinx
 sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
-sqlparse==0.5.3
+sqlparse==0.5.4
     # via
     #   -r requirements/test.txt
     #   django
@@ -359,6 +367,7 @@ typing-extensions==4.15.0
     #   django-stubs-ext
     #   djangorestframework-stubs
     #   edx-opaque-keys
+    #   exceptiongroup
     #   grimp
     #   import-linter
     #   mypy
@@ -367,6 +376,10 @@ tzdata==2025.2
     # via
     #   -r requirements/test.txt
     #   kombu
+tzlocal==5.3.1
+    # via
+    #   -r requirements/test.txt
+    #   celery
 urllib3==2.5.0
     # via
     #   -r requirements/test.txt
