@@ -508,6 +508,7 @@ class LearningPackageUnzipper:
     def __init__(self, zipf: zipfile.ZipFile, key: str | None = None, user: UserType | None = None):
         self.zipf = zipf
         self.user = user
+        self.user_id = getattr(self.user, "id", None)
         self.lp_key = key  # If provided, use this key for the restored learning package
         self.learning_package_id: int | None = None  # Will be set upon restoration
         self.utc_now: datetime = datetime.now(timezone.utc)
@@ -771,7 +772,9 @@ class LearningPackageUnzipper:
         """Save collections and their entities."""
         for valid_collection in collections.get("collections", []):
             entities = valid_collection.pop("entities", [])
-            collection = collections_api.create_collection(learning_package.id, **valid_collection)
+            collection = collections_api.create_collection(
+                learning_package.id, created_by=self.user_id, **valid_collection
+            )
             collection = collections_api.add_to_collection(
                 learning_package_id=learning_package.id,
                 key=collection.key,
@@ -782,7 +785,7 @@ class LearningPackageUnzipper:
         """Save components and published component versions."""
         for valid_component in components.get("components", []):
             entity_key = valid_component.pop("key")
-            component = components_api.create_component(learning_package.id, **valid_component)
+            component = components_api.create_component(learning_package.id, created_by=self.user_id, **valid_component)
             self.components_map_by_key[entity_key] = component
 
         for valid_published in components.get("components_published", []):
@@ -796,6 +799,7 @@ class LearningPackageUnzipper:
                 self.components_map_by_key[entity_key].publishable_entity.id,
                 content_to_replace=content_to_replace,
                 force_version_num=valid_published.pop("version_num", None),
+                created_by=self.user_id,
                 **valid_published
             )
 
@@ -803,7 +807,7 @@ class LearningPackageUnzipper:
         """Save units and published unit versions."""
         for valid_unit in containers.get("unit", []):
             entity_key = valid_unit.get("key")
-            unit = units_api.create_unit(learning_package.id, **valid_unit)
+            unit = units_api.create_unit(learning_package.id, created_by=self.user_id, **valid_unit)
             self.units_map_by_key[entity_key] = unit
 
         for valid_published in containers.get("unit_published", []):
@@ -816,6 +820,7 @@ class LearningPackageUnzipper:
                 self.units_map_by_key[entity_key],
                 force_version_num=valid_published.pop("version_num", None),
                 components=children,
+                created_by=self.user_id,
                 **valid_published
             )
 
@@ -823,7 +828,9 @@ class LearningPackageUnzipper:
         """Save subsections and published subsection versions."""
         for valid_subsection in containers.get("subsection", []):
             entity_key = valid_subsection.get("key")
-            subsection = subsections_api.create_subsection(learning_package.id, **valid_subsection)
+            subsection = subsections_api.create_subsection(
+                learning_package.id, created_by=self.user_id, **valid_subsection
+            )
             self.subsections_map_by_key[entity_key] = subsection
 
         for valid_published in containers.get("subsection_published", []):
@@ -836,6 +843,7 @@ class LearningPackageUnzipper:
                 self.subsections_map_by_key[entity_key],
                 units=children,
                 force_version_num=valid_published.pop("version_num", None),
+                created_by=self.user_id,
                 **valid_published
             )
 
@@ -843,7 +851,7 @@ class LearningPackageUnzipper:
         """Save sections and published section versions."""
         for valid_section in containers.get("section", []):
             entity_key = valid_section.get("key")
-            section = sections_api.create_section(learning_package.id, **valid_section)
+            section = sections_api.create_section(learning_package.id, created_by=self.user_id, **valid_section)
             self.sections_map_by_key[entity_key] = section
 
         for valid_published in containers.get("section_published", []):
@@ -856,6 +864,7 @@ class LearningPackageUnzipper:
                 self.sections_map_by_key[entity_key],
                 subsections=children,
                 force_version_num=valid_published.pop("version_num", None),
+                created_by=self.user_id,
                 **valid_published
             )
 
@@ -874,6 +883,7 @@ class LearningPackageUnzipper:
                 # Drafts can diverge from published, so we allow ignoring previous content
                 # Use case: published v1 had files A, B; draft v2 only has file A
                 ignore_previous_content=True,
+                created_by=self.user_id,
                 **valid_draft
             )
 
@@ -887,6 +897,7 @@ class LearningPackageUnzipper:
                 self.units_map_by_key[entity_key],
                 components=children,
                 force_version_num=valid_draft.pop("version_num", None),
+                created_by=self.user_id,
                 **valid_draft
             )
 
@@ -900,6 +911,7 @@ class LearningPackageUnzipper:
                 self.subsections_map_by_key[entity_key],
                 units=children,
                 force_version_num=valid_draft.pop("version_num", None),
+                created_by=self.user_id,
                 **valid_draft
             )
 
@@ -913,6 +925,7 @@ class LearningPackageUnzipper:
                 self.sections_map_by_key[entity_key],
                 subsections=children,
                 force_version_num=valid_draft.pop("version_num", None),
+                created_by=self.user_id,
                 **valid_draft
             )
 

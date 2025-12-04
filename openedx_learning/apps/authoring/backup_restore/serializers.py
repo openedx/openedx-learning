@@ -44,7 +44,6 @@ class EntitySerializer(serializers.Serializer):  # pylint: disable=abstract-meth
     can_stand_alone = serializers.BooleanField(required=True)
     key = serializers.CharField(required=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
-    created_by = serializers.CharField(required=True, allow_null=True)
 
 
 class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -54,7 +53,6 @@ class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstra
     title = serializers.CharField(required=True)
     entity_key = serializers.CharField(required=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
-    created_by = serializers.CharField(required=True, allow_null=True)
     version_num = serializers.IntegerField(required=True)
 
 
@@ -160,7 +158,6 @@ class CollectionSerializer(serializers.Serializer):  # pylint: disable=abstract-
     title = serializers.CharField(required=True)
     key = serializers.CharField(required=True)
     description = serializers.CharField(required=True, allow_blank=True)
-    created_by = serializers.IntegerField(required=True, allow_null=True)
     entities = serializers.ListField(
         child=serializers.CharField(),
         required=True,

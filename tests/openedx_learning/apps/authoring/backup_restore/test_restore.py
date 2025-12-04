@@ -34,7 +34,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
     @patch("openedx_learning.apps.authoring.backup_restore.api.load_learning_package")
     def test_restore_command(self, mock_load_learning_package):
         # Mock load_learning_package to return our in-memory zip file
-        restore_result = LearningPackageUnzipper(self.zip_file, self.user).load()
+        restore_result = LearningPackageUnzipper(self.zip_file, user=self.user).load()
         mock_load_learning_package.return_value = restore_result
 
         out = StringIO()
@@ -63,20 +63,28 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
             assert container.key in expected_container_keys
             draft_version = publishing_api.get_draft_version(container.publishable_entity.id)
             published_version = publishing_api.get_published_version(container.publishable_entity.id)
+            assert container.created_by is not None
+            assert container.created_by.username == "lp_user"
             if container.key == "unit1-b7eafb":
                 assert getattr(container, 'unit', None) is not None
                 assert draft_version is not None
                 assert draft_version.version_num == 2
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif container.key == "subsection1-48afa3":
                 assert getattr(container, 'subsection', None) is not None
                 assert draft_version is not None
                 assert draft_version.version_num == 2
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif container.key == "section1-8ca126":
                 assert getattr(container, 'section', None) is not None
                 assert draft_version is not None
                 assert draft_version.version_num == 2
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             else:
                 assert False, f"Unexpected container key: {container.key}"
@@ -98,11 +106,15 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
             assert component.key in expected_component_keys
             draft_version = publishing_api.get_draft_version(component.publishable_entity.id)
             published_version = publishing_api.get_published_version(component.publishable_entity.id)
+            assert component.created_by is not None
+            assert component.created_by.username == "lp_user"
             if component.key == "xblock.v1:drag-and-drop-v2:4d1b2fac-8b30-42fb-872d-6b10ab580b27":
                 assert component.component_type.name == "drag-and-drop-v2"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
                 # Get the content associated with this component
                 contents = draft_version.componentversion.contents.all()
@@ -116,19 +128,27 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
                 assert draft_version.version_num == 5
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is not None
                 assert published_version.version_num == 4
+                assert published_version.created_by is not None
+                assert published_version.created_by.username == "lp_user"
             elif component.key == "xblock.v1:openassessment:1ee38208-a585-4455-a27e-4930aa541f53":
                 assert component.component_type.name == "openassessment"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif component.key == "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b":
                 assert component.component_type.name == "problem"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif component.key == "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471":
                 assert component.component_type.name == "survey"
@@ -141,12 +161,18 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
                 assert draft_version.version_num == 3
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif component.key == "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2":
                 assert draft_version is not None
                 assert draft_version.version_num == 2
+                assert draft_version.created_by is not None
+                assert draft_version.created_by.username == "lp_user"
                 assert published_version is not None
                 assert published_version.version_num == 2
+                assert published_version.created_by is not None
+                assert published_version.created_by.username == "lp_user"
             else:
                 assert False, f"Unexpected component key: {component.key}"
 
@@ -158,6 +184,9 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
         assert collection.title == "Collection test1"
         assert collection.key == "collection-test"
         assert collection.description == ""
+        assert collection.created_by is not None
+        assert collection.created_by.username == "lp_user"
+
         expected_entity_keys = [
             "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37",
             "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b",
