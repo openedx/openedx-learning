@@ -85,11 +85,11 @@ django-crum==0.7.9
     #   edx-django-utils
 django-debug-toolbar==6.1.0
     # via -r requirements/test.in
-django-stubs==5.2.7
+django-stubs==5.2.8
     # via
     #   -r requirements/test.in
     #   djangorestframework-stubs
-django-stubs-ext==5.2.7
+django-stubs-ext==5.2.8
     # via django-stubs
 django-waffle==5.0.0
     # via
@@ -101,7 +101,7 @@ djangorestframework==3.16.1
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.16.5
+djangorestframework-stubs==3.16.6
     # via -r requirements/test.in
 dnspython==2.8.0
     # via
@@ -143,7 +143,7 @@ kombu==5.6.1
     # via
     #   -r requirements/base.txt
     #   celery
-librt==0.6.3
+librt==0.7.3
     # via mypy
 markdown-it-py==4.0.0
     # via rich
@@ -191,7 +191,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.15.4
+pymongo==4.15.5
     # via
     #   -r requirements/base.txt
     #   edx-opaque-keys
@@ -199,7 +199,7 @@ pynacl==1.6.1
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-pytest==9.0.1
+pytest==9.0.2
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -274,7 +274,7 @@ tzlocal==5.3.1
     # via
     #   -r requirements/base.txt
     #   celery
-urllib3==2.5.0
+urllib3==2.6.0
     # via
     #   -r requirements/base.txt
     #   requests

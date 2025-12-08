@@ -115,7 +115,7 @@ distlib==0.4.0
     # via
     #   -r requirements/ci.txt
     #   virtualenv
-django==5.2.8
+django==5.2.9
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/quality.txt
@@ -137,11 +137,11 @@ django-debug-toolbar==6.1.0
     # via
     #   -r requirements/dev.in
     #   -r requirements/quality.txt
-django-stubs==5.2.7
+django-stubs==5.2.8
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.7
+django-stubs-ext==5.2.8
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -155,7 +155,7 @@ djangorestframework==3.16.1
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
-djangorestframework-stubs==3.16.5
+djangorestframework-stubs==3.16.6
     # via -r requirements/quality.txt
 dnspython==2.8.0
     # via
@@ -253,7 +253,7 @@ kombu==5.6.1
     # via
     #   -r requirements/quality.txt
     #   celery
-librt==0.6.3
+librt==0.7.3
     # via
     #   -r requirements/quality.txt
     #   mypy
@@ -319,7 +319,7 @@ pathspec==0.12.1
     #   mypy
 pip-tools==7.5.2
     # via -r requirements/pip-tools.txt
-platformdirs==4.5.0
+platformdirs==4.5.1
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -385,7 +385,7 @@ pylint-plugin-utils==0.9.0
     #   -r requirements/quality.txt
     #   pylint-celery
     #   pylint-django
-pymongo==4.15.4
+pymongo==4.15.5
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
@@ -402,7 +402,7 @@ pyproject-hooks==1.2.0
     #   -r requirements/pip-tools.txt
     #   build
     #   pip-tools
-pytest==9.0.1
+pytest==9.0.2
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -522,7 +522,7 @@ tzlocal==5.3.1
     # via
     #   -r requirements/quality.txt
     #   celery
-urllib3==2.5.0
+urllib3==2.6.0
     # via
     #   -r requirements/quality.txt
     #   requests
