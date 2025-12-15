@@ -112,11 +112,11 @@ typing-extensions==4.15.0
     # via
     #   edx-opaque-keys
     #   exceptiongroup
-tzdata==2025.2
+tzdata==2025.3
     # via kombu
 tzlocal==5.3.1
     # via celery
-urllib3==2.6.0
+urllib3==2.6.2
     # via requests
 vine==5.1.0
     # via

@@ -4,7 +4,7 @@
 #
 #    make upgrade
 #
-cachetools==6.2.2
+cachetools==6.2.3
     # via tox
 chardet==5.2.0
     # via tox
@@ -18,9 +18,9 @@ filelock==3.20.0
     # via
     #   tox
     #   virtualenv
-grimp==3.13
+grimp==3.14
     # via import-linter
-import-linter==2.7
+import-linter==2.9
     # via -r requirements/ci.in
 markdown-it-py==4.0.0
     # via rich
