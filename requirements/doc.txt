@@ -175,7 +175,7 @@ kombu==5.6.1
     # via
     #   -r requirements/test.txt
     #   celery
-librt==0.7.3
+librt==0.7.4
     # via
     #   -r requirements/test.txt
     #   mypy
@@ -193,7 +193,7 @@ mdurl==0.1.2
     #   markdown-it-py
 mock==5.2.0
     # via -r requirements/test.txt
-mypy==1.19.0
+mypy==1.19.1
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -294,7 +294,7 @@ rich==14.2.0
     # via
     #   -r requirements/test.txt
     #   import-linter
-roman-numerals==3.1.0
+roman-numerals==4.1.0
     # via sphinx
 rules==3.5
     # via -r requirements/test.txt
@@ -308,7 +308,7 @@ six==1.17.0
     #   python-dateutil
 snowballstemmer==3.0.1
     # via sphinx
-soupsieve==2.8
+soupsieve==2.8.1
     # via beautifulsoup4
 sphinx==9.0.4
     # via
@@ -332,7 +332,7 @@ sphinxcontrib-qthelp==2.0.0
     # via sphinx
 sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
-sqlparse==0.5.4
+sqlparse==0.5.5
     # via
     #   -r requirements/test.txt
     #   django
