@@ -30,7 +30,7 @@ __all__ = [
     "ComponentType",
     "Component",
     "ComponentVersion",
-    "ComponentVersionContent",
+    "ComponentVersionMedia",
 ]
 
 
@@ -198,7 +198,7 @@ class ComponentVersion(PublishableEntityVersionMixin):
     A particular version of a Component.
 
     This holds the content using a M:M relationship with Content via
-    ComponentVersionContent.
+    ComponentVersionMedia.
     """
 
     # This is technically redundant, since we can get this through
@@ -210,9 +210,9 @@ class ComponentVersion(PublishableEntityVersionMixin):
 
     # The contents hold the actual interesting data associated with this
     # ComponentVersion.
-    contents: models.ManyToManyField[Media, ComponentVersionContent] = models.ManyToManyField(
+    contents: models.ManyToManyField[Media, ComponentVersionMedia] = models.ManyToManyField(
         Media,
-        through="ComponentVersionContent",
+        through="ComponentVersionMedia",
         related_name="component_versions",
     )
 
@@ -221,7 +221,7 @@ class ComponentVersion(PublishableEntityVersionMixin):
         verbose_name_plural = "Component Versions"
 
 
-class ComponentVersionContent(models.Model):
+class ComponentVersionMedia(models.Model):
     """
     Determines the Content for a given ComponentVersion.
 

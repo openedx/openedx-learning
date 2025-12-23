@@ -22,7 +22,7 @@ from openedx_learning.api.authoring_models import (
     Collection,
     ComponentType,
     ComponentVersion,
-    ComponentVersionContent,
+    ComponentVersionMedia,
     Media,
     LearningPackage,
     PublishableEntity,
@@ -191,12 +191,12 @@ class LearningPackageZipper:
                 # which is too large for this type of prefetch.
                 Prefetch(
                     "draft__version__componentversion__componentversioncontent_set",
-                    queryset=ComponentVersionContent.objects.select_related("content"),
+                    queryset=ComponentVersionMedia.objects.select_related("content"),
                     to_attr="prefetched_contents",
                 ),
                 Prefetch(
                     "published__version__componentversion__componentversioncontent_set",
-                    queryset=ComponentVersionContent.objects.select_related("content"),
+                    queryset=ComponentVersionMedia.objects.select_related("content"),
                     to_attr="prefetched_contents",
                 ),
             )
@@ -373,7 +373,7 @@ class LearningPackageZipper:
 
                         # Get content data associated with this version
                         contents: QuerySet[
-                            ComponentVersionContent
+                            ComponentVersionMedia
                         ] = component_version.prefetched_contents  # type: ignore[attr-defined]
 
                         for component_version_content in contents:
