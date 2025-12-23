@@ -448,8 +448,8 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             created=self.now,
         )
 
-        content_txt = version_1.contents.get(componentversioncontent__key="raw.txt")
-        content_raw_txt = version_1.contents.get(componentversioncontent__key="no_ext")
+        content_txt = version_1.media.get(componentversioncontent__key="raw.txt")
+        content_raw_txt = version_1.media.get(componentversioncontent__key="no_ext")
 
         assert content_txt.size == len(bytes_content)
         assert str(content_txt.media_type) == 'text/plain'
@@ -491,16 +491,16 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         )
         assert version_1.version_num == 1
         assert version_1.title == "Problem Version 1"
-        version_1_contents = list(version_1.contents.all())
+        version_1_contents = list(version_1.media.all())
         assert len(version_1_contents) == 2
         assert (
             hello_content ==
-            version_1.contents
+            version_1.media
                      .get(componentversioncontent__key="hello.txt")
         )
         assert (
             goodbye_content ==
-            version_1.contents
+            version_1.media
                      .get(componentversioncontent__key="goodbye.txt")
         )
 
@@ -516,20 +516,20 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             created=self.now,
         )
         assert version_2.version_num == 2
-        assert version_2.contents.count() == 3
+        assert version_2.media.count() == 3
         assert (
             blank_content ==
-            version_2.contents
+            version_2.media
                      .get(componentversioncontent__key="hello.txt")
         )
         assert (
             goodbye_content ==
-            version_2.contents
+            version_2.media
                      .get(componentversioncontent__key="goodbye.txt")
         )
         assert (
             blank_content ==
-            version_2.contents
+            version_2.media
                      .get(componentversioncontent__key="blank.txt")
         )
 
@@ -547,10 +547,10 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             created=self.now,
         )
         assert version_3.version_num == 3
-        assert version_3.contents.count() == 1
+        assert version_3.media.count() == 1
         assert (
             hello_content ==
-            version_3.contents
+            version_3.media
                      .get(componentversioncontent__key="hello.txt")
         )
 
@@ -609,21 +609,21 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             ignore_previous_content=True,
         )
         assert version_2_draft.version_num == 2
-        assert version_2_draft.contents.count() == 2
+        assert version_2_draft.media.count() == 2
         assert (
             python_source_asset ==
-            version_2_draft.contents.get(
+            version_2_draft.media.get(
                 componentversioncontent__key="static/profile.webp")
         )
         assert (
             python_source_asset ==
-            version_2_draft.contents.get(
+            version_2_draft.media.get(
                 componentversioncontent__key="static/new_file.webp")
         )
         with self.assertRaises(ObjectDoesNotExist):
             # This file was in the published version, but not in the draft version
             # since we ignored previous content.
-            version_2_draft.contents.get(componentversioncontent__key="static/background.webp")
+            version_2_draft.media.get(componentversioncontent__key="static/background.webp")
 
 
 class SetCollectionsTestCase(ComponentTestCase):

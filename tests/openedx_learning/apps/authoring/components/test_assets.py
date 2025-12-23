@@ -25,9 +25,9 @@ class AssetTestCase(TestCase):
     component: components_api.Component
     component_version: components_api.ComponentVersion
 
-    problem_content: contents_api.Content
-    python_source_asset: contents_api.Content
-    html_asset_content: contents_api.Content
+    problem_content: contents_api.Media
+    python_source_asset: contents_api.Media
+    html_asset_content: contents_api.Media
 
     learning_package: LearningPackage
     now: datetime

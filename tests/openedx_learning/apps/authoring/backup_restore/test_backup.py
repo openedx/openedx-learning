@@ -11,7 +11,7 @@ from django.core.management import CommandError, call_command
 from django.db.models import QuerySet
 
 from openedx_learning.api import authoring as api
-from openedx_learning.api.authoring_models import Collection, Component, Content, LearningPackage, PublishableEntity
+from openedx_learning.api.authoring_models import Collection, Component, Media, LearningPackage, PublishableEntity
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageZipper
 from openedx_learning.lib.test_utils import TestCase
 
@@ -32,7 +32,7 @@ class LpDumpCommandTestCase(TestCase):
     published_component: Component
     published_component2: Component
     draft_component: Component
-    html_asset_content: Content
+    html_asset_content: Media
     collection: Collection
 
     @classmethod

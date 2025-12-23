@@ -23,7 +23,7 @@ from openedx_learning.api.authoring_models import (
     ComponentType,
     ComponentVersion,
     ComponentVersionContent,
-    Content,
+    Media,
     LearningPackage,
     PublishableEntity,
     PublishableEntityVersion,
@@ -377,7 +377,7 @@ class LearningPackageZipper:
                         ] = component_version.prefetched_contents  # type: ignore[attr-defined]
 
                         for component_version_content in contents:
-                            content: Content = component_version_content.content
+                            content: Media = component_version_content.content
 
                             # Important: The component_version_content.key contains implicitly
                             # the file name and the file extension

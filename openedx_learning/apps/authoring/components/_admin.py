@@ -54,7 +54,7 @@ class ContentInline(admin.TabularInline):
     """
     Django admin configuration for Content
     """
-    model = ComponentVersion.contents.through
+    model = ComponentVersion.media.through
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
