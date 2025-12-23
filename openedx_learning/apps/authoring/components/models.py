@@ -208,13 +208,19 @@ class ComponentVersion(PublishableEntityVersionMixin):
         Component, on_delete=models.CASCADE, related_name="versions"
     )
 
-    # The contents hold the actual interesting data associated with this
+    # The media relation holds the actual interesting data associated with this
     # ComponentVersion.
-    contents: models.ManyToManyField[Media, ComponentVersionMedia] = models.ManyToManyField(
+    media: models.ManyToManyField[Media, ComponentVersionMedia] = models.ManyToManyField(
         Media,
         through="ComponentVersionMedia",
         related_name="component_versions",
     )
+
+    @property
+    def contents(self):
+        """Backwards compatibility shim."""
+        return self.media
+
 
     class Meta:
         verbose_name = "Component Version"
@@ -238,7 +244,7 @@ class ComponentVersionMedia(models.Model):
     """
 
     component_version = models.ForeignKey(ComponentVersion, on_delete=models.CASCADE)
-    content = models.ForeignKey(Media, on_delete=models.RESTRICT)
+    media = models.ForeignKey(Media, on_delete=models.RESTRICT)
 
     # "key" is a reserved word for MySQL, so we're temporarily using the column
     # name of "_key" to avoid breaking downstream tooling. A possible
@@ -254,16 +260,16 @@ class ComponentVersionMedia(models.Model):
             # with two different identifiers, that is permitted.
             models.UniqueConstraint(
                 fields=["component_version", "key"],
-                name="oel_cvcontent_uniq_cv_key",
+                name="oel_cvmedia_uniq_cv_key",
             ),
         ]
         indexes = [
             models.Index(
-                fields=["content", "component_version"],
-                name="oel_cvcontent_c_cv",
+                fields=["media", "component_version"],
+                name="oel_cvmediat_c_cv",
             ),
             models.Index(
-                fields=["component_version", "content"],
-                name="oel_cvcontent_cv_d",
+                fields=["component_version", "media"],
+                name="oel_cvmedia_cv_d",
             ),
         ]

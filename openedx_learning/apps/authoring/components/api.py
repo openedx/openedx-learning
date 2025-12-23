@@ -266,7 +266,7 @@ def create_next_component_version(
                 else:
                     content_pk = content_pk_or_bytes
                 ComponentVersionMedia.objects.create(
-                    content_id=content_pk,
+                    media_id=content_pk,
                     component_version=component_version,
                     key=key,
                 )
@@ -281,7 +281,7 @@ def create_next_component_version(
         for cvrc in last_version_content_mapping:
             if cvrc.key not in content_to_replace:
                 ComponentVersionMedia.objects.create(
-                    content_id=cvrc.content_id,
+                    media_id=cvrc.media_id,
                     component_version=component_version,
                     key=cvrc.key,
                 )
@@ -505,7 +505,7 @@ def create_component_version_content(
 
     cvrc, _created = ComponentVersionMedia.objects.get_or_create(
         component_version_id=component_version_id,
-        content_id=content_id,
+        media_id=content_id,
         key=key,
     )
     return cvrc
@@ -621,7 +621,7 @@ def get_redirect_response_for_component_asset(
 
     # Check: Does the ComponentVersion have the requested asset (Content)?
     try:
-        cv_content = component_version.componentversioncontent_set.get(key=asset_path)
+        cv_content = component_version.componentversionmedia_set.get(key=asset_path)
     except ComponentVersionMedia.DoesNotExist:
         logger.error(f"ComponentVersion {component_version_uuid} has no asset {asset_path}")
         info_headers.update(
@@ -634,7 +634,7 @@ def get_redirect_response_for_component_asset(
     # anyway, but we're explicitly not doing so because streaming large text
     # fields from the database is less scalable, and we don't want to encourage
     # that usage pattern.
-    content = cv_content.content
+    content = cv_content.media
     if not content.has_file:
         logger.error(
            f"ComponentVersion {component_version_uuid} has asset {asset_path}, "

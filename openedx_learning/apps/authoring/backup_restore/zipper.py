@@ -190,12 +190,12 @@ class LearningPackageZipper:
                 # especially with large libraries (up to 100K items),
                 # which is too large for this type of prefetch.
                 Prefetch(
-                    "draft__version__componentversion__componentversioncontent_set",
+                    "draft__version__componentversion__componentversionmedia_set",
                     queryset=ComponentVersionMedia.objects.select_related("content"),
                     to_attr="prefetched_contents",
                 ),
                 Prefetch(
-                    "published__version__componentversion__componentversioncontent_set",
+                    "published__version__componentversion__componentversionmedia_set",
                     queryset=ComponentVersionMedia.objects.select_related("content"),
                     to_attr="prefetched_contents",
                 ),
@@ -377,7 +377,7 @@ class LearningPackageZipper:
                         ] = component_version.prefetched_contents  # type: ignore[attr-defined]
 
                         for component_version_content in contents:
-                            content: Media = component_version_content.content
+                            content: Media = component_version_content.media
 
                             # Important: The component_version_content.key contains implicitly
                             # the file name and the file extension

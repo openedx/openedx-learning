@@ -138,7 +138,7 @@ def content_preview(cvc_obj: ComponentVersionMedia) -> SafeText:
     """
     Get the HTML to display a preview of the given ComponentVersionContent
     """
-    content_obj = cvc_obj.content
+    content_obj = cvc_obj.media
 
     if content_obj.media_type.type == "image":
         # This base64 encoding looks really goofy and is bad for performance,
