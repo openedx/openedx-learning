@@ -47,7 +47,7 @@ from openedx_learning.apps.authoring.backup_restore.toml import (
 )
 from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.components import api as components_api
-from openedx_learning.apps.authoring.contents import api as contents_api
+from openedx_learning.apps.authoring.media import api as contents_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.sections import api as sections_api
 from openedx_learning.apps.authoring.subsections import api as subsections_api

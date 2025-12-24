@@ -33,7 +33,7 @@ INSTALLED_APPS = (
     # Learning Core Apps
     "openedx_learning.apps.authoring.collections.apps.CollectionsConfig",
     "openedx_learning.apps.authoring.components.apps.ComponentsConfig",
-    "openedx_learning.apps.authoring.contents.apps.ContentsConfig",
+    "openedx_learning.apps.authoring.media.apps.ContentsConfig",
     "openedx_learning.apps.authoring.publishing.apps.PublishingConfig",
     "openedx_learning.apps.authoring.sections.apps.SectionsConfig",
     "openedx_learning.apps.authoring.subsections.apps.SubsectionsConfig",

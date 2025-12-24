@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.components.api import AssetError
-from openedx_learning.apps.authoring.contents import api as contents_api
+from openedx_learning.apps.authoring.media import api as contents_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase

@@ -29,7 +29,7 @@ from django.db import transaction
 
 # Model references to remove
 from openedx_learning.apps.authoring.components import api as components_api
-from openedx_learning.apps.authoring.contents import api as contents_api
+from openedx_learning.apps.authoring.media import api as contents_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 
 SUPPORTED_TYPES = ["problem", "video", "html"]

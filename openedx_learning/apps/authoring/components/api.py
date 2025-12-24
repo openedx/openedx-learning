@@ -23,7 +23,7 @@ from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 from django.http.response import HttpResponse, HttpResponseNotFound
 
-from ..contents import api as contents_api
+from ..media import api as contents_api
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionMedia
 
