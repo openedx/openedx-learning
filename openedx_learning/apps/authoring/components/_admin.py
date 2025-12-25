@@ -11,7 +11,7 @@ from django.utils.safestring import SafeText
 
 from openedx_learning.lib.admin_utils import ReadOnlyModelAdmin
 
-from .models import Component, ComponentVersion, ComponentVersionContent
+from .models import Component, ComponentVersion, ComponentVersionMedia
 
 
 class ComponentVersionInline(admin.TabularInline):
@@ -54,7 +54,7 @@ class ContentInline(admin.TabularInline):
     """
     Django admin configuration for Content
     """
-    model = ComponentVersion.contents.through
+    model = ComponentVersion.media.through
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -134,11 +134,11 @@ def format_text_for_admin_display(text: str) -> SafeText:
     )
 
 
-def content_preview(cvc_obj: ComponentVersionContent) -> SafeText:
+def content_preview(cvc_obj: ComponentVersionMedia) -> SafeText:
     """
     Get the HTML to display a preview of the given ComponentVersionContent
     """
-    content_obj = cvc_obj.content
+    content_obj = cvc_obj.media
 
     if content_obj.media_type.type == "image":
         # This base64 encoding looks really goofy and is bad for performance,

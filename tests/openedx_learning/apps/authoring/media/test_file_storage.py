@@ -7,8 +7,8 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
-from openedx_learning.apps.authoring.contents import api as contents_api
-from openedx_learning.apps.authoring.contents.models import get_storage
+from openedx_learning.apps.authoring.media import api as contents_api
+from openedx_learning.apps.authoring.media.models import get_storage
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.lib.test_utils import TestCase
 
@@ -34,7 +34,7 @@ class ContentFileStorageTestCase(TestCase):
             title="Content File Storage Test Case Learning Package",
         )
         self.html_media_type = contents_api.get_or_create_media_type("text/html")
-        self.html_content = contents_api.get_or_create_file_content(
+        self.html_content = contents_api.get_or_create_file_media(
             learning_package.id,
             self.html_media_type.id,
             data=b"<html>hello world!</html>",

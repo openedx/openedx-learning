@@ -12,7 +12,7 @@ APIs.
 from ..apps.authoring.backup_restore.api import *
 from ..apps.authoring.collections.api import *
 from ..apps.authoring.components.api import *
-from ..apps.authoring.contents.api import *
+from ..apps.authoring.media.api import *
 from ..apps.authoring.publishing.api import *
 from ..apps.authoring.sections.api import *
 from ..apps.authoring.subsections.api import *

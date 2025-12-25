@@ -47,7 +47,7 @@ layers=
 
     # The "contents" app stores the simplest pieces of binary and text data,
     # without versioning information. These belong to a single Learning Package.
-    openedx_learning.apps.authoring.contents
+    openedx_learning.apps.authoring.media
 
     # The "collections" app stores arbitrary groupings of PublishableEntities.
     # Its only dependency should be the publishing app.
