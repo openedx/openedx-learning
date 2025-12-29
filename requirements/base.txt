@@ -78,7 +78,7 @@ packaging==25.0
     # via kombu
 prompt-toolkit==3.0.52
     # via click-repl
-psutil==7.1.3
+psutil==7.2.0
     # via edx-django-utils
 pycparser==2.23
     # via cffi
