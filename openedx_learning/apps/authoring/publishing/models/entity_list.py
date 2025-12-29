@@ -18,6 +18,10 @@ class EntityList(models.Model):
     anonymous in a sense–they're pointed to by ContainerVersions and
     other models, rather than being looked up by their own identifiers.
     """
+
+    class Meta:
+        db_table = 'oel_publishing_entitylist'
+
     @cached_property
     def rows(self):
         """
@@ -79,6 +83,7 @@ class EntityListRow(models.Model):
         return self.entity_version_id is None
 
     class Meta:
+        db_table = 'oel_publishing_entitylistrow'
         ordering = ["order_num"]
         constraints = [
             # If (entity_list, order_num) is not unique, it likely indicates a race condition - so force uniqueness.

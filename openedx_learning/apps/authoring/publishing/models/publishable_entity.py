@@ -135,6 +135,7 @@ class PublishableEntity(models.Model):
     )
 
     class Meta:
+        db_table = 'oel_publishing_publishableentity'
         constraints = [
             # Keys are unique within a given LearningPackage.
             models.UniqueConstraint(
@@ -237,6 +238,7 @@ class PublishableEntityVersion(models.Model):
         return f"{self.entity.key} @ v{self.version_num} - {self.title}"
 
     class Meta:
+        db_table = 'oel_publishing_publishableentityversion'
         constraints = [
             # Prevent the situation where we have multiple
             # PublishableEntityVersions claiming to be the same version_num for
@@ -305,6 +307,7 @@ class PublishableEntityVersionDependency(models.Model):
     referenced_entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
 
     class Meta:
+        db_table = 'oel_publishing_publishableentityversiondependency'
         constraints = [
             models.UniqueConstraint(
                 fields=["referring_version", "referenced_entity"],

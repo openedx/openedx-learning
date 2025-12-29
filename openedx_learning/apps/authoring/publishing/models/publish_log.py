@@ -57,6 +57,7 @@ class PublishLog(models.Model):
     )
 
     class Meta:
+        db_table = 'oel_publishing_publishlog'
         verbose_name = "Publish Log"
         verbose_name_plural = "Publish Logs"
 
@@ -112,6 +113,7 @@ class PublishLogRecord(models.Model):
     dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
 
     class Meta:
+        db_table = 'oel_publishing_publishlogrecord'
         constraints = [
             # A Publishable can have only one PublishLogRecord per PublishLog.
             # You can't simultaneously publish two different versions of the
@@ -186,6 +188,7 @@ class Published(models.Model):
         return self.publish_log_record
 
     class Meta:
+        db_table = 'oel_publishing_published'
         verbose_name = "Published Entity"
         verbose_name_plural = "Published Entities"
 
@@ -224,6 +227,7 @@ class PublishSideEffect(models.Model):
     )
 
     class Meta:
+        db_table = 'oel_publishing_publishsideeffect'
         constraints = [
             # Duplicate entries for cause & effect are just redundant. This is
             # here to guard against weird bugs that might introduce this state.

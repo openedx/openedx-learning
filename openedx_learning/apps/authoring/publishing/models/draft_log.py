@@ -70,6 +70,9 @@ class Draft(models.Model):
         null=True,
     )
 
+    class Meta:
+        db_table = 'oel_publishing_draft'
+
     @property
     def log_record(self):
         return self.draft_log_record
@@ -140,6 +143,7 @@ class DraftChangeLog(models.Model):
     )
 
     class Meta:
+        db_table = 'oel_publishing_draftchangelog'
         verbose_name = _("Draft Change Log")
         verbose_name_plural = _("Draft Change Logs")
 
@@ -274,6 +278,7 @@ class DraftChangeLogRecord(models.Model):
     dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
 
     class Meta:
+        db_table = 'oel_publishing_draftchangelogrecord'
         constraints = [
             # A PublishableEntity can have only one DraftLogRecord per DraftLog.
             # You can't simultaneously change the same thing in two different
@@ -379,6 +384,7 @@ class DraftSideEffect(models.Model):
     )
 
     class Meta:
+        db_table = 'oel_publishing_draftsideeffect'
         constraints = [
             # Duplicate entries for cause & effect are just redundant. This is
             # here to guard against weird bugs that might introduce this state.

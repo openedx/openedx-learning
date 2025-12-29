@@ -31,14 +31,18 @@ INSTALLED_APPS = (
     "django.contrib.admin",
     "django.contrib.admindocs",
     # Learning Core Apps
-    "openedx_learning.apps.authoring.collections",
-    "openedx_learning.apps.authoring.components",
-    "openedx_learning.apps.authoring.contents",
-    "openedx_learning.apps.authoring.publishing",
-    "openedx_learning.apps.authoring.sections",
-    "openedx_learning.apps.authoring.subsections",
-    "openedx_learning.apps.authoring.units",
-    "openedx_learning.apps.authoring.backup_restore",
+
+    "openedx_learning.apps.authoring",
+
+    #"openedx_learning.apps.authoring.collections",
+    #"openedx_learning.apps.authoring.components",
+    #"openedx_learning.apps.authoring.contents",
+    #"openedx_learning.apps.authoring.publishing",
+    #"openedx_learning.apps.authoring.sections",
+    #"openedx_learning.apps.authoring.subsections",
+    #"openedx_learning.apps.authoring.units",
+    #"openedx_learning.apps.authoring.backup_restore",
+
     # Learning Contrib Apps
     # "openedx_learning.contrib.media_server.apps.MediaServerConfig",
     # Apps that don't belong in this repo in the long term, but are here to make

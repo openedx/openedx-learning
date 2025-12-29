@@ -61,6 +61,7 @@ class LearningPackage(models.Model):
         return f"{self.key}"
 
     class Meta:
+        db_table = 'oel_publishing_learningpackage'
         constraints = [
             # LearningPackage keys must be globally unique. This is something
             # that might be relaxed in the future if this system were to be
