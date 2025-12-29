@@ -23,8 +23,6 @@ class Container(PublishableEntityMixin):
     PublishLog and Containers that were affected in a publish because their
     child elements were published.
     """
-    class Meta:
-        db_table = 'oel_publishing_container'
 
 
 class ContainerVersion(PublishableEntityVersionMixin):
@@ -70,6 +68,3 @@ class ContainerVersion(PublishableEntityVersionMixin):
         super().clean()
         if self.container_id != self.publishable_entity_version.entity.container.pk:  # pylint: disable=no-member
             raise ValidationError("Inconsistent foreign keys to Container")
-
-    class Meta:
-        db_table = 'oel_publishing_containerversion'

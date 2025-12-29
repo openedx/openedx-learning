@@ -63,6 +63,7 @@ class ComponentType(models.Model):
     # the UsageKey.
     name = case_sensitive_char_field(max_length=100, blank=True)
 
+    # TODO: this needs to go into a class Meta
     constraints = [
         models.UniqueConstraint(
             fields=[
@@ -75,9 +76,6 @@ class ComponentType(models.Model):
 
     def __str__(self) -> str:
         return f"{self.namespace}:{self.name}"
-
-    class Meta:
-        db_table = 'oel_components_componenttype'
 
 
 class Component(PublishableEntityMixin):
@@ -158,7 +156,6 @@ class Component(PublishableEntityMixin):
     local_key = key_field()
 
     class Meta:
-        db_table = 'oel_components_component'
         constraints = [
             # The combination of (component_type, local_key) is unique within
             # a given LearningPackage. Note that this means it is possible to
@@ -221,7 +218,6 @@ class ComponentVersion(PublishableEntityVersionMixin):
     )
 
     class Meta:
-        db_table = 'oel_components_componentversion'
         verbose_name = "Component Version"
         verbose_name_plural = "Component Versions"
 
@@ -253,7 +249,6 @@ class ComponentVersionContent(models.Model):
     key = key_field(db_column="_key")
 
     class Meta:
-        db_table = 'oel_components_componentversioncontent'
         constraints = [
             # Uniqueness is only by ComponentVersion and key. If for some reason
             # a ComponentVersion wants to associate the same piece of content

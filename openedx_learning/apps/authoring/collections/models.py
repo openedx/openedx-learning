@@ -168,7 +168,6 @@ class Collection(models.Model):
     )
 
     class Meta:
-        db_table = 'oel_collections_collection'
         verbose_name_plural = "Collections"
         constraints = [
             # Keys are unique within a given LearningPackage.
@@ -181,7 +180,10 @@ class Collection(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["learning_package", "title"]),
+            models.Index(
+                fields=["learning_package", "title"],
+                name="oel_authoring_coll_lp_title",
+            ),
         ]
 
     def __repr__(self) -> str:
@@ -223,7 +225,6 @@ class CollectionPublishableEntity(models.Model):
     )
 
     class Meta:
-        db_table = 'oel_collections_collectionpublishableentity'
         constraints = [
             # Prevent race conditions from making multiple rows associating the
             # same Collection to the same Entity.
