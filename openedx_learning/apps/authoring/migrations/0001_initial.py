@@ -135,6 +135,7 @@ class Migration(migrations.Migration):
                     options={
                         'verbose_name': 'Content',
                         'verbose_name_plural': 'Contents',
+                        'db_table': 'oel_contents_content',
                     },
                 ),
                 migrations.CreateModel(
@@ -171,6 +172,9 @@ class Migration(migrations.Migration):
                         ('sub_type', openedx_learning.lib.fields.MultiCollationCharField(db_collations={'mysql': 'utf8mb4_unicode_ci', 'sqlite': 'NOCASE'}, max_length=127)),
                         ('suffix', openedx_learning.lib.fields.MultiCollationCharField(blank=True, db_collations={'mysql': 'utf8mb4_unicode_ci', 'sqlite': 'NOCASE'}, max_length=127)),
                     ],
+                    options={
+                        'db_table': "contents_mediatype",
+                    },
                 ),
                 migrations.CreateModel(
                     name='PublishableEntityVersionDependency',
@@ -487,6 +491,7 @@ class Migration(migrations.Migration):
                     ],
                     options={
                         'abstract': False,
+                        'db_table': "oel_sections_section",
                     },
                     bases=('oel_authoring.container',),
                 ),
@@ -497,6 +502,7 @@ class Migration(migrations.Migration):
                     ],
                     options={
                         'abstract': False,
+                        'db_table': "oel_subsections_subsection",
                     },
                     bases=('oel_authoring.container',),
                 ),
@@ -507,6 +513,7 @@ class Migration(migrations.Migration):
                     ],
                     options={
                         'abstract': False,
+                        'db_table': "oel_units_unit",
                     },
                     bases=('oel_authoring.container',),
                 ),
@@ -556,6 +563,7 @@ class Migration(migrations.Migration):
                     ],
                     options={
                         'abstract': False,
+                        'db_table': 'oel_sections_sectionversion',
                     },
                     bases=('oel_authoring.containerversion',),
                 ),
@@ -566,6 +574,7 @@ class Migration(migrations.Migration):
                     ],
                     options={
                         'abstract': False,
+                        'db_table': 'oel_subsections_subsectionversion',
                     },
                     bases=('oel_authoring.containerversion',),
                 ),
@@ -576,6 +585,7 @@ class Migration(migrations.Migration):
                     ],
                     options={
                         'abstract': False,
+                        'db_table': 'oel_units_unitversion',
                     },
                     bases=('oel_authoring.containerversion',),
                 ),

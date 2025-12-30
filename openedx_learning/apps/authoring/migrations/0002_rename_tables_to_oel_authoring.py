@@ -24,6 +24,10 @@ class Migration(migrations.Migration):
             table=None,
         ),
         migrations.AlterModelTable(
+            name='content',
+            table=None,
+        ),
+        migrations.AlterModelTable(
             name='component',
             table=None,
         ),
@@ -76,6 +80,10 @@ class Migration(migrations.Migration):
             table=None,
         ),
         migrations.AlterModelTable(
+            name='mediatype',
+            table=None,
+        ),
+        migrations.AlterModelTable(
             name='publishableentity',
             table=None,
         ),
@@ -101,6 +109,30 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterModelTable(
             name='publishsideeffect',
+            table=None,
+        ),
+        migrations.AlterModelTable(
+            name='section',
+            table=None,
+        ),
+        migrations.AlterModelTable(
+            name='sectionversion',
+            table=None,
+        ),
+        migrations.AlterModelTable(
+            name='subsection',
+            table=None,
+        ),
+        migrations.AlterModelTable(
+            name='subsectionversion',
+            table=None,
+        ),
+        migrations.AlterModelTable(
+            name='unit',
+            table=None,
+        ),
+        migrations.AlterModelTable(
+            name='unitversion',
             table=None,
         ),
     ]
