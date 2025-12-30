@@ -5,16 +5,17 @@ This migration has two modes it needs to run in:
    (bundled with the Teak release).
 2. New installs.
 """
+import uuid
 
 import django.core.validators
 import django.db.models.deletion
-import openedx_learning.lib.fields
-import openedx_learning.lib.validators
-import uuid
 from django.conf import settings
 from django.db import migrations, models
 from django.db.migrations.operations.special import SeparateDatabaseAndState
+from django.db.migrations.recorder import MigrationRecorder
 
+import openedx_learning.lib.fields
+import openedx_learning.lib.validators
 
 class BootstrapMigrations(SeparateDatabaseAndState):
 
@@ -22,6 +23,38 @@ class BootstrapMigrations(SeparateDatabaseAndState):
         return super().__init__(database_operations=operations, state_operations=operations)
 
     def has_teak_release_tables(self):
+        """
+        There are three possible outcomes:
+
+        1. The database we want to run this migration on already has migrations
+           for the smaller apps that the "authoring" is subsuming: Return True.
+        2. The database has no migrations of those earlier apps: Return False.
+        3. The database has *some* but not all of the migrations we expect:
+           Raise an error. This can happen if someone tries to upgrade and skips
+           the Teak release, e.g. Sumac -> Verawood directly.
+        """
+        expected_migrations = {
+            "oel_collections": "0005_alter_collection_options_alter_collection_enabled",
+            "oel_components": "0004_remove_componentversioncontent_uuid",
+            "oel_contents": "0001_initial",
+            "oel_publishing": "0010_backfill_dependencies",
+            "oel_sections": "0001_initial",
+            "oel_subsections": "0001_initial",
+            "oel_units": "0001_initial",
+        }
+        if all(
+            MigrationRecorder.Migration.objects.filter(app=app, name=name).exists()
+            for app, name in expected_migrations.items()
+        ):
+            return True
+
+        if MigrationRecorder.Migration.objects.filter(app="oel_publishing").exists():
+            raise RuntimeError(
+                "Migration could not be run because database is in a pre-Teak "
+                "state. Please upgrade to Teak (openedx_learning==0.30.2) "
+                "before running this migration."
+            )
+
         return False
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
