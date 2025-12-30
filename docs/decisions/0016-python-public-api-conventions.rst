@@ -20,7 +20,7 @@ Learning Core Django apps will be grouped into packages.
   Apps in ``openedx_learning`` will be grouped into broadly related packages under ``openedx_learning.apps``. The first of these groups will be "authoring" (``openedx_learning.apps.authoring``). Future packages may include "learner", "personalization", "activity", "grading", etc.
 
 Learning Core Django apps will continue to have their own ``api`` modules.
-  So for example, ``openedx_learning.apps.authoring.components.api`` will continue to exist.
+  So for example, ``openedx_learning.apps.authoring.modules.components.api`` will continue to exist.
 
 Learning Core will have a top level package for its public API.
   All public APIs intended for use by consumers of Learning Core will be represented as modules in the ``openedx_learning.api`` package that corresponds to the app groupings (e.g. ``openedx_learning.api.authoring``).
@@ -35,14 +35,14 @@ App ``api`` modules will define their public functions using ``__all__``.
   This relies on the individual apps to properly set ``__all__`` to the list of functions that they are willing to publicly support.
 
 App ``api`` modules within a package of apps still import from each other.
-  So for example, ``openedx_learning.apps.authoring.components.api`` will continue to import APIs that it needs from ``..publishing.api``, instead of using the public API at ``openedx_learning.api.authoring``. These imports should not use wildcards.
+  So for example, ``openedx_learning.apps.authoring.modules.components.api`` will continue to import APIs that it needs from ``..publishing.api``, instead of using the public API at ``openedx_learning.api.authoring``. These imports should not use wildcards.
 
   Functions and constants that are not listed as part of a module's ``__all__`` may still be imported by other app APIs in the same package grouping. This should allow a package more flexibility to create provisional APIs that we may not want to support publicly.
 
   If a function or attribute is intended to be completely private to an app's ``api`` module (i.e. not used even by other apps in its package), it should be prefixed with an underscore.
 
 App ``api`` modules should not import directly from apps outside their package.
-  For example, ``openedx_learning.apps.personalization.api`` should import authoring API functions from ``openedx_learning.api.authoring``, **not** directly from something like ``openedx_learning.apps.authoring.components.api``. This will help to limit the impact of refactoring app package internal changes, as well as exposing shortcomings in the existing public APIs.
+  For example, ``openedx_learning.apps.personalization.api`` should import authoring API functions from ``openedx_learning.api.authoring``, **not** directly from something like ``openedx_learning.apps.authoring.modules.components.api``. This will help to limit the impact of refactoring app package internal changes, as well as exposing shortcomings in the existing public APIs.
 
 Public API modules may implement their own functions.
   In addition to aggregating app ``api`` modules via wildcard imports, public API modules like ``openedx_learning.api.authoring`` may implement their own functionality. This will be useful for convenience functions that invoke multiple app APIs, and for backwards compatibility shims. When possible, the bulk of the logic for these should continue to live in app-defined APIs, with the public API module acting more as a glue layer.

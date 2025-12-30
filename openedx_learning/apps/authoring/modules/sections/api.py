@@ -7,7 +7,7 @@ from datetime import datetime
 
 from django.db.transaction import atomic
 
-from openedx_learning.apps.authoring.subsections.models import Subsection, SubsectionVersion
+from ..subsections.models import Subsection, SubsectionVersion
 
 from ..publishing import api as publishing_api
 from .models import Section, SectionVersion

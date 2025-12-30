@@ -5,7 +5,7 @@ These tests ensure consistent and predictable behavior when
 generating slugified, hash-based filenames.
 """
 
-from openedx_learning.apps.authoring.backup_restore.zipper import slugify_hashed_filename
+from openedx_learning.apps.authoring.modules.backup_restore.zipper import slugify_hashed_filename
 from openedx_learning.lib.test_utils import TestCase
 
 

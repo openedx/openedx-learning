@@ -16,8 +16,8 @@ from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils.module_loading import import_string
 
-from ....lib.fields import MultiCollationTextField, case_insensitive_char_field, hash_field, manual_date_time_field
-from ....lib.managers import WithRelationsManager
+from openedx_learning.lib.fields import MultiCollationTextField, case_insensitive_char_field, hash_field, manual_date_time_field
+from openedx_learning.lib.managers import WithRelationsManager
 from ..publishing.models import LearningPackage
 
 logger = getLogger()

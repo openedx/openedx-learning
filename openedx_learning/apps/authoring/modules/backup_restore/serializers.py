@@ -5,7 +5,7 @@ from datetime import timezone
 
 from rest_framework import serializers
 
-from openedx_learning.apps.authoring.components import api as components_api
+from ..components import api as components_api
 
 
 class LearningPackageSerializer(serializers.Serializer):  # pylint: disable=abstract-method

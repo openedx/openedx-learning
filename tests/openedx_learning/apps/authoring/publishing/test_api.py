@@ -10,8 +10,8 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import (
+from openedx_learning.apps.authoring.modules.publishing import api as publishing_api
+from openedx_learning.apps.authoring.modules.publishing.models import (
     Container,
     ContainerVersion,
     Draft,

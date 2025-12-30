@@ -3,7 +3,7 @@ Tests related to the Publishing model mixins
 """
 from typing import TYPE_CHECKING, assert_type
 
-from openedx_learning.apps.authoring.publishing.models import PublishableEntityMixin, PublishableEntityVersionMixin
+from openedx_learning.apps.authoring.modules.publishing.models import PublishableEntityMixin, PublishableEntityVersionMixin
 from openedx_learning.lib.managers import WithRelationsManager
 
 if TYPE_CHECKING:

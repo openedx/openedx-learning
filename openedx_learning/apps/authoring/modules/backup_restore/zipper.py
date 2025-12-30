@@ -28,7 +28,7 @@ from openedx_learning.api.authoring_models import (
     PublishableEntity,
     PublishableEntityVersion,
 )
-from openedx_learning.apps.authoring.backup_restore.serializers import (
+from .serializers import (
     CollectionSerializer,
     ComponentSerializer,
     ComponentVersionSerializer,
@@ -37,7 +37,7 @@ from openedx_learning.apps.authoring.backup_restore.serializers import (
     LearningPackageMetadataSerializer,
     LearningPackageSerializer,
 )
-from openedx_learning.apps.authoring.backup_restore.toml import (
+from .toml import (
     parse_collection_toml,
     parse_learning_package_toml,
     parse_publishable_entity_toml,
@@ -45,13 +45,13 @@ from openedx_learning.apps.authoring.backup_restore.toml import (
     toml_learning_package,
     toml_publishable_entity,
 )
-from openedx_learning.apps.authoring.collections import api as collections_api
-from openedx_learning.apps.authoring.components import api as components_api
-from openedx_learning.apps.authoring.contents import api as contents_api
-from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.sections import api as sections_api
-from openedx_learning.apps.authoring.subsections import api as subsections_api
-from openedx_learning.apps.authoring.units import api as units_api
+from ..collections import api as collections_api
+from ..components import api as components_api
+from ..contents import api as contents_api
+from ..publishing import api as publishing_api
+from ..sections import api as sections_api
+from ..subsections import api as subsections_api
+from ..units import api as units_api
 
 TOML_PACKAGE_NAME = "package.toml"
 DEFAULT_USERNAME = "command"

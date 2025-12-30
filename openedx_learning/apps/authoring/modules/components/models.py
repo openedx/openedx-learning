@@ -21,8 +21,8 @@ from typing import ClassVar
 
 from django.db import models
 
-from ....lib.fields import case_sensitive_char_field, key_field
-from ....lib.managers import WithRelationsManager
+from openedx_learning.lib.fields import case_sensitive_char_field, key_field
+from openedx_learning.lib.managers import WithRelationsManager
 from ..contents.models import Content
 from ..publishing.models import LearningPackage, PublishableEntityMixin, PublishableEntityVersionMixin
 

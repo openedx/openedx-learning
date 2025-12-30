@@ -8,8 +8,8 @@ from django.contrib.auth import get_user_model
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
-from openedx_learning.apps.authoring.backup_restore.api import create_zip_file
-from openedx_learning.apps.authoring.publishing.api import LearningPackage
+from openedx_learning.apps.authoring.modules.backup_restore.api import create_zip_file
+from openedx_learning.apps.authoring.modules.publishing.api import LearningPackage
 
 logger = logging.getLogger(__name__)
 

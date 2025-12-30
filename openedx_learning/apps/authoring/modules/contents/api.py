@@ -12,7 +12,7 @@ from logging import getLogger
 from django.core.files.base import ContentFile
 from django.db.transaction import atomic
 
-from ....lib.fields import create_hash_digest
+from openedx_learning.lib.fields import create_hash_digest
 from .models import Content, MediaType
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api

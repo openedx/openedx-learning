@@ -5,8 +5,8 @@ import zipfile
 
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 
-from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageUnzipper, LearningPackageZipper
-from openedx_learning.apps.authoring.publishing.api import get_learning_package_by_key
+from .zipper import LearningPackageUnzipper, LearningPackageZipper
+from ..publishing.api import get_learning_package_by_key
 
 
 def create_zip_file(lp_key: str, path: str, user: UserType | None = None, origin_server: str | None = None) -> None:

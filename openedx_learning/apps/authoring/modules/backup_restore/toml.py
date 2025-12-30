@@ -8,10 +8,10 @@ from typing import Any, Dict
 import tomlkit
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 
-from openedx_learning.apps.authoring.collections.models import Collection
-from openedx_learning.apps.authoring.publishing import api as publishing_api
-from openedx_learning.apps.authoring.publishing.models import PublishableEntity, PublishableEntityVersion
-from openedx_learning.apps.authoring.publishing.models.learning_package import LearningPackage
+from ..collections.models import Collection
+from ..publishing import api as publishing_api
+from ..publishing.models import PublishableEntity, PublishableEntityVersion
+from ..publishing.models.learning_package import LearningPackage
 
 
 def toml_learning_package(

@@ -7,8 +7,7 @@ from datetime import datetime
 
 from django.db.transaction import atomic
 
-from openedx_learning.apps.authoring.components.models import Component, ComponentVersion
-
+from ..components.models import Component, ComponentVersion
 from ..publishing import api as publishing_api
 from .models import Unit, UnitVersion
 

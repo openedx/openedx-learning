@@ -7,9 +7,9 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
-from openedx_learning.apps.authoring.contents import api as contents_api
-from openedx_learning.apps.authoring.contents.models import get_storage
-from openedx_learning.apps.authoring.publishing import api as publishing_api
+from openedx_learning.apps.authoring.modules.contents import api as contents_api
+from openedx_learning.apps.authoring.modules.contents.models import get_storage
+from openedx_learning.apps.authoring.modules.publishing import api as publishing_api
 from openedx_learning.lib.test_utils import TestCase
 
 
