@@ -262,7 +262,7 @@ class SubSectionTestCase(UnitTestCase):  # pylint: disable=test-inherits-tests
                 created_by=None,
             )
 
-    @patch('openedx_learning.apps.authoring.subsections.api._pub_entities_for_units')
+    @patch('openedx_learning.apps.authoring.modules.subsections.api._pub_entities_for_units')
     def test_adding_mismatched_versions(self, mock_entities_for_units):  # pylint: disable=arguments-renamed
         """
         Test that versioned units must match their entities.

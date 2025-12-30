@@ -17,8 +17,8 @@ from openedx_learning.api.authoring_models import (
     ComponentType,
     LearningPackage,
     PublishableEntity,
+    Unit,
 )
-from openedx_learning.apps.authoring.units.models import Unit
 from openedx_learning.lib.test_utils import TestCase
 
 User = get_user_model()

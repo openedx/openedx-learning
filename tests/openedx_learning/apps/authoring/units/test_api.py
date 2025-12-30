@@ -250,7 +250,7 @@ class UnitTestCase(ComponentTestCase):
                 created_by=None,
             )
 
-    @patch('openedx_learning.apps.authoring.units.api._pub_entities_for_components')
+    @patch('openedx_learning.apps.authoring.modules.units.api._pub_entities_for_components')
     def test_adding_mismatched_versions(self, mock_entities_for_components):
         """
         Test that versioned components must match their entities.
