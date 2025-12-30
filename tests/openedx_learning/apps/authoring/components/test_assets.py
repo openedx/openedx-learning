@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from openedx_learning.apps.authoring.components import api as components_api
 from openedx_learning.apps.authoring.components.api import AssetError
-from openedx_learning.apps.authoring.contents import api as contents_api
+from openedx_learning.apps.authoring.media import api as contents_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
@@ -25,9 +25,9 @@ class AssetTestCase(TestCase):
     component: components_api.Component
     component_version: components_api.ComponentVersion
 
-    problem_content: contents_api.Content
-    python_source_asset: contents_api.Content
-    html_asset_content: contents_api.Content
+    problem_content: contents_api.Media
+    python_source_asset: contents_api.Media
+    html_asset_content: contents_api.Media
 
     learning_package: LearningPackage
     now: datetime
@@ -65,7 +65,7 @@ class AssetTestCase(TestCase):
         )
 
         # ProblemBlock content that is stored as text Content, not a file.
-        cls.problem_content = contents_api.get_or_create_text_content(
+        cls.problem_content = contents_api.get_or_create_text_media(
             cls.learning_package.id,
             cls.problem_block_media_type.id,
             text="<problem>(pretend problem OLX is here)</problem>",
@@ -79,7 +79,7 @@ class AssetTestCase(TestCase):
 
         # Python source file, stored as a file. This is hypothetical, as we
         # don't actually support bundling grader files like this today.
-        cls.python_source_asset = contents_api.get_or_create_file_content(
+        cls.python_source_asset = contents_api.get_or_create_file_media(
             cls.learning_package.id,
             cls.python_source_media_type.id,
             data=b"print('hello world!')",
@@ -92,7 +92,7 @@ class AssetTestCase(TestCase):
         )
 
         # An HTML file that is student downloadable
-        cls.html_asset_content = contents_api.get_or_create_file_content(
+        cls.html_asset_content = contents_api.get_or_create_file_media(
             cls.learning_package.id,
             cls.html_media_type.id,
             data=b"<html>hello world!</html>",

@@ -23,9 +23,9 @@ from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 from django.http.response import HttpResponse, HttpResponseNotFound
 
-from ..contents import api as contents_api
+from ..media import api as contents_api
 from ..publishing import api as publishing_api
-from .models import Component, ComponentType, ComponentVersion, ComponentVersionContent
+from .models import Component, ComponentType, ComponentVersion, ComponentVersionMedia
 
 # The public API that will be re-exported by openedx_learning.apps.authoring.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -256,7 +256,7 @@ def create_next_component_version(
                     # RFC 2046: https://datatracker.ietf.org/doc/html/rfc2046
                     media_type_str = media_type_str or "application/octet-stream"
                     media_type = contents_api.get_or_create_media_type(media_type_str)
-                    content = contents_api.get_or_create_file_content(
+                    content = contents_api.get_or_create_file_media(
                         component.learning_package.id,
                         media_type.id,
                         data=file_content,
@@ -265,8 +265,8 @@ def create_next_component_version(
                     content_pk = content.pk
                 else:
                     content_pk = content_pk_or_bytes
-                ComponentVersionContent.objects.create(
-                    content_id=content_pk,
+                ComponentVersionMedia.objects.create(
+                    media_id=content_pk,
                     component_version=component_version,
                     key=key,
                 )
@@ -276,12 +276,12 @@ def create_next_component_version(
 
         # Now copy any old associations that existed, as long as they aren't
         # in conflict with the new stuff or marked for deletion.
-        last_version_content_mapping = ComponentVersionContent.objects \
+        last_version_content_mapping = ComponentVersionMedia.objects \
                                                               .filter(component_version=last_version)
         for cvrc in last_version_content_mapping:
             if cvrc.key not in content_to_replace:
-                ComponentVersionContent.objects.create(
-                    content_id=cvrc.content_id,
+                ComponentVersionMedia.objects.create(
+                    media_id=cvrc.media_id,
                     component_version=component_version,
                     key=cvrc.key,
                 )
@@ -454,7 +454,7 @@ def look_up_component_version_content(
     component_key: str,
     version_num: int,
     key: Path,
-) -> ComponentVersionContent:
+) -> ComponentVersionMedia:
     """
     Look up ComponentVersionContent by human readable keys.
 
@@ -470,7 +470,7 @@ def look_up_component_version_content(
         & Q(component_version__publishable_entity_version__version_num=version_num)
         & Q(key=key)
     )
-    return ComponentVersionContent.objects \
+    return ComponentVersionMedia.objects \
                                   .select_related(
                                       "content",
                                       "content__media_type",
@@ -485,7 +485,7 @@ def create_component_version_content(
     content_id: int,
     /,
     key: str,
-) -> ComponentVersionContent:
+) -> ComponentVersionMedia:
     """
     Add a Content to the given ComponentVersion
 
@@ -503,9 +503,9 @@ def create_component_version_content(
         )
         key = key.lstrip('/')
 
-    cvrc, _created = ComponentVersionContent.objects.get_or_create(
+    cvrc, _created = ComponentVersionMedia.objects.get_or_create(
         component_version_id=component_version_id,
-        content_id=content_id,
+        media_id=content_id,
         key=key,
     )
     return cvrc
@@ -621,8 +621,8 @@ def get_redirect_response_for_component_asset(
 
     # Check: Does the ComponentVersion have the requested asset (Content)?
     try:
-        cv_content = component_version.componentversioncontent_set.get(key=asset_path)
-    except ComponentVersionContent.DoesNotExist:
+        cv_content = component_version.componentversionmedia_set.get(key=asset_path)
+    except ComponentVersionMedia.DoesNotExist:
         logger.error(f"ComponentVersion {component_version_uuid} has no asset {asset_path}")
         info_headers.update(
             _error_header(AssetError.ASSET_PATH_NOT_FOUND_FOR_COMPONENT_VERSION)
@@ -634,7 +634,7 @@ def get_redirect_response_for_component_asset(
     # anyway, but we're explicitly not doing so because streaming large text
     # fields from the database is less scalable, and we don't want to encourage
     # that usage pattern.
-    content = cv_content.content
+    content = cv_content.media
     if not content.has_file:
         logger.error(
            f"ComponentVersion {component_version_uuid} has asset {asset_path}, "
@@ -647,7 +647,7 @@ def get_redirect_response_for_component_asset(
 
     # At this point, we know that there is valid Content that we want to send.
     # This adds Content-level headers, like the hash/etag and content type.
-    info_headers.update(contents_api.get_content_info_headers(content))
+    info_headers.update(contents_api.get_media_info_headers(content))
 
     # Recompute redirect headers (reminder: this should never be cached).
     redirect_headers = contents_api.get_redirect_headers(content.path, public)
