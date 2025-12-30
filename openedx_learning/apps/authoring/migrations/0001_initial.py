@@ -173,7 +173,7 @@ class Migration(migrations.Migration):
                         ('suffix', openedx_learning.lib.fields.MultiCollationCharField(blank=True, db_collations={'mysql': 'utf8mb4_unicode_ci', 'sqlite': 'NOCASE'}, max_length=127)),
                     ],
                     options={
-                        'db_table': "contents_mediatype",
+                        'db_table': "oel_contents_mediatype",
                     },
                 ),
                 migrations.CreateModel(
