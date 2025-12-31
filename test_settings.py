@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'rules.apps.AutodiscoverRulesConfig',
     # Our own apps
     "openedx_learning.apps.authoring",
+    "openedx_tagging.core.tagging",
 ]
 
 AUTHENTICATION_BACKENDS = [
