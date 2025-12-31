@@ -7,10 +7,10 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
-from openedx_learning.apps.authoring.modules.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
-from openedx_learning.apps.authoring.modules.collections import api as collections_api
-from openedx_learning.apps.authoring.modules.components import api as components_api
-from openedx_learning.apps.authoring.modules.publishing import api as publishing_api
+from openedx_learning.apps.authoring.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
+from openedx_learning.apps.authoring.applets.collections import api as collections_api
+from openedx_learning.apps.authoring.applets.components import api as components_api
+from openedx_learning.apps.authoring.applets.publishing import api as publishing_api
 from openedx_learning.lib.test_utils import TestCase
 from test_utils.zip_file_utils import folder_to_inmemory_zip
 
@@ -31,7 +31,7 @@ class RestoreTestCase(TestCase):
 class RestoreLearningPackageCommandTest(RestoreTestCase):
     """Tests for the lp_load management command."""
 
-    @patch("openedx_learning.apps.authoring.modules.backup_restore.api.load_learning_package")
+    @patch("openedx_learning.apps.authoring.applets.backup_restore.api.load_learning_package")
     def test_restore_command(self, mock_load_learning_package):
         # Mock load_learning_package to return our in-memory zip file
         restore_result = LearningPackageUnzipper(self.zip_file, user=self.user).load()
@@ -284,7 +284,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
 
         # Mock parse_learning_package_toml to return a dict without 'key'
         with patch(
-            "openedx_learning.apps.authoring.modules.backup_restore.zipper.parse_learning_package_toml",
+            "openedx_learning.apps.authoring.applets.backup_restore.zipper.parse_learning_package_toml",
             return_value={
                 "learning_package": {
                     "title": "Library test",
@@ -315,7 +315,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
 
         # Mock parse_learning_package_toml to return a dict without 'meta'
         with patch(
-            "openedx_learning.apps.authoring.modules.backup_restore.zipper.parse_learning_package_toml",
+            "openedx_learning.apps.authoring.applets.backup_restore.zipper.parse_learning_package_toml",
             return_value={
                 "learning_package": {
                     "title": "Library test",

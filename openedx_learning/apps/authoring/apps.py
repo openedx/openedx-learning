@@ -7,14 +7,14 @@ class AuthoringConfig(AppConfig):
     label = "oel_authoring"
 
     def ready(self):
-        from .modules.publishing.api import register_publishable_models
-
-        from .modules.components.models import Component, ComponentVersion
-        from .modules.publishing.models import Container, ContainerVersion
-        from .modules.sections.models import Section, SectionVersion
-        from .modules.subsections.models import Subsection, SubsectionVersion
-        from .modules.units.models import Unit, UnitVersion
-
+        from .api import register_publishable_models
+        from .models import (
+            Component, ComponentVersion,
+            Container, ContainerVersion,
+            Section, SectionVersion,
+            Subsection, SubsectionVersion,
+            Unit, UnitVersion,
+        )
         register_publishable_models(Component, ComponentVersion)
         register_publishable_models(Container, ContainerVersion)
         register_publishable_models(Section, SectionVersion)

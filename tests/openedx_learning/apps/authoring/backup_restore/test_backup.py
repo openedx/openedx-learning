@@ -12,7 +12,7 @@ from django.db.models import QuerySet
 
 from openedx_learning.api import authoring as api
 from openedx_learning.api.authoring_models import Collection, Component, Content, LearningPackage, PublishableEntity
-from openedx_learning.apps.authoring.modules.backup_restore.zipper import LearningPackageZipper
+from openedx_learning.apps.authoring.applets.backup_restore.zipper import LearningPackageZipper
 from openedx_learning.lib.test_utils import TestCase
 
 User = get_user_model()

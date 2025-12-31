@@ -5,11 +5,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from openedx_learning.apps.authoring.modules.components import api as components_api
-from openedx_learning.apps.authoring.modules.components.api import AssetError
-from openedx_learning.apps.authoring.modules.contents import api as contents_api
-from openedx_learning.apps.authoring.modules.publishing import api as publishing_api
-from openedx_learning.apps.authoring.modules.publishing.models import LearningPackage
+from openedx_learning.apps.authoring.applets.components import api as components_api
+from openedx_learning.apps.authoring.applets.components.api import AssetError
+from openedx_learning.apps.authoring.applets.contents import api as contents_api
+from openedx_learning.apps.authoring.applets.publishing import api as publishing_api
+from openedx_learning.apps.authoring.applets.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
 
 

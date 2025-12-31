@@ -7,14 +7,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.core.exceptions import ObjectDoesNotExist
 
-from openedx_learning.apps.authoring.modules.collections import api as collection_api
-from openedx_learning.apps.authoring.modules.collections.models import Collection
-from openedx_learning.apps.authoring.modules.components import api as components_api
-from openedx_learning.apps.authoring.modules.components.models import Component, ComponentType
-from openedx_learning.apps.authoring.modules.contents import api as contents_api
-from openedx_learning.apps.authoring.modules.contents.models import MediaType
-from openedx_learning.apps.authoring.modules.publishing import api as publishing_api
-from openedx_learning.apps.authoring.modules.publishing.models import LearningPackage
+from openedx_learning.apps.authoring.applets.collections import api as collection_api
+from openedx_learning.apps.authoring.applets.collections.models import Collection
+from openedx_learning.apps.authoring.applets.components import api as components_api
+from openedx_learning.apps.authoring.applets.components.models import Component, ComponentType
+from openedx_learning.apps.authoring.applets.contents import api as contents_api
+from openedx_learning.apps.authoring.applets.contents.models import MediaType
+from openedx_learning.apps.authoring.applets.publishing import api as publishing_api
+from openedx_learning.apps.authoring.applets.publishing.models import LearningPackage
 from openedx_learning.lib.test_utils import TestCase
 
 User = get_user_model()
