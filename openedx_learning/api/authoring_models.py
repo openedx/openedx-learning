@@ -7,10 +7,10 @@ consistent.
 """
 # These wildcard imports are okay because these modules declare __all__.
 # pylint: disable=wildcard-import
-from ..apps.authoring.collections.models import *
-from ..apps.authoring.components.models import *
-from ..apps.authoring.contents.models import *
-from ..apps.authoring.publishing.models import *
-from ..apps.authoring.sections.models import *
-from ..apps.authoring.subsections.models import *
-from ..apps.authoring.units.models import *
+from ..apps.authoring.applets.collections.models import *
+from ..apps.authoring.applets.components.models import *
+from ..apps.authoring.applets.contents.models import *
+from ..apps.authoring.applets.publishing.models import *
+from ..apps.authoring.applets.sections.models import *
+from ..apps.authoring.applets.subsections.models import *
+from ..apps.authoring.applets.units.models import *
