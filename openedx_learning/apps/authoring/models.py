@@ -1,8 +1,12 @@
-from .modules.backup_restore.models import *
-from .modules.collections.models import *
-from .modules.components.models import *
-from .modules.contents.models import *
-from .modules.publishing.models import *
-from .modules.sections.models import *
-from .modules.subsections.models import *
-from .modules.units.models import *
+from .applets.backup_restore.models import *
+from .applets.collections.models import *
+from .applets.components.models import *
+from .applets.contents.models import *
+from .applets.publishing.models import *
+from .applets.sections.models import *
+from .applets.subsections.models import *
+from .applets.units.models import *
+
+# from openedx_learning.lib import appletslib
+
+# globals().update(appletslib.auto_import_models())

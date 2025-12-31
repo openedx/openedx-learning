@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, assert_type
 
 from freezegun import freeze_time
 
-from openedx_learning.apps.authoring.modules.components.api import (
+from openedx_learning.apps.authoring.applets.components.api import (
     create_component_and_version,
     get_component,
     get_or_create_component_type,
 )
-from openedx_learning.apps.authoring.modules.components.models import Component, ComponentType, ComponentVersion
-from openedx_learning.apps.authoring.modules.publishing.api import (
+from openedx_learning.apps.authoring.applets.components.models import Component, ComponentType, ComponentVersion
+from openedx_learning.apps.authoring.applets.publishing.api import (
     LearningPackage,
     create_learning_package,
     create_publishable_entity_version,

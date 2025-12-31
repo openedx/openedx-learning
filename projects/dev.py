@@ -34,14 +34,14 @@ INSTALLED_APPS = (
 
     "openedx_learning.apps.authoring",
 
-    #"openedx_learning.apps.authoring.modules.collections",
-    #"openedx_learning.apps.authoring.modules.components",
-    #"openedx_learning.apps.authoring.modules.contents",
-    #"openedx_learning.apps.authoring.modules.publishing",
+    #"openedx_learning.apps.authoring.applets.collections",
+    #"openedx_learning.apps.authoring.applets.components",
+    #"openedx_learning.apps.authoring.applets.contents",
+    #"openedx_learning.apps.authoring.applets.publishing",
     #"openedx_learning.apps.authoring.sections",
     #"openedx_learning.apps.authoring.subsections",
     #"openedx_learning.apps.authoring.units",
-    #"openedx_learning.apps.authoring.modules.backup_restore",
+    #"openedx_learning.apps.authoring.applets.backup_restore",
 
     # Learning Contrib Apps
     # "openedx_learning.contrib.media_server.apps.MediaServerConfig",

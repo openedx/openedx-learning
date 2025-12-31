@@ -1,8 +1,12 @@
-from .modules.backup_restore.admin import *
-from .modules.collections.admin import *
-from .modules.components.admin import *
-from .modules.contents.admin import *
-from .modules.publishing.admin import *
-from .modules.sections.admin import *
-from .modules.subsections.admin import *
-from .modules.units.admin import *
+from .applets.backup_restore.admin import *
+from .applets.collections.admin import *
+from .applets.components.admin import *
+from .applets.contents.admin import *
+from .applets.publishing.admin import *
+from .applets.sections.admin import *
+from .applets.subsections.admin import *
+from .applets.units.admin import *
+
+#from openedx_learning.lib import appletslib
+
+#globals().update(appletslib.auto_import_admin())

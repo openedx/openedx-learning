@@ -9,14 +9,14 @@ APIs.
 """
 # These wildcard imports are okay because these api modules declare __all__.
 # pylint: disable=wildcard-import
-from ..apps.authoring.modules.backup_restore.api import *
-from ..apps.authoring.modules.collections.api import *
-from ..apps.authoring.modules.components.api import *
-from ..apps.authoring.modules.contents.api import *
-from ..apps.authoring.modules.publishing.api import *
-from ..apps.authoring.modules.sections.api import *
-from ..apps.authoring.modules.subsections.api import *
-from ..apps.authoring.modules.units.api import *
+from ..apps.authoring.applets.backup_restore.api import *
+from ..apps.authoring.applets.collections.api import *
+from ..apps.authoring.applets.components.api import *
+from ..apps.authoring.applets.contents.api import *
+from ..apps.authoring.applets.publishing.api import *
+from ..apps.authoring.applets.sections.api import *
+from ..apps.authoring.applets.subsections.api import *
+from ..apps.authoring.applets.units.api import *
 
 # This was renamed after the authoring API refactoring pushed this and other
 # app APIs into the openedx_learning.api.authoring module. Here I'm aliasing to
