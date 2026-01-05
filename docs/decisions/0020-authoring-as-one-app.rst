@@ -39,7 +39,7 @@ In one pull request, we would:
 4. Model Migration Plan
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Migrating models across apps is tricky. This plan assumes that people will either have a new install or run migrations from Teak or the current "main" branch, both of which have the same models/schema at the time of this writing (v0.30.2).
+Migrating models across apps is tricky. This plan assumes that people will either have a new install or run migrations from Ulmo or the current "main" branch, both of which have the same models/schema at the time of this writing (v0.30.2).
 
 The new ``authoring`` app's initial migration will detect whether it is a new install or an update to an existing one and either create the tables or simply repoint the models to the existing schema. The next migration will rename the tables to have a common ``oel_authoring`` prefix.
 

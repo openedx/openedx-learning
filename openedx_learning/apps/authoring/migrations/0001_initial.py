@@ -2,7 +2,7 @@
 This migration has two modes it needs to run in:
 
 1. Existing installs that have migration data that is current through 0.30.2
-   (bundled with the Teak release).
+   (bundled with the Ulmo release).
 2. New installs.
 """
 import uuid
@@ -22,7 +22,7 @@ class BootstrapMigrations(SeparateDatabaseAndState):
     def __init__(self, operations):
         return super().__init__(database_operations=operations, state_operations=operations)
 
-    def has_teak_release_tables(self):
+    def has_ulmo_release_tables(self):
         """
         There are three possible outcomes:
 
@@ -31,7 +31,7 @@ class BootstrapMigrations(SeparateDatabaseAndState):
         2. The database has no migrations of those earlier apps: Return False.
         3. The database has *some* but not all of the migrations we expect:
            Raise an error. This can happen if someone tries to upgrade and skips
-           the Teak release, e.g. Sumac -> Verawood directly.
+           the Ulmo release, e.g. Teak -> Verawood directly.
         """
         expected_migrations = {
             "oel_collections": "0005_alter_collection_options_alter_collection_enabled",
@@ -50,20 +50,20 @@ class BootstrapMigrations(SeparateDatabaseAndState):
 
         if MigrationRecorder.Migration.objects.filter(app="oel_publishing").exists():
             raise RuntimeError(
-                "Migration could not be run because database is in a pre-Teak "
-                "state. Please upgrade to Teak (openedx_learning==0.30.2) "
+                "Migration could not be run because database is in a pre-Ulmo "
+                "state. Please upgrade to Ulmo (openedx_learning==0.30.2) "
                 "before running this migration."
             )
 
         return False
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
-        if self.has_teak_release_tables():
+        if self.has_ulmo_release_tables():
             return
         return super().database_forwards(app_label, schema_editor, from_state, to_state)
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
-        if self.has_teak_release_tables():
+        if self.has_ulmo_release_tables():
             return
         return super().database_backwards(app_label, schema_editor, from_state, to_state)
 
