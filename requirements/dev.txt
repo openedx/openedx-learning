@@ -12,7 +12,7 @@ asgiref==3.11.0
     # via
     #   -r requirements/quality.txt
     #   django
-astroid==3.3.11
+astroid==4.0.3
     # via
     #   -r requirements/quality.txt
     #   pylint
@@ -35,9 +35,9 @@ cachetools==6.2.4
     # via
     #   -r requirements/ci.txt
     #   tox
-celery==5.6.0
+celery==5.6.2
     # via -r requirements/quality.txt
-certifi==2025.11.12
+certifi==2026.1.4
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -105,7 +105,7 @@ cryptography==46.0.3
     #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
-diff-cover==10.0.0
+diff-cover==10.1.0
     # via -r requirements/dev.in
 dill==0.4.0
     # via
@@ -183,11 +183,7 @@ edx-opaque-keys==3.0.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
-exceptiongroup==1.3.1
-    # via
-    #   -r requirements/quality.txt
-    #   celery
-filelock==3.20.1
+filelock==3.20.2
     # via
     #   -r requirements/ci.txt
     #   tox
@@ -219,7 +215,7 @@ iniconfig==2.3.0
     # via
     #   -r requirements/quality.txt
     #   pytest
-isort==6.1.0
+isort==7.0.0
     # via
     #   -r requirements/quality.txt
     #   pylint
@@ -249,11 +245,11 @@ keyring==25.7.0
     # via
     #   -r requirements/quality.txt
     #   twine
-kombu==5.6.1
+kombu==5.6.2
     # via
     #   -r requirements/quality.txt
     #   celery
-librt==0.7.5
+librt==0.7.7
     # via
     #   -r requirements/quality.txt
     #   mypy
@@ -340,7 +336,7 @@ prompt-toolkit==3.0.52
     # via
     #   -r requirements/quality.txt
     #   click-repl
-psutil==7.2.0
+psutil==7.2.1
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -365,7 +361,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/quality.txt
     #   drf-jwt
     #   edx-drf-extensions
-pylint==3.3.9
+pylint==4.0.4
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -376,7 +372,7 @@ pylint-celery==0.3
     # via
     #   -r requirements/quality.txt
     #   edx-lint
-pylint-django==2.6.1
+pylint-django==2.7.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -389,7 +385,7 @@ pymongo==4.15.5
     # via
     #   -r requirements/quality.txt
     #   edx-opaque-keys
-pynacl==1.6.1
+pynacl==1.6.2
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
@@ -489,7 +485,7 @@ tomlkit==0.13.3
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==4.32.0
+tox==4.33.0
     # via -r requirements/ci.txt
 twine==6.2.0
     # via -r requirements/quality.txt
@@ -510,7 +506,6 @@ typing-extensions==4.15.0
     #   django-stubs-ext
     #   djangorestframework-stubs
     #   edx-opaque-keys
-    #   exceptiongroup
     #   grimp
     #   import-linter
     #   mypy
