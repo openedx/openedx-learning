@@ -9,8 +9,7 @@ from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 
-from ....publishing.api import get_learning_package_by_key
-from ...api import create_next_component_version, get_component_by_key
+from ...api import create_next_component_version, get_component_by_key, get_learning_package_by_key
 
 
 class Command(BaseCommand):

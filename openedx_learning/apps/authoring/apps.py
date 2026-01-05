@@ -1,4 +1,8 @@
+"""
+Docstring for openedx_learning.apps.authoring.apps
+"""
 from django.apps import AppConfig
+
 
 class AuthoringConfig(AppConfig):
     name = "openedx_learning.apps.authoring"

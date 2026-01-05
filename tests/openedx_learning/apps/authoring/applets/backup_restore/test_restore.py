@@ -7,7 +7,10 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
-from openedx_learning.apps.authoring.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
+from openedx_learning.apps.authoring.applets.backup_restore.zipper import (
+    LearningPackageUnzipper,
+    generate_staged_lp_key,
+)
 from openedx_learning.apps.authoring.applets.collections import api as collections_api
 from openedx_learning.apps.authoring.applets.components import api as components_api
 from openedx_learning.apps.authoring.applets.publishing import api as publishing_api
