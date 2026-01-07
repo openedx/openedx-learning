@@ -6,7 +6,7 @@ Context
 
 Up to this point, Learning Core has used many small apps with a narrow focus (e.g. ``components``, ``collections``, etc.) in order to make each individual app simpler to reason about. This has been useful overall, but it has made refactoring more cumbersome. For instance:
 
-#. Moving models between apps is tricky, requiring the use of Django's ``SeparateDatabaseAndState`` functionality to fake a deletion in one app and a creation in another without actually altering the database.
+#. Moving models between apps is tricky, requiring the use of Django's ``SeparateDatabaseAndState`` functionality to fake a deletion in one app and a creation in another without actually altering the database. This will be an issue when we try to extract container-related models and logic out of publishing and into a new ``containers`` app.
 #. Renaming an app is also cumbersome, because the process requires creating a new app and transitioning the models over. This came up when trying to rename the ``contents`` app to ``media``.
 
 There have also been minor inconveniences, like having a long list of ``INSTALLED_APPS`` to maintain in edx-platform over time.
