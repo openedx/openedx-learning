@@ -17,55 +17,6 @@ from django.db.migrations.recorder import MigrationRecorder
 import openedx_learning.lib.fields
 import openedx_learning.lib.validators
 
-class BootstrapMigrations(SeparateDatabaseAndState):
-
-    def __init__(self, operations):
-        return super().__init__(database_operations=operations, state_operations=operations)
-
-    def has_ulmo_release_tables(self):
-        """
-        There are three possible outcomes:
-
-        1. The database we want to run this migration on already has migrations
-           for the smaller apps that the "authoring" is subsuming: Return True.
-        2. The database has no migrations of those earlier apps: Return False.
-        3. The database has *some* but not all of the migrations we expect:
-           Raise an error. This can happen if someone tries to upgrade and skips
-           the Ulmo release, e.g. Teak -> Verawood directly.
-        """
-        expected_migrations = {
-            "oel_collections": "0005_alter_collection_options_alter_collection_enabled",
-            "oel_components": "0004_remove_componentversioncontent_uuid",
-            "oel_contents": "0001_initial",
-            "oel_publishing": "0010_backfill_dependencies",
-            "oel_sections": "0001_initial",
-            "oel_subsections": "0001_initial",
-            "oel_units": "0001_initial",
-        }
-        if all(
-            MigrationRecorder.Migration.objects.filter(app=app, name=name).exists()
-            for app, name in expected_migrations.items()
-        ):
-            return True
-
-        if MigrationRecorder.Migration.objects.filter(app="oel_publishing").exists():
-            raise RuntimeError(
-                "Migration could not be run because database is in a pre-Ulmo "
-                "state. Please upgrade to Ulmo (openedx_learning==0.30.2) "
-                "before running this migration."
-            )
-
-        return False
-
-    def database_forwards(self, app_label, schema_editor, from_state, to_state):
-        if self.has_ulmo_release_tables():
-            return
-        return super().database_forwards(app_label, schema_editor, from_state, to_state)
-
-    def database_backwards(self, app_label, schema_editor, from_state, to_state):
-        if self.has_ulmo_release_tables():
-            return
-        return super().database_backwards(app_label, schema_editor, from_state, to_state)
 
 class Migration(migrations.Migration):
 
@@ -73,11 +24,16 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("oel_collections", "0006_remove_collectionpublishableentity_collection_and_more"),
+        ("oel_components", "0005_remove_component_component_type_and_more"),
+        ("oel_contents", "0002_delete_content_delete_mediatype"),
+        ("oel_publishing", "0011_remove_containerversion_container_and_more"),
     ]
 
     operations = [
-        BootstrapMigrations(
-            [
+        SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
                 migrations.CreateModel(
                     name='PublishableEntity',
                     fields=[
