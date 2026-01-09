@@ -4,6 +4,8 @@ Django settings for testing and development purposes
 from __future__ import annotations
 from pathlib import Path
 
+from openedx_learning.api.django import learning_core_apps_to_install
+
 # Build paths inside the project like this: BASE_DIR / {dir_name} /
 BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -21,7 +23,7 @@ DATABASES = {
     }
 }
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.messages",
@@ -32,22 +34,6 @@ INSTALLED_APPS = (
     "django.contrib.admindocs",
     # Learning Core Apps
 
-    "openedx_learning.apps.authoring",
-
-    #"openedx_learning.apps.authoring.applets.collections",
-    #"openedx_learning.apps.authoring.applets.components",
-    #"openedx_learning.apps.authoring.applets.contents",
-    #"openedx_learning.apps.authoring.applets.publishing",
-    #"openedx_learning.apps.authoring.sections",
-    #"openedx_learning.apps.authoring.subsections",
-    #"openedx_learning.apps.authoring.units",
-    #"openedx_learning.apps.authoring.applets.backup_restore",
-
-    # Learning Contrib Apps
-    # "openedx_learning.contrib.media_server.apps.MediaServerConfig",
-    # Apps that don't belong in this repo in the long term, but are here to make
-    # testing/iteration easier until the APIs stabilize.
-    # "olx_importer.apps.OLXImporterConfig",
     # REST API
     "rest_framework",
 
@@ -55,7 +41,7 @@ INSTALLED_APPS = (
     'rules.apps.AutodiscoverRulesConfig',
     # Tagging Core Apps
     "openedx_tagging.core.tagging.apps.TaggingConfig",
-)
+] + learning_core_apps_to_install()
 
 AUTHENTICATION_BACKENDS = [
     'rules.permissions.ObjectPermissionBackend',

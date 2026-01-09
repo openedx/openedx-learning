@@ -7,6 +7,8 @@ Django applications, so these settings will not be used.
 
 from os.path import abspath, dirname, join
 
+from openedx_learning.api.django import learning_core_apps_to_install
+
 
 def root(*args):
     """
@@ -49,9 +51,8 @@ INSTALLED_APPS = [
     # django-rules based authorization
     'rules.apps.AutodiscoverRulesConfig',
     # Our own apps
-    "openedx_learning.apps.authoring",
     "openedx_tagging.core.tagging",
-]
+] + learning_core_apps_to_install()
 
 AUTHENTICATION_BACKENDS = [
     'rules.permissions.ObjectPermissionBackend',
