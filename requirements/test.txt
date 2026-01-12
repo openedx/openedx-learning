@@ -160,7 +160,7 @@ packaging==25.0
     #   -r requirements/base.txt
     #   kombu
     #   pytest
-pathspec==0.12.1
+pathspec==1.0.3
     # via mypy
 pluggy==1.6.0
     # via
@@ -187,7 +187,7 @@ pyjwt[crypto]==2.10.1
     #   -r requirements/base.txt
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.15.5
+pymongo==4.16.0
     # via
     #   -r requirements/base.txt
     #   edx-opaque-keys
@@ -249,7 +249,7 @@ types-pyyaml==6.0.12.20250915
     # via
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.4.20250913
+types-requests==2.32.4.20260107
     # via djangorestframework-stubs
 typing-extensions==4.15.0
     # via
@@ -269,7 +269,7 @@ tzlocal==5.3.1
     # via
     #   -r requirements/base.txt
     #   celery
-urllib3==2.6.2
+urllib3==2.6.3
     # via
     #   -r requirements/base.txt
     #   requests

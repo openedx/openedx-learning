@@ -82,7 +82,7 @@ ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.4.0
     # via pylint
-django==5.2.9
+django==5.2.10
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -227,7 +227,7 @@ packaging==25.0
     #   kombu
     #   pytest
     #   twine
-pathspec==0.12.1
+pathspec==1.0.3
     # via
     #   -r requirements/test.txt
     #   mypy
@@ -279,7 +279,7 @@ pylint-plugin-utils==0.9.0
     # via
     #   pylint-celery
     #   pylint-django
-pymongo==4.15.5
+pymongo==4.16.0
     # via
     #   -r requirements/test.txt
     #   edx-opaque-keys
@@ -369,7 +369,7 @@ types-pyyaml==6.0.12.20250915
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-types-requests==2.32.4.20250913
+types-requests==2.32.4.20260107
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
@@ -391,7 +391,7 @@ tzlocal==5.3.1
     # via
     #   -r requirements/test.txt
     #   celery
-urllib3==2.6.2
+urllib3==2.6.3
     # via
     #   -r requirements/test.txt
     #   requests
