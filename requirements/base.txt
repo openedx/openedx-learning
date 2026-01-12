@@ -37,7 +37,7 @@ click-repl==0.3.0
     # via celery
 cryptography==46.0.3
     # via pyjwt
-django==5.2.9
+django==5.2.10
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/base.in
@@ -84,7 +84,7 @@ pyjwt[crypto]==2.10.1
     # via
     #   drf-jwt
     #   edx-drf-extensions
-pymongo==4.15.5
+pymongo==4.16.0
     # via edx-opaque-keys
 pynacl==1.6.2
     # via edx-django-utils
@@ -112,7 +112,7 @@ tzdata==2025.3
     # via kombu
 tzlocal==5.3.1
     # via celery
-urllib3==2.6.2
+urllib3==2.6.3
     # via requests
 vine==5.1.0
     # via
