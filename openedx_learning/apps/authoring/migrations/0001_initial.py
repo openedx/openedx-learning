@@ -28,6 +28,9 @@ class Migration(migrations.Migration):
         ("oel_components", "0005_remove_component_component_type_and_more"),
         ("oel_contents", "0002_delete_content_delete_mediatype"),
         ("oel_publishing", "0011_remove_containerversion_container_and_more"),
+        ('oel_sections', '0002_remove_sectionversion_container_version_and_more'),
+        ('oel_subsections', '0002_remove_subsectionversion_container_version_and_more'),
+        ('oel_units', '0002_remove_unitversion_container_version_delete_unit_and_more'),
     ]
 
     operations = [
