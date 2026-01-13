@@ -19,43 +19,43 @@ auth.User:
   ".. pii_retirement": "consumer_api"
 contenttypes.ContentType:
   ".. no_pii:": "This model has no PII"
-oel_collections.Collection:
+oel_authoring.Collection:
   ".. no_pii:": "This model has no PII"
-oel_collections.CollectionPublishableEntity:
+oel_authoring.CollectionPublishableEntity:
   ".. no_pii:": "This model has no PII"
-oel_components.Component:
+oel_authoring.Component:
   ".. no_pii:": "This model has no PII"
-oel_components.ComponentType:
+oel_authoring.ComponentType:
   ".. no_pii:": "This model has no PII"
-oel_components.ComponentVersion:
+oel_authoring.ComponentVersion:
   ".. no_pii:": "This model has no PII"
-oel_components.ComponentVersionContent:
+oel_authoring.ComponentVersionContent:
   ".. no_pii:": "This model has no PII"
-oel_contents.Content:
+oel_authoring.Content:
   ".. no_pii:": "This model has no PII"
-oel_contents.MediaType:
+oel_authoring.MediaType:
   ".. no_pii:": "This model has no PII"
-oel_publishing.Container:
+oel_authoring.Container:
   ".. no_pii:": "This model has no PII"
-oel_publishing.ContainerVersion:
+oel_authoring.ContainerVersion:
   ".. no_pii:": "This model has no PII"
-oel_publishing.Draft:
+oel_authoring.Draft:
   ".. no_pii:": "This model has no PII"
-oel_publishing.EntityList:
+oel_authoring.EntityList:
   ".. no_pii:": "This model has no PII"
-oel_publishing.EntityListRow:
+oel_authoring.EntityListRow:
   ".. no_pii:": "This model has no PII"
-oel_publishing.LearningPackage:
+oel_authoring.LearningPackage:
   ".. no_pii:": "This model has no PII"
-oel_publishing.PublishLog:
+oel_authoring.PublishLog:
   ".. no_pii:": "This model has no PII"
-oel_publishing.PublishLogRecord:
+oel_authoring.PublishLogRecord:
   ".. no_pii:": "This model has no PII"
-oel_publishing.PublishableEntity:
+oel_authoring.PublishableEntity:
   ".. no_pii:": "This model has no PII"
-oel_publishing.PublishableEntityVersion:
+oel_authoring.PublishableEntityVersion:
   ".. no_pii:": "This model has no PII"
-oel_publishing.Published:
+oel_authoring.Published:
   ".. no_pii:": "This model has no PII"
 oel_tagging.ObjectTag:
   ".. no_pii:": "This model has no PII"
@@ -65,17 +65,17 @@ oel_tagging.TagImportTask:
   ".. no_pii:": "This model has no PII"
 oel_tagging.Taxonomy:
   ".. no_pii:": "This model has no PII"
-oel_sections.Section:
+oel_authoring.Section:
   ".. no_pii:": "This model has no PII"
-oel_sections.SectionVersion:
+oel_authoring.SectionVersion:
   ".. no_pii:": "This model has no PII"
-oel_subsections.Subsection:
+oel_authoring.Subsection:
   ".. no_pii:": "This model has no PII"
-oel_subsections.SubsectionVersion:
+oel_authoring.SubsectionVersion:
   ".. no_pii:": "This model has no PII"
-oel_units.Unit:
+oel_authoring.Unit:
   ".. no_pii:": "This model has no PII"
-oel_units.UnitVersion:
+oel_authoring.UnitVersion:
   ".. no_pii:": "This model has no PII"
 social_django.Association:
   ".. no_pii:": "This model has no PII"

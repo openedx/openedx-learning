@@ -27,7 +27,7 @@ class ComponentVersionInline(admin.TabularInline):
     def format_uuid(self, cv_obj):
         return format_html(
             '<a href="{}">{}</a>',
-            reverse("admin:oel_components_componentversion_change", args=(cv_obj.pk,)),
+            reverse("admin:oel_authoring_componentversion_change", args=(cv_obj.pk,)),
             cv_obj.uuid,
         )
 
