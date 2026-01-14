@@ -6,10 +6,10 @@ Context
 
 Up to this point, Learning Core has used many small apps with a narrow focus (e.g. ``components``, ``collections``, etc.) in order to make each individual app simpler to reason about. This has been useful overall, but it has made refactoring more cumbersome. For instance:
 
-#. Moving models between apps is tricky, requiring the use of Django's ``SeparateDatabaseAndState`` functionality to fake a deletion in one app and a creation in another without actually altering the database. This will be an issue when we try to extract container-related models and logic out of publishing and into a new ``containers`` app.
+#. Moving models between apps is tricky, requiring the use of Django's ``SeparateDatabaseAndState`` functionality to fake a deletion in one app and a creation in another without actually altering the database. It also requires doctoring the migration files for models in other repos that might have foreign key relations to the model being moved, so that they're pointing to the new ``app_label``.  This will be an issue when we try to extract container-related models and logic out of publishing and into a new ``containers`` app.
 #. Renaming an app is also cumbersome, because the process requires creating a new app and transitioning the models over. This came up when trying to rename the ``contents`` app to ``media``.
 
-There have also been minor inconveniences, like having a long list of ``INSTALLED_APPS`` to maintain in edx-platform over time.
+There have also been minor inconveniences, like having a long list of ``INSTALLED_APPS`` to maintain in edx-platform over time, or not having these tables easily grouped together in the Django admin interface.
 
 Decisions
 ---------
@@ -27,12 +27,13 @@ All existing authoring apps will be merged into one Django app (``openedx_learni
 
 We will continue to keep internal API boundaries between individual applets, and use the ``api.py`` modules. This is both to insulate applets from implementation changes in other applets, as well as to provide a set of APIs that third-party plugins can utilize. As before, we will use Import Linter to enforce dependency ordering.
 
-3. Restructuring Plan
-~~~~~~~~~~~~~~~~~~~~~
+3. Restructuring Specifics
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In one pull request, we would:
+In one pull request, we are going to:
 
-#. Remove the ``apps.py`` files for all existing ``authoring`` apps: ``backup_restore``, ``collections``, ``components``, ``contents``, ``publishing``, ``sections``, ``subsections``, ``units``.
+#. Create bare shells of the existing ``authoring`` apps (``backup_restore``, ``collections``, ``components``, ``contents``, ``publishing``, ``sections``, ``subsections``, ``units``), and move them to the ``openedx_learning.apps.authoring.backcompat`` package. These shells will have an ``apps.py`` file and the ``migrations`` package for each existing app. These are necessary to allow for a smooth schema migration from any previously INSTALLED_APPS
+
 #. Move the above apps to a new ``openedx_learning.apps.authoring.applets`` package.
 #. Convert the top level ``openedx_learning.apps.authoring`` package to be a Django app. The top level ``admin.py``, ``api.py``, and ``models.py`` modules will do wildcard imports from the corresponding modules across all applet packages.
 
