@@ -22,8 +22,8 @@ from openedx_learning.api.authoring_models import (
     Collection,
     ComponentType,
     ComponentVersion,
-    ComponentVersionContent,
-    Content,
+    ComponentVersionMedia,
+    Media,
     LearningPackage,
     PublishableEntity,
     PublishableEntityVersion,
@@ -47,7 +47,7 @@ from openedx_learning.apps.authoring.backup_restore.toml import (
 )
 from openedx_learning.apps.authoring.collections import api as collections_api
 from openedx_learning.apps.authoring.components import api as components_api
-from openedx_learning.apps.authoring.contents import api as contents_api
+from openedx_learning.apps.authoring.media import api as contents_api
 from openedx_learning.apps.authoring.publishing import api as publishing_api
 from openedx_learning.apps.authoring.sections import api as sections_api
 from openedx_learning.apps.authoring.subsections import api as subsections_api
@@ -190,13 +190,13 @@ class LearningPackageZipper:
                 # especially with large libraries (up to 100K items),
                 # which is too large for this type of prefetch.
                 Prefetch(
-                    "draft__version__componentversion__componentversioncontent_set",
-                    queryset=ComponentVersionContent.objects.select_related("content"),
+                    "draft__version__componentversion__componentversionmedia_set",
+                    queryset=ComponentVersionMedia.objects.select_related("media"),
                     to_attr="prefetched_contents",
                 ),
                 Prefetch(
-                    "published__version__componentversion__componentversioncontent_set",
-                    queryset=ComponentVersionContent.objects.select_related("content"),
+                    "published__version__componentversion__componentversionmedia_set",
+                    queryset=ComponentVersionMedia.objects.select_related("media"),
                     to_attr="prefetched_contents",
                 ),
             )
@@ -373,11 +373,11 @@ class LearningPackageZipper:
 
                         # Get content data associated with this version
                         contents: QuerySet[
-                            ComponentVersionContent
+                            ComponentVersionMedia
                         ] = component_version.prefetched_contents  # type: ignore[attr-defined]
 
                         for component_version_content in contents:
-                            content: Content = component_version_content.content
+                            content: Media = component_version_content.media
 
                             # Important: The component_version_content.key contains implicitly
                             # the file name and the file extension
@@ -984,7 +984,7 @@ class LearningPackageUnzipper:
                 # storing the value as a content instance
                 if not self.learning_package_id:
                     raise ValueError("learning_package_id must be set before resolving static files.")
-                text_content = contents_api.get_or_create_text_content(
+                text_content = contents_api.get_or_create_text_media(
                     self.learning_package_id,
                     contents_api.get_or_create_media_type(f"application/vnd.openedx.xblock.v1.{block_type}+xml").id,
                     text=content_bytes.decode("utf-8"),

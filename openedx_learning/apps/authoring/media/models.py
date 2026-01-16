@@ -24,7 +24,7 @@ logger = getLogger()
 
 __all__ = [
     "MediaType",
-    "Content",
+    "Media",
 ]
 
 
@@ -128,7 +128,7 @@ class MediaType(models.Model):
         return base
 
 
-class Content(models.Model):
+class Media(models.Model):
     """
     This is the most primitive piece of content data.
 
@@ -233,7 +233,7 @@ class Content(models.Model):
     # could be as much as 200K of data if we had nothing but emojis.
     MAX_TEXT_LENGTH = 50_000
 
-    objects: models.Manager[Content] = WithRelationsManager('media_type')
+    objects: models.Manager[Media] = WithRelationsManager('media_type')
 
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
 
@@ -395,7 +395,7 @@ class Content(models.Model):
                     "media_type",
                     "hash_digest",
                 ],
-                name="oel_content_uniq_lc_media_type_hash_digest",
+                name="oel_media_uniq_lc_media_type_hash_digest",
             ),
         ]
         indexes = [
@@ -403,8 +403,8 @@ class Content(models.Model):
             #   * Find the largest Content entries.
             models.Index(
                 fields=["learning_package", "-size"],
-                name="oel_content_idx_lp_rsize",
+                name="oel_media_idx_lp_rsize",
             ),
         ]
-        verbose_name = "Content"
-        verbose_name_plural = "Contents"
+        verbose_name = "Media"
+        verbose_name_plural = "Media"

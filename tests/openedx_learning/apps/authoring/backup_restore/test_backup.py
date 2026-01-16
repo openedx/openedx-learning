@@ -11,7 +11,7 @@ from django.core.management import CommandError, call_command
 from django.db.models import QuerySet
 
 from openedx_learning.api import authoring as api
-from openedx_learning.api.authoring_models import Collection, Component, Content, LearningPackage, PublishableEntity
+from openedx_learning.api.authoring_models import Collection, Component, Media, LearningPackage, PublishableEntity
 from openedx_learning.apps.authoring.backup_restore.zipper import LearningPackageZipper
 from openedx_learning.lib.test_utils import TestCase
 
@@ -32,7 +32,7 @@ class LpDumpCommandTestCase(TestCase):
     published_component: Component
     published_component2: Component
     draft_component: Component
-    html_asset_content: Content
+    html_asset_content: Media
     collection: Collection
 
     @classmethod
@@ -100,7 +100,7 @@ class LpDumpCommandTestCase(TestCase):
             created=cls.now,
         )
 
-        new_txt_content = api.get_or_create_text_content(
+        new_txt_content = api.get_or_create_text_media(
             cls.learning_package.pk,
             text_media_type.id,
             text="This is some data",
@@ -129,7 +129,7 @@ class LpDumpCommandTestCase(TestCase):
             created=cls.now,
         )
 
-        cls.html_asset_content = api.get_or_create_file_content(
+        cls.html_asset_content = api.get_or_create_file_media(
             cls.learning_package.id,
             html_media_type.id,
             data=b"<html>hello world!</html>",

@@ -29,7 +29,7 @@ DATABASES = {
 # If you provision the 'oel'@'%' with broad permissions on your MySQL instance,
 # running the tests will auto-generate a database for running tests. This is
 # slower than the default sqlite3 setup above, but it's sometimes helpful for
-# finding things that only break in CI. 
+# finding things that only break in CI.
 #
 # DATABASES = {
 #     "default": {
@@ -55,15 +55,15 @@ INSTALLED_APPS = [
     # django-rules based authorization
     'rules.apps.AutodiscoverRulesConfig',
     # Our own apps
-    "openedx_learning.apps.authoring.collections.apps.CollectionsConfig",
-    "openedx_learning.apps.authoring.components.apps.ComponentsConfig",
-    "openedx_learning.apps.authoring.contents.apps.ContentsConfig",
-    "openedx_learning.apps.authoring.publishing.apps.PublishingConfig",
-    "openedx_tagging.core.tagging.apps.TaggingConfig",
-    "openedx_learning.apps.authoring.sections.apps.SectionsConfig",
-    "openedx_learning.apps.authoring.subsections.apps.SubsectionsConfig",
-    "openedx_learning.apps.authoring.units.apps.UnitsConfig",
-    "openedx_learning.apps.authoring.backup_restore.apps.BackupRestoreConfig",
+    "openedx_learning.apps.authoring.collections",
+    "openedx_learning.apps.authoring.components",
+    "openedx_learning.apps.authoring.media",
+    "openedx_learning.apps.authoring.publishing",
+    "openedx_tagging.core.tagging",
+    "openedx_learning.apps.authoring.sections",
+    "openedx_learning.apps.authoring.subsections",
+    "openedx_learning.apps.authoring.units",
+    "openedx_learning.apps.authoring.backup_restore",
 ]
 
 AUTHENTICATION_BACKENDS = [
