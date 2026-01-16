@@ -4,6 +4,8 @@ Django settings for testing and development purposes
 from __future__ import annotations
 from pathlib import Path
 
+from openedx_learning.api.django import learning_core_apps_to_install
+
 # Build paths inside the project like this: BASE_DIR / {dir_name} /
 BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -21,7 +23,7 @@ DATABASES = {
     }
 }
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.messages",
@@ -31,19 +33,7 @@ INSTALLED_APPS = (
     "django.contrib.admin",
     "django.contrib.admindocs",
     # Learning Core Apps
-    "openedx_learning.apps.authoring.collections.apps.CollectionsConfig",
-    "openedx_learning.apps.authoring.components.apps.ComponentsConfig",
-    "openedx_learning.apps.authoring.contents.apps.ContentsConfig",
-    "openedx_learning.apps.authoring.publishing.apps.PublishingConfig",
-    "openedx_learning.apps.authoring.sections.apps.SectionsConfig",
-    "openedx_learning.apps.authoring.subsections.apps.SubsectionsConfig",
-    "openedx_learning.apps.authoring.units.apps.UnitsConfig",
-    "openedx_learning.apps.authoring.backup_restore.apps.BackupRestoreConfig",
-    # Learning Contrib Apps
-    "openedx_learning.contrib.media_server.apps.MediaServerConfig",
-    # Apps that don't belong in this repo in the long term, but are here to make
-    # testing/iteration easier until the APIs stabilize.
-    "olx_importer.apps.OLXImporterConfig",
+
     # REST API
     "rest_framework",
 
@@ -51,10 +41,7 @@ INSTALLED_APPS = (
     'rules.apps.AutodiscoverRulesConfig',
     # Tagging Core Apps
     "openedx_tagging.core.tagging.apps.TaggingConfig",
-
-    # Debugging
-    "debug_toolbar",
-)
+] + learning_core_apps_to_install()
 
 AUTHENTICATION_BACKENDS = [
     'rules.permissions.ObjectPermissionBackend',
@@ -62,7 +49,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 MIDDLEWARE = [
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
+#    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
