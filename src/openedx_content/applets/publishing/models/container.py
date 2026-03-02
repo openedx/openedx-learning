@@ -18,10 +18,6 @@ class Container(PublishableEntityMixin):
     containers/components/enities they hold. As we complete the Containers API,
     we will also add support for dynamic containers which may contain different
     entities for different learners or at different times.
-
-    NOTE: We're going to want to eventually have some association between the
-    PublishLog and Containers that were affected in a publish because their
-    child elements were published.
     """
 
 
