@@ -64,16 +64,16 @@ class ComponentType(models.Model):
     # the UsageKey.
     name = case_sensitive_char_field(max_length=100, blank=True)
 
-    # TODO: this needs to go into a class Meta
-    constraints = [
-        models.UniqueConstraint(
-            fields=[
-                "namespace",
-                "name",
-            ],
-            name="oel_component_type_uniq_ns_n",
-        ),
-    ]
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "namespace",
+                    "name",
+                ],
+                name="oel_component_type_uniq_ns_n",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.namespace}:{self.name}"
