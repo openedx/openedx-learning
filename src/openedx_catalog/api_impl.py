@@ -227,6 +227,20 @@ def delete_course_run(course_key: CourseKey) -> None:
     """
     Delete a `CourseRun`.
 
+    For now, this method is only useful for keeping the `CourseRun` data in sync
+    with other models like `CourseOverview` that are used as a source of truth.
+    Calling this method will not yet affect most parts of the system, so you
+    should only use this if the course run is a "placeholder" course that has no
+    content yet, or the course has already been deleted in the other parts of
+    the platform (e.g. modulestore). In the future, we will invert this
+    dependency, and calling this _would_ cascade to delete `CourseOverview`, and
+    perhaps other records as well.
+
+    (This method does not delete content, if any content is associated with the
+    run, and that is not expected to change. In the future, a separate API
+    method may implement "delete course + content + (optionally) enrollments +
+    student state + etc.".)
+
     This may fail with a `ProtectedError` or other `IntegrityError` subclass if
     there are still active references to the course run.
 

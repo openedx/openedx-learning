@@ -96,7 +96,7 @@ class CatalogCourse(models.Model):
         blank=False,
         help_text=_(
             'The full name of this catalog course. e.g. "Introduction to Calculus". '
-            'Individual course runs may override this, e.g. "Into to Calc (Fall 2026 with Dr. Newton)".'
+            'Individual course runs may override this, e.g. "Intro to Calc (Fall 2026 with Dr. Newton)".'
         ),
     )
     # Note: language codes used on the Open edX platform are inconsistent.

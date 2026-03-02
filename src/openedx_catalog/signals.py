@@ -32,9 +32,15 @@ def verify_organization_change(sender, instance, **kwargs):
 
     if new_org_code != prev_org_code:
         # Check if this is going to violate any relationship expectations.
+        #
         # Note: we could make the database enforce this by making the CatalogCourse.org relationship use "short_name" as
         # its foreign key ID, but that would also make it extremely difficult to ever "fix" an incorrect Organization's
         # short_name (e.g. change capitalization), because doing so would fail with a foreign key constraint error.
+        #
+        # Note 2: we could use simpler logic here, but (A) we want to provide nice clear error messages, and (B) we want
+        # to allow changes that go from incorrect to correct, however improbable. For example, an Organization "MITx" is
+        # renamed to "MIT" -> meanwhile all the associated course runs have keys like `course-v1:MIT+foo+bar`. In that
+        # case we don't want to throw an error.
 
         run_course_keys = CourseRun.objects.filter(catalog_course__org=instance).values_list("course_key", flat=True)
         for course_key in run_course_keys:

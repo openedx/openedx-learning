@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
                     "display_name",
                     openedx_django_lib.fields.MultiCollationCharField(
                         db_collations={"mysql": "utf8mb4_unicode_ci", "sqlite": "NOCASE"},
-                        help_text='The full name of this catalog course. e.g. "Introduction to Calculus". Individual course runs may override this, e.g. "Into to Calc (Fall 2026 with Dr. Newton)".',
+                        help_text='The full name of this catalog course. e.g. "Introduction to Calculus". Individual course runs may override this, e.g. "Intro to Calc (Fall 2026 with Dr. Newton)".',
                         max_length=255,
                     ),
                 ),
