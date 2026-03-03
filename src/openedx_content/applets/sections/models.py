@@ -1,9 +1,15 @@
 """
 Models that implement sections
 """
+
+from typing import override
+
+from django.core.exceptions import ValidationError
 from django.db import models
 
-from ..publishing.models import Container, ContainerVersion
+from ..publishing.api import get_container_type
+from ..publishing.models import Container, ContainerVersion, PublishableEntity
+from ..subsections.models import Subsection
 
 __all__ = [
     "Section",
@@ -11,13 +17,17 @@ __all__ = [
 ]
 
 
+@Container.register_subclass
 class Section(Container):
     """
-    A Section is type of Container that holds Units.
+    A Section is type of Container that holds Subsections.
 
     Via Container and its PublishableEntityMixin, Sections are also publishable
     entities and can be added to other containers.
     """
+
+    type_code = "section"
+
     container = models.OneToOneField(
         Container,
         on_delete=models.CASCADE,
@@ -25,14 +35,24 @@ class Section(Container):
         primary_key=True,
     )
 
+    @override
+    @classmethod
+    def validate_entity(cls, entity: PublishableEntity) -> None:
+        """Check if the given entity is allowed as a child of a Section"""
+        # Sections only allow Subsections as children, so the entity must be 1:1 with Container:
+        container = entity.container  # Could raise PublishableEntity.container.RelatedObjectDoesNotExist
+        if get_container_type(container) is not Subsection:
+            raise ValidationError("Only Subsection can be added as children of a Section")
+
 
 class SectionVersion(ContainerVersion):
     """
     A SectionVersion is a specific version of a Section.
 
-    Via ContainerVersion and its EntityList, it defines the list of Units
+    Via ContainerVersion and its EntityList, it defines the list of Subsections
     in this version of the Section.
     """
+
     container_version = models.OneToOneField(
         ContainerVersion,
         on_delete=models.CASCADE,
@@ -42,9 +62,5 @@ class SectionVersion(ContainerVersion):
 
     @property
     def section(self):
-        """ Convenience accessor to the Section this version is associated with """
+        """Convenience accessor to the Section this version is associated with"""
         return self.container_version.container.section  # pylint: disable=no-member
-
-    # Note: the 'publishable_entity_version' field is inherited and will appear on this model, but does not exist
-    # in the underlying database table. It only exists in the ContainerVersion table.
-    # You can verify this by running 'python manage.py sqlmigrate oel_sections 0001_initial'

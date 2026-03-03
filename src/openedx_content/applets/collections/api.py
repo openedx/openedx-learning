@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 
 from ..publishing import api as publishing_api
-from ..publishing.models import PublishableEntity
+from ..publishing.models import Container, PublishableEntity
 from .models import Collection, CollectionPublishableEntity
 
 # The public API that will be re-exported by openedx_content.api
@@ -24,6 +24,7 @@ __all__ = [
     "get_collection",
     "get_collections",
     "get_entity_collections",
+    "get_collection_entities",
     "remove_from_collection",
     "restore_collection",
     "update_collection",
@@ -193,6 +194,18 @@ def get_entity_collections(learning_package_id: int, entity_key: str) -> QuerySe
         key=entity_key,
     )
     return entity.collections.filter(enabled=True).order_by("pk")
+
+
+def get_collection_entities(learning_package_id: int, collection_key: str) -> QuerySet[PublishableEntity]:
+    """
+    Returns a QuerySet of PublishableEntities in a Collection.
+
+    This is the same as `collection.entities.all()`
+    """
+    return PublishableEntity.objects.filter(
+        learning_package_id=learning_package_id,
+        collections__key=collection_key,
+    ).order_by("pk")
 
 
 def get_collections(learning_package_id: int, enabled: bool | None = True) -> QuerySet[Collection]:
