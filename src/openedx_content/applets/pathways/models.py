@@ -176,6 +176,9 @@ class CoursePathwayItemCriteria(PathwayItemCriteria):
 class CoursePathwayItemAttempt(PathwayItemAttempt):
     """
     Docstring for CoursePathwayItemAttempt
+
+    Can one attempt satisfying multiple criteria? Could be one course that fits multiple criteria.
+    What if the criteria changes?
     """
     criteria = models.ForeignKey(CoursePathwayItemCriteria, on_delete=models.RESTRICT)
     course_run = key_field()  # This should eventually be an fkey to CourseRun (or learning context?)
