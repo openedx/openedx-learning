@@ -46,6 +46,7 @@ def get_catalog_course(
 
     The CatalogCourse may not have any runs associated with it.
     """
+    assert pk or key_str or (org_code and course_code)
     if pk:
         assert not org_code
         assert not key_str
