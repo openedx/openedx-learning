@@ -42,7 +42,7 @@ billiard==4.2.4
     #   celery
 celery==5.6.2
     # via -r requirements/test.txt
-certifi==2026.1.4
+certifi==2026.2.25
     # via
     #   -r requirements/test.txt
     #   requests
@@ -174,7 +174,7 @@ edx-opaque-keys==3.1.0
     #   edx-organizations
 edx-organizations==7.3.0
     # via -r requirements/test.txt
-fastapi==0.131.0
+fastapi==0.135.1
     # via
     #   -r requirements/test.txt
     #   import-linter
