@@ -81,21 +81,18 @@ class CatalogCourse(models.Model):
         help_text=_('The course code/number, e.g. "Math100".'),
     )
     # When this catalog course was first created. We don't track "modified" as this model should be basically immutable,
-    # and the only field that may ever change is "display_name"; we also don't want people to think that the "modified"
-    # time reflects when other related models/data was updated.
+    # and the only field that may ever change is "title"; we also don't want people to think that the "modified" time
+    # reflects when other related models/data was updated.
     created = models.DateTimeField(
         auto_now_add=True,
         validators=[validate_utc_datetime],
         editable=False,
     )
-    # Note: display_name should never be blank. But we previously didn't store a name for catalog courses in the core.
-    # For backfilling, if there is only one run, we use that run's name as the catalog course name. Otherwise, we can
-    # use the org + course code as the display name.
-    display_name = case_insensitive_char_field(
+    title = case_insensitive_char_field(
         max_length=255,
         blank=False,
         help_text=_(
-            'The full name of this catalog course. e.g. "Introduction to Calculus". '
+            'The full title (display name) of this catalog course. e.g. "Introduction to Calculus". '
             'Individual course runs may override this, e.g. "Intro to Calc (Fall 2026 with Dr. Newton)".'
         ),
     )
@@ -194,9 +191,9 @@ class CatalogCourse(models.Model):
 
     def clean(self) -> None:
         """Validate/normalize fields when edited via Django admin"""
-        # Set a default value for display_name:
-        if not self.display_name:
-            self.display_name = self.course_code
+        # Set a default value for title:
+        if not self.title:
+            self.title = self.course_code
         # Normalize language codes to match settings.LANGUAGES.
         # It's safe to assume language is lowercase here, because if it's not the DB will reject its CHECK constraint.
         if self.language == "zh-hans":
@@ -210,7 +207,7 @@ class CatalogCourse(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.display_name} ({self.org_code} {self.course_code})"
+        return f"{self.title} ({self.org_code} {self.course_code})"
 
     class Meta:
         verbose_name = _("Catalog Course")
@@ -228,7 +225,7 @@ class CatalogCourse(models.Model):
                 condition=models.Q(course_code__length__gt=0), name="oex_catalog_catalogcourse_course_code_not_blank"
             ),
             models.CheckConstraint(
-                condition=models.Q(display_name__length__gt=0), name="oex_catalog_catalogcourse_display_name_not_blank"
+                condition=models.Q(title__length__gt=0), name="oex_catalog_catalogcourse_title_not_blank"
             ),
             # Language code must be lowercase, and locale codes separated by "-" (django convention) not "_"
             models.CheckConstraint(

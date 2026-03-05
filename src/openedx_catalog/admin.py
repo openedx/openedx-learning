@@ -28,7 +28,7 @@ class CatalogCourseAdmin(admin.ModelAdmin):
 
     list_filter = ["org__short_name", "language"]
     list_display = [
-        "display_name",
+        "title",
         "org_display",
         "course_code",
         "runs_summary",
@@ -81,7 +81,7 @@ class CourseRunAdmin(admin.ModelAdmin):
     The CourseRun model admin.
     """
 
-    list_display = ["display_name", "created_date", "catalog_course", "org_code", "course_code", "run_code", "warnings"]
+    list_display = ["title", "created_date", "catalog_course", "org_code", "course_code", "run_code", "warnings"]
     readonly_fields = ("course_key",)
     # There may be thousands of catalog courses, so don't use <select>
     raw_id_fields = ["catalog_course"]

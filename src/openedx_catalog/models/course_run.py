@@ -113,20 +113,20 @@ class CourseRun(models.Model):
         help_text=_('The code that identifies this particular run of the course, e.g. "2026", "2026Fall" or "2T2026"'),
     )
     # When this course run was first created. We don't track "modified" as this model should be basically immutable,
-    # and the only field that may ever change is "display_name"; we also don't want people to think that the "modified"
-    # time reflects when edits were last made to the course.
+    # and the only field that may ever change is "title"; we also don't want people to think that the "modified" time
+    # reflects when edits were last made to the course.
     created = models.DateTimeField(
         auto_now_add=True,
         validators=[validate_utc_datetime],
         editable=False,
     )
-    display_name = case_insensitive_char_field(
+    title = case_insensitive_char_field(
         max_length=255,
         blank=True,  # Only allowed to be blank temporarily when creating a new instance in the Django admin form
         help_text=_(
-            'The full name of this course. e.g. "Introduction to Calculus". '
-            "This is required and will override the name of the catalog course. "
-            "Leave blank to use the same name as the catalog course. "
+            'The full title (display name) of this course. e.g. "Introduction to Calculus". '
+            "This is required and will override the title of the catalog course. "
+            "Leave blank to use the same title as the catalog course. "
         ),
     )
 
@@ -168,9 +168,9 @@ class CourseRun(models.Model):
 
     def clean(self):
         """Defaults and validation of model fields"""
-        if self.catalog_course and not self.display_name:
-            # For convenience, when creating a CourseRun, if the display_name is blank, copy it from the catalog course
-            self.display_name = self.catalog_course.display_name
+        if self.catalog_course and not self.title:
+            # For convenience, when creating a CourseRun, if the title is blank, copy it from the catalog course
+            self.title = self.catalog_course.title
         if not self.course_key:
             # For now we can assume that the course key is going to be a CourseLocator, so generate it if missing.
             try:
@@ -210,7 +210,7 @@ class CourseRun(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.display_name} ({self.org_code} {self.course_code} {self.run_code})"
+        return f"{self.title} ({self.org_code} {self.course_code} {self.run_code})"
 
     class Meta:
         verbose_name = _("Course Run")
@@ -232,7 +232,7 @@ class CourseRun(models.Model):
                 condition=models.Q(run_code__length__gt=0), name="oex_catalog_courserun_run_code_not_blank"
             ),
             models.CheckConstraint(
-                condition=models.Q(display_name__length__gt=0), name="oex_catalog_courserun_display_name_not_blank"
+                condition=models.Q(title__length__gt=0), name="oex_catalog_courserun_title_not_blank"
             ),
             # Enforce at the DB level that the "run_code" field value appears in the course key:
             models.CheckConstraint(

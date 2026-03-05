@@ -62,7 +62,7 @@ def get_catalog_course(
 def update_catalog_course(
     catalog_course: CatalogCourse | int,
     *,
-    display_name: str | None = None,  # Specify a string to change the display name.
+    title: str | None = None,  # Specify a string to change the title (display name).
     # The short language code (one of settings.ALL_LANGUAGES), e.g. "en", "es", "zh_HANS"
     language_short: str | None = None,
 ) -> None:
@@ -77,9 +77,9 @@ def update_catalog_course(
         cc = CatalogCourse.objects.get(pk=catalog_course)
 
     update_fields = []
-    if display_name:
-        cc.display_name = display_name
-        update_fields.append("display_name")
+    if title:
+        cc.title = title
+        update_fields.append("title")
     if language_short:
         cc.language_short = language_short
         update_fields.append("language")
@@ -118,12 +118,12 @@ def get_course_run(course_key: CourseKey) -> CourseRun:
 def sync_course_run_details(
     course_key: CourseKey,
     *,
-    display_name: str | None,  # Specify a string to change the display name.
+    title: str | None,  # Specify a string to change the title (display name).
 ) -> None:
     """
     Update a `CourseRun` with details from a more authoritative model (e.g.
     `CourseOverview`). Currently the only field that can be updated is
-    `display_name`.
+    `title` (display name).
 
     The name of this function reflects the fact that the `CourseRun` model is
     not currently a source of truth. So it's not a "rename the course" API, but
@@ -137,15 +137,15 @@ def sync_course_run_details(
     ⚠️ Does not emit any course lifecycle events.
     """
     run = CourseRun.objects.get(course_key=course_key)
-    if display_name:
-        run.display_name = display_name
-        run.save(update_fields=["display_name"])
+    if title:
+        run.title = title
+        run.save(update_fields=["title"])
 
 
 def create_course_run_for_modulestore_course_with(
     course_key: CourseKey,
     *,
-    display_name: str,
+    title: str,
     # The short language code (in openedx-platform, this is one of settings.ALL_LANGUAGES), e.g. "en", "es", "zh_HANS"
     language_short: str | None = None,
 ) -> CourseRun:
@@ -205,7 +205,7 @@ def create_course_run_for_modulestore_course_with(
             org_id=org_data["id"],
             course_code=course_code,
             defaults={
-                "display_name": display_name,
+                "title": title,
                 **({"language_short": language_short} if language_short else {}),
             },
         )
@@ -214,7 +214,7 @@ def create_course_run_for_modulestore_course_with(
         catalog_course=cc,
         run_code=course_key.run,
         course_key=course_key,
-        defaults={"display_name": display_name},
+        defaults={"title": title},
     )
 
     if not created:

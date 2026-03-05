@@ -47,10 +47,10 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "display_name",
+                    "title",
                     openedx_django_lib.fields.MultiCollationCharField(
                         db_collations={"mysql": "utf8mb4_unicode_ci", "sqlite": "NOCASE"},
-                        help_text='The full name of this catalog course. e.g. "Introduction to Calculus". Individual course runs may override this, e.g. "Intro to Calc (Fall 2026 with Dr. Newton)".',
+                        help_text='The full title (display name) of this catalog course. e.g. "Introduction to Calculus". Individual course runs may override this, e.g. "Intro to Calc (Fall 2026 with Dr. Newton)".',
                         max_length=255,
                     ),
                 ),
@@ -113,11 +113,11 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "display_name",
+                    "title",
                     openedx_django_lib.fields.MultiCollationCharField(
                         blank=True,
                         db_collations={"mysql": "utf8mb4_unicode_ci", "sqlite": "NOCASE"},
-                        help_text='The full name of this course. e.g. "Introduction to Calculus". This is required and will override the name of the catalog course. Leave blank to use the same name as the catalog course. ',
+                        help_text='The full title (display name) of this course. e.g. "Introduction to Calculus". This is required and will override the title of the catalog course. Leave blank to use the same title as the catalog course. ',
                         max_length=255,
                     ),
                 ),
@@ -158,8 +158,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="catalogcourse",
             constraint=models.CheckConstraint(
-                condition=models.Q(("display_name__length__gt", 0)),
-                name="oex_catalog_catalogcourse_display_name_not_blank",
+                condition=models.Q(("title__length__gt", 0)), name="oex_catalog_catalogcourse_title_not_blank"
             ),
         ),
         migrations.AddConstraint(
@@ -194,7 +193,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="courserun",
             constraint=models.CheckConstraint(
-                condition=models.Q(("display_name__length__gt", 0)), name="oex_catalog_courserun_display_name_not_blank"
+                condition=models.Q(("title__length__gt", 0)), name="oex_catalog_courserun_title_not_blank"
             ),
         ),
         migrations.AddConstraint(
