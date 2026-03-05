@@ -27,7 +27,7 @@ def _python100():
     ensure_organization("Org1")
     # Note: in the future, this could use an API to create the CatalogCourse,
     # but we haven't created the full CRUD API yet.
-    cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100", display_name="Python 100")
+    cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100", title="Python 100")
     assert cc.key_str == "catalog-course:Org1:Python100"
     return cc
 
@@ -36,7 +36,7 @@ def _python100():
 def _csharp200():
     """Create a "CSharp200" catalog course for use in these tests"""
     ensure_organization("Org1")
-    cc = CatalogCourse.objects.create(org_code="Org1", course_code="CSharp200", display_name="C# 200")
+    cc = CatalogCourse.objects.create(org_code="Org1", course_code="CSharp200", title="C# 200")
     assert cc.key_str == "catalog-course:Org1:CSharp200"
     return cc
 
@@ -49,7 +49,7 @@ def _python100_summer26(python100: CatalogCourse):
     return CourseRun.objects.create(
         catalog_course=python100,
         run_code="2026summer",
-        display_name="Python 100 (Summer ☀️ 2026)",  # A random emoji just to test Unicode support in display_name
+        title="Python 100 (Summer ☀️ 2026)",  # A random emoji just to test Unicode support in title
     )
 
 
@@ -57,7 +57,7 @@ def _python100_summer26(python100: CatalogCourse):
 def _python100_winter26(python100: CatalogCourse):
     """Create a "Python100" "Winter 2026" course run for use in these tests"""
     return CourseRun.objects.create(
-        catalog_course=python100, run_code="2026winter", display_name="Python 100 (Winter '26)"
+        catalog_course=python100, run_code="2026winter", title="Python 100 (Winter '26)"
     )
 
 
@@ -113,17 +113,17 @@ def get_get_all_runs(python100_summer26: CourseRun, python100_winter26: CourseRu
 # update_catalog_course
 
 
-def test_update_display_name(python100: CatalogCourse, csharp200: CatalogCourse) -> None:
+def test_update_title(python100: CatalogCourse, csharp200: CatalogCourse) -> None:
     """Test that we can use the API to update the name of a catalog course"""
-    csharp200_old_name = csharp200.display_name
-    # Update display_name using a CatalogCourse object:
-    api.update_catalog_course(python100, display_name="New name for Python 100")
-    assert api.get_catalog_course(pk=python100.pk).display_name == "New name for Python 100"
-    assert api.get_catalog_course(pk=csharp200.pk).display_name == csharp200_old_name  # Unchanged
+    csharp200_old_name = csharp200.title
+    # Update title using a CatalogCourse object:
+    api.update_catalog_course(python100, title="New name for Python 100")
+    assert api.get_catalog_course(pk=python100.pk).title == "New name for Python 100"
+    assert api.get_catalog_course(pk=csharp200.pk).title == csharp200_old_name  # Unchanged
     # Update display name using PK only:
-    api.update_catalog_course(csharp200.pk, display_name="New name for C# 200")
-    assert api.get_catalog_course(pk=python100.pk).display_name == "New name for Python 100"  # Unchanged
-    assert api.get_catalog_course(pk=csharp200.pk).display_name == "New name for C# 200"
+    api.update_catalog_course(csharp200.pk, title="New name for C# 200")
+    assert api.get_catalog_course(pk=python100.pk).title == "New name for Python 100"  # Unchanged
+    assert api.get_catalog_course(pk=csharp200.pk).title == "New name for C# 200"
 
 
 def test_update_language(python100: CatalogCourse) -> None:
@@ -137,11 +137,11 @@ def test_update_language(python100: CatalogCourse) -> None:
 def test_update_ignore_other_fields(python100: CatalogCourse) -> None:
     """Test that when we pass on object to update_catalog_course, only expected fields are updated"""
     python100.course_code = "CHANGED"
-    api.update_catalog_course(python100, language_short="fr", display_name="New Name")
+    api.update_catalog_course(python100, language_short="fr", title="New Name")
     python100.refresh_from_db()
     assert python100.course_code == "Python100"  # course_code field was not modified by update_catalog_course()
     assert python100.language_short == "fr"
-    assert python100.display_name == "New Name"
+    assert python100.title == "New Name"
 
 
 # delete_catalog_course
@@ -183,10 +183,10 @@ def test_get_course_run(python100_summer26: CourseRun) -> None:
 def test_sync_course_run_details(python100_summer26) -> None:
     """Test `sync_course_run_details()`"""
     course_key = python100_summer26.course_key
-    assert python100_summer26.display_name == "Python 100 (Summer ☀️ 2026)"
-    api.sync_course_run_details(course_key, display_name="✅ New name")
+    assert python100_summer26.title == "Python 100 (Summer ☀️ 2026)"
+    api.sync_course_run_details(course_key, title="✅ New name")
     python100_summer26.refresh_from_db()
-    assert python100_summer26.display_name == "✅ New name"
+    assert python100_summer26.title == "✅ New name"
 
 
 # create_course_run_for_modulestore_course_with
@@ -208,16 +208,16 @@ def test_create_course_run_for_modulestore_course_with():
     with freeze_time(created_time):
         run = api.create_course_run_for_modulestore_course_with(
             course_key,
-            display_name="Introduction aux tests",
+            title="Introduction aux tests",
             # language_short is not specified - should use the default language (French)
         )
     assert run.catalog_course.org_code == org_code
     assert run.catalog_course.course_code == "Test"
     assert run.catalog_course.language == "fr-ca"
     assert run.catalog_course.language_short == "fr"
-    assert run.catalog_course.display_name == "Introduction aux tests"
+    assert run.catalog_course.title == "Introduction aux tests"
     assert run.catalog_course.created == created_time
-    assert run.display_name == "Introduction aux tests"
+    assert run.title == "Introduction aux tests"
     assert run.run_code == run_code
     assert run.created == created_time
     assert run.course_key == course_key
@@ -233,15 +233,15 @@ def test_create_course_run_for_modulestore_course_with_existing_org():
 
     ensure_organization(org_code)
     run = api.create_course_run_for_modulestore_course_with(
-        course_key, display_name="Introducción a las pruebas", language_short="es"
+        course_key, title="Introducción a las pruebas", language_short="es"
     )
     assert run.catalog_course.org_code == org_code
     assert run.catalog_course.course_code == "Test"
     assert run.catalog_course.language == "es"
     assert run.catalog_course.language_short == "es"
-    assert run.catalog_course.display_name == "Introducción a las pruebas"
+    assert run.catalog_course.title == "Introducción a las pruebas"
     assert run.run_code == run_code
-    assert run.display_name == "Introducción a las pruebas"
+    assert run.title == "Introducción a las pruebas"
     assert run.course_key == course_key
 
 
@@ -259,7 +259,7 @@ def test_create_course_run_for_modulestore_course_with_existing_org_different_ca
 
     existing_org_id = ensure_organization("nEWoRG")["id"]
     run = api.create_course_run_for_modulestore_course_with(
-        course_key, display_name="Introducción a las pruebas", language_short="es"
+        course_key, title="Introducción a las pruebas", language_short="es"
     )
 
     # Verify that a warning was logged. We actually get two warnings - one from the API and one from model.clean():
@@ -281,9 +281,9 @@ def test_create_course_run_for_modulestore_course_with_existing_org_different_ca
     assert run.catalog_course.course_code == "Test"
     assert run.catalog_course.language == "es"
     assert run.catalog_course.language_short == "es"
-    assert run.catalog_course.display_name == "Introducción a las pruebas"
+    assert run.catalog_course.title == "Introducción a las pruebas"
     assert run.run_code == run_code
-    assert run.display_name == "Introducción a las pruebas"
+    assert run.title == "Introducción a las pruebas"
     assert run.course_key == course_key  # But course ID uses original capitalization
 
 
@@ -298,14 +298,14 @@ def test_create_course_run_for_modulestore_course_with_existing_cc():
     ensure_organization(org_code)
     # Note we don't have an API for creating catalog courses yet, other than this
     # `create_course_run_for_modulestore_course_with` method auto-creating them, so just use the model:
-    CatalogCourse.objects.create(org_code=org_code, course_code=course_code, display_name="Catalog Display Name")
-    run = api.create_course_run_for_modulestore_course_with(course_key, display_name="Run Display Name")
+    CatalogCourse.objects.create(org_code=org_code, course_code=course_code, title="Catalog Display Name")
+    run = api.create_course_run_for_modulestore_course_with(course_key, title="Run Display Name")
     assert run.catalog_course.org_code == org_code
     assert run.catalog_course.course_code == "Test"
     assert run.catalog_course.language_short == "en"  # Default language
-    assert run.catalog_course.display_name == "Catalog Display Name"  # Should not have changed just by creating a run
+    assert run.catalog_course.title == "Catalog Display Name"  # Should not have changed just by creating a run
     assert run.run_code == run_code
-    assert run.display_name == "Run Display Name"
+    assert run.title == "Run Display Name"
     assert run.course_key == course_key
 
 
@@ -319,16 +319,16 @@ def test_create_course_run_for_modulestore_course_with_existing_run():
     old_run_code = "2025"
     old_course_key = CourseKey.from_string(f"course-v1:{org_code}+{course_code}+{old_run_code}")
 
-    old_run = api.create_course_run_for_modulestore_course_with(old_course_key, display_name="Previous Run (2025)")
-    new_run = api.create_course_run_for_modulestore_course_with(course_key, display_name="New Run (2026)")
+    old_run = api.create_course_run_for_modulestore_course_with(old_course_key, title="Previous Run (2025)")
+    new_run = api.create_course_run_for_modulestore_course_with(course_key, title="New Run (2026)")
     old_run.refresh_from_db()  # Let's make sure it hasn't changed
-    assert old_run.display_name == "Previous Run (2025)"
+    assert old_run.title == "Previous Run (2025)"
     assert old_run.catalog_course == new_run.catalog_course
     assert old_run.run_code == "2025"
     # When there was only one run, the catalog course would be given the name of that run:
-    assert new_run.catalog_course.display_name == "Previous Run (2025)"
+    assert new_run.catalog_course.title == "Previous Run (2025)"
     assert new_run.run_code == "2026"
-    assert new_run.display_name == "New Run (2026)"
+    assert new_run.title == "New Run (2026)"
     assert new_run.course_key == course_key
 
 
@@ -340,9 +340,9 @@ def test_create_course_run_for_modulestore_course_run_that_exists(caplog: pytest
     org_code, course_code, run_code = "NewOrg", "Test", "2026"
     course_key = CourseKey.from_string(f"course-v1:{org_code}+{course_code}+{run_code}")
 
-    existing_run = api.create_course_run_for_modulestore_course_with(course_key, display_name="Original Name")
+    existing_run = api.create_course_run_for_modulestore_course_with(course_key, title="Original Name")
     # Call the API again to create the exact same run that we just created:
-    new_run = api.create_course_run_for_modulestore_course_with(course_key, display_name="New Name (ignore)")
+    new_run = api.create_course_run_for_modulestore_course_with(course_key, title="New Name (ignore)")
 
     # Verify that a warning was logged:
     assert caplog.record_tuples == [
@@ -355,9 +355,9 @@ def test_create_course_run_for_modulestore_course_run_that_exists(caplog: pytest
 
     existing_run.refresh_from_db()  # Let's make sure it hasn't changed
     assert existing_run == new_run
-    assert existing_run.display_name == "Original Name"
-    assert new_run.display_name == "Original Name"
-    assert new_run.catalog_course.display_name == "Original Name"
+    assert existing_run.title == "Original Name"
+    assert new_run.title == "Original Name"
+    assert new_run.catalog_course.title == "Original Name"
     assert new_run.run_code == run_code
 
 

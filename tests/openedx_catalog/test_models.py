@@ -82,7 +82,7 @@ def test_course_code_case_sensitive(org1) -> None:
 
 def test_course_code_required(org1) -> None:
     """Test that course_code cannot be blank"""
-    cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100", display_name="Python 100")
+    cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100", title="Python 100")
     with pytest.raises(IntegrityError):
         # Using .update() will bypass all checks and defaults in save()/clean(), to see if the DB enforces this:
         CatalogCourse.objects.filter(pk=cc.pk).update(course_code="")
@@ -95,30 +95,30 @@ def test_key_str(org1) -> None:
     assert cc.key_str == "catalog-course:Org1:Python100"
 
 
-# display_name field tests:
+# title field tests:
 
 
-def test_display_name_default(org1) -> None:
-    """Test that display_name has a default"""
+def test_title_default(org1) -> None:
+    """Test that title has a default"""
     cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100")
-    assert cc.display_name == "Python100"
+    assert cc.title == "Python100"
 
 
-def test_display_name_required(org1) -> None:
-    """Test that display_name cannot be blank"""
-    cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100", display_name="Python 100")
+def test_title_required(org1) -> None:
+    """Test that title cannot be blank"""
+    cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100", title="Python 100")
     with pytest.raises(IntegrityError):
         # Using .update() will bypass all checks and defaults in save()/clean(), to see if the DB enforces this:
-        CatalogCourse.objects.filter(pk=cc.pk).update(display_name="")
+        CatalogCourse.objects.filter(pk=cc.pk).update(title="")
 
 
-def test_display_name_unicode(org1) -> None:
-    """Test that display_name can handle any valid unicode value"""
+def test_title_unicode(org1) -> None:
+    """Test that title can handle any valid unicode value"""
     # If it works with emojis, it should work with any human language characters.
-    display_name = "Happy 😊"
-    cc = CatalogCourse.objects.create(org_code="Org1", course_code="HAPPY", display_name=display_name)
+    title = "Happy 😊"
+    cc = CatalogCourse.objects.create(org_code="Org1", course_code="HAPPY", title=title)
     cc.refresh_from_db()
-    assert cc.display_name == display_name
+    assert cc.title == title
 
 
 # language code field tests:
@@ -179,7 +179,7 @@ def test_language_code_validation(language_code: str, valid: bool, org1) -> None
         expected_msg = "The language code must be lowercase" if language_code else "This field cannot be blank."
         with pytest.raises(ValidationError, match=expected_msg):
             CatalogCourse(
-                org_code="Org1", course_code="Python100", language=language_code, display_name="x"
+                org_code="Org1", course_code="Python100", language=language_code, title="x"
             ).full_clean()
 
 
