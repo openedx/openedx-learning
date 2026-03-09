@@ -167,7 +167,7 @@ class CatalogCourse(models.Model):
         """
         Convenience method to set the related organization using its short_name.
         """
-        # We don't org the Organizations API `get_organization_by_short_name`
+        # We don't use the Organizations API `get_organization_by_short_name`
         # method because it filters for only active organizations.
         # To support historical data, backfilling, etc., we need to allow inactive orgs here.
         self.org = Organization.objects.get(short_name__iexact=org_code)
