@@ -8,12 +8,6 @@ amqp==5.3.1
     # via
     #   -r requirements/base.txt
     #   kombu
-annotated-doc==0.0.4
-    # via fastapi
-annotated-types==0.7.0
-    # via pydantic
-anyio==4.12.1
-    # via starlette
 asgiref==3.11.1
     # via
     #   -r requirements/base.txt
@@ -35,7 +29,7 @@ cffi==2.0.0
     #   -r requirements/base.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.4.4
+charset-normalizer==3.4.5
     # via
     #   -r requirements/base.txt
     #   requests
@@ -49,7 +43,6 @@ click==8.3.1
     #   code-annotations
     #   edx-django-utils
     #   import-linter
-    #   uvicorn
 click-didyoumean==0.3.1
     # via
     #   -r requirements/base.txt
@@ -62,7 +55,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
-code-annotations==2.3.0
+code-annotations==2.3.2
     # via -r requirements/test.in
 coverage[toml]==7.13.4
     # via
@@ -145,20 +138,15 @@ edx-opaque-keys==3.1.0
     #   edx-organizations
 edx-organizations==7.3.0
     # via -r requirements/base.txt
-fastapi==0.135.1
-    # via import-linter
 freezegun==1.5.5
     # via -r requirements/test.in
 grimp==3.14
     # via import-linter
-h11==0.16.0
-    # via uvicorn
 idna==3.11
     # via
     #   -r requirements/base.txt
-    #   anyio
     #   requests
-import-linter==2.10
+import-linter==2.11
     # via -r requirements/test.in
 iniconfig==2.3.0
     # via pytest
@@ -211,10 +199,6 @@ pycparser==3.0
     # via
     #   -r requirements/base.txt
     #   cffi
-pydantic==2.12.5
-    # via fastapi
-pydantic-core==2.41.5
-    # via pydantic
 pygments==2.19.2
     # via
     #   pytest
@@ -271,8 +255,6 @@ sqlparse==0.5.5
     #   -r requirements/base.txt
     #   django
     #   django-debug-toolbar
-starlette==0.52.1
-    # via fastapi
 stevedore==5.7.0
     # via
     #   -r requirements/base.txt
@@ -290,23 +272,13 @@ types-pyyaml==6.0.12.20250915
 typing-extensions==4.15.0
     # via
     #   -r requirements/base.txt
-    #   anyio
     #   django-stubs
     #   django-stubs-ext
     #   djangorestframework-stubs
     #   edx-opaque-keys
-    #   fastapi
     #   grimp
     #   import-linter
     #   mypy
-    #   pydantic
-    #   pydantic-core
-    #   starlette
-    #   typing-inspection
-typing-inspection==0.4.2
-    # via
-    #   fastapi
-    #   pydantic
 tzdata==2025.3
     # via
     #   -r requirements/base.txt
@@ -319,8 +291,6 @@ urllib3==2.6.3
     # via
     #   -r requirements/base.txt
     #   requests
-uvicorn==0.41.0
-    # via import-linter
 vine==5.1.0
     # via
     #   -r requirements/base.txt

@@ -8,18 +8,6 @@ amqp==5.3.1
     # via
     #   -r requirements/test.txt
     #   kombu
-annotated-doc==0.0.4
-    # via
-    #   -r requirements/test.txt
-    #   fastapi
-annotated-types==0.7.0
-    # via
-    #   -r requirements/test.txt
-    #   pydantic
-anyio==4.12.1
-    # via
-    #   -r requirements/test.txt
-    #   starlette
 asgiref==3.11.1
     # via
     #   -r requirements/test.txt
@@ -47,7 +35,7 @@ cffi==2.0.0
     #   -r requirements/test.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.4.4
+charset-normalizer==3.4.5
     # via
     #   -r requirements/test.txt
     #   requests
@@ -63,7 +51,6 @@ click==8.3.1
     #   edx-django-utils
     #   edx-lint
     #   import-linter
-    #   uvicorn
 click-didyoumean==0.3.1
     # via
     #   -r requirements/test.txt
@@ -78,7 +65,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/test.txt
     #   celery
-code-annotations==2.3.0
+code-annotations==2.3.2
     # via
     #   -r requirements/test.txt
     #   edx-lint
@@ -95,7 +82,7 @@ ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.4.1
     # via pylint
-django==5.2.11
+django==5.2.12
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -173,28 +160,19 @@ edx-opaque-keys==3.1.0
     #   edx-organizations
 edx-organizations==7.3.0
     # via -r requirements/test.txt
-fastapi==0.135.1
-    # via
-    #   -r requirements/test.txt
-    #   import-linter
 freezegun==1.5.5
     # via -r requirements/test.txt
 grimp==3.14
     # via
     #   -r requirements/test.txt
     #   import-linter
-h11==0.16.0
-    # via
-    #   -r requirements/test.txt
-    #   uvicorn
 id==1.6.1
     # via twine
 idna==3.11
     # via
     #   -r requirements/test.txt
-    #   anyio
     #   requests
-import-linter==2.10
+import-linter==2.11
     # via -r requirements/test.txt
 importlib-metadata==8.7.1
     # via keyring
@@ -208,7 +186,7 @@ isort==8.0.1
     #   pylint
 jaraco-classes==3.4.0
     # via keyring
-jaraco-context==6.1.0
+jaraco-context==6.1.1
     # via keyring
 jaraco-functools==4.4.0
     # via keyring
@@ -274,7 +252,7 @@ pillow==12.1.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
-platformdirs==4.9.2
+platformdirs==4.9.4
     # via pylint
 pluggy==1.6.0
     # via
@@ -295,14 +273,6 @@ pycparser==3.0
     # via
     #   -r requirements/test.txt
     #   cffi
-pydantic==2.12.5
-    # via
-    #   -r requirements/test.txt
-    #   fastapi
-pydantic-core==2.41.5
-    # via
-    #   -r requirements/test.txt
-    #   pydantic
 pydocstyle==6.3.0
     # via -r requirements/quality.in
 pygments==2.19.2
@@ -397,10 +367,6 @@ sqlparse==0.5.5
     #   -r requirements/test.txt
     #   django
     #   django-debug-toolbar
-starlette==0.52.1
-    # via
-    #   -r requirements/test.txt
-    #   fastapi
 stevedore==5.7.0
     # via
     #   -r requirements/test.txt
@@ -425,24 +391,13 @@ types-pyyaml==6.0.12.20250915
 typing-extensions==4.15.0
     # via
     #   -r requirements/test.txt
-    #   anyio
     #   django-stubs
     #   django-stubs-ext
     #   djangorestframework-stubs
     #   edx-opaque-keys
-    #   fastapi
     #   grimp
     #   import-linter
     #   mypy
-    #   pydantic
-    #   pydantic-core
-    #   starlette
-    #   typing-inspection
-typing-inspection==0.4.2
-    # via
-    #   -r requirements/test.txt
-    #   fastapi
-    #   pydantic
 tzdata==2025.3
     # via
     #   -r requirements/test.txt
@@ -457,10 +412,6 @@ urllib3==2.6.3
     #   id
     #   requests
     #   twine
-uvicorn==0.41.0
-    # via
-    #   -r requirements/test.txt
-    #   import-linter
 vine==5.1.0
     # via
     #   -r requirements/test.txt
