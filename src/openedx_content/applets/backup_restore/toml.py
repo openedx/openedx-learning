@@ -9,7 +9,7 @@ import tomlkit
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 
 from ..collections.models import Collection
-from ..publishing import api as publishing_api
+from ..containers import api as containers_api
 from ..publishing.models import PublishableEntity, PublishableEntityVersion
 from ..publishing.models.learning_package import LearningPackage
 
@@ -191,7 +191,7 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
     if hasattr(version, 'containerversion'):
         # If the version has a container version, add its children
         container_table = tomlkit.table()
-        children = publishing_api.get_container_children_entities_keys(version.containerversion)
+        children = containers_api.get_container_children_entities_keys(version.containerversion)
         container_table.add("children", children)
         version_table.add("container", container_table)
     return version_table

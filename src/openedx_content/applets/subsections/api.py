@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable
 
-from ..publishing import api as publishing_api
-from ..publishing.models import ContainerVersion
+from ..containers import api as containers_api
+from ..containers.models import ContainerVersion
 from ..units.models import Unit, UnitVersion
 from .models import Subsection, SubsectionVersion
 
@@ -45,7 +45,7 @@ def create_subsection_and_version(
     returned is a `SubsectionVersion`. In the future, if `SubsectionVersion` gets some fields that aren't on
     `ContainerVersion`, this function would be more important.
     """
-    subsection, sv = publishing_api.create_container_and_version(
+    subsection, sv = containers_api.create_container_and_version(
         learning_package_id,
         key=key,
         title=title,
@@ -77,7 +77,7 @@ def create_next_subsection_version(
     if isinstance(subsection, int):
         subsection = get_subsection(subsection)
     assert isinstance(subsection, Subsection)
-    sv = publishing_api.create_next_container_version(
+    sv = containers_api.create_next_container_version(
         subsection,
         title=title,
         entities=units,
@@ -122,7 +122,7 @@ def get_units_in_subsection(
     assert isinstance(subsection, Subsection)
     units = []
     try:
-        entries = publishing_api.get_entities_in_container(
+        entries = containers_api.get_entities_in_container(
             subsection,
             published=published,
             select_related_version="containerversion__unitversion",

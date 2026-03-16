@@ -8,8 +8,8 @@ from datetime import datetime
 from typing import Iterable
 
 from ..components.models import Component, ComponentVersion
-from ..publishing import api as publishing_api
-from ..publishing.models import ContainerVersion
+from ..containers import api as containers_api
+from ..containers.models import ContainerVersion
 from .models import Unit, UnitVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
@@ -45,7 +45,7 @@ def create_unit_and_version(
     returned is a `UnitVersion`. In the future, if `UnitVersion` gets some fields that aren't on `ContainerVersion`,
     this function would be more important.
     """
-    unit, uv = publishing_api.create_container_and_version(
+    unit, uv = containers_api.create_container_and_version(
         learning_package_id,
         key=key,
         title=title,
@@ -77,7 +77,7 @@ def create_next_unit_version(
     if isinstance(unit, int):
         unit = get_unit(unit)
     assert isinstance(unit, Unit)
-    uv = publishing_api.create_next_container_version(
+    uv = containers_api.create_next_container_version(
         unit,
         title=title,
         entities=components,
@@ -122,7 +122,7 @@ def get_components_in_unit(
     assert isinstance(unit, Unit)
     components = []
     try:
-        entries = publishing_api.get_entities_in_container(
+        entries = containers_api.get_entities_in_container(
             unit,
             published=published,
             select_related_version="componentversion",

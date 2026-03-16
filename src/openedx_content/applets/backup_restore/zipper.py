@@ -31,6 +31,7 @@ from openedx_content.models_api import (
 
 from ..collections import api as collections_api
 from ..components import api as components_api
+from ..containers import api as containers_api
 from ..media import api as media_api
 from ..publishing import api as publishing_api
 from ..sections.models import Section
@@ -809,7 +810,7 @@ class LearningPackageUnzipper:
         learning_package,
         containers,
         *,
-        container_type: publishing_api.ContainerType,
+        container_type: containers_api.ContainerType,
         container_map: dict,
         children_map: dict,
     ):
@@ -817,7 +818,7 @@ class LearningPackageUnzipper:
         type_code = container_type.type_code  # e.g. "unit"
         for data in containers.get(type_code, []):
             entity_key = data.get("key")
-            container = publishing_api.create_container(
+            container = containers_api.create_container(
                 learning_package.id,
                 **data,  # should this be allowed to override any of the following fields?
                 created_by=self.user_id,
@@ -831,7 +832,7 @@ class LearningPackageUnzipper:
             self.all_published_entities_versions.add(
                 (entity_key, valid_published.get('version_num'))
             )  # Track published version
-            publishing_api.create_next_container_version(
+            containers_api.create_next_container_version(
                 container_map[entity_key],
                 **valid_published,  # should this be allowed to override any of the following fields?
                 force_version_num=valid_published.pop("version_num", None),
@@ -889,7 +890,7 @@ class LearningPackageUnzipper:
             )
 
         def _process_draft_containers(
-            container_type: publishing_api.ContainerType,
+            container_type: containers_api.ContainerType,
             container_map: dict,
             children_map: dict,
         ):
@@ -900,7 +901,7 @@ class LearningPackageUnzipper:
                     continue
                 children = self._resolve_children(valid_draft, children_map)
                 del valid_draft["version_num"]
-                publishing_api.create_next_container_version(
+                containers_api.create_next_container_version(
                     container_map[entity_key],
                     **valid_draft,  # should this be allowed to override any of the following fields?
                     entities=children,

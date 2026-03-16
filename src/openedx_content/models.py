@@ -5,11 +5,12 @@ I experimented with creating a utility to auto-detect applets and magically
 import their modules, but that broke code introspection.
 """
 
-# pylint: disable=wildcard-import
+# pylint: disable=wildcard-import,unused-import
 
 from .applets.backup_restore.models import *
 from .applets.collections.models import *
 from .applets.components.models import *
+from .applets.containers.models import Container, ContainerTypeRecord, ContainerVersion  # __all__ excludes TypeRecord
 from .applets.media.models import *
 from .applets.publishing.models import *
 from .applets.sections.models import *

@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 
 from ..publishing import api as publishing_api
-from ..publishing.models import Container, PublishableEntity
+from ..publishing.models import PublishableEntity
 from .models import Collection, CollectionPublishableEntity
 
 # The public API that will be re-exported by openedx_content.api

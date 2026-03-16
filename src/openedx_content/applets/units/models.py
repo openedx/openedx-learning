@@ -6,7 +6,8 @@ from typing import override
 
 from django.db import models
 
-from ..publishing.models import Container, ContainerVersion, PublishableEntity
+from ..containers.models import Container, ContainerVersion
+from ..publishing.models import PublishableEntity
 
 __all__ = [
     "Unit",

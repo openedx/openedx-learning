@@ -7,8 +7,9 @@ from typing import override
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from ..publishing.api import get_container_type
-from ..publishing.models import Container, ContainerVersion, PublishableEntity
+from ..containers.api import get_container_type
+from ..containers.models import Container, ContainerVersion
+from ..publishing.models import PublishableEntity
 from ..units.models import Unit
 
 __all__ = [

@@ -1,7 +1,7 @@
 """
 Models that are only for use in tests.
 
-These models are specifically for testing the `publishing` API.
+These models are specifically for testing the `containers` API.
 """
 
 from typing import override
@@ -21,7 +21,7 @@ from openedx_content.models_api import (
 class TestEntity(PublishableEntityMixin):
     """
     A generic entity that's not a container. Think of it like a Component, but
-    for testing `publishing` APIs without using the `components` API.
+    for testing `containers` APIs without using the `components` API.
     """
 
     __test__ = False  # Tell pytest this is "an entity for testing" not "a test class for entities"

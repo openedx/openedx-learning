@@ -16,6 +16,7 @@ from openedx_content.applets.publishing.models import (
     Draft,
     DraftChangeLog,
     DraftChangeLogRecord,
+    DraftSideEffect,
     LearningPackage,
     PublishableEntity,
     PublishLog,
@@ -1014,3 +1015,471 @@ class EntitiesQueryTestCase(TestCase):
                 published = getattr(e, 'published', None)
                 assert draft and draft.version.version_num == 1
                 assert published and published.version.version_num == 1
+
+
+# TODO: refactor these tests to use a "fake" container model so there's no dependency on the containers applet?
+# All we need is a similar generic publishableentity with dependencies.
+# pylint: disable=wrong-import-position
+from openedx_content.applets.containers import api as containers_api  # noqa
+from openedx_content.models_api import Container  # noqa
+from tests.test_django_app.models import TestContainer  # noqa
+
+
+class TestContainerSideEffects(TestCase):
+    """
+    Tests related to Container side effects and dependencies
+    """
+    now: datetime
+    learning_package: LearningPackage
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.now = datetime(2024, 1, 28, 16, 45, 30, tzinfo=timezone.utc)
+        cls.learning_package = publishing_api.create_learning_package(
+            "containers_package_key",
+            "Container Testing LearningPackage 🔥 1",
+            created=cls.now,
+        )
+
+    def tearDown(self):
+        Container.reset_cache()  # <- needed in tests involving Container subclasses
+        return super().tearDown()
+
+    def test_parent_child_side_effects(self) -> None:
+        """Test that modifying a child has side-effects on its parent."""
+        child_1 = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "child_1",
+            created=self.now,
+            created_by=None,
+        )
+        child_1_v1 = publishing_api.create_publishable_entity_version(
+            child_1.id,
+            version_num=1,
+            title="Child 1 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        child_2 = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "child_2",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            child_2.id,
+            version_num=1,
+            title="Child 2 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        container = containers_api.create_container(
+            self.learning_package.id,
+            "my_container",
+            created=self.now,
+            created_by=None,
+            container_type=TestContainer,
+        )
+        container_v1 = containers_api.create_container_version(
+            container.pk,
+            1,
+            title="My Container",
+            entities=[
+                child_1,
+                child_2,
+            ],
+            created=self.now,
+            created_by=None,
+        )
+
+        # All this was just set up. Now that we have our container-child
+        # relationships, altering a child should add the parent container to
+        # the DraftChangeLog.
+        child_1_v2 = publishing_api.create_publishable_entity_version(
+            child_1.id,
+            version_num=2,
+            title="Child 1 v2",
+            created=self.now,
+            created_by=None,
+        )
+        last_change_log = DraftChangeLog.objects.order_by("-id").first()
+        assert last_change_log is not None
+        assert last_change_log.records.count() == 2
+        child_1_change = last_change_log.records.get(entity=child_1)
+        assert child_1_change.old_version == child_1_v1
+        assert child_1_change.new_version == child_1_v2
+
+        # The container should be here, but the versions should be the same for
+        # before and after:
+        container_change = last_change_log.records.get(entity=container.publishable_entity)
+        assert container_change.old_version == container_v1.publishable_entity_version
+        assert container_change.new_version == container_v1.publishable_entity_version
+
+        # Exactly one side-effect should have been created because we changed
+        # child_1 after it was part of a container.
+        side_effects = DraftSideEffect.objects.all()
+        assert side_effects.count() == 1
+        side_effect = side_effects.first()
+        assert side_effect is not None
+        assert side_effect.cause == child_1_change
+        assert side_effect.effect == container_change
+
+    def test_bulk_parent_child_side_effects(self) -> None:
+        """Test that modifying a child has side-effects on its parent. (bulk version)"""
+        with publishing_api.bulk_draft_changes_for(self.learning_package.id):
+            child_1 = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                "child_1",
+                created=self.now,
+                created_by=None,
+            )
+            publishing_api.create_publishable_entity_version(
+                child_1.id,
+                version_num=1,
+                title="Child 1 🌴",
+                created=self.now,
+                created_by=None,
+            )
+            child_2 = publishing_api.create_publishable_entity(
+                self.learning_package.id,
+                "child_2",
+                created=self.now,
+                created_by=None,
+            )
+            child_2_v1 = publishing_api.create_publishable_entity_version(
+                child_2.id,
+                version_num=1,
+                title="Child 2 🌴",
+                created=self.now,
+                created_by=None,
+            )
+            container = containers_api.create_container(
+                self.learning_package.id,
+                "my_container",
+                created=self.now,
+                created_by=None,
+                container_type=TestContainer,
+            )
+            container_v1 = containers_api.create_container_version(
+                container.pk,
+                1,
+                title="My Container",
+                entities=[child_1, child_2],
+                created=self.now,
+                created_by=None,
+            )
+
+            # All this was just set up. Now that we have our container-child
+            # relationships, altering a child should add the parent container to
+            # the DraftChangeLog.
+            child_1_v2 = publishing_api.create_publishable_entity_version(
+                child_1.id,
+                version_num=2,
+                title="Child 1 v2",
+                created=self.now,
+                created_by=None,
+            )
+
+        # Because we're doing it in bulk, there's only one DraftChangeLog entry.
+        assert DraftChangeLog.objects.count() == 1
+        last_change_log = DraftChangeLog.objects.first()
+        assert last_change_log is not None
+        # There's only ever one change entry per publishable entity
+        assert last_change_log.records.count() == 3
+
+        child_1_change = last_change_log.records.get(entity=child_1)
+        assert child_1_change.old_version is None
+        assert child_1_change.new_version == child_1_v2
+
+        child_2_change = last_change_log.records.get(entity=child_2)
+        assert child_2_change.old_version is None
+        assert child_2_change.new_version == child_2_v1
+
+        container_change = last_change_log.records.get(entity=container.publishable_entity)
+        assert container_change.old_version is None
+        assert container_change.new_version == container_v1.publishable_entity_version
+
+        # There are two side effects here, because we grouped our draft edits
+        # together using bulk_draft_changes_for, so changes to both children
+        # count towards side-effects on the container.
+        side_effects = DraftSideEffect.objects.all()
+        assert side_effects.count() == 2
+        caused_by_child_1 = side_effects.get(cause=child_1_change)
+        caused_by_child_2 = side_effects.get(cause=child_2_change)
+        assert caused_by_child_1.effect == container_change
+        assert caused_by_child_2.effect == container_change
+
+    def test_draft_dependency_multiple_parents(self) -> None:
+        """
+        Test that a change in a draft component affects multiple parents.
+
+        This is the scenario where one Component is contained by multiple Units.
+        """
+        # Set up a Component that lives in two Units
+        component = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "component_1",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            component.id,
+            version_num=1,
+            title="Component 1 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        unit_1 = containers_api.create_container(
+            self.learning_package.id,
+            "unit_1",
+            created=self.now,
+            created_by=None,
+            container_type=TestContainer,
+        )
+        unit_2 = containers_api.create_container(
+            self.learning_package.id,
+            "unit_2",
+            created=self.now,
+            created_by=None,
+            container_type=TestContainer,
+        )
+        for unit in [unit_1, unit_2]:
+            containers_api.create_container_version(
+                unit.pk,
+                1,
+                title="My Unit",
+                entities=[component],
+                created=self.now,
+                created_by=None,
+            )
+
+        # At this point there should be no side effects because we created
+        # everything from the bottom-up.
+        assert not DraftSideEffect.objects.all().exists()
+
+        # Now let's change the Component and make sure it created side-effects
+        # for both Units.
+        publishing_api.create_publishable_entity_version(
+            component.id,
+            version_num=2,
+            title="Component 1.2 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        side_effects = DraftSideEffect.objects.all()
+        assert side_effects.count() == 2
+        assert side_effects.filter(cause__entity=component).count() == 2
+        assert side_effects.filter(effect__entity=unit_1.publishable_entity).count() == 1
+        assert side_effects.filter(effect__entity=unit_2.publishable_entity).count() == 1
+
+    def test_multiple_layers_of_containers(self) -> None:
+        """Test stacking containers three layers deep."""
+        # Note that these aren't real "components" and "units". Everything being
+        # tested is confined to the publishing app, so those concepts shouldn't
+        # be imported here. They're just named this way to make it more obvious
+        # what the intended hierarchy is for testing container nesting.
+        component = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "component_1",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            component.id,
+            version_num=1,
+            title="Component 1 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        unit = containers_api.create_container(
+            self.learning_package.id,
+            "unit_1",
+            created=self.now,
+            created_by=None,
+            container_type=TestContainer,
+        )
+        containers_api.create_container_version(
+            unit.pk,
+            1,
+            title="My Unit",
+            entities=[component],
+            created=self.now,
+            created_by=None,
+        )
+        subsection = containers_api.create_container(
+            self.learning_package.id,
+            "subsection_1",
+            created=self.now,
+            created_by=None,
+            container_type=TestContainer,
+        )
+        containers_api.create_container_version(
+            subsection.pk,
+            1,
+            title="My Subsection",
+            entities=[unit],
+            created=self.now,
+            created_by=None,
+        )
+
+        # At this point, no side-effects exist yet because we built it from the
+        # bottom-up using different DraftChangeLogs
+        assert not DraftSideEffect.objects.all().exists()
+
+        with publishing_api.bulk_draft_changes_for(self.learning_package.id) as change_log:
+            publishing_api.create_publishable_entity_version(
+                component.id,
+                version_num=2,
+                title="Component 1v2🌴",
+                created=self.now,
+                created_by=None,
+            )
+
+        assert DraftSideEffect.objects.count() == 2
+        component_change = change_log.records.get(entity=component)
+        unit_change = change_log.records.get(entity=unit.publishable_entity)
+        subsection_change = change_log.records.get(entity=subsection.publishable_entity)
+
+        assert not component_change.affected_by.exists()
+        assert unit_change.affected_by.count() == 1
+        assert unit_change.affected_by.first().cause == component_change
+        assert subsection_change.affected_by.count() == 1
+        assert subsection_change.affected_by.first().cause == unit_change
+
+        publish_log = publishing_api.publish_all_drafts(self.learning_package.id)
+        assert publish_log.records.count() == 3
+
+        publishing_api.create_publishable_entity_version(
+            component.pk,
+            version_num=3,
+            title="Component v2",
+            created=self.now,
+            created_by=None,
+        )
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(entity_id=component.pk),
+        )
+        assert publish_log.records.count() == 3
+        component_publish = publish_log.records.get(entity=component)
+        unit_publish = publish_log.records.get(entity=unit.publishable_entity)
+        subsection_publish = publish_log.records.get(entity=subsection.publishable_entity)
+
+        assert not component_publish.affected_by.exists()
+        assert unit_publish.affected_by.count() == 1
+        assert unit_publish.affected_by.first().cause == component_publish  # type: ignore[union-attr]
+        assert subsection_publish.affected_by.count() == 1
+        assert subsection_publish.affected_by.first().cause == unit_publish  # type: ignore[union-attr]
+
+    def test_publish_all_layers(self) -> None:
+        """Test that we can publish multiple layers from one root."""
+        # Note that these aren't real "components" and "units". Everything being
+        # tested is confined to the publishing app, so those concepts shouldn't
+        # be imported here. They're just named this way to make it more obvious
+        # what the intended hierarchy is for testing container nesting.
+        component = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "component_1",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            component.id,
+            version_num=1,
+            title="Component 1 🌴",
+            created=self.now,
+            created_by=None,
+        )
+        unit = containers_api.create_container(
+            self.learning_package.id,
+            "unit_1",
+            created=self.now,
+            created_by=None,
+            container_type=TestContainer,
+        )
+        containers_api.create_container_version(
+            unit.pk,
+            1,
+            title="My Unit",
+            entities=[component],
+            created=self.now,
+            created_by=None,
+        )
+        subsection = containers_api.create_container(
+            self.learning_package.id,
+            "subsection_1",
+            created=self.now,
+            created_by=None,
+            container_type=TestContainer,
+        )
+        containers_api.create_container_version(
+            subsection.pk,
+            1,
+            title="My Subsection",
+            entities=[unit],
+            created=self.now,
+            created_by=None,
+        )
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(pk=subsection.pk),
+        )
+
+        # The component, unit, and subsection should all be accounted for in
+        # the publish log records.
+        assert publish_log.records.count() == 3
+
+    def test_container_next_version(self) -> None:
+        """Test that next_version works for containers."""
+        child_1 = publishing_api.create_publishable_entity(
+            self.learning_package.id,
+            "child_1",
+            created=self.now,
+            created_by=None,
+        )
+        container = containers_api.create_container(
+            self.learning_package.id,
+            "my_container",
+            created=self.now,
+            created_by=None,
+            container_type=TestContainer,
+        )
+        assert container.versioning.latest is None
+        v1 = containers_api.create_next_container_version(
+            container.pk,
+            title="My Container v1",
+            entities=None,
+            created=self.now,
+            created_by=None,
+        )
+        assert v1.version_num == 1
+        assert container.versioning.latest == v1
+        v2 = containers_api.create_next_container_version(
+            container.pk,
+            title="My Container v2",
+            entities=[child_1],
+            created=self.now,
+            created_by=None,
+        )
+        assert v2.version_num == 2
+        assert container.versioning.latest == v2
+        assert v2.entity_list.entitylistrow_set.count() == 1
+        v3 = containers_api.create_next_container_version(
+            container.pk,
+            title="My Container v3",
+            entities=None,
+            created=self.now,
+            created_by=None,
+        )
+        assert v3.version_num == 3
+        assert container.versioning.latest == v3
+        # Even though we didn't pass any rows, it should copy the previous version's rows
+        assert v2.entity_list.entitylistrow_set.count() == 1
+
+
+# Tests TODO:
+# Test that I can get a [PublishLog] history of a given container and all its children, including children that aren't
+#     currently in the container and excluding children that are only in other containers.
+# Test that I can get a [PublishLog] history of a given container and its children, that includes changes made to the
+#     child components while they were part of the container but excludes changes made to those children while they were
+#     not part of the container. 🫣
