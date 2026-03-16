@@ -71,6 +71,7 @@ __all__ = [
     "publish_from_drafts",
     "get_draft_version",
     "get_published_version",
+    "get_entity_draft_history",
     "set_draft_version",
     "soft_delete_draft",
     "reset_drafts_to_published",
@@ -582,6 +583,45 @@ def get_published_version(publishable_entity_or_id: PublishableEntity | int, /) 
     # published.version could be None if something was published at one point,
     # had its draft soft deleted, and then was published again.
     return published.version
+
+
+def get_entity_draft_history(
+    publishable_entity_or_id: PublishableEntity | int, /
+) -> QuerySet[DraftChangeLogRecord]:
+    """
+    Return DraftChangeLogRecords for a PublishableEntity since its last publication,
+    ordered from most recent to oldest.
+
+    If the entity has never been published, all DraftChangeLogRecords are returned.
+    """
+    if isinstance(publishable_entity_or_id, int):
+        entity_id = publishable_entity_or_id
+    else:
+        entity_id = publishable_entity_or_id.pk
+
+    qs = (
+        DraftChangeLogRecord.objects
+        .filter(entity_id=entity_id)
+        .select_related(
+            "draft_change_log__changed_by",
+            "old_version",
+            "new_version",
+        )
+        .order_by("-draft_change_log__changed_at")
+    )
+
+    # Narrow to changes since the last publication
+    try:
+        published = Published.objects.select_related(
+            "publish_log_record__publish_log"
+        ).get(entity_id=entity_id)
+        qs = qs.filter(
+            draft_change_log__changed_at__gt=published.publish_log_record.publish_log.published_at
+        )
+    except Published.DoesNotExist:
+        pass
+
+    return qs
 
 
 def set_draft_version(
