@@ -249,7 +249,7 @@ def _container_of_uninstalled_type(lp: LearningPackage, child_entity1: TestEntit
 
 
 @pytest.fixture(name="other_lp_parent")
-def _other_lp_parent(lp2: LearningPackage, other_lp_child: PublishableEntity) -> TestContainer:
+def _other_lp_parent(lp2: LearningPackage, other_lp_child: TestEntity) -> TestContainer:
     """An TestContainer with one child"""
     other_lp_parent, _version = containers_api.create_container_and_version(
         lp2.id,
@@ -478,14 +478,8 @@ def test_create_next_container_version_with_remove_1(
     child_entity3: TestEntity,
 ):
     """
-    Test creating a new version of the "parent of two" container, using the REMOVE action to remove children.
+    Test creating a new version of the "parent of six" container, using the REMOVE action to remove children.
     """
-    ####################################################################################################################
-    # TODO: Note: this "REMOVE" API isn't really a great API. It needs all these tests cases to handle the case of
-    # duplicate entries, and pinned vs. unpinned, and we don't even use "pinning" in Open edX yet. We should consider
-    # dropping the APPEND/REMOVE APIs altogether and just having a simple "replace all children with this new list" API.
-    ####################################################################################################################
-
     # Before looks like this:
     assert containers_api.get_entities_in_container(parent_of_six, published=False) == [
         Entry(child_entity3.versioning.draft, pinned=True),  # entity 3, 📌 pinned
@@ -521,7 +515,7 @@ def test_create_next_container_version_with_remove_2(
     child_entity3: TestEntity,
 ):
     """
-    Test creating a new version of the "parent of two" container, using the REMOVE action to remove children.
+    Test creating a new version of the "parent of six" container, using the REMOVE action to remove children.
     """
     # Before looks like this:
     assert containers_api.get_entities_in_container(parent_of_six, published=False) == [
@@ -559,7 +553,7 @@ def test_create_next_container_version_with_remove_3(
     child_entity3: TestEntity,
 ):
     """
-    Test creating a new version of the "parent of two" container, using the REMOVE action to remove children.
+    Test creating a new version of the "parent of six" container, using the REMOVE action to remove children.
     """
     # Before looks like this:
     assert containers_api.get_entities_in_container(parent_of_six, published=False) == [
@@ -597,7 +591,7 @@ def test_create_next_container_version_with_remove_4(
     child_entity3: TestEntity,
 ):
     """
-    Test creating a new version of the "parent of two" container, using the REMOVE action to remove children.
+    Test creating a new version of the "parent of six" container, using the REMOVE action to remove children.
     """
     # Before looks like this:
     assert containers_api.get_entities_in_container(parent_of_six, published=False) == [
@@ -689,7 +683,7 @@ def test_get_container(parent_of_two: TestContainer, django_assert_num_queries) 
     with django_assert_num_queries(1):
         result = containers_api.get_container(parent_of_two.pk)
     assert result == parent_of_two.container
-    # Versioning data should be pre-loaded via select_related()
+    # Versioning data should be pre-loaded via the default select_related() of Container.objects used by get_container
     with django_assert_num_queries(0):
         assert result.versioning.has_unpublished_changes
 
@@ -858,7 +852,7 @@ def test_get_containers(
     """
     result = list(containers_api.get_containers(lp.id))
     # The API always returns Container base class instances, never specific types:
-    assert [c.__class__ is Container for c in result]
+    assert all(c.__class__ is Container for c in result)
     # (we _could_ implement a get_typed_containers() API, but there's probably no need?)
     assert result == [
         # Default ordering is in the order they were created:
@@ -905,7 +899,7 @@ def test_contains_unpublished_changes_queries(
     grandparent: ContainerContainer, child_entity1: TestEntity, django_assert_num_queries
 ) -> None:
     """Test that `contains_unpublished_changes()` works, and check how many queries it uses"""
-    # Setup: grandparent and all its decsendants are unpublished drafts only.
+    # Setup: grandparent and all its descendants are unpublished drafts only.
     assert grandparent.versioning.published is None
 
     # Tests:
@@ -1226,7 +1220,7 @@ def test_shallow_publish_log(
 
 def test_uninstalled_publish(
     lp: LearningPackage,
-    container_of_uninstalled_type: TestContainer,
+    container_of_uninstalled_type: Container,
     django_assert_num_queries,
 ) -> None:
     """Simple test of publishing a container of uninstalled type, plus its child, and reviewing the publish log"""
@@ -1250,7 +1244,7 @@ def test_deep_publish_log(
     child_entity1: TestEntity,
     child_entity2: TestEntity,
     child_entity3: TestEntity,
-    container_of_uninstalled_type: TestContainer,
+    container_of_uninstalled_type: Container,
     lp2: LearningPackage,
     other_lp_parent: TestContainer,
     other_lp_child: TestEntity,
@@ -1595,6 +1589,15 @@ def test_get_container_children_count_queries(
 ):
     """Test how many database queries `get_container_children_count()` needs"""
     publishing_api.publish_all_drafts(lp.pk)
+    # The 6 queries are:
+    # - Draft.objects.get()
+    # - PublishableEntityVersion.objects.get()
+    # - ContainerVersion.objects.get()
+    # - TestContainerVersion.objects.get()
+    # - EntityList.objects.get()
+    # - SELECT COUNT(*) from EntityListRow ... JOIN on not soft deleted...
+    # TODO: the first four/five queries are all just loading "TestContainer" and its related objects, and could be
+    # optimized into a single query with better `select_related()`. The first four queries all use the same primary key.
     with django_assert_num_queries(6):
         assert containers_api.get_container_children_count(parent_of_two, published=False) == 2
     with django_assert_num_queries(6):

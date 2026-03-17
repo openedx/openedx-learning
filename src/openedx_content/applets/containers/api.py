@@ -388,7 +388,7 @@ class ChildrenEntitiesAction(Enum):
     """Possible actions for children entities"""
 
     APPEND = "append"
-    REMOVE = "remove"
+    REMOVE = "remove"  # TODO: deprecated/drop/fix `REMOVE` - https://github.com/openedx/openedx-core/issues/502
     REPLACE = "replace"
 
 
