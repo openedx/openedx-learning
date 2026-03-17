@@ -18,6 +18,8 @@ from openedx_content.applets.publishing.models import (
     PublishableEntity,
     PublishableEntityMixin,
     PublishableEntityVersionMixin,
+    PublishLog,
+    PublishSideEffect,
 )
 from tests.test_django_app.models import (
     ContainerContainer,
@@ -261,10 +263,10 @@ def _other_lp_parent(lp2: LearningPackage, other_lp_child: PublishableEntity) ->
     return other_lp_parent
 
 
-def publish_entity(obj: PublishableEntityMixin):
+def publish_entity(obj: PublishableEntityMixin) -> PublishLog:
     """Helper method to publish a single container or other entity."""
     lp_id = obj.publishable_entity.learning_package_id
-    publishing_api.publish_from_drafts(
+    return publishing_api.publish_from_drafts(
         lp_id,
         draft_qset=publishing_api.get_all_drafts(lp_id).filter(entity=obj.publishable_entity),
     )
@@ -1174,6 +1176,102 @@ def test_publishing_shared_component(lp: LearningPackage):
         Entry(c5_v2),  # new published version of C5
     ]
     assert containers_api.contains_unpublished_changes(unit2.pk) is False
+
+
+def test_shallow_publish_log(
+    lp: LearningPackage,
+    grandparent: ContainerContainer,  # Create grandparent so it exists during this test; it should be untouched.
+    parent_of_two: TestContainer,
+    parent_of_three: TestContainer,
+) -> None:
+    """Simple test of publishing a container plus children and reviewing the publish log"""
+    publish_log = publish_entity(parent_of_two)
+    assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
+        # The container and its two children should be the only things published:
+        "child_entity1",
+        "child_entity2",
+        "parent_of_two",
+    ]
+
+
+def test_uninstalled_publish(
+    lp: LearningPackage,
+    container_of_uninstalled_type: TestContainer,
+    django_assert_num_queries,
+) -> None:
+    """Simple test of publishing a container of uninstalled type, plus its child, and reviewing the publish log"""
+    # Publish container_of_uninstalled_type (and child_entity1). Should not affect anything else,
+    # but we should see "child_entity1" omitted from the subsequent publish.
+    with django_assert_num_queries(50):
+        publish_log = publish_entity(container_of_uninstalled_type)
+        # Nothing else should have been affected by the publish:
+        assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
+            "child_entity1",
+            "abandoned-container",
+        ]
+
+
+def test_deep_publish_log(
+    lp: LearningPackage,
+    grandparent: ContainerContainer,
+    parent_of_two: TestContainer,
+    parent_of_three: TestContainer,
+    parent_of_six: TestContainer,
+    child_entity1: TestEntity,
+    child_entity2: TestEntity,
+    child_entity3: TestEntity,
+    container_of_uninstalled_type: TestContainer,
+    lp2: LearningPackage,
+    other_lp_parent: TestContainer,
+    other_lp_child: TestEntity,
+    django_assert_num_queries,
+) -> None:
+    """
+    With lots of entities present in a deep hierarchy, test the result of publishing different parts of the tree.
+
+    See diagram near the top of this file.
+    """
+    # Create a "great grandparent" container that contains "grandparent"
+    great_grandparent = create_test_container(
+        lp,
+        key="great_grandparent",
+        title="Great-grandparent container",
+        entities=[grandparent],
+    )
+    # Publish container_of_uninstalled_type (and child_entity1). Should not affect anything else,
+    # but we should see "child_entity1" omitted from the subsequent publish.
+    with django_assert_num_queries(50):
+        publish_log = publish_entity(container_of_uninstalled_type)
+        # Nothing else should have been affected by the publish:
+        assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
+            "child_entity1",
+            "abandoned-container",
+        ]
+
+    # Publish great_grandparent. Should publish the whole tree.
+    # FIXME: this is using 144 queries on MySQL vs 132 on SQLite. The disparity only happens when publishing four levels
+    # of hierarchy at once (e.g. publishing a Section-->Component or Great-Grandparent-->Child). i.e. if you change this
+    # to publish "grandparent" instead of "great_grandparent" or you pre-publish the leaves (child entities), there is
+    # no disparity between the databases.
+    with django_assert_num_queries(133):
+        publish_log = publish_entity(great_grandparent)
+        assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
+            "child_entity2",
+            "parent_of_two",
+            "parent_of_three",
+            "grandparent",
+            "great_grandparent",
+        ]
+        assert list(
+            PublishSideEffect.objects.filter(cause__publish_log=publish_log)
+            .values_list("cause__entity__key", "effect__entity__key")
+            .order_by("cause__entity__key")  # Note: order_by("pk") is different on MySQL vs SQLite
+        ) == [
+            ("child_entity2", "parent_of_two"),
+            ("grandparent", "great_grandparent"),
+            ("parent_of_three", "grandparent"),
+            ("parent_of_two", "grandparent"),
+        ]
 
 
 # get_entities_in_container
