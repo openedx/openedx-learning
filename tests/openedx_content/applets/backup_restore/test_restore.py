@@ -67,21 +67,21 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
             assert container.created_by is not None
             assert container.created_by.username == "lp_user"
             if container.key == "unit1-b7eafb":
-                assert containers_api.get_container_type_code(container) == "unit"
+                assert containers_api.get_container_type_code_of(container) == "unit"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif container.key == "subsection1-48afa3":
-                assert containers_api.get_container_type_code(container) == "subsection"
+                assert containers_api.get_container_type_code_of(container) == "subsection"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif container.key == "section1-8ca126":
-                assert containers_api.get_container_type_code(container) == "section"
+                assert containers_api.get_container_type_code_of(container) == "section"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None

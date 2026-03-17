@@ -56,8 +56,10 @@ __all__ = [
     "get_container",
     "get_container_version",
     "get_container_by_key",
-    "get_container_type_code",
+    "get_all_container_types",
     "get_container_type",
+    "get_container_type_code_of",
+    "get_container_type_of",
     "get_containers",
     "ChildrenEntitiesAction",
     "ContainerEntityListEntry",
@@ -587,7 +589,23 @@ def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
         raise
 
 
-def get_container_type_code(container: Container | int, /) -> str:
+def get_all_container_types() -> list[ContainerType]:
+    """
+    Get a list of installed Container types (`Container` subclasses).
+    """
+    return Container.all_subclasses()
+
+
+def get_container_type(type_code: str, /) -> ContainerType:
+    """
+    Get subclass of `Container` from its `type_code` string (e.g. `"unit"`).
+
+    Will raise a `ContainerImplementationMissingError` if the type is not currently installed.
+    """
+    return Container.subclass_for_type_code(type_code)
+
+
+def get_container_type_code_of(container: Container | int, /) -> str:
     """Get the type of a container, as a string - e.g. "unit"."""
     if isinstance(container, int):
         container = get_container(container)
@@ -595,7 +613,7 @@ def get_container_type_code(container: Container | int, /) -> str:
     return container.container_type_record.type_code
 
 
-def get_container_type(container: Container | int, /) -> ContainerType:
+def get_container_type_of(container: Container | int, /) -> ContainerType:
     """
     Get the type of a container.
 
@@ -604,7 +622,7 @@ def get_container_type(container: Container | int, /) -> ContainerType:
 
     Will raise a `ContainerImplementationMissingError` if the type is not currently installed.
     """
-    type_code = get_container_type_code(container)
+    type_code = get_container_type_code_of(container)
     return Container.subclass_for_type_code(type_code)
 
 

@@ -227,6 +227,11 @@ class Container(PublishableEntityMixin):
                 "Such containers can be read but not modified."
             ) from exc
 
+    @staticmethod
+    def all_subclasses() -> list[type[Container]]:
+        """Get a list of all installed container types"""
+        return sorted(_registered_container_types.values(), key=lambda ct: ct.type_code)
+
 
 class ContainerVersion(PublishableEntityVersionMixin):
     """

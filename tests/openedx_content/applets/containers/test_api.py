@@ -768,33 +768,63 @@ def test_get_container_by_key_nonexistent(lp: LearningPackage) -> None:
         containers_api.get_container_by_key(lp.pk, "invalid-key")
 
 
-# get_container_type_code and get_container_type
+# get_container_type
 
 
-def test_get_container_type(grandparent: ContainerContainer, parent_of_two: TestContainer, child_entity1: TestEntity):
+def test_get_container_type() -> None:
     """
-    Test get_container_type_code() and get_container_type()
+    Test get_container_type()
+    """
+    assert containers_api.get_container_type("test_generic") is TestContainer
+    assert containers_api.get_container_type("test_container_container") is ContainerContainer
+    with pytest.raises(
+        containers_api.ContainerImplementationMissingError,
+        match='An implementation for "foo" containers is not currently installed.',
+    ):
+        containers_api.get_container_type("foo")
+
+
+# get_all_container_types
+def test_get_all_container_types() -> None:
+    """
+    Test get_all_container_types()
+    """
+    # For test purposes, filter the list to only include containers from our "test_django_app":
+    assert [ct for ct in containers_api.get_all_container_types() if ct._meta.app_label == "test_django_app"] == [
+        ContainerContainer,
+        TestContainer,
+    ]
+
+
+# get_container_type_code_of and get_container_type_of
+
+
+def test_get_container_type_of(
+    grandparent: ContainerContainer, parent_of_two: TestContainer, child_entity1: TestEntity
+):
+    """
+    Test get_container_type_code_of() and get_container_type_of()
     """
     # Grandparent is a "ContainerContainer":
     assert isinstance(grandparent, ContainerContainer)
-    assert containers_api.get_container_type_code(grandparent) == "test_container_container"
-    assert containers_api.get_container_type(grandparent) is ContainerContainer
+    assert containers_api.get_container_type_code_of(grandparent) == "test_container_container"
+    assert containers_api.get_container_type_of(grandparent) is ContainerContainer
     # The functions work even if we pass a generic "Container" object:
     assert isinstance(grandparent.base_container, Container)
-    assert containers_api.get_container_type_code(grandparent.base_container) == "test_container_container"
-    assert containers_api.get_container_type(grandparent.base_container) is ContainerContainer
+    assert containers_api.get_container_type_code_of(grandparent.base_container) == "test_container_container"
+    assert containers_api.get_container_type_of(grandparent.base_container) is ContainerContainer
 
     # "Parent of Two" is a "TestContainer":
     assert isinstance(parent_of_two, TestContainer)
-    assert containers_api.get_container_type_code(parent_of_two) == "test_generic"
-    assert containers_api.get_container_type(parent_of_two) is TestContainer
+    assert containers_api.get_container_type_code_of(parent_of_two) == "test_generic"
+    assert containers_api.get_container_type_of(parent_of_two) is TestContainer
     assert isinstance(parent_of_two.container, Container)
-    assert containers_api.get_container_type_code(parent_of_two.container) == "test_generic"
-    assert containers_api.get_container_type(parent_of_two.container) is TestContainer
+    assert containers_api.get_container_type_code_of(parent_of_two.container) == "test_generic"
+    assert containers_api.get_container_type_of(parent_of_two.container) is TestContainer
 
     # Passing in a non-container will trigger an assert failure:
     with pytest.raises(AssertionError):
-        containers_api.get_container_type(child_entity1)  # type: ignore
+        containers_api.get_container_type_of(child_entity1)  # type: ignore
 
 
 def test_get_container_type_deleted(container_of_uninstalled_type: Container):
@@ -806,10 +836,10 @@ def test_get_container_type_deleted(container_of_uninstalled_type: Container):
         containers_api.ContainerImplementationMissingError,
         match='An implementation for "misc" containers is not currently installed.',
     ):
-        containers_api.get_container_type(container_of_uninstalled_type)
+        containers_api.get_container_type_of(container_of_uninstalled_type)
 
     # But get_container_type_code() should still work:
-    assert containers_api.get_container_type_code(container_of_uninstalled_type) == "misc"
+    assert containers_api.get_container_type_code_of(container_of_uninstalled_type) == "misc"
 
 
 # get_containers
