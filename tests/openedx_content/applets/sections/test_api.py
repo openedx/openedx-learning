@@ -196,3 +196,10 @@ class SectionsTestCase(ComponentTestCase):
             match='The entity "unit_1" cannot be added to a "section" container.',
         ):
             self.create_section_with_subsections([self.unit_1], key="unit:key3", title="Unit 3")
+
+    def test_is_registered(self):
+        assert Section in content_api.get_all_container_types()
+
+    def test_olx_tag_name(self):
+        assert content_api.get_container_type("section") is Section
+        assert content_api.get_container_type("section").olx_tag_name == "chapter"

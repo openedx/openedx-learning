@@ -25,6 +25,7 @@ class Unit(Container):
     """
 
     type_code = "unit"
+    olx_tag_name = "vertical"  # Serializes to OLX as `<unit>...</unit>`.
 
     container = models.OneToOneField(
         Container,

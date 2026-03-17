@@ -172,3 +172,10 @@ class SubsectionsTestCase(ComponentTestCase):
             match='The entity "xblock.v1:problem:Query Counting" cannot be added to a "subsection" container.',
         ):
             self.create_subsection_with_units([self.component_1], key="unit:key3", title="Unit 3")
+
+    def test_is_registered(self):
+        assert Subsection in content_api.get_all_container_types()
+
+    def test_olx_tag_name(self):
+        assert content_api.get_container_type("subsection") is Subsection
+        assert content_api.get_container_type("subsection").olx_tag_name == "sequential"

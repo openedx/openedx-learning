@@ -28,6 +28,7 @@ class Subsection(Container):
     """
 
     type_code = "subsection"
+    olx_tag_name = "sequential"  # Serializes to OLX as `<sequential>...</sequential>`.
 
     container = models.OneToOneField(
         Container,

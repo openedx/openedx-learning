@@ -167,3 +167,10 @@ class UnitsTestCase(ComponentTestCase):
         # Also check that `create_unit_and_version()` has the same restriction (not just `create_next_unit_version()`)
         with pytest.raises(ValidationError, match='The entity "unit:key2" cannot be added to a "unit" container.'):
             self.create_unit_with_components([unit2], key="unit:key3", title="Unit 3")
+
+    def test_is_registered(self):
+        assert Unit in content_api.get_all_container_types()
+
+    def test_olx_tag_name(self):
+        assert content_api.get_container_type("unit") is Unit
+        assert content_api.get_container_type("unit").olx_tag_name == "vertical"

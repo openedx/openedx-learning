@@ -162,6 +162,9 @@ class Container(PublishableEntityMixin):
     """
 
     type_code: str  # Subclasses must override this, e.g. "unit"
+    # olx_code: the OLX <tag_name> for XML serialization. Subclasses _may_ override this.
+    # Only used in openedx-platform at the moment. We'll likely have to replace this with something more sophisticated.
+    olx_tag_name: str = ""
     _type_instance: ContainerTypeRecord  # Cache used by get_type_record()
 
     # The type of the container. Cannot be changed once the container is created.
