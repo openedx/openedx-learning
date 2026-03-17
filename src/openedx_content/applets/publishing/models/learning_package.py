@@ -7,7 +7,7 @@ from openedx_django_lib.fields import (
     MultiCollationTextField,
     case_insensitive_char_field,
     immutable_uuid_field,
-    key_field,
+    label_field,
     manual_date_time_field,
 )
 
@@ -27,12 +27,8 @@ class LearningPackage(models.Model):
 
     uuid = immutable_uuid_field()
 
-    # "key" is a reserved word for MySQL, so we're temporarily using the column
-    # name of "_key" to avoid breaking downstream tooling. There's an open
-    # question as to whether this field needs to exist at all, or whether the
-    # top level library key it's currently used for should be entirely in the
-    # LibraryContent model.
-    key = key_field(db_column="_key")
+    # Formerly called "key", represented in the DB as "_key".
+    label = label_field(db_column="_key")
 
     title = case_insensitive_char_field(max_length=500, blank=False)
 
@@ -58,16 +54,16 @@ class LearningPackage(models.Model):
     updated = manual_date_time_field()
 
     def __str__(self):
-        return f"{self.key}"
+        return f"{self.label}"
 
     class Meta:
         constraints = [
-            # LearningPackage keys must be globally unique. This is something
+            # LearningPackage labels must be globally unique. This is something
             # that might be relaxed in the future if this system were to be
             # extensible to something like multi-tenancy, in which case we'd tie
             # it to something like a Site or Org.
             models.UniqueConstraint(
-                fields=["key"],
+                fields=["label"],
                 name="oel_publishing_lp_uniq_key",
             )
         ]

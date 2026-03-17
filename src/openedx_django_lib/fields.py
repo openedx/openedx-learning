@@ -110,7 +110,7 @@ def immutable_uuid_field() -> models.UUIDField:
     )
 
 
-def key_field(**kwargs) -> MultiCollationCharField:
+def label_field(**kwargs) -> MultiCollationCharField:
     """
     Externally created Identifier fields.
 

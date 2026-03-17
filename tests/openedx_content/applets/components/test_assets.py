@@ -129,7 +129,7 @@ class AssetTestCase(TestCase):
         assert headers["X-Open-edX-Component-Uuid"] == str(self.component.uuid)
         assert headers["X-Open-edX-Component-Version-Uuid"] == str(self.component_version.uuid)
         assert headers["X-Open-edX-Component-Version-Num"] == str(self.component_version.version_num)
-        assert headers["X-Open-edX-Learning-Package-Key"] == self.learning_package.key
+        assert headers["X-Open-edX-Learning-Package-Key"] == self.learning_package.label
         assert headers["X-Open-edX-Learning-Package-Uuid"] == str(self.learning_package.uuid)
 
     def test_404s_with_component_version_info(self):

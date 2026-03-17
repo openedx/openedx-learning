@@ -108,7 +108,7 @@ class PublishableEntityVersionTabularInline(admin.TabularInline):
 
     def dependencies_list(self, version: PublishableEntityVersion):
         identifiers = sorted(
-            [str(dep.key) for dep in version.dependencies.all()]
+            [str(dep.label) for dep in version.dependencies.all()]
         )
         return "\n".join(identifiers)
 

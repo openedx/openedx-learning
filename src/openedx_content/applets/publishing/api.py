@@ -162,7 +162,7 @@ def update_learning_package(
         return lp
 
     if key is not None:
-        lp.key = key
+        lp.label = key
     if title is not None:
         lp.title = title
     if description is not None:

@@ -315,7 +315,7 @@ class LearningPackageZipper:
                 )
 
                 if hasattr(entity, 'container'):
-                    entity_filename = self.get_entity_toml_filename(entity.key)
+                    entity_filename = self.get_entity_toml_filename(entity.label)
                     entity_toml_filename = f"{entity_filename}.toml"
                     entity_toml_path = entities_folder / entity_toml_filename
                     self.add_file_to_zip(zipf, entity_toml_path, entity_toml_content, timestamp=latest_modified)
@@ -593,7 +593,7 @@ class LearningPackageUnzipper:
             log_file_error=None,
             lp_restored_data=RestoreLearningPackageData(
                 id=learning_package.id,
-                key=learning_package.key,
+                key=learning_package.label,
                 archive_lp_key=archive_lp_key,  # The original key from the backup archive
                 archive_org_key=org_key,  # The original organization key from the backup archive
                 archive_slug=lp_slug,  # The original slug from the backup archive

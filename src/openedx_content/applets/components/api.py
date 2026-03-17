@@ -34,7 +34,7 @@ from .models import Component, ComponentType, ComponentVersion, ComponentVersion
 # to be callable only by other apps in the authoring package.
 __all__ = [
     "get_or_create_component_type",
-    "get_or_create_component_type_by_entity_key",
+    "get_or_create_component_type_by_entity_label",
     "create_component",
     "create_component_version",
     "create_next_component_version",
@@ -74,7 +74,7 @@ def get_or_create_component_type(namespace: str, name: str) -> ComponentType:
     return component_type
 
 
-def get_or_create_component_type_by_entity_key(entity_key: str) -> tuple[ComponentType, str]:
+def get_or_create_component_type_by_entity_label(entity_key: str) -> tuple[ComponentType, str]:
     """
     Get or create a ComponentType based on a full entity key string.
 

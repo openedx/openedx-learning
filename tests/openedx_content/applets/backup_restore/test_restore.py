@@ -191,7 +191,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
             "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37",
             "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b",
         ]
-        entity_keys = [entity.key for entity in collection.entities.all()]
+        entity_keys = [entity.label for entity in collection.entities.all()]
         assert set(entity_keys) == set(expected_entity_keys)
 
 

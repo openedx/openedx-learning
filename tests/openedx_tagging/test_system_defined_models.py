@@ -110,9 +110,9 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         # Create a new LearningPackage - we know no Tag instances will exist for it yet.
         valid_lp = self._create_learning_pkg(key="valid-lp", title="New Learning Packacge")
         # The taxonomy can validate tags by value which we've defined as they 'key' of the LearningPackage:
-        assert self.lp_taxonomy.validate_value(self.learning_pkg_2.key) is True
-        assert self.lp_taxonomy.validate_value(self.learning_pkg_2.key) is True
-        assert self.lp_taxonomy.validate_value(valid_lp.key) is True
+        assert self.lp_taxonomy.validate_value(self.learning_pkg_2.label) is True
+        assert self.lp_taxonomy.validate_value(self.learning_pkg_2.label) is True
+        assert self.lp_taxonomy.validate_value(valid_lp.label) is True
         assert self.lp_taxonomy.validate_value("foo") is False
         # The taxonomy can also validate tags by external_id, which we've defined as the UUID of the LearningPackage:
         assert self.lp_taxonomy.validate_external_id(self.learning_pkg_2.uuid) is True

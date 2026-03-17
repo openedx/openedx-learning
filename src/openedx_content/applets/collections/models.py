@@ -70,7 +70,7 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, key_field
+from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, label_field
 from openedx_django_lib.validators import validate_utc_datetime
 
 from ..publishing.models import LearningPackage, PublishableEntity
@@ -85,12 +85,12 @@ class CollectionManager(models.Manager):
     """
     Custom manager for Collection class.
     """
-    def get_by_key(self, learning_package_id: int, key: str):
+    def get_by_label(self, learning_package_id: int, label: str):
         """
         Get the Collection for the given Learning Package + key.
         """
         return self.select_related('learning_package') \
-                   .get(learning_package_id=learning_package_id, key=key)
+                   .get(learning_package_id=learning_package_id, label=label)
 
 
 class Collection(models.Model):
@@ -105,10 +105,10 @@ class Collection(models.Model):
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
 
     # Every collection is uniquely and permanently identified within its learning package
-    # by a 'key' that is set during creation. Both will appear in the
+    # by a 'label' that is set during creation. Both will appear in the
     # collection's opaque key:
-    # e.g. "lib-collection:lib:key" is the opaque key for a library collection.
-    key = key_field(db_column='_key')
+    # e.g. "lib-collection:{org_code}:{lib_code}:{collection_code}" is the opaque key for a library collection.
+    collection_code = label_field(db_column='_key')
 
     title = case_insensitive_char_field(
         null=False,

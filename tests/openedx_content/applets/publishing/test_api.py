@@ -46,7 +46,7 @@ class LearningPackageTestCase(TestCase):
             created=created
         )
 
-        assert package.key == "my_key"
+        assert package.label == "my_key"
         assert package.title == "My Excellent Title with Emoji 🔥"
         assert package.description == "A fun Description!"
         assert package.created == created
@@ -65,7 +65,7 @@ class LearningPackageTestCase(TestCase):
             title="new title",
             description="new description",
         )
-        assert updated_package.key == "new_key"
+        assert updated_package.label == "new_key"
         assert updated_package.title == "new title"
         assert updated_package.description == "new description"
         assert updated_package.created == created
@@ -79,7 +79,7 @@ class LearningPackageTestCase(TestCase):
         title = "My Excellent Title with Emoji 🔥"
         package = publishing_api.create_learning_package(key, title)
 
-        assert package.key == "my_key"
+        assert package.label == "my_key"
         assert package.title == "My Excellent Title with Emoji 🔥"
 
         # Auto-generated datetime checking...

@@ -18,7 +18,7 @@ def generate_keys(apps, schema_editor):
         while Collection.objects.filter(key=key).exists():
             key = get_random_string(length)
 
-        collection.key = key
+        collection.collection_code = key
         collection.save()
 
 

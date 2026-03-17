@@ -215,7 +215,7 @@ class LpDumpCommandTestCase(TestCase):
                 self.assertIn(expected_path, zip_name_list)
 
     def test_lp_dump_command(self):
-        lp_key = self.learning_package.key
+        lp_key = self.learning_package.label
         file_name = f"{lp_key}.zip"
         try:
             out = StringIO()
@@ -241,7 +241,7 @@ class LpDumpCommandTestCase(TestCase):
                 Path("package.toml"),
                 [
                     '[learning_package]',
-                    f'key = "{self.learning_package.key}"',
+                    f'key = "{self.learning_package.label}"',
                     f'title = "{self.learning_package.title}"',
                     f'description = "{self.learning_package.description}"',
                     '[meta]',

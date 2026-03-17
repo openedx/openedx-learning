@@ -43,7 +43,7 @@ def toml_learning_package(
     # Learning package main info
     section = tomlkit.table()
     section.add("title", learning_package.title)
-    section.add("key", learning_package.key)
+    section.add("key", learning_package.label)
     section.add("description", learning_package.description)
     section.add("created", learning_package.created)
     section.add("updated", learning_package.updated)
@@ -90,7 +90,7 @@ def _get_toml_publishable_entity_table(
     entity_table = tomlkit.table()
     entity_table.add("can_stand_alone", entity.can_stand_alone)
     # Add key since the toml filename doesn't show the real key
-    entity_table.add("key", entity.key)
+    entity_table.add("key", entity.label)
     entity_table.add("created", entity.created)
 
     if not include_versions:

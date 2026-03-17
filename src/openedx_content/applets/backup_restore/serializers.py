@@ -17,7 +17,8 @@ class LearningPackageSerializer(serializers.Serializer):  # pylint: disable=abst
         During restore, a new key may be generated or overridden.
     """
     title = serializers.CharField(required=True)
-    key = serializers.CharField(required=True)
+    key = serializers.CharField(required=True)  # backcompat for `label`
+    label = serializers.CharField(required=True)
     description = serializers.CharField(required=True, allow_blank=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
 
@@ -42,7 +43,8 @@ class EntitySerializer(serializers.Serializer):  # pylint: disable=abstract-meth
     Serializer for publishable entities.
     """
     can_stand_alone = serializers.BooleanField(required=True)
-    key = serializers.CharField(required=True)
+    key = serializers.CharField(required=True)  # backcompat for `label`
+    label = serializers.CharField(required=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
 
 
@@ -51,7 +53,8 @@ class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstra
     Serializer for publishable entity versions.
     """
     title = serializers.CharField(required=True)
-    entity_key = serializers.CharField(required=True)
+    entity_key = serializers.CharField(required=True)  # backcompat for `entity_label`
+    entity_label = serializers.CharField(required=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
     version_num = serializers.IntegerField(required=True)
 
@@ -67,9 +70,9 @@ class ComponentSerializer(EntitySerializer):  # pylint: disable=abstract-method
         Custom validation logic:
         parse the entity_key into (component_type, local_key).
         """
-        entity_key = attrs["key"]
+        entity_label = attrs["key"]
         try:
-            component_type_obj, local_key = components_api.get_or_create_component_type_by_entity_key(entity_key)
+            component_type_obj, local_key = components_api.get_or_create_component_type_by_entity_label(entity_label)
             attrs["component_type"] = component_type_obj
             attrs["local_key"] = local_key
         except ValueError as exc:

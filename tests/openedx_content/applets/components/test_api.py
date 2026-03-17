@@ -684,7 +684,7 @@ class TestComponentTypeUtils(TestCase):
     """
 
     def test_get_or_create_component_type_by_entity_key_creates_new(self):
-        comp_type, local_key = components_api.get_or_create_component_type_by_entity_key(
+        comp_type, local_key = components_api.get_or_create_component_type_by_entity_label(
             "video:youtube:abcd1234"
         )
 
@@ -697,7 +697,7 @@ class TestComponentTypeUtils(TestCase):
     def test_get_or_create_component_type_by_entity_key_existing(self):
         ComponentType.objects.create(namespace="video", name="youtube")
 
-        comp_type, local_key = components_api.get_or_create_component_type_by_entity_key(
+        comp_type, local_key = components_api.get_or_create_component_type_by_entity_label(
             "video:youtube:efgh5678"
         )
 
@@ -708,6 +708,6 @@ class TestComponentTypeUtils(TestCase):
 
     def test_get_or_create_component_type_by_entity_key_invalid_format(self):
         with self.assertRaises(ValueError) as ctx:
-            components_api.get_or_create_component_type_by_entity_key("not-enough-parts")
+            components_api.get_or_create_component_type_by_entity_label("not-enough-parts")
 
         self.assertIn("Invalid entity_key format", str(ctx.exception))

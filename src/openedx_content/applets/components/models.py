@@ -21,7 +21,7 @@ from typing import ClassVar
 
 from django.db import models
 
-from openedx_django_lib.fields import case_sensitive_char_field, key_field
+from openedx_django_lib.fields import case_sensitive_char_field, label_field
 from openedx_django_lib.managers import WithRelationsManager
 
 from ..media.models import Media
@@ -151,10 +151,10 @@ class Component(PublishableEntityMixin):
     # XBlock block_type, but we want it to be more flexible in the long term.
     component_type = models.ForeignKey(ComponentType, on_delete=models.PROTECT)
 
-    # local_key is an identifier that is local to the learning_package and
-    # component_type.  The publishable.key should be calculated as a
-    # combination of component_type and local_key.
-    local_key = key_field()
+    # component_code is an identifier that is local to the learning_package and
+    # component_type.  The publishable.label should be calculated as a
+    # combination of component_type and component_code
+    component_code = label_field()
 
     class Meta:
         constraints = [
@@ -192,7 +192,7 @@ class Component(PublishableEntityMixin):
         verbose_name_plural = "Components"
 
     def __str__(self) -> str:
-        return f"{self.component_type.namespace}:{self.component_type.name}:{self.local_key}"
+        return f"{self.component_type.namespace}:{self.component_type.name}:{self.component_code}"
 
 
 class ComponentVersion(PublishableEntityVersionMixin):
@@ -247,7 +247,7 @@ class ComponentVersionMedia(models.Model):
     # alternative name for this would be "path", since it's most often used as
     # an internal file path. However, we might also want to put special
     # identifiers that don't map as cleanly to file paths at some point.
-    key = key_field(db_column="_key")
+    key = label_field(db_column="_key")
 
     class Meta:
         constraints = [
