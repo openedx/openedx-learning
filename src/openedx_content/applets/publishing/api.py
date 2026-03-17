@@ -810,7 +810,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
     # It also guards against infinite parent-child relationship loops, though
     # those aren't *supposed* to happen anyhow.
     processed_entity_ids: set[int] = set()
-    for original_change in change_log.records.all():
+    for original_change in change_log.records.order_by("pk"):
         affected_by_original_change = branch_cls.objects.filter(
             version__dependencies=original_change.entity
         )

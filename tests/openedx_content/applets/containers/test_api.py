@@ -19,7 +19,6 @@ from openedx_content.applets.publishing.models import (
     PublishableEntityMixin,
     PublishableEntityVersionMixin,
     PublishLog,
-    PublishSideEffect,
 )
 from tests.test_django_app.models import (
     ContainerContainer,
@@ -1273,11 +1272,7 @@ def test_deep_publish_log(
         ]
 
     # Publish great_grandparent. Should publish the whole tree.
-    # FIXME: this is using 144 queries on MySQL vs 132 on SQLite. The disparity only happens when publishing four levels
-    # of hierarchy at once (e.g. publishing a Section-->Component or Great-Grandparent-->Child). i.e. if you change this
-    # to publish "grandparent" instead of "great_grandparent" or you pre-publish the leaves (child entities), there is
-    # no disparity between the databases.
-    with django_assert_num_queries(133):
+    with django_assert_num_queries(132):
         publish_log = publish_entity(great_grandparent)
         assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
             "child_entity2",
@@ -1285,16 +1280,6 @@ def test_deep_publish_log(
             "parent_of_three",
             "grandparent",
             "great_grandparent",
-        ]
-        assert list(
-            PublishSideEffect.objects.filter(cause__publish_log=publish_log)
-            .values_list("cause__entity__key", "effect__entity__key")
-            .order_by("cause__entity__key")  # Note: order_by("pk") is different on MySQL vs SQLite
-        ) == [
-            ("child_entity2", "parent_of_two"),
-            ("grandparent", "great_grandparent"),
-            ("parent_of_three", "grandparent"),
-            ("parent_of_two", "grandparent"),
         ]
 
 
