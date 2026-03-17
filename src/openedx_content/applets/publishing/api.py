@@ -860,8 +860,8 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
                     branch_objs_to_update_with_side_effects.append(published_obj)
             elif branch_cls == Draft:
                 draft_obj = affected  # 'affected' is the current Draft object
-                if draft_obj.draft_log_record_id != side_effect_change.pk:
-                    draft_obj.draft_log_record = side_effect_change
+                if draft_obj.draft_log_record_id != side_effect_change.pk:  # type: ignore[union-attr]
+                    draft_obj.draft_log_record = side_effect_change  # type: ignore[union-attr]
                     branch_objs_to_update_with_side_effects.append(draft_obj)
 
             # Create a new side effect (DraftSideEffect or PublishSideEffect) to
