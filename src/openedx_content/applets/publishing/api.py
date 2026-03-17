@@ -854,13 +854,13 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             # Update the current branch pointer (Draft or Published) for this
             # entity to point to the side_effect_change (if it's not already).
             if branch_cls == Published:
-                published_obj = affected.entity.published
-                if published_obj.publish_log_record != side_effect_change:
+                published_obj = affected  # 'affected' is the current Published object
+                if published_obj.publish_log_record_id != side_effect_change.pk:
                     published_obj.publish_log_record = side_effect_change
                     branch_objs_to_update_with_side_effects.append(published_obj)
             elif branch_cls == Draft:
-                draft_obj = affected.entity.draft
-                if draft_obj.draft_log_record != side_effect_change:
+                draft_obj = affected  # 'affected' is the current Draft object
+                if draft_obj.draft_log_record_id != side_effect_change.pk:
                     draft_obj.draft_log_record = side_effect_change
                     branch_objs_to_update_with_side_effects.append(draft_obj)
 

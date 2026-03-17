@@ -130,7 +130,7 @@ class SubsectionsTestCase(ComponentTestCase):
         """
         with self.assertNumQueries(37):
             subsection = self.create_subsection_with_units([self.unit_1, self.unit_1_v1])
-        with self.assertNumQueries(107):  # TODO: this seems high?
+        with self.assertNumQueries(102):  # TODO: this seems high?
             content_api.publish_from_drafts(
                 self.learning_package.id,
                 draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=subsection.pk),
