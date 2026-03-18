@@ -53,7 +53,7 @@ def create_unit_and_version(
         created=created,
         created_by=created_by,
         can_stand_alone=can_stand_alone,
-        container_type=Unit,
+        container_cls=Unit,
     )
     assert isinstance(uv, UnitVersion)
     return unit, uv

@@ -163,7 +163,7 @@ class LpDumpCommandTestCase(TestCase):
             key="unit-1",
             created=cls.now,
             created_by=cls.user.id,
-            container_type=Unit,
+            container_cls=Unit,
         )
 
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):

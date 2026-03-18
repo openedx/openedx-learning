@@ -810,19 +810,19 @@ class LearningPackageUnzipper:
         learning_package,
         containers,
         *,
-        container_type: containers_api.ContainerType,
+        container_cls: containers_api.ContainerSubclass,
         container_map: dict,
         children_map: dict,
     ):
         """Internal logic for _save_units, _save_subsections, and _save_sections"""
-        type_code = container_type.type_code  # e.g. "unit"
+        type_code = container_cls.type_code  # e.g. "unit"
         for data in containers.get(type_code, []):
             entity_key = data.get("key")
             container = containers_api.create_container(
                 learning_package.id,
                 **data,  # should this be allowed to override any of the following fields?
                 created_by=self.user_id,
-                container_type=container_type,
+                container_cls=container_cls,
             )
             container_map[entity_key] = container  # e.g. `self.units_map_by_key[entity_key] = unit`
 
@@ -845,7 +845,7 @@ class LearningPackageUnzipper:
         self._save_container(
             learning_package,
             containers,
-            container_type=Unit,
+            container_cls=Unit,
             container_map=self.units_map_by_key,
             children_map=self.components_map_by_key,
         )
@@ -855,7 +855,7 @@ class LearningPackageUnzipper:
         self._save_container(
             learning_package,
             containers,
-            container_type=Subsection,
+            container_cls=Subsection,
             container_map=self.subsections_map_by_key,
             children_map=self.units_map_by_key,
         )
@@ -865,7 +865,7 @@ class LearningPackageUnzipper:
         self._save_container(
             learning_package,
             containers,
-            container_type=Section,
+            container_cls=Section,
             container_map=self.sections_map_by_key,
             children_map=self.subsections_map_by_key,
         )
@@ -890,11 +890,11 @@ class LearningPackageUnzipper:
             )
 
         def _process_draft_containers(
-            container_type: containers_api.ContainerType,
+            container_cls: containers_api.ContainerSubclass,
             container_map: dict,
             children_map: dict,
         ):
-            for valid_draft in containers.get(f"{container_type.type_code}_drafts", []):
+            for valid_draft in containers.get(f"{container_cls.type_code}_drafts", []):
                 entity_key = valid_draft.pop("entity_key")
                 version_num = valid_draft["version_num"]  # Should exist, validated earlier
                 if self._is_version_already_exists(entity_key, version_num):

@@ -13,16 +13,16 @@ def backfill_container_types(apps, schema_editor):
     existing containers.
     """
     Container = apps.get_model("openedx_content", "Container")
-    ContainerTypeRecord = apps.get_model("openedx_content", "ContainerTypeRecord")
-    section_type, _ = ContainerTypeRecord.objects.get_or_create(type_code="section")
-    subsection_type, _ = ContainerTypeRecord.objects.get_or_create(type_code="subsection")
-    unit_type, _ = ContainerTypeRecord.objects.get_or_create(type_code="unit")
+    ContainerType = apps.get_model("openedx_content", "ContainerType")
+    section_type, _ = ContainerType.objects.get_or_create(type_code="section")
+    subsection_type, _ = ContainerType.objects.get_or_create(type_code="subsection")
+    unit_type, _ = ContainerType.objects.get_or_create(type_code="unit")
 
-    containers_to_update = Container.objects.filter(container_type_record=None)
+    containers_to_update = Container.objects.filter(container_type=None)
 
-    containers_to_update.exclude(section=None).update(container_type_record=section_type)
-    containers_to_update.exclude(subsection=None).update(container_type_record=subsection_type)
-    containers_to_update.exclude(unit=None).update(container_type_record=unit_type)
+    containers_to_update.exclude(section=None).update(container_type=section_type)
+    containers_to_update.exclude(subsection=None).update(container_type=subsection_type)
+    containers_to_update.exclude(unit=None).update(container_type=unit_type)
 
     unknown_containers = containers_to_update.all()
     if unknown_containers:
@@ -35,9 +35,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 1. Create the new ContainerTypeRecord model
+        # 1. Create the new ContainerType model
         migrations.CreateModel(
-            name="ContainerTypeRecord",
+            name="ContainerType",
             fields=[
                 ("id", models.AutoField(primary_key=True, serialize=False)),
                 (
@@ -51,7 +51,7 @@ class Migration(migrations.Migration):
                 "constraints": [
                     models.CheckConstraint(
                         condition=django.db.models.lookups.Regex(models.F("type_code"), "^[a-z0-9\\-_\\.]+$"),
-                        name="oex_publishing_containertyperecord_type_code_rx",
+                        name="oex_publishing_containertype_type_code_rx",
                     )
                 ],
             },
@@ -59,12 +59,12 @@ class Migration(migrations.Migration):
         # 2. Define the ForeignKey from Container to ContainerType
         migrations.AddField(
             model_name="container",
-            name="container_type_record",
+            name="container_type",
             field=models.ForeignKey(
                 editable=False,
                 null=True,
                 on_delete=django.db.models.deletion.RESTRICT,
-                to="openedx_content.containertyperecord",
+                to="openedx_content.containertype",
             ),
         ),
         # 3. Populate the container_type column, which is currently NULL for all existing containers
@@ -72,12 +72,12 @@ class Migration(migrations.Migration):
         # 4. disallow NULL values from now on
         migrations.AlterField(
             model_name="container",
-            name="container_type_record",
+            name="container_type",
             field=models.ForeignKey(
                 editable=False,
                 null=False,
                 on_delete=django.db.models.deletion.RESTRICT,
-                to="openedx_content.containertyperecord",
+                to="openedx_content.containertype",
             ),
         ),
     ]

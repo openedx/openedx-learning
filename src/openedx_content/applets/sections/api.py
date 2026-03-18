@@ -53,7 +53,7 @@ def create_section_and_version(
         created=created,
         created_by=created_by,
         can_stand_alone=can_stand_alone,
-        container_type=Section,
+        container_cls=Section,
     )
     assert isinstance(sv, SectionVersion)
     return section, sv

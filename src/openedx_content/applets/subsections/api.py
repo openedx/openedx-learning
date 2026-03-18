@@ -53,7 +53,7 @@ def create_subsection_and_version(
         created=created,
         created_by=created_by,
         can_stand_alone=can_stand_alone,
-        container_type=Subsection,
+        container_cls=Subsection,
     )
     assert isinstance(sv, SubsectionVersion)
     return subsection, sv

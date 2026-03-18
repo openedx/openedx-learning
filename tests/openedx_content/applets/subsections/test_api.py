@@ -174,8 +174,8 @@ class SubsectionsTestCase(ComponentTestCase):
             self.create_subsection_with_units([self.component_1], key="unit:key3", title="Unit 3")
 
     def test_is_registered(self):
-        assert Subsection in content_api.get_all_container_types()
+        assert Subsection in content_api.get_all_container_subclasses()
 
     def test_olx_tag_name(self):
-        assert content_api.get_container_type("subsection") is Subsection
-        assert content_api.get_container_type("subsection").olx_tag_name == "sequential"
+        assert content_api.get_container_subclass("subsection") is Subsection
+        assert content_api.get_container_subclass("subsection").olx_tag_name == "sequential"

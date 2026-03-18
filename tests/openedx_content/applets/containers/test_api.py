@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 
 from openedx_content.applets.containers import api as containers_api
-from openedx_content.applets.containers.models import Container, ContainerTypeRecord, ContainerVersion
+from openedx_content.applets.containers.models import Container, ContainerType, ContainerVersion
 from openedx_content.applets.publishing import api as publishing_api
 from openedx_content.applets.publishing.models import (
     LearningPackage,
@@ -149,7 +149,7 @@ def create_test_container(
         key=key,
         title=title or f"Container ({key})",
         entities=entities,
-        container_type=TestContainer,
+        container_cls=TestContainer,
         created=now,
         created_by=None,
     )
@@ -219,7 +219,7 @@ def _grandparent(
         key="grandparent",
         title="Generic Container with Two Unpinned TestContainer children",
         entities=[parent_of_two, parent_of_three],
-        container_type=ContainerContainer,
+        container_cls=ContainerContainer,
         created=now,
         created_by=None,
     )
@@ -229,7 +229,7 @@ def _grandparent(
 @pytest.fixture(name="container_of_uninstalled_type")
 def _container_of_uninstalled_type(lp: LearningPackage, child_entity1: TestEntity) -> Container:
     """
-    A container whose ContainerType implementation is no longer available,
+    A container whose Container subclass implementation is no longer available,
     e.g. leftover data from an uninstalled plugin.
     """
     # First create a TestContainer, then we'll modify it to simulate it being from an uninstalled plugin
@@ -238,12 +238,12 @@ def _container_of_uninstalled_type(lp: LearningPackage, child_entity1: TestEntit
         key="abandoned-container",
         title="Abandoned Container 1",
         entities=[child_entity1],
-        container_type=TestContainer,
+        container_cls=TestContainer,
         created=now,
     )
     # Now create the plugin type (no public API for this; only do this in a test)
-    ctr = ContainerTypeRecord.objects.create(type_code="misc")
-    Container.objects.filter(pk=container.pk).update(container_type_record=ctr)
+    ctr = ContainerType.objects.create(type_code="misc")
+    Container.objects.filter(pk=container.pk).update(container_type=ctr)
     return Container.objects.get(pk=container.pk)  # Reload and just use the base Container type
 
 
@@ -255,7 +255,7 @@ def _other_lp_parent(lp2: LearningPackage, other_lp_child: TestEntity) -> TestCo
         key="other_lp_parent",
         title="Generic Container with One Unpinned Child Entity",
         entities=[other_lp_child],
-        container_type=TestContainer,
+        container_cls=TestContainer,
         created=now,
         created_by=None,
     )
@@ -304,7 +304,7 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
         lp.pk,
         key="new-container-1",
         title="Test Container 1",
-        container_type=TestContainer,
+        container_cls=TestContainer,
         created=now,
         created_by=admin_user.pk,
         can_stand_alone=False,
@@ -336,7 +336,7 @@ def test_create_container_queries(lp: LearningPackage, child_entity1: TestEntity
         "title": "Test Container",
         "created": now,
         "created_by": None,
-        "container_type": TestContainer,
+        "container_cls": TestContainer,
     }
     # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
     with django_assert_num_queries(31):
@@ -761,75 +761,74 @@ def test_get_container_by_key_nonexistent(lp: LearningPackage) -> None:
         containers_api.get_container_by_key(lp.pk, "invalid-key")
 
 
-# get_container_type
+# get_container_subclass
 
 
-def test_get_container_type() -> None:
+def test_get_container_subclass() -> None:
     """
-    Test get_container_type()
+    Test get_container_subclass()
     """
-    assert containers_api.get_container_type("test_generic") is TestContainer
-    assert containers_api.get_container_type("test_container_container") is ContainerContainer
+    assert containers_api.get_container_subclass("test_generic") is TestContainer
+    assert containers_api.get_container_subclass("test_container_container") is ContainerContainer
     with pytest.raises(
         containers_api.ContainerImplementationMissingError,
         match='An implementation for "foo" containers is not currently installed.',
     ):
-        containers_api.get_container_type("foo")
+        containers_api.get_container_subclass("foo")
 
 
-# get_all_container_types
-def test_get_all_container_types() -> None:
+# get_all_container_subclasses
+def test_get_all_container_subclasses() -> None:
     """
-    Test get_all_container_types()
+    Test get_all_container_subclasses()
     """
     # For test purposes, filter the list to only include containers from our "test_django_app":
-    assert [ct for ct in containers_api.get_all_container_types() if ct._meta.app_label == "test_django_app"] == [
+    assert [ct for ct in containers_api.get_all_container_subclasses() if ct._meta.app_label == "test_django_app"] == [
         ContainerContainer,
         TestContainer,
     ]
 
 
-# get_container_type_code_of and get_container_type_of
+# get_container_type_code_of and get_container_subclass_of
 
 
-def test_get_container_type_of(
+def test_get_container_subclass_of(
     grandparent: ContainerContainer, parent_of_two: TestContainer, child_entity1: TestEntity
 ):
     """
-    Test get_container_type_code_of() and get_container_type_of()
+    Test get_container_type_code_of() and get_container_subclass_of()
     """
     # Grandparent is a "ContainerContainer":
     assert isinstance(grandparent, ContainerContainer)
     assert containers_api.get_container_type_code_of(grandparent) == "test_container_container"
-    assert containers_api.get_container_type_of(grandparent) is ContainerContainer
+    assert containers_api.get_container_subclass_of(grandparent) is ContainerContainer
     # The functions work even if we pass a generic "Container" object:
     assert isinstance(grandparent.base_container, Container)
     assert containers_api.get_container_type_code_of(grandparent.base_container) == "test_container_container"
-    assert containers_api.get_container_type_of(grandparent.base_container) is ContainerContainer
+    assert containers_api.get_container_subclass_of(grandparent.base_container) is ContainerContainer
 
     # "Parent of Two" is a "TestContainer":
     assert isinstance(parent_of_two, TestContainer)
     assert containers_api.get_container_type_code_of(parent_of_two) == "test_generic"
-    assert containers_api.get_container_type_of(parent_of_two) is TestContainer
+    assert containers_api.get_container_subclass_of(parent_of_two) is TestContainer
     assert isinstance(parent_of_two.container, Container)
     assert containers_api.get_container_type_code_of(parent_of_two.container) == "test_generic"
-    assert containers_api.get_container_type_of(parent_of_two.container) is TestContainer
+    assert containers_api.get_container_subclass_of(parent_of_two.container) is TestContainer
 
     # Passing in a non-container will trigger an assert failure:
     with pytest.raises(AssertionError):
-        containers_api.get_container_type_of(child_entity1)  # type: ignore
+        containers_api.get_container_subclass_of(child_entity1)  # type: ignore
 
 
 def test_get_container_type_deleted(container_of_uninstalled_type: Container):
     """
-    Get ContainerType will raise ValueError if the container type implementation
-    is no longer available
+    `get_container_subclass_of` will raise ValueError if the container type implementation is no longer available
     """
     with pytest.raises(
         containers_api.ContainerImplementationMissingError,
         match='An implementation for "misc" containers is not currently installed.',
     ):
-        containers_api.get_container_type_of(container_of_uninstalled_type)
+        containers_api.get_container_subclass_of(container_of_uninstalled_type)
 
     # But get_container_type_code() should still work:
     assert containers_api.get_container_type_code_of(container_of_uninstalled_type) == "misc"
@@ -1138,7 +1137,7 @@ def test_publishing_shared_component(lp: LearningPackage):
         key="unit:1",
         created=now,
         created_by=None,
-        container_type=TestContainer,
+        container_cls=TestContainer,
     )
     unit2, _ = containers_api.create_container_and_version(
         lp.pk,
@@ -1147,7 +1146,7 @@ def test_publishing_shared_component(lp: LearningPackage):
         key="unit:2",
         created=now,
         created_by=None,
-        container_type=TestContainer,
+        container_cls=TestContainer,
     )
     publishing_api.publish_all_drafts(lp.pk)
     assert containers_api.contains_unpublished_changes(unit1.pk) is False

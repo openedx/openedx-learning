@@ -22,7 +22,7 @@ from ..publishing.models.publishable_entity import (
 __all__ = [
     "Container",
     "ContainerVersion",
-    # ContainerTypeRecord is not public
+    # ContainerType is not public
     "EntityList",
     "EntityListRow",
 ]
@@ -117,7 +117,7 @@ class ContainerImplementationMissingError(Exception):
     """Raised when trying to modify a container whose implementation [plugin] is no longer available."""
 
 
-class ContainerTypeRecord(models.Model):
+class ContainerType(models.Model):
     """
     Normalized representation of the type of Container.
 
@@ -141,7 +141,7 @@ class ContainerTypeRecord(models.Model):
             models.CheckConstraint(
                 # No whitespace, uppercase, or special characters allowed in "type_code".
                 condition=models.lookups.Regex(models.F("type_code"), r"^[a-z0-9\-_\.]+$"),
-                name="oex_publishing_containertyperecord_type_code_rx",
+                name="oex_publishing_containertype_type_code_rx",
             ),
         ]
 
@@ -165,11 +165,11 @@ class Container(PublishableEntityMixin):
     # olx_code: the OLX <tag_name> for XML serialization. Subclasses _may_ override this.
     # Only used in openedx-platform at the moment. We'll likely have to replace this with something more sophisticated.
     olx_tag_name: str = ""
-    _type_instance: ContainerTypeRecord  # Cache used by get_type_record()
+    _type_instance: ContainerType  # Cache used by get_container_type()
 
     # The type of the container. Cannot be changed once the container is created.
-    container_type_record = models.ForeignKey(
-        ContainerTypeRecord,
+    container_type = models.ForeignKey(
+        ContainerType,
         null=False,
         on_delete=models.RESTRICT,
         editable=False,
@@ -181,16 +181,15 @@ class Container(PublishableEntityMixin):
 
     @final
     @classmethod
-    def get_type_record(cls) -> ContainerTypeRecord:
+    def get_container_type(cls) -> ContainerType:
         """
-        Get the ContainerTypeRecord for this type of container, auto-creating it
-        if need be.
+        Get the ContainerType for this type of container, auto-creating it if need be.
         """
         if cls is Container:
-            raise TypeError('Manipulating "naked" Containers is not allowed. Use a specific Container type like Unit.')
+            raise TypeError("Manipulating plain Containers is not allowed. Use a Container subclass, like Unit.")
         assert cls.type_code, f"Container subclasses like {cls.__name__} must override type_code"
         if not hasattr(cls, "_type_instance"):
-            cls._type_instance, _ = ContainerTypeRecord.objects.get_or_create(type_code=cls.type_code)
+            cls._type_instance, _ = ContainerType.objects.get_or_create(type_code=cls.type_code)
         return cls._type_instance
 
     @final
@@ -198,24 +197,24 @@ class Container(PublishableEntityMixin):
     def reset_cache() -> None:
         """
         Helper for test cases that truncate the database between tests.
-        Call this to delete the cache used in get_type_record(), which will be
-        invalid after the ContainerTypeRecord table is truncated.
+        Call this to delete the cache used in get_container_type(), which will be invalid after the ContainerType table
+        is truncated.
         """
         for cls in _registered_container_types.values():
             if hasattr(cls, "_type_instance"):
                 del cls._type_instance
 
     @staticmethod
-    def register_subclass(container_type: type[Container]):
+    def register_subclass(container_subclass: type[Container]):
         """
         Register a Container subclass
         """
-        assert container_type.type_code, "Container subclasses must override type_code"
-        assert container_type.type_code not in _registered_container_types, (
-            f"{container_type.type_code} already registered"
+        assert container_subclass.type_code, "Container subclasses must override type_code"
+        assert container_subclass.type_code not in _registered_container_types, (
+            f"{container_subclass.type_code} already registered"
         )
-        _registered_container_types[container_type.type_code] = container_type
-        return container_type
+        _registered_container_types[container_subclass.type_code] = container_subclass
+        return container_subclass
 
     @staticmethod
     def subclass_for_type_code(type_code: str) -> type[Container]:

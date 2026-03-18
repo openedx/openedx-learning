@@ -1078,7 +1078,7 @@ class TestContainerSideEffects(TestCase):
             "my_container",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         container_v1 = containers_api.create_container_version(
             container.pk,
@@ -1158,7 +1158,7 @@ class TestContainerSideEffects(TestCase):
                 "my_container",
                 created=self.now,
                 created_by=None,
-                container_type=TestContainer,
+                container_cls=TestContainer,
             )
             container_v1 = containers_api.create_container_version(
                 container.pk,
@@ -1234,14 +1234,14 @@ class TestContainerSideEffects(TestCase):
             "unit_1",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         unit_2 = containers_api.create_container(
             self.learning_package.id,
             "unit_2",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         for unit in [unit_1, unit_2]:
             containers_api.create_container_version(
@@ -1296,7 +1296,7 @@ class TestContainerSideEffects(TestCase):
             "unit_1",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         containers_api.create_container_version(
             unit.pk,
@@ -1311,7 +1311,7 @@ class TestContainerSideEffects(TestCase):
             "subsection_1",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         containers_api.create_container_version(
             subsection.pk,
@@ -1395,7 +1395,7 @@ class TestContainerSideEffects(TestCase):
             "unit_1",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         containers_api.create_container_version(
             unit.pk,
@@ -1410,7 +1410,7 @@ class TestContainerSideEffects(TestCase):
             "subsection_1",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         containers_api.create_container_version(
             subsection.pk,
@@ -1442,7 +1442,7 @@ class TestContainerSideEffects(TestCase):
             "my_container",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         assert container.versioning.latest is None
         v1 = containers_api.create_next_container_version(

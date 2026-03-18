@@ -252,7 +252,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
             key="unit-1",
             created=created_time,
             created_by=cls.user.id,
-            container_type=Unit,
+            container_cls=Unit,
         )
 
         # Make and publish one Component

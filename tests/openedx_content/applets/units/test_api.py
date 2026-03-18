@@ -120,7 +120,7 @@ class UnitsTestCase(ComponentTestCase):
             key="test",
             created=self.now,
             created_by=None,
-            container_type=TestContainer,
+            container_cls=TestContainer,
         )
         with pytest.raises(Unit.DoesNotExist):
             content_api.get_unit(other_container.pk)
@@ -169,8 +169,8 @@ class UnitsTestCase(ComponentTestCase):
             self.create_unit_with_components([unit2], key="unit:key3", title="Unit 3")
 
     def test_is_registered(self):
-        assert Unit in content_api.get_all_container_types()
+        assert Unit in content_api.get_all_container_subclasses()
 
     def test_olx_tag_name(self):
-        assert content_api.get_container_type("unit") is Unit
-        assert content_api.get_container_type("unit").olx_tag_name == "vertical"
+        assert content_api.get_container_subclass("unit") is Unit
+        assert content_api.get_container_subclass("unit").olx_tag_name == "vertical"

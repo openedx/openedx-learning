@@ -7,7 +7,7 @@ from typing import override
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from ..containers.api import get_container_type_of
+from ..containers.api import get_container_subclass_of
 from ..containers.models import Container, ContainerVersion
 from ..publishing.models import PublishableEntity
 from ..subsections.models import Subsection
@@ -43,7 +43,7 @@ class Section(Container):
         """Check if the given entity is allowed as a child of a Section"""
         # Sections only allow Subsections as children, so the entity must be 1:1 with Container:
         container = entity.container  # Could raise PublishableEntity.container.RelatedObjectDoesNotExist
-        if get_container_type_of(container) is not Subsection:
+        if get_container_subclass_of(container) is not Subsection:
             raise ValidationError("Only Subsection can be added as children of a Section")
 
 

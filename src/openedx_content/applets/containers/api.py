@@ -27,7 +27,7 @@ from ..publishing.models import (
 from .models import (
     Container,
     ContainerImplementationMissingError,
-    ContainerTypeRecord,
+    ContainerType,
     ContainerVersion,
     EntityList,
     EntityListRow,
@@ -47,7 +47,7 @@ ContainerVersionModel = TypeVar("ContainerVersionModel", bound=ContainerVersion,
 __all__ = [
     # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
     #              out our approach to dynamic content (randomized, A/B tests, etc.)
-    "ContainerType",
+    "ContainerSubclass",
     "ContainerImplementationMissingError",
     "create_container",
     "create_container_version",
@@ -56,10 +56,10 @@ __all__ = [
     "get_container",
     "get_container_version",
     "get_container_by_key",
-    "get_all_container_types",
-    "get_container_type",
+    "get_all_container_subclasses",
+    "get_container_subclass",
     "get_container_type_code_of",
-    "get_container_type_of",
+    "get_container_subclass_of",
     "get_containers",
     "ChildrenEntitiesAction",
     "ContainerEntityListEntry",
@@ -90,7 +90,7 @@ class ContainerEntityListEntry:
 EntityListInput = Iterable[
     PublishableEntity | PublishableEntityMixin | PublishableEntityVersion | PublishableEntityVersionMixin
 ]
-ContainerType = type[Container]
+ContainerSubclass = type[Container]
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -140,7 +140,7 @@ def create_container(
     created: datetime,
     created_by: int | None,
     *,
-    container_type: type[ContainerModel],
+    container_cls: type[ContainerModel],
     can_stand_alone: bool = True,
 ) -> ContainerModel:
     """
@@ -152,13 +152,13 @@ def create_container(
         key: The key of the container.
         created: The date and time the container was created.
         created_by: The ID of the user who created the container
-        container_type: The type of container to create (e.g. Unit)
+        container_cls: The subclass of container to create (e.g. Unit)
         can_stand_alone: Set to False when created as part of containers
 
     Returns:
         The newly created container.
     """
-    assert issubclass(container_type, Container)
+    assert issubclass(container_cls, Container)
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
@@ -167,9 +167,9 @@ def create_container(
             created_by,
             can_stand_alone=can_stand_alone,
         )
-        container = container_type.objects.create(
+        container = container_cls.objects.create(
             publishable_entity=publishable_entity,
-            container_type_record=container_type.get_type_record(),
+            container_type=container_cls.get_container_type(),
         )
     return container
 
@@ -251,22 +251,22 @@ def _create_container_version(
     """
     # validate entity_list using the type implementation:
     try:
-        container_type = Container.subclass_for_type_code(container.container_type_record.type_code)
-    except ContainerTypeRecord.DoesNotExist as exc:
+        container_subclass = Container.subclass_for_type_code(container.container_type.type_code)
+    except ContainerType.DoesNotExist as exc:
         raise IntegrityError(
-            "Existing ContainerTypeRecord is now missing. "
+            "Existing ContainerType is now missing. "
             "Likely your test case needs to call Container.reset_cache() because the cache contains "
             "a reference to a row that no longer exists after the test DB has been truncated. "
         ) from exc
-    version_type = PublishableContentModelRegistry.get_versioned_model_cls(container_type)
+    version_type = PublishableContentModelRegistry.get_versioned_model_cls(container_subclass)
     for entity_row in entity_list.rows:
         try:
-            container_type.validate_entity(entity_row.entity)
+            container_subclass.validate_entity(entity_row.entity)
         except Exception as exc:
             # This exception is carefully worded. The validation may have failed because the entity is of the wrong
             # type, but it _could_ be a of the correct type but otherwise invalid/corrupt, e.g. partially deleted.
             raise ValidationError(
-                f'The entity "{entity_row.entity}" cannot be added to a "{container_type.type_code}" container.'
+                f'The entity "{entity_row.entity}" cannot be added to a "{container_subclass.type_code}" container.'
             ) from exc
 
     with atomic(savepoint=False):  # Make sure this will happen atomically but we don't need to create a new savepoint.
@@ -341,7 +341,7 @@ def create_container_and_version(
     key: str,
     *,
     title: str,
-    container_type: type[ContainerModel],
+    container_cls: type[ContainerModel],
     entities: EntityListInput | None = None,
     created: datetime,
     created_by: int | None = None,
@@ -354,7 +354,7 @@ def create_container_and_version(
         learning_package_id: The learning package ID.
         key: The key.
         title: The title of the new container.
-        container_type: The type of container to create (e.g. Unit)
+        container_cls: The subclass of container to create (e.g. Unit)
         entities: List of the entities that will comprise the entity list, in
             order. Pass `PublishableEntityVersion` or objects that use
             `PublishableEntityVersionMixin` to pin to a specific version. Pass
@@ -371,7 +371,7 @@ def create_container_and_version(
             created,
             created_by,
             can_stand_alone=can_stand_alone,
-            container_type=container_type,
+            container_cls=container_cls,
         )
         container_version: ContainerVersionModel = create_container_version(  # type: ignore[assignment]
             container.pk,
@@ -589,14 +589,14 @@ def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
         raise
 
 
-def get_all_container_types() -> list[ContainerType]:
+def get_all_container_subclasses() -> list[ContainerSubclass]:
     """
     Get a list of installed Container types (`Container` subclasses).
     """
     return Container.all_subclasses()
 
 
-def get_container_type(type_code: str, /) -> ContainerType:
+def get_container_subclass(type_code: str, /) -> ContainerSubclass:
     """
     Get subclass of `Container` from its `type_code` string (e.g. `"unit"`).
 
@@ -610,10 +610,10 @@ def get_container_type_code_of(container: Container | int, /) -> str:
     if isinstance(container, int):
         container = get_container(container)
     assert isinstance(container, Container)
-    return container.container_type_record.type_code
+    return container.container_type.type_code
 
 
-def get_container_type_of(container: Container | int, /) -> ContainerType:
+def get_container_subclass_of(container: Container | int, /) -> ContainerSubclass:
     """
     Get the type of a container.
 
