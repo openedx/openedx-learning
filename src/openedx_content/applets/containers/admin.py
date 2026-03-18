@@ -7,12 +7,40 @@ from __future__ import annotations
 import functools
 
 from django.contrib import admin
+from django.db.models import Count
+from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeText
 
 from openedx_django_lib.admin_utils import ReadOnlyModelAdmin, model_detail_link, one_to_one_related_model_html
 
-from .models import Container, ContainerVersion, EntityList, EntityListRow
+from .api import get_container_subclass, ContainerImplementationMissingError
+from .models import Container, ContainerType, ContainerVersion, EntityList, EntityListRow
+
+
+@admin.register(ContainerType)
+class ContainerTypeAdmin(ReadOnlyModelAdmin):
+    """Very basic Django admin for ContainerType"""
+
+    list_display = ("type_code", "num_containers", "installed")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(num_containers=Count("container"))
+
+    @admin.display(description="# of Containers")
+    def num_containers(self, obj: ContainerType) -> str:
+        """# of containers of this type and a link to view them"""
+        url = reverse("admin:openedx_content_container_changelist") + f"?container_type={obj.pk}"
+        return format_html('<a href="{}">{}</a>', url, obj.num_containers)
+
+    @admin.display(boolean=True)
+    def installed(self, obj: ContainerType) -> str:
+        """Is the implementation of this container subclass installed?"""
+        try:
+            get_container_subclass(obj.type_code)
+            return True
+        except ContainerImplementationMissingError:
+            return False
 
 
 def _entity_list_detail_link(el: EntityList) -> SafeText:
@@ -55,13 +83,13 @@ class ContainerAdmin(ReadOnlyModelAdmin):
     Django admin configuration for Container
     """
 
-    list_display = ("key", "created", "draft", "published", "see_also")
+    list_display = ("key", "container_type_display", "published", "draft", "created")
     fields = [
         "pk",
         "publishable_entity",
         "learning_package",
-        "draft",
         "published",
+        "draft",
         "created",
         "created_by",
         "see_also",
@@ -82,6 +110,7 @@ class ContainerAdmin(ReadOnlyModelAdmin):
             super()
             .get_queryset(request)
             .select_related(
+                "container_type",
                 "publishable_entity",
                 "publishable_entity__learning_package",
                 "publishable_entity__published__version",
@@ -89,11 +118,27 @@ class ContainerAdmin(ReadOnlyModelAdmin):
             )
         )
 
+    @admin.display(description="Type")
+    def container_type_display(self, obj: Container) -> str:
+        """What type of container this is"""
+        type_code = obj.container_type.type_code
+        try:
+            container_type_name = get_container_subclass(type_code).__name__
+        except ContainerImplementationMissingError:
+            container_type_name = "?????"
+        return format_html(
+            '{}<br><span style="color: var(--body-quiet-color);">({})</span>', container_type_name, type_code
+        )
+
     def draft(self, obj: Container) -> str:
         """
         Link to this Container's draft ContainerVersion
         """
         if draft := obj.versioning.draft:
+            if draft.pk == obj.versioning.published.pk:
+                return format_html(
+                    '<span style="color: var(--body-quiet-color);">{}</span>', "(no changes from published)"
+                )
             return format_html(
                 'Version {} "{}" ({})', draft.version_num, draft.title, _entity_list_detail_link(draft.entity_list)
             )
