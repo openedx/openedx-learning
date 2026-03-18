@@ -29,7 +29,7 @@ cffi==2.0.0
     #   -r requirements/base.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.4.5
+charset-normalizer==3.4.6
     # via
     #   -r requirements/base.txt
     #   requests
@@ -55,9 +55,9 @@ click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
-code-annotations==2.3.2
+code-annotations==3.0.0
     # via -r requirements/test.in
-coverage[toml]==7.13.4
+coverage[toml]==7.13.5
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -96,11 +96,11 @@ django-simple-history==3.11.0
     # via
     #   -r requirements/base.txt
     #   edx-organizations
-django-stubs==5.2.9
+django-stubs==6.0.0
     # via
     #   -r requirements/test.in
     #   djangorestframework-stubs
-django-stubs-ext==5.2.9
+django-stubs-ext==6.0.0
     # via django-stubs
 django-waffle==5.0.0
     # via
@@ -203,7 +203,7 @@ pygments==2.19.2
     # via
     #   pytest
     #   rich
-pyjwt[crypto]==2.11.0
+pyjwt[crypto]==2.12.1
     # via
     #   -r requirements/base.txt
     #   drf-jwt
