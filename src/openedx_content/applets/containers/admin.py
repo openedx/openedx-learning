@@ -5,17 +5,23 @@ Django admin for containers models
 from __future__ import annotations
 
 import functools
+from typing import TYPE_CHECKING
 
 from django.contrib import admin
-from django.db.models import Count
+from django.db.models import Count, QuerySet
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeText
 
 from openedx_django_lib.admin_utils import ReadOnlyModelAdmin, model_detail_link, one_to_one_related_model_html
 
-from .api import get_container_subclass, ContainerImplementationMissingError
+from .api import ContainerImplementationMissingError, get_container_subclass
 from .models import Container, ContainerType, ContainerVersion, EntityList, EntityListRow
+
+if TYPE_CHECKING:
+
+    class ContainerTypeWithNumContainers(ContainerType):
+        num_containers: int
 
 
 @admin.register(ContainerType)
@@ -24,17 +30,17 @@ class ContainerTypeAdmin(ReadOnlyModelAdmin):
 
     list_display = ("type_code", "num_containers", "installed")
 
-    def get_queryset(self, request):
+    def get_queryset(self, request) -> QuerySet[ContainerTypeWithNumContainers]:
         return super().get_queryset(request).annotate(num_containers=Count("container"))
 
     @admin.display(description="# of Containers")
-    def num_containers(self, obj: ContainerType) -> str:
+    def num_containers(self, obj: ContainerTypeWithNumContainers) -> str:
         """# of containers of this type and a link to view them"""
         url = reverse("admin:openedx_content_container_changelist") + f"?container_type={obj.pk}"
         return format_html('<a href="{}">{}</a>', url, obj.num_containers)
 
     @admin.display(boolean=True)
-    def installed(self, obj: ContainerType) -> str:
+    def installed(self, obj: ContainerType) -> bool:
         """Is the implementation of this container subclass installed?"""
         try:
             get_container_subclass(obj.type_code)
