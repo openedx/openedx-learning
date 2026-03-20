@@ -15,6 +15,9 @@ This sort key allows us to sort arbitrary keys into "tree order", so
 Gets sorted as "Charlie", "Alice", "Bob", "Danielle"
 (using sort keys "charlie\t", "charlie\talice\t", "charlie\tbob\t, "danielle\t")
 
+While we're at it, we compute the 'depth' field as well - root tags with no
+parent have depth=0, their children have depth=1, and so on.
+
 The tab separator is embedded as a Python \\t escape, which all databases accept
 as a literal tab character inside a SQL string literal.  The only remaining
 vendor difference is string concatenation: SQLite and PostgreSQL use ||, while
@@ -58,9 +61,12 @@ _DROP_SQL = "DROP VIEW IF EXISTS oel_tagging_tag_computed"
 
 
 def create_view(_apps, schema_editor):
+    """Create the view that backs TagComputed"""
     if schema_editor.connection.vendor == "mysql":
+        # MySQL uses non-standard string concatentation via a function rather than an operator:
         schema_editor.execute(_SQL_MYSQL)
     else:
+        # SQLite and PostgreSQL use this standard || syntax:
         schema_editor.execute(_SQL_PIPE)
 
 
