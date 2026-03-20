@@ -12,7 +12,7 @@ from django.db.utils import IntegrityError
 from django.test.testcases import TestCase
 
 from openedx_tagging import api
-from openedx_tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
+from openedx_tagging.models import LanguageTaxonomy, ObjectTag, Tag, TagComputed, Taxonomy
 from openedx_tagging.models.utils import RESERVED_TAG_CHARS
 
 from .utils import pretty_format_tags
@@ -443,7 +443,8 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "Eukaryota (None) (children: 5 + 8)",
             "  Animalia (Eukaryota) (children: 7 + 1)",
             "    Arthropoda (Animalia) (children: 0)",
-            "    Chordata (Animalia) (children: 1)",  # note this has a child but the child is not included
+            "    Chordata (Animalia) (children: 1)",
+            "      Mammalia (Chordata) (children: 0)",
             "    Cnidaria (Animalia) (children: 0)",
             "    Ctenophora (Animalia) (children: 0)",
             "    Gastrotrich (Animalia) (children: 0)",
@@ -622,6 +623,12 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "Interests (None) (used: 0, children: 1 + 7)",
             "  Holland Codes (Interests) (used: 0, children: 1 + 6)",
             "    Interests - Holland Codes (Holland Codes) (used: 0, children: 6)",
+            "      Artistic (Interests - Holland Codes) (used: 0, children: 0)",
+            "      Conventional (Interests - Holland Codes) (used: 0, children: 0)",
+            "      Enterprising (Interests - Holland Codes) (used: 0, children: 0)",
+            "      Investigative (Interests - Holland Codes) (used: 0, children: 0)",
+            "      Realistic (Interests - Holland Codes) (used: 0, children: 0)",
+            "      Social (Interests - Holland Codes) (used: 0, children: 0)",
         ]
 
 
@@ -904,4 +911,89 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             ("tribble", True),  # <--- Deleted, but the value is preserved
             (self.archaea.value, False),
             (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
+        ]
+
+
+class TestTagComputed(TestCase):
+    """
+    Test the TagComputed view (oel_tagging_tag_computed), which uses a
+    WITH RECURSIVE CTE to compute sort_key and depth for every Tag.
+
+    The tree used throughout this class:
+
+        Charlie            (depth 0)
+            Alice          (depth 1)
+                Delta      (depth 2)
+                    Echo   (depth 3)
+                        Foxtrot  (depth 4)  ← beyond TAXONOMY_MAX_DEPTH
+            Bob            (depth 1)
+        Danielle           (depth 0)
+    """
+
+    def setUp(self):
+        taxonomy = api.create_taxonomy("Test TagComputed")
+        self.charlie = Tag.objects.create(taxonomy=taxonomy, value="Charlie")
+        self.alice   = Tag.objects.create(taxonomy=taxonomy, value="Alice",   parent=self.charlie)
+        self.bob     = Tag.objects.create(taxonomy=taxonomy, value="Bob",     parent=self.charlie)
+        self.delta   = Tag.objects.create(taxonomy=taxonomy, value="Delta",   parent=self.alice)
+        self.echo    = Tag.objects.create(taxonomy=taxonomy, value="Echo",    parent=self.delta)
+        self.foxtrot = Tag.objects.create(taxonomy=taxonomy, value="Foxtrot", parent=self.echo)
+        self.danielle = Tag.objects.create(taxonomy=taxonomy, value="Danielle")
+
+    def _c(self, tag):
+        return TagComputed.objects.get(tag=tag)
+
+    def test_root_tag(self):
+        c = self._c(self.charlie)
+        assert c.depth == 0
+        assert c.sort_key == "charlie\t"
+
+    def test_depth_1(self):
+        c = self._c(self.alice)
+        assert c.depth == 1
+        assert c.sort_key == "charlie\talice\t"
+
+    def test_depth_2(self):
+        c = self._c(self.delta)
+        assert c.depth == 2
+        assert c.sort_key == "charlie\talice\tdelta\t"
+
+    def test_depth_3(self):
+        c = self._c(self.echo)
+        assert c.depth == 3
+        assert c.sort_key == "charlie\talice\tdelta\techo\t"
+
+    def test_depth_4_beyond_taxonomy_max_depth(self):
+        """Tags deeper than TAXONOMY_MAX_DEPTH (3) are handled correctly."""
+        c = self._c(self.foxtrot)
+        assert c.depth == 4
+        assert c.sort_key == "charlie\talice\tdelta\techo\tfoxtrot\t"
+
+    def test_second_root(self):
+        c = self._c(self.danielle)
+        assert c.depth == 0
+        assert c.sort_key == "danielle\t"
+
+    def test_tree_sort_order(self):
+        """
+        Tags ordered by sort_key come out in depth-first tree order:
+        each parent immediately before its subtree, siblings alphabetically.
+        """
+        rows = (
+            TagComputed.objects
+            .filter(tag__in=[
+                self.charlie, self.alice, self.bob,
+                self.delta, self.echo, self.foxtrot, self.danielle,
+            ])
+            .select_related("tag")
+            .order_by("sort_key")
+        )
+        assert [r.tag.value for r in rows] == [
+            "Charlie",   # charlie\t
+            "Alice",     # charlie\talice\t
+            "Delta",     # charlie\talice\tdelta\t
+            "Echo",      # charlie\talice\tdelta\techo\t
+            "Foxtrot",   # charlie\talice\tdelta\techo\tfoxtrot\t
+            "Bob",       # charlie\tbob\t  (after Alice's entire subtree)
+            "Danielle",  # danielle\t
         ]

@@ -147,7 +147,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Eukaryota (children: 5 + 8)",
             "  Animalia (children: 7 + 1)",
             "    Arthropoda (children: 0)",
-            "    Chordata (children: 1)",  # The child of this is excluded due to depth limit
+            "    Chordata (children: 1)",
+            "      Mammalia (children: 0)",
             "    Cnidaria (children: 0)",
             "    Ctenophora (children: 0)",
             "    Gastrotrich (children: 0)",
@@ -784,11 +785,12 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Bacteria (used: 0, children: 2)",
             "  Archaebacteria (used: 1, children: 0)",
             "  Eubacteria (used: 0, children: 0)",
-            "Eukaryota (used: 0, children: 4 + 7)",
-            "  Animalia (used: 1, children: 7)",
+            "Eukaryota (used: 0, children: 4 + 8)",
+            "  Animalia (used: 1, children: 7 + 1)",
             "    Arthropoda (used: 1, children: 0)",
-            "    Chordata (used: 0, children: 0)",  # <<< Chordata has a matching child but we only support searching
-            "    Cnidaria (used: 0, children: 0)",  # 3 levels deep at once for now.
+            "    Chordata (used: 0, children: 1)",
+            "      Mammalia (used: 0, children: 0)",
+            "    Cnidaria (used: 0, children: 0)",
             "    Ctenophora (used: 0, children: 0)",
             "    Gastrotrich (used: 1, children: 0)",
             "    Placozoa (used: 1, children: 0)",
@@ -1097,15 +1099,17 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tag_5 = tagging_api.add_tag_to_taxonomy(taxonomy, "Great-Great-Great-Grandchild - depth 5", parent_tag_value=tag_4.value)
         assert tag_5.depth == 5
 
-        # APIs like `get_tags()` will return only one level at a time:
         assert pretty_format_tags(
             tagging_api.get_tags(taxonomy)
         ) == [
-            'Root - depth 0 (None) (children: 1 + 2)',
-            '  Child - depth 1 (Root - depth 0) (children: 1 + 2)',
-            '    Grandchild - depth 2 (Child - depth 1) (children: 1 + 2)',
+            "Root - depth 0 (None) (children: 1 + 4)",
+            "  Child - depth 1 (Root - depth 0) (children: 1 + 3)",
+            "    Grandchild - depth 2 (Child - depth 1) (children: 1 + 2)",
+            "      Great-Grandchild - depth 3 (Grandchild - depth 2) (children: 1 + 1)",
+            "        Great-Great-Grandchild - depth 4 (Great-Grandchild - depth 3) (children: 1)",
+            "          Great-Great-Great-Grandchild - depth 5 (Great-Great-Grandchild - depth 4) (children: 0)",
         ]
-        # But we can always load deeper levels one level at a time:
+        # And we can load deep levels one level at a time:
         assert pretty_format_tags(
             tagging_api.get_children_tags(taxonomy, parent_tag_value=tag_3.value)
         ) == [
@@ -1116,7 +1120,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ) == [
             '          Great-Great-Great-Grandchild - depth 5 (Great-Great-Grandchild - depth 4) (children: 0)',
         ]
-        # Or even up to three levels at a time:
+        # Or even load a subtree:
         deep_result = taxonomy.get_filtered_tags(depth=None, parent_tag_value=tag_2.value)
         assert pretty_format_tags(deep_result, parent=False) == [
             '      Great-Grandchild - depth 3 (children: 1 + 1)',

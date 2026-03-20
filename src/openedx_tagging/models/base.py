@@ -535,20 +535,16 @@ class Taxonomy(models.Model):
         Implementation of get_filtered_tags() for closed taxonomies, where
         we're including tags from multiple levels of the hierarchy.
         """
-        # All tags (possibly below a certain tag?) in the closed taxonomy, up to depth TAXONOMY_MAX_DEPTH
+        # All tags (possibly below a certain tag) in the closed taxonomy
         if parent_tag_value:
             # Get a subtree, up to three levels deep below this tag:
-            main_parent_id = self.tag_for_value(parent_tag_value).pk
+            main_parent_tag = self.tag_for_value(parent_tag_value, select_related=["computed"])
+            qs = self.tag_set.filter(
+                computed__sort_key__startswith=main_parent_tag.computed.sort_key,
+                computed__depth__gt=main_parent_tag.depth,
+            )
         else:
-            # Load the first three levels of the taxonomy.
-            main_parent_id = None
-
-        assert TAXONOMY_MAX_DEPTH == 3  # If we change TAXONOMY_MAX_DEPTH we need to update the filter below:
-        qs: models.QuerySet = self.tag_set.filter(
-            Q(parent_id=main_parent_id) |
-            Q(parent__parent_id=main_parent_id) |
-            Q(parent__parent__parent_id=main_parent_id)
-        )
+            qs = self.tag_set
 
         if search_term:
             # We need to do an additional query to find all the tags that match the search term, then limit the
@@ -582,9 +578,18 @@ class Taxonomy(models.Model):
             # frontend.
         else:
             qs = qs.annotate(child_count=models.Count("children", distinct=True))
-            qs = qs.annotate(grandchild_count=models.Count("children__children", distinct=True))
-            qs = qs.annotate(great_grandchild_count=models.Count("children__children__children"))
-            qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
+            # Count all descendants at any depth using the sort_key prefix trick:
+            # every descendant of tag T has a sort_key that starts with T's sort_key,
+            # so a startswith filter finds T itself plus all its descendants.
+            # Excluding T's pk leaves only proper descendants.
+            descendants_sq = (
+                Tag.objects
+                .filter(computed__sort_key__startswith=models.OuterRef("computed__sort_key"))
+                .exclude(pk=models.OuterRef("pk"))
+                .order_by()
+                .annotate(count=models.Func(F("id"), function="Count"))
+            )
+            qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))
 
         # Add the "depth" to each tag from the TagComputed view:
         qs = qs.annotate(depth=F("computed__depth"))
