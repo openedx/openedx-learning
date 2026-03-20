@@ -61,9 +61,7 @@ class TestImportTemplate(TestImportExportMixin, TestCase):
             '    Hi-hat (HI-HAT) (Idiophone) (children: 0)',
             '  Membranophone (DRUMS) (Percussion instruments) (children: 2 + 1)',
             '    Cajón (CAJÓN) (Membranophone) (children: 1)',
-            # This tag is present in the import files, but it will be omitted from get_tags()
-            # because it sits beyond TAXONOMY_MAX_DEPTH.
-            #      Pyle Stringed Jam Cajón (PYLE) (Cajón) (children: 0)
+            '      Pyle Stringed Jam Cajón (PYLE) (Cajón) (children: 0)',
             '    Tabla (TABLA) (Membranophone) (children: 0)',
             'String instruments (STRINGS) (None) (children: 2 + 5)',
             '  Bowed strings (BOW) (String instruments) (children: 2)',
