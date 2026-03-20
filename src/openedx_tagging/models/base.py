@@ -572,7 +572,7 @@ class Taxonomy(models.Model):
                         matching_ids.append(pk)
                 next_ancestor_id = row["parent__parent__parent_id"]
                 while next_ancestor_id:  # If there are even deeper ancestors, add them (inefficiently):
-                    next_ancestor_id = Tag.objects.get(pk=next_ancestor_id).parent_id
+                    next_ancestor_id = self.tag_set.get(pk=next_ancestor_id).parent_id
                     matching_ids.append(next_ancestor_id)
 
             qs = qs.filter(pk__in=matching_ids)
@@ -584,7 +584,7 @@ class Taxonomy(models.Model):
             # so a startswith filter finds T itself plus all its descendants.
             # Excluding T's pk leaves only proper descendants.
             descendants_sq = (
-                Tag.objects
+                self.tag_set
                 .filter(pk__in=matching_ids)
                 .filter(computed__sort_key__startswith=models.OuterRef("computed__sort_key"))
                 .exclude(pk=models.OuterRef("pk"))
@@ -604,7 +604,7 @@ class Taxonomy(models.Model):
             # so a startswith filter finds T itself plus all its descendants.
             # Excluding T's pk leaves only proper descendants.
             descendants_sq = (
-                Tag.objects
+                self.tag_set
                 .filter(computed__sort_key__startswith=models.OuterRef("computed__sort_key"))
                 .exclude(pk=models.OuterRef("pk"))
                 .order_by()
