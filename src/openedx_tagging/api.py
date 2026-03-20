@@ -22,7 +22,6 @@ from django.utils.translation import gettext as _
 
 from .data import TagDataQuerySet
 from .models import ObjectTag, Tag, Taxonomy
-from .models.utils import StringAgg
 
 # Export this as part of the API
 TagDoesNotExist = Tag.DoesNotExist
@@ -242,32 +241,30 @@ def get_object_tag_counts(object_id_pattern: str, count_implicit=False) -> dict[
     qs = qs.exclude(taxonomy__enabled=False)  # The whole taxonomy is disabled
     qs = qs.exclude(tag_id=None, taxonomy__allow_free_text=False)  # The taxonomy exists but the tag is deleted
     if count_implicit:
-        # Counting the implicit tags is tricky, because if two "grandchild" tags have the same implicit parent tag, we
-        # need to count that parent tag only once. To do that, we collect all the ancestor tag IDs into an aggregate
-        # string, and then count the unique values using python
-        qs = qs.values("object_id").annotate(
-            num_tags=models.Count("id"),
-            tag_ids_str_1=StringAgg("tag_id"),
-            tag_ids_str_2=StringAgg("tag__parent_id"),
-            tag_ids_str_3=StringAgg("tag__parent__parent_id"),
-            tag_ids_str_4=StringAgg("tag__parent__parent__parent_id"),
-        ).order_by("object_id")
-        result = {}
+        # Use the sort_key from the TagComputed view to count implicit (ancestor) tags at any depth.
+        # Each tag's sort_key encodes its full ancestry path, e.g. "root\tchild\tgrandchild\t".
+        # Every prefix of that path (at each \t boundary) uniquely identifies one tag in the chain,
+        # so collecting prefixes into a set naturally deduplicates shared ancestors across multiple
+        # tags on the same object.
+        qs = qs.annotate(sort_key=F("tag__computed__sort_key")).values("object_id", "sort_key")
+        result: dict = {}
         for row in qs:
-            # ObjectTags for free text taxonomies will be included in "num_tags" count, but not "tag_ids_str_1" since
-            # they have no tag ID. We can compute how many free text tags each object has now:
-            if row["tag_ids_str_1"]:
-                num_free_text_tags = row["num_tags"] - len(row["tag_ids_str_1"].split(","))
+            object_id = row["object_id"]
+            if object_id not in result:
+                result[object_id] = {"free_text": 0, "paths": set()}
+            sort_key = row["sort_key"]
+            if sort_key is None:
+                # Free-text tag: no Tag record, so no sort_key
+                result[object_id]["free_text"] += 1
             else:
-                num_free_text_tags = row["num_tags"]
-            # Then we count the total number of *unique* Tags for this object, both implicit and explicit:
-            other_tag_ids = set()
-            for field in ("tag_ids_str_1", "tag_ids_str_2", "tag_ids_str_3", "tag_ids_str_4"):
-                if row[field] is not None:
-                    for tag_id in row[field].split(","):
-                        other_tag_ids.add(int(tag_id))
-            result[row["object_id"]] = num_free_text_tags + len(other_tag_ids)
-        return result
+                # Add the sort_key prefix for each ancestor level
+                parts = sort_key.rstrip("\t").split("\t")
+                for i in range(1, len(parts) + 1):
+                    result[object_id]["paths"].add("\t".join(parts[:i]))
+        return {
+            object_id: data["free_text"] + len(data["paths"])
+            for object_id, data in result.items()
+        }
     else:
         qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
         return {row["object_id"]: row["num_tags"] for row in qs}
