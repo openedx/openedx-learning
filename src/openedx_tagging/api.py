@@ -200,11 +200,12 @@ def get_object_tags(
         .select_related("taxonomy", "tag", "tag__parent", "tag__parent__parent")
         # Sort the tags within each taxonomy in "tree order". See Taxonomy._get_filtered_tags_deep for details on this:
         .annotate(sort_key=Lower(Concat(
+            # TODO: rewrite this to use a "WITH RECURSIVE" common table expression ?
             ConcatNull(F("tag__parent__parent__parent__value"), Value("\t")),
             ConcatNull(F("tag__parent__parent__value"), Value("\t")),
             ConcatNull(F("tag__parent__value"), Value("\t")),
             Coalesce(F("tag__value"), F("_value")),
-            Value("\t"),
+            Value("\t"),  # Required for MySQL to sort correctly
             output_field=models.CharField(),
         )))
         .annotate(taxonomy_name=Coalesce(F("taxonomy__name"), F("_export_id")))

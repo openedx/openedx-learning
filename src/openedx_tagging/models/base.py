@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List
+from typing import List, Self
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -14,21 +14,23 @@ from django.db.models.functions import Concat, Lower
 from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
-from typing_extensions import Self  # Until we upgrade to python 3.11
 
 from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, case_sensitive_char_field
 
 from ..data import TagDataQuerySet
-from .utils import RESERVED_TAG_CHARS, ConcatNull
+from .utils import RESERVED_TAG_CHARS
 
 log = logging.getLogger(__name__)
 
 
-# Maximum depth allowed for a hierarchical taxonomy's tree of tags.
+# Maximum depth of tags that can be retrieved from any single API call.
+# Currently, taxonomies support unlimited depth but you can only retrieve up to three levels deep at one time.
+# TODO: add an absolute limit as well.
+# TODO: not all APIs work with deeper than 3 tags - e.g. get_object_tags will always return the correct
+# results, but the order of tags below depth 4 won't be correct.
 TAXONOMY_MAX_DEPTH = 3
 
 # Ancestry of a given tag; the Tag.value fields of a given tag and its parents, starting from the root.
-# Will contain 0...TAXONOMY_MAX_DEPTH elements.
 Lineage = List[str]
 
 
@@ -147,20 +149,34 @@ class Tag(models.Model):
         return depth
 
     @staticmethod
-    def annotate_depth(qs: models.QuerySet) -> models.QuerySet:
+    def annotate_depth(
+        qs: models.QuerySet,
+        from_tag_id=None,  # depth from None means absolute depth (default)
+        depth_offset=0,  # If using a "from tag" (subtree depth), specify an offset here to add to each tag's depth
+    ) -> models.QuerySet:
         """
         Given a query that loads Tag objects, annotate it with the depth of
         each tag.
+
+        Normally this refers to the "absolute depth" (where root tags with no
+        parent have depth 0, but you can also get the depth relative to some
+        other tag, i.e. subtree depth, by passing in the ID of a tag known to be
+        an ancestor of all the tags in the query set and its depth.)
         """
-        return qs.annotate(depth=models.Case(
-            models.When(parent_id=None, then=0),
-            models.When(parent__parent_id=None, then=1),
-            models.When(parent__parent__parent_id=None, then=2),
-            models.When(parent__parent__parent__parent_id=None, then=3),
-            # If the depth is 4 or more, currently we just "collapse" the depth
-            # to 4 in order not to add too many joins to this query in general.
-            default=4,
-        ))
+        # fmt: off
+        return qs.annotate(
+            depth=models.Case(
+                models.When(parent_id=from_tag_id, then=depth_offset), # e.g. when no parent, depth = 0
+                models.When(parent__parent_id=from_tag_id, then=depth_offset + 1), # e.g. when 1 parent, depth = 1
+                models.When(parent__parent__parent_id=from_tag_id, then=depth_offset + 2),
+                models.When(parent__parent__parent__parent_id=from_tag_id, then=depth_offset + 3),
+                # If the depth is 4 or more, currently we just "collapse" the depth
+                # to 4 in order not to add too many joins to this query in general.
+                # But you can call this again using a new 'from_tag' to get accurate calculations at greater depths.
+                default=depth_offset + 4,
+            )
+        )
+        # fmt: on
 
     @cached_property
     def child_count(self) -> int:
@@ -526,9 +542,14 @@ class Taxonomy(models.Model):
         """
         # All tags (possibly below a certain tag?) in the closed taxonomy, up to depth TAXONOMY_MAX_DEPTH
         if parent_tag_value:
-            main_parent_id = self.tag_for_value(parent_tag_value).pk
+            # Get a subtree, up to three levels deep below this tag:
+            main_parent = self.tag_for_value(parent_tag_value, select_related=["parent", "parent__parent"])
+            main_parent_id = main_parent.pk
+            depth_offset = main_parent.depth + 1
         else:
+            # Load the first three levels of the taxonomy.
             main_parent_id = None
+            depth_offset = 0
 
         assert TAXONOMY_MAX_DEPTH == 3  # If we change TAXONOMY_MAX_DEPTH we need to change this query code:
         qs: models.QuerySet = self.tag_set.filter(
@@ -574,19 +595,21 @@ class Taxonomy(models.Model):
             qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
 
         # Add the "depth" to each tag:
-        qs = Tag.annotate_depth(qs)
+        qs = Tag.annotate_depth(qs, from_tag_id=main_parent_id, depth_offset=depth_offset)
         # Add the "lineage" as a field called "sort_key" to sort them in order correctly:
+        # For a root tag, we want sort_key="RootValue" and for a depth=1 tag, we want sort_key="RootValue\tValue", and
+        # so on. To make this work with very deep trees, we generate the lineage of a subtree only (below main_parent).
+        # fmt: off
         qs = qs.annotate(sort_key=Lower(Concat(
-            # For a root tag, we want sort_key="RootValue" and for a depth=1 tag
-            # we want sort_key="RootValue\tValue". The following does that, since
-            # ConcatNull(...) returns NULL if any argument is NULL.
-            ConcatNull(F("parent__parent__parent__value"), Value("\t")),
-            ConcatNull(F("parent__parent__value"), Value("\t")),
-            ConcatNull(F("parent__value"), Value("\t")),
+            # TODO: update this to use a "WITH RECURSIVE" common table expression?
+            models.Case(models.When(depth__gte=3 + depth_offset, then=Concat(F("parent__"*3+"value"), Value("\t")))),
+            models.Case(models.When(depth__gte=2 + depth_offset, then=Concat(F("parent__"*2+"value"), Value("\t")))),
+            models.Case(models.When(depth__gte=1 + depth_offset, then=Concat(F("parent__"*1+"value"), Value("\t")))),
             F("value"),
             Value("\t"),  # We also need the '\t' separator character at the end, or MySQL will sort things wrong
             output_field=models.CharField(),
         )))
+        # fmt: on
         # Add the parent value
         qs = qs.annotate(parent_value=F("parent__value"))
         qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
@@ -715,7 +738,7 @@ class Taxonomy(models.Model):
             return value != "" and isinstance(value, str)
         return self.tag_set.filter(value__iexact=value).exists()
 
-    def tag_for_value(self, value: str) -> Tag:
+    def tag_for_value(self, value: str, select_related: list[str] | None = None) -> Tag:
         """
         Get the Tag object for the given value.
         Some Taxonomies may auto-create the Tag at this point, e.g. a User
@@ -726,7 +749,11 @@ class Taxonomy(models.Model):
         self.check_casted()
         if self.allow_free_text:
             raise ValueError("tag_for_value() doesn't work for free text taxonomies. They don't use Tag instances.")
-        return self.tag_set.get(value__iexact=value)
+        if select_related:
+            qs = self.tag_set.select_related(*select_related)
+        else:
+            qs = self.tag_set
+        return qs.get(value__iexact=value)
 
     def validate_external_id(self, external_id: str) -> bool:
         """
