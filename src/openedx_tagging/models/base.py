@@ -548,6 +548,9 @@ class Taxonomy(models.Model):
             matching_tags = qs.filter(value__icontains=search_term).values(
                 'id', 'parent_id', 'parent__parent_id', 'parent__parent__parent_id',
                 # Note: ancestors beyond parent__parent__parent get handled in the loop below, albeit with extra queries
+                # It's possible to refactor this to support unlimited depth in a single query using TagComputed, but
+                # it's too slow. Doing additional queries in the case of high depth is an acceptable trade-off for
+                # better performance overall and with shallower depths.
             )
             if excluded_values:
                 matching_tags = matching_tags.exclude(value__in=excluded_values)
