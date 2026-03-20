@@ -22,7 +22,7 @@ from django.utils.translation import gettext as _
 
 from .data import TagDataQuerySet
 from .models import ObjectTag, Tag, Taxonomy
-from .models.utils import ConcatNull, StringAgg
+from .models.utils import StringAgg
 
 # Export this as part of the API
 TagDoesNotExist = Tag.DoesNotExist
@@ -198,16 +198,15 @@ def get_object_tags(
         base_qs
         # Preload related objects, including data for the "get_lineage" method on ObjectTag/Tag:
         .select_related("taxonomy", "tag", "tag__parent", "tag__parent__parent")
-        # Sort the tags within each taxonomy in "tree order". See Taxonomy._get_filtered_tags_deep for details on this:
-        .annotate(sort_key=Lower(Concat(
-            # TODO: rewrite this to use a "WITH RECURSIVE" common table expression ?
-            ConcatNull(F("tag__parent__parent__parent__value"), Value("\t")),
-            ConcatNull(F("tag__parent__parent__value"), Value("\t")),
-            ConcatNull(F("tag__parent__value"), Value("\t")),
-            Coalesce(F("tag__value"), F("_value")),
-            Value("\t"),  # Required for MySQL to sort correctly
-            output_field=models.CharField(),
-        )))
+        # Sort the tags within each taxonomy in "tree order". See Taxonomy._get_filtered_tags_deep for details on this.
+        # tag__computed is the TagComputed view (migration 0020), which uses a WITH RECURSIVE CTE to build
+        # the full ancestor-path sort key for every tag — correctly handling any taxonomy depth.
+        # Free-text and deleted tags (tag_id IS NULL) fall back to their cached _value.
+        .annotate(sort_key=Coalesce(
+            F("tag__computed__sort_key"),
+            Lower(Concat(F("_value"), Value("\t"))),
+            output_field=models.TextField(),
+        ))
         .annotate(taxonomy_name=Coalesce(F("taxonomy__name"), F("_export_id")))
         # Sort first by taxonomy name, then by tag value in tree order:
         .order_by("taxonomy_name", "sort_key")
@@ -223,6 +222,9 @@ def get_object_tag_counts(object_id_pattern: str, count_implicit=False) -> dict[
 
     Deleted tags and disabled taxonomies are excluded from the counts, even if
     ObjectTag data about them is present.
+
+    count_implicit: if True, this means to count all ancestor tags (implicit
+    tags) of the explict tags that are associated with the object.
     """
     # Note: in the future we may add an option to exclude system taxonomies from the count.
     qs: Any = ObjectTag.objects

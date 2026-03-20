@@ -1158,17 +1158,15 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         assert [ot.tag for ot in tagging_api.get_object_tags(object_id)] == [tag_5]
 
-        # Now test the sort order of many tags:
-        # tagging_api.tag_object(object_id, taxonomy, tags=[
-        #     tag_0.value, tag_1.value, tag_2.value, tag_3.value, tag_4.value, tag_5.value,
-        # ])
-        # assert [ot.tag for ot in tagging_api.get_object_tags(object_id)] == [
-        #     tag_0,
-        #     tag_1,
-        #     tag_2,
-        #     tag_3,
-        #     tag_4,
-        #     tag_5,
-        # ]
-        # Note: the above isn't quite working yet - tag_5 is out of order.
-        # See TODO note in get_object_tags()
+        # Now test the sort order of many tags (the recursive CTE handles depth > 3 correctly):
+        tagging_api.tag_object(object_id, taxonomy, tags=[
+            tag_0.value, tag_1.value, tag_2.value, tag_3.value, tag_4.value, tag_5.value,
+        ])
+        assert [ot.tag for ot in tagging_api.get_object_tags(object_id)] == [
+            tag_0,
+            tag_1,
+            tag_2,
+            tag_3,
+            tag_4,
+            tag_5,
+        ]
