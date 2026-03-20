@@ -160,8 +160,7 @@ class Tag(models.Model):
         """
         if self.taxonomy and not self.taxonomy.allow_free_text:
             return self.taxonomy.tag_set.filter(
-                Q(parent__parent=self) |
-                Q(parent__parent__parent=self)
+                computed__sort_key__startswith=self.computed.sort_key
             ).count() + self.child_count
         return 0
 
