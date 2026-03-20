@@ -190,6 +190,12 @@ class TagComputed(models.Model):
 
     Joining this view into a queryset gives correct depth-first tree ordering
     for taxonomies of any depth, without hardcoding the number of JOIN levels.
+
+    ⚡️ Performance note: for now this is simple and resonably performant. If we
+    need beter performance at any point in the future, we can denormalize this
+    table by making `depth` and `sort_key` into actual columns on `Tag`; it
+    would make our write logic more complicated and writes more expensive, but
+    would greatly improve query speed.
     """
 
     tag = models.OneToOneField(
