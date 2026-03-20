@@ -1093,10 +1093,14 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tag_3 = tagging_api.add_tag_to_taxonomy(taxonomy, "Great-Grandchild - depth 3", parent_tag_value=tag_2.value)
         assert tag_3.depth == 3
 
-        tag_4 = tagging_api.add_tag_to_taxonomy(taxonomy, "Great-Great-Grandchild - depth 4", parent_tag_value=tag_3.value)
+        tag_4 = tagging_api.add_tag_to_taxonomy(
+            taxonomy, "Great-Great-Grandchild - depth 4", parent_tag_value=tag_3.value
+        )
         assert tag_4.depth == 4
 
-        tag_5 = tagging_api.add_tag_to_taxonomy(taxonomy, "Great-Great-Great-Grandchild - depth 5", parent_tag_value=tag_4.value)
+        tag_5 = tagging_api.add_tag_to_taxonomy(
+            taxonomy, "Great-Great-Great-Grandchild - depth 5", parent_tag_value=tag_4.value
+        )
         assert tag_5.depth == 5
 
         assert pretty_format_tags(

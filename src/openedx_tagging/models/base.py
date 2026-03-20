@@ -41,6 +41,7 @@ class Tag(models.Model):
     Tag.taxonomy.name provides the "name" and the Tag.value provides the "value".
     (And an ObjectTag links a Tag with an object.)
     """
+    computed: TagComputed  # Let pylint/mypy know about the reverse relationship to TagComputed
 
     id = models.BigAutoField(primary_key=True)
     taxonomy = models.ForeignKey(
@@ -736,7 +737,7 @@ class Taxonomy(models.Model):
         self.check_casted()
         if self.allow_free_text:
             raise ValueError("tag_for_value() doesn't work for free text taxonomies. They don't use Tag instances.")
-        if select_related:
+        if select_related is not None:
             qs = self.tag_set.select_related(*select_related)
         else:
             qs = self.tag_set
