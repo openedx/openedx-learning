@@ -63,6 +63,6 @@ class SubsectionVersion(ContainerVersion):
     )
 
     @property
-    def subsection(self):
+    def subsection(self) -> Subsection:
         """Convenience accessor to the Subsection this version is associated with"""
         return self.container_version.container.subsection  # pylint: disable=no-member

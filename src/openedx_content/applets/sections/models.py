@@ -63,6 +63,6 @@ class SectionVersion(ContainerVersion):
     )
 
     @property
-    def section(self):
+    def section(self) -> Section:
         """Convenience accessor to the Section this version is associated with"""
         return self.container_version.container.section  # pylint: disable=no-member
