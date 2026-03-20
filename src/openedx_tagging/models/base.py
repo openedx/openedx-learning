@@ -551,7 +551,8 @@ class Taxonomy(models.Model):
             # We need to do an additional query to find all the tags that match the search term, then limit the
             # search to those tags and their ancestors.
             matching_tags = qs.filter(value__icontains=search_term).values(
-                'id', 'parent_id', 'parent__parent_id', 'parent__parent__parent_id'
+                'id', 'parent_id', 'parent__parent_id', 'parent__parent__parent_id',
+                # Note: ancestors beyond parent__parent__parent get handled in the loop below, albeit with extra queries
             )
             if excluded_values:
                 matching_tags = matching_tags.exclude(value__in=excluded_values)
@@ -560,18 +561,28 @@ class Taxonomy(models.Model):
                 for pk in row.values():
                     if pk is not None:
                         matching_ids.append(pk)
+                next_ancestor_id = row["parent__parent__parent_id"]
+                while next_ancestor_id:  # If there are even deeper ancestors, add them (inefficiently):
+                    next_ancestor_id = Tag.objects.get(pk=next_ancestor_id).parent_id
+                    matching_ids.append(next_ancestor_id)
+
             qs = qs.filter(pk__in=matching_ids)
             qs = qs.annotate(
                 child_count=models.Count("children", filter=Q(children__pk__in=matching_ids), distinct=True),
-                grandchild_count=models.Count(
-                    "children__children", filter=Q(children__children__pk__in=matching_ids), distinct=True,
-                ),
-                great_grandchild_count=models.Count(
-                    "children__children__children",
-                    filter=Q(children__children__children__pk__in=matching_ids),
-                ),
             )
-            qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
+            # Count all descendants at any depth using the sort_key prefix trick:
+            # every descendant of tag T has a sort_key that starts with T's sort_key,
+            # so a startswith filter finds T itself plus all its descendants.
+            # Excluding T's pk leaves only proper descendants.
+            descendants_sq = (
+                Tag.objects
+                .filter(pk__in=matching_ids)
+                .filter(computed__sort_key__startswith=models.OuterRef("computed__sort_key"))
+                .exclude(pk=models.OuterRef("pk"))
+                .order_by()
+                .annotate(count=models.Func(F("id"), function="Count"))
+            )
+            qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))
         elif excluded_values:
             raise NotImplementedError("Using excluded_values without search_term is not currently supported.")
             # We could implement this in the future but I'd prefer to get rid of the "excluded_values" API altogether.
