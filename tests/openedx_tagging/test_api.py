@@ -1139,14 +1139,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Also check that Tag.get_lineage() works correctly for super deep tags:
         assert tag_5.get_lineage() == [
-               'Root - depth 0',
-               'Child - depth 1',
-               'Grandchild - depth 2',
-               'Great-Grandchild - depth 3',
-               'Great-Great-Grandchild - depth 4',
-               'Great-Great-Great-Grandchild - depth 5',
+            'Root - depth 0',
+            'Child - depth 1',
+            'Grandchild - depth 2',
+            'Great-Grandchild - depth 3',
+            'Great-Great-Grandchild - depth 4',
+            'Great-Great-Great-Grandchild - depth 5',
         ]
-
 
     def test_object_tags_deep(self) -> None:
         """
@@ -1178,7 +1177,6 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             tag_4,
             tag_5,
         ]
-
 
     def test_depth_limit(self) -> None:
         """

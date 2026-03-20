@@ -116,9 +116,9 @@ class ModelSystemDefinedTaxonomy(SystemDefinedTaxonomy):
         # We assume the value may change but the external_id is immutable.
         # So look up keys using external_id. There may be a key with the same external_id but an out of date value.
         external_id = str(getattr(instance, self.tag_class_key_field))
-        tag_set = self.tag_set
+        tag_set = self.tag_set.all()
         if select_related is not None:
-            tag_set = tag_set.select_related(*select_related)
+            tag_set = tag_set.select_related(*select_related)  # type: ignore[assignment]
         tag, _created = self.tag_set.get_or_create(external_id=external_id, defaults={"value": value})
         if tag.value != value:
             # Update the Tag to reflect the new cached 'value'

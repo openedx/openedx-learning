@@ -537,7 +537,12 @@ class Taxonomy(models.Model):
         Implementation of get_filtered_tags() for closed taxonomies, where
         we're including tags from multiple levels of the hierarchy.
         """
-        # All tags (possibly below a certain tag) in the closed taxonomy
+        # Note: we ignore a lot of "no-redef" warnings here because we use annotations to pre-load fields
+        # like "depth", "child_count", and "descendant_count" for all tags in a single query rather than
+        # computing them later for each Tag, with additional queries. Also, we are converting the result
+        # to a values query (that returns a dict), not returning actual Tag objects at the end, but mypy
+        # doesn't know that.
+
         if parent_tag_value:
             # Get a subtree, up to three levels deep below this tag:
             main_parent_tag = self.tag_for_value(parent_tag_value, select_related=["computed"])
@@ -546,7 +551,7 @@ class Taxonomy(models.Model):
                 computed__depth__gt=main_parent_tag.depth,
             )
         else:
-            qs = self.tag_set
+            qs = self.tag_set.all()
 
         if search_term:
             # We need to do an additional query to find all the tags that match the search term, then limit the
@@ -571,7 +576,7 @@ class Taxonomy(models.Model):
                     matching_ids.append(next_ancestor_id)
 
             qs = qs.filter(pk__in=matching_ids)
-            qs = qs.annotate(
+            qs = qs.annotate(  # type: ignore[no-redef]
                 child_count=models.Count("children", filter=Q(children__pk__in=matching_ids), distinct=True),
             )
             # Count all descendants at any depth using the sort_key prefix trick:
@@ -586,14 +591,14 @@ class Taxonomy(models.Model):
                 .order_by()
                 .annotate(count=models.Func(F("id"), function="Count"))
             )
-            qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))
+            qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))  # type: ignore[no-redef]
         elif excluded_values:
             raise NotImplementedError("Using excluded_values without search_term is not currently supported.")
             # We could implement this in the future but I'd prefer to get rid of the "excluded_values" API altogether.
             # It remains to be seen if it's useful to do that on the backend, or if we can do it better/simpler on the
             # frontend.
         else:
-            qs = qs.annotate(child_count=models.Count("children", distinct=True))
+            qs = qs.annotate(child_count=models.Count("children", distinct=True))  # type: ignore[no-redef]
             # Count all descendants at any depth using the sort_key prefix trick:
             # every descendant of tag T has a sort_key that starts with T's sort_key,
             # so a startswith filter finds T itself plus all its descendants.
@@ -605,10 +610,10 @@ class Taxonomy(models.Model):
                 .order_by()
                 .annotate(count=models.Func(F("id"), function="Count"))
             )
-            qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))
+            qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))  # type: ignore[no-redef]
 
         # Add the "depth" to each tag from the TagComputed view:
-        qs = qs.annotate(depth=F("computed__depth"))
+        qs = qs.annotate(depth=F("computed__depth"))  # type: ignore[no-redef]
         # Add the "lineage" as a field called "sort_key" to sort them in depth-first tree order.
         # computed is the TagComputed view (migration 0020), which uses a WITH RECURSIVE CTE to
         # build the full ancestor-path key for every tag, handling any taxonomy depth correctly.
@@ -616,7 +621,9 @@ class Taxonomy(models.Model):
         # Add the parent value
         qs = qs.annotate(parent_value=F("parent__value"))
         qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
-        qs = qs.values("value", "child_count", "descendant_count", "depth", "parent_value", "external_id", "_id")
+        qs = qs.values(  # type: ignore[assignment]
+            "value", "child_count", "descendant_count", "depth", "parent_value", "external_id", "_id"
+        )
         qs = qs.order_by("sort_key")
         if include_counts:
             # Including the counts is a bit tricky; see the comment above in _get_filtered_tags_one_level()
@@ -757,7 +764,7 @@ class Taxonomy(models.Model):
         if select_related is not None:
             qs = self.tag_set.select_related(*select_related)
         else:
-            qs = self.tag_set
+            qs = self.tag_set.all()
         return qs.get(value__iexact=value)
 
     def validate_external_id(self, external_id: str) -> bool:

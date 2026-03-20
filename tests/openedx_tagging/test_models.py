@@ -933,10 +933,10 @@ class TestTagComputed(TestCase):
     def setUp(self):
         taxonomy = api.create_taxonomy("Test TagComputed")
         self.charlie = Tag.objects.create(taxonomy=taxonomy, value="Charlie")
-        self.alice   = Tag.objects.create(taxonomy=taxonomy, value="Alice",   parent=self.charlie)
-        self.bob     = Tag.objects.create(taxonomy=taxonomy, value="Bob",     parent=self.charlie)
-        self.delta   = Tag.objects.create(taxonomy=taxonomy, value="Delta",   parent=self.alice)
-        self.echo    = Tag.objects.create(taxonomy=taxonomy, value="Echo",    parent=self.delta)
+        self.alice = Tag.objects.create(taxonomy=taxonomy, value="Alice", parent=self.charlie)
+        self.bob = Tag.objects.create(taxonomy=taxonomy, value="Bob", parent=self.charlie)
+        self.delta = Tag.objects.create(taxonomy=taxonomy, value="Delta", parent=self.alice)
+        self.echo = Tag.objects.create(taxonomy=taxonomy, value="Echo", parent=self.delta)
         self.foxtrot = Tag.objects.create(taxonomy=taxonomy, value="Foxtrot", parent=self.echo)
         self.danielle = Tag.objects.create(taxonomy=taxonomy, value="Danielle")
 
