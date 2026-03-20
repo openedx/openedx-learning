@@ -1178,3 +1178,18 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             tag_4,
             tag_5,
         ]
+
+
+    def test_depth_limit(self) -> None:
+        """
+        Test that there is a limit to how deeply we can create tags:
+        """
+        taxonomy = tagging_api.create_taxonomy(name="Deep Taxonomy")
+        tag_0 = tagging_api.add_tag_to_taxonomy(taxonomy, "Bob - depth 0")
+        tag_1 = tagging_api.add_tag_to_taxonomy(taxonomy, "Janet - depth 1", parent_tag_value=tag_0.value)
+        tag_2 = tagging_api.add_tag_to_taxonomy(taxonomy, "Alice - depth 2", parent_tag_value=tag_1.value)
+        tag_3 = tagging_api.add_tag_to_taxonomy(taxonomy, "Fred - depth 3", parent_tag_value=tag_2.value)
+        tag_4 = tagging_api.add_tag_to_taxonomy(taxonomy, "Clara - depth 4", parent_tag_value=tag_3.value)
+        tag_4 = tagging_api.add_tag_to_taxonomy(taxonomy, "Patty - depth 5", parent_tag_value=tag_4.value)
+        with pytest.raises(ValueError, match="Cannot create tags more than 6 levels deep."):
+            tagging_api.add_tag_to_taxonomy(taxonomy, "Deep - depth 6", parent_tag_value=tag_4.value)

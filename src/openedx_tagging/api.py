@@ -27,6 +27,9 @@ from .models.utils import StringAgg
 # Export this as part of the API
 TagDoesNotExist = Tag.DoesNotExist
 
+# Maximum number of tags allowed on any one object
+OBJECT_MAX_TAGS = 100
+
 
 def create_taxonomy(  # pylint: disable=too-many-positional-arguments
     name: str,
@@ -286,7 +289,7 @@ def _check_new_tag_count(
     taxonomy_export_id: str | None = None,
 ) -> None:
     """
-    Checks if the new count of tags for the object is equal or less than 100
+    Checks if the new count of tags for the object is equal or less than OBJECT_MAX_TAGS
     """
     # Exclude to avoid counting the tags that are going to be updated
     if taxonomy:
@@ -294,9 +297,9 @@ def _check_new_tag_count(
     else:
         current_count = ObjectTag.objects.filter(object_id=object_id).exclude(_export_id=taxonomy_export_id).count()
 
-    if current_count + new_tag_count > 100:
+    if current_count + new_tag_count > OBJECT_MAX_TAGS:
         raise ValueError(
-            _("Cannot add more than 100 tags to ({object_id}).").format(object_id=object_id)
+            _("Cannot add more than {limit} tags to ({object_id}).").format(object_id=object_id, limit=OBJECT_MAX_TAGS)
         )
 
 

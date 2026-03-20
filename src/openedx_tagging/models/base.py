@@ -21,13 +21,9 @@ from .utils import RESERVED_TAG_CHARS
 
 log = logging.getLogger(__name__)
 
-
-# Maximum depth of tags that can be retrieved from any single API call.
-# Currently, taxonomies support unlimited depth but you can only retrieve up to three levels deep at one time.
-# TODO: add an absolute limit as well.
-# TODO: not all APIs work with deeper than 3 tags - e.g. get_object_tags will always return the correct
-# results, but the order of tags below depth 4 won't be correct.
-TAXONOMY_MAX_DEPTH = 3
+# Maximum depth of tags that can be created. Internally, the system has no depth limits, but for reasonable performance
+# guarantees we enforce this depth. Note: depth is zero-indexed so "5" means 6 levels of depth are allowed.
+TAXONOMY_MAX_DEPTH = 5
 
 # Ancestry of a given tag; the Tag.value fields of a given tag and its parents, starting from the root.
 Lineage = List[str]
@@ -396,7 +392,7 @@ class Taxonomy(models.Model):
 
     def get_filtered_tags(  # pylint: disable=too-many-positional-arguments
         self,
-        depth: int | None = TAXONOMY_MAX_DEPTH,
+        depth: int | None = None,
         parent_tag_value: str | None = None,
         search_term: str | None = None,
         include_counts: bool = False,
@@ -410,8 +406,7 @@ class Taxonomy(models.Model):
         By default returns all the tags of the given taxonomy
 
         Use `depth=1` to return a single level of tags, without any child
-        tags included. Use `depth=None` or `depth=TAXONOMY_MAX_DEPTH` to return
-        all descendants of the tags, up to our maximum supported depth.
+        tags included. Use `depth=None` to return all descendants of the tags.
 
         Use `parent_tag_value` to return only the children/descendants of a specific tag.
 
@@ -440,7 +435,7 @@ class Taxonomy(models.Model):
                 return result.exclude(value__in=excluded_values)
             else:
                 return result
-        elif depth is None or depth == TAXONOMY_MAX_DEPTH:
+        elif depth is None:
             return self._get_filtered_tags_deep(
                 parent_tag_value=parent_tag_value,
                 search_term=search_term,
@@ -654,6 +649,8 @@ class Taxonomy(models.Model):
             # Get parent tag from taxonomy, raises Tag.DoesNotExist if doesn't
             # belong to taxonomy
             parent = self.tag_set.get(value__iexact=parent_tag_value)
+            if parent.depth >= TAXONOMY_MAX_DEPTH:
+                raise ValueError(f"Cannot create tags more than {TAXONOMY_MAX_DEPTH + 1} levels deep.")
 
         tag = Tag.objects.create(
             taxonomy=self, value=tag_value, parent=parent, external_id=external_id

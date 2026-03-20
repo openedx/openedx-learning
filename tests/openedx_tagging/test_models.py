@@ -921,13 +921,13 @@ class TestTagComputed(TestCase):
 
     The tree used throughout this class:
 
-        Charlie            (depth 0)
-            Alice          (depth 1)
-                Delta      (depth 2)
-                    Echo   (depth 3)
-                        Foxtrot  (depth 4)  ← beyond TAXONOMY_MAX_DEPTH
-            Bob            (depth 1)
-        Danielle           (depth 0)
+        Charlie                  (depth 0)
+            Alice                (depth 1)
+                Delta            (depth 2)
+                    Echo         (depth 3)
+                        Foxtrot  (depth 4)
+            Bob                  (depth 1)
+        Danielle                 (depth 0)
     """
 
     def setUp(self):
@@ -963,8 +963,7 @@ class TestTagComputed(TestCase):
         assert c.depth == 3
         assert c.sort_key == "charlie\talice\tdelta\techo\t"
 
-    def test_depth_4_beyond_taxonomy_max_depth(self):
-        """Tags deeper than TAXONOMY_MAX_DEPTH (3) are handled correctly."""
+    def test_depth_4(self):
         c = self._c(self.foxtrot)
         assert c.depth == 4
         assert c.sort_key == "charlie\talice\tdelta\techo\tfoxtrot\t"
