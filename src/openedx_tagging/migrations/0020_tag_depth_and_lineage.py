@@ -25,7 +25,7 @@ no tag value can contain '\\t').
 """
 
 from django.db import migrations, models
-from django.db.models.functions import Concat
+from django.db.models.functions import Concat, Length, Replace
 
 import openedx_django_lib.fields
 
@@ -115,7 +115,7 @@ class Migration(migrations.Migration):
         ),
         # 3. Populate depth and lineage for all pre-existing tags.
         migrations.RunPython(populate_depth_and_lineage, reverse_populate_depth_and_lineage, elidable=False),
-        # 4. Add CHECK constraint for depth, once we've populated the values.
+        # 4. Add CHECK constraints, once we've populated the values.
         migrations.AddConstraint(
             model_name="tag",
             constraint=models.CheckConstraint(
@@ -128,6 +128,19 @@ class Migration(migrations.Migration):
             constraint=models.CheckConstraint(
                 condition=models.Q(lineage__endswith=Concat(models.F("value"), models.Value("\t"))),
                 name="oel_tagging_tag_lineage_ends_with_value",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="tag",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    depth=(
+                        Length(models.F("lineage"))
+                        - Length(Replace(models.F("lineage"), models.Value("\t"), models.Value("")))
+                        - 1
+                    )
+                ),
+                name="oel_tagging_tag_lineage_tab_count_check",
             ),
         ),
         # 5. Add index on lineage after data is populated, so the build scans real values.

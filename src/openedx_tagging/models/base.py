@@ -10,7 +10,7 @@ from typing import List, Self
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Value
-from django.db.models.functions import Concat, Substr
+from django.db.models.functions import Concat, Length, Replace, Substr
 from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
@@ -100,21 +100,25 @@ class Tag(models.Model):
             ["taxonomy", "value"],
         ]
         constraints = [
-            # Enforce that tags with a parent always have a positive depth.
-            # Note: we intentionally only enforce one direction here.  MySQL InnoDB
-            # performs self-referential ON DELETE CASCADE by first setting child
-            # parent_id columns to NULL (an intermediate UPDATE) before deleting
-            # those rows.  A bidirectional constraint would fire on that UPDATE
-            # because the child temporarily has parent_id=NULL but depth>0.
-            # The other direction (root tags must have depth=0) is enforced by
-            # Tag.save() instead.
+            # Enforce that tags with a parent always have a positive `depth`.
+            # Note: we intentionally only enforce one direction here; enforcing a stricter condition (that when parent
+            # is NULL, depth must be zero) unfortunately causes deletes to fail with an integrity error, when the delete
+            # operation pre-sets related entities to NULL on MySQL.
             models.CheckConstraint(
                 condition=models.Q(parent_id__isnull=True) | models.Q(depth__gt=0),
                 name="oel_tagging_tag_depth_parent_check",
             ),
+            # Enforce that the lineage ends with "{value}\t"
             models.CheckConstraint(
                 condition=models.Q(lineage__endswith=Concat(F("value"), Value("\t"))),
                 name="oel_tagging_tag_lineage_ends_with_value",
+            ),
+            # Verify that the lineage column contains exactly [depth + 1] TAB (\t) characters:
+            models.CheckConstraint(
+                condition=models.Q(
+                    depth=Length(F("lineage")) - Length(Replace(F("lineage"), Value("\t"), Value(""))) - 1
+                ),
+                name="oel_tagging_tag_lineage_tab_count_check",
             ),
         ]
 
@@ -594,7 +598,7 @@ class Taxonomy(models.Model):
         # The query below produces the same results as:
         #   qs = initial_qs.annotate(child_count=models.Count("children"))
         # However, this correlated subquery avoids a JOIN + GROUP BY, and is far more efficient in practice.
-        # This also lets us use the smae code path whether there's a search_term or not.
+        # This also lets us use the same code path whether there's a search_term or not.
         child_count_sq = (
             initial_qs
             .filter(parent_id=models.OuterRef("pk"))
