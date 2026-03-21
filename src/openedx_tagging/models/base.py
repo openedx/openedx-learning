@@ -586,8 +586,10 @@ class Taxonomy(models.Model):
             descendants_sq = (
                 self.tag_set
                 .filter(pk__in=matching_ids)
-                .filter(computed__sort_key__startswith=models.OuterRef("computed__sort_key"))
-                .exclude(pk=models.OuterRef("pk"))
+                .filter(
+                    computed__depth__gt=models.OuterRef("computed__depth"),
+                    computed__sort_key__startswith=models.OuterRef("computed__sort_key"),
+                )
                 .order_by()
                 .annotate(count=models.Func(F("id"), function="Count"))
             )
@@ -605,9 +607,11 @@ class Taxonomy(models.Model):
             # Excluding T's pk leaves only proper descendants.
             descendants_sq = (
                 self.tag_set
-                .filter(computed__sort_key__startswith=models.OuterRef("computed__sort_key"))
-                .exclude(pk=models.OuterRef("pk"))
-                .order_by()
+                .filter(
+                    computed__depth__gt=models.OuterRef("computed__depth"),
+                    computed__sort_key__startswith=models.OuterRef("computed__sort_key")
+                )
+                .order_by()  # don't waste time ordering the results; we just need the count
                 .annotate(count=models.Func(F("id"), function="Count"))
             )
             qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))  # type: ignore[no-redef]
