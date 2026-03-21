@@ -103,7 +103,7 @@ class Tag(models.Model):
             # Enforce that tags with a parent always have a positive `depth`.
             # Note: we intentionally only enforce one direction here; enforcing a stricter condition (that when parent
             # is NULL, depth must be zero) unfortunately causes deletes to fail with an integrity error, when the delete
-            # operation pre-sets related entities to NULL on MySQL.
+            # operation pre-sets the child tag's foreign key to NULL before cascading the delete on MySQL.
             models.CheckConstraint(
                 condition=models.Q(parent_id__isnull=True) | models.Q(depth__gt=0),
                 name="oel_tagging_tag_depth_parent_check",
@@ -549,11 +549,10 @@ class Taxonomy(models.Model):
         Implementation of get_filtered_tags() for closed taxonomies, where
         we're including tags from multiple levels of the hierarchy.
         """
-        # Note: we ignore a lot of "no-redef" warnings here because we use annotations to pre-load fields
-        # like "depth", "child_count", and "descendant_count" for all tags in a single query rather than
-        # computing them later for each Tag, with additional queries. Also, we are converting the result
-        # to a values query (that returns a dict), not returning actual Tag objects at the end, but mypy
-        # doesn't know that.
+        # Note: we ignore a lot of "no-redef" warnings here because we use annotations to pre-load fields like
+        # `child_count`, and `descendant_count` for all tags in a single query rather than computing them later for each
+        # Tag, with additional queries. Also, we are converting the result to a values query (that returns a dict), not
+        # returning actual Tag objects at the end, but mypy doesn't know that.
 
         if parent_tag_value:
             # Get a subtree below this tag:
