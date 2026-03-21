@@ -546,17 +546,17 @@ class Taxonomy(models.Model):
         if parent_tag_value:
             # Get a subtree, up to three levels deep below this tag:
             main_parent_tag = self.tag_for_value(parent_tag_value, select_related=["computed"])
-            qs = self.tag_set.filter(
+            initial_qs = self.tag_set.filter(
                 computed__sort_key__startswith=main_parent_tag.computed.sort_key,
                 computed__depth__gt=main_parent_tag.depth,
             )
         else:
-            qs = self.tag_set.all()
+            initial_qs = self.tag_set.all()
 
         if search_term:
             # We need to do an additional query to find all the tags that match the search term, then limit the
             # search to those tags and their ancestors.
-            matching_tags = qs.filter(value__icontains=search_term).values(
+            matching_tags = initial_qs.filter(value__icontains=search_term).values(
                 'id', 'parent_id', 'parent__parent_id', 'parent__parent__parent_id',
                 # Note: ancestors beyond parent__parent__parent get handled in the loop below, albeit with extra queries
                 # It's possible to refactor this to support unlimited depth in a single query using TagComputed, but
@@ -575,46 +575,32 @@ class Taxonomy(models.Model):
                     next_ancestor_id = self.tag_set.get(pk=next_ancestor_id).parent_id
                     matching_ids.append(next_ancestor_id)
 
-            qs = qs.filter(pk__in=matching_ids)
-            qs = qs.annotate(  # type: ignore[no-redef]
-                child_count=models.Count("children", filter=Q(children__pk__in=matching_ids), distinct=True),
+            initial_qs = initial_qs.filter(pk__in=matching_ids)
+            qs = initial_qs.annotate(  # type: ignore[no-redef]
+                child_count=models.Count("children", filter=Q(children__pk__in=matching_ids)),
             )
-            # Count all descendants at any depth using the sort_key prefix trick:
-            # every descendant of tag T has a sort_key that starts with T's sort_key,
-            # so a startswith filter finds T itself plus all its descendants.
-            # Excluding T's pk leaves only proper descendants.
-            descendants_sq = (
-                self.tag_set
-                .filter(pk__in=matching_ids)
-                .filter(
-                    computed__depth__gt=models.OuterRef("computed__depth"),
-                    computed__sort_key__startswith=models.OuterRef("computed__sort_key"),
-                )
-                .order_by()
-                .annotate(count=models.Func(F("id"), function="Count"))
-            )
-            qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))  # type: ignore[no-redef]
         elif excluded_values:
             raise NotImplementedError("Using excluded_values without search_term is not currently supported.")
             # We could implement this in the future but I'd prefer to get rid of the "excluded_values" API altogether.
             # It remains to be seen if it's useful to do that on the backend, or if we can do it better/simpler on the
             # frontend.
         else:
-            qs = qs.annotate(child_count=models.Count("children", distinct=True))  # type: ignore[no-redef]
-            # Count all descendants at any depth using the sort_key prefix trick:
-            # every descendant of tag T has a sort_key that starts with T's sort_key,
-            # so a startswith filter finds T itself plus all its descendants.
-            # Excluding T's pk leaves only proper descendants.
-            descendants_sq = (
-                self.tag_set
-                .filter(
-                    computed__depth__gt=models.OuterRef("computed__depth"),
-                    computed__sort_key__startswith=models.OuterRef("computed__sort_key")
-                )
-                .order_by()  # don't waste time ordering the results; we just need the count
-                .annotate(count=models.Func(F("id"), function="Count"))
+            qs = initial_qs.annotate(child_count=models.Count("children"))  # type: ignore[no-redef]
+
+        # Count all descendants using the sort_key prefix trick:
+        # Every descendant of tag T has a sort_key that starts with T's sort_key, so a startswith filter finds T
+        # itself plus all its descendants. Filtering on 'depth > T.depth' excludes T itself and improves the
+        # query performance.
+        descendants_sq = (
+            initial_qs
+            .filter(
+                computed__depth__gt=models.OuterRef("computed__depth"),
+                computed__sort_key__startswith=models.OuterRef("computed__sort_key")
             )
-            qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))  # type: ignore[no-redef]
+            .order_by()  # don't waste time ordering the results; we just need the count
+            .annotate(count=models.Func(F("id"), function="Count"))
+        )
+        qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))  # type: ignore[no-redef]
 
         # Add the "depth" to each tag from the TagComputed view:
         qs = qs.annotate(depth=F("computed__depth"))  # type: ignore[no-redef]
