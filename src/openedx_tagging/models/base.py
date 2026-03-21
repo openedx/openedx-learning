@@ -585,7 +585,17 @@ class Taxonomy(models.Model):
             # It remains to be seen if it's useful to do that on the backend, or if we can do it better/simpler on the
             # frontend.
         else:
-            qs = initial_qs.annotate(child_count=models.Count("children"))  # type: ignore[no-redef]
+            # Count the direct children, and annotate the result on each row as "child_count".
+            # The query below produces the same results as:
+            #   qs = initial_qs.annotate(child_count=models.Count("children"))
+            # However, this correlated subquery avoids a JOIN + GROUP BY, and is far more efficient in practice:
+            child_count_sq = (
+                initial_qs
+                .filter(parent_id=models.OuterRef("pk"))
+                .order_by()
+                .annotate(count=models.Func(F("id"), function="Count"))
+            )
+            qs = initial_qs.annotate(child_count=models.Subquery(child_count_sq.values("count")))  # type: ignore[no-redef]
 
         # Count all descendants using the sort_key prefix trick:
         # Every descendant of tag T has a sort_key that starts with T's sort_key, so a startswith filter finds T
