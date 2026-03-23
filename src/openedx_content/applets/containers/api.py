@@ -574,10 +574,10 @@ def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
         key: The primary key of the container.
 
     Returns:
-        The container with the given primary key.
+        The container with the given primary key (as `Container`, not as its typed subclass).
     """
     try:
-        return Container.objects.get(
+        return Container.objects.select_related("container_type").get(
             publishable_entity__learning_package_id=learning_package_id,
             publishable_entity__key=key,
         )
