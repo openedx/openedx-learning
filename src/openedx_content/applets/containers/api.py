@@ -152,13 +152,14 @@ def create_container(
         key: The key of the container.
         created: The date and time the container was created.
         created_by: The ID of the user who created the container
-        container_cls: The subclass of container to create (e.g. Unit)
+        container_cls: The subclass of container to create (e.g. `Unit`)
         can_stand_alone: Set to False when created as part of containers
 
     Returns:
-        The newly created container.
+        The newly created container as an instance of `container_cls`.
     """
     assert issubclass(container_cls, Container)
+    assert container_cls is not Container, "Creating plain containers is not allowed; use a subclass of Container"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
