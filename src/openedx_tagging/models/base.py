@@ -595,7 +595,8 @@ class Taxonomy(models.Model):
                 next_ancestor_id = row["parent__parent__parent_id"]
                 while next_ancestor_id:  # If there are even deeper ancestors, add them (inefficiently):
                     next_ancestor_id = Tag.objects.get(pk=next_ancestor_id).parent_id
-                    matching_ids.append(next_ancestor_id)
+                    if next_ancestor_id:
+                        matching_ids.append(next_ancestor_id)
 
             initial_qs = initial_qs.filter(pk__in=matching_ids)
         elif excluded_values:

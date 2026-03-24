@@ -199,7 +199,7 @@ def get_object_tags(
     tags = (
         base_qs
         # Preload related objects, including data for the "get_lineage" method on ObjectTag/Tag:
-        .select_related("taxonomy", "tag", "tag__parent", "tag__parent__parent")
+        .select_related("taxonomy", "tag")
         # Sort the tags within each taxonomy in "tree order". See Taxonomy._get_filtered_tags_deep for details on this.
         # tag__lineage is a case-insensitive column storing the full ancestor path, e.g. "Root\tParent\tThis\t".
         # Free-text and deleted tags (tag_id IS NULL) fall back to their cached _value.
