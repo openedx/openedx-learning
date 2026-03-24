@@ -1,0 +1,63 @@
+digraph pathways {
+  node [shape=record fontname="Helvetica" fontsize=10]
+  edge [fontname="Helvetica" fontsize=9]
+
+  subgraph cluster_publishing {
+    label="Publishing Layer"
+    style=dashed
+    color=gray
+
+    PE [label="{PublishableEntity|uuid\llearning_package (FK)\lkey\lcreated\lcreated_by (FK)\l}"]
+    PEV [label="{PublishableEntityVersion|uuid\lentity (FK)\ltitle\lversion_num\lcreated\lcreated_by (FK)\l}"]
+    PE -> PEV [label="1:N" style=dashed color=gray]
+  }
+
+  subgraph cluster_pathway {
+    label="Pathway Definition"
+    style=solid
+
+    Pathway [label="{Pathway|publishable_entity (1:1 PK)\lkey (PathwayKeyField)\lorg (FK Organization)\l}"]
+    PathwayVersion [label="{PathwayVersion|publishable_entity_version (1:1 PK)\lpathway (FK)\ldescription\lsequential\linvite_only\ldefault_step_criteria (CEL)\lcompletion_criteria (CEL)\lmetadata (JSON)\l}"]
+    PathwayStep [label="{PathwayStep|publishable_entity (1:1 PK)\lpathway (FK)\l}"]
+    PathwayStepVersion [label="{PathwayStepVersion|publishable_entity_version (1:1 PK)\lstep (FK)\lstep_type\lcontext_key (LearningContextKeyField)\lorder\lcriteria (CEL)\lgroup\l}"]
+
+    Pathway -> PathwayVersion [label="1:N"]
+    Pathway -> PathwayStep [label="1:N"]
+    PathwayStep -> PathwayStepVersion [label="1:N"]
+  }
+
+  subgraph cluster_enrollment {
+    label="Enrollment"
+    style=solid
+
+    User1 [label="{User}" style=dashed]
+    PathwayEnrollment [label="{PathwayEnrollment|user (FK)\lpathway (FK)\lis_active\lcreated\lmodified\l}"]
+    PathwayEnrollmentAllowed [label="{PathwayEnrollmentAllowed|email\lpathway (FK)\lcreated\l}"]
+    PathwayEnrollmentAudit [label="{PathwayEnrollmentAudit|enrollment (FK)\laction\ltimestamp\l}"]
+
+    User1 -> PathwayEnrollment [label="1:N"]
+    User1 -> PathwayEnrollmentAllowed [label="1:N"]
+    PathwayEnrollment -> PathwayEnrollmentAudit [label="1:N"]
+    PathwayEnrollmentAllowed -> PathwayEnrollmentAudit [label="1:N"]
+  }
+
+  subgraph cluster_progress {
+    label="Learner Progress"
+    style=solid
+
+    User2 [label="{User}" style=dashed]
+    PathwayStepAttempt [label="{PathwayStepAttempt|user (FK)\lstep (FK PathwayStep)\lgrade\lcompletion_level\lcreated\lupdated\l}"]
+
+    User2 -> PathwayStepAttempt [label="1:N"]
+  }
+
+  PE -> Pathway [label="1:1" style=dotted]
+  PE -> PathwayStep [label="1:1" style=dotted]
+  PEV -> PathwayVersion [label="1:1" style=dotted]
+  PEV -> PathwayStepVersion [label="1:1" style=dotted]
+
+  Pathway -> PathwayEnrollment [label="1:N"]
+  Pathway -> PathwayEnrollmentAllowed [label="1:N"]
+
+  PathwayStep -> PathwayStepAttempt [label="1:N"]
+}
