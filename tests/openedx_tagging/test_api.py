@@ -7,6 +7,7 @@ from typing import Any
 
 import ddt  # type: ignore[import]
 import pytest
+from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 
 import openedx_tagging.api as tagging_api
@@ -1189,5 +1190,5 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tag_3 = tagging_api.add_tag_to_taxonomy(taxonomy, "Fred - depth 3", parent_tag_value=tag_2.value)
         tag_4 = tagging_api.add_tag_to_taxonomy(taxonomy, "Clara - depth 4", parent_tag_value=tag_3.value)
         tag_4 = tagging_api.add_tag_to_taxonomy(taxonomy, "Patty - depth 5", parent_tag_value=tag_4.value)
-        with pytest.raises(ValueError, match="Cannot create tags more than 6 levels deep."):
+        with pytest.raises(ValidationError, match="Cannot create tags more than 6 levels deep."):
             tagging_api.add_tag_to_taxonomy(taxonomy, "Deep - depth 6", parent_tag_value=tag_4.value)

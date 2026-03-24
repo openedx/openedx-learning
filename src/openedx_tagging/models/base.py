@@ -195,7 +195,12 @@ class Tag(models.Model):
                 parent_lineage = parent_vals["lineage"]
             self.depth = parent_depth + 1
             self.lineage = parent_lineage + self.value + "\t"
+
+        if self.depth > TAXONOMY_MAX_DEPTH:
+            raise ValidationError(f"Cannot create tags more than {TAXONOMY_MAX_DEPTH + 1} levels deep.")
+
         super().save(*args, **kwargs)
+
         # Cascade lineage (and depth, if it changed) to all descendants in a single UPDATE.
         if old_values is not None and old_values["lineage"] and old_values["lineage"] != self.lineage:
             depth_delta = self.depth - old_values["depth"]
@@ -682,8 +687,6 @@ class Taxonomy(models.Model):
             # Get parent tag from taxonomy, raises Tag.DoesNotExist if doesn't
             # belong to taxonomy
             parent = self.tag_set.get(value__iexact=parent_tag_value)
-            if parent.depth >= TAXONOMY_MAX_DEPTH:
-                raise ValueError(f"Cannot create tags more than {TAXONOMY_MAX_DEPTH + 1} levels deep.")
 
         tag = Tag.objects.create(
             taxonomy=self, value=tag_value, parent=parent, external_id=external_id
