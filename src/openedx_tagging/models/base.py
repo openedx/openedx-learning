@@ -80,7 +80,7 @@ class Tag(models.Model):
         ),
     )
     lineage = case_insensitive_char_field(
-        max_length=3006,
+        max_length=3006,  # (`value` max_length + 1 for tab character) * (TAXONOMY_MAX_DEPTH + 1) = 501 * 6 = 3006
         default="",
         help_text=_(
             "Tab-separated ancestor path including this tag: 'Root\\tParent\\t...\\tThisValue\\t'."
@@ -199,13 +199,20 @@ class Tag(models.Model):
         if old_values is not None and old_values["lineage"] and old_values["lineage"] != self.lineage:
             depth_delta = self.depth - old_values["depth"]
             update_kwargs: dict = {
-                "lineage": Concat(Value(self.lineage), Substr(F("lineage"), len(old_values["lineage"]) + 1)),
+                # Expression to compute the new lineage for each descendent:
+                "lineage": Concat(
+                    # New absolute lineage of the changed tag.
+                    Value(self.lineage),
+                    # Descendent's lineage, relative to the changed tag.
+                    # Computed by left-trimming out old absolute lineage of changed tag.
+                    Substr(F("lineage"), len(old_values["lineage"]) + 1),
+                ),
             }
             if depth_delta != 0:
                 update_kwargs["depth"] = F("depth") + depth_delta
-            self.taxonomy.tag_set.filter(
-                lineage__startswith=old_values["lineage"]
-            ).exclude(pk=self.pk).update(**update_kwargs)
+            self.taxonomy.tag_set.filter(lineage__startswith=old_values["lineage"]).exclude(pk=self.pk).update(
+                **update_kwargs
+            )
 
     def clean(self):
         """
