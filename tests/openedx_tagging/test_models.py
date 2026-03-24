@@ -1144,3 +1144,32 @@ class TestTagLineage(TestCase):
         assert self.charlie.lineage == "Charlie\t"
         assert self.bob.depth == 1
         assert self.bob.lineage == "Charlie\tBob\t"
+
+    def test_rename(self):
+        """
+        Renaming a tag updates its own lineage and cascades to all descendants.
+
+        Before: Charlie -> Alice    -> Delta -> Echo -> Foxtrot
+        After:  Charlie -> Alicia✨ -> Delta -> Echo -> Foxtrot
+        """
+        self.alice.value = "Alicia"
+        self.alice.save()
+        self._refresh_all()
+
+        assert self.alice.depth == 1
+        assert self.alice.lineage == "Charlie\tAlicia\t"
+
+        assert self.delta.depth == 2
+        assert self.delta.lineage == "Charlie\tAlicia\tDelta\t"
+
+        assert self.echo.depth == 3
+        assert self.echo.lineage == "Charlie\tAlicia\tDelta\tEcho\t"
+
+        assert self.foxtrot.depth == 4
+        assert self.foxtrot.lineage == "Charlie\tAlicia\tDelta\tEcho\tFoxtrot\t"
+
+        # Unrelated tags are unaffected
+        assert self.charlie.depth == 0
+        assert self.charlie.lineage == "Charlie\t"
+        assert self.bob.depth == 1
+        assert self.bob.lineage == "Charlie\tBob\t"
