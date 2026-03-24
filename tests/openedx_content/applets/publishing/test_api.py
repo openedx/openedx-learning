@@ -1574,6 +1574,53 @@ class GetEntityDraftHistoryTestCase(PublishingHistoryMixin, TestCase):
 
         assert list(history_by_int) == list(history_by_entity)
 
+    def test_reset_to_published_clears_draft_history(self) -> None:
+        """After reset_drafts_to_published, the draft history is empty."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_3
+        )
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 0
+
+    def test_reset_to_published_then_new_changes(self) -> None:
+        """After reset + new edits, only the post-reset changes appear."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_3
+        )
+        self._make_version(3, self.time_4)
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 1
+        record = history.get()
+        assert record.new_version is not None
+        assert record.new_version.version_num == 3
+
+    def test_multiple_resets_use_latest(self) -> None:
+        """When reset is called multiple times, the latest reset time is used as lower bound."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_3
+        )
+        self._make_version(3, self.time_4)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_5
+        )
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 0
+
 
 class GetEntityPublishHistoryTestCase(PublishingHistoryMixin, TestCase):
     """
@@ -1808,6 +1855,7 @@ class GetEntityPublishHistoryEntriesTestCase(PublishingHistoryMixin, TestCase):
     """
     publish_time_1 = datetime(2026, 6, 1, 10, 30, 0, tzinfo=timezone.utc)
     publish_time_2 = datetime(2026, 6, 1, 12, 30, 0, tzinfo=timezone.utc)
+    publish_time_3 = datetime(2026, 6, 1, 13, 30, 0, tzinfo=timezone.utc)
 
     def test_returns_draft_changes_for_the_requested_publish_group(self) -> None:
         """
@@ -1870,3 +1918,26 @@ class GetEntityPublishHistoryEntriesTestCase(PublishingHistoryMixin, TestCase):
         )
 
         assert list(entries_by_int) == list(entries_by_entity)
+
+    def test_reset_within_publish_window_excluded(self) -> None:
+        """
+        Draft entries from a reset_drafts_to_published() call within the publish
+        window are excluded. Only entries made after the last reset appear.
+        """
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_3
+        )
+        self._make_version(3, self.time_4)
+        second_publish = self._publish(self.publish_time_3)
+
+        entries = publishing_api.get_entity_publish_history_entries(
+            self.entity.id, str(second_publish.uuid)
+        )
+
+        assert entries.count() == 1
+        entry = entries.get()
+        assert entry.new_version is not None
+        assert entry.new_version.version_num == 3

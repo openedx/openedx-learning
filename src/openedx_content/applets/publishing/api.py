@@ -624,14 +624,32 @@ def get_entity_draft_history(
         .order_by("-draft_change_log__changed_at")
     )
 
-    # Narrow to changes since the last publication
+    # Narrow to changes since the last publication (or last reset to published)
     try:
         published = Published.objects.select_related(
             "publish_log_record__publish_log"
         ).get(entity_id=entity_id)
-        qs = qs.filter(
-            draft_change_log__changed_at__gt=published.publish_log_record.publish_log.published_at
+        published_at = published.publish_log_record.publish_log.published_at
+        published_version_id = published.version_id
+
+        # If reset_drafts_to_published() was called after the last publish,
+        # there will be a DraftChangeLogRecord where new_version == published
+        # version. Use the most recent such record's timestamp as the lower
+        # bound so that discarded entries no longer appear in the draft history.
+        last_reset_at = (
+            DraftChangeLogRecord.objects
+            .filter(
+                entity_id=entity_id,
+                new_version_id=published_version_id,
+                draft_change_log__changed_at__gt=published_at,
+            )
+            .order_by("-draft_change_log__changed_at")
+            .values_list("draft_change_log__changed_at", flat=True)
+            .first()
         )
+
+        lower_bound = last_reset_at if last_reset_at else published_at
+        qs = qs.filter(draft_change_log__changed_at__gt=lower_bound)
     except Published.DoesNotExist:
         pass
 
@@ -737,6 +755,31 @@ def get_entity_publish_history_entries(
     # Exclude changes that belong to an earlier PublishLog's window
     if prev_published_at:
         draft_qs = draft_qs.filter(draft_change_log__changed_at__gt=prev_published_at)
+
+    # Find the baseline: the version that was published in the previous publish group
+    # (None if this is the first publish for this entity).
+    baseline_version_id = prev_pub_record.new_version_id if prev_pub_record else None
+
+    # If reset_drafts_to_published() was called within this publish window, there
+    # will be a DraftChangeLogRecord where new_version == baseline. Use the most
+    # recent such record as the new lower bound so discarded entries are excluded.
+    reset_filter = {
+        "entity_id": entity_id,
+        "new_version_id": baseline_version_id,
+        "draft_change_log__changed_at__lte": published_at,
+    }
+    if prev_published_at:
+        reset_filter["draft_change_log__changed_at__gt"] = prev_published_at
+
+    last_reset_at = (
+        DraftChangeLogRecord.objects
+        .filter(**reset_filter)
+        .order_by("-draft_change_log__changed_at")
+        .values_list("draft_change_log__changed_at", flat=True)
+        .first()
+    )
+    if last_reset_at:
+        draft_qs = draft_qs.filter(draft_change_log__changed_at__gt=last_reset_at)
 
     return draft_qs
 
