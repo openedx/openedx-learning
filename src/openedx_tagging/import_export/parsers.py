@@ -1,18 +1,27 @@
 """
 Parsers to import and export tags
 """
+
 from __future__ import annotations
 
 import csv
 import json
 from enum import Enum
 from io import StringIO, TextIOWrapper
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 from django.utils.translation import gettext as _
 
 from ..models import Taxonomy
-from .exceptions import EmptyCSVField, EmptyJSONField, FieldJSONError, InvalidFormat, TagParserError
+from .exceptions import (
+    EmptyCSVField,
+    EmptyJSONField,
+    FieldJSONError,
+    InvalidCSVField,
+    InvalidFormat,
+    InvalidJSONField,
+    TagParserError,
+)
 from .import_plan import TagItem
 
 
@@ -48,6 +57,8 @@ class Parser:
     missing_field_error = TagParserError
     # We can change the error when a required field is empty
     empty_field_error = TagParserError
+    # We can change the error when a field is invalid
+    invalid_field_error = TagParserError
     # We can change the initial row/index
     inital_row = 1
 
@@ -103,9 +114,7 @@ class Parser:
         raise NotImplementedError
 
     @classmethod
-    def _parse_tags(
-        cls, tags_data: list[dict]
-    ) -> tuple[list[TagItem], list[TagParserError]]:
+    def _parse_tags(cls, tags_data: list[dict]) -> tuple[list[TagItem], list[TagParserError]]:
         """
         Validate the required fields of each tag.
 
@@ -117,7 +126,7 @@ class Parser:
         row = cls.inital_row
         for tag in tags_data:
             has_error = False
-            tag_data = {}
+            tag_data: dict[str, Any] = {}
 
             # Verify the required fields
             for req_field in cls.required_fields:
@@ -141,6 +150,14 @@ class Parser:
                         )
                     )
                     has_error = True
+                elif not isinstance(tag[req_field], str):
+                    # If it's an integer, coerce to a string if we can.
+                    if isinstance(tag[req_field], int):
+                        tag_data[req_field] = str(tag[req_field])
+                    else:
+                        # Whatever data type this is, it's not valid:
+                        errors.append(cls.invalid_field_error(tag, field=req_field, row=row))
+                        has_error = True
                 else:
                     tag_data[req_field] = tag[req_field]
 
@@ -153,7 +170,15 @@ class Parser:
 
             # Optional fields default to None
             for opt_field in cls.optional_fields:
-                tag_data[opt_field] = tag.get(opt_field) or None
+                value = tag.get(opt_field) or None
+                if isinstance(value, int):
+                    value = str(value)  # Technically int is invalid but we coerce to str to be more resilient
+
+                if isinstance(value, str) or value is None:
+                    tag_data[opt_field] = value
+                else:
+                    errors.append(cls.invalid_field_error(tag, field=req_field, row=row))
+                    has_error = True
 
             tags.append(TagItem(**tag_data))
 
@@ -204,6 +229,7 @@ class JSONParser(Parser):
     format = ParserFormat.JSON
     missing_field_error: type[TagParserError] = FieldJSONError
     empty_field_error: type[TagParserError] = EmptyJSONField
+    invalid_field_error: type[TagParserError] = InvalidJSONField
     inital_row = 0
 
     @classmethod
@@ -215,9 +241,7 @@ class JSONParser(Parser):
         try:
             tags_data = json.load(file)
         except json.JSONDecodeError as error:
-            return [], [
-                InvalidFormat(tag=None, input_format=cls.format.value, message=str(error))
-            ]
+            return [], [InvalidFormat(tag=None, input_format=cls.format.value, message=str(error))]
         if "tags" not in tags_data:
             return [], [
                 InvalidFormat(
@@ -257,6 +281,7 @@ class CSVParser(Parser):
 
     format = ParserFormat.CSV
     empty_field_error: type[TagParserError] = EmptyCSVField
+    invalid_field_error: type[TagParserError] = InvalidCSVField
     inital_row = 2
 
     @classmethod
