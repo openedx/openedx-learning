@@ -642,7 +642,11 @@ def get_containers(
     Returns:
         A queryset containing the container associated with the given learning package.
     """
-    container_qset = Container.objects.filter(publishable_entity__learning_package=learning_package_id)
+    # A query pattern that gets all containers is likely to need the container type info, so preload that while we're
+    # at it.
+    container_qset = Container.objects.select_related("container_type").filter(
+        publishable_entity__learning_package=learning_package_id,
+    )
     if not include_deleted:
         container_qset = container_qset.filter(publishable_entity__draft__version__isnull=False)
 
