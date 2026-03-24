@@ -1,6 +1,7 @@
 """
 Tagging app base data models
 """
+
 from __future__ import annotations
 
 import logging
@@ -575,7 +576,10 @@ class Taxonomy(models.Model):
             # We need to do an additional query to find all the tags that match the search term, then limit the
             # search to those tags and their ancestors.
             matching_tags = initial_qs.filter(value__icontains=search_term).values(
-                'id', 'parent_id', 'parent__parent_id', 'parent__parent__parent_id',
+                "id",
+                "parent_id",
+                "parent__parent_id",
+                "parent__parent__parent_id",
                 # Note: ancestors beyond parent__parent__parent get handled in the loop below, albeit with extra queries
                 # It's possible to refactor this to support unlimited depth in a single query using lineage, but
                 # it's too slow. Doing additional queries in the case of high depth is an acceptable trade-off for
@@ -606,15 +610,13 @@ class Taxonomy(models.Model):
         # However, this correlated subquery avoids a JOIN + GROUP BY, and is far more efficient in practice.
         # This also lets us use the same code path whether there's a search_term or not.
         child_count_sq = (
-            initial_qs
-            .filter(parent_id=models.OuterRef("pk"))
+            initial_qs.filter(parent_id=models.OuterRef("pk"))
             .order_by()
             .annotate(count=models.Func(F("id"), function="Count"))
         )
         # Count all descendants at any depth using the lineage prefix trick.
         descendants_sq = (
-            initial_qs
-            .filter(
+            initial_qs.filter(
                 depth__gt=models.OuterRef("depth"),
                 lineage__startswith=models.OuterRef("lineage"),
             )
@@ -637,11 +639,15 @@ class Taxonomy(models.Model):
         qs = qs.order_by("lineage")
         if include_counts:
             # Including the counts is a bit tricky; see the comment above in _get_filtered_tags_one_level()
-            obj_tags = ObjectTag.objects.filter(tag_id=models.OuterRef("pk")).order_by().annotate(
-                # We need to use Func() to get Count() without GROUP BY - see https://stackoverflow.com/a/69031027
-                count=models.Func(F('id'), function='Count')
+            obj_tags = (
+                ObjectTag.objects.filter(tag_id=models.OuterRef("pk"))
+                .order_by()
+                .annotate(
+                    # We need to use Func() to get Count() without GROUP BY - see https://stackoverflow.com/a/69031027
+                    count=models.Func(F("id"), function="Count")
+                )
             )
-            qs = qs.annotate(usage_count=models.Subquery(obj_tags.values('count')))
+            qs = qs.annotate(usage_count=models.Subquery(obj_tags.values("count")))
         return qs  # type: ignore[return-value]
 
     def add_tag(
