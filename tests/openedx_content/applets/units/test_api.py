@@ -151,14 +151,33 @@ class UnitsTestCase(ComponentTestCase):
         unit = self.create_unit_with_components([])
         unit_version = unit.versioning.draft
         unit2 = self.create_unit_with_components([], key="unit:key2", title="Unit 2")
+
         # Try adding a Unit to a Unit
-        with pytest.raises(ValidationError, match='The entity "unit:key2" cannot be added to a "unit" container.'):
+        with pytest.raises(
+            ValidationError, match='The entity "unit:key2" cannot be added to a "unit" container.'
+        ) as err:
             content_api.create_next_unit_version(
                 unit,
                 components=[unit2],
                 created=self.now,
                 created_by=None,
             )
+        assert "Only Components can be added as children of a Unit" in str(err.value.__cause__)
+
+        # Try adding a generic entity to a Unit
+        pe = content_api.create_publishable_entity(self.learning_package.id, "pe", created=self.now, created_by=None)
+        pev = content_api.create_publishable_entity_version(
+            pe.pk, version_num=1, title="t", created=self.now, created_by=None
+        )
+        with pytest.raises(ValidationError, match='The entity "pe" cannot be added to a "unit" container.') as err:
+            content_api.create_next_unit_version(
+                unit,
+                components=[pev],
+                created=self.now,
+                created_by=None,
+            )
+        assert "Only Components can be added as children of a Unit" in str(err.value.__cause__)
+
         # Check that a new version was not created:
         unit.refresh_from_db()
         assert content_api.get_unit(unit.pk).versioning.draft == unit_version

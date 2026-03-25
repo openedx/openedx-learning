@@ -42,8 +42,9 @@ class Subsection(Container):
     def validate_entity(cls, entity: PublishableEntity) -> None:
         """Check if the given entity is allowed as a child of a Subsection"""
         # Subsections only allow Units as children, so the entity must be 1:1 with Container:
-        container = entity.container  # Could raise PublishableEntity.container.RelatedObjectDoesNotExist
-        if get_container_subclass_of(container) is not Unit:
+        if not hasattr(entity, "container"):
+            raise ValidationError("Only Units can be added as children of a Subsection (found non-Container child)")
+        if get_container_subclass_of(entity.container) is not Unit:
             raise ValidationError("Only Units can be added as children of a Subsection")
 
 

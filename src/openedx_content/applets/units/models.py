@@ -4,6 +4,7 @@ Models that implement units
 
 from typing import override
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from ..containers.models import Container, ContainerVersion
@@ -39,8 +40,8 @@ class Unit(Container):
     def validate_entity(cls, entity: PublishableEntity) -> None:
         """Check if the given entity is allowed as a child of a Unit"""
         # Units only allow Components as children, so the entity must be 1:1 with Component:
-        # This could raise PublishableEntity.component.RelatedObjectDoesNotExist
-        getattr(entity, "component")  # pylint: disable=literal-used-as-attribute
+        if not hasattr(entity, "component"):
+            raise ValidationError("Only Components can be added as children of a Unit")
 
 
 class UnitVersion(ContainerVersion):

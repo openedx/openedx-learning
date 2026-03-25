@@ -263,7 +263,7 @@ def _create_container_version(
     for entity_row in entity_list.rows:
         try:
             container_subclass.validate_entity(entity_row.entity)
-        except Exception as exc:
+        except ValidationError as exc:
             # This exception is carefully worded. The validation may have failed because the entity is of the wrong
             # type, but it _could_ be a of the correct type but otherwise invalid/corrupt, e.g. partially deleted.
             raise ValidationError(

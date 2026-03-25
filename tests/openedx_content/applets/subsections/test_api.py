@@ -149,17 +149,20 @@ class SubsectionsTestCase(ComponentTestCase):
         # Create a subsection:
         subsection = self.create_subsection_with_units([])
         subsection_version = subsection.versioning.draft
+
         # Try adding a Component to a Subsection
         with pytest.raises(
             ValidationError,
             match='The entity "xblock.v1:problem:Query Counting" cannot be added to a "subsection" container.',
-        ):
+        ) as err:
             content_api.create_next_subsection_version(
                 subsection,
                 units=[self.component_1],
                 created=self.now,
                 created_by=None,
             )
+        assert "(found non-Container child)" in str(err.value.__cause__)
+
         # Check that a new version was not created:
         subsection.refresh_from_db()
         assert content_api.get_subsection(subsection.pk).versioning.draft == subsection_version

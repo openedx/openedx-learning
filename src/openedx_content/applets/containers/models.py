@@ -177,7 +177,11 @@ class Container(PublishableEntityMixin):
 
     @classmethod
     def validate_entity(cls, entity: PublishableEntity) -> None:
-        """Check if the given entity is allowed as a child of this Container type"""
+        """
+        Check if the given entity is allowed as a child of this Container type
+
+        Subclasses should raise ValidationError if "entity" is invalid.
+        """
 
     @final
     @classmethod
