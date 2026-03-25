@@ -141,7 +141,7 @@ class ContainerAdmin(ReadOnlyModelAdmin):
         Link to this Container's draft ContainerVersion
         """
         if draft := obj.versioning.draft:
-            if draft.pk == obj.versioning.published.pk:
+            if obj.versioning.published and draft.pk == obj.versioning.published.pk:
                 return format_html(
                     '<span style="color: var(--body-quiet-color);">{}</span>', "(no changes from published)"
                 )
