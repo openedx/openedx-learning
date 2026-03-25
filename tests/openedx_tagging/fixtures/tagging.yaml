@@ -26,6 +26,8 @@
     parent: null
     value: Bacteria
     external_id: null
+    depth: 0
+    lineage: "Bacteria\t"
 - model: oel_tagging.tag
   pk: 2
   fields:
@@ -33,6 +35,8 @@
     parent: null
     value: Archaea
     external_id: null
+    depth: 0
+    lineage: "Archaea\t"
 - model: oel_tagging.tag
   pk: 3
   fields:
@@ -40,6 +44,8 @@
     parent: null
     value: Eukaryota
     external_id: null
+    depth: 0
+    lineage: "Eukaryota\t"
 - model: oel_tagging.tag
   pk: 4
   fields:
@@ -47,6 +53,8 @@
     parent: 1
     value: Eubacteria
     external_id: null
+    depth: 1
+    lineage: "Bacteria\tEubacteria\t"
 - model: oel_tagging.tag
   pk: 5
   fields:
@@ -54,6 +62,8 @@
     parent: 1
     value: Archaebacteria
     external_id: null
+    depth: 1
+    lineage: "Bacteria\tArchaebacteria\t"
 - model: oel_tagging.tag
   pk: 6
   fields:
@@ -61,6 +71,8 @@
     parent: 2
     value: DPANN
     external_id: null
+    depth: 1
+    lineage: "Archaea\tDPANN\t"
 - model: oel_tagging.tag
   pk: 7
   fields:
@@ -68,6 +80,8 @@
     parent: 2
     value: Euryarchaeida
     external_id: null
+    depth: 1
+    lineage: "Archaea\tEuryarchaeida\t"
 - model: oel_tagging.tag
   pk: 8
   fields:
@@ -75,6 +89,8 @@
     parent: 2
     value: Proteoarchaeota
     external_id: null
+    depth: 1
+    lineage: "Archaea\tProteoarchaeota\t"
 - model: oel_tagging.tag
   pk: 9
   fields:
@@ -82,6 +98,8 @@
     parent: 3
     value: Animalia
     external_id: null
+    depth: 1
+    lineage: "Eukaryota\tAnimalia\t"
 - model: oel_tagging.tag
   pk: 10
   fields:
@@ -89,6 +107,8 @@
     parent: 3
     value: Plantae
     external_id: null
+    depth: 1
+    lineage: "Eukaryota\tPlantae\t"
 - model: oel_tagging.tag
   pk: 11
   fields:
@@ -96,6 +116,8 @@
     parent: 3
     value: Fungi
     external_id: null
+    depth: 1
+    lineage: "Eukaryota\tFungi\t"
 - model: oel_tagging.tag
   pk: 12
   fields:
@@ -103,6 +125,8 @@
     parent: 3
     value: Protista
     external_id: null
+    depth: 1
+    lineage: "Eukaryota\tProtista\t"
 - model: oel_tagging.tag
   pk: 13
   fields:
@@ -110,6 +134,8 @@
     parent: 3
     value: Monera
     external_id: null
+    depth: 1
+    lineage: "Eukaryota\tMonera\t"
 - model: oel_tagging.tag
   pk: 14
   fields:
@@ -117,6 +143,8 @@
     parent: 9
     value: Arthropoda
     external_id: null
+    depth: 2
+    lineage: "Eukaryota\tAnimalia\tArthropoda\t"
 - model: oel_tagging.tag
   pk: 15
   fields:
@@ -124,6 +152,8 @@
     parent: 9
     value: Chordata
     external_id: null
+    depth: 2
+    lineage: "Eukaryota\tAnimalia\tChordata\t"
 - model: oel_tagging.tag
   pk: 16
   fields:
@@ -131,6 +161,8 @@
     parent: 9
     value: Gastrotrich
     external_id: null
+    depth: 2
+    lineage: "Eukaryota\tAnimalia\tGastrotrich\t"
 - model: oel_tagging.tag
   pk: 17
   fields:
@@ -138,6 +170,8 @@
     parent: 9
     value: Cnidaria
     external_id: null
+    depth: 2
+    lineage: "Eukaryota\tAnimalia\tCnidaria\t"
 - model: oel_tagging.tag
   pk: 18
   fields:
@@ -145,6 +179,8 @@
     parent: 9
     value: Ctenophora
     external_id: null
+    depth: 2
+    lineage: "Eukaryota\tAnimalia\tCtenophora\t"
 - model: oel_tagging.tag
   pk: 19
   fields:
@@ -152,6 +188,8 @@
     parent: 9
     value: Placozoa
     external_id: null
+    depth: 2
+    lineage: "Eukaryota\tAnimalia\tPlacozoa\t"
 - model: oel_tagging.tag
   pk: 20
   fields:
@@ -159,6 +197,8 @@
     parent: 9
     value: Porifera
     external_id: null
+    depth: 2
+    lineage: "Eukaryota\tAnimalia\tPorifera\t"
 - model: oel_tagging.tag
   pk: 21
   fields:
@@ -166,6 +206,8 @@
     parent: 15
     value: Mammalia
     external_id: null
+    depth: 3
+    lineage: "Eukaryota\tAnimalia\tChordata\tMammalia\t"
 - model: oel_tagging.tag
   pk: 22
   fields:
@@ -173,6 +215,8 @@
     parent: null
     value: System Tag 1
     external_id: 'tag_1'
+    depth: 0
+    lineage: "System Tag 1\t"
 - model: oel_tagging.tag
   pk: 23
   fields:
@@ -180,6 +224,8 @@
     parent: null
     value: System Tag 2
     external_id: 'tag_2'
+    depth: 0
+    lineage: "System Tag 2\t"
 - model: oel_tagging.tag
   pk: 24
   fields:
@@ -187,6 +233,8 @@
     parent: null
     value: System Tag 3
     external_id: 'tag_3'
+    depth: 0
+    lineage: "System Tag 3\t"
 - model: oel_tagging.tag
   pk: 25
   fields:
@@ -194,13 +242,17 @@
     parent: null
     value: System Tag 4
     external_id: 'tag_4'
+    depth: 0
+    lineage: "System Tag 4\t"
 - model: oel_tagging.tag
   pk: 26
-  fields:  
+  fields:
     taxonomy: 5
     parent: null
     value: Tag 1
     external_id: tag_1
+    depth: 0
+    lineage: "Tag 1\t"
 - model: oel_tagging.tag
   pk: 27
   fields:
@@ -208,6 +260,8 @@
     parent: 26
     value: Tag 2
     external_id: tag_2
+    depth: 1
+    lineage: "Tag 1\tTag 2\t"
 - model: oel_tagging.tag
   pk: 28
   fields:
@@ -215,6 +269,8 @@
     parent: null
     value: Tag 3
     external_id: tag_3
+    depth: 0
+    lineage: "Tag 3\t"
 - model: oel_tagging.tag
   pk: 29
   fields:
@@ -222,6 +278,8 @@
     parent: 28
     value: Tag 4
     external_id: tag_4
+    depth: 1
+    lineage: "Tag 3\tTag 4\t"
 - model: oel_tagging.taxonomy
   pk: 1
   fields:

@@ -22,10 +22,12 @@ from django.utils.translation import gettext as _
 
 from .data import TagDataQuerySet
 from .models import ObjectTag, Tag, Taxonomy
-from .models.utils import ConcatNull, StringAgg
 
 # Export this as part of the API
 TagDoesNotExist = Tag.DoesNotExist
+
+# Maximum number of tags allowed on any one object
+OBJECT_MAX_TAGS = 100
 
 
 def create_taxonomy(  # pylint: disable=too-many-positional-arguments
@@ -197,16 +199,15 @@ def get_object_tags(
     tags = (
         base_qs
         # Preload related objects, including data for the "get_lineage" method on ObjectTag/Tag:
-        .select_related("taxonomy", "tag", "tag__parent", "tag__parent__parent")
-        # Sort the tags within each taxonomy in "tree order". See Taxonomy._get_filtered_tags_deep for details on this:
-        .annotate(sort_key=Lower(Concat(
-            ConcatNull(F("tag__parent__parent__parent__value"), Value("\t")),
-            ConcatNull(F("tag__parent__parent__value"), Value("\t")),
-            ConcatNull(F("tag__parent__value"), Value("\t")),
-            Coalesce(F("tag__value"), F("_value")),
-            Value("\t"),
-            output_field=models.CharField(),
-        )))
+        .select_related("taxonomy", "tag")
+        # Sort the tags within each taxonomy in "tree order". See Taxonomy._get_filtered_tags_deep for details on this.
+        # tag__lineage is a case-insensitive column storing the full ancestor path, e.g. "Root\tParent\tThis\t".
+        # Free-text and deleted tags (tag_id IS NULL) fall back to their cached _value.
+        .annotate(sort_key=Coalesce(
+            Lower(F("tag__lineage")),
+            Lower(Concat(F("_value"), Value("\t"))),
+            output_field=models.TextField(),
+        ))
         .annotate(taxonomy_name=Coalesce(F("taxonomy__name"), F("_export_id")))
         # Sort first by taxonomy name, then by tag value in tree order:
         .order_by("taxonomy_name", "sort_key")
@@ -222,6 +223,9 @@ def get_object_tag_counts(object_id_pattern: str, count_implicit=False) -> dict[
 
     Deleted tags and disabled taxonomies are excluded from the counts, even if
     ObjectTag data about them is present.
+
+    count_implicit: if True, this means to count all ancestor tags (implicit
+    tags) of the explict tags that are associated with the object.
     """
     # Note: in the future we may add an option to exclude system taxonomies from the count.
     qs: Any = ObjectTag.objects
@@ -236,32 +240,30 @@ def get_object_tag_counts(object_id_pattern: str, count_implicit=False) -> dict[
     qs = qs.exclude(taxonomy__enabled=False)  # The whole taxonomy is disabled
     qs = qs.exclude(tag_id=None, taxonomy__allow_free_text=False)  # The taxonomy exists but the tag is deleted
     if count_implicit:
-        # Counting the implicit tags is tricky, because if two "grandchild" tags have the same implicit parent tag, we
-        # need to count that parent tag only once. To do that, we collect all the ancestor tag IDs into an aggregate
-        # string, and then count the unique values using python
-        qs = qs.values("object_id").annotate(
-            num_tags=models.Count("id"),
-            tag_ids_str_1=StringAgg("tag_id"),
-            tag_ids_str_2=StringAgg("tag__parent_id"),
-            tag_ids_str_3=StringAgg("tag__parent__parent_id"),
-            tag_ids_str_4=StringAgg("tag__parent__parent__parent_id"),
-        ).order_by("object_id")
-        result = {}
+        # Use tag__lineage to count implicit (ancestor) tags at any depth.
+        # Each tag's lineage encodes its full ancestry path, e.g. "root\tchild\tgrandchild\t".
+        # Every prefix of that path (at each \t boundary) uniquely identifies one tag in the chain,
+        # so collecting prefixes into a set naturally deduplicates shared ancestors across multiple
+        # tags on the same object.
+        qs = qs.annotate(sort_key=F("tag__lineage")).values("object_id", "sort_key")
+        result: dict = {}
         for row in qs:
-            # ObjectTags for free text taxonomies will be included in "num_tags" count, but not "tag_ids_str_1" since
-            # they have no tag ID. We can compute how many free text tags each object has now:
-            if row["tag_ids_str_1"]:
-                num_free_text_tags = row["num_tags"] - len(row["tag_ids_str_1"].split(","))
+            object_id = row["object_id"]
+            if object_id not in result:
+                result[object_id] = {"free_text": 0, "paths": set()}
+            sort_key = row["sort_key"]
+            if sort_key is None:
+                # Free-text tag: no Tag record, so no sort_key
+                result[object_id]["free_text"] += 1
             else:
-                num_free_text_tags = row["num_tags"]
-            # Then we count the total number of *unique* Tags for this object, both implicit and explicit:
-            other_tag_ids = set()
-            for field in ("tag_ids_str_1", "tag_ids_str_2", "tag_ids_str_3", "tag_ids_str_4"):
-                if row[field] is not None:
-                    for tag_id in row[field].split(","):
-                        other_tag_ids.add(int(tag_id))
-            result[row["object_id"]] = num_free_text_tags + len(other_tag_ids)
-        return result
+                # Add the sort_key prefix for each ancestor level
+                parts = sort_key.rstrip("\t").split("\t")
+                for i in range(1, len(parts) + 1):
+                    result[object_id]["paths"].add("\t".join(parts[:i]))
+        return {
+            object_id: data["free_text"] + len(data["paths"])
+            for object_id, data in result.items()
+        }
     else:
         qs = qs.values("object_id").annotate(num_tags=models.Count("id")).order_by("object_id")
         return {row["object_id"]: row["num_tags"] for row in qs}
@@ -283,7 +285,7 @@ def _check_new_tag_count(
     taxonomy_export_id: str | None = None,
 ) -> None:
     """
-    Checks if the new count of tags for the object is equal or less than 100
+    Checks if the new count of tags for the object is equal or less than OBJECT_MAX_TAGS
     """
     # Exclude to avoid counting the tags that are going to be updated
     if taxonomy:
@@ -291,9 +293,9 @@ def _check_new_tag_count(
     else:
         current_count = ObjectTag.objects.filter(object_id=object_id).exclude(_export_id=taxonomy_export_id).count()
 
-    if current_count + new_tag_count > 100:
+    if current_count + new_tag_count > OBJECT_MAX_TAGS:
         raise ValueError(
-            _("Cannot add more than 100 tags to ({object_id}).").format(object_id=object_id)
+            _("Cannot add more than {limit} tags to ({object_id}).").format(object_id=object_id, limit=OBJECT_MAX_TAGS)
         )
 
 

@@ -9,7 +9,7 @@ from io import BytesIO
 import ddt  # type: ignore[import]
 from django.test.testcases import TestCase
 
-from openedx_tagging.import_export.exceptions import TagParserError
+from openedx_tagging.import_export.exceptions import InvalidJSONField, TagParserError
 from openedx_tagging.import_export.parsers import CSVParser, JSONParser, Parser, ParserFormat, get_parser
 from openedx_tagging.models import Taxonomy
 
@@ -123,6 +123,56 @@ class TestJSONParser(TestImportExportMixin, TestCase):
 
         for error in errors:
             self.assertIn(str(error), expected_errors)
+
+    @ddt.data(
+        (
+            # null values in required fields are treated as empty
+            {"tags": [
+                {"id": None, "value": "Tag 1"},
+                {"id": "tag_2", "value": None},
+            ]},
+            [
+                "Empty 'id' field on {'id': None, 'value': 'Tag 1'}",
+                "Empty 'value' field on {'id': 'tag_2', 'value': None}",
+            ]
+        ),
+        (
+            # dict/list values in required fields produce invalid field errors
+            {"tags": [
+                {"id": {"nested": "value"}, "value": "Tag 1"},
+                {"id": "tag_2", "value": [1, 2, 3]},
+            ]},
+            [
+                "Invalid 'id' field on {'id': {'nested': 'value'}, 'value': 'Tag 1'}",
+                "Invalid 'value' field on {'id': 'tag_2', 'value': [1, 2, 3]}",
+            ]
+        ),
+    )
+    @ddt.unpack
+    def test_parse_invalid_field_types(self, json_data: dict, expected_errors: list[str]):
+        json_file = BytesIO(json.dumps(json_data).encode())
+
+        _, errors = JSONParser.parse_import(json_file)
+        self.assertEqual(len(errors), len(expected_errors))
+
+        for error in errors:
+            self.assertIn(str(error), expected_errors)
+        for error in errors:
+            self.assertIsInstance(error, InvalidJSONField if "Invalid" in str(error) else TagParserError)
+
+    def test_parse_integer_ids(self) -> None:
+        json_data = {"tags": [
+            {"id": 123, "value": "Tag 1"},
+            {"id": 456, "value": "Tag 2", "parent_id": 123},
+        ]}
+        json_file = BytesIO(json.dumps(json_data).encode())
+
+        tags, errors = JSONParser.parse_import(json_file)
+        self.assertEqual(len(errors), 0)
+        self.assertEqual(len(tags), 2)
+        self.assertEqual(tags[0].id, "123")
+        self.assertEqual(tags[1].id, "456")
+        self.assertEqual(tags[1].parent_id, "123")
 
     def test_parse_tags(self) -> None:
         expected_tags = [

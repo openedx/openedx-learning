@@ -7,6 +7,7 @@ from typing import Any
 
 import ddt  # type: ignore[import]
 import pytest
+from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 
 import openedx_tagging.api as tagging_api
@@ -147,7 +148,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Eukaryota (children: 5 + 8)",
             "  Animalia (children: 7 + 1)",
             "    Arthropoda (children: 0)",
-            "    Chordata (children: 1)",  # The child of this is excluded due to depth limit
+            "    Chordata (children: 1)",
+            "      Mammalia (children: 0)",
             "    Cnidaria (children: 0)",
             "    Ctenophora (children: 0)",
             "    Gastrotrich (children: 0)",
@@ -784,11 +786,12 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Bacteria (used: 0, children: 2)",
             "  Archaebacteria (used: 1, children: 0)",
             "  Eubacteria (used: 0, children: 0)",
-            "Eukaryota (used: 0, children: 4 + 7)",
-            "  Animalia (used: 1, children: 7)",
+            "Eukaryota (used: 0, children: 4 + 8)",
+            "  Animalia (used: 1, children: 7 + 1)",
             "    Arthropoda (used: 1, children: 0)",
-            "    Chordata (used: 0, children: 0)",  # <<< Chordata has a matching child but we only support searching
-            "    Cnidaria (used: 0, children: 0)",  # 3 levels deep at once for now.
+            "    Chordata (used: 0, children: 1)",
+            "      Mammalia (used: 0, children: 0)",
+            "    Cnidaria (used: 0, children: 0)",
             "    Ctenophora (used: 0, children: 0)",
             "    Gastrotrich (used: 1, children: 0)",
             "    Placozoa (used: 1, children: 0)",
@@ -1070,3 +1073,122 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         tags = tagging_api.get_object_tags(obj2)
         assert tags.filter(is_copied=False).count() == 3
         assert tags.filter(is_copied=True).count() == 0
+
+    def test_deep_taxonomy(self) -> None:
+        """
+        Test that a taxonomy's tags can be nested deeply
+        """
+        taxonomy = tagging_api.create_taxonomy(name="Deep Taxonomy")
+
+        tag_0 = tagging_api.add_tag_to_taxonomy(taxonomy, "Root - depth 0")
+        assert tag_0.depth == 0
+
+        tag_1 = tagging_api.add_tag_to_taxonomy(taxonomy, "Child - depth 1", parent_tag_value=tag_0.value)
+        assert tag_1.depth == 1
+
+        tag_2 = tagging_api.add_tag_to_taxonomy(taxonomy, "Grandchild - depth 2", parent_tag_value=tag_1.value)
+        assert tag_2.depth == 2
+
+        # Up to this point is the level at which all the APIs are guaranteed to work correctly.
+
+        tag_3 = tagging_api.add_tag_to_taxonomy(taxonomy, "Great-Grandchild - depth 3", parent_tag_value=tag_2.value)
+        assert tag_3.depth == 3
+
+        tag_4 = tagging_api.add_tag_to_taxonomy(
+            taxonomy, "Great-Great-Grandchild - depth 4", parent_tag_value=tag_3.value
+        )
+        assert tag_4.depth == 4
+
+        tag_5 = tagging_api.add_tag_to_taxonomy(
+            taxonomy, "Great-Great-Great-Grandchild - depth 5", parent_tag_value=tag_4.value
+        )
+        assert tag_5.depth == 5
+
+        assert pretty_format_tags(
+            tagging_api.get_tags(taxonomy)
+        ) == [
+            "Root - depth 0 (None) (children: 1 + 4)",
+            "  Child - depth 1 (Root - depth 0) (children: 1 + 3)",
+            "    Grandchild - depth 2 (Child - depth 1) (children: 1 + 2)",
+            "      Great-Grandchild - depth 3 (Grandchild - depth 2) (children: 1 + 1)",
+            "        Great-Great-Grandchild - depth 4 (Great-Grandchild - depth 3) (children: 1)",
+            "          Great-Great-Great-Grandchild - depth 5 (Great-Great-Grandchild - depth 4) (children: 0)",
+        ]
+        # And we can load deep levels one level at a time:
+        assert pretty_format_tags(
+            tagging_api.get_children_tags(taxonomy, parent_tag_value=tag_3.value)
+        ) == [
+            '        Great-Great-Grandchild - depth 4 (Great-Grandchild - depth 3) (children: 1)',
+        ]
+        assert pretty_format_tags(
+            tagging_api.get_children_tags(taxonomy, parent_tag_value=tag_4.value)
+        ) == [
+            '          Great-Great-Great-Grandchild - depth 5 (Great-Great-Grandchild - depth 4) (children: 0)',
+        ]
+        # Or even load a subtree:
+        deep_result = taxonomy.get_filtered_tags(depth=None, parent_tag_value=tag_2.value)
+        assert pretty_format_tags(deep_result, parent=False) == [
+            '      Great-Grandchild - depth 3 (children: 1 + 1)',
+            '        Great-Great-Grandchild - depth 4 (children: 1)',
+            '          Great-Great-Great-Grandchild - depth 5 (children: 0)',
+        ]
+        # Let's check that all the fields on the last entry, especially 'depth':
+        assert deep_result[2]["value"] == "Great-Great-Great-Grandchild - depth 5"
+        assert deep_result[2]["parent_value"] == "Great-Great-Grandchild - depth 4"
+        assert deep_result[2]["depth"] == 5
+        assert deep_result[2]["child_count"] == 0
+
+        # Also check that Tag.get_lineage() works correctly for super deep tags:
+        assert tag_5.get_lineage() == [
+            'Root - depth 0',
+            'Child - depth 1',
+            'Grandchild - depth 2',
+            'Great-Grandchild - depth 3',
+            'Great-Great-Grandchild - depth 4',
+            'Great-Great-Great-Grandchild - depth 5',
+        ]
+
+    def test_object_tags_deep(self) -> None:
+        """
+        Test that a deep taxonomy's tags can be used to tag objects
+        """
+        taxonomy = tagging_api.create_taxonomy(name="Deep Taxonomy")
+        tag_0 = tagging_api.add_tag_to_taxonomy(taxonomy, "Bob - depth 0")
+        tag_1 = tagging_api.add_tag_to_taxonomy(taxonomy, "Janet - depth 1", parent_tag_value=tag_0.value)
+        tag_2 = tagging_api.add_tag_to_taxonomy(taxonomy, "Alice - depth 2", parent_tag_value=tag_1.value)
+        tag_3 = tagging_api.add_tag_to_taxonomy(taxonomy, "Fred - depth 3", parent_tag_value=tag_2.value)
+        tag_4 = tagging_api.add_tag_to_taxonomy(taxonomy, "Patty - depth 4", parent_tag_value=tag_3.value)
+        tag_5 = tagging_api.add_tag_to_taxonomy(taxonomy, "Clara - depth 5", parent_tag_value=tag_4.value)
+        assert tag_5.depth == 5
+
+        object_id = "some object"
+        tagging_api.tag_object(object_id, taxonomy, tags=[tag_5.value])
+
+        assert [ot.tag for ot in tagging_api.get_object_tags(object_id)] == [tag_5]
+
+        # Now test the sort order of many tags (the recursive CTE handles depth > 3 correctly):
+        tagging_api.tag_object(object_id, taxonomy, tags=[
+            tag_0.value, tag_1.value, tag_2.value, tag_3.value, tag_4.value, tag_5.value,
+        ])
+        assert [ot.tag for ot in tagging_api.get_object_tags(object_id)] == [
+            tag_0,
+            tag_1,
+            tag_2,
+            tag_3,
+            tag_4,
+            tag_5,
+        ]
+
+    def test_depth_limit(self) -> None:
+        """
+        Test that there is a limit to how deeply we can create tags:
+        """
+        taxonomy = tagging_api.create_taxonomy(name="Deep Taxonomy")
+        tag_0 = tagging_api.add_tag_to_taxonomy(taxonomy, "Bob - depth 0")
+        tag_1 = tagging_api.add_tag_to_taxonomy(taxonomy, "Janet - depth 1", parent_tag_value=tag_0.value)
+        tag_2 = tagging_api.add_tag_to_taxonomy(taxonomy, "Alice - depth 2", parent_tag_value=tag_1.value)
+        tag_3 = tagging_api.add_tag_to_taxonomy(taxonomy, "Fred - depth 3", parent_tag_value=tag_2.value)
+        tag_4 = tagging_api.add_tag_to_taxonomy(taxonomy, "Clara - depth 4", parent_tag_value=tag_3.value)
+        tag_4 = tagging_api.add_tag_to_taxonomy(taxonomy, "Patty - depth 5", parent_tag_value=tag_4.value)
+        with pytest.raises(ValidationError, match="Cannot create tags more than 6 levels deep."):
+            tagging_api.add_tag_to_taxonomy(taxonomy, "Deep - depth 6", parent_tag_value=tag_4.value)

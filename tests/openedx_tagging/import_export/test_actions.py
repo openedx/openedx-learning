@@ -4,6 +4,7 @@ Tests for actions
 from __future__ import annotations
 
 import ddt  # type: ignore[import]
+from django.core.exceptions import ValidationError
 from django.test.testcases import TestCase
 
 from openedx_tagging.import_export.actions import (
@@ -16,6 +17,7 @@ from openedx_tagging.import_export.actions import (
 )
 from openedx_tagging.import_export.import_plan import TagItem
 from openedx_tagging.models import Tag
+from openedx_tagging.models.base import TAXONOMY_MAX_DEPTH
 
 from .mixins import TestImportExportMixin
 
@@ -244,6 +246,33 @@ class TestCreateTag(TestImportActionMixin, TestCase):
         )
         errors = action.validate(self.indexed_actions)
         self.assertEqual(len(errors), expected)
+
+    def test_execute_exceeds_max_depth(self) -> None:
+        """Importing a tag that would exceed TAXONOMY_MAX_DEPTH raises ValidationError and fails."""
+        # Build a chain of tags at depths 0 through TAXONOMY_MAX_DEPTH (the maximum allowed depth).
+        parent = None
+        for i in range(TAXONOMY_MAX_DEPTH + 1):
+            parent = Tag.objects.create(
+                taxonomy=self.taxonomy,
+                value=f"Deep Tag {i}",
+                parent=parent,
+                external_id=f"deep_tag_{i}",
+            )
+        # parent is now at depth TAXONOMY_MAX_DEPTH; a child would be at depth TAXONOMY_MAX_DEPTH + 1.
+        action = CreateTag(
+            taxonomy=self.taxonomy,
+            tag=TagItem(
+                id=f"deep_tag_{TAXONOMY_MAX_DEPTH + 1}",
+                value=f"Deep Tag {TAXONOMY_MAX_DEPTH + 1}",
+                parent_id=f"deep_tag_{TAXONOMY_MAX_DEPTH}",
+            ),
+            index=100,
+        )
+        with self.assertRaises(ValidationError):
+            action.execute()
+        self.assertFalse(
+            self.taxonomy.tag_set.filter(external_id=f"deep_tag_{TAXONOMY_MAX_DEPTH + 1}").exists()
+        )
 
     @ddt.data(
         ('tag_30', 'Tag 30', None),  # No parent

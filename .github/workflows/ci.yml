@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]  # Add macos-latest later?
-        python-version: ['3.11', '3.12']
+        python-version: ['3.12']
         toxenv: ["django52", "package", "quality"]
         mysql-version: ["8"]
     services:

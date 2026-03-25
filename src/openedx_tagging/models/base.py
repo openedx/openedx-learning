@@ -1,34 +1,33 @@
 """
 Tagging app base data models
 """
+
 from __future__ import annotations
 
 import logging
 import re
-from typing import List
+from typing import List, Self
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import F, Q, Value
-from django.db.models.functions import Concat, Lower
+from django.db.models import F, Value
+from django.db.models.functions import Concat, Length, Replace, Substr
 from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
-from typing_extensions import Self  # Until we upgrade to python 3.11
 
 from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, case_sensitive_char_field
 
 from ..data import TagDataQuerySet
-from .utils import RESERVED_TAG_CHARS, ConcatNull
+from .utils import RESERVED_TAG_CHARS
 
 log = logging.getLogger(__name__)
 
-
-# Maximum depth allowed for a hierarchical taxonomy's tree of tags.
-TAXONOMY_MAX_DEPTH = 3
+# Maximum depth of tags that can be created. Internally, the system has no depth limits, but for reasonable performance
+# guarantees we enforce this depth. Note: depth is zero-indexed so "5" means 6 levels of depth are allowed.
+TAXONOMY_MAX_DEPTH = 5
 
 # Ancestry of a given tag; the Tag.value fields of a given tag and its parents, starting from the root.
-# Will contain 0...TAXONOMY_MAX_DEPTH elements.
 Lineage = List[str]
 
 
@@ -74,15 +73,54 @@ class Tag(models.Model):
             "Used to link an Open edX Tag with a tag in an externally-defined taxonomy."
         ),
     )
+    depth = models.IntegerField(
+        default=0,
+        help_text=_(
+            "Number of ancestors this tag has. Zero for root tags, one for their children, and so on."
+            " Set automatically by save(); do not set manually."
+        ),
+    )
+    lineage = case_insensitive_char_field(
+        max_length=3006,  # (`value` max_length + 1 for tab character) * (TAXONOMY_MAX_DEPTH + 1) = 501 * 6 = 3006
+        default="",
+        help_text=_(
+            "Tab-separated ancestor path including this tag: 'Root\\tParent\\t...\\tThisValue\\t'."
+            " Used for depth-first tree ordering and descendant prefix matching."
+            " Set automatically by save(); do not set manually."
+        ),
+    )
 
     class Meta:
         indexes = [
             models.Index(fields=["taxonomy", "value"]),
             models.Index(fields=["taxonomy", "external_id"]),
+            models.Index(fields=["lineage"]),
         ]
         unique_together = [
             ["taxonomy", "external_id"],
             ["taxonomy", "value"],
+        ]
+        constraints = [
+            # Enforce that tags with a parent always have a positive `depth`.
+            # Note: we intentionally only enforce one direction here; enforcing a stricter condition (that when parent
+            # is NULL, depth must be zero) unfortunately causes deletes to fail with an integrity error, when the delete
+            # operation pre-sets the child tag's foreign key to NULL before cascading the delete on MySQL.
+            models.CheckConstraint(
+                condition=models.Q(parent_id__isnull=True) | models.Q(depth__gt=0),
+                name="oel_tagging_tag_depth_parent_check",
+            ),
+            # Enforce that the lineage ends with "{value}\t"
+            models.CheckConstraint(
+                condition=models.Q(lineage__endswith=Concat(F("value"), Value("\t"))),
+                name="oel_tagging_tag_lineage_ends_with_value",
+            ),
+            # Verify that the lineage column contains exactly [depth + 1] TAB (\t) characters:
+            models.CheckConstraint(
+                condition=models.Q(
+                    depth=Length(F("lineage")) - Length(Replace(F("lineage"), Value("\t"), Value(""))) - 1
+                ),
+                name="oel_tagging_tag_lineage_tab_count_check",
+            ),
         ]
 
     def __repr__(self):
@@ -111,56 +149,7 @@ class Tag(models.Model):
 
         The root Tag.value is first, followed by its child.value, and on down to self.value.
         """
-        lineage: Lineage = [self.value]
-        next_ancestor = self.get_next_ancestor()
-        while next_ancestor:
-            lineage.insert(0, next_ancestor.value)
-            next_ancestor = next_ancestor.get_next_ancestor()
-        return lineage
-
-    def get_next_ancestor(self) -> Tag | None:
-        """
-        Fetch the parent of this Tag.
-
-        While doing so, preload several ancestors at the same time, so we can
-        use fewer database queries than the basic approach of iterating through
-        parent.parent.parent...
-        """
-        if self.parent_id is None:
-            return None
-        if not Tag.parent.is_cached(self):  # pylint: disable=no-member
-            # Parent is not yet loaded. Retrieve our parent, grandparent, and great-grandparent in one query.
-            # This is not actually changing the parent, just loading it and caching it.
-            self.parent = Tag.objects.select_related("parent", "parent__parent").get(pk=self.parent_id)
-        return self.parent
-
-    @cached_property
-    def depth(self) -> int:
-        """
-        How many ancestors this Tag has. Zero for root tags.
-        """
-        depth = 0
-        tag = self
-        while tag.parent:
-            depth += 1
-            tag = tag.parent
-        return depth
-
-    @staticmethod
-    def annotate_depth(qs: models.QuerySet) -> models.QuerySet:
-        """
-        Given a query that loads Tag objects, annotate it with the depth of
-        each tag.
-        """
-        return qs.annotate(depth=models.Case(
-            models.When(parent_id=None, then=0),
-            models.When(parent__parent_id=None, then=1),
-            models.When(parent__parent__parent_id=None, then=2),
-            models.When(parent__parent__parent__parent_id=None, then=3),
-            # If the depth is 4 or more, currently we just "collapse" the depth
-            # to 4 in order not to add too many joins to this query in general.
-            default=4,
-        ))
+        return self.lineage.rstrip("\t").split("\t")
 
     @cached_property
     def child_count(self) -> int:
@@ -177,11 +166,59 @@ class Tag(models.Model):
         How many descendant tags this tag has in the taxonomy.
         """
         if self.taxonomy and not self.taxonomy.allow_free_text:
+            # depth__gt correctly excludes self; lineage prefix matches all descendants.
             return self.taxonomy.tag_set.filter(
-                Q(parent__parent=self) |
-                Q(parent__parent__parent=self)
-            ).count() + self.child_count
+                depth__gt=self.depth,
+                lineage__startswith=self.lineage,
+            ).count()
         return 0
+
+    def save(self, *args, **kwargs):
+        """
+        Compute and persist depth and lineage before saving, then cascade any changes to descendants.
+        """
+        self.clean()
+        old_values = (
+            Tag.objects.filter(pk=self.pk).values("depth", "lineage").first()
+            if self.pk else None
+        )
+        if self.parent_id is None:
+            self.depth = 0
+            self.lineage = self.value + "\t"
+        else:
+            if Tag.parent.is_cached(self):  # pylint: disable=no-member
+                parent_depth = self.parent.depth
+                parent_lineage = self.parent.lineage
+            else:
+                parent_vals = Tag.objects.values("depth", "lineage").get(pk=self.parent_id)
+                parent_depth = parent_vals["depth"]
+                parent_lineage = parent_vals["lineage"]
+            self.depth = parent_depth + 1
+            self.lineage = parent_lineage + self.value + "\t"
+
+        if self.depth > TAXONOMY_MAX_DEPTH:
+            raise ValidationError(f"Cannot create tags more than {TAXONOMY_MAX_DEPTH + 1} levels deep.")
+
+        super().save(*args, **kwargs)
+
+        # Cascade lineage (and depth, if it changed) to all descendants in a single UPDATE.
+        if old_values is not None and old_values["lineage"] and old_values["lineage"] != self.lineage:
+            depth_delta = self.depth - old_values["depth"]
+            update_kwargs: dict = {
+                # Expression to compute the new lineage for each descendent:
+                "lineage": Concat(
+                    # New absolute lineage of the changed tag.
+                    Value(self.lineage),
+                    # Descendent's lineage, relative to the changed tag.
+                    # Computed by left-trimming out old absolute lineage of changed tag.
+                    Substr(F("lineage"), len(old_values["lineage"]) + 1),
+                ),
+            }
+            if depth_delta != 0:
+                update_kwargs["depth"] = F("depth") + depth_delta
+            self.taxonomy.tag_set.filter(lineage__startswith=old_values["lineage"]).exclude(pk=self.pk).update(
+                **update_kwargs
+            )
 
     def clean(self):
         """
@@ -384,7 +421,7 @@ class Taxonomy(models.Model):
 
     def get_filtered_tags(  # pylint: disable=too-many-positional-arguments
         self,
-        depth: int | None = TAXONOMY_MAX_DEPTH,
+        depth: int | None = None,
         parent_tag_value: str | None = None,
         search_term: str | None = None,
         include_counts: bool = False,
@@ -398,8 +435,7 @@ class Taxonomy(models.Model):
         By default returns all the tags of the given taxonomy
 
         Use `depth=1` to return a single level of tags, without any child
-        tags included. Use `depth=None` or `depth=TAXONOMY_MAX_DEPTH` to return
-        all descendants of the tags, up to our maximum supported depth.
+        tags included. Use `depth=None` to return all descendants of the tags.
 
         Use `parent_tag_value` to return only the children/descendants of a specific tag.
 
@@ -428,7 +464,7 @@ class Taxonomy(models.Model):
                 return result.exclude(value__in=excluded_values)
             else:
                 return result
-        elif depth is None or depth == TAXONOMY_MAX_DEPTH:
+        elif depth is None:
             return self._get_filtered_tags_deep(
                 parent_tag_value=parent_tag_value,
                 search_term=search_term,
@@ -482,18 +518,20 @@ class Taxonomy(models.Model):
         if parent_tag_value:
             parent_tag = self.tag_for_value(parent_tag_value)
             qs: models.QuerySet = self.tag_set.filter(parent_id=parent_tag.pk)
-            qs = qs.annotate(depth=Value(parent_tag.depth + 1))
             # Use parent_tag.value not parent_tag_value because they may differ in case
             qs = qs.annotate(parent_value=Value(parent_tag.value))
         else:
-            qs = self.tag_set.filter(parent=None).annotate(depth=Value(0))  # type: ignore[no-redef]
+            qs = self.tag_set.filter(parent=None)
             qs = qs.annotate(parent_value=Value(None, output_field=models.CharField()))
         qs = qs.annotate(child_count=models.Count("children", distinct=True))  # type: ignore[no-redef]
-        qs = qs.annotate(grandchild_count=models.Count("children__children", distinct=True))
-        qs = qs.annotate(great_grandchild_count=models.Count("children__children__children"))
-        qs = qs.annotate(
-            descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count")
-        )  # type: ignore[no-redef]
+        # Count all descendants at any depth using depth + lineage prefix.
+        # depth__gt correctly excludes self; lineage prefix matches all descendants.
+        descendants_sq = (
+            self.tag_set.filter(depth__gt=models.OuterRef("depth"), lineage__startswith=models.OuterRef("lineage"))
+            .order_by()
+            .annotate(count=models.Func(F("id"), function="Count"))
+        )
+        qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))  # type: ignore[no-redef]
         # Filter by search term:
         if search_term:
             qs = qs.filter(value__icontains=search_term)
@@ -524,24 +562,33 @@ class Taxonomy(models.Model):
         Implementation of get_filtered_tags() for closed taxonomies, where
         we're including tags from multiple levels of the hierarchy.
         """
-        # All tags (possibly below a certain tag?) in the closed taxonomy, up to depth TAXONOMY_MAX_DEPTH
-        if parent_tag_value:
-            main_parent_id = self.tag_for_value(parent_tag_value).pk
-        else:
-            main_parent_id = None
+        # Note: we ignore a lot of "no-redef" warnings here because we use annotations to pre-load fields like
+        # `child_count`, and `descendant_count` for all tags in a single query rather than computing them later for each
+        # Tag, with additional queries. Also, we are converting the result to a values query (that returns a dict), not
+        # returning actual Tag objects at the end, but mypy doesn't know that.
 
-        assert TAXONOMY_MAX_DEPTH == 3  # If we change TAXONOMY_MAX_DEPTH we need to change this query code:
-        qs: models.QuerySet = self.tag_set.filter(
-            Q(parent_id=main_parent_id) |
-            Q(parent__parent_id=main_parent_id) |
-            Q(parent__parent__parent_id=main_parent_id)
-        )
+        if parent_tag_value:
+            # Get a subtree below this tag:
+            main_parent_tag = self.tag_for_value(parent_tag_value)
+            initial_qs = self.tag_set.filter(
+                lineage__startswith=main_parent_tag.lineage,
+                depth__gt=main_parent_tag.depth,
+            )
+        else:
+            initial_qs = self.tag_set.all()
 
         if search_term:
             # We need to do an additional query to find all the tags that match the search term, then limit the
             # search to those tags and their ancestors.
-            matching_tags = qs.filter(value__icontains=search_term).values(
-                'id', 'parent_id', 'parent__parent_id', 'parent__parent__parent_id'
+            matching_tags = initial_qs.filter(value__icontains=search_term).values(
+                "id",
+                "parent_id",
+                "parent__parent_id",
+                "parent__parent__parent_id",
+                # Note: ancestors beyond parent__parent__parent get handled in the loop below, albeit with extra queries
+                # It's possible to refactor this to support unlimited depth in a single query using lineage, but
+                # it's too slow. Doing additional queries in the case of high depth is an acceptable trade-off for
+                # better performance overall and with shallower depths.
             )
             if excluded_values:
                 matching_tags = matching_tags.exclude(value__in=excluded_values)
@@ -550,55 +597,63 @@ class Taxonomy(models.Model):
                 for pk in row.values():
                     if pk is not None:
                         matching_ids.append(pk)
-            qs = qs.filter(pk__in=matching_ids)
-            qs = qs.annotate(
-                child_count=models.Count("children", filter=Q(children__pk__in=matching_ids), distinct=True),
-                grandchild_count=models.Count(
-                    "children__children", filter=Q(children__children__pk__in=matching_ids), distinct=True,
-                ),
-                great_grandchild_count=models.Count(
-                    "children__children__children",
-                    filter=Q(children__children__children__pk__in=matching_ids),
-                ),
-            )
-            qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
+                next_ancestor_id = row["parent__parent__parent_id"]
+                while next_ancestor_id:  # If there are even deeper ancestors, add them (inefficiently):
+                    next_ancestor_id = Tag.objects.get(pk=next_ancestor_id).parent_id
+                    if next_ancestor_id:
+                        matching_ids.append(next_ancestor_id)
+
+            initial_qs = initial_qs.filter(pk__in=matching_ids)
         elif excluded_values:
             raise NotImplementedError("Using excluded_values without search_term is not currently supported.")
             # We could implement this in the future but I'd prefer to get rid of the "excluded_values" API altogether.
             # It remains to be seen if it's useful to do that on the backend, or if we can do it better/simpler on the
             # frontend.
-        else:
-            qs = qs.annotate(child_count=models.Count("children", distinct=True))
-            qs = qs.annotate(grandchild_count=models.Count("children__children", distinct=True))
-            qs = qs.annotate(great_grandchild_count=models.Count("children__children__children"))
-            qs = qs.annotate(descendant_count=F("child_count") + F("grandchild_count") + F("great_grandchild_count"))
 
-        # Add the "depth" to each tag:
-        qs = Tag.annotate_depth(qs)
-        # Add the "lineage" as a field called "sort_key" to sort them in order correctly:
-        qs = qs.annotate(sort_key=Lower(Concat(
-            # For a root tag, we want sort_key="RootValue" and for a depth=1 tag
-            # we want sort_key="RootValue\tValue". The following does that, since
-            # ConcatNull(...) returns NULL if any argument is NULL.
-            ConcatNull(F("parent__parent__parent__value"), Value("\t")),
-            ConcatNull(F("parent__parent__value"), Value("\t")),
-            ConcatNull(F("parent__value"), Value("\t")),
-            F("value"),
-            Value("\t"),  # We also need the '\t' separator character at the end, or MySQL will sort things wrong
-            output_field=models.CharField(),
-        )))
+        # Count the direct children, and annotate the result on each row as "child_count".
+        # The query below produces the same results as:
+        #   qs = initial_qs.annotate(child_count=models.Count("children"))
+        # However, this correlated subquery avoids a JOIN + GROUP BY, and is far more efficient in practice.
+        # This also lets us use the same code path whether there's a search_term or not.
+        child_count_sq = (
+            initial_qs.filter(parent_id=models.OuterRef("pk"))
+            .order_by()
+            .annotate(count=models.Func(F("id"), function="Count"))
+        )
+        # Count all descendants at any depth using the lineage prefix trick.
+        descendants_sq = (
+            initial_qs.filter(
+                depth__gt=models.OuterRef("depth"),
+                lineage__startswith=models.OuterRef("lineage"),
+            )
+            .order_by()
+            .annotate(count=models.Func(F("id"), function="Count"))
+        )
+        qs = initial_qs.annotate(  # type: ignore[no-redef]
+            child_count=models.Subquery(child_count_sq.values("count")),
+            descendant_count=models.Subquery(descendants_sq.values("count")),
+        )
+
         # Add the parent value
         qs = qs.annotate(parent_value=F("parent__value"))
         qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
-        qs = qs.values("value", "child_count", "descendant_count", "depth", "parent_value", "external_id", "_id")
-        qs = qs.order_by("sort_key")
+        qs = qs.values(  # type: ignore[assignment]
+            "value", "child_count", "descendant_count", "depth", "parent_value", "external_id", "_id"
+        )
+        # lineage is a case-insensitive column storing "Root\tParent\t...\tThisValue\t", so
+        # ordering by it gives the tree sort order that we want.
+        qs = qs.order_by("lineage")
         if include_counts:
             # Including the counts is a bit tricky; see the comment above in _get_filtered_tags_one_level()
-            obj_tags = ObjectTag.objects.filter(tag_id=models.OuterRef("pk")).order_by().annotate(
-                # We need to use Func() to get Count() without GROUP BY - see https://stackoverflow.com/a/69031027
-                count=models.Func(F('id'), function='Count')
+            obj_tags = (
+                ObjectTag.objects.filter(tag_id=models.OuterRef("pk"))
+                .order_by()
+                .annotate(
+                    # We need to use Func() to get Count() without GROUP BY - see https://stackoverflow.com/a/69031027
+                    count=models.Func(F("id"), function="Count")
+                )
             )
-            qs = qs.annotate(usage_count=models.Subquery(obj_tags.values('count')))
+            qs = qs.annotate(usage_count=models.Subquery(obj_tags.values("count")))
         return qs  # type: ignore[return-value]
 
     def add_tag(
@@ -715,7 +770,7 @@ class Taxonomy(models.Model):
             return value != "" and isinstance(value, str)
         return self.tag_set.filter(value__iexact=value).exists()
 
-    def tag_for_value(self, value: str) -> Tag:
+    def tag_for_value(self, value: str, select_related: list[str] | None = None) -> Tag:
         """
         Get the Tag object for the given value.
         Some Taxonomies may auto-create the Tag at this point, e.g. a User
@@ -726,7 +781,11 @@ class Taxonomy(models.Model):
         self.check_casted()
         if self.allow_free_text:
             raise ValueError("tag_for_value() doesn't work for free text taxonomies. They don't use Tag instances.")
-        return self.tag_set.get(value__iexact=value)
+        if select_related is not None:
+            qs = self.tag_set.select_related(*select_related)
+        else:
+            qs = self.tag_set.all()
+        return qs.get(value__iexact=value)
 
     def validate_external_id(self, external_id: str) -> bool:
         """
