@@ -329,9 +329,9 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the root tags, in alphabetical order:
-            {"value": "Archaea", "child_count": 3, "descendant_count": 3, **common_fields},
-            {"value": "Bacteria", "child_count": 2, "descendant_count": 2, **common_fields},
-            {"value": "Eukaryota", "child_count": 5, "descendant_count": 5, **common_fields},
+            {"value": "Archaea", "child_count": 3, **common_fields},
+            {"value": "Bacteria", "child_count": 2, **common_fields},
+            {"value": "Eukaryota", "child_count": 5, **common_fields},
         ]
 
     def test_get_child_tags_one_level(self) -> None:
@@ -345,11 +345,11 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
-            {"value": "Animalia", "child_count": 7, "descendant_count": 7, **common_fields},
-            {"value": "Fungi", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Monera", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Plantae", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Protista", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Animalia", "child_count": 7, **common_fields},
+            {"value": "Fungi", "child_count": 0, **common_fields},
+            {"value": "Monera", "child_count": 0, **common_fields},
+            {"value": "Plantae", "child_count": 0, **common_fields},
+            {"value": "Protista", "child_count": 0, **common_fields},
         ]
 
     def test_get_grandchild_tags_one_level(self) -> None:
@@ -363,13 +363,13 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
-            {"value": "Arthropoda", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Chordata", "child_count": 1, "descendant_count": 1, **common_fields},
-            {"value": "Cnidaria", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Ctenophora", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Gastrotrich", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Placozoa", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Porifera", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Arthropoda", "child_count": 0, **common_fields},
+            {"value": "Chordata", "child_count": 1, **common_fields},
+            {"value": "Cnidaria", "child_count": 0, **common_fields},
+            {"value": "Ctenophora", "child_count": 0, **common_fields},
+            {"value": "Gastrotrich", "child_count": 0, **common_fields},
+            {"value": "Placozoa", "child_count": 0, **common_fields},
+            {"value": "Porifera", "child_count": 0, **common_fields},
         ]
 
     def test_get_depth_1_search_term(self) -> None:
@@ -381,7 +381,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             {
                 "value": "Archaea",
                 "child_count": 3,
-                "descendant_count": 3,
                 "depth": 0,
                 "usage_count": 0,
                 "parent_value": None,
@@ -400,7 +399,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             {
                 "value": "Archaebacteria",
                 "child_count": 0,
-                "descendant_count": 0,
                 "depth": 1,
                 "parent_value": "Bacteria",
                 "external_id": None,
@@ -511,7 +509,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 "depth": 3,
                 "usage_count": 0,
                 "child_count": 0,
-                "descendant_count": 0,
                 "external_id": None,
                 "_id": 21,  # These IDs are hard-coded in the test fixture file
             }
