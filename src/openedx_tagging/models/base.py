@@ -524,14 +524,8 @@ class Taxonomy(models.Model):
             qs = self.tag_set.filter(parent=None)
             qs = qs.annotate(parent_value=Value(None, output_field=models.CharField()))
         qs = qs.annotate(child_count=models.Count("children", distinct=True))  # type: ignore[no-redef]
-        # Count all descendants at any depth using depth + lineage prefix.
-        # depth__gt correctly excludes self; lineage prefix matches all descendants.
-        descendants_sq = (
-            self.tag_set.filter(depth__gt=models.OuterRef("depth"), lineage__startswith=models.OuterRef("lineage"))
-            .order_by()
-            .annotate(count=models.Func(F("id"), function="Count"))
-        )
-        qs = qs.annotate(descendant_count=models.Subquery(descendants_sq.values("count")))  # type: ignore[no-redef]
+        # Add the deprecated "descendant_count field". For now it's just the same as child_count.
+        qs = qs.annotate(descendant_count=F("child_count"))
         # Filter by search term:
         if search_term:
             qs = qs.filter(value__icontains=search_term)
@@ -562,11 +556,6 @@ class Taxonomy(models.Model):
         Implementation of get_filtered_tags() for closed taxonomies, where
         we're including tags from multiple levels of the hierarchy.
         """
-        # Note: we ignore a lot of "no-redef" warnings here because we use annotations to pre-load fields like
-        # `child_count`, and `descendant_count` for all tags in a single query rather than computing them later for each
-        # Tag, with additional queries. Also, we are converting the result to a values query (that returns a dict), not
-        # returning actual Tag objects at the end, but mypy doesn't know that.
-
         if parent_tag_value:
             # Get a subtree below this tag:
             main_parent_tag = self.tag_for_value(parent_tag_value)
@@ -611,28 +600,14 @@ class Taxonomy(models.Model):
             # frontend.
 
         # Count the direct children, and annotate the result on each row as "child_count".
-        # The query below produces the same results as:
-        #   qs = initial_qs.annotate(child_count=models.Count("children"))
-        # However, this correlated subquery avoids a JOIN + GROUP BY, and is far more efficient in practice.
-        # This also lets us use the same code path whether there's a search_term or not.
         child_count_sq = (
             initial_qs.filter(parent_id=models.OuterRef("pk"))
             .order_by()
             .annotate(count=models.Func(F("id"), function="Count"))
         )
-        # Count all descendants at any depth using the lineage prefix trick.
-        descendants_sq = (
-            initial_qs.filter(
-                depth__gt=models.OuterRef("depth"),
-                lineage__startswith=models.OuterRef("lineage"),
-            )
-            .order_by()
-            .annotate(count=models.Func(F("id"), function="Count"))
-        )
-        qs = initial_qs.annotate(  # type: ignore[no-redef]
-            child_count=models.Subquery(child_count_sq.values("count")),
-            descendant_count=models.Subquery(descendants_sq.values("count")),
-        )
+        qs = initial_qs.annotate(child_count=models.Subquery(child_count_sq.values("count")))
+        # Add the deprecated "descendant_count" field. For now it just is the same as child_count.
+        qs = qs.annotate(descendant_count=F("child_count"))
 
         # Add the parent value
         qs = qs.annotate(parent_value=F("parent__value"))

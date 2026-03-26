@@ -331,7 +331,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             # These are the root tags, in alphabetical order:
             {"value": "Archaea", "child_count": 3, "descendant_count": 3, **common_fields},
             {"value": "Bacteria", "child_count": 2, "descendant_count": 2, **common_fields},
-            {"value": "Eukaryota", "child_count": 5, "descendant_count": 13, **common_fields},
+            {"value": "Eukaryota", "child_count": 5, "descendant_count": 5, **common_fields},
         ]
 
     def test_get_child_tags_one_level(self) -> None:
@@ -345,7 +345,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
-            {"value": "Animalia", "child_count": 7, "descendant_count": 8, **common_fields},
+            {"value": "Animalia", "child_count": 7, "descendant_count": 7, **common_fields},
             {"value": "Fungi", "child_count": 0, "descendant_count": 0, **common_fields},
             {"value": "Monera", "child_count": 0, "descendant_count": 0, **common_fields},
             {"value": "Plantae", "child_count": 0, "descendant_count": 0, **common_fields},
@@ -441,8 +441,8 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "Bacteria (None) (children: 2)",
             "  Archaebacteria (Bacteria) (children: 0)",
             "  Eubacteria (Bacteria) (children: 0)",
-            "Eukaryota (None) (children: 5 + 8)",
-            "  Animalia (Eukaryota) (children: 7 + 1)",
+            "Eukaryota (None) (children: 5)",
+            "  Animalia (Eukaryota) (children: 7)",
             "    Arthropoda (Animalia) (children: 0)",
             "    Chordata (Animalia) (children: 1)",
             "      Mammalia (Chordata) (children: 0)",
@@ -478,7 +478,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="chordata"))
         assert result == [
-            "Eukaryota (None) (children: 1 + 1)",  # Has one child that matches, plus one additional matching descendant
+            "Eukaryota (None) (children: 1)",  # Has one child that matches
             "  Animalia (Eukaryota) (children: 1)",
             "    Chordata (Animalia) (children: 0)",  # this is the matching tag.
         ]
@@ -492,8 +492,8 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         assert result == [
             "Archaea (None) (children: 1)",
             "  Proteoarchaeota (Archaea) (children: 0)",
-            "Eukaryota (None) (children: 2 + 2)",  # 2 direct matching children, 2 additional matching descendants
-            "  Animalia (Eukaryota) (children: 2)",
+            "Eukaryota (None) (children: 2)",  # 2 direct matching children
+            "  Animalia (Eukaryota) (children: 2)",  # also 2 matching children
             "    Arthropoda (Animalia) (children: 0)",  # match
             "    Gastrotrich (Animalia) (children: 0)",  # match
             "  Protista (Eukaryota) (children: 0)",  # match
@@ -575,7 +575,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         taxonomy = self.create_sort_test_taxonomy()
         result = pretty_format_tags(taxonomy.get_filtered_tags())
         assert result == [
-            "1 (None) (children: 4 + 1)",
+            "1 (None) (children: 4)",
             "  1 A (1) (children: 0)",
             "  11 (1) (children: 0)",
             "  11111 (1) (children: 1)",
@@ -593,43 +593,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "  Android (ALPHABET) (children: 0)",
             "  ANVIL (ALPHABET) (children: 0)",
             "  azure (ALPHABET) (children: 0)",
-        ]
-
-    def test_descendant_counts(self) -> None:
-        """
-        Test getting the descendant count on a taxonomy known to cause aggregation
-        bugs unless the aggregations are correctly specified with distinct=True
-
-        https://docs.djangoproject.com/en/5.0/topics/db/aggregation/#combining-multiple-aggregations
-        """
-        taxonomy = api.create_taxonomy("ESDC Subset")
-        api.add_tag_to_taxonomy(taxonomy, "Interests")  # root tag
-        api.add_tag_to_taxonomy(taxonomy, "Holland Codes", parent_tag_value="Interests")  # child tag
-        # Create the grandchild tag:
-        g_tag = api.add_tag_to_taxonomy(taxonomy, "Interests - Holland Codes", parent_tag_value="Holland Codes")
-        # Create the 6 great-grandchild tags:
-        api.add_tag_to_taxonomy(taxonomy, "Artistic", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Conventional", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Enterprising", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Investigative", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Realistic", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Social", parent_tag_value=g_tag.value)
-
-        result = pretty_format_tags(taxonomy.get_filtered_tags(depth=1, include_counts=True))
-        assert result == [
-            "Interests (None) (used: 0, children: 1 + 7)",  # 1 child + (1 grandchild and 6 great grandchild tags)
-        ]
-        result2 = pretty_format_tags(taxonomy.get_filtered_tags(depth=None, include_counts=True))
-        assert result2 == [
-            "Interests (None) (used: 0, children: 1 + 7)",
-            "  Holland Codes (Interests) (used: 0, children: 1 + 6)",
-            "    Interests - Holland Codes (Holland Codes) (used: 0, children: 6)",
-            "      Artistic (Interests - Holland Codes) (used: 0, children: 0)",
-            "      Conventional (Interests - Holland Codes) (used: 0, children: 0)",
-            "      Enterprising (Interests - Holland Codes) (used: 0, children: 0)",
-            "      Investigative (Interests - Holland Codes) (used: 0, children: 0)",
-            "      Realistic (Interests - Holland Codes) (used: 0, children: 0)",
-            "      Social (Interests - Holland Codes) (used: 0, children: 0)",
         ]
 
 

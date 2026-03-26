@@ -145,8 +145,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Bacteria (children: 2)",
             "  Archaebacteria (children: 0)",
             "  Eubacteria (children: 0)",
-            "Eukaryota (children: 5 + 8)",
-            "  Animalia (children: 7 + 1)",
+            "Eukaryota (children: 5)",
+            "  Animalia (children: 7)",
             "    Arthropoda (children: 0)",
             "    Chordata (children: 1)",
             "      Mammalia (children: 0)",
@@ -175,7 +175,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert pretty_format_tags(root_life_on_earth_tags, parent=False) == [
             'Archaea (children: 3)',
             'Bacteria (children: 2)',
-            'Eukaryota (children: 5 + 8)',
+            'Eukaryota (children: 5)',
         ]
 
     @override_settings(LANGUAGES=test_languages)
@@ -764,7 +764,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "  Proteoarchaeota (used: 0, children: 0)",
             "Bacteria (used: 0, children: 1)",  # does not contain "ar" but a child does
             "  Archaebacteria (used: 1, children: 0)",
-            "Eukaryota (used: 0, children: 1 + 2)",
+            "Eukaryota (used: 0, children: 1)",
             "  Animalia (used: 1, children: 2)",  # does not contain "ar" but a child does
             "    Arthropoda (used: 1, children: 0)",
             "    Cnidaria (used: 0, children: 0)",
@@ -786,8 +786,8 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             "Bacteria (used: 0, children: 2)",
             "  Archaebacteria (used: 1, children: 0)",
             "  Eubacteria (used: 0, children: 0)",
-            "Eukaryota (used: 0, children: 4 + 8)",
-            "  Animalia (used: 1, children: 7 + 1)",
+            "Eukaryota (used: 0, children: 4)",
+            "  Animalia (used: 1, children: 7)",
             "    Arthropoda (used: 1, children: 0)",
             "    Chordata (used: 0, children: 1)",
             "      Mammalia (used: 0, children: 0)",
@@ -1107,10 +1107,10 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         assert pretty_format_tags(
             tagging_api.get_tags(taxonomy)
         ) == [
-            "Root - depth 0 (None) (children: 1 + 4)",
-            "  Child - depth 1 (Root - depth 0) (children: 1 + 3)",
-            "    Grandchild - depth 2 (Child - depth 1) (children: 1 + 2)",
-            "      Great-Grandchild - depth 3 (Grandchild - depth 2) (children: 1 + 1)",
+            "Root - depth 0 (None) (children: 1)",
+            "  Child - depth 1 (Root - depth 0) (children: 1)",
+            "    Grandchild - depth 2 (Child - depth 1) (children: 1)",
+            "      Great-Grandchild - depth 3 (Grandchild - depth 2) (children: 1)",
             "        Great-Great-Grandchild - depth 4 (Great-Grandchild - depth 3) (children: 1)",
             "          Great-Great-Great-Grandchild - depth 5 (Great-Great-Grandchild - depth 4) (children: 0)",
         ]
@@ -1128,7 +1128,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         # Or even load a subtree:
         deep_result = taxonomy.get_filtered_tags(depth=None, parent_tag_value=tag_2.value)
         assert pretty_format_tags(deep_result, parent=False) == [
-            '      Great-Grandchild - depth 3 (children: 1 + 1)',
+            '      Great-Grandchild - depth 3 (children: 1)',
             '        Great-Great-Grandchild - depth 4 (children: 1)',
             '          Great-Great-Great-Grandchild - depth 5 (children: 0)',
         ]
