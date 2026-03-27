@@ -72,6 +72,7 @@ __all__ = [
     "publish_from_drafts",
     "get_draft_version",
     "get_published_version",
+    "get_descendant_component_entity_ids",
     "get_entity_draft_history",
     "get_entity_publish_history",
     "get_entity_publish_history_entries",
@@ -587,6 +588,65 @@ def get_published_version(publishable_entity_or_id: PublishableEntity | int, /) 
     # published.version could be None if something was published at one point,
     # had its draft soft deleted, and then was published again.
     return published.version
+
+
+def get_descendant_component_entity_ids(container: Container) -> list[int]:
+    """
+    Return the entity IDs of all leaf (non-Container) descendants of ``container``.
+
+    Intermediate containers (e.g. Subsections, Units) are never included in the
+    result; only leaf component entities are returned.
+
+    The traversal follows draft state only. Soft-deleted children
+    (``Draft.version = None``) are skipped because they have no
+    ``ContainerVersion`` to walk into.
+
+    Edge cases:
+    - A container whose draft was soft-deleted has no children to traverse and
+      contributes no entity IDs.
+    - An entity that appears as a child of multiple containers is deduplicated
+      because the result is built from a set.
+    - A cycle-guard (``visited_container_pks``) prevents infinite loops, which
+      cannot occur in practice but is included for safety.
+    """
+    all_component_ids: set[int] = set()
+    current_level_pks: list[int] = [container.pk]
+    visited_container_pks: set[int] = {container.pk}
+
+    while current_level_pks:
+        # Step A: resolve entity_list IDs for this level's containers via their draft version
+        entity_list_ids = list(
+            Draft.objects
+            .filter(entity_id__in=current_level_pks, version__isnull=False)
+            .exclude(version__containerversion__isnull=True)
+            .values_list('version__containerversion__entity_list_id', flat=True)
+        )
+        if not entity_list_ids:
+            break
+
+        # Step B: collect all child entity IDs
+        child_entity_ids = list(
+            EntityListRow.objects
+            .filter(entity_list_id__in=entity_list_ids)
+            .values_list('entity_id', flat=True)
+            .distinct()
+        )
+        if not child_entity_ids:
+            break
+
+        # Step C: separate sub-containers from leaf entities
+        sub_container_pks = set(
+            Container.objects
+            .filter(publishable_entity_id__in=child_entity_ids)
+            .values_list('publishable_entity_id', flat=True)
+        )
+        all_component_ids.update(set(child_entity_ids) - sub_container_pks)
+
+        next_level = sub_container_pks - visited_container_pks
+        visited_container_pks.update(next_level)
+        current_level_pks = list(next_level)
+
+    return list(all_component_ids)
 
 
 def get_entity_draft_history(

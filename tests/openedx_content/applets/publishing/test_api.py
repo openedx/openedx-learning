@@ -1941,3 +1941,104 @@ class GetEntityPublishHistoryEntriesTestCase(PublishingHistoryMixin, TestCase):
         entry = entries.get()
         assert entry.new_version is not None
         assert entry.new_version.version_num == 3
+
+
+class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
+    """
+    Tests for get_descendant_component_entity_ids.
+    """
+
+    def _make_extra_entity(self, key: str) -> PublishableEntity:
+        """Create an additional PublishableEntity (beyond self.entity)."""
+        return publishing_api.create_publishable_entity(
+            self.learning_package.id, key, created=self.time_1, created_by=None,
+        )
+
+    def _make_container(self, key: str, children: list) -> Container:
+        """Create a Container with a v1 version pointing at the given children."""
+        container: Container = publishing_api.create_container(
+            self.learning_package.id, key, created=self.time_1, created_by=None,
+        )
+        publishing_api.create_container_version(
+            container.pk,
+            1,
+            title=key,
+            entity_rows=[
+                publishing_api.ContainerEntityRow(entity_pk=child.pk)
+                for child in children
+            ],
+            created=self.time_1,
+            created_by=None,
+        )
+        return container
+
+    def test_no_children_returns_empty(self) -> None:
+        """A container with no children returns an empty list."""
+        container = self._make_container("empty_container", children=[])
+        result = publishing_api.get_descendant_component_entity_ids(container)
+        assert not result
+
+    def test_direct_component_children(self) -> None:
+        """Direct component children are returned."""
+        second_component = self._make_extra_entity("second_component")
+        unit = self._make_container("unit_direct", children=[self.entity, second_component])
+
+        result = publishing_api.get_descendant_component_entity_ids(unit)
+
+        assert set(result) == {self.entity.pk, second_component.pk}
+
+    def test_nested_returns_only_leaf_components(self) -> None:
+        """
+        Section → Subsection → Unit → Component hierarchy.
+        Only the leaf component entity ID is returned; intermediate containers
+        (subsection, unit) are excluded.
+        """
+        unit = self._make_container("unit_nested", children=[self.entity])
+        subsection = self._make_container("subsection_nested", children=[unit])
+        section = self._make_container("section_nested", children=[subsection])
+
+        result = publishing_api.get_descendant_component_entity_ids(section)
+
+        assert set(result) == {self.entity.pk}
+        assert unit.pk not in result
+        assert subsection.pk not in result
+
+    def test_multiple_components_across_sub_containers(self) -> None:
+        """All leaf components across multiple sub-containers are collected."""
+        second_component = self._make_extra_entity("second_component_multi")
+        third_component = self._make_extra_entity("third_component_multi")
+        first_unit = self._make_container("first_unit_multi", children=[self.entity, second_component])
+        second_unit = self._make_container("second_unit_multi", children=[third_component])
+        section = self._make_container("section_multi", children=[first_unit, second_unit])
+
+        result = publishing_api.get_descendant_component_entity_ids(section)
+
+        assert set(result) == {self.entity.pk, second_component.pk, third_component.pk}
+
+    def test_soft_deleted_sub_container_stops_traversal(self) -> None:
+        """
+        When a sub-container's draft is soft-deleted, the BFS skips it and its
+        descendants are not included.
+        """
+        unit = self._make_container("unit_soft_deleted", children=[self.entity])
+        section = self._make_container("section_with_deleted_unit", children=[unit])
+
+        publishing_api.soft_delete_draft(unit.pk)
+
+        result = publishing_api.get_descendant_component_entity_ids(section)
+
+        assert self.entity.pk not in result
+
+    def test_container_without_version_returns_empty(self) -> None:
+        """
+        A container created with no ContainerVersion has no Draft.version,
+        so the BFS returns nothing.
+        """
+        container: Container = publishing_api.create_container(
+            self.learning_package.id, "no_version_container",
+            created=self.time_1, created_by=None,
+        )
+
+        result = publishing_api.get_descendant_component_entity_ids(container)
+
+        assert not result
