@@ -1,5 +1,5 @@
 """
-The model hierarchy is Component -> ComponentVersion -> Content.
+The model hierarchy is Component -> ComponentVersion -> Media.
 
 A Component is an entity like a Problem or Video. It has enough information to
 identify the Component and determine what the handler should be (e.g. XBlock
@@ -10,7 +10,7 @@ that Component. Managing the publishing of these versions is handled through the
 publishing app. Component maps 1:1 to PublishableEntity and ComponentVersion
 maps 1:1 to PublishableEntityVersion.
 
-Multiple pieces of Content may be associated with a ComponentVersion, through
+Multiple pieces of Media may be associated with a ComponentVersion, through
 the ComponentVersionMedia model. ComponentVersionMedia allows to specify a
 ComponentVersion-local identifier. We're using this like a file path by
 convention, but it's possible we might want to have special identifiers later.
@@ -91,7 +91,7 @@ class Component(PublishableEntityMixin):
     Problem), but little beyond that.
 
     A Component will have many ComponentVersions over time, and most metadata is
-    associated with the ComponentVersion model and the Content that
+    associated with the ComponentVersion model and the Media that
     ComponentVersions are associated with.
 
     A Component belongs to exactly one LearningPackage.
@@ -199,7 +199,7 @@ class ComponentVersion(PublishableEntityVersionMixin):
     """
     A particular version of a Component.
 
-    This holds the media using a M:M relationship with Content via
+    This holds the media using a M:M relationship with Media via
     ComponentVersionMedia.
     """
 
@@ -225,18 +225,18 @@ class ComponentVersion(PublishableEntityVersionMixin):
 
 class ComponentVersionMedia(models.Model):
     """
-    Determines the Content for a given ComponentVersion.
+    Determines the Media for a given ComponentVersion.
 
     An ComponentVersion may be associated with multiple pieces of binary data.
     For instance, a Video ComponentVersion might be associated with multiple
     transcripts in different languages.
 
-    When Content is associated with an ComponentVersion, it has some local
+    When Media is associated with an ComponentVersion, it has some local
     key that is unique within the the context of that ComponentVersion. This
     allows the ComponentVersion to do things like store an image file and
     reference it by a "path" key.
 
-    Content is immutable and sharable across multiple ComponentVersions.
+    Media is immutable and sharable across multiple ComponentVersions.
     """
 
     component_version = models.ForeignKey(ComponentVersion, on_delete=models.CASCADE)
