@@ -28,7 +28,7 @@ billiard==4.2.4
     # via
     #   -r requirements/test.txt
     #   celery
-celery==5.6.2
+celery==5.6.3
     # via -r requirements/test.txt
 certifi==2026.2.25
     # via
@@ -71,7 +71,7 @@ coverage[toml]==7.13.5
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==46.0.5
+cryptography==46.0.6
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -121,7 +121,7 @@ django-waffle==5.0.0
     #   -r requirements/test.txt
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.17.0
+djangorestframework==3.17.1
     # via
     #   -r requirements/test.txt
     #   drf-jwt
@@ -159,7 +159,7 @@ edx-opaque-keys==3.1.0
     #   -r requirements/test.txt
     #   edx-drf-extensions
     #   edx-organizations
-edx-organizations==7.3.0
+edx-organizations==8.0.0
     # via -r requirements/test.txt
 freezegun==1.5.5
     # via -r requirements/test.txt
@@ -214,7 +214,7 @@ mypy-extensions==1.1.0
     #   mypy
 mysqlclient==2.2.8
     # via -r requirements/test.txt
-nh3==0.3.3
+nh3==0.3.4
     # via readme-renderer
 packaging==26.0
     # via
@@ -251,7 +251,7 @@ pycparser==3.0
     #   cffi
 pydata-sphinx-theme==0.16.1
     # via sphinx-book-theme
-pygments==2.19.2
+pygments==2.20.0
     # via
     #   -r requirements/test.txt
     #   accessible-pygments
@@ -298,7 +298,7 @@ pyyaml==6.0.3
     #   code-annotations
 readme-renderer==44.0
     # via -r requirements/doc.in
-requests==2.32.5
+requests==2.33.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions

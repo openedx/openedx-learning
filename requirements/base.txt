@@ -12,7 +12,7 @@ attrs==26.1.0
     # via -r requirements/base.in
 billiard==4.2.4
     # via celery
-celery==5.6.2
+celery==5.6.3
     # via -r requirements/base.in
 certifi==2026.2.25
     # via requests
@@ -35,7 +35,7 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==46.0.5
+cryptography==46.0.6
     # via pyjwt
 django==5.2.12
     # via
@@ -60,7 +60,7 @@ django-waffle==5.0.0
     # via
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.17.0
+djangorestframework==3.17.1
     # via
     #   -r requirements/base.in
     #   drf-jwt
@@ -80,7 +80,7 @@ edx-opaque-keys==3.1.0
     # via
     #   edx-drf-extensions
     #   edx-organizations
-edx-organizations==7.3.0
+edx-organizations==8.0.0
     # via -r requirements/base.in
 idna==3.11
     # via requests
@@ -106,7 +106,7 @@ pynacl==1.6.2
     # via edx-django-utils
 python-dateutil==2.9.0.post0
     # via celery
-requests==2.32.5
+requests==2.33.0
     # via edx-drf-extensions
 rules==3.5
     # via -r requirements/base.in
