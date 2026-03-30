@@ -156,10 +156,24 @@ class CollectionSerializer(serializers.Serializer):  # pylint: disable=abstract-
     Serializer for collections.
     """
     title = serializers.CharField(required=True)
-    key = serializers.CharField(required=True)
+    # 'collection_code' is the current field name; 'key' is the old name kept for
+    # back-compat with archives written before the rename.  At least one must be present.
+    collection_code = serializers.CharField(required=False)
+    key = serializers.CharField(required=False)
     description = serializers.CharField(required=True, allow_blank=True)
     entities = serializers.ListField(
         child=serializers.CharField(),
         required=True,
         allow_empty=True,
     )
+
+    def validate(self, attrs):
+        # Prefer 'collection_code'; fall back to legacy 'key'.  Always remove
+        # both so only the normalised 'collection_code' key reaches the caller.
+        code = attrs.pop("collection_code", None)
+        legacy_key = attrs.pop("key", None)
+        code = code or legacy_key
+        if not code:
+            raise serializers.ValidationError("Either 'collection_code' or 'key' is required.")
+        attrs["collection_code"] = code
+        return attrs
