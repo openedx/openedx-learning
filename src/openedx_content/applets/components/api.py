@@ -436,7 +436,7 @@ def get_components(  # pylint: disable=too-many-positional-arguments
 
 def get_collection_components(
     learning_package_id: int,
-    collection_key: str,
+    collection_code: str,
 ) -> QuerySet[Component]:
     """
     Returns a QuerySet of Components relating to the PublishableEntities in a Collection.
@@ -445,7 +445,7 @@ def get_collection_components(
     """
     return Component.objects.filter(
         learning_package_id=learning_package_id,
-        publishable_entity__collections__key=collection_key,
+        publishable_entity__collections__collection_code=collection_code,
     ).order_by('pk')
 
 

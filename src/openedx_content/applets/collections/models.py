@@ -70,7 +70,7 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, key_field
+from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, code_field
 from openedx_django_lib.validators import validate_utc_datetime
 
 from ..publishing.models import LearningPackage, PublishableEntity
@@ -85,12 +85,12 @@ class CollectionManager(models.Manager):
     """
     Custom manager for Collection class.
     """
-    def get_by_key(self, learning_package_id: int, key: str):
+    def get_by_code(self, learning_package_id: int, collection_code: str):
         """
-        Get the Collection for the given Learning Package + key.
+        Get the Collection for the given Learning Package + collection code.
         """
         return self.select_related('learning_package') \
-                   .get(learning_package_id=learning_package_id, key=key)
+                   .get(learning_package_id=learning_package_id, collection_code=collection_code)
 
 
 class Collection(models.Model):
@@ -105,10 +105,11 @@ class Collection(models.Model):
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
 
     # Every collection is uniquely and permanently identified within its learning package
-    # by a 'key' that is set during creation. Both will appear in the
+    # by a 'code' that is set during creation. Both will appear in the
     # collection's opaque key:
-    # e.g. "lib-collection:lib:key" is the opaque key for a library collection.
-    key = key_field(db_column='_key')
+    # e.g. "lib-collection:{org_code}:{library_code}:{collection_code}"
+    #       is the opaque key for a library collection.
+    collection_code = code_field()
 
     title = case_insensitive_char_field(
         null=False,
@@ -170,11 +171,11 @@ class Collection(models.Model):
     class Meta:
         verbose_name_plural = "Collections"
         constraints = [
-            # Keys are unique within a given LearningPackage.
+            # Collection codes are unique within a given LearningPackage.
             models.UniqueConstraint(
                 fields=[
                     "learning_package",
-                    "key",
+                    "collection_code",
                 ],
                 name="oel_coll_uniq_lp_key",
             ),
@@ -196,7 +197,7 @@ class Collection(models.Model):
         """
         User-facing string representation of a Collection.
         """
-        return f"<{self.__class__.__name__}> (lp:{self.learning_package_id} {self.key}:{self.title})"
+        return f"<{self.__class__.__name__}> (lp:{self.learning_package_id} {self.collection_code}:{self.title})"
 
 
 class CollectionPublishableEntity(models.Model):

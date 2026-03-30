@@ -146,7 +146,7 @@ class LpDumpCommandTestCase(TestCase):
 
         cls.collection = api.create_collection(
             cls.learning_package.id,
-            key="COL1",
+            collection_code="COL1",
             created_by=cls.user.id,
             title="Collection 1",
             description="Description of Collection 1",
@@ -154,7 +154,7 @@ class LpDumpCommandTestCase(TestCase):
 
         api.add_to_collection(
             cls.learning_package.id,
-            cls.collection.key,
+            cls.collection.collection_code,
             components
         )
 
@@ -276,6 +276,17 @@ class LpDumpCommandTestCase(TestCase):
 
             for file_path, expected_content in expected_files.items():
                 self.check_toml_file(zip_path, Path(file_path), expected_content)
+
+            # Verify that collection TOMLs include both 'key' (legacy) and 'collection_code'
+            # (new name), so older software can still read archives produced after the rename.
+            self.check_toml_file(
+                zip_path,
+                Path("collections/col1.toml"),
+                [
+                    'key = "COL1"',
+                    'collection_code = "COL1"',
+                ]
+            )
 
             # Check the output message
             message = f'{lp_key} written to {file_name}'

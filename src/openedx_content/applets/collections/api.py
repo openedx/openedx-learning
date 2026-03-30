@@ -34,7 +34,7 @@ __all__ = [
 
 def create_collection(
     learning_package_id: int,
-    key: str,
+    collection_code: str,
     *,
     title: str,
     created_by: int | None,
@@ -44,35 +44,37 @@ def create_collection(
     """
     Create a new Collection
     """
-    collection = Collection.objects.create(
+    collection = Collection(
         learning_package_id=learning_package_id,
-        key=key,
+        collection_code=collection_code,
         title=title,
         created_by_id=created_by,
         description=description,
         enabled=enabled,
     )
+    collection.full_clean()
+    collection.save()
     return collection
 
 
-def get_collection(learning_package_id: int, collection_key: str) -> Collection:
+def get_collection(learning_package_id: int, collection_code: str) -> Collection:
     """
     Get a Collection by ID
     """
-    return Collection.objects.get_by_key(learning_package_id, collection_key)
+    return Collection.objects.get_by_code(learning_package_id, collection_code)
 
 
 def update_collection(
     learning_package_id: int,
-    key: str,
+    collection_code: str,
     *,
     title: str | None = None,
     description: str | None = None,
 ) -> Collection:
     """
-    Update a Collection identified by the learning_package_id + key.
+    Update a Collection identified by the learning_package_id + collection_code.
     """
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
 
     # If no changes were requested, there's nothing to update, so just return
     # the Collection as-is
@@ -90,17 +92,17 @@ def update_collection(
 
 def delete_collection(
     learning_package_id: int,
-    key: str,
+    collection_code: str,
     *,
     hard_delete=False,
 ) -> Collection:
     """
-    Disables or deletes a collection identified by the given learning_package + key.
+    Disables or deletes a collection identified by the given learning_package + collection_code.
 
     By default (hard_delete=False), the collection is "soft deleted", i.e disabled.
     Soft-deleted collections can be re-enabled using restore_collection.
     """
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
 
     if hard_delete:
         collection.delete()
@@ -112,12 +114,12 @@ def delete_collection(
 
 def restore_collection(
     learning_package_id: int,
-    key: str,
+    collection_code: str,
 ) -> Collection:
     """
     Undo a "soft delete" by re-enabling a Collection.
     """
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
 
     collection.enabled = True
     collection.save()
@@ -126,7 +128,7 @@ def restore_collection(
 
 def add_to_collection(
     learning_package_id: int,
-    key: str,
+    collection_code: str,
     entities_qset: QuerySet[PublishableEntity],
     created_by: int | None = None,
 ) -> Collection:
@@ -146,10 +148,10 @@ def add_to_collection(
     if invalid_entity:
         raise ValidationError(
             f"Cannot add entity {invalid_entity.pk} in learning package {invalid_entity.learning_package_id} "
-            f"to collection {key} in learning package {learning_package_id}."
+            f"to collection {collection_code} in learning package {learning_package_id}."
         )
 
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
     collection.entities.add(
         *entities_qset.all(),
         through_defaults={"created_by_id": created_by},
@@ -162,7 +164,7 @@ def add_to_collection(
 
 def remove_from_collection(
     learning_package_id: int,
-    key: str,
+    collection_code: str,
     entities_qset: QuerySet[PublishableEntity],
 ) -> Collection:
     """
@@ -174,7 +176,7 @@ def remove_from_collection(
 
     Returns the updated Collection.
     """
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
 
     collection.entities.remove(*entities_qset.all())
     collection.modified = datetime.now(tz=timezone.utc)
@@ -196,7 +198,7 @@ def get_entity_collections(learning_package_id: int, entity_key: str) -> QuerySe
     return entity.collections.filter(enabled=True).order_by("pk")
 
 
-def get_collection_entities(learning_package_id: int, collection_key: str) -> QuerySet[PublishableEntity]:
+def get_collection_entities(learning_package_id: int, collection_code: str) -> QuerySet[PublishableEntity]:
     """
     Returns a QuerySet of PublishableEntities in a Collection.
 
@@ -204,7 +206,7 @@ def get_collection_entities(learning_package_id: int, collection_key: str) -> Qu
     """
     return PublishableEntity.objects.filter(
         learning_package_id=learning_package_id,
-        collections__key=collection_key,
+        collections__collection_code=collection_code,
     ).order_by("pk")
 
 

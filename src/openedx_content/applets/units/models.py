@@ -1,6 +1,7 @@
 """
 Models that implement units
 """
+from __future__ import annotations
 
 from typing import override
 

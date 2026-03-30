@@ -220,7 +220,10 @@ def toml_collection(collection: Collection, entity_keys: list[str]) -> str:
 
     collection_table = tomlkit.table()
     collection_table.add("title", collection.title)
-    collection_table.add("key", collection.key)
+    # Write both names so that older software (which reads 'key') stays compatible
+    # with archives produced after the Collection.key -> Collection.collection_code rename.
+    collection_table.add("key", collection.collection_code)
+    collection_table.add("collection_code", collection.collection_code)
     collection_table.add("description", collection.description)
     collection_table.add("created", collection.created)
     collection_table.add("entities", entities_array)

@@ -11,9 +11,12 @@ case-insensitive by default, SQLite and Postgres are case-sensitive.
 from __future__ import annotations
 
 import hashlib
+import re
 import uuid
 
+from django.core.validators import RegexValidator
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from .collations import MultiCollationMixin
 from .validators import validate_utc_datetime
@@ -107,6 +110,29 @@ def immutable_uuid_field() -> models.UUIDField:
         editable=False,
         unique=True,
         verbose_name="UUID",  # Just makes the Django admin output properly capitalized
+    )
+
+
+# Alphanumeric, hyphens, underscores, periods
+CODE_REGEX = re.compile(r"^[a-zA-Z0-9\-\_\.]+\Z")
+
+
+def code_field(**kwargs) -> MultiCollationCharField:
+    """
+    Field to hold a 'code', i.e. a slug-like local identifier.
+    """
+    return case_sensitive_char_field(
+        max_length=255,
+        blank=False,
+        validators=[
+            RegexValidator(
+                CODE_REGEX,
+                # Translators: "letters" means latin letters: a-z and A-Z.
+                _('Enter a valid "code name" consisting of letters, numbers, underscores, hyphens, or periods.'),
+                "invalid",
+            ),
+        ],
+        **kwargs,
     )
 
 

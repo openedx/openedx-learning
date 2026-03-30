@@ -64,35 +64,35 @@ class CollectionsTestCase(CollectionTestCase):
         super().setUpTestData()
         cls.collection1 = api.create_collection(
             cls.learning_package.id,
-            key="COL1",
+            collection_code="COL1",
             created_by=None,
             title="Collection 1",
             description="Description of Collection 1",
         )
         cls.collection2 = api.create_collection(
             cls.learning_package.id,
-            key="COL2",
+            collection_code="COL2",
             created_by=None,
             title="Collection 2",
             description="Description of Collection 2",
         )
         cls.collection3 = api.create_collection(
             cls.learning_package.id,
-            key="COL3",
+            collection_code="COL3",
             created_by=None,
             title="Collection 3",
             description="Description of Collection 3",
         )
         cls.another_library_collection = api.create_collection(
             cls.learning_package_2.id,
-            key="another_library",
+            collection_code="another_library",
             created_by=None,
             title="Collection 4",
             description="Description of Collection 4",
         )
         cls.disabled_collection = api.create_collection(
             cls.learning_package.id,
-            key="disabled_collection",
+            collection_code="disabled_collection",
             created_by=None,
             title="Disabled Collection",
             description="Description of Disabled Collection",
@@ -123,7 +123,7 @@ class GetCollectionTestCase(CollectionsTestCase):
         Test getting a collection that doesn't exist in the requested learning package.
         """
         with self.assertRaises(ObjectDoesNotExist):
-            api.get_collection(self.learning_package.pk, self.another_library_collection.key)
+            api.get_collection(self.learning_package.pk, self.another_library_collection.collection_code)
 
     def test_get_collections(self):
         """
@@ -191,14 +191,14 @@ class CollectionCreateTestCase(CollectionTestCase):
         with freeze_time(created_time):
             collection = api.create_collection(
                 self.learning_package.id,
-                key='MYCOL',
+                collection_code='MYCOL',
                 title="My Collection",
                 created_by=user.id,
                 description="This is my collection",
             )
 
         assert collection.title == "My Collection"
-        assert collection.key == "MYCOL"
+        assert collection.collection_code == "MYCOL"
         assert collection.description == "This is my collection"
         assert collection.enabled
         assert collection.created == created_time
@@ -211,14 +211,34 @@ class CollectionCreateTestCase(CollectionTestCase):
         """
         collection = api.create_collection(
             self.learning_package.id,
-            key='MYCOL',
+            collection_code='MYCOL',
             created_by=None,
             title="My Collection",
         )
         assert collection.title == "My Collection"
-        assert collection.key == "MYCOL"
+        assert collection.collection_code == "MYCOL"
         assert collection.description == ""
         assert collection.enabled
+
+    def test_create_collection_invalid_code(self):
+        """
+        collection_code must only contain alphanumerics, hyphens, underscores, and periods.
+        """
+        invalid_codes = [
+            "has space",
+            "has@symbol",
+            "has/slash",
+            "has#hash",
+        ]
+        for code in invalid_codes:
+            with self.subTest(code=code):
+                with self.assertRaises(ValidationError):
+                    api.create_collection(
+                        self.learning_package.id,
+                        collection_code=code,
+                        title="Test",
+                        created_by=None,
+                    )
 
 
 class CollectionEntitiesTestCase(CollectionsTestCase):
@@ -283,7 +303,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         # Add some shared components to the collections
         cls.collection1 = api.add_to_collection(
             cls.learning_package.id,
-            key=cls.collection1.key,
+            collection_code=cls.collection1.collection_code,
             entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_component.pk,
             ]),
@@ -291,7 +311,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         )
         cls.collection2 = api.add_to_collection(
             cls.learning_package.id,
-            key=cls.collection2.key,
+            collection_code=cls.collection2.collection_code,
             entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_component.pk,
                 cls.draft_component.pk,
@@ -300,7 +320,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         )
         cls.disabled_collection = api.add_to_collection(
             cls.learning_package.id,
-            key=cls.disabled_collection.key,
+            collection_code=cls.disabled_collection.collection_code,
             entities_qset=PublishableEntity.objects.filter(id__in=[
                 cls.published_component.pk,
             ]),
@@ -335,7 +355,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         with freeze_time(modified_time):
             self.collection1 = api.add_to_collection(
                 self.learning_package.id,
-                self.collection1.key,
+                self.collection1.collection_code,
                 PublishableEntity.objects.filter(id__in=[
                     self.draft_component.pk,
                     self.draft_unit.pk,
@@ -360,7 +380,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         with freeze_time(modified_time):
             self.collection2 = api.add_to_collection(
                 self.learning_package.id,
-                self.collection2.key,
+                self.collection2.collection_code,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_component.pk,
                 ]),
@@ -380,7 +400,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         with self.assertRaises(ValidationError):
             api.add_to_collection(
                 self.learning_package_2.id,
-                self.another_library_collection.key,
+                self.another_library_collection.collection_code,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_component.pk,
                 ]),
@@ -396,7 +416,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         with freeze_time(modified_time):
             self.collection2 = api.remove_from_collection(
                 self.learning_package.id,
-                self.collection2.key,
+                self.collection2.collection_code,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_component.pk,
                     self.draft_unit.pk,
@@ -424,46 +444,46 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
     def test_get_collection_components(self):
         assert list(api.get_collection_components(
             self.learning_package.id,
-            self.collection1.key,
+            self.collection1.collection_code,
         )) == [self.published_component]
         assert list(api.get_collection_components(
             self.learning_package.id,
-            self.collection2.key,
+            self.collection2.collection_code,
         )) == [self.published_component, self.draft_component]
         assert not list(api.get_collection_components(
             self.learning_package.id,
-            self.collection3.key,
+            self.collection3.collection_code,
         ))
         assert not list(api.get_collection_components(
             self.learning_package.id,
-            self.another_library_collection.key,
+            self.another_library_collection.collection_code,
         ))
 
     def test_get_collection_containers(self):
         """
         Test using `get_collection_entities()` to get containers
         """
-        def get_collection_containers(learning_package_id: int, collection_key: str):
+        def get_collection_containers(learning_package_id: int, collection_code: str):
             return (
                 pe.container for pe in
-                api.get_collection_entities(learning_package_id, collection_key).exclude(container=None)
+                api.get_collection_entities(learning_package_id, collection_code).exclude(container=None)
             )
 
         assert not list(get_collection_containers(
             self.learning_package.id,
-            self.collection1.key,
+            self.collection1.collection_code,
         ))
         assert list(get_collection_containers(
             self.learning_package.id,
-            self.collection2.key,
+            self.collection2.collection_code,
         )) == [self.draft_unit.container]
         assert not list(get_collection_containers(
             self.learning_package.id,
-            self.collection3.key,
+            self.collection3.collection_code,
         ))
         assert not list(get_collection_containers(
             self.learning_package.id,
-            self.another_library_collection.key,
+            self.another_library_collection.collection_code,
         ))
 
 
@@ -481,7 +501,7 @@ class UpdateCollectionTestCase(CollectionTestCase):
         super().setUpTestData()
         cls.collection = api.create_collection(
             cls.learning_package.id,
-            key="MYCOL",
+            collection_code="MYCOL",
             title="Collection",
             created_by=None,
             description="Description of Collection",
@@ -495,7 +515,7 @@ class UpdateCollectionTestCase(CollectionTestCase):
         with freeze_time(modified_time):
             collection = api.update_collection(
                 self.learning_package.id,
-                key=self.collection.key,
+                collection_code=self.collection.collection_code,
                 title="New Title",
                 description="",
             )
@@ -511,17 +531,19 @@ class UpdateCollectionTestCase(CollectionTestCase):
         """
         collection = api.update_collection(
             self.learning_package.id,
-            key=self.collection.key,
+            collection_code=self.collection.collection_code,
             title="New Title",
         )
 
         assert collection.title == "New Title"
         assert collection.description == self.collection.description  # unchanged
-        assert f"{collection}" == f"<Collection> (lp:{self.learning_package.id} {self.collection.key}:New Title)"
+        assert f"{collection}" == (
+            f"<Collection> (lp:{self.learning_package.id} {self.collection.collection_code}:New Title)"
+        )
 
         collection = api.update_collection(
             self.learning_package.id,
-            key=self.collection.key,
+            collection_code=self.collection.collection_code,
             description="New description",
         )
 
@@ -536,7 +558,7 @@ class UpdateCollectionTestCase(CollectionTestCase):
         with freeze_time(modified_time):
             collection = api.update_collection(
                 self.learning_package.id,
-                key=self.collection.key,
+                collection_code=self.collection.collection_code,
             )
 
         assert collection.title == self.collection.title  # unchanged
@@ -550,7 +572,7 @@ class UpdateCollectionTestCase(CollectionTestCase):
         with self.assertRaises(ObjectDoesNotExist):
             api.update_collection(
                 self.learning_package.id,
-                key="12345",
+                collection_code="12345",
                 title="New Title",
             )
 
@@ -568,13 +590,13 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         with freeze_time(modified_time):
             collection = api.delete_collection(
                 self.learning_package.id,
-                key=self.collection2.key,
+                collection_code=self.collection2.collection_code,
             )
 
         # Collection was disabled and still exists in the database
         assert not collection.enabled
         assert collection.modified == modified_time
-        assert collection == api.get_collection(self.learning_package.id, collection.key)
+        assert collection == api.get_collection(self.learning_package.id, collection.collection_code)
         # ...and the collection's entities remain intact.
         assert list(collection.entities.all()) == [
             self.draft_unit.publishable_entity,
@@ -590,7 +612,7 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         with freeze_time(modified_time):
             collection = api.delete_collection(
                 self.learning_package.id,
-                key=self.collection2.key,
+                collection_code=self.collection2.collection_code,
                 hard_delete=True,
             )
 
@@ -598,7 +620,7 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         assert collection.enabled
         assert not collection.id
         with self.assertRaises(ObjectDoesNotExist):
-            api.get_collection(self.learning_package.id, collection.key)
+            api.get_collection(self.learning_package.id, collection.collection_code)
         # ...and the entities have been removed from this collection
         assert list(api.get_entity_collections(
             self.learning_package.id,
@@ -615,20 +637,20 @@ class DeleteCollectionTestCase(CollectionEntitiesTestCase):
         """
         collection = api.delete_collection(
             self.learning_package.id,
-            key=self.collection2.key,
+            collection_code=self.collection2.collection_code,
         )
 
         modified_time = datetime(2024, 8, 8, tzinfo=timezone.utc)
         with freeze_time(modified_time):
             collection = api.restore_collection(
                 self.learning_package.id,
-                key=self.collection2.key,
+                collection_code=self.collection2.collection_code,
             )
 
         # Collection was enabled and still exists in the database
         assert collection.enabled
         assert collection.modified == modified_time
-        assert collection == api.get_collection(self.learning_package.id, collection.key)
+        assert collection == api.get_collection(self.learning_package.id, collection.collection_code)
         # ...and the collection's entities remain intact.
         assert list(collection.entities.all()) == [
             self.draft_unit.publishable_entity,
@@ -719,7 +741,7 @@ class SetCollectionsTestCase(CollectionEntitiesTestCase):
         )
         collection = api.create_collection(
             learning_package_3.id,
-            key="MYCOL",
+            collection_code="MYCOL",
             title="My Collection",
             created_by=None,
             description="Description of Collection",
