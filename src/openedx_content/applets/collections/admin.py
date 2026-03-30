@@ -13,14 +13,14 @@ class CollectionAdmin(admin.ModelAdmin):
 
     Allows users to easily disable/enable (aka soft delete and restore) or bulk delete Collections.
     """
-    readonly_fields = ["key", "learning_package"]
+    readonly_fields = ["collection_code", "learning_package"]
     list_filter = ["enabled"]
-    list_display = ["key", "title", "enabled", "modified"]
+    list_display = ["collection_code", "title", "enabled", "modified"]
     fieldsets = [
         (
             "",
             {
-                "fields": ["key", "learning_package"],
+                "fields": ["collection_code", "learning_package"],
             }
         ),
         (

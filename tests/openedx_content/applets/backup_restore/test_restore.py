@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 
+from openedx_content.applets.backup_restore.serializers import CollectionSerializer
 from openedx_content.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
 from openedx_content.applets.collections import api as collections_api
 from openedx_content.applets.components import api as components_api
@@ -183,7 +184,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
         assert collections.count() == 1
         collection = collections.first()
         assert collection.title == "Collection test1"
-        assert collection.key == "collection-test"
+        assert collection.collection_code == "collection-test"
         assert collection.description == ""
         assert collection.created_by is not None
         assert collection.created_by.username == "lp_user"
@@ -352,6 +353,52 @@ class RestoreLearningPackageTest(RestoreTestCase):
         }
 
         assert metadata == expected_metadata
+
+
+class CollectionSerializerTest(TestCase):
+    """
+    Unit tests for CollectionSerializer's back-compat handling of 'key' vs 'collection_code'.
+    """
+
+    BASE_DATA = {
+        "title": "My Collection",
+        "description": "",
+        "entities": [],
+    }
+
+    def _serialize(self, extra):
+        data = {**self.BASE_DATA, **extra}
+        s = CollectionSerializer(data=data)
+        s.is_valid()
+        return s
+
+    def test_legacy_key_field(self):
+        """Archives written before the rename use 'key'; restore must accept it."""
+        s = self._serialize({"key": "my-col"})
+        assert s.is_valid(), s.errors
+        assert s.validated_data["collection_code"] == "my-col"
+        assert "key" not in s.validated_data
+
+    def test_new_collection_code_field(self):
+        """Archives written after the rename use 'collection_code'."""
+        s = self._serialize({"collection_code": "my-col"})
+        assert s.is_valid(), s.errors
+        assert s.validated_data["collection_code"] == "my-col"
+        assert "key" not in s.validated_data
+
+    def test_both_fields_collection_code_wins(self):
+        """When both fields are present (new archives include both for back-compat),
+        'collection_code' takes precedence over 'key'."""
+        s = self._serialize({"key": "old-value", "collection_code": "new-value"})
+        assert s.is_valid(), s.errors
+        assert s.validated_data["collection_code"] == "new-value"
+        assert "key" not in s.validated_data
+
+    def test_neither_field_is_an_error(self):
+        """Missing both 'key' and 'collection_code' must fail validation."""
+        s = self._serialize({})
+        assert not s.is_valid()
+        assert "non_field_errors" in s.errors
 
 
 class RestoreUtilitiesTest(TestCase):
