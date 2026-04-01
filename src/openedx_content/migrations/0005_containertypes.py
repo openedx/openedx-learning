@@ -29,6 +29,14 @@ def backfill_container_types(apps, schema_editor):
         raise ValueError(f"container {unknown_containers[0]} is of unknown container type. Cannot apply migration.")
 
 
+def clear_container_types(apps, schema_editor):
+    """
+    Drop the contents of the container_type field for the reverse migration.
+    """
+    Container = apps.get_model("openedx_content", "Container")
+    Container.objects.update(container_type=None)
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("openedx_content", "0004_componenttype_constraint"),
@@ -68,7 +76,10 @@ class Migration(migrations.Migration):
             ),
         ),
         # 3. Populate the container_type column, which is currently NULL for all existing containers
-        migrations.RunPython(backfill_container_types),
+        migrations.RunPython(
+            code=backfill_container_types,
+            reverse_code=clear_container_types,
+        ),
         # 4. disallow NULL values from now on
         migrations.AlterField(
             model_name="container",
