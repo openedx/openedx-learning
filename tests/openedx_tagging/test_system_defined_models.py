@@ -42,7 +42,7 @@ class LPTaxonomyTest(ModelSystemDefinedTaxonomy):
 
     @property
     def tag_class_value_field(self) -> str:
-        return "key"
+        return "package_ref"
 
     @property
     def tag_class_key_field(self) -> str:
@@ -87,8 +87,8 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
     def setUpClass(cls):
         super().setUpClass()
         # Create two learning packages and a taxonomy that can tag any object using learning packages as tags:
-        cls.learning_pkg_1 = cls._create_learning_pkg(key="p1", title="Learning Package 1")
-        cls.learning_pkg_2 = cls._create_learning_pkg(key="p2", title="Learning Package 2")
+        cls.learning_pkg_1 = cls._create_learning_pkg(package_ref="p1", title="Learning Package 1")
+        cls.learning_pkg_2 = cls._create_learning_pkg(package_ref="p2", title="Learning Package 2")
         cls.lp_taxonomy = LPTaxonomyTest.objects.create(
             taxonomy_class=LPTaxonomyTest,
             name="LearningPackage Taxonomy",
@@ -108,11 +108,11 @@ class TestModelSystemDefinedTaxonomy(TestTagTaxonomyMixin, TestCase):
         Test that the validation methods of the Learning Package Taxonomy are working
         """
         # Create a new LearningPackage - we know no Tag instances will exist for it yet.
-        valid_lp = self._create_learning_pkg(key="valid-lp", title="New Learning Packacge")
+        valid_lp = self._create_learning_pkg(package_ref="valid-lp", title="New Learning Packacge")
         # The taxonomy can validate tags by value which we've defined as they 'key' of the LearningPackage:
-        assert self.lp_taxonomy.validate_value(self.learning_pkg_2.key) is True
-        assert self.lp_taxonomy.validate_value(self.learning_pkg_2.key) is True
-        assert self.lp_taxonomy.validate_value(valid_lp.key) is True
+        assert self.lp_taxonomy.validate_value(self.learning_pkg_2.package_ref) is True
+        assert self.lp_taxonomy.validate_value(self.learning_pkg_2.package_ref) is True
+        assert self.lp_taxonomy.validate_value(valid_lp.package_ref) is True
         assert self.lp_taxonomy.validate_value("foo") is False
         # The taxonomy can also validate tags by external_id, which we've defined as the UUID of the LearningPackage:
         assert self.lp_taxonomy.validate_external_id(self.learning_pkg_2.uuid) is True
