@@ -400,14 +400,23 @@ def hash_for_log_record(
     # Begin normal
     dependencies = sorted(
         record_ids_to_live_deps[record.id],
-        key=lambda entity: getattr(entity, branch).log_record.new_version_id,
+        key=lambda entity: getattr(entity, branch).version_id,
     )
     dep_state_entries = []
     for dep_entity in dependencies:
-        new_version_id = getattr(dep_entity, branch).log_record.new_version_id
+        new_version_id = getattr(dep_entity, branch).version_id
+
+        # Unfortunate inconsistency in field naming in the models. We have a
+        # property to normalize this, but that doesn't apply to the historical
+        # models.
+        if branch == "draft":
+            log_record = dep_entity.draft.draft_log_record
+        else:
+            log_record = dep_entity.published.publish_log_record
+
         hash_digest = hash_for_log_record(
             apps,
-            getattr(dep_entity, branch).log_record,
+            log_record,
             record_ids_to_hash_digests,
             record_ids_to_live_deps,
             untrusted_record_id_set,
