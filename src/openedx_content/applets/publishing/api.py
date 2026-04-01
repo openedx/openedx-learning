@@ -43,14 +43,14 @@ from .models.publish_log import Published
 # to be callable only by other apps in the authoring package.
 __all__ = [
     "get_learning_package",
-    "get_learning_package_by_key",
+    "get_learning_package_by_ref",
     "create_learning_package",
     "update_learning_package",
     "learning_package_exists",
     "create_publishable_entity",
     "create_publishable_entity_version",
     "get_publishable_entity",
-    "get_publishable_entity_by_key",
+    "get_publishable_entity_by_ref",
     "get_publishable_entities",
     "get_last_publish",
     "get_all_drafts",
@@ -76,22 +76,22 @@ def get_learning_package(learning_package_id: LearningPackage.ID, /) -> Learning
     return LearningPackage.objects.get(id=learning_package_id)
 
 
-def get_learning_package_by_key(key: str) -> LearningPackage:
+def get_learning_package_by_ref(package_ref: str) -> LearningPackage:
     """
-    Get LearningPackage by key.
+    Get LearningPackage by its package_ref.
 
     Can throw a NotFoundError
     """
-    return LearningPackage.objects.get(key=key)
+    return LearningPackage.objects.get(package_ref=package_ref)
 
 
 def create_learning_package(
-    key: str, title: str, description: str = "", created: datetime | None = None
+    package_ref: str, title: str, description: str = "", created: datetime | None = None
 ) -> LearningPackage:
     """
     Create a new LearningPackage.
 
-    The ``key`` must be unique.
+    The ``package_ref`` must be unique.
 
     Errors that can be raised:
 
@@ -101,7 +101,7 @@ def create_learning_package(
         created = datetime.now(tz=timezone.utc)
 
     package = LearningPackage(
-        key=key,
+        package_ref=package_ref,
         title=title,
         description=description,
         created=created,
@@ -116,7 +116,7 @@ def create_learning_package(
 def update_learning_package(
     learning_package_id: LearningPackage.ID,
     /,
-    key: str | None = None,
+    package_ref: str | None = None,
     title: str | None = None,
     description: str | None = None,
     updated: datetime | None = None,
@@ -130,11 +130,11 @@ def update_learning_package(
 
     # If no changes were requested, there's nothing to update, so just return
     # the LearningPackage as-is.
-    if all(field is None for field in [key, title, description, updated]):
+    if all(field is None for field in [package_ref, title, description, updated]):
         return lp
 
-    if key is not None:
-        lp.key = key
+    if package_ref is not None:
+        lp.package_ref = package_ref
     if title is not None:
         lp.title = title
     if description is not None:
@@ -150,17 +150,17 @@ def update_learning_package(
     return lp
 
 
-def learning_package_exists(key: str) -> bool:
+def learning_package_exists(package_ref: str) -> bool:
     """
-    Check whether a LearningPackage with a particular key exists.
+    Check whether a LearningPackage with a particular package_ref exists.
     """
-    return LearningPackage.objects.filter(key=key).exists()
+    return LearningPackage.objects.filter(package_ref=package_ref).exists()
 
 
 def create_publishable_entity(
     learning_package_id: LearningPackage.ID,
     /,
-    key: str,
+    entity_ref: str,
     created: datetime,
     # User ID who created this
     created_by: int | None,
@@ -175,7 +175,7 @@ def create_publishable_entity(
     """
     return PublishableEntity.objects.create(
         learning_package_id=learning_package_id,
-        key=key,
+        entity_ref=entity_ref,
         created=created,
         created_by_id=created_by,
         can_stand_alone=can_stand_alone,
@@ -286,10 +286,10 @@ def get_publishable_entity(publishable_entity_id: PublishableEntity.ID, /) -> Pu
     return PublishableEntity.objects.get(pk=publishable_entity_id)
 
 
-def get_publishable_entity_by_key(learning_package_id: LearningPackage.ID, /, key: str) -> PublishableEntity:
+def get_publishable_entity_by_ref(learning_package_id: LearningPackage.ID, /, entity_ref: str) -> PublishableEntity:
     return PublishableEntity.objects.get(
         learning_package_id=learning_package_id,
-        key=key,
+        entity_ref=entity_ref,
     )
 
 

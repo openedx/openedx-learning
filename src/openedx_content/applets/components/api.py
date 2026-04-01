@@ -34,7 +34,6 @@ from .models import Component, ComponentType, ComponentVersion, ComponentVersion
 # to be callable only by other apps in the authoring package.
 __all__ = [
     "get_or_create_component_type",
-    "get_or_create_component_type_by_entity_key",
     "create_component",
     "create_component_version",
     "create_next_component_version",
@@ -74,27 +73,6 @@ def get_or_create_component_type(namespace: str, name: str) -> ComponentType:
     return component_type
 
 
-def get_or_create_component_type_by_entity_key(entity_key: str) -> tuple[ComponentType, str]:
-    """
-    Get or create a ComponentType based on a full entity key string.
-
-    The entity key is expected to be in the format
-    ``"{namespace}:{type_name}:{component_code}"``. This function will parse out
-    the ``namespace`` and ``type_name`` parts and use those to get or create the
-    ComponentType.
-
-    Raises ValueError if the entity_key is not in the expected format.
-    """
-    try:
-        namespace, type_name, component_code = entity_key.split(':', 2)
-    except ValueError as exc:
-        raise ValueError(
-            f"Invalid entity_key format: {entity_key!r}. "
-            "Expected format: '{namespace}:{type_name}:{component_code}'"
-        ) from exc
-    return get_or_create_component_type(namespace, type_name), component_code
-
-
 def create_component(
     learning_package_id: LearningPackage.ID,
     /,
@@ -106,13 +84,17 @@ def create_component(
     can_stand_alone: bool = True,
 ) -> Component:
     """
-    Create a new Component (an entity like a Problem or Video)
+    Create a new Component (an entity like a Problem or Video).
+
+    The ``entity_ref`` is conventionally derived as
+    ``"{namespace}:{type_name}:{component_code}"``, although callers should not assume
+    that this will always be true.
     """
-    key = f"{component_type.namespace}:{component_type.name}:{component_code}"
+    entity_ref = f"{component_type.namespace}:{component_type.name}:{component_code}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
-            key,
+            entity_ref,
             created,
             created_by,
             can_stand_alone=can_stand_alone
@@ -301,7 +283,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
     can_stand_alone: bool = True,
 ) -> tuple[Component, ComponentVersion]:
     """
-    Create a Component and associated ComponentVersion atomically
+    Create a Component and associated ComponentVersion atomically.
     """
     with atomic():
         component = create_component(
@@ -450,13 +432,13 @@ def get_collection_components(
 
 
 def look_up_component_version_media(
-    learning_package_key: str,
-    component_key: str,
+    learning_package_ref: str,
+    entity_ref: str,
     version_num: int,
     key: Path,
 ) -> ComponentVersionMedia:
     """
-    Look up ComponentVersionMedia by human readable keys.
+    Look up ComponentVersionMedia by human readable identifiers.
 
     Can raise a django.core.exceptions.ObjectDoesNotExist error if there is no
     matching ComponentVersionMedia.
@@ -465,8 +447,8 @@ def look_up_component_version_media(
     I don't know if we wantto make it a part of the public interface.
     """
     queries = (
-        Q(component_version__component__learning_package__key=learning_package_key)
-        & Q(component_version__component__publishable_entity__key=component_key)
+        Q(component_version__component__learning_package__package_ref=learning_package_ref)
+        & Q(component_version__component__publishable_entity__entity_ref=entity_ref)
         & Q(component_version__publishable_entity_version__version_num=version_num)
         & Q(key=key)
     )
@@ -529,13 +511,13 @@ def _get_component_version_info_headers(component_version: ComponentVersion) -> 
     learning_package = component.learning_package
     return {
         # Component
-        "X-Open-edX-Component-Key": component.publishable_entity.key,
+        "X-Open-edX-Component-Ref": component.publishable_entity.entity_ref,
         "X-Open-edX-Component-Uuid": component.uuid,
         # Component Version
         "X-Open-edX-Component-Version-Uuid": component_version.uuid,
         "X-Open-edX-Component-Version-Num": str(component_version.version_num),
         # Learning Package
-        "X-Open-edX-Learning-Package-Key": learning_package.key,
+        "X-Open-edX-Learning-Package-Ref": learning_package.package_ref,
         "X-Open-edX-Learning-Package-Uuid": learning_package.uuid,
     }
 

@@ -92,18 +92,18 @@ def _other_user(django_user_model):
 @pytest.fixture(name="lp")
 def _lp() -> LearningPackage:
     """Get a Learning Package."""
-    return publishing_api.create_learning_package(key="containers-test-lp", title="Testing Containers Main LP")
+    return publishing_api.create_learning_package(package_ref="containers-test-lp", title="Testing Containers Main LP")
 
 
 @pytest.fixture(name="lp2")
 def _lp2() -> LearningPackage:
     """Get a Second Learning Package."""
-    return publishing_api.create_learning_package(key="containers-test-lp2", title="Testing Containers (📦 2)")
+    return publishing_api.create_learning_package(package_ref="containers-test-lp2", title="Testing Containers (📦 2)")
 
 
-def create_test_entity(learning_package: LearningPackage, key: str, title: str) -> TestEntity:
+def create_test_entity(learning_package: LearningPackage, ref: str, title: str) -> TestEntity:
     """Create a TestEntity with a draft version"""
-    pe = publishing_api.create_publishable_entity(learning_package.id, key, created=now, created_by=None)
+    pe = publishing_api.create_publishable_entity(learning_package.id, ref, created=now, created_by=None)
     new_entity = TestEntity.objects.create(publishable_entity=pe)
     pev = publishing_api.create_publishable_entity_version(
         new_entity.pk,
@@ -119,25 +119,25 @@ def create_test_entity(learning_package: LearningPackage, key: str, title: str) 
 @pytest.fixture(name="child_entity1")
 def _child_entity1(lp: LearningPackage) -> TestEntity:
     """An example entity, such as a component"""
-    return create_test_entity(lp, key="child_entity1", title="Child 1 🌴")
+    return create_test_entity(lp, ref="child_entity1", title="Child 1 🌴")
 
 
 @pytest.fixture(name="child_entity2")
 def _child_entity2(lp: LearningPackage) -> TestEntity:
     """An example entity, such as a component"""
-    return create_test_entity(lp, key="child_entity2", title="Child 2 🌈")
+    return create_test_entity(lp, ref="child_entity2", title="Child 2 🌈")
 
 
 @pytest.fixture(name="child_entity3")
 def _child_entity3(lp: LearningPackage) -> TestEntity:
     """An example entity, such as a component"""
-    return create_test_entity(lp, key="child_entity3", title="Child 3 ⛵️")
+    return create_test_entity(lp, ref="child_entity3", title="Child 3 ⛵️")
 
 
 @pytest.fixture(name="other_lp_child")
 def _other_lp_child(lp2: LearningPackage) -> TestEntity:
     """An example entity, such as a component"""
-    return create_test_entity(lp2, key="other_lp_child", title="Child in other Learning Package 📦")
+    return create_test_entity(lp2, ref="other_lp_child", title="Child in other Learning Package 📦")
 
 
 def create_test_container(
@@ -336,7 +336,7 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
     assert isinstance(container_v1, TestContainerVersion)
     assert container.versioning.draft == container_v1
     assert container.versioning.published is None
-    assert container.key == "new-container-1"
+    assert container.entity_ref == "new-container-1"
     assert container.versioning.draft.title == "Test Container 1"
     assert container.created == now
     assert container.created_by == admin_user
@@ -420,9 +420,9 @@ def test_create_next_container_version_no_changes(parent_of_two: TestContainer, 
     assert version_2.entity_list_id == original_version.entity_list_id
     assert version_2.created == v2_date
     assert version_2.created_by == other_user
-    assert containers_api.get_container_children_entities_keys(
+    assert containers_api.get_container_children_entity_refs(
         original_version
-    ) == containers_api.get_container_children_entities_keys(version_2)
+    ) == containers_api.get_container_children_entity_refs(version_2)
 
 
 def test_create_next_container_version_with_changes(
@@ -454,7 +454,7 @@ def test_create_next_container_version_with_changes(
     assert version_5.created_by is None
     assert version_5.title == "New Title - children reversed"
     assert version_5.entity_list_id != original_version.entity_list_id
-    assert containers_api.get_container_children_entities_keys(version_5) == ["child_entity2", "child_entity1"]
+    assert containers_api.get_container_children_entity_refs(version_5) == ["child_entity2", "child_entity1"]
 
 
 def test_create_next_container_version_with_append(
@@ -757,29 +757,29 @@ def test_get_container_version_nonexistent() -> None:
         containers_api.get_container_version(-500)
 
 
-# get_container_by_key
+# get_container_by_code
 
 
-def test_get_container_by_key(lp: LearningPackage, parent_of_two: TestContainer) -> None:
+def test_get_container_by_code(lp: LearningPackage, parent_of_two: TestContainer) -> None:
     """
-    Test getting a specific container by key
+    Test getting a specific container by container code.
     """
-    result = containers_api.get_container_by_key(lp.id, parent_of_two.key)
+    result = containers_api.get_container_by_code(lp.id, parent_of_two.container_code)
     assert result == parent_of_two.container
     # The API always returns "Container", not specific subclasses like TestContainer:
     assert result.__class__ is Container
 
 
-def test_get_container_by_key_nonexistent(lp: LearningPackage) -> None:
+def test_get_container_by_code_nonexistent(lp: LearningPackage) -> None:
     """
-    Test getting a specific container by key, where the key and/or learning package is invalid
+    Test getting a specific container by container code, where the code and/or learning package is invalid.
     """
     FAKE_ID = cast(LearningPackage.ID, -500)
     with pytest.raises(LearningPackage.DoesNotExist):
-        containers_api.get_container_by_key(FAKE_ID, "invalid-key")
+        containers_api.get_container_by_code(FAKE_ID, "invalid-code")
 
     with pytest.raises(Container.DoesNotExist):
-        containers_api.get_container_by_key(lp.id, "invalid-key")
+        containers_api.get_container_by_code(lp.id, "invalid-code")
 
 
 # get_container_subclass
@@ -990,7 +990,8 @@ def test_no_publish_parent(parent_of_two: TestContainer, child_entity1: TestEnti
     Test that publishing an entity does NOT publish changes to its parent containers
     """
     # "child_entity1" is a child of "parent_of_two"
-    assert child_entity1.key in containers_api.get_container_children_entities_keys(parent_of_two.versioning.draft)
+    children_refs = containers_api.get_container_children_entity_refs(parent_of_two.versioning.draft)
+    assert child_entity1.entity_ref in children_refs
     # Neither are published:
     assert child_entity1.versioning.published is None
     assert parent_of_two.versioning.published is None
@@ -1148,7 +1149,7 @@ def test_publishing_shared_component(lp: LearningPackage):
     Everything is "unpinned".
     """
     # 1️⃣ Create the units and publish them:
-    c1, c2, c3, c4, c5 = [create_test_entity(lp, key=f"C{i}", title=f"Component {i}") for i in range(1, 6)]
+    c1, c2, c3, c4, c5 = [create_test_entity(lp, ref=f"C{i}", title=f"Component {i}") for i in range(1, 6)]
     c1_v1 = c1.versioning.draft
     c3_v1 = c3.versioning.draft
     c4_v1 = c4.versioning.draft
@@ -1231,7 +1232,7 @@ def test_shallow_publish_log(
 ) -> None:
     """Simple test of publishing a container plus children and reviewing the publish log"""
     publish_log = publish_entity(parent_of_two)
-    assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
+    assert list(publish_log.records.order_by("entity__pk").values_list("entity__entity_ref", flat=True)) == [
         # The container and its two children should be the only things published:
         "child_entity1",
         "child_entity2",
@@ -1250,7 +1251,7 @@ def test_uninstalled_publish(
     with django_assert_num_queries(50):
         publish_log = publish_entity(container_of_uninstalled_type)
         # Nothing else should have been affected by the publish:
-        assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
+        assert list(publish_log.records.order_by("entity__pk").values_list("entity__entity_ref", flat=True)) == [
             "child_entity1",
             "abandoned-container",
         ]
@@ -1288,7 +1289,7 @@ def test_deep_publish_log(
     with django_assert_num_queries(50):
         publish_log = publish_entity(container_of_uninstalled_type)
         # Nothing else should have been affected by the publish:
-        assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
+        assert list(publish_log.records.order_by("entity__pk").values_list("entity__entity_ref", flat=True)) == [
             "child_entity1",
             "abandoned-container",
         ]
@@ -1296,7 +1297,7 @@ def test_deep_publish_log(
     # Publish great_grandparent. Should publish the whole tree.
     with django_assert_num_queries(127):
         publish_log = publish_entity(great_grandparent)
-        assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
+        assert list(publish_log.records.order_by("entity__pk").values_list("entity__entity_ref", flat=True)) == [
             "child_entity2",
             "parent_of_two",
             "parent_of_three",
@@ -1615,21 +1616,21 @@ def test_get_container_children_count_queries(
         assert containers_api.get_container_children_count(parent_of_six, published=True) == 6
 
 
-# get_container_children_entities_keys
+# get_container_children_entity_refs
 
 
-def test_get_container_children_entities_keys(grandparent: ContainerContainer, parent_of_six: TestContainer) -> None:
-    """Test `get_container_children_entities_keys()`"""
+def test_get_container_children_entity_refs(grandparent: ContainerContainer, parent_of_six: TestContainer) -> None:
+    """Test `get_container_children_entity_refs()`"""
 
-    # TODO: is get_container_children_entities_keys() a useful API method? It's not used in edx-platform.
+    # TODO: is get_container_children_entity_refs() a useful API method? It's not used in edx-platform.
 
-    assert containers_api.get_container_children_entities_keys(grandparent.versioning.draft) == [
+    assert containers_api.get_container_children_entity_refs(grandparent.versioning.draft) == [
         # These are the two children of "grandparent" - see diagram near the top of this file.
         "parent_of_two",
         "parent_of_three",
     ]
 
-    assert containers_api.get_container_children_entities_keys(parent_of_six.versioning.draft) == [
+    assert containers_api.get_container_children_entity_refs(parent_of_six.versioning.draft) == [
         "child_entity3",
         "child_entity2",
         "child_entity1",

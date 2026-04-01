@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 
-from openedx_content.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
+from openedx_content.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_package_ref
 from openedx_content.applets.collections import api as collections_api
 from openedx_content.applets.components import api as components_api
 from openedx_content.applets.containers import api as containers_api
@@ -25,7 +25,7 @@ class RestoreTestCase(TestCase):
         super().setUp()
         self.fixtures_folder = os.path.join(os.path.dirname(__file__), "fixtures/library_backup")
         self.zip_file = folder_to_inmemory_zip(self.fixtures_folder)
-        self.lp_key = "lib:WGU:LIB_C001"
+        self.package_ref = "lib:WGU:LIB_C001"
         self.user = User.objects.create_user(username='lp_user', password='12345')
 
 
@@ -42,14 +42,14 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
         # You can pass any dummy path, since load_learning_package is mocked
         call_command("lp_load", "dummy.zip", "lp_user", stdout=out)
 
-        lp = self.verify_lp(restore_result["lp_restored_data"]["key"])
+        lp = self.verify_lp(restore_result["lp_restored_data"]["package_ref"])
         self.verify_containers(lp)
         self.verify_components(lp)
         self.verify_collections(lp)
 
-    def verify_lp(self, key):
+    def verify_lp(self, package_ref):
         """Verify the learning package was restored correctly."""
-        lp = publishing_api.LearningPackage.objects.filter(key=key).first()
+        lp = publishing_api.LearningPackage.objects.filter(package_ref=package_ref).first()
         assert lp is not None, "Learning package was not restored."
         assert lp.title == "Library test"
         assert lp.description == ""
@@ -61,7 +61,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
         expected_container_keys = ["unit1-b7eafb", "subsection1-48afa3", "section1-8ca126"]
 
         for container in container_qs:
-            assert container.key in expected_container_keys
+            assert container.entity_ref in expected_container_keys
             draft_version = publishing_api.get_draft_version(container.publishable_entity.id)
             published_version = publishing_api.get_published_version(container.publishable_entity.id)
             assert container.created_by is not None
@@ -69,7 +69,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
             # The unit has been published. The other two containers haven't been.
             # It's important that we test with at least one published container in order to
             # fully cover _create_container in zipper.py.
-            if container.key == "unit1-b7eafb":
+            if container.entity_ref == "unit1-b7eafb":
                 assert containers_api.get_container_type_code_of(container) == "unit"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
@@ -79,14 +79,14 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert published_version.version_num == 2
                 assert published_version.created_by is not None
                 assert published_version.created_by.username == "lp_user"
-            elif container.key == "subsection1-48afa3":
+            elif container.entity_ref == "subsection1-48afa3":
                 assert containers_api.get_container_type_code_of(container) == "subsection"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
-            elif container.key == "section1-8ca126":
+            elif container.entity_ref == "section1-8ca126":
                 assert containers_api.get_container_type_code_of(container) == "section"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
@@ -94,7 +94,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             else:
-                assert False, f"Unexpected container key: {container.key}"
+                assert False, f"Unexpected container key: {container.entity_ref}"
 
     def verify_components(self, lp):
         # pylint: disable=too-many-statements
@@ -110,12 +110,12 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
             "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2"
         ]
         for component in component_qs:
-            assert component.key in expected_component_keys
+            assert component.entity_ref in expected_component_keys
             draft_version = publishing_api.get_draft_version(component.publishable_entity.id)
             published_version = publishing_api.get_published_version(component.publishable_entity.id)
             assert component.created_by is not None
             assert component.created_by.username == "lp_user"
-            if component.key == "xblock.v1:drag-and-drop-v2:4d1b2fac-8b30-42fb-872d-6b10ab580b27":
+            if component.entity_ref == "xblock.v1:drag-and-drop-v2:4d1b2fac-8b30-42fb-872d-6b10ab580b27":
                 assert component.component_type.name == "drag-and-drop-v2"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
@@ -130,7 +130,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert "<drag-and-drop-v2" in media.text
                 assert not media.has_file
                 assert str(media.media_type) == "application/vnd.openedx.xblock.v1.drag-and-drop-v2+xml"
-            elif component.key == "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37":
+            elif component.entity_ref == "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37":
                 assert component.component_type.name == "html"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
@@ -141,7 +141,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert published_version.version_num == 4
                 assert published_version.created_by is not None
                 assert published_version.created_by.username == "lp_user"
-            elif component.key == "xblock.v1:openassessment:1ee38208-a585-4455-a27e-4930aa541f53":
+            elif component.entity_ref == "xblock.v1:openassessment:1ee38208-a585-4455-a27e-4930aa541f53":
                 assert component.component_type.name == "openassessment"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
@@ -149,7 +149,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
-            elif component.key == "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b":
+            elif component.entity_ref == "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b":
                 assert component.component_type.name == "problem"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
@@ -157,13 +157,13 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
-            elif component.key == "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471":
+            elif component.entity_ref == "xblock.v1:survey:6681da3f-b056-4c6e-a8f9-040967907471":
                 assert component.component_type.name == "survey"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
                 assert draft_version.version_num == 1
                 assert published_version is None
-            elif component.key == "xblock.v1:video:22601ebd-9da8-430b-9778-cfe059a98568":
+            elif component.entity_ref == "xblock.v1:video:22601ebd-9da8-430b-9778-cfe059a98568":
                 assert component.component_type.name == "video"
                 assert component.component_type.namespace == "xblock.v1"
                 assert draft_version is not None
@@ -171,7 +171,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
-            elif component.key == "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2":
+            elif component.entity_ref == "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2":
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None
@@ -181,7 +181,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
                 assert published_version.created_by is not None
                 assert published_version.created_by.username == "lp_user"
             else:
-                assert False, f"Unexpected component key: {component.key}"
+                assert False, f"Unexpected component key: {component.entity_ref}"
 
     def verify_collections(self, lp):
         """Verify the collections were restored correctly."""
@@ -194,12 +194,12 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
         assert collection.created_by is not None
         assert collection.created_by.username == "lp_user"
 
-        expected_entity_keys = [
+        expected_entity_refs = [
             "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37",
             "xblock.v1:problem:256739e8-c2df-4ced-bd10-8156f6cfa90b",
         ]
-        entity_keys = [entity.key for entity in collection.entities.all()]
-        assert set(entity_keys) == set(expected_entity_keys)
+        entity_refs = [entity.entity_ref for entity in collection.entities.all()]
+        assert set(entity_refs) == set(expected_entity_refs)
 
 
 class RestoreLearningPackageTest(RestoreTestCase):
@@ -207,17 +207,17 @@ class RestoreLearningPackageTest(RestoreTestCase):
 
     def test_successful_restore_with_no_command_line(self):
         """Test restoring a learning package without using the management command."""
-        result = LearningPackageUnzipper(self.zip_file, key="lib-xx:WGU:LIB_C001").load()
+        result = LearningPackageUnzipper(self.zip_file, package_ref="lib-xx:WGU:LIB_C001").load()
 
         expected = {
             "status": "success",
             "log_file_error": None,
             "lp_restored_data": {
                 "id": result["lp_restored_data"]["id"],  # Dynamic field
-                "key": "lib-xx:WGU:LIB_C001",
-                "archive_lp_key": "lib:WGU:LIB_C001",
-                "archive_org_key": "WGU",
-                "archive_slug": "LIB_C001",
+                "package_ref": "lib-xx:WGU:LIB_C001",
+                "archive_package_ref": "lib:WGU:LIB_C001",
+                "archive_org_code": "WGU",
+                "archive_package_code": "LIB_C001",
                 "title": "Library test",
                 "num_containers": 3,
                 "num_components": 7,
@@ -246,7 +246,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
         assert general_info == expected_info, f"General info does not match. Got {general_info}"
         assert metadata_general_info == metadata_expected_info, f"Meta info does not match. Got {metadata_general_info}"
 
-        lp = publishing_api.LearningPackage.objects.filter(key="lib-xx:WGU:LIB_C001").first()
+        lp = publishing_api.LearningPackage.objects.filter(package_ref="lib-xx:WGU:LIB_C001").first()
         assert lp is not None, "Learning package was not restored."
 
     def test_successful_restore_with_staged_key(self):
@@ -255,12 +255,12 @@ class RestoreLearningPackageTest(RestoreTestCase):
 
         assert result["status"] == "success"
         assert result["lp_restored_data"] is not None
-        restored_key = result["lp_restored_data"]["key"]
-        archive_key = result["lp_restored_data"]["archive_lp_key"]
-        assert archive_key == "lib:WGU:LIB_C001"
-        assert restored_key.startswith("lp-restore:lp_user:WGU:LIB_C001:")
+        restored_ref = result["lp_restored_data"]["package_ref"]
+        archive_ref = result["lp_restored_data"]["archive_package_ref"]
+        assert archive_ref == "lib:WGU:LIB_C001"
+        assert restored_ref.startswith("lp-restore:lp_user:WGU:LIB_C001:")
 
-        lp = publishing_api.LearningPackage.objects.filter(key=restored_key).first()
+        lp = publishing_api.LearningPackage.objects.filter(package_ref=restored_ref).first()
         assert lp is not None, "Learning package with staged key was not restored."
 
     def test_restore_with_missing_learning_package_file(self):
@@ -363,12 +363,12 @@ class RestoreLearningPackageTest(RestoreTestCase):
 class RestoreUtilitiesTest(TestCase):
     """Tests for utility functions used in the restore process."""
 
-    def test_generate_staged_lp_key(self):
+    def test_generate_staged_package_ref(self):
         """Test generating a staged learning package key."""
 
         user_mock = type("User", (), {"username": "dan"})
-        lp_key = "lib:WGU:LIB_C001"
-        staged_key = generate_staged_lp_key(lp_key, user_mock)
+        package_ref = "lib:WGU:LIB_C001"
+        staged_key = generate_staged_package_ref(package_ref, user_mock)
 
         assert staged_key.startswith("lp-restore:dan:WGU:LIB_C001:")
         parts = staged_key.split(":")
@@ -376,10 +376,8 @@ class RestoreUtilitiesTest(TestCase):
         timestamp_part = parts[-1]
         assert timestamp_part.isdigit()
 
-    def test_error_generate_staged_lp_key_invalid_lp_key(self):
-        """Test that generating a staged key with an invalid lp_key raises ValueError."""
+    def test_generate_staged_lp_key_non_conventional_format(self):
+        """Test that a non-conventional package_ref falls back gracefully."""
         user_mock = type("User", (), {"username": "dan"})
-        invalid_lp_key = "invalid-key-format"
-        with self.assertRaises(ValueError) as context:
-            generate_staged_lp_key(invalid_lp_key, user_mock)
-        assert "Invalid learning package key" in str(context.exception)
+        staged_key = generate_staged_package_ref("no-colons-here", user_mock)
+        assert staged_key.startswith("lp-restore:dan:no-colons-here:")

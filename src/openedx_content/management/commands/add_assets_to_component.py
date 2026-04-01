@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 
-from ...api import create_next_component_version, get_component_by_code, get_learning_package_by_key
+from ...api import create_next_component_version, get_component_by_code, get_learning_package_by_ref
 
 
 class Command(BaseCommand):
@@ -26,14 +26,14 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "learning_package_key",
+            "learning_package_ref",
             type=str,
-            help="LearningPackage.key value for where the Component is located."
+            help="LearningPackage.package_ref value for where the Component is located."
         )
         parser.add_argument(
-            "component_key",
+            "entity_ref",
             type=str,
-            help="Component.key that you want to add assets to."
+            help="Entity ref (e.g. 'xblock.v1:problem:my_component') of the Component to add assets to."
         )
         parser.add_argument(
             "file_mappings",
@@ -53,13 +53,13 @@ class Command(BaseCommand):
         """
         Add files to a Component as ComponentVersion -> Content associations.
         """
-        learning_package_key = options["learning_package_key"]
-        component_key = options["component_key"]
+        learning_package_ref = options["learning_package_ref"]
+        entity_ref = options["entity_ref"]
         file_mappings = options["file_mappings"]
 
-        learning_package = get_learning_package_by_key(learning_package_key)
+        learning_package = get_learning_package_by_ref(learning_package_ref)
         # Parse something like: "xblock.v1:problem:area_of_circle_1"
-        namespace, type_name, component_code = component_key.split(":", 2)
+        namespace, type_name, component_code = entity_ref.split(":", 2)
         component = get_component_by_code(
             learning_package.id, namespace, type_name, component_code
         )
@@ -80,7 +80,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             f"Created v{next_version.version_num} of "
-            f"{next_version.component.key} ({next_version.uuid}):"
+            f"{next_version.component.entity_ref} ({next_version.uuid}):"
         )
         for cvm in next_version.componentversionmedia_set.all():
             self.stdout.write(f"- {cvm.key} ({cvm.uuid})")

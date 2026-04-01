@@ -22,7 +22,7 @@ from typing import ClassVar, NewType, cast
 from django.db import models
 from typing_extensions import deprecated
 
-from openedx_django_lib.fields import case_sensitive_char_field, code_field, code_field_check, key_field
+from openedx_django_lib.fields import case_sensitive_char_field, code_field, code_field_check, ref_field
 from openedx_django_lib.managers import WithRelationsManager
 
 from ..media.models import Media
@@ -178,8 +178,8 @@ class Component(PublishableEntityMixin):
     component_type = models.ForeignKey(ComponentType, on_delete=models.PROTECT)
 
     # component_code is an identifier that is local to the learning_package and
-    # component_type. The publishable.key is derived from component_type and
-    # component_code.
+    # component_type. The publishable.entity_ref is derived from component_type
+    # and component_code.
     component_code = code_field()
 
     class Meta:
@@ -274,7 +274,7 @@ class ComponentVersionMedia(models.Model):
     # alternative name for this would be "path", since it's most often used as
     # an internal file path. However, we might also want to put special
     # identifiers that don't map as cleanly to file paths at some point.
-    key = key_field(db_column="_key")
+    key = ref_field(db_column="_key")
 
     class Meta:
         constraints = [

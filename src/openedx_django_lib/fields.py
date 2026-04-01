@@ -172,16 +172,13 @@ def code_field_check(field_name: str, *, name: str) -> models.CheckConstraint:
     )
 
 
-def key_field(**kwargs) -> MultiCollationCharField:
+def ref_field(**kwargs) -> MultiCollationCharField:
     """
-    Externally created Identifier fields.
+    Opaque reference string fields.
 
-    These will often be local to a particular scope, like within a
-    LearningPackage. It's up to the application as to whether they're
-    semantically meaningful or look more machine-generated.
-
-    Other apps should *not* make references to these values directly, since
-    these values may in theory change (even if this is rare in practice).
+    These hold externally-created identifiers that are local to a particular
+    scope, like within a LearningPackage. Consumers must treat the value as
+    an atomic string and must never parse or reconstruct it.
     """
     return case_sensitive_char_field(max_length=500, blank=False, **kwargs)
 

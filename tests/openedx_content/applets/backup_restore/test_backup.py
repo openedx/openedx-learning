@@ -51,7 +51,7 @@ class LpDumpCommandTestCase(TestCase):
 
         # Create a Learning Package for the test
         cls.learning_package = api.create_learning_package(
-            key="ComponentTestCase-test-key",
+            package_ref="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
             description="This is a test learning package for components.",
         )
@@ -216,8 +216,8 @@ class LpDumpCommandTestCase(TestCase):
                 self.assertIn(expected_path, zip_name_list)
 
     def test_lp_dump_command(self):
-        lp_key = self.learning_package.key
-        file_name = f"{lp_key}.zip"
+        package_ref = self.learning_package.package_ref
+        file_name = f"{package_ref}.zip"
         try:
             out = StringIO()
 
@@ -225,7 +225,7 @@ class LpDumpCommandTestCase(TestCase):
 
             # Call the management command to dump the learning package
             call_command(
-                "lp_dump", lp_key, file_name, username=self.user.username, origin_server=origin_server, stdout=out
+                "lp_dump", package_ref, file_name, username=self.user.username, origin_server=origin_server, stdout=out
             )
 
             # Check that the zip file was created
@@ -242,7 +242,7 @@ class LpDumpCommandTestCase(TestCase):
                 Path("package.toml"),
                 [
                     '[learning_package]',
-                    f'key = "{self.learning_package.key}"',
+                    f'key = "{self.learning_package.package_ref}"',
                     f'title = "{self.learning_package.title}"',
                     f'description = "{self.learning_package.description}"',
                     '[meta]',
@@ -278,7 +278,7 @@ class LpDumpCommandTestCase(TestCase):
                 self.check_toml_file(zip_path, Path(file_path), expected_content)
 
             # Check the output message
-            message = f'{lp_key} written to {file_name}'
+            message = f'{package_ref} written to {file_name}'
             self.assertIn(message, out.getvalue())
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.fail(f"lp_dump command failed with error: {e}")
@@ -289,11 +289,11 @@ class LpDumpCommandTestCase(TestCase):
 
     def test_dump_nonexistent_learning_package(self):
         out = StringIO()
-        lp_key = "nonexistent_lp"
-        file_name = f"{lp_key}.zip"
+        package_ref = "nonexistent_lp"
+        file_name = f"{package_ref}.zip"
         with self.assertRaises(CommandError):
             # Attempt to dump a learning package that does not exist
-            call_command("lp_dump", lp_key, file_name, stdout=out)
+            call_command("lp_dump", package_ref, file_name, stdout=out)
             self.assertIn("Learning package 'nonexistent_lp' does not exist", out.getvalue())
 
     def test_queries_n_plus_problem(self):

@@ -1,5 +1,11 @@
 """
 The serializers module for restoration of authoring data.
+
+Please note that the serializers are defined from the perspective of the
+TOML format, with the models as the "source". That is, when the model fields
+and TOML fields differ, we'll declare it like this:
+
+    my_toml_field = serializers.BlahField(source="my_model_field")
 """
 from datetime import timezone
 
@@ -14,11 +20,14 @@ class LearningPackageSerializer(serializers.Serializer):  # pylint: disable=abst
     Serializer for learning packages.
 
     Note:
-        The `key` field is serialized, but it is generally not trustworthy for restoration.
-        During restore, a new key may be generated or overridden.
+        The ref/key field is serialized but is generally not trustworthy for
+        restoration. During restore, a new ref may be generated or overridden.
     """
+
     title = serializers.CharField(required=True)
-    key = serializers.CharField(required=True)
+    # The model field is now LearningPackage.package_ref, but the archive format
+    # still uses "key".  A future v2 format may align the name.
+    key = serializers.CharField(required=True, source="package_ref")
     description = serializers.CharField(required=True, allow_blank=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
 
@@ -42,8 +51,11 @@ class EntitySerializer(serializers.Serializer):  # pylint: disable=abstract-meth
     """
     Serializer for publishable entities.
     """
+
     can_stand_alone = serializers.BooleanField(required=True)
-    key = serializers.CharField(required=True)
+    # The model field is now PublishableEntity.entity_ref, but the archive format
+    # still uses "key".  A future v2 format may align the name.
+    key = serializers.CharField(required=True, source="entity_ref")
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
 
 
@@ -52,9 +64,12 @@ class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstra
     Serializer for publishable entity versions.
     """
     title = serializers.CharField(required=True)
-    entity_key = serializers.CharField(required=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
     version_num = serializers.IntegerField(required=True)
+
+    # Note: Unlike the fields above, `entity_ref` does not appear on the model
+    # nor in the TOML.  This is just added by the validation pipeline for convenience.
+    entity_ref = serializers.CharField(required=True)
 
 
 class ComponentSerializer(EntitySerializer):  # pylint: disable=abstract-method
@@ -68,7 +83,7 @@ class ComponentSerializer(EntitySerializer):  # pylint: disable=abstract-method
         Custom validation logic:
         parse the entity_key into (component_type, component_code).
         """
-        entity_key = attrs["key"]
+        entity_key = attrs["entity_ref"]
         try:
             component_type_obj, component_code = _get_or_create_component_type_by_entity_key(entity_key)
             attrs["component_type"] = component_type_obj

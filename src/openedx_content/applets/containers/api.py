@@ -55,7 +55,7 @@ __all__ = [
     "create_next_container_version",
     "get_container",
     "get_container_version",
-    "get_container_by_key",
+    "get_container_by_code",
     "get_all_container_subclasses",
     "get_container_subclass",
     "get_container_type_code_of",
@@ -68,7 +68,7 @@ __all__ = [
     "contains_unpublished_changes",
     "get_containers_with_entity",
     "get_container_children_count",
-    "get_container_children_entities_keys",
+    "get_container_children_entity_refs",
 ]
 
 
@@ -161,13 +161,14 @@ def create_container(
     """
     assert issubclass(container_cls, Container)
     assert container_cls is not Container, "Creating plain containers is not allowed; use a subclass of Container"
+    entity_ref = container_code
     with atomic():
-        # By convention, a Container's entity_key is set to its container_code.
+        # By convention, a Container's entity_ref is set to its container_code.
         # Do not bake this assumption into other systems. We may change it at some point.
-        entity_key = container_code
+        entity_ref = container_code
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
-            entity_key,
+            entity_ref,
             created,
             created_by,
             can_stand_alone=can_stand_alone,
@@ -571,22 +572,22 @@ def get_container_version(container_version_pk: int) -> ContainerVersion:
     return ContainerVersion.objects.get(pk=container_version_pk)
 
 
-def get_container_by_key(learning_package_id: LearningPackage.ID, /, key: str) -> Container:
+def get_container_by_code(learning_package_id: LearningPackage.ID, /, container_code: str) -> Container:
     """
     [ 🛑 UNSTABLE ]
-    Get a container by its learning package and primary key.
+    Get a container by its learning package and container code.
 
     Args:
         learning_package_id: The ID of the learning package that contains the container.
-        key: The primary key of the container.
+        container_code: The container code of the container.
 
     Returns:
-        The container with the given primary key (as `Container`, not as its typed subclass).
+        The container with the given container code (as `Container`, not as its typed subclass).
     """
     try:
         return Container.objects.select_related("container_type").get(
-            publishable_entity__learning_package_id=learning_package_id,
-            publishable_entity__key=key,
+            learning_package_id=learning_package_id,
+            container_code=container_code,
         )
     except Container.DoesNotExist:
         # Check if it's the container or the learning package that does not exist:
@@ -874,15 +875,17 @@ def get_container_children_count(
     return container_version.entity_list.entitylistrow_set.filter(**filter_deleted).count()
 
 
-def get_container_children_entities_keys(container_version: ContainerVersion) -> list[str]:
+def get_container_children_entity_refs(container_version: ContainerVersion) -> list[str]:
     """
-    Fetch the list of entity keys for all entities in the given container version.
+    Fetch the list of entity refs for all entities in the given container version.
 
     Args:
-        container_version: The ContainerVersion to fetch the entity keys for.
+        container_version: The ContainerVersion to fetch the entity refs for.
     Returns:
-        A list of entity keys for all entities in the container version, ordered by entity key.
+        A list of entity refs for all entities in the container version, ordered by position.
     """
     return list(
-        container_version.entity_list.entitylistrow_set.values_list("entity__key", flat=True).order_by("order_num")
+        container_version.entity_list.entitylistrow_set
+        .values_list("entity__entity_ref", flat=True)
+        .order_by("order_num")
     )

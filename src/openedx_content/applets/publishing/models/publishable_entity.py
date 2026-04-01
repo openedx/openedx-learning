@@ -19,8 +19,8 @@ from openedx_django_lib.fields import (
     TypedBigAutoField,
     case_insensitive_char_field,
     immutable_uuid_field,
-    key_field,
     manual_date_time_field,
+    ref_field,
 )
 from openedx_django_lib.managers import WithRelationsManager
 
@@ -85,7 +85,7 @@ class PublishableEntity(models.Model):
     * Published things need to have the right identifiers so they can be used
     throughout the system, and the UUID is serving the role of ISBN in physical
     book publishing.
-    * We want to be able to enforce the idea that "key" is locally unique across
+    * We want to be able to enforce the idea that "entity_ref" is locally unique across
     all PublishableEntities within a given LearningPackage. Component and Unit
     can't do that without a shared model.
 
@@ -128,10 +128,11 @@ class PublishableEntity(models.Model):
         related_name="publishable_entities",
     )
 
-    # "key" is a reserved word for MySQL, so we're temporarily using the column
-    # name of "_key" to avoid breaking downstream tooling. Consider renaming
-    # this later.
-    key = key_field(db_column="_key")
+    # entity_ref is an opaque reference string assigned by the creator of this
+    # entity (e.g. derived from component_type + component_code for Components).
+    # Consumers must treat it as an atomic string — do not parse or reconstruct
+    # it.
+    entity_ref = ref_field()
 
     created = manual_date_time_field()
     created_by = models.ForeignKey(
@@ -152,11 +153,11 @@ class PublishableEntity(models.Model):
 
     class Meta:
         constraints = [
-            # Keys are unique within a given LearningPackage.
+            # entity_refs are unique within a given LearningPackage.
             models.UniqueConstraint(
                 fields=[
                     "learning_package",
-                    "key",
+                    "entity_ref",
                 ],
                 name="oel_pub_ent_uniq_lp_key",
             )
@@ -166,7 +167,7 @@ class PublishableEntity(models.Model):
             #   * Search by key across all PublishableEntities on the site. This
             #     would be a support-oriented tool from Django Admin.
             models.Index(
-                fields=["key"],
+                fields=["entity_ref"],
                 name="oel_pub_ent_idx_key",
             ),
             # LearningPackage (reverse) Created Index:
@@ -183,7 +184,7 @@ class PublishableEntity(models.Model):
         verbose_name_plural = "Publishable Entities"
 
     def __str__(self):
-        return f"{self.key}"
+        return f"{self.entity_ref}"
 
 
 class PublishableEntityVersion(models.Model):
@@ -250,7 +251,7 @@ class PublishableEntityVersion(models.Model):
     )
 
     def __str__(self):
-        return f"{self.entity.key} @ v{self.version_num} - {self.title}"
+        return f"{self.entity.entity_ref} @ v{self.version_num} - {self.title}"
 
     class Meta:
         constraints = [
@@ -367,8 +368,8 @@ class PublishableEntityMixin(models.Model):
         return self.publishable_entity.can_stand_alone
 
     @property
-    def key(self) -> str:
-        return self.publishable_entity.key
+    def entity_ref(self) -> str:
+        return self.publishable_entity.entity_ref
 
     @property
     def created(self) -> datetime:

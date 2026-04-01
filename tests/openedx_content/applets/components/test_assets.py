@@ -53,7 +53,7 @@ class AssetTestCase(TestCase):
         cls.html_media_type = media_api.get_or_create_media_type("text/html")
 
         cls.learning_package = publishing_api.create_learning_package(
-            key="ComponentTestCase-test-key",
+            package_ref="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
         )
         cls.component, cls.component_version = components_api.create_component_and_version(
@@ -125,11 +125,11 @@ class AssetTestCase(TestCase):
         Note: The request header values in an HttpResponse will all have been
         serialized to strings.
         """
-        assert headers["X-Open-edX-Component-Key"] == self.component.key
+        assert headers["X-Open-edX-Component-Ref"] == self.component.entity_ref
         assert headers["X-Open-edX-Component-Uuid"] == str(self.component.uuid)
         assert headers["X-Open-edX-Component-Version-Uuid"] == str(self.component_version.uuid)
         assert headers["X-Open-edX-Component-Version-Num"] == str(self.component_version.version_num)
-        assert headers["X-Open-edX-Learning-Package-Key"] == self.learning_package.key
+        assert headers["X-Open-edX-Learning-Package-Ref"] == self.learning_package.package_ref
         assert headers["X-Open-edX-Learning-Package-Uuid"] == str(self.learning_package.uuid)
 
     def test_404s_with_component_version_info(self):
