@@ -33,6 +33,7 @@ def create_subsection_and_version(
     learning_package_id: LearningPackage.ID,
     key: str,
     *,
+    container_code: str,
     title: str,
     units: Iterable[Unit | UnitVersion] | None = None,
     created: datetime,
@@ -49,6 +50,7 @@ def create_subsection_and_version(
     subsection, sv = containers_api.create_container_and_version(
         learning_package_id,
         key=key,
+        container_code=container_code,
         title=title,
         entities=units,
         created=created,

@@ -141,13 +141,17 @@ def _other_lp_child(lp2: LearningPackage) -> TestEntity:
 
 
 def create_test_container(
-    learning_package: LearningPackage, key: str, entities: containers_api.EntityListInput, title: str = ""
+    learning_package: LearningPackage,
+    container_code: str,
+    entities: containers_api.EntityListInput,
+    title: str = "",
 ) -> TestContainer:
     """Create a TestContainer with a draft version"""
     container, _version = containers_api.create_container_and_version(
         learning_package.id,
-        key=key,
-        title=title or f"Container ({key})",
+        key=container_code,
+        container_code=container_code,
+        title=title or f"Container ({container_code})",
         entities=entities,
         container_cls=TestContainer,
         created=now,
@@ -161,7 +165,7 @@ def _parent_of_two(lp: LearningPackage, child_entity1: TestEntity, child_entity2
     """An TestContainer with two children"""
     return create_test_container(
         lp,
-        key="parent_of_two",
+        container_code="parent_of_two",
         title="Generic Container with Two Unpinned Children",
         entities=[child_entity1, child_entity2],
     )
@@ -177,7 +181,7 @@ def _parent_of_three(
     """An TestContainer with three children, two of which are pinned"""
     return create_test_container(
         lp,
-        key="parent_of_three",
+        container_code="parent_of_three",
         title="Generic Container with Two 📌 Pinned Children and One Unpinned",
         entities=[child_entity3.versioning.draft, child_entity2.versioning.draft, child_entity1],
     )
@@ -193,7 +197,7 @@ def _parent_of_six(
     """An TestContainer with six children, two of each entity, with different pinned combinations"""
     return create_test_container(
         lp,
-        key="parent_of_six",
+        container_code="parent_of_six",
         title="Generic Container with Two 📌 Pinned Children and One Unpinned",
         entities=[
             # 1: both unpinned, 2: both pinned, and 3: pinned and unpinned
@@ -217,6 +221,7 @@ def _grandparent(
     grandparent, _version = containers_api.create_container_and_version(
         lp.id,
         key="grandparent",
+        container_code="grandparent",
         title="Generic Container with Two Unpinned TestContainer children",
         entities=[parent_of_two, parent_of_three],
         container_cls=ContainerContainer,
@@ -236,6 +241,7 @@ def _container_of_uninstalled_type(lp: LearningPackage, child_entity1: TestEntit
     container, _ = containers_api.create_container_and_version(
         lp.id,
         key="abandoned-container",
+        container_code="abandoned-container",
         title="Abandoned Container 1",
         entities=[child_entity1],
         container_cls=TestContainer,
@@ -253,6 +259,7 @@ def _other_lp_parent(lp2: LearningPackage, other_lp_child: TestEntity) -> TestCo
     other_lp_parent, _version = containers_api.create_container_and_version(
         lp2.id,
         key="other_lp_parent",
+        container_code="other_lp_parent",
         title="Generic Container with One Unpinned Child Entity",
         entities=[other_lp_child],
         container_cls=TestContainer,
@@ -303,6 +310,7 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
     container, container_v1 = containers_api.create_container_and_version(
         lp.id,
         key="new-container-1",
+        container_code="new-container-1",
         title="Test Container 1",
         container_cls=TestContainer,
         created=now,
@@ -356,10 +364,10 @@ def test_create_container_queries(lp: LearningPackage, child_entity1: TestEntity
     }
     # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
     with django_assert_num_queries(31):
-        containers_api.create_container_and_version(lp.id, key="c1", **base_args)
+        containers_api.create_container_and_version(lp.id, container_code="c1", **base_args)
     # And try with a a container that has children:
     with django_assert_num_queries(32):
-        containers_api.create_container_and_version(lp.id, key="c2", **base_args, entities=[child_entity1])
+        containers_api.create_container_and_version(lp.id, container_code="c2", **base_args, entities=[child_entity1])
 
 
 # versioning helpers
@@ -1155,6 +1163,7 @@ def test_publishing_shared_component(lp: LearningPackage):
         entities=[c1, c2, c3],
         title="Unit 1",
         key="unit:1",
+        container_code="unit-1",
         created=now,
         created_by=None,
         container_cls=TestContainer,
@@ -1164,6 +1173,7 @@ def test_publishing_shared_component(lp: LearningPackage):
         entities=[c2, c4, c5],
         title="Unit 2",
         key="unit:2",
+        container_code="unit-2",
         created=now,
         created_by=None,
         container_cls=TestContainer,
@@ -1276,7 +1286,7 @@ def test_deep_publish_log(
     # Create a "great grandparent" container that contains "grandparent"
     great_grandparent = create_test_container(
         lp,
-        key="great_grandparent",
+        container_code="great_grandparent",
         title="Great-grandparent container",
         entities=[grandparent],
     )
@@ -1401,7 +1411,7 @@ def test_snapshots_of_published_unit(lp: LearningPackage, child_entity1: TestEnt
     child_entity1_v1 = child_entity1.versioning.draft
 
     # At first the container has one child (unpinned):
-    container = create_test_container(lp, key="c", entities=[child_entity1])
+    container = create_test_container(lp, container_code="c", entities=[child_entity1])
     modify_entity(child_entity1, title="Component 1 as of checkpoint 1")
     _, before_publish = containers_api.get_entities_in_container_as_of(container, 0)
     assert not before_publish  # Empty list

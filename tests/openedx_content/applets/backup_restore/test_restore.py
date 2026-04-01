@@ -8,7 +8,11 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 
-from openedx_content.applets.backup_restore.serializers import CollectionSerializer, ComponentSerializer
+from openedx_content.applets.backup_restore.serializers import (
+    CollectionSerializer,
+    ComponentSerializer,
+    ContainerSerializer,
+)
 from openedx_content.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
 from openedx_content.applets.collections import api as collections_api
 from openedx_content.applets.components import api as components_api
@@ -473,6 +477,44 @@ class ComponentSerializerTest(TestCase):
         })
         assert not s.is_valid()
         assert "component" in s.errors
+
+
+class ContainerSerializerTest(TestCase):
+    """
+    Unit tests for ContainerSerializer's back-compat handling of Ulmo archives
+    (no container_code) vs. Verawood+ archives (explicit container_code).
+    """
+
+    BASE_DATA = {
+        "can_stand_alone": True,
+        "key": "unit1-b7eafb",
+        "created": "2025-09-04T22:51:59Z",
+    }
+
+    def _serialize(self, container_dict):
+        data = {**self.BASE_DATA, "container": container_dict}
+        s = ContainerSerializer(data=data)
+        s.is_valid()
+        return s
+
+    def test_verawood_explicit_container_code(self):
+        """Verawood+ archives include container_code in [entity.container]."""
+        s = self._serialize({"unit": {}, "container_code": "my_unit"})
+        assert s.is_valid(), s.errors
+        assert s.validated_data["container_type"] == "unit"
+        assert s.validated_data["container_code"] == "my_unit"
+
+    def test_ulmo_fallback_to_entity_key(self):
+        """Ulmo archives have no container_code; fall back to entity key."""
+        s = self._serialize({"unit": {}})
+        assert s.is_valid(), s.errors
+        assert s.validated_data["container_type"] == "unit"
+        assert s.validated_data["container_code"] == "unit1-b7eafb"
+
+    def test_invalid_no_type_key(self):
+        """Container dict must have exactly one type key."""
+        s = self._serialize({"container_code": "my_unit"})
+        assert not s.is_valid()
 
 
 class RestoreUtilitiesTest(TestCase):

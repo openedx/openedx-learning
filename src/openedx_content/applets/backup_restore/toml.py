@@ -118,11 +118,15 @@ def _get_toml_publishable_entity_table(
         entity_table.add("component", component_table)
 
     if hasattr(entity, "container"):
+        container = entity.container
         container_table = tomlkit.table()
+        # Write container_code explicitly so that restore (Verawood and later)
+        # does not need to parse the entity key.
+        container_table.add("container_code", container.container_code)
         container_types = ["section", "subsection", "unit"]
 
         for container_type in container_types:
-            if hasattr(entity.container, container_type):
+            if hasattr(container, container_type):
                 container_table.add(container_type, tomlkit.table())
                 break  # stop after the first match
 
