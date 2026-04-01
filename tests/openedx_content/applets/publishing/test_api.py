@@ -1129,6 +1129,7 @@ class TestContainerSideEffects(TestCase):
             "my_container",
             created=self.now,
             created_by=None,
+            container_code="my_container",
             container_cls=TestContainer,
         )
         container_v1 = containers_api.create_container_version(
@@ -1209,6 +1210,7 @@ class TestContainerSideEffects(TestCase):
                 "my_container",
                 created=self.now,
                 created_by=None,
+                container_code="my_container",
                 container_cls=TestContainer,
             )
             container_v1 = containers_api.create_container_version(
@@ -1285,6 +1287,7 @@ class TestContainerSideEffects(TestCase):
             "unit_1",
             created=self.now,
             created_by=None,
+            container_code="unit_1",
             container_cls=TestContainer,
         )
         unit_2 = containers_api.create_container(
@@ -1292,6 +1295,7 @@ class TestContainerSideEffects(TestCase):
             "unit_2",
             created=self.now,
             created_by=None,
+            container_code="unit_2",
             container_cls=TestContainer,
         )
         for unit in [unit_1, unit_2]:
@@ -1347,6 +1351,7 @@ class TestContainerSideEffects(TestCase):
             "unit_1",
             created=self.now,
             created_by=None,
+            container_code="unit_1",
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
@@ -1362,6 +1367,7 @@ class TestContainerSideEffects(TestCase):
             "subsection_1",
             created=self.now,
             created_by=None,
+            container_code="subsection_1",
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
@@ -1446,6 +1452,7 @@ class TestContainerSideEffects(TestCase):
             "unit_1",
             created=self.now,
             created_by=None,
+            container_code="unit_1",
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
@@ -1461,6 +1468,7 @@ class TestContainerSideEffects(TestCase):
             "subsection_1",
             created=self.now,
             created_by=None,
+            container_code="subsection_1",
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
@@ -1645,6 +1653,7 @@ class TestContainerSideEffects(TestCase):
             "my_container",
             created=self.now,
             created_by=None,
+            container_code="my_container",
             container_cls=TestContainer,
         )
         assert container.versioning.latest is None

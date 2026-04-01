@@ -272,6 +272,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
             key="unit-1",
             created=created_time,
             created_by=cls.user.id,
+            container_code="unit-1",
             container_cls=Unit,
         )
 

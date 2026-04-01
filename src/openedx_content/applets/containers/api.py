@@ -140,6 +140,7 @@ def create_container(
     created: datetime,
     created_by: int | None,
     *,
+    container_code: str,
     container_cls: type[ContainerModel],
     can_stand_alone: bool = True,
 ) -> ContainerModel:
@@ -152,6 +153,8 @@ def create_container(
         key: The key of the container.
         created: The date and time the container was created.
         created_by: The ID of the user who created the container
+        container_code: A local slug identifier for the container, unique within
+            the learning package (regardless of container type).
         container_cls: The subclass of container to create (e.g. `Unit`)
         can_stand_alone: Set to False when created as part of containers
 
@@ -170,7 +173,9 @@ def create_container(
         )
         container = container_cls.objects.create(
             publishable_entity=publishable_entity,
+            learning_package_id=learning_package_id,
             container_type=container_cls.get_container_type(),
+            container_code=container_code,
         )
     return container
 
@@ -341,6 +346,7 @@ def create_container_and_version(
     learning_package_id: LearningPackage.ID,
     key: str,
     *,
+    container_code: str,
     title: str,
     container_cls: type[ContainerModel],
     entities: EntityListInput | None = None,
@@ -354,6 +360,8 @@ def create_container_and_version(
     Args:
         learning_package_id: The learning package ID.
         key: The key.
+        container_code: A local slug identifier for the container, unique within
+            the learning package (regardless of container type).
         title: The title of the new container.
         container_cls: The subclass of container to create (e.g. Unit)
         entities: List of the entities that will comprise the entity list, in
@@ -371,6 +379,7 @@ def create_container_and_version(
             key,
             created,
             created_by,
+            container_code=container_code,
             can_stand_alone=can_stand_alone,
             container_cls=container_cls,
         )
