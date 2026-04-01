@@ -59,21 +59,49 @@ class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstra
 class ComponentSerializer(EntitySerializer):  # pylint: disable=abstract-method
     """
     Serializer for components.
-    Contains logic to convert entity_key to component_type and local_key.
+
+    Extracts component_type and component_code from the [entity.component]
+    section if present (archives created in Verawood or later). Falls back to
+    parsing the entity key for archives created in Ulmo.
     """
+
+    component = serializers.DictField(required=False)
 
     def validate(self, attrs):
         """
-        Custom validation logic:
-        parse the entity_key into (component_type, local_key).
+        Custom validation logic: resolve component_type and component_code.
+
+        Archives created in Verawood or later supply an [entity.component]
+        section with ``component_type`` (e.g. "xblock.v1:problem") and
+        ``component_code`` (e.g. "my_example"). Archives created in Ulmo only
+        have the entity ``key`` in the format
+        ``"{namespace}:{type_name}:{component_code}"``, so we fall back to
+        parsing that for backwards compatibility.
         """
-        entity_key = attrs["key"]
-        try:
-            component_type_obj, local_key = components_api.get_or_create_component_type_by_entity_key(entity_key)
-            attrs["component_type"] = component_type_obj
-            attrs["local_key"] = local_key
-        except ValueError as exc:
-            raise serializers.ValidationError({"key": str(exc)})
+        component_section = attrs.pop("component", None)
+        if component_section:
+            # Verawood+ format: component_type and component_code are explicit.
+            component_type_str = component_section.get("component_type", "")
+            component_code = component_section.get("component_code", "")
+            try:
+                namespace, type_name = component_type_str.split(":", 1)
+            except ValueError as exc:
+                raise serializers.ValidationError(
+                    {"component": f"Invalid component_type format: {component_type_str!r}. "
+                                  "Expected '{namespace}:{type_name}'."}
+                ) from exc
+            component_type_obj = components_api.get_or_create_component_type(namespace, type_name)
+        else:
+            # Ulmo (legacy) format: parse the entity key.
+            entity_key = attrs["key"]
+            try:
+                component_type_obj, component_code = (
+                    components_api.get_or_create_component_type_by_entity_key(entity_key)
+                )
+            except ValueError as exc:
+                raise serializers.ValidationError({"key": str(exc)})
+        attrs["component_type"] = component_type_obj
+        attrs["component_code"] = component_code
         return attrs
 
 

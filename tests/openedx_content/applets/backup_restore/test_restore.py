@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 
-from openedx_content.applets.backup_restore.serializers import CollectionSerializer
+from openedx_content.applets.backup_restore.serializers import CollectionSerializer, ComponentSerializer
 from openedx_content.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
 from openedx_content.applets.collections import api as collections_api
 from openedx_content.applets.components import api as components_api
@@ -399,6 +399,80 @@ class CollectionSerializerTest(TestCase):
         s = self._serialize({})
         assert not s.is_valid()
         assert "non_field_errors" in s.errors
+
+
+class ComponentSerializerTest(TestCase):
+    """
+    Unit tests for ComponentSerializer's back-compat handling of Ulmo archives
+    (entity key only) vs. Verawood+ archives ([entity.component] section).
+    """
+
+    BASE_DATA = {
+        "can_stand_alone": True,
+        "key": "xblock.v1:problem:my_code",
+        "created": "2025-09-04T22:51:59Z",
+    }
+
+    def _serialize(self, extra=None, base=None):
+        data = {**(base or self.BASE_DATA), **(extra or {})}
+        s = ComponentSerializer(data=data)
+        s.is_valid()
+        return s
+
+    def test_legacy_entity_key_parsed(self):
+        """Ulmo archives have no [entity.component] section; fall back to parsing the entity key."""
+        s = self._serialize()
+        assert s.is_valid(), s.errors
+        assert s.validated_data["component_type"].namespace == "xblock.v1"
+        assert s.validated_data["component_type"].name == "problem"
+        assert s.validated_data["component_code"] == "my_code"
+        assert "component" not in s.validated_data
+
+    def test_new_component_section(self):
+        """Verawood+ archives supply an explicit [entity.component] section."""
+        s = self._serialize({
+            "component": {
+                "component_type": "xblock.v1:problem",
+                "component_code": "my_code",
+            }
+        })
+        assert s.is_valid(), s.errors
+        assert s.validated_data["component_type"].namespace == "xblock.v1"
+        assert s.validated_data["component_type"].name == "problem"
+        assert s.validated_data["component_code"] == "my_code"
+        assert "component" not in s.validated_data
+
+    def test_component_section_overrides_key(self):
+        """When [entity.component] is present, it is used even if the key has different info."""
+        s = self._serialize({
+            "component": {
+                "component_type": "xblock.v1:html",
+                "component_code": "different_code",
+            }
+        })
+        assert s.is_valid(), s.errors
+        assert s.validated_data["component_type"].name == "html"
+        assert s.validated_data["component_code"] == "different_code"
+
+    def test_invalid_entity_key_format(self):
+        """Entity key without enough colons raises a validation error."""
+        s = self._serialize(base={
+            "can_stand_alone": True,
+            "key": "invalid-key",
+            "created": "2025-09-04T22:51:59Z",
+        })
+        assert not s.is_valid()
+
+    def test_invalid_component_type_format(self):
+        """component_type without a colon raises a validation error."""
+        s = self._serialize({
+            "component": {
+                "component_type": "no-colon-here",
+                "component_code": "my_code",
+            }
+        })
+        assert not s.is_valid()
+        assert "component" in s.errors
 
 
 class RestoreUtilitiesTest(TestCase):

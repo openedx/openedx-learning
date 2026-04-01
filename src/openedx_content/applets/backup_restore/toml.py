@@ -108,6 +108,15 @@ def _get_toml_publishable_entity_table(
         published_table.add(tomlkit.comment("unpublished: no published_version_num"))
     entity_table.add("published", published_table)
 
+    if hasattr(entity, "component"):
+        component = entity.component
+        component_table = tomlkit.table()
+        # Write component_type and component_code explicitly so that restore
+        # (Verawood and later) does not need to parse the entity key.
+        component_table.add("component_type", str(component.component_type))
+        component_table.add("component_code", component.component_code)
+        entity_table.add("component", component_table)
+
     if hasattr(entity, "container"):
         container_table = tomlkit.table()
         container_types = ["section", "subsection", "unit"]

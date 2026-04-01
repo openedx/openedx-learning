@@ -69,7 +69,7 @@ class LpDumpCommandTestCase(TestCase):
         cls.published_component, _ = api.create_component_and_version(
             cls.learning_package.id,
             cls.problem_type,
-            local_key="my_published_example",
+            component_code="my_published_example",
             title="My published problem",
             created=cls.now,
             created_by=cls.user.id,
@@ -80,7 +80,7 @@ class LpDumpCommandTestCase(TestCase):
         cls.published_component2, _ = api.create_component_and_version(
             cls.learning_package.id,
             cls.problem_type,
-            local_key="My_published_example",
+            component_code="My_published_example",
             title="My published problem 2",
             created=cls.now,
             created_by=cls.user.id,
@@ -116,7 +116,7 @@ class LpDumpCommandTestCase(TestCase):
         cls.draft_component, _ = api.create_component_and_version(
             cls.learning_package.id,
             cls.html_type,
-            local_key="my_draft_example",
+            component_code="my_draft_example",
             title="My draft html",
             created=cls.now,
             created_by=cls.user.id,
@@ -326,7 +326,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_and_version(
             self.learning_package.id,
             self.problem_type,
-            local_key="my_published_example2",
+            component_code="my_published_example2",
             title="My published problem 2",
             created=self.now,
             created_by=self.user.id,

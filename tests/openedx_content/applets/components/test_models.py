@@ -51,7 +51,7 @@ class TestModelVersioningQueries(TestCase):
         component, component_version = create_component_and_version(
             self.learning_package.id,
             component_type=self.problem_type,
-            local_key="monty_hall",
+            component_code="monty_hall",
             title="Monty Hall Problem",
             created=self.now,
             created_by=None,
@@ -82,7 +82,7 @@ class TestModelVersioningQueries(TestCase):
         component_with_changes, _ = create_component_and_version(
             self.learning_package.id,
             component_type=self.problem_type,
-            local_key="with_changes",
+            component_code="with_changes",
             title="Component with changes v1",
             created=self.now,
             created_by=None,
@@ -92,7 +92,7 @@ class TestModelVersioningQueries(TestCase):
         component_with_no_changes, _ = create_component_and_version(
             self.learning_package.id,
             component_type=self.problem_type,
-            local_key="with_no_changes",
+            component_code="with_no_changes",
             title="Component with no changes v1",
             created=self.now,
             created_by=None,

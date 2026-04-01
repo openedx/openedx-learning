@@ -40,10 +40,10 @@ __all__ = [
     "create_next_component_version",
     "create_component_and_version",
     "get_component",
-    "get_component_by_key",
+    "get_component_by_code",
     "get_component_by_uuid",
     "get_component_version_by_uuid",
-    "component_exists_by_key",
+    "component_exists_by_code",
     "get_collection_components",
     "get_components",
     "create_component_version_media",
@@ -79,27 +79,27 @@ def get_or_create_component_type_by_entity_key(entity_key: str) -> tuple[Compone
     Get or create a ComponentType based on a full entity key string.
 
     The entity key is expected to be in the format
-    ``"{namespace}:{type_name}:{local_key}"``. This function will parse out the
-    ``namespace`` and ``type_name`` parts and use those to get or create the
+    ``"{namespace}:{type_name}:{component_code}"``. This function will parse out
+    the ``namespace`` and ``type_name`` parts and use those to get or create the
     ComponentType.
 
     Raises ValueError if the entity_key is not in the expected format.
     """
     try:
-        namespace, type_name, local_key = entity_key.split(':', 2)
+        namespace, type_name, component_code = entity_key.split(':', 2)
     except ValueError as exc:
         raise ValueError(
             f"Invalid entity_key format: {entity_key!r}. "
-            "Expected format: '{namespace}:{type_name}:{local_key}'"
+            "Expected format: '{namespace}:{type_name}:{component_code}'"
         ) from exc
-    return get_or_create_component_type(namespace, type_name), local_key
+    return get_or_create_component_type(namespace, type_name), component_code
 
 
 def create_component(
     learning_package_id: LearningPackage.ID,
     /,
     component_type: ComponentType,
-    local_key: str,
+    component_code: str,
     created: datetime,
     created_by: int | None,
     *,
@@ -108,7 +108,7 @@ def create_component(
     """
     Create a new Component (an entity like a Problem or Video)
     """
-    key = f"{component_type.namespace}:{component_type.name}:{local_key}"
+    key = f"{component_type.namespace}:{component_type.name}:{component_code}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
@@ -121,7 +121,7 @@ def create_component(
             publishable_entity=publishable_entity,
             learning_package_id=learning_package_id,
             component_type=component_type,
-            local_key=local_key,
+            component_code=component_code,
         )
     return component
 
@@ -293,7 +293,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
     learning_package_id: LearningPackage.ID,
     /,
     component_type: ComponentType,
-    local_key: str,
+    component_code: str,
     title: str,
     created: datetime,
     created_by: int | None = None,
@@ -307,7 +307,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
         component = create_component(
             learning_package_id,
             component_type,
-            local_key,
+            component_code,
             created,
             created_by,
             can_stand_alone=can_stand_alone,
@@ -331,22 +331,22 @@ def get_component(component_id: Component.ID, /) -> Component:
     return Component.with_publishing_relations.get(pk=component_id)
 
 
-def get_component_by_key(
+def get_component_by_code(
     learning_package_id: LearningPackage.ID,
     /,
     namespace: str,
     type_name: str,
-    local_key: str,
+    component_code: str,
 ) -> Component:
     """
-    Get a Component by its unique (namespace, type, local_key) tuple.
+    Get a Component by its unique (namespace, type, component_code) tuple.
     """
     return Component.with_publishing_relations \
                     .get(
                         learning_package_id=learning_package_id,
                         component_type__namespace=namespace,
                         component_type__name=type_name,
-                        local_key=local_key,
+                        component_code=component_code,
                     )
 
 
@@ -366,12 +366,12 @@ def get_component_version_by_uuid(uuid: UUID) -> ComponentVersion:
     )
 
 
-def component_exists_by_key(
+def component_exists_by_code(
     learning_package_id: LearningPackage.ID,
     /,
     namespace: str,
     type_name: str,
-    local_key: str
+    component_code: str
 ) -> bool:
     """
     Return True/False for whether a Component exists.
@@ -384,7 +384,7 @@ def component_exists_by_key(
             learning_package_id=learning_package_id,
             component_type__namespace=namespace,
             component_type__name=type_name,
-            local_key=local_key,
+            component_code=component_code,
         )
         return True
     except Component.DoesNotExist:
@@ -423,12 +423,12 @@ def get_components(  # pylint: disable=too-many-positional-arguments
     if draft_title is not None:
         qset = qset.filter(
             Q(publishable_entity__draft__version__title__icontains=draft_title) |
-            Q(local_key__icontains=draft_title)
+            Q(component_code__icontains=draft_title)
         )
     if published_title is not None:
         qset = qset.filter(
             Q(publishable_entity__published__version__title__icontains=published_title) |
-            Q(local_key__icontains=published_title)
+            Q(component_code__icontains=published_title)
         )
 
     return qset

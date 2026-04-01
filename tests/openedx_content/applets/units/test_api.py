@@ -22,11 +22,11 @@ class UnitsTestCase(ComponentTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.component_1, self.component_1_v1 = self.create_component(
-            key="Query Counting",
+            component_code="Query_Counting",
             title="Querying Counting Problem",
         )
         self.component_2, self.component_2_v1 = self.create_component(
-            key="Query Counting (2)",
+            component_code="Query_Counting_2",
             title="Querying Counting Problem (2)",
         )
 
