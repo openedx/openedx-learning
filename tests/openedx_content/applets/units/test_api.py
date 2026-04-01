@@ -41,6 +41,7 @@ class UnitsTestCase(ComponentTestCase):
         unit, _unit_v1 = content_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
             key=key,
+            container_code=key,
             title=title,
             components=components,
             created=self.now,
@@ -60,6 +61,7 @@ class UnitsTestCase(ComponentTestCase):
         unit, unit_version = content_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
             key="unit:key",
+            container_code="unit-key",
             title="Unit",
             created=self.now,
             created_by=None,
@@ -123,6 +125,7 @@ class UnitsTestCase(ComponentTestCase):
             key="test",
             created=self.now,
             created_by=None,
+            container_code="test",
             container_cls=TestContainer,
         )
         with pytest.raises(Unit.DoesNotExist):
