@@ -12,14 +12,29 @@ class LearningPackageSerializer(serializers.Serializer):  # pylint: disable=abst
     """
     Serializer for learning packages.
 
+    Archives created in Verawood or later write ``package_ref``. Archives
+    created in Ulmo write ``key``. Both are accepted; ``package_ref`` takes
+    precedence.
+
     Note:
-        The `key` field is serialized, but it is generally not trustworthy for restoration.
-        During restore, a new key may be generated or overridden.
+        The ref/key field is serialized but is generally not trustworthy for
+        restoration. During restore, a new ref may be generated or overridden.
     """
+
     title = serializers.CharField(required=True)
-    key = serializers.CharField(required=True)
+    package_ref = serializers.CharField(required=False)
+    key = serializers.CharField(required=False)
     description = serializers.CharField(required=True, allow_blank=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
+
+    def validate(self, attrs):
+        package_ref = attrs.pop("package_ref", None)
+        legacy_key = attrs.pop("key", None)
+        ref = package_ref or legacy_key
+        if not ref:
+            raise serializers.ValidationError("Either 'package_ref' or 'key' is required.")
+        attrs["package_ref"] = ref  # Normalise to 'package_ref' for create_learning_package.
+        return attrs
 
 
 class LearningPackageMetadataSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -40,10 +55,25 @@ class LearningPackageMetadataSerializer(serializers.Serializer):  # pylint: disa
 class EntitySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for publishable entities.
+
+    Archives created in Verawood or later write ``entity_ref``. Archives
+    created in Ulmo use ``key``. Both are accepted; ``entity_ref`` takes
+    precedence.
     """
+
     can_stand_alone = serializers.BooleanField(required=True)
-    key = serializers.CharField(required=True)
+    entity_ref = serializers.CharField(required=False)
+    key = serializers.CharField(required=False)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
+
+    def validate(self, attrs):
+        entity_ref = attrs.pop("entity_ref", None)
+        legacy_key = attrs.pop("key", None)
+        ref = entity_ref or legacy_key
+        if not ref:
+            raise serializers.ValidationError("Either 'entity_ref' or 'key' is required.")
+        attrs["entity_ref"] = ref
+        return attrs
 
 
 class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -51,7 +81,7 @@ class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstra
     Serializer for publishable entity versions.
     """
     title = serializers.CharField(required=True)
-    entity_key = serializers.CharField(required=True)
+    entity_ref = serializers.CharField(required=True)
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
     version_num = serializers.IntegerField(required=True)
 
@@ -78,6 +108,7 @@ class ComponentSerializer(EntitySerializer):  # pylint: disable=abstract-method
         ``"{namespace}:{type_name}:{component_code}"``, so we fall back to
         parsing that for backwards compatibility.
         """
+        super().validate(attrs)
         component_section = attrs.pop("component", None)
         if component_section:
             # Verawood+ format: component_type and component_code are explicit.
@@ -92,14 +123,21 @@ class ComponentSerializer(EntitySerializer):  # pylint: disable=abstract-method
                 ) from exc
             component_type_obj = components_api.get_or_create_component_type(namespace, type_name)
         else:
-            # Ulmo (legacy) format: parse the entity key.
-            entity_key = attrs["key"]
+            # Ulmo (legacy) format: parse the entity_ref (which ws normalized
+            # from "key" in super.validate()) assuming the format:
+            # (namespace, type_name, component_code). This parsing is
+            # intentionally only here — entity_ref must not be parsed anywhere
+            # else in the codebase. Verawood+ archives may not follow this
+            # convention.
+            entity_ref = attrs["entity_ref"]
             try:
-                component_type_obj, component_code = (
-                    components_api.get_or_create_component_type_by_entity_key(entity_key)
-                )
+                namespace, type_name, component_code = entity_ref.split(":", 2)
             except ValueError as exc:
-                raise serializers.ValidationError({"key": str(exc)})
+                raise serializers.ValidationError(
+                    {"key": f"Invalid entity key format: {entity_ref!r}. "
+                            "Expected '{namespace}:{type_name}:{component_code}'."}
+                ) from exc
+            component_type_obj = components_api.get_or_create_component_type(namespace, type_name)
         attrs["component_type"] = component_type_obj
         attrs["component_code"] = component_code
         return attrs
@@ -147,12 +185,13 @@ class ContainerSerializer(EntitySerializer):  # pylint: disable=abstract-method
         ``container_code`` field inside [entity.container]. Archives created
         in Ulmo do not, so we fall back to using the entity key.
         """
+        super().validate(attrs)
         container = attrs.pop("container")
         # It is safe to do this after validate_container
         container_type = next(k for k in container if k in ("section", "subsection", "unit"))
         attrs["container_type"] = container_type
-        # Verawood+: container_code is explicit. Ulmo: fall back to entity key.
-        attrs["container_code"] = container.get("container_code") or attrs["key"]
+        # Verawood+: container_code is explicit. Ulmo: fall back to entity_ref.
+        attrs["container_code"] = container.get("container_code") or attrs["entity_ref"]
         return attrs
 
 

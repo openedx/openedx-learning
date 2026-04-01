@@ -43,7 +43,9 @@ def toml_learning_package(
     # Learning package main info
     section = tomlkit.table()
     section.add("title", learning_package.title)
-    section.add("key", learning_package.key)
+    # Write package_ref (Verawood+) and key (Ulmo back-compat).
+    section.add("package_ref", learning_package.package_ref)
+    section.add("key", learning_package.package_ref)
     section.add("description", learning_package.description)
     section.add("created", learning_package.created)
     section.add("updated", learning_package.updated)
@@ -89,8 +91,10 @@ def _get_toml_publishable_entity_table(
     """
     entity_table = tomlkit.table()
     entity_table.add("can_stand_alone", entity.can_stand_alone)
-    # Add key since the toml filename doesn't show the real key
-    entity_table.add("key", entity.key)
+    # Write entity_ref (Verawood+) and key (Ulmo back-compat) so that older
+    # restore code can still read archives produced after this rename.
+    entity_table.add("entity_ref", entity.entity_ref)
+    entity_table.add("key", entity.entity_ref)
     entity_table.add("created", entity.created)
 
     if not include_versions:
@@ -204,13 +208,13 @@ def toml_publishable_entity_version(version: PublishableEntityVersion) -> tomlki
     if hasattr(version, 'containerversion'):
         # If the version has a container version, add its children
         container_table = tomlkit.table()
-        children = containers_api.get_container_children_entities_keys(version.containerversion)
+        children = containers_api.get_container_children_entity_refs(version.containerversion)
         container_table.add("children", children)
         version_table.add("container", container_table)
     return version_table
 
 
-def toml_collection(collection: Collection, entity_keys: list[str]) -> str:
+def toml_collection(collection: Collection, entity_refs: list[str]) -> str:
     """
     Create a TOML representation of a collection.
 
@@ -228,7 +232,7 @@ def toml_collection(collection: Collection, entity_keys: list[str]) -> str:
     doc = tomlkit.document()
 
     entities_array = tomlkit.array()
-    entities_array.extend(entity_keys)
+    entities_array.extend(entity_refs)
     entities_array.multiline(True)
 
     collection_table = tomlkit.table()

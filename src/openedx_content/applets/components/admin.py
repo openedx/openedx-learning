@@ -46,7 +46,7 @@ class ComponentAdmin(ReadOnlyModelAdmin):
         "created",
     ]
     list_filter = ("component_type", "learning_package")
-    search_fields = ["publishable_entity__uuid", "publishable_entity__key"]
+    search_fields = ["publishable_entity__uuid", "publishable_entity__entity_ref"]
     inlines = [ComponentVersionInline]
 
 

@@ -29,7 +29,7 @@ class ContentFileStorageTestCase(TestCase):
         """
         super().setUp()
         learning_package = publishing_api.create_learning_package(
-            key="ContentFileStorageTestCase-test-key",
+            package_ref="ContentFileStorageTestCase-test-key",
             title="Content File Storage Test Case Learning Package",
         )
         self.html_media_type = media_api.get_or_create_media_type("text/html")

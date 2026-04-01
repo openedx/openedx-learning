@@ -35,7 +35,7 @@ class ComponentTestCase(TestCase):
     @classmethod
     def setUpTestData(cls) -> None:
         cls.learning_package = publishing_api.create_learning_package(
-            key="ComponentTestCase-test-key",
+            package_ref="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
         )
         cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
@@ -342,9 +342,9 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
         with self.assertRaises(ObjectDoesNotExist):
             components_api.get_component(-1)
 
-    def test_publishing_entity_key_convention(self):
-        """Our mapping convention is {namespace}:{component_type}:{component_code}"""
-        assert self.problem.key == "xblock.v1:problem:my_component"
+    def test_publishing_entity_ref_convention(self):
+        """entity_ref convention: {namespace}:{component_type}:{component_code}"""
+        assert self.problem.entity_ref == "xblock.v1:problem:my_component"
 
     def test_stand_alone_flag(self):
         """Check if can_stand_alone flag is set"""
@@ -696,31 +696,19 @@ class TestComponentTypeUtils(TestCase):
     Test the component type utility functions.
     """
 
-    def test_get_or_create_component_type_by_entity_key_creates_new(self):
-        comp_type, component_code = components_api.get_or_create_component_type_by_entity_key(
-            "video:youtube:abcd1234"
-        )
+    def test_get_or_create_component_type_creates_new(self):
+        comp_type = components_api.get_or_create_component_type("video", "youtube")
 
         assert isinstance(comp_type, ComponentType)
         assert comp_type.namespace == "video"
         assert comp_type.name == "youtube"
-        assert component_code == "abcd1234"
         assert ComponentType.objects.count() == 1
 
-    def test_get_or_create_component_type_by_entity_key_existing(self):
+    def test_get_or_create_component_type_existing(self):
         ComponentType.objects.create(namespace="video", name="youtube")
 
-        comp_type, component_code = components_api.get_or_create_component_type_by_entity_key(
-            "video:youtube:efgh5678"
-        )
+        comp_type = components_api.get_or_create_component_type("video", "youtube")
 
         assert comp_type.namespace == "video"
         assert comp_type.name == "youtube"
-        assert component_code == "efgh5678"
         assert ComponentType.objects.count() == 1
-
-    def test_get_or_create_component_type_by_entity_key_invalid_format(self):
-        with self.assertRaises(ValueError) as ctx:
-            components_api.get_or_create_component_type_by_entity_key("not-enough-parts")
-
-        self.assertIn("Invalid entity_key format", str(ctx.exception))

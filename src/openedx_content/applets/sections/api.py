@@ -31,7 +31,6 @@ def get_section(section_id: Section.ID, /):
 
 def create_section_and_version(
     learning_package_id: LearningPackage.ID,
-    key: str,
     *,
     container_code: str,
     title: str,
@@ -39,6 +38,7 @@ def create_section_and_version(
     created: datetime,
     created_by: int | None = None,
     can_stand_alone: bool = True,
+    entity_ref: str | None = None,
 ) -> tuple[Section, SectionVersion]:
     """
     See documentation of `content_api.create_container_and_version()`
@@ -49,8 +49,8 @@ def create_section_and_version(
     """
     section, sv = containers_api.create_container_and_version(
         learning_package_id,
-        key=key,
         container_code=container_code,
+        entity_ref=entity_ref,
         title=title,
         entities=subsections,
         created=created,

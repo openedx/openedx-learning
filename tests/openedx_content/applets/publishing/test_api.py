@@ -39,13 +39,13 @@ class LearningPackageTestCase(TestCase):
         created = datetime(2023, 4, 2, 15, 9, 0, tzinfo=timezone.utc)
         description = "A fun Description!"
         package = publishing_api.create_learning_package(
-            key=key,
+            package_ref=key,
             title=title,
             description=description,
             created=created
         )
 
-        assert package.key == "my_key"
+        assert package.package_ref == "my_key"
         assert package.title == "My Excellent Title with Emoji 🔥"
         assert package.description == "A fun Description!"
         assert package.created == created
@@ -60,11 +60,11 @@ class LearningPackageTestCase(TestCase):
         # Now test editing the fields.
         updated_package = publishing_api.update_learning_package(
             package.id,
-            key="new_key",
+            package_ref="new_key",
             title="new title",
             description="new description",
         )
-        assert updated_package.key == "new_key"
+        assert updated_package.package_ref == "new_key"
         assert updated_package.title == "new title"
         assert updated_package.description == "new description"
         assert updated_package.created == created
@@ -78,7 +78,7 @@ class LearningPackageTestCase(TestCase):
         title = "My Excellent Title with Emoji 🔥"
         package = publishing_api.create_learning_package(key, title)
 
-        assert package.key == "my_key"
+        assert package.package_ref == "my_key"
         assert package.title == "My Excellent Title with Emoji 🔥"
 
         # Auto-generated datetime checking...
@@ -98,7 +98,7 @@ class LearningPackageTestCase(TestCase):
         """
         with pytest.raises(ValidationError) as excinfo:
             publishing_api.create_learning_package(
-                key="my_key",
+                package_ref="my_key",
                 title="A Title",
                 created=datetime(2023, 4, 2)
             )
@@ -116,7 +116,7 @@ class LearningPackageTestCase(TestCase):
         with pytest.raises(ValidationError) as excinfo:
             publishing_api.create_learning_package("my_key", "Duplicate")
         message_dict = excinfo.value.message_dict
-        assert "key" in message_dict
+        assert "package_ref" in message_dict
 
 
 class DraftTestCase(TestCase):
@@ -1126,7 +1126,6 @@ class TestContainerSideEffects(TestCase):
         )
         container = containers_api.create_container(
             self.learning_package.id,
-            "my_container",
             created=self.now,
             created_by=None,
             container_code="my_container",
@@ -1207,7 +1206,6 @@ class TestContainerSideEffects(TestCase):
             )
             container = containers_api.create_container(
                 self.learning_package.id,
-                "my_container",
                 created=self.now,
                 created_by=None,
                 container_code="my_container",
@@ -1284,7 +1282,6 @@ class TestContainerSideEffects(TestCase):
         )
         unit_1 = containers_api.create_container(
             self.learning_package.id,
-            "unit_1",
             created=self.now,
             created_by=None,
             container_code="unit_1",
@@ -1292,7 +1289,6 @@ class TestContainerSideEffects(TestCase):
         )
         unit_2 = containers_api.create_container(
             self.learning_package.id,
-            "unit_2",
             created=self.now,
             created_by=None,
             container_code="unit_2",
@@ -1348,7 +1344,6 @@ class TestContainerSideEffects(TestCase):
         )
         unit = containers_api.create_container(
             self.learning_package.id,
-            "unit_1",
             created=self.now,
             created_by=None,
             container_code="unit_1",
@@ -1364,7 +1359,6 @@ class TestContainerSideEffects(TestCase):
         )
         subsection = containers_api.create_container(
             self.learning_package.id,
-            "subsection_1",
             created=self.now,
             created_by=None,
             container_code="subsection_1",
@@ -1449,7 +1443,6 @@ class TestContainerSideEffects(TestCase):
         )
         unit = containers_api.create_container(
             self.learning_package.id,
-            "unit_1",
             created=self.now,
             created_by=None,
             container_code="unit_1",
@@ -1465,7 +1458,6 @@ class TestContainerSideEffects(TestCase):
         )
         subsection = containers_api.create_container(
             self.learning_package.id,
-            "subsection_1",
             created=self.now,
             created_by=None,
             container_code="subsection_1",
@@ -1654,7 +1646,6 @@ class TestContainerSideEffects(TestCase):
         )
         container = containers_api.create_container(
             self.learning_package.id,
-            "my_container",
             created=self.now,
             created_by=None,
             container_code="my_container",

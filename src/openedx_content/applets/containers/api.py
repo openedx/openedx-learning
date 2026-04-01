@@ -55,7 +55,7 @@ __all__ = [
     "create_next_container_version",
     "get_container",
     "get_container_version",
-    "get_container_by_key",
+    "get_container_by_ref",
     "get_all_container_subclasses",
     "get_container_subclass",
     "get_container_type_code_of",
@@ -68,7 +68,7 @@ __all__ = [
     "contains_unpublished_changes",
     "get_containers_with_entity",
     "get_container_children_count",
-    "get_container_children_entities_keys",
+    "get_container_children_entity_refs",
 ]
 
 
@@ -136,13 +136,13 @@ class ParsedEntityReference:
 
 def create_container(
     learning_package_id: LearningPackage.ID,
-    key: str,
     created: datetime,
     created_by: int | None,
     *,
     container_code: str,
     container_cls: type[ContainerModel],
     can_stand_alone: bool = True,
+    entity_ref: str | None = None,
 ) -> ContainerModel:
     """
     [ 🛑 UNSTABLE ]
@@ -150,23 +150,27 @@ def create_container(
 
     Args:
         learning_package_id: The ID of the learning package that contains the container.
-        key: The key of the container.
         created: The date and time the container was created.
         created_by: The ID of the user who created the container
         container_code: A local slug identifier for the container, unique within
             the learning package (regardless of container type).
         container_cls: The subclass of container to create (e.g. `Unit`)
         can_stand_alone: Set to False when created as part of containers
+        entity_ref: Optional opaque reference string. Defaults to container_code.
+            # TODO: The dev team is considering revisiting the default container
+            # entity_ref derivation in the future.
 
     Returns:
         The newly created container as an instance of `container_cls`.
     """
     assert issubclass(container_cls, Container)
     assert container_cls is not Container, "Creating plain containers is not allowed; use a subclass of Container"
+    if entity_ref is None:
+        entity_ref = container_code  # TODO: The team may revisit this default derivation.
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
-            key,
+            entity_ref,
             created,
             created_by,
             can_stand_alone=can_stand_alone,
@@ -344,7 +348,6 @@ def create_container_version(
 
 def create_container_and_version(
     learning_package_id: LearningPackage.ID,
-    key: str,
     *,
     container_code: str,
     title: str,
@@ -353,13 +356,13 @@ def create_container_and_version(
     created: datetime,
     created_by: int | None = None,
     can_stand_alone: bool = True,
+    entity_ref: str | None = None,
 ) -> tuple[ContainerModel, ContainerVersionModel]:
     """
     [ 🛑 UNSTABLE ] Create a new container and its initial version.
 
     Args:
         learning_package_id: The learning package ID.
-        key: The key.
         container_code: A local slug identifier for the container, unique within
             the learning package (regardless of container type).
         title: The title of the new container.
@@ -372,16 +375,17 @@ def create_container_and_version(
         created: The creation date.
         created_by: The ID of the user who created the container.
         can_stand_alone: Set to False when created as part of containers
+        entity_ref: Optional opaque reference string. Defaults to container_code.
     """
     with atomic(savepoint=False):
         container = create_container(
             learning_package_id,
-            key,
             created,
             created_by,
             container_code=container_code,
             can_stand_alone=can_stand_alone,
             container_cls=container_cls,
+            entity_ref=entity_ref,
         )
         container_version: ContainerVersionModel = create_container_version(  # type: ignore[assignment]
             container.id,
@@ -573,22 +577,22 @@ def get_container_version(container_version_pk: int) -> ContainerVersion:
     return ContainerVersion.objects.get(pk=container_version_pk)
 
 
-def get_container_by_key(learning_package_id: LearningPackage.ID, /, key: str) -> Container:
+def get_container_by_ref(learning_package_id: LearningPackage.ID, /, entity_ref: str) -> Container:
     """
     [ 🛑 UNSTABLE ]
-    Get a container by its learning package and primary key.
+    Get a container by its learning package and entity ref.
 
     Args:
         learning_package_id: The ID of the learning package that contains the container.
-        key: The primary key of the container.
+        entity_ref: The entity ref of the container.
 
     Returns:
-        The container with the given primary key (as `Container`, not as its typed subclass).
+        The container with the given entity ref (as `Container`, not as its typed subclass).
     """
     try:
         return Container.objects.select_related("container_type").get(
             publishable_entity__learning_package_id=learning_package_id,
-            publishable_entity__key=key,
+            publishable_entity__entity_ref=entity_ref,
         )
     except Container.DoesNotExist:
         # Check if it's the container or the learning package that does not exist:
@@ -876,15 +880,17 @@ def get_container_children_count(
     return container_version.entity_list.entitylistrow_set.filter(**filter_deleted).count()
 
 
-def get_container_children_entities_keys(container_version: ContainerVersion) -> list[str]:
+def get_container_children_entity_refs(container_version: ContainerVersion) -> list[str]:
     """
-    Fetch the list of entity keys for all entities in the given container version.
+    Fetch the list of entity refs for all entities in the given container version.
 
     Args:
-        container_version: The ContainerVersion to fetch the entity keys for.
+        container_version: The ContainerVersion to fetch the entity refs for.
     Returns:
-        A list of entity keys for all entities in the container version, ordered by entity key.
+        A list of entity refs for all entities in the container version, ordered by position.
     """
     return list(
-        container_version.entity_list.entitylistrow_set.values_list("entity__key", flat=True).order_by("order_num")
+        container_version.entity_list.entitylistrow_set
+        .values_list("entity__entity_ref", flat=True)
+        .order_by("order_num")
     )

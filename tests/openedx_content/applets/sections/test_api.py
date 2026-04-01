@@ -35,28 +35,24 @@ class SectionsTestCase(ComponentTestCase):
             "created_by": None,
         }
         self.unit_1, self.unit_1_v1 = content_api.create_unit_and_version(
-            key="unit_1",
             container_code="unit_1",
             title="Grandchild Unit 1",
             components=[self.component_1, self.component_2],
             **common_args,
         )
         self.unit_2, self.unit_2_v1 = content_api.create_unit_and_version(
-            key="unit_2",
             container_code="unit_2",
             title="Grandchild Unit 2",
             components=[self.component_2, self.component_1],  # Backwards order from Unit 1
             **common_args,
         )
         self.subsection_1, self.subsection_1_v1 = content_api.create_subsection_and_version(
-            key="subsection_1",
             container_code="subsection_1",
             title="Child Subsection 1",
             units=[self.unit_1, self.unit_2],
             **common_args,
         )
         self.subsection_2, self.subsection_2_v1 = content_api.create_subsection_and_version(
-            key="subsection_2",
             container_code="subsection_2",
             title="Child Subsection 2",
             units=[self.unit_2, self.unit_1],  # Backwards order from subsection 1
@@ -73,7 +69,6 @@ class SectionsTestCase(ComponentTestCase):
         """Helper method to quickly create a section with some subsections"""
         section, _section_v1 = content_api.create_section_and_version(
             learning_package_id=self.learning_package.id,
-            key=key,
             container_code=key,
             title=title,
             subsections=subsections,
@@ -93,7 +88,6 @@ class SectionsTestCase(ComponentTestCase):
         """
         section, section_version = content_api.create_section_and_version(
             learning_package_id=self.learning_package.id,
-            key="section:key",
             container_code="section-key",
             title="Section",
             created=self.now,
