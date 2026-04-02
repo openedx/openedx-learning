@@ -109,7 +109,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_media(
             new_problem_version.pk,
             new_txt_media.pk,
-            key="hello.txt",
+            path="hello.txt",
         )
 
         # Create a Draft component, one in each learning package
@@ -138,7 +138,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_media(
             new_html_version.pk,
             cls.html_asset_media.id,
-            key="static/other/subdirectory/hello.html",
+            path="static/other/subdirectory/hello.html",
         )
 
         components = api.get_publishable_entities(cls.learning_package)

@@ -381,9 +381,8 @@ class LearningPackageZipper:
                         for component_version_media in prefetched_media:
                             media: Media = component_version_media.media
 
-                            # Important: The component_version_media.key contains implicitly
-                            # the file name and the file extension
-                            file_path = version_folder / component_version_media.key
+                            # component_version_media.path is the file name and extension
+                            file_path = version_folder / component_version_media.path
 
                             if media.has_file and media.path:
                                 # If has_file, we pull it from the file system

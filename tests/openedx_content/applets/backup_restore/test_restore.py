@@ -12,6 +12,7 @@ from openedx_content.applets.backup_restore.serializers import (
     CollectionSerializer,
     ComponentSerializer,
     ContainerSerializer,
+    EntitySerializer,
 )
 from openedx_content.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_package_ref
 from openedx_content.applets.collections import api as collections_api
@@ -420,7 +421,7 @@ class EntitySerializerTest(TestCase):
     }
 
     def _serialize(self, extra):
-        from openedx_content.applets.backup_restore.serializers import EntitySerializer
+        """Serialize BASE_DATA merged with extra using EntitySerializer."""
         data = {**self.BASE_DATA, **extra}
         s = EntitySerializer(data=data)
         s.is_valid()

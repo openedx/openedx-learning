@@ -83,4 +83,4 @@ class Command(BaseCommand):
             f"{next_version.component.entity_ref} ({next_version.uuid}):"
         )
         for cvm in next_version.componentversionmedia_set.all():
-            self.stdout.write(f"- {cvm.key} ({cvm.uuid})")
+            self.stdout.write(f"- {cvm.path} ({cvm.uuid})")

@@ -37,12 +37,12 @@ class ComponentAdmin(ReadOnlyModelAdmin):
     """
     Django admin configuration for Component
     """
-    list_display = ("key", "uuid", "component_type", "created")
+    list_display = ("entity_ref", "uuid", "component_type", "created")
     readonly_fields = [
         "learning_package",
         "uuid",
         "component_type",
-        "key",
+        "entity_ref",
         "created",
     ]
     list_filter = ("component_type", "learning_package")
@@ -69,13 +69,13 @@ class ContentInline(admin.TabularInline):
         )
 
     fields = [
-        "key",
+        "path",
         "format_size",
         "rendered_data",
     ]
     readonly_fields = [
         "media",
-        "key",
+        "path",
         "format_size",
         "rendered_data",
     ]
