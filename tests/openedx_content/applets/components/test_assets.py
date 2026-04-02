@@ -75,7 +75,7 @@ class AssetTestCase(TestCase):
         components_api.create_component_version_media(
             cls.component_version.pk,
             cls.problem_media.id,
-            key="block.xml",
+            path="block.xml",
         )
 
         # Python source file, stored as a file. This is hypothetical, as we
@@ -89,7 +89,7 @@ class AssetTestCase(TestCase):
         components_api.create_component_version_media(
             cls.component_version.pk,
             cls.python_source_asset.id,
-            key="src/grader.py",
+            path="src/grader.py",
         )
 
         # An HTML file that is student downloadable
@@ -102,7 +102,7 @@ class AssetTestCase(TestCase):
         components_api.create_component_version_media(
             cls.component_version.pk,
             cls.html_asset_media.id,
-            key="static/hello.html",
+            path="static/hello.html",
         )
 
     def test_no_component_version(self):

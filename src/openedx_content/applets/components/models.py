@@ -258,10 +258,9 @@ class ComponentVersionMedia(models.Model):
     For instance, a Video ComponentVersion might be associated with multiple
     transcripts in different languages.
 
-    When Media is associated with an ComponentVersion, it has some local
-    key that is unique within the the context of that ComponentVersion. This
-    allows the ComponentVersion to do things like store an image file and
-    reference it by a "path" key.
+    When Media is associated with a ComponentVersion, it has a ``path``
+    that is unique within the context of that ComponentVersion. This is
+    used as a local file-path-like identifier, e.g. "static/image.png".
 
     Media is immutable and sharable across multiple ComponentVersions.
     """
@@ -269,20 +268,15 @@ class ComponentVersionMedia(models.Model):
     component_version = models.ForeignKey(ComponentVersion, on_delete=models.CASCADE)
     media = models.ForeignKey(Media, on_delete=models.RESTRICT)
 
-    # "key" is a reserved word for MySQL, so we're temporarily using the column
-    # name of "_key" to avoid breaking downstream tooling. A possible
-    # alternative name for this would be "path", since it's most often used as
-    # an internal file path. However, we might also want to put special
-    # identifiers that don't map as cleanly to file paths at some point.
-    key = ref_field(db_column="_key")
+    # path is a local file-path-like identifier for the media within a
+    # ComponentVersion.
+    path = ref_field()
 
     class Meta:
         constraints = [
-            # Uniqueness is only by ComponentVersion and key. If for some reason
-            # a ComponentVersion wants to associate the same piece of Media
-            # with two different identifiers, that is permitted.
+            # Uniqueness is only by ComponentVersion and path.
             models.UniqueConstraint(
-                fields=["component_version", "key"],
+                fields=["component_version", "path"],
                 name="oel_cvcontent_uniq_cv_key",
             ),
         ]

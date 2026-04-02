@@ -250,7 +250,7 @@ def create_next_component_version(
                 ComponentVersionMedia.objects.create(
                     media_id=media_pk,
                     component_version=component_version,
-                    key=key,
+                    path=key,
                 )
 
         if ignore_previous_media:
@@ -261,11 +261,11 @@ def create_next_component_version(
         last_version_media_mapping = ComponentVersionMedia.objects \
                                                           .filter(component_version=last_version)
         for cvrc in last_version_media_mapping:
-            if cvrc.key not in media_to_replace:
+            if cvrc.path not in media_to_replace:
                 ComponentVersionMedia.objects.create(
                     media_id=cvrc.media_id,
                     component_version=component_version,
-                    key=cvrc.key,
+                    path=cvrc.path,
                 )
 
         return component_version
@@ -435,7 +435,7 @@ def look_up_component_version_media(
     learning_package_ref: str,
     entity_ref: str,
     version_num: int,
-    key: Path,
+    path: Path,
 ) -> ComponentVersionMedia:
     """
     Look up ComponentVersionMedia by human readable identifiers.
@@ -450,7 +450,7 @@ def look_up_component_version_media(
         Q(component_version__component__learning_package__package_ref=learning_package_ref)
         & Q(component_version__component__publishable_entity__entity_ref=entity_ref)
         & Q(component_version__publishable_entity_version__version_num=version_num)
-        & Q(key=key)
+        & Q(path=path)
     )
     return ComponentVersionMedia.objects \
                                 .select_related(
@@ -466,29 +466,29 @@ def create_component_version_media(
     component_version_id: int,
     media_id: int,
     /,
-    key: str,
+    path: str,
 ) -> ComponentVersionMedia:
     """
     Add a Media to the given ComponentVersion
 
-    We don't allow keys that would be absolute paths, e.g. ones that start with
+    We don't allow paths that would be absolute, e.g. ones that start with
     '/'. Storing these causes headaches with building relative paths and because
     of mismatches with things that expect a leading slash and those that don't.
     So for safety and consistency, we strip off leading slashes and emit a
     warning when we do.
     """
-    if key.startswith('/'):
+    if path.startswith('/'):
         logger.warning(
             "Absolute paths are not supported: "
             f"removed leading '/' from ComponentVersion {component_version_id} "
-            f"media key: {repr(key)} (media_id: {media_id})"
+            f"media path: {repr(path)} (media_id: {media_id})"
         )
-        key = key.lstrip('/')
+        path = path.lstrip('/')
 
     cvrc, _created = ComponentVersionMedia.objects.get_or_create(
         component_version_id=component_version_id,
         media_id=media_id,
-        key=key,
+        path=path,
     )
     return cvrc
 
@@ -603,7 +603,7 @@ def get_redirect_response_for_component_asset(
 
     # Check: Does the ComponentVersion have the requested asset (Media)?
     try:
-        cv_media = component_version.componentversionmedia_set.get(key=asset_path)
+        cv_media = component_version.componentversionmedia_set.get(path=asset_path)
     except ComponentVersionMedia.DoesNotExist:
         logger.error(f"ComponentVersion {component_version_uuid} has no asset {asset_path}")
         info_headers.update(

@@ -50,9 +50,9 @@ class ComponentAdmin(ReadOnlyModelAdmin):
     inlines = [ComponentVersionInline]
 
 
-class ContentInline(admin.TabularInline):
+class MediaInline(admin.TabularInline):
     """
-    Django admin configuration for Content
+    Django admin configuration for Media
     """
     model = ComponentVersion.media.through
 
@@ -69,13 +69,13 @@ class ContentInline(admin.TabularInline):
         )
 
     fields = [
-        "key",
+        "path",
         "format_size",
         "rendered_data",
     ]
     readonly_fields = [
         "media",
-        "key",
+        "path",
         "format_size",
         "rendered_data",
     ]
@@ -113,7 +113,7 @@ class ComponentVersionAdmin(ReadOnlyModelAdmin):
         "created",
     ]
     list_display = ["component", "version_num", "uuid", "created"]
-    inlines = [ContentInline]
+    inlines = [MediaInline]
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
