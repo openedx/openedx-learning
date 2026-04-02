@@ -173,7 +173,7 @@ class Command(BaseCommand):
             content_api.create_component_version_media(
                 component_version,
                 text_content.pk,
-                key="block.xml",
+                path="block.xml",
             )
 
             # Cycle through static assets references and add those as well...

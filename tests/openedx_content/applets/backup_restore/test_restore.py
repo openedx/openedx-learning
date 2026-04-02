@@ -374,6 +374,7 @@ class EntitySerializerBackcompatTest(TestCase):
     }
 
     def _serialize(self, extra):
+        """Serialize BASE_DATA merged with extra using EntitySerializer."""
         data = {**self.BASE_DATA, **extra}
         s = EntitySerializer(data=data)
         s.is_valid()
