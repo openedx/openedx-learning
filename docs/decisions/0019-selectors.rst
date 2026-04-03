@@ -1,6 +1,11 @@
 19. Selectors for Dynamically Selecting Content
 ===============================================
 
+Status
+------
+
+Proposed.
+
 Context
 -------
 
@@ -40,3 +45,9 @@ This section describes how different types of selectors work and how they handle
 
 A new version of a selector is created whenever the pool of concent changes by adding, removing or reordering existing members.
 
+Changelog
+---------
+
+2026-04-02:
+
+* Added "Status"

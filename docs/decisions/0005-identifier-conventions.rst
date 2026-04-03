@@ -1,6 +1,11 @@
 5. Identifier Conventions
 =========================
 
+Status
+------
+
+Likely superseded by `OEP-68 <https://github.com/openedx/openedx-proposals/pull/773>`_.
+
 Context
 -------
 
@@ -28,7 +33,7 @@ Key
 Implementation Notes
 --------------------
 
-Helpers to generate these field types are in the ``openedx_learning.lib.fields`` module.
+Helpers to generate these field types are in the ``openedx_django_lib.fields`` module.
 
 Rejected Alternatives
 ---------------------
@@ -37,3 +42,11 @@ A number of names were considered for ``key``, and were rejected for different r
 
 * ``identifier`` is used in some standards like QTI, but it's too easily confused with ``id`` or the general concept of the three types of identity-related fields we have.
 * ``slug`` was considered, but ultimately rejected because that implied these fields would be human-readable, and that's not guaranteed. Most XBlock content that comes from MongoDB will be using GUIDs, for instance.
+
+Changelog
+---------
+
+2026-04-02:
+
+* Added "Status"
+* Updated the path to the ``fields`` module.
