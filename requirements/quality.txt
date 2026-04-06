@@ -33,11 +33,11 @@ cffi==2.0.0
     #   -r requirements/test.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.4.6
+charset-normalizer==3.4.7
     # via
     #   -r requirements/test.txt
     #   requests
-click==8.3.1
+click==8.3.2
     # via
     #   -r requirements/test.txt
     #   celery
@@ -100,7 +100,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-django-debug-toolbar==6.2.0
+django-debug-toolbar==6.3.0
     # via -r requirements/test.txt
 django-model-utils==5.0.0
     # via
@@ -110,11 +110,11 @@ django-simple-history==3.11.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
-django-stubs==6.0.1
+django-stubs==6.0.2
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==6.0.1
+django-stubs-ext==6.0.2
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -129,7 +129,7 @@ djangorestframework==3.17.1
     #   drf-jwt
     #   edx-drf-extensions
     #   edx-organizations
-djangorestframework-stubs==3.16.8
+djangorestframework-stubs==3.16.9
     # via -r requirements/test.txt
 dnspython==2.8.0
     # via
@@ -151,7 +151,7 @@ edx-drf-extensions==10.6.0
     #   edx-organizations
 edx-lint==6.0.0
     # via -r requirements/quality.in
-edx-opaque-keys==3.1.0
+edx-opaque-keys==4.0.0
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -220,11 +220,11 @@ mdurl==0.1.2
     #   markdown-it-py
 mock==5.2.0
     # via -r requirements/test.txt
-more-itertools==10.8.0
+more-itertools==11.0.1
     # via
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.19.1
+mypy==1.20.0
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -244,7 +244,7 @@ pathspec==1.0.4
     # via
     #   -r requirements/test.txt
     #   mypy
-pillow==12.1.1
+pillow==12.2.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
@@ -328,7 +328,7 @@ pyyaml==6.0.3
     #   code-annotations
 readme-renderer==44.0
     # via twine
-requests==2.33.0
+requests==2.33.1
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -394,7 +394,7 @@ typing-extensions==4.15.0
     #   grimp
     #   import-linter
     #   mypy
-tzdata==2025.3
+tzdata==2026.1
     # via
     #   -r requirements/test.txt
     #   kombu
