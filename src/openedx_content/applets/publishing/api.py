@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime, timezone
-from typing import ContextManager, Optional
+from typing import ContextManager, Optional, cast
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Prefetch, Q, QuerySet
@@ -824,7 +824,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
         # "This Unit's version stayed the same, but its dependency hash changed
         # because a child Component's draft version was changed." We gather them
         # all up in a list so we can do a bulk_update on them.
-        branch_objs_to_update_with_side_effects = []
+        branch_objs_to_update_with_side_effects: list[Draft | Published] = []
 
         while changes_and_affected:
             change, affected = changes_and_affected.pop()
@@ -854,9 +854,11 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             # Update the current branch pointer (Draft or Published) for this
             # entity to point to the side_effect_change (if it's not already).
             if branch_cls == Published:
-                published_obj = affected  # 'affected' is the current Published object
+                published_obj = cast(Published, affected)
                 if published_obj.publish_log_record_id != side_effect_change.pk:
-                    published_obj.publish_log_record = side_effect_change
+                    published_obj.publish_log_record = cast(
+                        PublishLogRecord, side_effect_change
+                    )
                     branch_objs_to_update_with_side_effects.append(published_obj)
             elif branch_cls == Draft:
                 draft_obj = affected  # 'affected' is the current Draft object
