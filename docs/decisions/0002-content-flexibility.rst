@@ -1,10 +1,16 @@
 2. Approach to Content Flexibility
 ==================================
 
+Status
+------
+
+Proposed. The "Sequence" and "Navigation" concepts described below have not been realized.
+
+
 Context
 -------
 
-Open edX courses follow a strict Course > Section > Subsection > Unit > Module hierarchy. There are a number of use cases that do not fit this pattern:
+Open edX courses follow a strict Course > Section > Subsection > Unit > XBlock hierarchy. There are a number of use cases that do not fit this pattern:
 
 * A problem bank shared via LTI, with individual problems for use in other LMS systems.
 * Short courses that do not require the "Section" middle layer of hierarchy.
@@ -46,6 +52,11 @@ To realize the benefits of this system would require significant changes to Stud
 
 Changelog
 ---------
+
+2026-04-02:
+
+* Renamed "Module" to "XBlock" to be consistent with updated platform terminology.
+* Added "Status"
 
 2023-02-06:
 

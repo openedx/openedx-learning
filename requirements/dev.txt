@@ -17,13 +17,13 @@ astroid==4.0.4
     #   -r requirements/quality.txt
     #   pylint
     #   pylint-celery
-attrs==25.4.0
+attrs==26.1.0
     # via -r requirements/quality.txt
 billiard==4.2.4
     # via
     #   -r requirements/quality.txt
     #   celery
-build==1.4.0
+build==1.4.2
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
@@ -31,7 +31,7 @@ cachetools==7.0.5
     # via
     #   -r requirements/ci.txt
     #   tox
-celery==5.6.2
+celery==5.6.3
     # via -r requirements/quality.txt
 certifi==2026.2.25
     # via
@@ -42,9 +42,9 @@ cffi==2.0.0
     #   -r requirements/quality.txt
     #   cryptography
     #   pynacl
-chardet==7.0.1
+chardet==7.4.0.post2
     # via diff-cover
-charset-normalizer==3.4.5
+charset-normalizer==3.4.6
     # via
     #   -r requirements/quality.txt
     #   requests
@@ -78,7 +78,7 @@ click-repl==0.3.0
     # via
     #   -r requirements/quality.txt
     #   celery
-code-annotations==2.3.2
+code-annotations==3.0.0
     # via
     #   -r requirements/quality.txt
     #   edx-lint
@@ -86,11 +86,11 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.13.4
+coverage[toml]==7.13.5
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
-cryptography==46.0.5
+cryptography==46.0.6
     # via
     #   -r requirements/quality.txt
     #   pyjwt
@@ -140,11 +140,11 @@ django-simple-history==3.11.0
     # via
     #   -r requirements/quality.txt
     #   edx-organizations
-django-stubs==5.2.9
+django-stubs==6.0.1
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-django-stubs-ext==5.2.9
+django-stubs-ext==6.0.1
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -153,7 +153,7 @@ django-waffle==5.0.0
     #   -r requirements/quality.txt
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.16.1
+djangorestframework==3.17.1
     # via
     #   -r requirements/quality.txt
     #   drf-jwt
@@ -183,16 +183,16 @@ edx-drf-extensions==10.6.0
     #   edx-organizations
 edx-i18n-tools==2.0.0
     # via -r requirements/dev.in
-edx-lint==5.6.0
+edx-lint==6.0.0
     # via -r requirements/quality.txt
 edx-opaque-keys==3.1.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
     #   edx-organizations
-edx-organizations==7.3.0
+edx-organizations==8.0.0
     # via -r requirements/quality.txt
-filelock==3.25.1
+filelock==3.25.2
     # via
     #   -r requirements/ci.txt
     #   python-discovery
@@ -226,7 +226,7 @@ jaraco-classes==3.4.0
     # via
     #   -r requirements/quality.txt
     #   keyring
-jaraco-context==6.1.1
+jaraco-context==6.1.2
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -293,7 +293,7 @@ mypy-extensions==1.1.0
     #   mypy
 mysqlclient==2.2.8
     # via -r requirements/quality.txt
-nh3==0.3.3
+nh3==0.3.4
     # via
     #   -r requirements/quality.txt
     #   readme-renderer
@@ -355,14 +355,14 @@ pycparser==3.0
     #   cffi
 pydocstyle==6.3.0
     # via -r requirements/quality.txt
-pygments==2.19.2
+pygments==2.20.0
     # via
     #   -r requirements/quality.txt
     #   diff-cover
     #   pytest
     #   readme-renderer
     #   rich
-pyjwt[crypto]==2.11.0
+pyjwt[crypto]==2.12.1
     # via
     #   -r requirements/quality.txt
     #   drf-jwt
@@ -409,7 +409,7 @@ pytest==9.0.2
     #   -r requirements/quality.txt
     #   pytest-cov
     #   pytest-django
-pytest-cov==7.0.0
+pytest-cov==7.1.0
     # via -r requirements/quality.txt
 pytest-django==4.12.0
     # via -r requirements/quality.txt
@@ -418,9 +418,10 @@ python-dateutil==2.9.0.post0
     #   -r requirements/quality.txt
     #   celery
     #   freezegun
-python-discovery==1.1.3
+python-discovery==1.2.1
     # via
     #   -r requirements/ci.txt
+    #   tox
     #   virtualenv
 python-slugify==8.0.4
     # via
@@ -435,7 +436,7 @@ readme-renderer==44.0
     # via
     #   -r requirements/quality.txt
     #   twine
-requests==2.32.5
+requests==2.33.0
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
@@ -496,7 +497,7 @@ tomlkit==0.14.0
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==4.49.1
+tox==4.51.0
     # via -r requirements/ci.txt
 twine==6.2.0
     # via -r requirements/quality.txt

@@ -13,9 +13,7 @@ support the logic for the management of the publishing process:
 * Storing and querying publish history.
 """
 
-from .container import Container, ContainerVersion
 from .draft_log import Draft, DraftChangeLog, DraftChangeLogRecord, DraftSideEffect
-from .entity_list import EntityList, EntityListRow
 from .learning_package import LearningPackage
 from .publish_log import Published, PublishLog, PublishLogRecord, PublishSideEffect
 from .publishable_entity import (

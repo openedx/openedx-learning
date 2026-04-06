@@ -1,6 +1,11 @@
 16. Python Public API Conventions
 =================================
 
+Status
+------
+
+Superseded by decision 0020.
+
 Context
 --------
 
@@ -88,3 +93,10 @@ Use ``_api`` modules in apps instead of ``api``.
   I'm not adding this because it feels unintuitive that apps would import a private module from other apps, e.g. the ``components`` app importing from ``openedx_learning.apps.publishing._api``. My hope is that documentation and import linter rules in edx-platform will be enough to make it clear that APIs should only be imported from ``openedx_learning.api``.
 
   We should revisit this at a later time if this turns out to be a source of confusion.
+
+Changelog
+---------
+
+2026-04-02:
+
+* Added "Status"

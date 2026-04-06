@@ -1,9 +1,14 @@
 """
 Models that implement units
 """
+
+from typing import override
+
+from django.core.exceptions import ValidationError
 from django.db import models
 
-from ..publishing.models import Container, ContainerVersion
+from ..containers.models import Container, ContainerVersion
+from ..publishing.models import PublishableEntity
 
 __all__ = [
     "Unit",
@@ -11,6 +16,7 @@ __all__ = [
 ]
 
 
+@Container.register_subclass
 class Unit(Container):
     """
     A Unit is type of Container that holds Components.
@@ -18,12 +24,24 @@ class Unit(Container):
     Via Container and its PublishableEntityMixin, Units are also publishable
     entities and can be added to other containers.
     """
+
+    type_code = "unit"
+    olx_tag_name = "vertical"  # Serializes to OLX as `<unit>...</unit>`.
+
     container = models.OneToOneField(
         Container,
         on_delete=models.CASCADE,
         parent_link=True,
         primary_key=True,
     )
+
+    @override
+    @classmethod
+    def validate_entity(cls, entity: PublishableEntity) -> None:
+        """Check if the given entity is allowed as a child of a Unit"""
+        # Units only allow Components as children, so the entity must be 1:1 with Component:
+        if not hasattr(entity, "component"):
+            raise ValidationError("Only Components can be added as children of a Unit")
 
 
 class UnitVersion(ContainerVersion):
@@ -33,6 +51,7 @@ class UnitVersion(ContainerVersion):
     Via ContainerVersion and its EntityList, it defines the list of Components
     in this version of the Unit.
     """
+
     container_version = models.OneToOneField(
         ContainerVersion,
         on_delete=models.CASCADE,
@@ -41,10 +60,6 @@ class UnitVersion(ContainerVersion):
     )
 
     @property
-    def unit(self):
-        """ Convenience accessor to the Unit this version is associated with """
+    def unit(self) -> Unit:
+        """Convenience accessor to the Unit this version is associated with"""
         return self.container_version.container.unit  # pylint: disable=no-member
-
-    # Note: the 'publishable_entity_version' field is inherited and will appear on this model, but does not exist
-    # in the underlying database table. It only exists in the ContainerVersion table.
-    # You can verify this by running 'python manage.py sqlmigrate oel_units 0001_initial'

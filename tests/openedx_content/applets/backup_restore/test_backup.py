@@ -13,7 +13,7 @@ from django.test import TestCase
 
 from openedx_content import api
 from openedx_content.applets.backup_restore.zipper import LearningPackageZipper
-from openedx_content.models_api import Collection, Component, LearningPackage, Media, PublishableEntity
+from openedx_content.models_api import Collection, Component, LearningPackage, Media, PublishableEntity, Unit
 
 User = get_user_model()
 
@@ -158,11 +158,12 @@ class LpDumpCommandTestCase(TestCase):
             components
         )
 
-        api.create_unit(
+        api.create_container(
             learning_package_id=cls.learning_package.id,
             key="unit-1",
             created=cls.now,
             created_by=cls.user.id,
+            container_cls=Unit,
         )
 
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):

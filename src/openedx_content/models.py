@@ -10,6 +10,7 @@ import their modules, but that broke code introspection.
 from .applets.backup_restore.models import *
 from .applets.collections.models import *
 from .applets.components.models import *
+from .applets.containers.models import *
 from .applets.media.models import *
 from .applets.publishing.models import *
 from .applets.sections.models import *

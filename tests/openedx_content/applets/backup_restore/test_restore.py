@@ -11,6 +11,7 @@ from django.test import TestCase
 from openedx_content.applets.backup_restore.zipper import LearningPackageUnzipper, generate_staged_lp_key
 from openedx_content.applets.collections import api as collections_api
 from openedx_content.applets.components import api as components_api
+from openedx_content.applets.containers import api as containers_api
 from openedx_content.applets.publishing import api as publishing_api
 from test_utils.zip_file_utils import folder_to_inmemory_zip
 
@@ -56,7 +57,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
 
     def verify_containers(self, lp):
         """Verify the containers and their versions were restored correctly."""
-        container_qs = publishing_api.get_containers(learning_package_id=lp.id)
+        container_qs = containers_api.get_containers(learning_package_id=lp.id)
         expected_container_keys = ["unit1-b7eafb", "subsection1-48afa3", "section1-8ca126"]
 
         for container in container_qs:
@@ -66,21 +67,21 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
             assert container.created_by is not None
             assert container.created_by.username == "lp_user"
             if container.key == "unit1-b7eafb":
-                assert getattr(container, 'unit', None) is not None
+                assert containers_api.get_container_type_code_of(container) == "unit"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif container.key == "subsection1-48afa3":
-                assert getattr(container, 'subsection', None) is not None
+                assert containers_api.get_container_type_code_of(container) == "subsection"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
                 assert published_version is None
             elif container.key == "section1-8ca126":
-                assert getattr(container, 'section', None) is not None
+                assert containers_api.get_container_type_code_of(container) == "section"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None

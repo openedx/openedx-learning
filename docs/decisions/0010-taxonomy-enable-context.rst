@@ -1,6 +1,11 @@
 10. Taxonomy enabled for context
 ================================
 
+Status
+------
+
+Rejected. The "all available taxonomies" advanced setting described was never implemented, and the ``OrgTaxonomy`` subclass of taxonomies was instead replaced with a ``TaxonomyOrg`` model that links organizations to regular ``Taxonomy`` instances.
+
 Context
 -------
 
@@ -59,7 +64,7 @@ If ``enabled = True``, then the :ref:`Organization` and :ref:`Course` contexts d
 Organization
 ~~~~~~~~~~~~
 
-OrgTaxonomy has a many-to-many relationship with the Organization model, accessed via the ``org_owners`` field.  OrgTaxonomy lives under `cms.djangoapps.tagging` and so has access to the Organization model and logic in Studio.
+OrgTaxonomy has a many-to-many relationship with the Organization model, accessed via the ``org_owners`` field.  OrgTaxonomy lives under ``openedx.core.djangoapps.content_tagging`` and so has access to the Organization model and logic in Studio.
 
 An OrgTaxonomy is enabled for all organizations if ``org_owners == []``.
 If there are any ``org_owners`` set, then the OrgTaxonomy is only enabled for those orgas, i.e. only courses in these orgs will see the taxonomy field in Studio.
@@ -91,3 +96,11 @@ This was deemed too granular for the MVP, and the data structures and UI can be 
 
 .. _Advanced Settings: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/cms/djangoapps/models/settings/course_metadata.py#L28
 .. _Course Waffle Flags: https://github.com/openedx/edx-platform/blob/4dc35c73ffa6d6a1dcb6e9ea1baa5bed40721125/openedx/core/djangoapps/waffle_utils/models.py#L14
+
+Changelog
+---------
+
+2026-04-02:
+
+* Added "Status"
+* Updated references to module paths

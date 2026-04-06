@@ -111,3 +111,23 @@ class EmptyCSVField(TagParserError):
     def __init__(self, tag: dict | None, field: str, row: int, **kargs):
         super().__init__(tag, **kargs)
         self.message = _("Empty '{field}' field on the row {row}").format(field=field, row=row)
+
+
+class InvalidJSONField(TagParserError):
+    """
+    Exception used when a field has an invalid type on the .json
+    """
+
+    def __init__(self, tag: dict | None, field: str, **kargs):
+        super().__init__(tag, **kargs)
+        self.message = _("Invalid '{field}' field on {tag}").format(field=field, tag=tag)
+
+
+class InvalidCSVField(TagParserError):
+    """
+    Exception used when a field has an invalid type on the .csv
+    """
+
+    def __init__(self, tag: dict | None, field: str, row: int, **kargs):
+        super().__init__(tag, **kargs)
+        self.message = _("Invalid '{field}' field on the row {row}").format(field=field, row=row)

@@ -11,7 +11,7 @@ from django.test import TestCase
 from openedx_content.applets.collections import api as collection_api
 from openedx_content.applets.collections.models import Collection
 from openedx_content.applets.components import api as components_api
-from openedx_content.applets.components.models import Component, ComponentType
+from openedx_content.applets.components.models import Component, ComponentType, ComponentVersion
 from openedx_content.applets.media import api as media_api
 from openedx_content.applets.media.models import MediaType
 from openedx_content.applets.publishing import api as publishing_api
@@ -52,6 +52,19 @@ class ComponentTestCase(TestCase):
             draft_qset=publishing_api.get_all_drafts(self.learning_package.pk).filter(
                 entity=component.publishable_entity,
             ),
+        )
+
+    def create_component(self, *, title: str = "Test Component", key: str = "component:1") -> tuple[
+        Component, ComponentVersion
+    ]:
+        """ Helper method to quickly create a component """
+        return components_api.create_component_and_version(
+            self.learning_package.id,
+            component_type=self.problem_type,
+            local_key=key,
+            title=title,
+            created=self.now,
+            created_by=None,
         )
 
 

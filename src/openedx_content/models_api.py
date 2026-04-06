@@ -5,10 +5,12 @@ never instantiate any of the models themselves–there are API functions in
 authoring.py to create and modify data models in a way that keeps those models
 consistent.
 """
+
 # These wildcard imports are okay because these modules declare __all__.
 # pylint: disable=wildcard-import
 from .applets.collections.models import *
 from .applets.components.models import *
+from .applets.containers.models import *
 from .applets.media.models import *
 from .applets.publishing.models import *
 from .applets.sections.models import *

@@ -1,6 +1,11 @@
 17. Modeling Containers as a Generalized Capability for Holding Content
 ========================================================================
 
+Status
+------
+
+Accepted, except that "Selectors" have not been finalized nor implemented. Container implementation has been separated from ``publishing`` and is part of a separate "applet".
+
 Context
 -------
 
@@ -92,4 +97,12 @@ This section defines the rules for pruning container versions, explaining when a
 - In a top-down approach, start the deletion process with the parent container and work your way down to its children. E.g., when pruning Section V2 > Subsection V1 > Unit V3, the deletion process starts in the greater container working its way down to the smaller.
 - Pruning a container version will not affect the container's history or the children of other container versions, so containers will not be deleted if they are shared by other containers.
 
-.. _PublishableEntity: https://github.com/openedx/openedx-learning/blob/main/openedx_learning/apps/authoring/publishing/models.py#L100-L184
+.. _PublishableEntity: https://github.com/openedx/openedx-core/blob/4c1a9f1/src/openedx_content/applets/publishing/models/publishable_entity.py#L27
+
+Changelog
+---------
+
+2026-04-02:
+
+* Added "Status"
+* Updated link to ``PublishableEntity``

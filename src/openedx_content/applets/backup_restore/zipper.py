@@ -31,11 +31,12 @@ from openedx_content.models_api import (
 
 from ..collections import api as collections_api
 from ..components import api as components_api
+from ..containers import api as containers_api
 from ..media import api as media_api
 from ..publishing import api as publishing_api
-from ..sections import api as sections_api
-from ..subsections import api as subsections_api
-from ..units import api as units_api
+from ..sections.models import Section
+from ..subsections.models import Subsection
+from ..units.models import Unit
 from .serializers import (
     CollectionSerializer,
     ComponentSerializer,
@@ -804,70 +805,70 @@ class LearningPackageUnzipper:
                 **valid_published
             )
 
-    def _save_units(self, learning_package, containers):
-        """Save units and published unit versions."""
-        for valid_unit in containers.get("unit", []):
-            entity_key = valid_unit.get("key")
-            unit = units_api.create_unit(learning_package.id, created_by=self.user_id, **valid_unit)
-            self.units_map_by_key[entity_key] = unit
+    def _save_container(
+        self,
+        learning_package,
+        containers,
+        *,
+        container_cls: containers_api.ContainerSubclass,
+        container_map: dict,
+        children_map: dict,
+    ):
+        """Internal logic for _save_units, _save_subsections, and _save_sections"""
+        type_code = container_cls.type_code  # e.g. "unit"
+        for data in containers.get(type_code, []):
+            entity_key = data.get("key")
+            container = containers_api.create_container(
+                learning_package.id,
+                **data,  # should this be allowed to override any of the following fields?
+                created_by=self.user_id,
+                container_cls=container_cls,
+            )
+            container_map[entity_key] = container  # e.g. `self.units_map_by_key[entity_key] = unit`
 
-        for valid_published in containers.get("unit_published", []):
+        for valid_published in containers.get(f"{type_code}_published", []):
             entity_key = valid_published.pop("entity_key")
-            children = self._resolve_children(valid_published, self.components_map_by_key)
+            children = self._resolve_children(valid_published, children_map)
             self.all_published_entities_versions.add(
                 (entity_key, valid_published.get('version_num'))
             )  # Track published version
-            units_api.create_next_unit_version(
-                self.units_map_by_key[entity_key],
+            containers_api.create_next_container_version(
+                container_map[entity_key],
+                **valid_published,  # should this be allowed to override any of the following fields?
                 force_version_num=valid_published.pop("version_num", None),
-                components=children,
+                entities=children,
                 created_by=self.user_id,
-                **valid_published
             )
+
+    def _save_units(self, learning_package, containers):
+        """Save units and published unit versions."""
+        self._save_container(
+            learning_package,
+            containers,
+            container_cls=Unit,
+            container_map=self.units_map_by_key,
+            children_map=self.components_map_by_key,
+        )
 
     def _save_subsections(self, learning_package, containers):
         """Save subsections and published subsection versions."""
-        for valid_subsection in containers.get("subsection", []):
-            entity_key = valid_subsection.get("key")
-            subsection = subsections_api.create_subsection(
-                learning_package.id, created_by=self.user_id, **valid_subsection
-            )
-            self.subsections_map_by_key[entity_key] = subsection
-
-        for valid_published in containers.get("subsection_published", []):
-            entity_key = valid_published.pop("entity_key")
-            children = self._resolve_children(valid_published, self.units_map_by_key)
-            self.all_published_entities_versions.add(
-                (entity_key, valid_published.get('version_num'))
-            )  # Track published version
-            subsections_api.create_next_subsection_version(
-                self.subsections_map_by_key[entity_key],
-                units=children,
-                force_version_num=valid_published.pop("version_num", None),
-                created_by=self.user_id,
-                **valid_published
-            )
+        self._save_container(
+            learning_package,
+            containers,
+            container_cls=Subsection,
+            container_map=self.subsections_map_by_key,
+            children_map=self.units_map_by_key,
+        )
 
     def _save_sections(self, learning_package, containers):
         """Save sections and published section versions."""
-        for valid_section in containers.get("section", []):
-            entity_key = valid_section.get("key")
-            section = sections_api.create_section(learning_package.id, created_by=self.user_id, **valid_section)
-            self.sections_map_by_key[entity_key] = section
-
-        for valid_published in containers.get("section_published", []):
-            entity_key = valid_published.pop("entity_key")
-            children = self._resolve_children(valid_published, self.subsections_map_by_key)
-            self.all_published_entities_versions.add(
-                (entity_key, valid_published.get('version_num'))
-            )  # Track published version
-            sections_api.create_next_section_version(
-                self.sections_map_by_key[entity_key],
-                subsections=children,
-                force_version_num=valid_published.pop("version_num", None),
-                created_by=self.user_id,
-                **valid_published
-            )
+        self._save_container(
+            learning_package,
+            containers,
+            container_cls=Section,
+            container_map=self.sections_map_by_key,
+            children_map=self.subsections_map_by_key,
+        )
 
     def _save_draft_versions(self, components, containers, component_static_files):
         """Save draft versions for all entity types."""
@@ -888,47 +889,29 @@ class LearningPackageUnzipper:
                 **valid_draft
             )
 
-        for valid_draft in containers.get("unit_drafts", []):
-            entity_key = valid_draft.pop("entity_key")
-            version_num = valid_draft["version_num"]  # Should exist, validated earlier
-            if self._is_version_already_exists(entity_key, version_num):
-                continue
-            children = self._resolve_children(valid_draft, self.components_map_by_key)
-            units_api.create_next_unit_version(
-                self.units_map_by_key[entity_key],
-                components=children,
-                force_version_num=valid_draft.pop("version_num", None),
-                created_by=self.user_id,
-                **valid_draft
-            )
+        def _process_draft_containers(
+            container_cls: containers_api.ContainerSubclass,
+            container_map: dict,
+            children_map: dict,
+        ):
+            for valid_draft in containers.get(f"{container_cls.type_code}_drafts", []):
+                entity_key = valid_draft.pop("entity_key")
+                version_num = valid_draft["version_num"]  # Should exist, validated earlier
+                if self._is_version_already_exists(entity_key, version_num):
+                    continue
+                children = self._resolve_children(valid_draft, children_map)
+                del valid_draft["version_num"]
+                containers_api.create_next_container_version(
+                    container_map[entity_key],
+                    **valid_draft,  # should this be allowed to override any of the following fields?
+                    entities=children,
+                    force_version_num=version_num,
+                    created_by=self.user_id,
+                )
 
-        for valid_draft in containers.get("subsection_drafts", []):
-            entity_key = valid_draft.pop("entity_key")
-            version_num = valid_draft["version_num"]  # Should exist, validated earlier
-            if self._is_version_already_exists(entity_key, version_num):
-                continue
-            children = self._resolve_children(valid_draft, self.units_map_by_key)
-            subsections_api.create_next_subsection_version(
-                self.subsections_map_by_key[entity_key],
-                units=children,
-                force_version_num=valid_draft.pop("version_num", None),
-                created_by=self.user_id,
-                **valid_draft
-            )
-
-        for valid_draft in containers.get("section_drafts", []):
-            entity_key = valid_draft.pop("entity_key")
-            version_num = valid_draft["version_num"]  # Should exist, validated earlier
-            if self._is_version_already_exists(entity_key, version_num):
-                continue
-            children = self._resolve_children(valid_draft, self.subsections_map_by_key)
-            sections_api.create_next_section_version(
-                self.sections_map_by_key[entity_key],
-                subsections=children,
-                force_version_num=valid_draft.pop("version_num", None),
-                created_by=self.user_id,
-                **valid_draft
-            )
+        _process_draft_containers(Unit, self.units_map_by_key, children_map=self.components_map_by_key)
+        _process_draft_containers(Subsection, self.subsections_map_by_key, children_map=self.units_map_by_key)
+        _process_draft_containers(Section, self.sections_map_by_key, children_map=self.subsections_map_by_key)
 
     # --------------------------
     # Utilities

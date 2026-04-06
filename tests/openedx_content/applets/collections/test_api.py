@@ -16,6 +16,7 @@ from openedx_content.models_api import (
     CollectionPublishableEntity,
     Component,
     ComponentType,
+    Container,
     LearningPackage,
     PublishableEntity,
     Unit,
@@ -226,7 +227,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
     """
     published_component: Component
     draft_component: Component
-    draft_unit: Unit
+    draft_unit: Container
     user: UserType
     html_type: ComponentType
     problem_type: ComponentType
@@ -246,11 +247,12 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         cls.html_type = api.get_or_create_component_type("xblock.v1", "html")
         cls.problem_type = api.get_or_create_component_type("xblock.v1", "problem")
         created_time = datetime(2025, 4, 1, tzinfo=timezone.utc)
-        cls.draft_unit = api.create_unit(
+        cls.draft_unit = api.create_container(
             learning_package_id=cls.learning_package.id,
             key="unit-1",
             created=created_time,
             created_by=cls.user.id,
+            container_cls=Unit,
         )
 
         # Make and publish one Component
@@ -438,19 +440,28 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         ))
 
     def test_get_collection_containers(self):
-        assert not list(api.get_collection_containers(
+        """
+        Test using `get_collection_entities()` to get containers
+        """
+        def get_collection_containers(learning_package_id: int, collection_key: str):
+            return (
+                pe.container for pe in
+                api.get_collection_entities(learning_package_id, collection_key).exclude(container=None)
+            )
+
+        assert not list(get_collection_containers(
             self.learning_package.id,
             self.collection1.key,
         ))
-        assert list(api.get_collection_containers(
+        assert list(get_collection_containers(
             self.learning_package.id,
             self.collection2.key,
         )) == [self.draft_unit.container]
-        assert not list(api.get_collection_containers(
+        assert not list(get_collection_containers(
             self.learning_package.id,
             self.collection3.key,
         ))
-        assert not list(api.get_collection_containers(
+        assert not list(get_collection_containers(
             self.learning_package.id,
             self.another_library_collection.key,
         ))

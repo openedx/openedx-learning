@@ -104,7 +104,7 @@ def get_get_all_runs(python100_summer26: CourseRun, python100_winter26: CourseRu
     recommended by the `get_course_run()` docstring.
     """
     cc = api.get_catalog_course(org_code="Org1", course_code="Python100")
-    assert cc.runs.order_by("-run") == [
+    assert cc.runs.order_by("-run_code") == [
         python100_summer26,
         python100_winter26,
     ]

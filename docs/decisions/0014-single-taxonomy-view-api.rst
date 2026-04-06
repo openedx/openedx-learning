@@ -1,6 +1,11 @@
 14. Single taxonomy view API
 =====================================
 
+Status
+------
+
+Accepted, but the API has evolved beyond the description here and now supports loading tags of unlimited depth.
+
 Context
 --------
 
@@ -101,7 +106,7 @@ The list of tags will be ordered in tree order (and alphabetically). If it has c
 
 **Pros:**
 
-- The edX's interfaces show the tags in the form of a tree.
+- The UI interface shows the tags in the form of a tree.
 - The frontend needs no further processing as it is in a displayable format.
 - It is kept as a simple implementation.
 
@@ -157,3 +162,10 @@ can return all the tags in one page. So we can perform the tag search on the fro
 
 - It is not scalable.
 - Sets limits of tags that can be created in the taxonomy.
+
+Changelog
+---------
+
+2026-04-02:
+
+* Added "Status"

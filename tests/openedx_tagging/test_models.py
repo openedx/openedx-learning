@@ -1,6 +1,7 @@
 """
 Test the tagging base models
 """
+
 from __future__ import annotations
 
 import ddt  # type: ignore[import]
@@ -328,9 +329,9 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the root tags, in alphabetical order:
-            {"value": "Archaea", "child_count": 3, "descendant_count": 3, **common_fields},
-            {"value": "Bacteria", "child_count": 2, "descendant_count": 2, **common_fields},
-            {"value": "Eukaryota", "child_count": 5, "descendant_count": 13, **common_fields},
+            {"value": "Archaea", "child_count": 3, **common_fields},
+            {"value": "Bacteria", "child_count": 2, **common_fields},
+            {"value": "Eukaryota", "child_count": 5, **common_fields},
         ]
 
     def test_get_child_tags_one_level(self) -> None:
@@ -344,11 +345,11 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
-            {"value": "Animalia", "child_count": 7, "descendant_count": 8, **common_fields},
-            {"value": "Fungi", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Monera", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Plantae", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Protista", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Animalia", "child_count": 7, **common_fields},
+            {"value": "Fungi", "child_count": 0, **common_fields},
+            {"value": "Monera", "child_count": 0, **common_fields},
+            {"value": "Plantae", "child_count": 0, **common_fields},
+            {"value": "Protista", "child_count": 0, **common_fields},
         ]
 
     def test_get_grandchild_tags_one_level(self) -> None:
@@ -362,13 +363,13 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             del r["_id"]  # Remove the internal database IDs; they aren't interesting here and a other tests check them
         assert result == [
             # These are the Eukaryota tags, in alphabetical order:
-            {"value": "Arthropoda", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Chordata", "child_count": 1, "descendant_count": 1, **common_fields},
-            {"value": "Cnidaria", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Ctenophora", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Gastrotrich", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Placozoa", "child_count": 0, "descendant_count": 0, **common_fields},
-            {"value": "Porifera", "child_count": 0, "descendant_count": 0, **common_fields},
+            {"value": "Arthropoda", "child_count": 0, **common_fields},
+            {"value": "Chordata", "child_count": 1, **common_fields},
+            {"value": "Cnidaria", "child_count": 0, **common_fields},
+            {"value": "Ctenophora", "child_count": 0, **common_fields},
+            {"value": "Gastrotrich", "child_count": 0, **common_fields},
+            {"value": "Placozoa", "child_count": 0, **common_fields},
+            {"value": "Porifera", "child_count": 0, **common_fields},
         ]
 
     def test_get_depth_1_search_term(self) -> None:
@@ -380,7 +381,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             {
                 "value": "Archaea",
                 "child_count": 3,
-                "descendant_count": 3,
                 "depth": 0,
                 "usage_count": 0,
                 "parent_value": None,
@@ -399,7 +399,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             {
                 "value": "Archaebacteria",
                 "child_count": 0,
-                "descendant_count": 0,
                 "depth": 1,
                 "parent_value": "Bacteria",
                 "external_id": None,
@@ -417,12 +416,12 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             self.test_get_root()
         with self.assertNumQueries(1):
             self.test_get_depth_1_search_term()
-        # When listing the tags below a specific tag, there is one additional query to load each ancestor tag:
+        # When listing the tags below a specific tag, there is one additional query to load the parent tag:
         with self.assertNumQueries(2):
             self.test_get_child_tags_one_level()
         with self.assertNumQueries(2):
             self.test_get_depth_1_child_search_term()
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(2):
             self.test_get_grandchild_tags_one_level()
 
     ##################
@@ -440,10 +439,11 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "Bacteria (None) (children: 2)",
             "  Archaebacteria (Bacteria) (children: 0)",
             "  Eubacteria (Bacteria) (children: 0)",
-            "Eukaryota (None) (children: 5 + 8)",
-            "  Animalia (Eukaryota) (children: 7 + 1)",
+            "Eukaryota (None) (children: 5)",
+            "  Animalia (Eukaryota) (children: 7)",
             "    Arthropoda (Animalia) (children: 0)",
-            "    Chordata (Animalia) (children: 1)",  # note this has a child but the child is not included
+            "    Chordata (Animalia) (children: 1)",
+            "      Mammalia (Chordata) (children: 0)",
             "    Cnidaria (Animalia) (children: 0)",
             "    Ctenophora (Animalia) (children: 0)",
             "    Gastrotrich (Animalia) (children: 0)",
@@ -476,7 +476,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         """
         result = pretty_format_tags(self.taxonomy.get_filtered_tags(search_term="chordata"))
         assert result == [
-            "Eukaryota (None) (children: 1 + 1)",  # Has one child that matches, plus one additional matching descendant
+            "Eukaryota (None) (children: 1)",  # Has one child that matches
             "  Animalia (Eukaryota) (children: 1)",
             "    Chordata (Animalia) (children: 0)",  # this is the matching tag.
         ]
@@ -490,8 +490,8 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         assert result == [
             "Archaea (None) (children: 1)",
             "  Proteoarchaeota (Archaea) (children: 0)",
-            "Eukaryota (None) (children: 2 + 2)",  # 2 direct matching children, 2 additional matching descendants
-            "  Animalia (Eukaryota) (children: 2)",
+            "Eukaryota (None) (children: 2)",  # 2 direct matching children
+            "  Animalia (Eukaryota) (children: 2)",  # also 2 matching children
             "    Arthropoda (Animalia) (children: 0)",  # match
             "    Gastrotrich (Animalia) (children: 0)",  # match
             "  Protista (Eukaryota) (children: 0)",  # match
@@ -509,7 +509,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
                 "depth": 3,
                 "usage_count": 0,
                 "child_count": 0,
-                "descendant_count": 0,
                 "external_id": None,
                 "_id": 21,  # These IDs are hard-coded in the test fixture file
             }
@@ -573,7 +572,7 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
         taxonomy = self.create_sort_test_taxonomy()
         result = pretty_format_tags(taxonomy.get_filtered_tags())
         assert result == [
-            "1 (None) (children: 4 + 1)",
+            "1 (None) (children: 4)",
             "  1 A (1) (children: 0)",
             "  11 (1) (children: 0)",
             "  11111 (1) (children: 1)",
@@ -591,37 +590,6 @@ class TestFilteredTagsClosedTaxonomy(TestTagTaxonomyMixin, TestCase):
             "  Android (ALPHABET) (children: 0)",
             "  ANVIL (ALPHABET) (children: 0)",
             "  azure (ALPHABET) (children: 0)",
-        ]
-
-    def test_descendant_counts(self) -> None:
-        """
-        Test getting the descendant count on a taxonomy known to cause aggregation
-        bugs unless the aggregations are correctly specified with distinct=True
-
-        https://docs.djangoproject.com/en/5.0/topics/db/aggregation/#combining-multiple-aggregations
-        """
-        taxonomy = api.create_taxonomy("ESDC Subset")
-        api.add_tag_to_taxonomy(taxonomy, "Interests")  # root tag
-        api.add_tag_to_taxonomy(taxonomy, "Holland Codes", parent_tag_value="Interests")  # child tag
-        # Create the grandchild tag:
-        g_tag = api.add_tag_to_taxonomy(taxonomy, "Interests - Holland Codes", parent_tag_value="Holland Codes")
-        # Create the 6 great-grandchild tags:
-        api.add_tag_to_taxonomy(taxonomy, "Artistic", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Conventional", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Enterprising", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Investigative", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Realistic", parent_tag_value=g_tag.value)
-        api.add_tag_to_taxonomy(taxonomy, "Social", parent_tag_value=g_tag.value)
-
-        result = pretty_format_tags(taxonomy.get_filtered_tags(depth=1, include_counts=True))
-        assert result == [
-            "Interests (None) (used: 0, children: 1 + 7)",  # 1 child + (1 grandchild and 6 great grandchild tags)
-        ]
-        result2 = pretty_format_tags(taxonomy.get_filtered_tags(depth=None, include_counts=True))
-        assert result2 == [
-            "Interests (None) (used: 0, children: 1 + 7)",
-            "  Holland Codes (Interests) (used: 0, children: 1 + 6)",
-            "    Interests - Holland Codes (Holland Codes) (used: 0, children: 6)",
         ]
 
 
@@ -905,3 +873,263 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             (self.archaea.value, False),
             (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
         ]
+
+
+class TestTagLineage(TestCase):
+    """
+    Test the Tag.lineage field, which stores the full tab-separated ancestor
+    path including the tag itself: "Root\tParent\t...\tThisValue\t".
+
+    The tree used throughout this class:
+
+        Charlie                  (depth 0)
+            Alice                (depth 1)
+                Delta            (depth 2)
+                    Echo         (depth 3)
+                        Foxtrot  (depth 4)
+            Bob                  (depth 1)
+        Danielle                 (depth 0)
+    """
+
+    def setUp(self):
+        taxonomy = api.create_taxonomy("Test TagLineage")
+        self.charlie = Tag.objects.create(taxonomy=taxonomy, value="Charlie")
+        self.alice = Tag.objects.create(taxonomy=taxonomy, value="Alice", parent=self.charlie)
+        self.bob = Tag.objects.create(taxonomy=taxonomy, value="Bob", parent=self.charlie)
+        self.delta = Tag.objects.create(taxonomy=taxonomy, value="Delta", parent=self.alice)
+        self.echo = Tag.objects.create(taxonomy=taxonomy, value="Echo", parent=self.delta)
+        self.foxtrot = Tag.objects.create(taxonomy=taxonomy, value="Foxtrot", parent=self.echo)
+        self.danielle = Tag.objects.create(taxonomy=taxonomy, value="Danielle")
+
+    def test_root_tag(self):
+        assert self.charlie.lineage == "Charlie\t"
+
+    def test_depth_1(self):
+        assert self.alice.lineage == "Charlie\tAlice\t"
+
+    def test_depth_2(self):
+        assert self.delta.lineage == "Charlie\tAlice\tDelta\t"
+
+    def test_depth_3(self):
+        assert self.echo.lineage == "Charlie\tAlice\tDelta\tEcho\t"
+
+    def test_depth_4(self):
+        assert self.foxtrot.lineage == "Charlie\tAlice\tDelta\tEcho\tFoxtrot\t"
+
+    def test_second_root(self):
+        assert self.danielle.lineage == "Danielle\t"
+
+    def test_tree_sort_order(self):
+        """
+        Tags ordered by lineage come out in depth-first tree order:
+        each parent immediately before its subtree, siblings alphabetically.
+        Because lineage uses a case-insensitive collation, the sort matches
+        what the old LOWER(sort_key) CTE produced.
+        """
+        tags = Tag.objects.filter(
+            pk__in=[
+                self.charlie.pk,
+                self.alice.pk,
+                self.bob.pk,
+                self.delta.pk,
+                self.echo.pk,
+                self.foxtrot.pk,
+                self.danielle.pk,
+            ]
+        ).order_by("lineage")
+        # fmt: off
+        assert [t.value for t in tags] == [
+            "Charlie",   # Charlie\t
+            "Alice",     # Charlie\tAlice\t
+            "Delta",     # Charlie\tAlice\tDelta\t
+            "Echo",      # Charlie\tAlice\tDelta\tEcho\t
+            "Foxtrot",   # Charlie\tAlice\tDelta\tEcho\tFoxtrot\t
+            "Bob",       # Charlie\tBob\t  (after Alice's entire subtree)
+            "Danielle",  # Danielle\t
+        ]
+        # fmt: on
+
+    def _refresh_all(self):
+        """Refresh all tags from the database."""
+        self.charlie.refresh_from_db()
+        self.alice.refresh_from_db()
+        self.bob.refresh_from_db()
+        self.delta.refresh_from_db()
+        self.echo.refresh_from_db()
+        self.foxtrot.refresh_from_db()
+        self.danielle.refresh_from_db()
+
+    def test_reparent_to_lower_depth(self):
+        """
+        Moving a tag to a deeper location updates its depth and lineage,
+        and cascades to all its descendants.
+
+        Before: Charlie -> Alice -> Delta -> Echo -> Foxtrot
+        After:  Charlie -> Bob -> Alice -> Delta -> Echo -> Foxtrot
+                (Alice moves from depth 1 to depth 2, all descendants shift +1)
+        """
+        self.alice.parent = self.bob
+        self.alice.save()
+        self._refresh_all()
+
+        assert self.alice.depth == 2
+        assert self.alice.lineage == "Charlie\tBob\tAlice\t"
+
+        assert self.delta.depth == 3
+        assert self.delta.lineage == "Charlie\tBob\tAlice\tDelta\t"
+
+        assert self.echo.depth == 4
+        assert self.echo.lineage == "Charlie\tBob\tAlice\tDelta\tEcho\t"
+
+        assert self.foxtrot.depth == 5
+        assert self.foxtrot.lineage == "Charlie\tBob\tAlice\tDelta\tEcho\tFoxtrot\t"
+
+        # Bob's depth should be unchanged
+        assert self.bob.depth == 1
+        assert self.bob.lineage == "Charlie\tBob\t"
+
+    def test_reparent_to_higher_depth(self):
+        """
+        Moving a tag to a shallower location updates its depth and lineage,
+        and cascades to all its descendants.
+
+        Before: Charlie -> Alice -> Delta -> Echo -> Foxtrot
+        After:  Charlie -> Delta -> Echo -> Foxtrot
+                (Delta moves from depth 2 to depth 1, all descendants shift -1)
+        """
+        self.delta.parent = self.charlie
+        self.delta.save()
+        self._refresh_all()
+
+        assert self.delta.depth == 1
+        assert self.delta.lineage == "Charlie\tDelta\t"
+
+        assert self.echo.depth == 2
+        assert self.echo.lineage == "Charlie\tDelta\tEcho\t"
+
+        assert self.foxtrot.depth == 3
+        assert self.foxtrot.lineage == "Charlie\tDelta\tEcho\tFoxtrot\t"
+
+        # Alice should be unaffected
+        assert self.alice.depth == 1
+        assert self.alice.lineage == "Charlie\tAlice\t"
+
+    def test_reparent_to_equal_depth(self):
+        """
+        Moving a tag (Delta) to a different parent at the same depth updates its
+        lineage but leaves depths unchanged.
+
+        Before: Charlie -> Alice -> Delta -> Echo -> Foxtrot
+                Charlie -> Bob
+
+        After:  Charlie -> Alice
+                Charlie -> Bob -> Delta -> Echo -> Foxtrot
+
+                (Delta moves from Alice to Bob, same depth 2)
+        """
+        self.delta.parent = self.bob
+        self.delta.save()
+        self._refresh_all()
+
+        assert self.delta.depth == 2
+        assert self.delta.lineage == "Charlie\tBob\tDelta\t"
+
+        assert self.echo.depth == 3
+        assert self.echo.lineage == "Charlie\tBob\tDelta\tEcho\t"
+
+        assert self.foxtrot.depth == 4
+        assert self.foxtrot.lineage == "Charlie\tBob\tDelta\tEcho\tFoxtrot\t"
+
+        # Alice should be unaffected
+        assert self.alice.depth == 1
+        assert self.alice.lineage == "Charlie\tAlice\t"
+
+    def test_reparent_to_different_root(self):
+        """
+        Moving a tag (Alice) to a parent under a completely different root
+        updates the full lineage prefix for the tag and all its descendants.
+
+        Before: Charlie -> Alice -> Delta -> Echo -> Foxtrot
+                Danielle
+        After:  Danielle -> Alice -> Delta -> Echo -> Foxtrot
+                Charlie
+        """
+        self.alice.parent = self.danielle
+        self.alice.save()
+        self._refresh_all()
+
+        assert self.alice.depth == 1
+        assert self.alice.lineage == "Danielle\tAlice\t"
+
+        assert self.delta.depth == 2
+        assert self.delta.lineage == "Danielle\tAlice\tDelta\t"
+
+        assert self.echo.depth == 3
+        assert self.echo.lineage == "Danielle\tAlice\tDelta\tEcho\t"
+
+        assert self.foxtrot.depth == 4
+        assert self.foxtrot.lineage == "Danielle\tAlice\tDelta\tEcho\tFoxtrot\t"
+
+        # Charlie is now childless but unchanged
+        assert self.charlie.depth == 0
+        assert self.charlie.lineage == "Charlie\t"
+
+    def test_reparent_to_root(self):
+        """
+        Moving a child tag (Alice) to the root (no parent) updates depth to 0
+        and removes all ancestor prefixes from its lineage and those of its
+        descendants.
+
+        Before: Charlie -> Alice -> Delta -> Echo -> Foxtrot
+        After:  Alice -> Delta -> Echo -> Foxtrot  (Alice becomes a root tag)
+        """
+        self.alice.parent = None
+        self.alice.save()
+        self._refresh_all()
+
+        assert self.alice.depth == 0
+        assert self.alice.lineage == "Alice\t"
+
+        assert self.delta.depth == 1
+        assert self.delta.lineage == "Alice\tDelta\t"
+
+        assert self.echo.depth == 2
+        assert self.echo.lineage == "Alice\tDelta\tEcho\t"
+
+        assert self.foxtrot.depth == 3
+        assert self.foxtrot.lineage == "Alice\tDelta\tEcho\tFoxtrot\t"
+
+        # Charlie and Bob are unaffected
+        assert self.charlie.depth == 0
+        assert self.charlie.lineage == "Charlie\t"
+        assert self.bob.depth == 1
+        assert self.bob.lineage == "Charlie\tBob\t"
+
+    def test_rename(self):
+        """
+        Renaming a tag updates its own lineage and cascades to all descendants.
+
+        Before: Charlie -> Alice    -> Delta -> Echo -> Foxtrot
+        After:  Charlie -> Alicia✨ -> Delta -> Echo -> Foxtrot
+        """
+        self.alice.value = "Alicia"
+        self.alice.save()
+        self._refresh_all()
+
+        assert self.alice.depth == 1
+        assert self.alice.lineage == "Charlie\tAlicia\t"
+
+        assert self.delta.depth == 2
+        assert self.delta.lineage == "Charlie\tAlicia\tDelta\t"
+
+        assert self.echo.depth == 3
+        assert self.echo.lineage == "Charlie\tAlicia\tDelta\tEcho\t"
+
+        assert self.foxtrot.depth == 4
+        assert self.foxtrot.lineage == "Charlie\tAlicia\tDelta\tEcho\tFoxtrot\t"
+
+        # Unrelated tags are unaffected
+        assert self.charlie.depth == 0
+        assert self.charlie.lineage == "Charlie\t"
+        assert self.bob.depth == 1
+        assert self.bob.lineage == "Charlie\tBob\t"

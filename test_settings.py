@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     "openedx_content",
     "openedx_catalog",
     *openedx_content_backcompat_apps_to_install(),
+    # Apps with models that are only used for testing
+    "tests.test_django_app",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -97,3 +99,27 @@ OPENEDX_LEARNING = {
 }
 
 STATIC_URL = 'static/'
+
+# Required for Django admin which is required because it's referenced by projects.urls (ROOT_URLCONF)
+TEMPLATES = [
+    {
+        'NAME': 'django',
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        # Don't look for template source files inside installed applications.
+        # 'APP_DIRS': False,
+        # Instead, look for template source files in these dirs.
+        # 'DIRS': [],
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.request',
+                'django.contrib.messages.context_processors.messages',
+                'django.contrib.auth.context_processors.auth',
+            ],
+        }
+    },
+]
+MIDDLEWARE = [
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+]
