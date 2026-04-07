@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 from functools import cached_property
 from typing import ClassVar, Self, TypeAlias
+from typing_extensions import deprecated
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -111,7 +112,7 @@ class PublishableEntity(models.Model):
     more convenient, like file access.
     """
     PK: TypeAlias = PublishableEntityPK
-    id = PublishableEntityPKField(primary_key=True)
+    pk = PublishableEntityPKField(primary_key=True, db_column="id")
 
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(
@@ -136,6 +137,11 @@ class PublishableEntity(models.Model):
         default=True,
         help_text=_("Set to True when created independently, False when created as part of a container."),
     )
+
+    @property
+    @deprecated("Prefer .pk to .id where possible")
+    def id(self) -> PublishableEntityPK:
+        return self.pk
 
     class Meta:
         constraints = [

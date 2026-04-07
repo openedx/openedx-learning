@@ -283,7 +283,7 @@ def set_version_dependencies(
 
 
 def get_publishable_entity(publishable_entity_id: PublishableEntity.PK, /) -> PublishableEntity:
-    return PublishableEntity.objects.get(id=publishable_entity_id)
+    return PublishableEntity.objects.get(pk=publishable_entity_id)
 
 
 def get_publishable_entity_by_key(learning_package_id, /, key) -> PublishableEntity:
