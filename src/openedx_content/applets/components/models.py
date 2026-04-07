@@ -17,16 +17,21 @@ convention, but it's possible we might want to have special identifiers later.
 """
 from __future__ import annotations
 
-from typing import cast, ClassVar, NewType, TypeAlias
-from typing_extensions import deprecated
+from typing import ClassVar, NewType, TypeAlias, cast
 
 from django.db import models
+from typing_extensions import deprecated
 
 from openedx_django_lib.fields import case_sensitive_char_field, key_field
 from openedx_django_lib.managers import WithRelationsManager
 
 from ..media.models import Media
-from ..publishing.models import LearningPackage, PublishableEntity, PublishableEntityMixin, PublishableEntityVersionMixin
+from ..publishing.models import (
+    LearningPackage,
+    PublishableEntity,
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 
 __all__ = [
     "ComponentType",
@@ -133,6 +138,7 @@ class Component(PublishableEntityMixin):
     @property
     @deprecated("Use component_pk instead")
     def pk(self):
+        """Mark the .pk attribute as deprecated"""
         # Note: Django-Stubs forces mypy to identify the `.pk` attribute of this model as having 'Any' type (due to our
         # use of a OneToOneField primary key), and this is impossible for us to override, so we prefer to use
         # `.component_pk` which we can control fully.

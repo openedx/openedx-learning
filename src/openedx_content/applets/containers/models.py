@@ -5,11 +5,11 @@ Container and ContainerVersion models
 from __future__ import annotations
 
 from functools import cached_property
-from typing import cast, NewType, TypeAlias, final
-from typing_extensions import deprecated
+from typing import NewType, TypeAlias, cast, final
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from typing_extensions import deprecated
 
 from openedx_django_lib.fields import case_sensitive_char_field
 
@@ -184,6 +184,7 @@ class Container(PublishableEntityMixin):
     @property
     @deprecated("Use container_pk instead")
     def pk(self):
+        """Mark the .pk attribute as deprecated"""
         # Note: Django-Stubs forces mypy to identify the `.pk` attribute of this model as having 'Any' type (due to our
         # use of a OneToOneField primary key), and this is impossible for us to override, so we prefer to use
         # `.container_pk` which we can control fully.

@@ -7,7 +7,7 @@ import pytest
 from django.core.exceptions import ValidationError
 
 import openedx_content.api as content_api
-from openedx_content.models_api import Container, Component, ComponentVersion, Unit, UnitVersion
+from openedx_content.models_api import Component, ComponentVersion, Container, Unit, UnitVersion
 from tests.test_django_app.models import TestContainer
 
 from ..components.test_api import ComponentTestCase

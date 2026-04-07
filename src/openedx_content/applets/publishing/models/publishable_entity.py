@@ -6,13 +6,13 @@ from __future__ import annotations
 from datetime import datetime
 from functools import cached_property
 from typing import ClassVar, Self, TypeAlias
-from typing_extensions import deprecated
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext as _
+from typing_extensions import deprecated
 
 from openedx_django_lib.fields import (
     case_insensitive_char_field,
