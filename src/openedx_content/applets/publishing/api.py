@@ -15,7 +15,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Prefetch, Q, QuerySet
 from django.db.transaction import atomic
 
-from openedx_django_lib.fields import create_hash_digest
+from openedx_django_lib.fields import TypedPK, create_hash_digest
 
 from .contextmanagers import DraftChangeLogContext
 from .models import (
@@ -504,7 +504,10 @@ def publish_from_drafts(
     return publish_log
 
 
-def get_draft_version(publishable_entity_or_id: PublishableEntity | int, /) -> PublishableEntityVersion | None:
+def get_draft_version(
+    publishable_entity_or_id: PublishableEntity | PublishableEntity.PK,
+    /
+) -> PublishableEntityVersion | None:
     """
     Return current draft PublishableEntityVersion for this PublishableEntity.
 
@@ -560,7 +563,7 @@ def get_published_version(
 
 
 def set_draft_version(
-    draft_or_id: Draft | int,
+    draft_or_id: Draft | PublishableEntity.PK,
     publishable_entity_version_pk: int | None,
     /,
     set_at: datetime | None = None,
@@ -595,7 +598,7 @@ def set_draft_version(
     with atomic(savepoint=False):
         if isinstance(draft_or_id, Draft):
             draft = draft_or_id
-        elif isinstance(draft_or_id, int):
+        elif isinstance(draft_or_id, TypedPK):
             draft, _created = Draft.objects.select_related("entity") \
                                            .get_or_create(entity_id=draft_or_id)
         else:
@@ -812,7 +815,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
     # Subsection's side-effect on its Section each time through the loop.
     # It also guards against infinite parent-child relationship loops, though
     # those aren't *supposed* to happen anyhow.
-    processed_entity_ids: set[int] = set()
+    processed_entity_ids: set[PublishableEntity.PK] = set()
     for original_change in change_log.records.order_by("pk"):
         affected_by_original_change = branch_cls.objects.filter(
             version__dependencies=original_change.entity

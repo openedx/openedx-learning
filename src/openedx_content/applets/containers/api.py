@@ -126,7 +126,7 @@ class ParsedEntityReference:
                 obj = obj.publishable_entity_version
 
             if isinstance(obj, PublishableEntity):
-                new_list.append(ParsedEntityReference(entity_pk=obj.pk))
+                new_list.append(ParsedEntityReference(entity_pk=obj.id))
             elif isinstance(obj, PublishableEntityVersion):
                 new_list.append(ParsedEntityReference(entity_pk=obj.entity_id, version_pk=obj.pk))
             else:
@@ -800,7 +800,7 @@ def contains_unpublished_changes(container_or_pk: Container | int, /) -> bool:
 
 
 def get_containers_with_entity(
-    publishable_entity_pk: int,
+    publishable_entity_pk: PublishableEntity.PK,
     *,
     ignore_pinned=False,
     published=False,

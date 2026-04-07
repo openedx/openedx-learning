@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from typing import TYPE_CHECKING, Any
 
 from django.db import models
 
@@ -206,3 +207,88 @@ class MultiCollationTextField(MultiCollationMixin, models.TextField):
     forces the compatible charset to be set in MySQL, and that's the part that
     matters for our purposes.
     """
+
+
+class TypedPK[ModelType]:
+    value: int
+
+    def __init__(self, value: int):
+        self.value = value
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, TypedPK) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash((TypedPK, self.value))
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.value!r})"
+
+
+if TYPE_CHECKING:
+    # django-stubs models the standard ``Field`` descriptor as
+    # ``Field[_ST, _GT]`` where ``_ST`` is the type accepted by the field's
+    # setter and ``_GT`` is the type returned by the getter. The django-stubs
+    # mypy plugin reparametrizes ``Field`` instances using these two type
+    # parameters, so any custom field that wants to participate in that
+    # propagation must expose the same shape. Plain ``models.BigAutoField`` is
+    # not subscriptable at runtime, so we only widen its generics under
+    # ``TYPE_CHECKING``.
+    class _BigAutoFieldBase[_ST, _GT](models.BigAutoField[_ST, _GT]):
+        pass
+else:
+    class _BigAutoFieldBase(models.BigAutoField):
+        def __class_getitem__(cls, _item):
+            return cls
+
+
+class TypedPrimaryKeyField[_ST, _GT](_BigAutoFieldBase[_ST, _GT]):
+    """
+    BigAutoField that wraps the integer in a typed ``TypedPK`` box.
+
+    This field is generic over django-stubs' standard ``_ST`` (set type) and
+    ``_GT`` (get type) parameters so that the django-stubs mypy plugin will
+    correctly propagate the ``TypedPK[Model]`` type to readers and writers of
+    the field. Use it like::
+
+        class MyModel(models.Model):
+            PK: TypeAlias = TypedPK["MyModel"]
+            id = TypedPrimaryKeyField[PK | int | None, PK](primary_key=True)
+    """
+
+    # The django-stubs plugin reads these class-level descriptor types when
+    # generating the implicit ``<fk>_id`` attribute on models that have a
+    # ``ForeignKey`` to a model whose primary key uses this field. Without
+    # them, FK ``_id`` columns would inherit ``IntegerField``'s defaults
+    # (``int | str | Combinable``) and reject ``TypedPK`` values. We can't
+    # parameterize ``TypedPK`` by model here -- that information only exists
+    # at the call site of each model's ``id =`` assignment -- so we fall back
+    # to ``TypedPK[Any]`` for cross-model FK assignments. The model's *own*
+    # ``id`` attribute still gets the precise ``TypedPK[Model]`` type because
+    # the field-call transformer uses the instance-level type args.
+    _pyi_private_set_type: TypedPK[Any] | int | None  # type: ignore[assignment]
+    _pyi_private_get_type: TypedPK[Any]  # type: ignore[assignment]
+    # Used by django-stubs for queryset filter/get lookups, e.g.
+    # ``Model.objects.get(id=...)``.
+    _pyi_lookup_exact_type: TypedPK[Any] | int  # type: ignore[assignment]
+
+    def get_prep_value(self, value):
+        if value is None:
+            return None
+        if isinstance(value, int):
+            print("Warning: got integer")
+            return value
+        assert isinstance(value, TypedPK)
+        try:
+            return int(value.value)
+        except (TypeError, ValueError) as e:
+            raise e.__class__(
+                "Field '%s' expected a PK containing an int value, but got %r." % (self.name, value)
+            ) from e
+
+    def to_python(self, value):
+        if value is None:
+            return value
+        assert isinstance(value, int)
+        return TypedPK(value)
+

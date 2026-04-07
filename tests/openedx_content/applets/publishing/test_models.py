@@ -1,12 +1,25 @@
 """
 Tests related to the Publishing model mixins
 """
+
 from typing import TYPE_CHECKING, assert_type
 
-from openedx_content.applets.publishing.models import PublishableEntityMixin, PublishableEntityVersionMixin
+from openedx_content.applets.publishing.models import (
+    PublishableEntity,
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 from openedx_django_lib.managers import WithRelationsManager
 
 if TYPE_CHECKING:
+    pe = PublishableEntity()
+
+    assert_type(pe.id, PublishableEntity.PK)
+    # Setting should accept TypedPK, int, or None (since it's a primary key with auto default).
+    pe.id = PublishableEntity.PK(1)
+    pe.id = 5
+    pe.id = None
+
     # Test that our mixins provide the right typing for 'objects'
     class FooEntity(PublishableEntityMixin):
         pass
