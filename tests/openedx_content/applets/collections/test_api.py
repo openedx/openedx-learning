@@ -338,7 +338,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.collection1.key,
                 PublishableEntity.objects.filter(id__in=[
                     self.draft_component.pk,
-                    self.draft_unit.pk,
+                    self.draft_unit.container_pk,
                 ]),
                 created_by=self.user.id,
             )
@@ -399,7 +399,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.collection2.key,
                 PublishableEntity.objects.filter(id__in=[
                     self.published_component.pk,
-                    self.draft_unit.pk,
+                    self.draft_unit.container_pk,
                 ]),
             )
 
