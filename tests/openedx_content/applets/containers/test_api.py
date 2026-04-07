@@ -4,7 +4,7 @@ Basic tests for the publishing containers API.
 # pylint: disable=too-many-positional-arguments, unused-argument
 
 from datetime import datetime, timezone
-from typing import Any, assert_type
+from typing import Any, assert_type, cast
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -243,8 +243,8 @@ def _container_of_uninstalled_type(lp: LearningPackage, child_entity1: TestEntit
     )
     # Now create the plugin type (no public API for this; only do this in a test)
     ctr = ContainerType.objects.create(type_code="misc")
-    Container.objects.filter(pk=container.pk).update(container_type=ctr)
-    return Container.objects.get(pk=container.pk)  # Reload and just use the base Container type
+    Container.objects.filter(pk=container.container_pk).update(container_type=ctr)
+    return Container.objects.get(pk=container.container_pk)  # Reload and just use the base Container type
 
 
 @pytest.fixture(name="other_lp_parent")
@@ -310,8 +310,22 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
         can_stand_alone=False,
     )
 
+    # The create_container_and_version() API should return the correct Container subclass, based on `container_cls=...`:
     assert_type(container, TestContainer)
-    # assert_type(container_v1, TestContainerVersion)  # FIXME: seems not possible yet as of Python 3.12
+
+    # Documenting status quo. We want `container.pk` to have type 'Container.PK', but we cannot do that because of how
+    # django-stubs overrides 'pk' when a model uses a OneToOneField as primary key. However, you should see that `pk`
+    # below is crossed out (if you use an IDE), to remind you to use 'container_pk' instead.
+    assert_type(container.pk, Any)
+
+    # We use this to get the primary key instead. Properly typed.
+    assert_type(container.container_pk, Container.PK)
+
+    # As of Python 3.12, it's not yet possible to make the the returned version (`container_v1`) use a type that is
+    # computed based on `container_cls`. Ideally this would have type `TestContainerVersion`, not `ContainerVersion`.
+    # Revisit as we upgrade to later python versions, perhaps with something like PEP 827.
+    # assert_type(container_v1, TestContainerVersion)
+
     # Note the assert_type() calls must come before 'assert isinstance()' or they'll have no effect.
     assert isinstance(container, TestContainer)
     assert isinstance(container_v1, TestContainerVersion)
@@ -691,8 +705,9 @@ def test_get_container_nonexistent() -> None:
     """
     Test `get_container()` with an invalid ID.
     """
+    FAKE_ID = cast(Container.PK, -500)
     with pytest.raises(Container.DoesNotExist):
-        containers_api.get_container(-5000)
+        containers_api.get_container(FAKE_ID)
 
 
 def test_get_container_soft_deleted(parent_of_two: TestContainer) -> None:
@@ -1401,7 +1416,7 @@ def test_snapshots_of_published_unit(lp: LearningPackage, child_entity1: TestEnt
     modify_entity(child_entity1, title="Component 1 as of checkpoint 3")
     modify_entity(child_entity2, title="Component 2 as of checkpoint 3")
     containers_api.create_next_container_version(
-        container.pk,
+        container.container_pk,
         title="Unit title in checkpoint 3",
         entities=[child_entity1, child_entity2],
         created=now,
@@ -1414,7 +1429,7 @@ def test_snapshots_of_published_unit(lp: LearningPackage, child_entity1: TestEnt
     # Now add a third component to the unit, a pinned 📌 version of component 1.
     # This will test pinned versions and also test adding at the beginning rather than the end of the unit.
     containers_api.create_next_container_version(
-        container.pk,
+        container.container_pk,
         title="Unit title in checkpoint 4",
         entities=[child_entity1_v1, child_entity1, child_entity2],
         created=now,

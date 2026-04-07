@@ -2,13 +2,13 @@
 Basic tests for the sections API.
 """
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from django.core.exceptions import ValidationError
 
 import openedx_content.api as content_api
-from openedx_content.models_api import Section, SectionVersion, Subsection, SubsectionVersion
+from openedx_content.models_api import Container, Section, SectionVersion, Subsection, SubsectionVersion
 
 from ..components.test_api import ComponentTestCase
 
@@ -140,8 +140,9 @@ class SectionsTestCase(ComponentTestCase):
 
     def test_get_section_nonexistent(self) -> None:
         """Test `get_section()` when the subsection doesn't exist"""
+        FAKE_ID = cast(Container.PK, -500)
         with pytest.raises(Section.DoesNotExist):
-            content_api.get_section(-500)
+            content_api.get_section(FAKE_ID)
 
     def test_get_section_other_container_type(self) -> None:
         """Test `get_section()` when the provided PK is for a non-Subsection container"""

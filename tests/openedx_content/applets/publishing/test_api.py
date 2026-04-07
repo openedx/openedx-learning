@@ -1081,7 +1081,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         container_v1 = containers_api.create_container_version(
-            container.pk,
+            container.container_pk,
             1,
             title="My Container",
             entities=[
@@ -1299,7 +1299,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            unit.pk,
+            unit.container_pk,
             1,
             title="My Unit",
             entities=[component],
@@ -1314,7 +1314,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            subsection.pk,
+            subsection.container_pk,
             1,
             title="My Subsection",
             entities=[unit],
@@ -1446,7 +1446,7 @@ class TestContainerSideEffects(TestCase):
         )
         assert container.versioning.latest is None
         v1 = containers_api.create_next_container_version(
-            container.pk,
+            container.container_pk,
             title="My Container v1",
             entities=None,
             created=self.now,
@@ -1455,7 +1455,7 @@ class TestContainerSideEffects(TestCase):
         assert v1.version_num == 1
         assert container.versioning.latest == v1
         v2 = containers_api.create_next_container_version(
-            container.pk,
+            container.container_pk,
             title="My Container v2",
             entities=[child_1],
             created=self.now,
@@ -1465,7 +1465,7 @@ class TestContainerSideEffects(TestCase):
         assert container.versioning.latest == v2
         assert v2.entity_list.entitylistrow_set.count() == 1
         v3 = containers_api.create_next_container_version(
-            container.pk,
+            container.container_pk,
             title="My Container v3",
             entities=None,
             created=self.now,

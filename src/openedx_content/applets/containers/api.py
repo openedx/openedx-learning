@@ -281,7 +281,7 @@ def _create_container_version(
         )
         container_version = version_type.objects.create(
             publishable_entity_version=publishable_entity_version,
-            container_id=container.pk,
+            container_id=container.container_pk,
             entity_list=entity_list,
             # This could accept **kwargs in the future if we have additional type-specific fields?
         )
@@ -290,7 +290,7 @@ def _create_container_version(
 
 
 def create_container_version(
-    container_id: int,
+    container_id: Container.PK,
     version_num: int,
     *,
     title: str,
@@ -375,7 +375,7 @@ def create_container_and_version(
             container_cls=container_cls,
         )
         container_version: ContainerVersionModel = create_container_version(  # type: ignore[assignment]
-            container.pk,
+            container.container_pk,
             1,
             title=title,
             entities=entities or [],
@@ -452,7 +452,7 @@ def create_next_entity_list(
 
 
 def create_next_container_version(
-    container: Container | int,
+    container: Container | Container.PK,
     /,
     *,
     title: str | None = None,
@@ -534,7 +534,7 @@ def create_next_container_version(
     return next_container_version
 
 
-def get_container(pk: int) -> Container:
+def get_container(pk: Container.PK) -> Container:
     """
     [ 🛑 UNSTABLE ]
     Get a container by its primary key.
@@ -606,7 +606,7 @@ def get_container_subclass(type_code: str, /) -> ContainerSubclass:
     return Container.subclass_for_type_code(type_code)
 
 
-def get_container_type_code_of(container: Container | int, /) -> str:
+def get_container_type_code_of(container: Container | Container.PK, /) -> str:
     """Get the type of a container, as a string - e.g. "unit"."""
     if isinstance(container, int):
         container = get_container(container)
@@ -614,7 +614,7 @@ def get_container_type_code_of(container: Container | int, /) -> str:
     return container.container_type.type_code
 
 
-def get_container_subclass_of(container: Container | int, /) -> ContainerSubclass:
+def get_container_subclass_of(container: Container | Container.PK, /) -> ContainerSubclass:
     """
     Get the type of a container.
 
@@ -677,7 +677,7 @@ def get_entities_in_container(
         # Very minor optimization: reload the container with related 1:1 entities
         container = Container.objects.select_related(
             "publishable_entity__published__version__containerversion__entity_list"
-        ).get(pk=container.pk)
+        ).get(pk=container.container_pk)
         container_version = container.versioning.published
         select_related = ["entity__published__version"]
         if select_related_version:
@@ -686,7 +686,7 @@ def get_entities_in_container(
         # Very minor optimization: reload the container with related 1:1 entities
         container = Container.objects.select_related(
             "publishable_entity__draft__version__containerversion__entity_list"
-        ).get(pk=container.pk)
+        ).get(pk=container.container_pk)
         container_version = container.versioning.draft
         select_related = ["entity__draft__version"]
         if select_related_version:
@@ -751,7 +751,7 @@ def get_entities_in_container_as_of(
     return container_version, entity_list
 
 
-def contains_unpublished_changes(container_or_pk: Container | int, /) -> bool:
+def contains_unpublished_changes(container_or_pk: Container | Container.PK, /) -> bool:
     """
     [ 🛑 UNSTABLE ]
     Check recursively if a container has any unpublished changes.

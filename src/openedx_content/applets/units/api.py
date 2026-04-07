@@ -9,7 +9,7 @@ from typing import Iterable
 
 from ..components.models import Component, ComponentVersion
 from ..containers import api as containers_api
-from ..containers.models import ContainerVersion
+from ..containers.models import Container, ContainerVersion
 from .models import Unit, UnitVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
@@ -23,7 +23,7 @@ __all__ = [
 ]
 
 
-def get_unit(unit_id: int, /):
+def get_unit(unit_id: Container.PK, /):
     """Get a unit"""
     return Unit.objects.select_related("container").get(pk=unit_id)
 
@@ -60,7 +60,7 @@ def create_unit_and_version(
 
 
 def create_next_unit_version(
-    unit: Unit | int,
+    unit: Unit | Container.PK,
     *,
     title: str | None = None,
     components: Iterable[Component | ComponentVersion] | None = None,

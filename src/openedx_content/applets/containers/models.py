@@ -5,7 +5,8 @@ Container and ContainerVersion models
 from __future__ import annotations
 
 from functools import cached_property
-from typing import final
+from typing import cast, NewType, TypeAlias, final
+from typing_extensions import deprecated
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -149,6 +150,9 @@ class ContainerType(models.Model):
         return self.type_code
 
 
+ContainerPK = NewType("ContainerPK", PublishableEntity.PK)
+
+
 class Container(PublishableEntityMixin):
     """
     A Container is a type of PublishableEntity that holds other
@@ -160,6 +164,8 @@ class Container(PublishableEntityMixin):
     we will also add support for dynamic containers which may contain different
     entities for different learners or at different times.
     """
+
+    PK: TypeAlias = ContainerPK
 
     type_code: str  # Subclasses must override this, e.g. "unit"
     # olx_code: the OLX <tag_name> for XML serialization. Subclasses _may_ override this.
@@ -174,6 +180,21 @@ class Container(PublishableEntityMixin):
         on_delete=models.RESTRICT,
         editable=False,
     )
+
+    @property
+    @deprecated("Use container_pk instead")
+    def pk(self):
+        # Note: Django-Stubs forces mypy to identify the `.pk` attribute of this model as having 'Any' type (due to our
+        # use of a OneToOneField primary key), and this is impossible for us to override, so we prefer to use
+        # `.container_pk` which we can control fully.
+        # Since Django uses '.pk' internally, we have to make sure it still works, however. So the best we can do is
+        # override this with a deprecated marker, so it shows a warning in developer's IDEs like VS Code.
+        return self.publishable_entity_id
+
+    @property
+    def container_pk(self) -> ContainerPK:
+        """Helper that returns the type-safe primary key of this container"""
+        return cast(ContainerPK, self.publishable_entity_id)
 
     @classmethod
     def validate_entity(cls, entity: PublishableEntity) -> None:
@@ -280,5 +301,5 @@ class ContainerVersion(PublishableEntityVersionMixin):
         called if anything is edited via a ModelForm like the Django admin.
         """
         super().clean()
-        if self.container_id != self.publishable_entity_version.entity.container.pk:  # pylint: disable=no-member
+        if self.container_id != self.publishable_entity_version.entity.container.container_pk:  # pylint: disable=no-member
             raise ValidationError("Inconsistent foreign keys to Container")
