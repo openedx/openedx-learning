@@ -800,7 +800,7 @@ def contains_unpublished_changes(container_or_pk: Container | Container.PK, /) -
 
 
 def get_containers_with_entity(
-    publishable_entity_pk: int,
+    publishable_entity_pk: PublishableEntity.PK,
     *,
     ignore_pinned=False,
     published=False,
