@@ -4,7 +4,7 @@ Basic tests for the publishing containers API.
 # pylint: disable=too-many-positional-arguments, unused-argument
 
 from datetime import datetime, timezone
-from typing import Any, assert_type, cast
+from typing import TYPE_CHECKING, Any, assert_type, cast
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -310,21 +310,23 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
         can_stand_alone=False,
     )
 
-    # The create_container_and_version() API should return the correct Container subclass, based on `container_cls=...`:
-    assert_type(container, TestContainer)
+    if TYPE_CHECKING:
+        # `create_container_and_version()` should return the correct Container subclass, based on `container_cls=...`:
+        assert_type(container, TestContainer)
 
-    # Documenting status quo. We want `container.pk` to have type 'Container.PK', but we cannot do that because of how
-    # django-stubs overrides 'pk' when a model uses a OneToOneField as primary key. However, you should see that `pk`
-    # below is crossed out (if you use an IDE), to remind you to use 'container_pk' instead.
-    assert_type(container.pk, Any)
+        # Documenting status quo. We want `container.pk` to have type 'Container.PK', but we cannot do that because of
+        # how django-stubs overrides 'pk' when a model uses a OneToOneField as primary key. However, you should see that
+        # `pk` below is crossed out (if you use an IDE), to remind you to use 'container_pk' instead.
+        assert_type(container.pk, Any)
 
-    # We use this to get the primary key instead. Properly typed.
-    assert_type(container.container_pk, Container.PK)
+        # We use this to get the primary key instead. Properly typed.
+        assert_type(container.container_pk, Container.PK)
 
-    # As of Python 3.12, it's not yet possible to make the the returned version (`container_v1`) use a type that is
-    # computed based on `container_cls`. Ideally this would have type `TestContainerVersion`, not `ContainerVersion`.
-    # Revisit as we upgrade to later python versions, perhaps with something like PEP 827.
-    # assert_type(container_v1, TestContainerVersion)
+        # As of Python 3.12, it's not yet possible to make the the returned version (`container_v1`) use a type that is
+        # computed based on `container_cls`. Ideally this would have type `TestContainerVersion`, not
+        # `ContainerVersion`.
+        # Revisit as we upgrade to later python versions, perhaps with something like PEP 827.
+        # assert_type(container_v1, TestContainerVersion)
 
     # Note the assert_type() calls must come before 'assert isinstance()' or they'll have no effect.
     assert isinstance(container, TestContainer)
