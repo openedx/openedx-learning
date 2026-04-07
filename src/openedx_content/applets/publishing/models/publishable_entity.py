@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from functools import cached_property
-from typing import ClassVar, Self
+from typing import ClassVar, Self, TypeAlias
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -21,6 +21,7 @@ from openedx_django_lib.fields import (
 )
 from openedx_django_lib.managers import WithRelationsManager
 
+from .id_fields import PublishableEntityPK, PublishableEntityPKField
 from .learning_package import LearningPackage
 
 
@@ -109,6 +110,8 @@ class PublishableEntity(models.Model):
     mixins will provide a little syntactic sugar to make common access patterns
     more convenient, like file access.
     """
+    PK: TypeAlias = PublishableEntityPK
+    id = PublishableEntityPKField(primary_key=True)
 
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(

@@ -103,7 +103,7 @@ class ParsedEntityReference:
     role, but is only used when reading data out, not mutating containers.
     """
 
-    entity_pk: int
+    entity_pk: PublishableEntity.PK
     version_pk: int | None = None
 
     @staticmethod

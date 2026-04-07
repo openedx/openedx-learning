@@ -183,7 +183,7 @@ def create_publishable_entity(
 
 
 def create_publishable_entity_version(
-    entity_id: int,
+    entity_id: PublishableEntity.PK,
     /,
     version_num: int,
     title: str,
@@ -282,7 +282,7 @@ def set_version_dependencies(
     )
 
 
-def get_publishable_entity(publishable_entity_id: int, /) -> PublishableEntity:
+def get_publishable_entity(publishable_entity_id: PublishableEntity.PK, /) -> PublishableEntity:
     return PublishableEntity.objects.get(id=publishable_entity_id)
 
 
@@ -531,7 +531,10 @@ def get_draft_version(publishable_entity_or_id: PublishableEntity | int, /) -> P
     return draft.version
 
 
-def get_published_version(publishable_entity_or_id: PublishableEntity | int, /) -> PublishableEntityVersion | None:
+def get_published_version(
+    publishable_entity_or_id: PublishableEntity | PublishableEntity.PK,
+    /
+) -> PublishableEntityVersion | None:
     """
     Return current published PublishableEntityVersion for this PublishableEntity.
 
@@ -683,7 +686,7 @@ def set_draft_version(
 
 def _add_to_existing_draft_change_log(
     active_change_log: DraftChangeLog,
-    entity_id: int,
+    entity_id: PublishableEntity.PK,
     old_version_id: int | None,
     new_version_id: int | None,
 ) -> DraftChangeLogRecord | None:
@@ -1167,7 +1170,7 @@ def hash_for_log_record(
     return digest
 
 
-def soft_delete_draft(publishable_entity_id: int, /, deleted_by: int | None = None) -> None:
+def soft_delete_draft(publishable_entity_id: PublishableEntity.PK, /, deleted_by: int | None = None) -> None:
     """
     Sets the Draft version to None.
 
@@ -1308,7 +1311,10 @@ def filter_publishable_entities(
     return entities
 
 
-def get_published_version_as_of(entity_id: int, publish_log_id: int) -> PublishableEntityVersion | None:
+def get_published_version_as_of(
+    entity_id: PublishableEntity.PK,
+    publish_log_id: int,
+) -> PublishableEntityVersion | None:
     """
     Get the published version of the given entity, at a specific snapshot in the
     history of this Learning Package, given by the PublishLog ID.
