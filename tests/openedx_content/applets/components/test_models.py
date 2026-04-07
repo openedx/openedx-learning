@@ -65,7 +65,7 @@ class TestModelVersioningQueries(TestCase):
         assert component.versioning.published is None
 
         # Re-fetching the component and the published version should be updated.
-        component = get_component(component.pk)
+        component = get_component(component.component_pk)
         assert component.versioning.published == component_version
 
         # Grabbing the list of versions for this component

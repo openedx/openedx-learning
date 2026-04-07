@@ -17,7 +17,8 @@ convention, but it's possible we might want to have special identifiers later.
 """
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import cast, ClassVar, NewType, TypeAlias
+from typing_extensions import deprecated
 
 from django.db import models
 
@@ -25,7 +26,7 @@ from openedx_django_lib.fields import case_sensitive_char_field, key_field
 from openedx_django_lib.managers import WithRelationsManager
 
 from ..media.models import Media
-from ..publishing.models import LearningPackage, PublishableEntityMixin, PublishableEntityVersionMixin
+from ..publishing.models import LearningPackage, PublishableEntity, PublishableEntityMixin, PublishableEntityVersionMixin
 
 __all__ = [
     "ComponentType",
@@ -79,6 +80,9 @@ class ComponentType(models.Model):
         return f"{self.namespace}:{self.name}"
 
 
+ComponentPK = NewType("ComponentPK", PublishableEntity.PK)
+
+
 class Component(PublishableEntityMixin):
     """
     This represents any Component that has ever existed in a LearningPackage.
@@ -123,6 +127,24 @@ class Component(PublishableEntityMixin):
     Make a foreign key to the Component model when you need a stable reference
     that will exist for as long as the LearningPackage itself exists.
     """
+
+    PK: TypeAlias = ComponentPK
+
+    @property
+    @deprecated("Use component_pk instead")
+    def pk(self):
+        # Note: Django-Stubs forces mypy to identify the `.pk` attribute of this model as having 'Any' type (due to our
+        # use of a OneToOneField primary key), and this is impossible for us to override, so we prefer to use
+        # `.component_pk` which we can control fully.
+        # Since Django uses '.pk' internally, we have to make sure it still works, however. So the best we can do is
+        # override this with a deprecated marker, so it shows a warning in developer's IDEs like VS Code.
+        return self.publishable_entity_id
+
+    @property
+    def component_pk(self) -> ComponentPK:
+        """Helper that returns the type-safe primary key of this component"""
+        return cast(ComponentPK, self.publishable_entity_id)
+
     # Set up our custom manager. It has the same API as the default one, but selects related objects by default.
     objects: ClassVar[WithRelationsManager[Component]] = WithRelationsManager(  # type: ignore[assignment]
         'component_type'

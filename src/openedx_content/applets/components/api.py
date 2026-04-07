@@ -127,7 +127,7 @@ def create_component(
 
 
 def create_component_version(
-    component_pk: int,
+    component_pk: Component.PK,
     /,
     version_num: int,
     title: str,
@@ -153,7 +153,7 @@ def create_component_version(
 
 
 def create_next_component_version(
-    component_pk: int,
+    component_pk: Component.PK,
     /,
     media_to_replace: dict[str, int | None | bytes],
     created: datetime,
@@ -313,7 +313,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
             can_stand_alone=can_stand_alone,
         )
         component_version = create_component_version(
-            component.pk,
+            component.component_pk,
             version_num=1,
             title=title,
             created=created,
@@ -322,7 +322,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
         return (component, component_version)
 
 
-def get_component(component_pk: int, /) -> Component:
+def get_component(component_pk: Component.PK, /) -> Component:
     """
     Get Component by its primary key.
 

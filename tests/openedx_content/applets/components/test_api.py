@@ -99,7 +99,7 @@ class PerformanceTestCase(ComponentTestCase):
         # We should be fetching all of this with a select-related, so only one
         # database query should happen here.
         with self.assertNumQueries(1):
-            component = components_api.get_component(component.pk)
+            component = components_api.get_component(component.component_pk)
             draft = component.versioning.draft
             published = component.versioning.published
             assert draft.title == published.title

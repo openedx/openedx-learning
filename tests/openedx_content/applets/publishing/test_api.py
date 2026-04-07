@@ -1328,7 +1328,7 @@ class TestContainerSideEffects(TestCase):
 
         with publishing_api.bulk_draft_changes_for(self.learning_package.id) as change_log:
             publishing_api.create_publishable_entity_version(
-                component.id,
+                component.pk,
                 version_num=2,
                 title="Component 1v2🌴",
                 created=self.now,

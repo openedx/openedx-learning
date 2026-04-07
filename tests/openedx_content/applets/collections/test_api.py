@@ -285,7 +285,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
             cls.learning_package.id,
             key=cls.collection1.key,
             entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_component.pk,
+                cls.published_component.component_pk,
             ]),
             created_by=cls.user.id,
         )
@@ -293,16 +293,16 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
             cls.learning_package.id,
             key=cls.collection2.key,
             entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_component.pk,
-                cls.draft_component.pk,
-                cls.draft_unit.pk,
+                cls.published_component.component_pk,
+                cls.draft_component.component_pk,
+                cls.draft_unit.container_pk,
             ]),
         )
         cls.disabled_collection = api.add_to_collection(
             cls.learning_package.id,
             key=cls.disabled_collection.key,
             entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_component.pk,
+                cls.published_component.component_pk,
             ]),
         )
 
@@ -337,7 +337,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.learning_package.id,
                 self.collection1.key,
                 PublishableEntity.objects.filter(id__in=[
-                    self.draft_component.pk,
+                    self.draft_component.component_pk,
                     self.draft_unit.container_pk,
                 ]),
                 created_by=self.user.id,
@@ -362,7 +362,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.learning_package.id,
                 self.collection2.key,
                 PublishableEntity.objects.filter(id__in=[
-                    self.published_component.pk,
+                    self.published_component.component_pk,
                 ]),
             )
 
@@ -382,7 +382,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.learning_package_2.id,
                 self.another_library_collection.key,
                 PublishableEntity.objects.filter(id__in=[
-                    self.published_component.pk,
+                    self.published_component.component_pk,
                 ]),
             )
 
@@ -398,7 +398,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
                 self.learning_package.id,
                 self.collection2.key,
                 PublishableEntity.objects.filter(id__in=[
-                    self.published_component.pk,
+                    self.published_component.component_pk,
                     self.draft_unit.container_pk,
                 ]),
             )

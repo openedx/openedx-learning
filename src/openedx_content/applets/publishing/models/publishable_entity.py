@@ -417,7 +417,7 @@ class PublishableEntityMixin(models.Model):
 
             # You need to manually refetch it from the database to see the new
             # publish status:
-            component = get_component(component.pk)
+            component = get_component(component.component_pk)
 
             # Now this will work:
             assert component.versioning.published == component_version
