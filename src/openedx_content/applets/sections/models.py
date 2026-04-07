@@ -2,7 +2,7 @@
 Models that implement sections
 """
 
-from typing import override
+from typing import NewType, cast, override
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -27,6 +27,9 @@ class Section(Container):
     entities and can be added to other containers.
     """
 
+    SectionID = NewType("SectionID", Container.ID)
+    type ID = SectionID
+
     type_code = "section"
     olx_tag_name = "chapter"  # Serializes to OLX as `<chapter>...</chapter>`.
 
@@ -36,6 +39,10 @@ class Section(Container):
         parent_link=True,
         primary_key=True,
     )
+
+    @property
+    def id(self) -> ID:
+        return cast(Section.ID, self.publishable_entity_id)
 
     @override
     @classmethod

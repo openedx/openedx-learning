@@ -8,6 +8,7 @@ https://open-edx-proposals.readthedocs.io/en/latest/best-practices/oep-0038-Data
 We have helpers to make case sensitivity consistent across backends. MySQL is
 case-insensitive by default, SQLite and Postgres are case-sensitive.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,6 +18,8 @@ from typing import Any
 from django.db import models
 
 from .collations import MultiCollationMixin
+# Re-export these fields which are in a separate file so we can use .pyi type stubs:
+from .id_fields import TypedAutoField, TypedBigAutoField  # pylint: disable=unused-import
 from .validators import validate_utc_datetime
 
 

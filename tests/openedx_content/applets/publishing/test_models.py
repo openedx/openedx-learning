@@ -1,9 +1,14 @@
 """
 Tests related to the Publishing model mixins
 """
+
 from typing import TYPE_CHECKING, assert_type
 
-from openedx_content.applets.publishing.models import PublishableEntityMixin, PublishableEntityVersionMixin
+from openedx_content.applets.publishing.models import (
+    PublishableEntity,
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 from openedx_django_lib.managers import WithRelationsManager
 
 if TYPE_CHECKING:
@@ -19,3 +24,8 @@ if TYPE_CHECKING:
 
     assert_type(FooEntityVersion.objects.create(), FooEntityVersion)
     assert_type(FooEntityVersion.objects, WithRelationsManager[FooEntityVersion])
+
+    # Test typing of PublishableEntity identifiers.
+    pe = PublishableEntity()
+    assert_type(pe.pk, PublishableEntity.ID)
+    assert_type(pe.id, PublishableEntity.ID)  # `id` should show as deprecated

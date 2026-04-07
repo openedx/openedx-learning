@@ -30,11 +30,11 @@ def get_catalog_course(*, org_code: str, course_code: str) -> CatalogCourse: ...
 @overload
 def get_catalog_course(*, key_str: str) -> CatalogCourse: ...
 @overload
-def get_catalog_course(*, pk: int) -> CatalogCourse: ...
+def get_catalog_course(*, pk: CatalogCourse.ID) -> CatalogCourse: ...
 
 
 def get_catalog_course(
-    pk: int | None = None,
+    pk: CatalogCourse.ID | None = None,
     key_str: str = "",
     org_code: str = "",
     course_code: str = "",
@@ -61,7 +61,7 @@ def get_catalog_course(
 
 
 def update_catalog_course(
-    catalog_course: CatalogCourse | int,
+    catalog_course: CatalogCourse | CatalogCourse.ID,
     *,
     title: str | None = None,  # Specify a string to change the title (display name).
     # The short language code (one of settings.ALL_LANGUAGES), e.g. "en", "es", "zh_HANS"
@@ -88,7 +88,7 @@ def update_catalog_course(
         cc.save(update_fields=update_fields)
 
 
-def delete_catalog_course(catalog_course: CatalogCourse | int) -> None:
+def delete_catalog_course(catalog_course: CatalogCourse | CatalogCourse.ID) -> None:
     """
     Delete a `CatalogCourse`. This will fail with a `ProtectedError` if any runs exist.
 

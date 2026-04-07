@@ -103,7 +103,7 @@ class ParsedEntityReference:
     role, but is only used when reading data out, not mutating containers.
     """
 
-    entity_pk: int
+    entity_pk: PublishableEntity.ID
     version_pk: int | None = None
 
     @staticmethod
@@ -126,7 +126,7 @@ class ParsedEntityReference:
                 obj = obj.publishable_entity_version
 
             if isinstance(obj, PublishableEntity):
-                new_list.append(ParsedEntityReference(entity_pk=obj.pk))
+                new_list.append(ParsedEntityReference(entity_pk=obj.id))
             elif isinstance(obj, PublishableEntityVersion):
                 new_list.append(ParsedEntityReference(entity_pk=obj.entity_id, version_pk=obj.pk))
             else:
@@ -135,7 +135,7 @@ class ParsedEntityReference:
 
 
 def create_container(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     key: str,
     created: datetime,
     created_by: int | None,
@@ -190,7 +190,7 @@ def create_entity_list() -> EntityList:
 def create_entity_list_with_rows(
     parsed_entities: list[ParsedEntityReference],
     *,
-    learning_package_id: int | None,
+    learning_package_id: LearningPackage.ID | None,
 ) -> EntityList:
     """
     [ 🛑 UNSTABLE ]
@@ -281,7 +281,7 @@ def _create_container_version(
         )
         container_version = version_type.objects.create(
             publishable_entity_version=publishable_entity_version,
-            container_id=container.pk,
+            container_id=container.id,
             entity_list=entity_list,
             # This could accept **kwargs in the future if we have additional type-specific fields?
         )
@@ -290,7 +290,7 @@ def _create_container_version(
 
 
 def create_container_version(
-    container_id: int,
+    container_id: Container.ID,
     version_num: int,
     *,
     title: str,
@@ -338,7 +338,7 @@ def create_container_version(
 
 
 def create_container_and_version(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     key: str,
     *,
     title: str,
@@ -375,7 +375,7 @@ def create_container_and_version(
             container_cls=container_cls,
         )
         container_version: ContainerVersionModel = create_container_version(  # type: ignore[assignment]
-            container.pk,
+            container.id,
             1,
             title=title,
             entities=entities or [],
@@ -394,7 +394,7 @@ class ChildrenEntitiesAction(Enum):
 
 
 def create_next_entity_list(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     last_version: ContainerVersion,
     entities: EntityListInput,
     entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
@@ -452,7 +452,7 @@ def create_next_entity_list(
 
 
 def create_next_container_version(
-    container: Container | int,
+    container: Container | Container.ID,
     /,
     *,
     title: str | None = None,
@@ -474,7 +474,7 @@ def create_next_container_version(
     * We pin to different versions of the Container.
 
     Args:
-        container_pk: The ID of the container to create the next version of.
+        id: The ID of the container to create the next version of.
         title: The title of the container. None to keep the current title.
         entities: List of the entities that will comprise the entity list, in
             order. Pass `PublishableEntityVersion` or objects that use
@@ -534,7 +534,7 @@ def create_next_container_version(
     return next_container_version
 
 
-def get_container(pk: int) -> Container:
+def get_container(pk: Container.ID) -> Container:
     """
     [ 🛑 UNSTABLE ]
     Get a container by its primary key.
@@ -564,7 +564,7 @@ def get_container_version(container_version_pk: int) -> ContainerVersion:
     return ContainerVersion.objects.get(pk=container_version_pk)
 
 
-def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
+def get_container_by_key(learning_package_id: LearningPackage.ID, /, key: str) -> Container:
     """
     [ 🛑 UNSTABLE ]
     Get a container by its learning package and primary key.
@@ -606,7 +606,7 @@ def get_container_subclass(type_code: str, /) -> ContainerSubclass:
     return Container.subclass_for_type_code(type_code)
 
 
-def get_container_type_code_of(container: Container | int, /) -> str:
+def get_container_type_code_of(container: Container | Container.ID, /) -> str:
     """Get the type of a container, as a string - e.g. "unit"."""
     if isinstance(container, int):
         container = get_container(container)
@@ -614,7 +614,7 @@ def get_container_type_code_of(container: Container | int, /) -> str:
     return container.container_type.type_code
 
 
-def get_container_subclass_of(container: Container | int, /) -> ContainerSubclass:
+def get_container_subclass_of(container: Container | Container.ID, /) -> ContainerSubclass:
     """
     Get the type of a container.
 
@@ -628,7 +628,7 @@ def get_container_subclass_of(container: Container | int, /) -> ContainerSubclas
 
 
 def get_containers(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     include_deleted: bool | None = False,
 ) -> QuerySet[Container]:
     """
@@ -677,7 +677,7 @@ def get_entities_in_container(
         # Very minor optimization: reload the container with related 1:1 entities
         container = Container.objects.select_related(
             "publishable_entity__published__version__containerversion__entity_list"
-        ).get(pk=container.pk)
+        ).get(pk=container.id)
         container_version = container.versioning.published
         select_related = ["entity__published__version"]
         if select_related_version:
@@ -686,7 +686,7 @@ def get_entities_in_container(
         # Very minor optimization: reload the container with related 1:1 entities
         container = Container.objects.select_related(
             "publishable_entity__draft__version__containerversion__entity_list"
-        ).get(pk=container.pk)
+        ).get(pk=container.id)
         container_version = container.versioning.draft
         select_related = ["entity__draft__version"]
         if select_related_version:
@@ -751,7 +751,7 @@ def get_entities_in_container_as_of(
     return container_version, entity_list
 
 
-def contains_unpublished_changes(container_or_pk: Container | int, /) -> bool:
+def contains_unpublished_changes(container_or_pk: Container | Container.ID, /) -> bool:
     """
     [ 🛑 UNSTABLE ]
     Check recursively if a container has any unpublished changes.
@@ -773,7 +773,7 @@ def contains_unpublished_changes(container_or_pk: Container | int, /) -> bool:
         container_id = container_or_pk
     else:
         assert isinstance(container_or_pk, Container)
-        container_id = container_or_pk.pk
+        container_id = container_or_pk.id
     container = (
         Container.objects.select_related("publishable_entity__draft__draft_log_record")
         .select_related("publishable_entity__published__publish_log_record")
@@ -800,7 +800,7 @@ def contains_unpublished_changes(container_or_pk: Container | int, /) -> bool:
 
 
 def get_containers_with_entity(
-    publishable_entity_pk: int,
+    publishable_entity_pk: PublishableEntity.ID,
     *,
     ignore_pinned=False,
     published=False,

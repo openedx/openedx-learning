@@ -927,7 +927,7 @@ class PublishLogTestCase(TestCase):
         )
         publish_e1_log = publishing_api.publish_from_drafts(
             self.learning_package_1.id,
-            Draft.objects.filter(pk=entity1.pk),
+            Draft.objects.filter(pk=entity1.id),
         )
         assert publish_e1_log.records.count() == 1
         e1_pub_record = publish_e1_log.records.get(entity=entity1)
@@ -1081,7 +1081,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         container_v1 = containers_api.create_container_version(
-            container.pk,
+            container.id,
             1,
             title="My Container",
             entities=[
@@ -1161,7 +1161,7 @@ class TestContainerSideEffects(TestCase):
                 container_cls=TestContainer,
             )
             container_v1 = containers_api.create_container_version(
-                container.pk,
+                container.id,
                 1,
                 title="My Container",
                 entities=[child_1, child_2],
@@ -1245,7 +1245,7 @@ class TestContainerSideEffects(TestCase):
         )
         for unit in [unit_1, unit_2]:
             containers_api.create_container_version(
-                unit.pk,
+                unit.id,
                 1,
                 title="My Unit",
                 entities=[component],
@@ -1299,7 +1299,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            unit.pk,
+            unit.id,
             1,
             title="My Unit",
             entities=[component],
@@ -1314,7 +1314,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            subsection.pk,
+            subsection.id,
             1,
             title="My Subsection",
             entities=[unit],
@@ -1350,7 +1350,7 @@ class TestContainerSideEffects(TestCase):
         assert publish_log.records.count() == 3
 
         publishing_api.create_publishable_entity_version(
-            component.pk,
+            component.id,
             version_num=3,
             title="Component v2",
             created=self.now,
@@ -1358,7 +1358,7 @@ class TestContainerSideEffects(TestCase):
         )
         publish_log = publishing_api.publish_from_drafts(
             self.learning_package.id,
-            Draft.objects.filter(entity_id=component.pk),
+            Draft.objects.filter(entity_id=component.id),
         )
         assert publish_log.records.count() == 3
         component_publish = publish_log.records.get(entity=component)
@@ -1398,7 +1398,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            unit.pk,
+            unit.id,
             1,
             title="My Unit",
             entities=[component],
@@ -1413,7 +1413,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            subsection.pk,
+            subsection.id,
             1,
             title="My Subsection",
             entities=[unit],
@@ -1422,7 +1422,7 @@ class TestContainerSideEffects(TestCase):
         )
         publish_log = publishing_api.publish_from_drafts(
             self.learning_package.id,
-            Draft.objects.filter(pk=subsection.pk),
+            Draft.objects.filter(pk=subsection.id),
         )
 
         # The component, unit, and subsection should all be accounted for in
@@ -1446,7 +1446,7 @@ class TestContainerSideEffects(TestCase):
         )
         assert container.versioning.latest is None
         v1 = containers_api.create_next_container_version(
-            container.pk,
+            container.id,
             title="My Container v1",
             entities=None,
             created=self.now,
@@ -1455,7 +1455,7 @@ class TestContainerSideEffects(TestCase):
         assert v1.version_num == 1
         assert container.versioning.latest == v1
         v2 = containers_api.create_next_container_version(
-            container.pk,
+            container.id,
             title="My Container v2",
             entities=[child_1],
             created=self.now,
@@ -1465,7 +1465,7 @@ class TestContainerSideEffects(TestCase):
         assert container.versioning.latest == v2
         assert v2.entity_list.entitylistrow_set.count() == 1
         v3 = containers_api.create_next_container_version(
-            container.pk,
+            container.id,
             title="My Container v3",
             entities=None,
             created=self.now,

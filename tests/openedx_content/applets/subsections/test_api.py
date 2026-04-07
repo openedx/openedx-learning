@@ -2,6 +2,8 @@
 Basic tests for the subsections API.
 """
 
+from typing import cast
+
 import pytest
 from django.core.exceptions import ValidationError
 
@@ -63,7 +65,7 @@ class SubsectionsTestCase(ComponentTestCase):
         4. There is no published version of the subsection.
         """
         subsection, subsection_version = content_api.create_subsection_and_version(
-            learning_package_id=self.learning_package.pk,
+            learning_package_id=self.learning_package.id,
             key="subsection:key",
             title="Subsection",
             created=self.now,
@@ -110,19 +112,20 @@ class SubsectionsTestCase(ComponentTestCase):
         """Test `get_subsection()`"""
         subsection = self.create_subsection_with_units([self.unit_1])
 
-        subsection_retrieved = content_api.get_subsection(subsection.pk)
+        subsection_retrieved = content_api.get_subsection(subsection.id)
         assert isinstance(subsection_retrieved, Subsection)
         assert subsection_retrieved == subsection
 
     def test_get_subsection_nonexistent(self) -> None:
         """Test `get_subsection()` when the subsection doesn't exist"""
+        FAKE_ID = cast(Subsection.ID, -500)
         with pytest.raises(Subsection.DoesNotExist):
-            content_api.get_subsection(-500)
+            content_api.get_subsection(FAKE_ID)
 
     def test_get_subsection_other_container_type(self) -> None:
         """Test `get_subsection()` when the provided PK is for a non-Subsection container"""
         with pytest.raises(Subsection.DoesNotExist):
-            content_api.get_subsection(self.unit_1.pk)
+            content_api.get_subsection(self.unit_1.id)  # type: ignore[arg-type]
 
     def test_subsection_queries(self) -> None:
         """
@@ -133,7 +136,7 @@ class SubsectionsTestCase(ComponentTestCase):
         with self.assertNumQueries(102):  # TODO: this seems high?
             content_api.publish_from_drafts(
                 self.learning_package.id,
-                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=subsection.pk),
+                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=subsection.id),
             )
         with self.assertNumQueries(4):
             result = content_api.get_units_in_subsection(subsection, published=True)
@@ -165,7 +168,7 @@ class SubsectionsTestCase(ComponentTestCase):
 
         # Check that a new version was not created:
         subsection.refresh_from_db()
-        assert content_api.get_subsection(subsection.pk).versioning.draft == subsection_version
+        assert content_api.get_subsection(subsection.id).versioning.draft == subsection_version
         assert subsection.versioning.draft == subsection_version
 
         # Also check that `create_subsection_with_units()` has the same restriction

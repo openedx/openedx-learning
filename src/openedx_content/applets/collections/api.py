@@ -10,7 +10,7 @@ from django.db.models import QuerySet
 
 from ..publishing import api as publishing_api
 from ..publishing.models import PublishableEntity
-from .models import Collection, CollectionPublishableEntity
+from .models import Collection, CollectionPublishableEntity, LearningPackage
 
 # The public API that will be re-exported by openedx_content.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -33,7 +33,7 @@ __all__ = [
 
 
 def create_collection(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     key: str,
     *,
     title: str,
@@ -55,7 +55,7 @@ def create_collection(
     return collection
 
 
-def get_collection(learning_package_id: int, collection_key: str) -> Collection:
+def get_collection(learning_package_id: LearningPackage.ID, collection_key: str) -> Collection:
     """
     Get a Collection by ID
     """
@@ -63,7 +63,7 @@ def get_collection(learning_package_id: int, collection_key: str) -> Collection:
 
 
 def update_collection(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     key: str,
     *,
     title: str | None = None,
@@ -89,7 +89,7 @@ def update_collection(
 
 
 def delete_collection(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     key: str,
     *,
     hard_delete=False,
@@ -111,7 +111,7 @@ def delete_collection(
 
 
 def restore_collection(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     key: str,
 ) -> Collection:
     """
@@ -125,7 +125,7 @@ def restore_collection(
 
 
 def add_to_collection(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     key: str,
     entities_qset: QuerySet[PublishableEntity],
     created_by: int | None = None,
@@ -145,7 +145,7 @@ def add_to_collection(
     invalid_entity = entities_qset.exclude(learning_package_id=learning_package_id).first()
     if invalid_entity:
         raise ValidationError(
-            f"Cannot add entity {invalid_entity.pk} in learning package {invalid_entity.learning_package_id} "
+            f"Cannot add entity {invalid_entity.id} in learning package {invalid_entity.learning_package_id} "
             f"to collection {key} in learning package {learning_package_id}."
         )
 
@@ -161,7 +161,7 @@ def add_to_collection(
 
 
 def remove_from_collection(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     key: str,
     entities_qset: QuerySet[PublishableEntity],
 ) -> Collection:
@@ -183,7 +183,7 @@ def remove_from_collection(
     return collection
 
 
-def get_entity_collections(learning_package_id: int, entity_key: str) -> QuerySet[Collection]:
+def get_entity_collections(learning_package_id: LearningPackage.ID, entity_key: str) -> QuerySet[Collection]:
     """
     Get all collections in the given learning package which contain this entity.
 
@@ -196,7 +196,10 @@ def get_entity_collections(learning_package_id: int, entity_key: str) -> QuerySe
     return entity.collections.filter(enabled=True).order_by("pk")
 
 
-def get_collection_entities(learning_package_id: int, collection_key: str) -> QuerySet[PublishableEntity]:
+def get_collection_entities(
+    learning_package_id: LearningPackage.ID,
+    collection_key: str,
+) -> QuerySet[PublishableEntity]:
     """
     Returns a QuerySet of PublishableEntities in a Collection.
 
@@ -208,7 +211,7 @@ def get_collection_entities(learning_package_id: int, collection_key: str) -> Qu
     ).order_by("pk")
 
 
-def get_collections(learning_package_id: int, enabled: bool | None = True) -> QuerySet[Collection]:
+def get_collections(learning_package_id: LearningPackage.ID, enabled: bool | None = True) -> QuerySet[Collection]:
     """
     Get all collections for a given learning package
 

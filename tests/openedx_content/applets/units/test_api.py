@@ -2,6 +2,8 @@
 Basic tests for the units API.
 """
 
+from typing import cast
+
 import pytest
 from django.core.exceptions import ValidationError
 
@@ -56,7 +58,7 @@ class UnitsTestCase(ComponentTestCase):
         4. There is no published version of the unit.
         """
         unit, unit_version = content_api.create_unit_and_version(
-            learning_package_id=self.learning_package.pk,
+            learning_package_id=self.learning_package.id,
             key="unit:key",
             title="Unit",
             created=self.now,
@@ -104,17 +106,18 @@ class UnitsTestCase(ComponentTestCase):
         """Test `get_unit()`"""
         unit = self.create_unit_with_components([self.component_1])
 
-        unit_retrieved = content_api.get_unit(unit.pk)
+        unit_retrieved = content_api.get_unit(unit.id)
         assert isinstance(unit_retrieved, Unit)
         assert unit_retrieved == unit
 
     def test_get_unit_nonexistent(self) -> None:
         """Test `get_unit()` when the unit doesn't exist"""
+        FAKE_ID = cast(Unit.ID, -500)
         with pytest.raises(Unit.DoesNotExist):
-            content_api.get_unit(-500)
+            content_api.get_unit(FAKE_ID)
 
     def test_get_unit_other_container_type(self) -> None:
-        """Test `get_unit()` when the provided PK is for a non-Unit container"""
+        """Test `get_unit()` when the provided ID is for a non-Unit container"""
         other_container = content_api.create_container(
             self.learning_package.id,
             key="test",
@@ -123,7 +126,7 @@ class UnitsTestCase(ComponentTestCase):
             container_cls=TestContainer,
         )
         with pytest.raises(Unit.DoesNotExist):
-            content_api.get_unit(other_container.pk)
+            content_api.get_unit(other_container.id)  # type: ignore[arg-type]
 
     def test_unit_queries(self) -> None:
         """
@@ -134,7 +137,7 @@ class UnitsTestCase(ComponentTestCase):
         with self.assertNumQueries(48):  # TODO: this seems high?
             content_api.publish_from_drafts(
                 self.learning_package.id,
-                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=unit.pk),
+                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=unit.id),
             )
         with self.assertNumQueries(3):
             result = content_api.get_components_in_unit(unit, published=True)
@@ -167,7 +170,7 @@ class UnitsTestCase(ComponentTestCase):
         # Try adding a generic entity to a Unit
         pe = content_api.create_publishable_entity(self.learning_package.id, "pe", created=self.now, created_by=None)
         pev = content_api.create_publishable_entity_version(
-            pe.pk, version_num=1, title="t", created=self.now, created_by=None
+            pe.id, version_num=1, title="t", created=self.now, created_by=None
         )
         with pytest.raises(ValidationError, match='The entity "pe" cannot be added to a "unit" container.') as err:
             content_api.create_next_unit_version(
@@ -180,7 +183,7 @@ class UnitsTestCase(ComponentTestCase):
 
         # Check that a new version was not created:
         unit.refresh_from_db()
-        assert content_api.get_unit(unit.pk).versioning.draft == unit_version
+        assert content_api.get_unit(unit.id).versioning.draft == unit_version
         assert unit.versioning.draft == unit_version
 
         # Also check that `create_unit_and_version()` has the same restriction (not just `create_next_unit_version()`)

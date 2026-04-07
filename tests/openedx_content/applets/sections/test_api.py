@@ -2,7 +2,7 @@
 Basic tests for the sections API.
 """
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -77,7 +77,7 @@ class SectionsTestCase(ComponentTestCase):
         )
         return section
 
-    def test_create_empty_section_and_version(self):
+    def test_create_empty_section_and_version(self) -> None:
         """Test creating a section with no units.
 
         Expected results:
@@ -87,7 +87,7 @@ class SectionsTestCase(ComponentTestCase):
         4. There is no published version of the section.
         """
         section, section_version = content_api.create_section_and_version(
-            learning_package_id=self.learning_package.pk,
+            learning_package_id=self.learning_package.id,
             key="section:key",
             title="Section",
             created=self.now,
@@ -103,7 +103,7 @@ class SectionsTestCase(ComponentTestCase):
         assert section.versioning.published is None
         assert section.publishable_entity.can_stand_alone
 
-    def test_create_next_section_version_with_unpinned_subsections(self):
+    def test_create_next_section_version_with_unpinned_subsections(self) -> None:
         """Test creating a unit version with an unpinned unit.
 
         Expected results:
@@ -134,19 +134,20 @@ class SectionsTestCase(ComponentTestCase):
         """Test `get_section()`"""
         section = self.create_section_with_subsections([self.subsection_1, self.subsection_2])
 
-        section_retrieved = content_api.get_section(section.pk)
+        section_retrieved = content_api.get_section(section.id)
         assert isinstance(section_retrieved, Section)
         assert section_retrieved == section
 
     def test_get_section_nonexistent(self) -> None:
         """Test `get_section()` when the subsection doesn't exist"""
+        FAKE_ID = cast(Section.ID, -500)
         with pytest.raises(Section.DoesNotExist):
-            content_api.get_section(-500)
+            content_api.get_section(FAKE_ID)
 
     def test_get_section_other_container_type(self) -> None:
-        """Test `get_section()` when the provided PK is for a non-Subsection container"""
+        """Test `get_section()` when the provided ID is for a non-Subsection container"""
         with pytest.raises(Section.DoesNotExist):
-            content_api.get_section(self.unit_1.pk)
+            content_api.get_section(self.unit_1.id)  # type: ignore[arg-type]
 
     def test_section_queries(self) -> None:
         """
@@ -157,7 +158,7 @@ class SectionsTestCase(ComponentTestCase):
         with self.assertNumQueries(160):
             content_api.publish_from_drafts(
                 self.learning_package.id,
-                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=section.pk),
+                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=section.id),
             )
         with self.assertNumQueries(4):
             result = content_api.get_subsections_in_section(section, published=True)
@@ -186,7 +187,7 @@ class SectionsTestCase(ComponentTestCase):
             )
         # Check that a new version was not created:
         section.refresh_from_db()
-        assert content_api.get_section(section.pk).versioning.draft == section_version
+        assert content_api.get_section(section.id).versioning.draft == section_version
         assert section.versioning.draft == section_version
 
         # Also check that `create_section_with_subsections()` has the same restriction

@@ -4,6 +4,7 @@ Tests related to the openedx_catalog python API
 
 import logging
 from datetime import datetime, timezone
+from typing import cast
 
 import pytest
 from django.db import connection
@@ -56,9 +57,7 @@ def _python100_summer26(python100: CatalogCourse):
 @pytest.fixture(name="python100_winter26")
 def _python100_winter26(python100: CatalogCourse):
     """Create a "Python100" "Winter 2026" course run for use in these tests"""
-    return CourseRun.objects.create(
-        catalog_course=python100, run_code="2026winter", title="Python 100 (Winter '26)"
-    )
+    return CourseRun.objects.create(catalog_course=python100, run_code="2026winter", title="Python 100 (Winter '26)")
 
 
 # get_catalog_course
@@ -69,10 +68,11 @@ def test_get_catalog_course(python100: CatalogCourse, csharp200: CatalogCourse) 
     Test using get_catalog_course to get a course in various ways:
     """
     # Retrieve by ID:
-    assert api.get_catalog_course(pk=python100.pk) == python100
-    assert api.get_catalog_course(pk=csharp200.pk) == csharp200
+    assert api.get_catalog_course(pk=python100.id) == python100
+    assert api.get_catalog_course(pk=csharp200.id) == csharp200
+    FAKE_ID = cast(CatalogCourse.ID, 8234758243)
     with pytest.raises(CatalogCourse.DoesNotExist):
-        api.get_catalog_course(pk=8234758243)
+        api.get_catalog_course(pk=FAKE_ID)
 
     # Retrieve by key_str:
     assert api.get_catalog_course(key_str="catalog-course:Org1:Python100") == python100
@@ -118,12 +118,12 @@ def test_update_title(python100: CatalogCourse, csharp200: CatalogCourse) -> Non
     csharp200_old_name = csharp200.title
     # Update title using a CatalogCourse object:
     api.update_catalog_course(python100, title="New name for Python 100")
-    assert api.get_catalog_course(pk=python100.pk).title == "New name for Python 100"
-    assert api.get_catalog_course(pk=csharp200.pk).title == csharp200_old_name  # Unchanged
+    assert api.get_catalog_course(pk=python100.id).title == "New name for Python 100"
+    assert api.get_catalog_course(pk=csharp200.id).title == csharp200_old_name  # Unchanged
     # Update display name using PK only:
-    api.update_catalog_course(csharp200.pk, title="New name for C# 200")
-    assert api.get_catalog_course(pk=python100.pk).title == "New name for Python 100"  # Unchanged
-    assert api.get_catalog_course(pk=csharp200.pk).title == "New name for C# 200"
+    api.update_catalog_course(csharp200.id, title="New name for C# 200")
+    assert api.get_catalog_course(pk=python100.id).title == "New name for Python 100"  # Unchanged
+    assert api.get_catalog_course(pk=csharp200.id).title == "New name for C# 200"
 
 
 def test_update_language(python100: CatalogCourse) -> None:
