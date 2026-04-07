@@ -591,7 +591,7 @@ class PublishableEntityMixin(models.Model):
             """
             pub_ent = self.content_obj.publishable_entity
             return self.content_version_model_cls.objects.filter(
-                publishable_entity_version__entity_id=pub_ent.id
+                publishable_entity_version__entity_id=pub_ent.pk
             )
 
         def version_num(self, version_num):
@@ -600,7 +600,7 @@ class PublishableEntityMixin(models.Model):
             """
             pub_ent = self.content_obj.publishable_entity
             return self.content_version_model_cls.objects.get(
-                publishable_entity_version__entity_id=pub_ent.id,
+                publishable_entity_version__entity_id=pub_ent.pk,
                 publishable_entity_version__version_num=version_num,
             )
 

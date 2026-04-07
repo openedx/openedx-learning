@@ -111,7 +111,7 @@ class SubsectionsTestCase(ComponentTestCase):
         """Test `get_subsection()`"""
         subsection = self.create_subsection_with_units([self.unit_1])
 
-        subsection_retrieved = content_api.get_subsection(subsection.pk)
+        subsection_retrieved = content_api.get_subsection(subsection.container_pk)
         assert isinstance(subsection_retrieved, Subsection)
         assert subsection_retrieved == subsection
 
@@ -124,7 +124,7 @@ class SubsectionsTestCase(ComponentTestCase):
     def test_get_subsection_other_container_type(self) -> None:
         """Test `get_subsection()` when the provided PK is for a non-Subsection container"""
         with pytest.raises(Subsection.DoesNotExist):
-            content_api.get_subsection(self.unit_1.pk)
+            content_api.get_subsection(self.unit_1.container_pk)
 
     def test_subsection_queries(self) -> None:
         """
@@ -135,7 +135,7 @@ class SubsectionsTestCase(ComponentTestCase):
         with self.assertNumQueries(102):  # TODO: this seems high?
             content_api.publish_from_drafts(
                 self.learning_package.id,
-                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=subsection.pk),
+                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=subsection.container_pk),
             )
         with self.assertNumQueries(4):
             result = content_api.get_units_in_subsection(subsection, published=True)
@@ -167,7 +167,7 @@ class SubsectionsTestCase(ComponentTestCase):
 
         # Check that a new version was not created:
         subsection.refresh_from_db()
-        assert content_api.get_subsection(subsection.pk).versioning.draft == subsection_version
+        assert content_api.get_subsection(subsection.container_pk).versioning.draft == subsection_version
         assert subsection.versioning.draft == subsection_version
 
         # Also check that `create_subsection_with_units()` has the same restriction

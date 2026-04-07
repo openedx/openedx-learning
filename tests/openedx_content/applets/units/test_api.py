@@ -105,7 +105,7 @@ class UnitsTestCase(ComponentTestCase):
         """Test `get_unit()`"""
         unit = self.create_unit_with_components([self.component_1])
 
-        unit_retrieved = content_api.get_unit(unit.pk)
+        unit_retrieved = content_api.get_unit(unit.container_pk)
         assert isinstance(unit_retrieved, Unit)
         assert unit_retrieved == unit
 
@@ -136,7 +136,7 @@ class UnitsTestCase(ComponentTestCase):
         with self.assertNumQueries(48):  # TODO: this seems high?
             content_api.publish_from_drafts(
                 self.learning_package.id,
-                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=unit.pk),
+                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=unit.container_pk),
             )
         with self.assertNumQueries(3):
             result = content_api.get_components_in_unit(unit, published=True)
@@ -182,7 +182,7 @@ class UnitsTestCase(ComponentTestCase):
 
         # Check that a new version was not created:
         unit.refresh_from_db()
-        assert content_api.get_unit(unit.pk).versioning.draft == unit_version
+        assert content_api.get_unit(unit.container_pk).versioning.draft == unit_version
         assert unit.versioning.draft == unit_version
 
         # Also check that `create_unit_and_version()` has the same restriction (not just `create_next_unit_version()`)

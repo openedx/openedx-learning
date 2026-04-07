@@ -773,7 +773,7 @@ def contains_unpublished_changes(container_or_pk: Container | Container.PK, /) -
         container_id = container_or_pk
     else:
         assert isinstance(container_or_pk, Container)
-        container_id = container_or_pk.pk
+        container_id = container_or_pk.container_pk
     container = (
         Container.objects.select_related("publishable_entity__draft__draft_log_record")
         .select_related("publishable_entity__published__publish_log_record")
