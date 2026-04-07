@@ -62,8 +62,8 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
 
         for container in container_qs:
             assert container.key in expected_container_keys
-            draft_version = publishing_api.get_draft_version(container.publishable_entity.pk)
-            published_version = publishing_api.get_published_version(container.publishable_entity.pk)
+            draft_version = publishing_api.get_draft_version(container.publishable_entity.id)
+            published_version = publishing_api.get_published_version(container.publishable_entity.id)
             assert container.created_by is not None
             assert container.created_by.username == "lp_user"
             if container.key == "unit1-b7eafb":
@@ -105,8 +105,8 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
         ]
         for component in component_qs:
             assert component.key in expected_component_keys
-            draft_version = publishing_api.get_draft_version(component.publishable_entity.pk)
-            published_version = publishing_api.get_published_version(component.publishable_entity.pk)
+            draft_version = publishing_api.get_draft_version(component.publishable_entity.id)
+            published_version = publishing_api.get_published_version(component.publishable_entity.id)
             assert component.created_by is not None
             assert component.created_by.username == "lp_user"
             if component.key == "xblock.v1:drag-and-drop-v2:4d1b2fac-8b30-42fb-872d-6b10ab580b27":

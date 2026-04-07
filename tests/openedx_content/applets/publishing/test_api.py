@@ -152,21 +152,21 @@ class DraftTestCase(TestCase):
         )
         # Drafts are NOT created when a PublishableEntity is created, only when
         # its first PublisahbleEntityVersion is.
-        assert publishing_api.get_draft_version(entity.pk) is None
+        assert publishing_api.get_draft_version(entity.id) is None
 
         entity_version = publishing_api.create_publishable_entity_version(
-            entity.pk,
+            entity.id,
             version_num=1,
             title="An Entity 🌴",
             created=self.now,
             created_by=None,
         )
-        assert entity_version == publishing_api.get_draft_version(entity.pk)
+        assert entity_version == publishing_api.get_draft_version(entity.id)
 
         # We never really remove rows from the table holding Drafts. We just
         # mark the version as None.
-        publishing_api.soft_delete_draft(entity.pk)
-        deleted_entity_version = publishing_api.get_draft_version(entity.pk)
+        publishing_api.soft_delete_draft(entity.id)
+        deleted_entity_version = publishing_api.get_draft_version(entity.id)
         assert deleted_entity_version is None
 
     def test_set_draft_args(self) -> None:
@@ -178,7 +178,7 @@ class DraftTestCase(TestCase):
             created_by=None,
         )
         entity_version = publishing_api.create_publishable_entity_version(
-            entity.pk,
+            entity.id,
             version_num=1,
             title="An Entity 🌴",
             created=self.now,
@@ -186,12 +186,12 @@ class DraftTestCase(TestCase):
         )
 
         # Int calling version
-        publishing_api.soft_delete_draft(entity.pk)
+        publishing_api.soft_delete_draft(entity.id)
         publishing_api.set_draft_version(entity.draft.pk, entity_version.pk)
         assert Draft.objects.get(entity=entity).version == entity_version
 
         # Draft calling version
-        publishing_api.soft_delete_draft(entity.pk)
+        publishing_api.soft_delete_draft(entity.id)
         publishing_api.set_draft_version(entity.draft, entity_version.pk)
         assert Draft.objects.get(entity=entity).version == entity_version
 
@@ -208,7 +208,7 @@ class DraftTestCase(TestCase):
             created_by=None,
         )
         entity_version = publishing_api.create_publishable_entity_version(
-            entity.pk,
+            entity.id,
             version_num=1,
             title="An Entity 🌴",
             created=self.now,
@@ -220,17 +220,17 @@ class DraftTestCase(TestCase):
         log_records = list(publish_log.records.all())
         assert len(log_records) == 1
         record = log_records[0]
-        assert record.entity_id == entity.pk
+        assert record.entity_id == entity.id
         assert record.old_version is None
         assert record.new_version_id == entity_version.id
 
         # Publishing the soft-delete
-        publishing_api.soft_delete_draft(entity.pk)
+        publishing_api.soft_delete_draft(entity.id)
         publish_log = publishing_api.publish_all_drafts(self.learning_package_1.id)
         log_records = list(publish_log.records.all())
         assert len(log_records) == 1
         record = log_records[0]
-        assert record.entity_id == entity.pk
+        assert record.entity_id == entity.id
         assert record.old_version_id == entity_version.id
         assert record.new_version is None
 
@@ -262,7 +262,7 @@ class DraftTestCase(TestCase):
         )
         # Draft Change #1: create the new version
         publishing_api.create_publishable_entity_version(
-            entity.pk,
+            entity.id,
             version_num=1,
             title="An Entity 🌴",
             created=self.now,
@@ -271,7 +271,7 @@ class DraftTestCase(TestCase):
         assert DraftChangeLog.objects.count() == 1
 
         # Change #1: delete the draft (set the draft version to None)
-        publishing_api.soft_delete_draft(entity.pk)
+        publishing_api.soft_delete_draft(entity.id)
         assert DraftChangeLog.objects.count() == 2
 
         # This should NOT create a change:
@@ -307,7 +307,7 @@ class DraftTestCase(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            entity_with_changes.pk,
+            entity_with_changes.id,
             version_num=1,
             title="I'm entity_with_changes v1",
             created=self.now,
@@ -322,7 +322,7 @@ class DraftTestCase(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            entity_with_no_changes.pk,
+            entity_with_no_changes.id,
             version_num=1,
             title="I'm entity_with_no_changes v1",
             created=self.now,
@@ -337,7 +337,7 @@ class DraftTestCase(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            entity_with_pending_delete.pk,
+            entity_with_pending_delete.id,
             version_num=1,
             title="I'm entity_with_pending_delete v1",
             created=self.now,
@@ -351,7 +351,7 @@ class DraftTestCase(TestCase):
         # Published version is 1 and the Draft version is 4.
         for version_num in range(2, 5):
             publishing_api.create_publishable_entity_version(
-                entity_with_changes.pk,
+                entity_with_changes.id,
                 version_num=version_num,
                 title=f"I'm entity_with_changes v{version_num}",
                 created=self.now,
@@ -360,7 +360,7 @@ class DraftTestCase(TestCase):
 
         # Soft-delete entity_with_pending_delete. After this, the Published
         # version is 1 and the Draft version is None.
-        publishing_api.soft_delete_draft(entity_with_pending_delete.pk)
+        publishing_api.soft_delete_draft(entity_with_pending_delete.id)
 
         # Create a new entity that only exists in Draft form (no Published
         # version).
@@ -371,7 +371,7 @@ class DraftTestCase(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            new_entity.pk,
+            new_entity.id,
             version_num=1,
             title="I'm new_entity v1",
             created=self.now,
@@ -425,7 +425,7 @@ class DraftTestCase(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            entity.pk,
+            entity.id,
             version_num=1,
             title="An Entity 🌴",
             created=self.now,
@@ -437,13 +437,13 @@ class DraftTestCase(TestCase):
         records = list(entities.all())
         assert len(records) == 1
         record = records[0]
-        assert record.pk == entity.pk
+        assert record.id == entity.id
 
         # Initial publish
         publishing_api.publish_all_drafts(self.learning_package_1.id)
 
         # soft-delete entity
-        publishing_api.soft_delete_draft(entity.pk)
+        publishing_api.soft_delete_draft(entity.id)
         entities = publishing_api.get_entities_with_unpublished_changes(self.learning_package_1.id)
         assert len(entities) == 0
         entities = publishing_api.get_entities_with_unpublished_changes(self.learning_package_1.id,
@@ -472,7 +472,7 @@ class DraftTestCase(TestCase):
             )
 
             publishing_api.create_publishable_entity_version(
-                entity.pk,
+                entity.id,
                 version_num=1,
                 title=f"Entity_published_{index}",
                 created=self.now,
@@ -491,7 +491,7 @@ class DraftTestCase(TestCase):
             )
 
             publishing_api.create_publishable_entity_version(
-                entity.pk,
+                entity.id,
                 version_num=1,
                 title=f"Entity_draft_{index}",
                 created=self.now,
@@ -532,13 +532,13 @@ class DraftTestCase(TestCase):
         assert no_published.count() == (count_drafts + count_no_drafts)
 
     def _get_published_version_num(self, entity: PublishableEntity) -> int | None:
-        published_version = publishing_api.get_published_version(entity.pk)
+        published_version = publishing_api.get_published_version(entity.id)
         if published_version is not None:
             return published_version.version_num
         return None
 
     def _get_draft_version_num(self, entity: PublishableEntity) -> int | None:
-        draft_version = publishing_api.get_draft_version(entity.pk)
+        draft_version = publishing_api.get_draft_version(entity.id)
         if draft_version is not None:
             return draft_version.version_num
         return None
@@ -578,7 +578,7 @@ class DraftChangeLogTestCase(TestCase):
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                entity.pk,
+                entity.id,
                 version_num=1,
                 title="An Entity 🌴",
                 created=self.now,
@@ -591,7 +591,7 @@ class DraftChangeLogTestCase(TestCase):
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                entity2.pk,
+                entity2.id,
                 version_num=1,
                 title="An Entity 🌴 2",
                 created=self.now,
@@ -610,7 +610,7 @@ class DraftChangeLogTestCase(TestCase):
             created_by=None,
         )
         e3_v1 = publishing_api.create_publishable_entity_version(
-            entity3.pk,
+            entity3.id,
             version_num=1,
             title="An Entity 🌴 3",
             created=self.now,
@@ -623,7 +623,7 @@ class DraftChangeLogTestCase(TestCase):
         # Now make one entirely redundant change, and make sure it didn't create
         # anything (setting a draft to the same version it already was should be
         # a no-op).
-        publishing_api.set_draft_version(entity3.pk, e3_v1.pk)
+        publishing_api.set_draft_version(entity3.id, e3_v1.pk)
         draft_sets = list(DraftChangeLog.objects.all().order_by('id'))
         assert len(draft_sets) == 2
         assert len(draft_sets[1].records.all()) == 1
@@ -640,7 +640,7 @@ class DraftChangeLogTestCase(TestCase):
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                lp1_e1.pk,
+                lp1_e1.id,
                 version_num=1,
                 title="LP1 E1 v1",
                 created=self.now,
@@ -651,7 +651,7 @@ class DraftChangeLogTestCase(TestCase):
                 # we're creating the new publishable entity version for
                 # learning_package_1, not learning_package_2
                 lp1_e1_v2 = publishing_api.create_publishable_entity_version(
-                    lp1_e1.pk,
+                    lp1_e1.id,
                     version_num=2,
                     title="LP1 E1 v1",
                     created=self.now,
@@ -676,7 +676,7 @@ class DraftChangeLogTestCase(TestCase):
                     created_by=None,
                 )
                 lp2_e1_v1 = publishing_api.create_publishable_entity_version(
-                    lp2_e1.pk,
+                    lp2_e1.id,
                     version_num=1,
                     title="LP2 E1 v1",
                     created=self.now,
@@ -685,7 +685,7 @@ class DraftChangeLogTestCase(TestCase):
             # This doesn't error, but it creates a new DraftChangeLog instead of
             # re-using dcl_2
             lp2_e1_v2 = publishing_api.create_publishable_entity_version(
-                lp2_e1.pk,
+                lp2_e1.id,
                 version_num=2,
                 title="LP2 E1 v2",
                 created=self.now,
@@ -725,14 +725,14 @@ class DraftChangeLogTestCase(TestCase):
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                entity.pk,
+                entity.id,
                 version_num=1,
                 title="An Entity 🌴 v1",
                 created=self.now,
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                entity.pk,
+                entity.id,
                 version_num=2,
                 title="An Entity 🌴 v2",
                 created=self.now,
@@ -760,13 +760,13 @@ class DraftChangeLogTestCase(TestCase):
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                entity_1.pk,
+                entity_1.id,
                 version_num=1,
                 title="An Entity 🌴 v1",
                 created=self.now,
                 created_by=None,
             )
-            publishing_api.soft_delete_draft(entity_1.pk)
+            publishing_api.soft_delete_draft(entity_1.id)
 
             # The change to entity_2 will persist
             entity_2 = publishing_api.create_publishable_entity(
@@ -776,7 +776,7 @@ class DraftChangeLogTestCase(TestCase):
                 created_by=None,
             )
             e2_v1 = publishing_api.create_publishable_entity_version(
-                entity_2.pk,
+                entity_2.id,
                 version_num=1,
                 title="E2 title",
                 created=self.now,
@@ -786,7 +786,7 @@ class DraftChangeLogTestCase(TestCase):
         change_log = DraftChangeLog.objects.first()
         assert change_log is not None
         assert change_log.records.count() == 1
-        change = change_log.records.get(entity_id=entity_2.pk)
+        change = change_log.records.get(entity_id=entity_2.id)
         assert change.old_version is None
         assert change.new_version == e2_v1
 
@@ -803,18 +803,18 @@ class DraftChangeLogTestCase(TestCase):
                 created_by=None,
             )
             v1 = publishing_api.create_publishable_entity_version(
-                entity.pk,
+                entity.id,
                 version_num=1,
                 title="An Entity 🌴 v1",
                 created=self.now,
                 created_by=None,
             )
-            publishing_api.soft_delete_draft(entity.pk)
+            publishing_api.soft_delete_draft(entity.id)
 
         assert not DraftChangeLog.objects.all().exists()
 
         # This next call implicitly makes a DraftChangeLog
-        publishing_api.set_draft_version(entity.pk, v1.pk)
+        publishing_api.set_draft_version(entity.id, v1.pk)
         assert DraftChangeLog.objects.all().count() == 1
 
         # Make sure a change from v1 -> v2 -> v1 gets removed.
@@ -822,14 +822,14 @@ class DraftChangeLogTestCase(TestCase):
             for i in range(2, 5):
                 # Make a few new versions
                 publishing_api.create_publishable_entity_version(
-                    entity.pk,
+                    entity.id,
                     version_num=i,
                     title=f"An Entity v{i}",
                     created=self.now,
                     created_by=None,
                 )
             # Reset to version 1
-            publishing_api.set_draft_version(entity.pk, v1.pk)
+            publishing_api.set_draft_version(entity.id, v1.pk)
 
         assert DraftChangeLog.objects.all().count() == 1
 
@@ -868,7 +868,7 @@ class PublishLogTestCase(TestCase):
                 created_by=None,
             )
             entity1_v1 = publishing_api.create_publishable_entity_version(
-                entity1.pk,
+                entity1.id,
                 version_num=1,
                 title="An Entity 🌴",
                 created=self.now,
@@ -881,7 +881,7 @@ class PublishLogTestCase(TestCase):
                 created_by=None,
             )
             entity2_v1 = publishing_api.create_publishable_entity_version(
-                entity2.pk,
+                entity2.id,
                 version_num=1,
                 title="An Entity 🌴 2",
                 created=self.now,
@@ -912,14 +912,14 @@ class PublishLogTestCase(TestCase):
 
         # Check that we can publish a subset...
         entity1_v2 = publishing_api.create_publishable_entity_version(
-            entity1.pk,
+            entity1.id,
             version_num=2,
             title="An Entity 🌴",
             created=self.now,
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            entity2.pk,
+            entity2.id,
             version_num=2,
             title="An Entity 🌴 2",
             created=self.now,
@@ -927,7 +927,7 @@ class PublishLogTestCase(TestCase):
         )
         publish_e1_log = publishing_api.publish_from_drafts(
             self.learning_package_1.id,
-            Draft.objects.filter(pk=entity1.pk),
+            Draft.objects.filter(pk=entity1.id),
         )
         assert publish_e1_log.records.count() == 1
         e1_pub_record = publish_e1_log.records.get(entity=entity1)
@@ -964,7 +964,7 @@ class EntitiesQueryTestCase(TestCase):
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                entity.pk,
+                entity.id,
                 version_num=1,
                 title="An Entity 🌴",
                 created=cls.now,
@@ -977,7 +977,7 @@ class EntitiesQueryTestCase(TestCase):
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                entity2.pk,
+                entity2.id,
                 version_num=1,
                 title="An Entity 🌴 2",
                 created=cls.now,
@@ -1054,7 +1054,7 @@ class TestContainerSideEffects(TestCase):
             created_by=None,
         )
         child_1_v1 = publishing_api.create_publishable_entity_version(
-            child_1.pk,
+            child_1.id,
             version_num=1,
             title="Child 1 🌴",
             created=self.now,
@@ -1067,7 +1067,7 @@ class TestContainerSideEffects(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            child_2.pk,
+            child_2.id,
             version_num=1,
             title="Child 2 🌴",
             created=self.now,
@@ -1081,7 +1081,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         container_v1 = containers_api.create_container_version(
-            container.container_pk,
+            container.id,
             1,
             title="My Container",
             entities=[
@@ -1096,7 +1096,7 @@ class TestContainerSideEffects(TestCase):
         # relationships, altering a child should add the parent container to
         # the DraftChangeLog.
         child_1_v2 = publishing_api.create_publishable_entity_version(
-            child_1.pk,
+            child_1.id,
             version_num=2,
             title="Child 1 v2",
             created=self.now,
@@ -1134,7 +1134,7 @@ class TestContainerSideEffects(TestCase):
                 created_by=None,
             )
             publishing_api.create_publishable_entity_version(
-                child_1.pk,
+                child_1.id,
                 version_num=1,
                 title="Child 1 🌴",
                 created=self.now,
@@ -1147,7 +1147,7 @@ class TestContainerSideEffects(TestCase):
                 created_by=None,
             )
             child_2_v1 = publishing_api.create_publishable_entity_version(
-                child_2.pk,
+                child_2.id,
                 version_num=1,
                 title="Child 2 🌴",
                 created=self.now,
@@ -1161,7 +1161,7 @@ class TestContainerSideEffects(TestCase):
                 container_cls=TestContainer,
             )
             container_v1 = containers_api.create_container_version(
-                container.container_pk,
+                container.id,
                 1,
                 title="My Container",
                 entities=[child_1, child_2],
@@ -1173,7 +1173,7 @@ class TestContainerSideEffects(TestCase):
             # relationships, altering a child should add the parent container to
             # the DraftChangeLog.
             child_1_v2 = publishing_api.create_publishable_entity_version(
-                child_1.pk,
+                child_1.id,
                 version_num=2,
                 title="Child 1 v2",
                 created=self.now,
@@ -1223,7 +1223,7 @@ class TestContainerSideEffects(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            component.pk,
+            component.id,
             version_num=1,
             title="Component 1 🌴",
             created=self.now,
@@ -1245,7 +1245,7 @@ class TestContainerSideEffects(TestCase):
         )
         for unit in [unit_1, unit_2]:
             containers_api.create_container_version(
-                unit.container_pk,
+                unit.id,
                 1,
                 title="My Unit",
                 entities=[component],
@@ -1260,7 +1260,7 @@ class TestContainerSideEffects(TestCase):
         # Now let's change the Component and make sure it created side-effects
         # for both Units.
         publishing_api.create_publishable_entity_version(
-            component.pk,
+            component.id,
             version_num=2,
             title="Component 1.2 🌴",
             created=self.now,
@@ -1285,7 +1285,7 @@ class TestContainerSideEffects(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            component.pk,
+            component.id,
             version_num=1,
             title="Component 1 🌴",
             created=self.now,
@@ -1299,7 +1299,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            unit.container_pk,
+            unit.id,
             1,
             title="My Unit",
             entities=[component],
@@ -1314,7 +1314,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            subsection.container_pk,
+            subsection.id,
             1,
             title="My Subsection",
             entities=[unit],
@@ -1328,7 +1328,7 @@ class TestContainerSideEffects(TestCase):
 
         with publishing_api.bulk_draft_changes_for(self.learning_package.id) as change_log:
             publishing_api.create_publishable_entity_version(
-                component.pk,
+                component.id,
                 version_num=2,
                 title="Component 1v2🌴",
                 created=self.now,
@@ -1350,7 +1350,7 @@ class TestContainerSideEffects(TestCase):
         assert publish_log.records.count() == 3
 
         publishing_api.create_publishable_entity_version(
-            component.pk,
+            component.id,
             version_num=3,
             title="Component v2",
             created=self.now,
@@ -1358,7 +1358,7 @@ class TestContainerSideEffects(TestCase):
         )
         publish_log = publishing_api.publish_from_drafts(
             self.learning_package.id,
-            Draft.objects.filter(entity_id=component.pk),
+            Draft.objects.filter(entity_id=component.id),
         )
         assert publish_log.records.count() == 3
         component_publish = publish_log.records.get(entity=component)
@@ -1384,7 +1384,7 @@ class TestContainerSideEffects(TestCase):
             created_by=None,
         )
         publishing_api.create_publishable_entity_version(
-            component.pk,
+            component.id,
             version_num=1,
             title="Component 1 🌴",
             created=self.now,
@@ -1398,7 +1398,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            unit.container_pk,
+            unit.id,
             1,
             title="My Unit",
             entities=[component],
@@ -1413,7 +1413,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            subsection.container_pk,
+            subsection.id,
             1,
             title="My Subsection",
             entities=[unit],
@@ -1422,7 +1422,7 @@ class TestContainerSideEffects(TestCase):
         )
         publish_log = publishing_api.publish_from_drafts(
             self.learning_package.id,
-            Draft.objects.filter(pk=subsection.container_pk),
+            Draft.objects.filter(pk=subsection.id),
         )
 
         # The component, unit, and subsection should all be accounted for in
@@ -1446,7 +1446,7 @@ class TestContainerSideEffects(TestCase):
         )
         assert container.versioning.latest is None
         v1 = containers_api.create_next_container_version(
-            container.container_pk,
+            container.id,
             title="My Container v1",
             entities=None,
             created=self.now,
@@ -1455,7 +1455,7 @@ class TestContainerSideEffects(TestCase):
         assert v1.version_num == 1
         assert container.versioning.latest == v1
         v2 = containers_api.create_next_container_version(
-            container.container_pk,
+            container.id,
             title="My Container v2",
             entities=[child_1],
             created=self.now,
@@ -1465,7 +1465,7 @@ class TestContainerSideEffects(TestCase):
         assert container.versioning.latest == v2
         assert v2.entity_list.entitylistrow_set.count() == 1
         v3 = containers_api.create_next_container_version(
-            container.container_pk,
+            container.id,
             title="My Container v3",
             entities=None,
             created=self.now,

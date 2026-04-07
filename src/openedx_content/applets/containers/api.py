@@ -126,7 +126,7 @@ class ParsedEntityReference:
                 obj = obj.publishable_entity_version
 
             if isinstance(obj, PublishableEntity):
-                new_list.append(ParsedEntityReference(entity_pk=obj.pk))
+                new_list.append(ParsedEntityReference(entity_pk=obj.id))
             elif isinstance(obj, PublishableEntityVersion):
                 new_list.append(ParsedEntityReference(entity_pk=obj.entity_id, version_pk=obj.pk))
             else:
@@ -281,7 +281,7 @@ def _create_container_version(
         )
         container_version = version_type.objects.create(
             publishable_entity_version=publishable_entity_version,
-            container_id=container.container_pk,
+            container_id=container.id,
             entity_list=entity_list,
             # This could accept **kwargs in the future if we have additional type-specific fields?
         )
@@ -375,7 +375,7 @@ def create_container_and_version(
             container_cls=container_cls,
         )
         container_version: ContainerVersionModel = create_container_version(  # type: ignore[assignment]
-            container.container_pk,
+            container.id,
             1,
             title=title,
             entities=entities or [],
@@ -474,7 +474,7 @@ def create_next_container_version(
     * We pin to different versions of the Container.
 
     Args:
-        container_pk: The ID of the container to create the next version of.
+        id: The ID of the container to create the next version of.
         title: The title of the container. None to keep the current title.
         entities: List of the entities that will comprise the entity list, in
             order. Pass `PublishableEntityVersion` or objects that use
@@ -677,7 +677,7 @@ def get_entities_in_container(
         # Very minor optimization: reload the container with related 1:1 entities
         container = Container.objects.select_related(
             "publishable_entity__published__version__containerversion__entity_list"
-        ).get(pk=container.container_pk)
+        ).get(pk=container.id)
         container_version = container.versioning.published
         select_related = ["entity__published__version"]
         if select_related_version:
@@ -686,7 +686,7 @@ def get_entities_in_container(
         # Very minor optimization: reload the container with related 1:1 entities
         container = Container.objects.select_related(
             "publishable_entity__draft__version__containerversion__entity_list"
-        ).get(pk=container.container_pk)
+        ).get(pk=container.id)
         container_version = container.versioning.draft
         select_related = ["entity__draft__version"]
         if select_related_version:
@@ -773,7 +773,7 @@ def contains_unpublished_changes(container_or_pk: Container | Container.PK, /) -
         container_id = container_or_pk
     else:
         assert isinstance(container_or_pk, Container)
-        container_id = container_or_pk.container_pk
+        container_id = container_or_pk.id
     container = (
         Container.objects.select_related("publishable_entity__draft__draft_log_record")
         .select_related("publishable_entity__published__publish_log_record")

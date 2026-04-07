@@ -127,7 +127,7 @@ def create_component(
 
 
 def create_component_version(
-    component_pk: Component.PK,
+    component_id: Component.PK,
     /,
     version_num: int,
     title: str,
@@ -139,7 +139,7 @@ def create_component_version(
     """
     with atomic():
         publishable_entity_version = publishing_api.create_publishable_entity_version(
-            component_pk,
+            component_id,
             version_num=version_num,
             title=title,
             created=created,
@@ -147,13 +147,13 @@ def create_component_version(
         )
         component_version = ComponentVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
-            component_id=component_pk,
+            component_id=component_id,
         )
     return component_version
 
 
 def create_next_component_version(
-    component_pk: Component.PK,
+    component_id: Component.PK,
     /,
     media_to_replace: dict[str, int | None | bytes],
     created: datetime,
@@ -167,7 +167,7 @@ def create_next_component_version(
     Create a new ComponentVersion based on the most recent version.
 
     Args:
-        component_pk (int): The primary key of the Component to version.
+        component_id (int): The primary key of the Component to version.
         media_to_replace (dict): Mapping of file keys to Media IDs,
             None (for deletion), or bytes (for new file media).
         created (datetime): The creation timestamp for the new version.
@@ -218,7 +218,7 @@ def create_next_component_version(
     # should pick up from the last edited version. Likewise, a Draft might get
     # reverted to an earlier version, but we want the latest version_num when
     # creating the next version.
-    component = Component.objects.get(pk=component_pk)
+    component = Component.objects.get(pk=component_id)
     last_version = component.versioning.latest
     if last_version is None:
         next_version_num = 1
@@ -233,7 +233,7 @@ def create_next_component_version(
 
     with atomic():
         publishable_entity_version = publishing_api.create_publishable_entity_version(
-            component_pk,
+            component_id,
             version_num=next_version_num,
             title=title,
             created=created,
@@ -241,7 +241,7 @@ def create_next_component_version(
         )
         component_version = ComponentVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
-            component_id=component_pk,
+            component_id=component_id,
         )
         # First copy the new stuff over...
         for key, media_pk_or_bytes in media_to_replace.items():
@@ -313,7 +313,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
             can_stand_alone=can_stand_alone,
         )
         component_version = create_component_version(
-            component.component_pk,
+            component.id,
             version_num=1,
             title=title,
             created=created,
@@ -322,13 +322,13 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
         return (component, component_version)
 
 
-def get_component(component_pk: Component.PK, /) -> Component:
+def get_component(component_id: Component.PK, /) -> Component:
     """
     Get Component by its primary key.
 
     This is the same as the PublishableEntity's ID primary key.
     """
-    return Component.with_publishing_relations.get(pk=component_pk)
+    return Component.with_publishing_relations.get(pk=component_id)
 
 
 def get_component_by_key(

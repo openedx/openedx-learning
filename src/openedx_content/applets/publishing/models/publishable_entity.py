@@ -112,7 +112,7 @@ class PublishableEntity(models.Model):
     more convenient, like file access.
     """
     PK: TypeAlias = PublishableEntityPK
-    pk = PublishableEntityPKField(primary_key=True, db_column="id")
+    id = PublishableEntityPKField(primary_key=True)
 
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(
@@ -139,9 +139,9 @@ class PublishableEntity(models.Model):
     )
 
     @property
-    @deprecated("Prefer .pk to .id where possible")
-    def id(self) -> PublishableEntityPK:
-        return self.pk
+    @deprecated("Use .id instead")
+    def pk(self) -> PublishableEntityPK:
+        return self.id
 
     class Meta:
         constraints = [
@@ -423,7 +423,7 @@ class PublishableEntityMixin(models.Model):
 
             # You need to manually refetch it from the database to see the new
             # publish status:
-            component = get_component(component.component_pk)
+            component = get_component(component.id)
 
             # Now this will work:
             assert component.versioning.published == component_version
@@ -591,7 +591,7 @@ class PublishableEntityMixin(models.Model):
             """
             pub_ent = self.content_obj.publishable_entity
             return self.content_version_model_cls.objects.filter(
-                publishable_entity_version__entity_id=pub_ent.pk
+                publishable_entity_version__entity_id=pub_ent.id
             )
 
         def version_num(self, version_num):
@@ -600,7 +600,7 @@ class PublishableEntityMixin(models.Model):
             """
             pub_ent = self.content_obj.publishable_entity
             return self.content_version_model_cls.objects.get(
-                publishable_entity_version__entity_id=pub_ent.pk,
+                publishable_entity_version__entity_id=pub_ent.id,
                 publishable_entity_version__version_num=version_num,
             )
 

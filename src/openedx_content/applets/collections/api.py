@@ -145,7 +145,7 @@ def add_to_collection(
     invalid_entity = entities_qset.exclude(learning_package_id=learning_package_id).first()
     if invalid_entity:
         raise ValidationError(
-            f"Cannot add entity {invalid_entity.pk} in learning package {invalid_entity.learning_package_id} "
+            f"Cannot add entity {invalid_entity.id} in learning package {invalid_entity.learning_package_id} "
             f"to collection {key} in learning package {learning_package_id}."
         )
 

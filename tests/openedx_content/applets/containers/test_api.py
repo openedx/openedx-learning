@@ -243,8 +243,8 @@ def _container_of_uninstalled_type(lp: LearningPackage, child_entity1: TestEntit
     )
     # Now create the plugin type (no public API for this; only do this in a test)
     ctr = ContainerType.objects.create(type_code="misc")
-    Container.objects.filter(pk=container.container_pk).update(container_type=ctr)
-    return Container.objects.get(pk=container.container_pk)  # Reload and just use the base Container type
+    Container.objects.filter(pk=container.id).update(container_type=ctr)
+    return Container.objects.get(pk=container.id)  # Reload and just use the base Container type
 
 
 @pytest.fixture(name="other_lp_parent")
@@ -316,11 +316,11 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
 
         # Documenting status quo. We want `container.pk` to have type 'Container.PK', but we cannot do that because of
         # how django-stubs overrides 'pk' when a model uses a OneToOneField as primary key. However, you should see that
-        # `pk` below is crossed out (if you use an IDE), to remind you to use 'container_pk' instead.
+        # `pk` below is crossed out (if you use an IDE), to remind you to use 'id' instead.
         assert_type(container.pk, Any)
 
         # We use this to get the primary key instead. Properly typed.
-        assert_type(container.container_pk, Container.PK)
+        assert_type(container.id, Container.PK)
 
         # As of Python 3.12, it's not yet possible to make the the returned version (`container_v1`) use a type that is
         # computed based on `container_cls`. Ideally this would have type `TestContainerVersion`, not
@@ -506,7 +506,7 @@ def test_create_next_container_version_with_remove_1(
     ]
     # Remove "entity 1 unpinned" - should remove both:
     containers_api.create_next_container_version(
-        parent_of_six.container_pk,
+        parent_of_six.id,
         entities=[child_entity1],
         created=now,
         created_by=None,
@@ -543,7 +543,7 @@ def test_create_next_container_version_with_remove_2(
     ]
     # Remove "entity 2 pinned" - should remove both:
     containers_api.create_next_container_version(
-        parent_of_six.container_pk,
+        parent_of_six.id,
         entities=[child_entity2.versioning.draft],  # specify the version for "pinned"
         created=now,
         created_by=None,
@@ -581,7 +581,7 @@ def test_create_next_container_version_with_remove_3(
     ]
     # Remove "entity 3 pinned" - should remove only one:
     containers_api.create_next_container_version(
-        parent_of_six.container_pk,
+        parent_of_six.id,
         entities=[child_entity3.versioning.draft],  # specify the version for "pinned"
         created=now,
         created_by=None,
@@ -619,7 +619,7 @@ def test_create_next_container_version_with_remove_4(
     ]
     # Remove "entity 3 unpinned" - should remove only one:
     containers_api.create_next_container_version(
-        parent_of_six.container_pk,
+        parent_of_six.id,
         entities=[child_entity3],
         created=now,
         created_by=None,
@@ -646,7 +646,7 @@ def test_create_next_container_version_with_conflicting_version(parent_of_two: T
     def create_v5():
         """Create a new version, specifying version number 5 and changing the title and the order of the children."""
         containers_api.create_next_container_version(
-            parent_of_two.container_pk,
+            parent_of_two.id,
             title="New version - forced as v5",
             force_version_num=5,
             created=now,
@@ -667,7 +667,7 @@ def test_create_next_container_version_uninstalled_plugin(container_of_uninstall
     """
     with pytest.raises(containers_api.ContainerImplementationMissingError):
         containers_api.create_next_container_version(
-            container_of_uninstalled_type.container_pk,
+            container_of_uninstalled_type.id,
             title="New version of the container",
             created=now,
             created_by=None,
@@ -680,7 +680,7 @@ def test_create_next_container_version_other_lp(parent_of_two: TestContainer, ot
     """
     with pytest.raises(ValidationError, match="Container entities must be from the same learning package."):
         containers_api.create_next_container_version(
-            parent_of_two.container_pk,
+            parent_of_two.id,
             title="Bad Version with entities from another learning package",
             created=now,
             created_by=None,
@@ -696,7 +696,7 @@ def test_get_container(parent_of_two: TestContainer, django_assert_num_queries) 
     Test `get_container()`
     """
     with django_assert_num_queries(1):
-        result = containers_api.get_container(parent_of_two.container_pk)
+        result = containers_api.get_container(parent_of_two.id)
     assert result == parent_of_two.container
     # Versioning data should be pre-loaded via the default select_related() of Container.objects used by get_container
     with django_assert_num_queries(0):
@@ -716,12 +716,12 @@ def test_get_container_soft_deleted(parent_of_two: TestContainer) -> None:
     """
     Test `get_container()` with a soft deleted container
     """
-    publishing_api.soft_delete_draft(parent_of_two.container_pk, deleted_by=None)
+    publishing_api.soft_delete_draft(parent_of_two.id, deleted_by=None)
     parent_of_two.refresh_from_db()
     assert parent_of_two.versioning.draft is None
     assert parent_of_two.versioning.published is None
     # Get the container
-    result = containers_api.get_container(parent_of_two.container_pk)
+    result = containers_api.get_container(parent_of_two.id)
     assert result == parent_of_two.container  # It works fine! get_container() ignores publish/delete status.
 
 
@@ -730,7 +730,7 @@ def test_get_container_uninstalled_type(container_of_uninstalled_type: Container
     Test `get_container()` with a container from an uninstalled plugin
     """
     # Nothing special happens. It should work fine.
-    result = containers_api.get_container(container_of_uninstalled_type.container_pk)
+    result = containers_api.get_container(container_of_uninstalled_type.id)
     assert result == container_of_uninstalled_type
 
 
@@ -892,7 +892,7 @@ def test_get_containers_soft_deleted(
     default, but can be included.
     """
     # Soft delete `parent_of_two`:
-    publishing_api.soft_delete_draft(parent_of_two.container_pk)
+    publishing_api.soft_delete_draft(parent_of_two.id)
     # Now it should not be included in the result:
     assert list(containers_api.get_containers(lp.id)) == [
         # parent_of_two is not returned.
@@ -921,7 +921,7 @@ def test_contains_unpublished_changes_queries(
     with django_assert_num_queries(1):
         assert containers_api.contains_unpublished_changes(grandparent)
     with django_assert_num_queries(1):
-        assert containers_api.contains_unpublished_changes(grandparent.container_pk)
+        assert containers_api.contains_unpublished_changes(grandparent.id)
 
     # Publish grandparent and all its descendants:
     with django_assert_num_queries(135):  # TODO: investigate as this seems high!
@@ -957,7 +957,7 @@ def test_auto_publish_children(
     Test that publishing a container publishes its child components automatically.
     """
     # At first, nothing is published:
-    assert containers_api.contains_unpublished_changes(parent_of_two.container_pk)
+    assert containers_api.contains_unpublished_changes(parent_of_two.id)
     assert child_entity1.versioning.published is None
     assert child_entity2.versioning.published is None
     assert child_entity3.versioning.published is None
@@ -972,7 +972,7 @@ def test_auto_publish_children(
     assert parent_of_two.versioning.has_unpublished_changes is False  # Shallow check
     assert child_entity1.versioning.has_unpublished_changes is False
     assert child_entity2.versioning.has_unpublished_changes is False
-    assert containers_api.contains_unpublished_changes(parent_of_two.container_pk) is False  # Deep check
+    assert containers_api.contains_unpublished_changes(parent_of_two.id) is False  # Deep check
     assert child_entity1.versioning.published == child_entity1_v1  # v1 is now the published version.
 
     # But our other component that's outside the container is not affected:
@@ -1021,7 +1021,7 @@ def test_add_entity_after_publish(lp: LearningPackage, parent_of_two: TestContai
 
     # Add a published entity (child_entity3, unpinned):
     parent_of_two_v2 = containers_api.create_next_container_version(
-        parent_of_two.container_pk,
+        parent_of_two.id,
         entities=[child_entity3],
         created=now,
         created_by=None,
@@ -1051,7 +1051,7 @@ def test_modify_unpinned_entity_after_publish(
     child_entity2_v1 = child_entity2.versioning.draft
 
     assert parent_of_two.versioning.has_unpublished_changes is False  # Shallow check
-    assert containers_api.contains_unpublished_changes(parent_of_two.container_pk) is False  # Deeper check
+    assert containers_api.contains_unpublished_changes(parent_of_two.id) is False  # Deeper check
     assert child_entity1.versioning.has_unpublished_changes is False
 
     # Now modify the child entity (it remains a draft):
@@ -1064,7 +1064,7 @@ def test_modify_unpinned_entity_after_publish(
         parent_of_two.versioning.has_unpublished_changes is False
     )  # Shallow check should be false - container is unchanged
     assert containers_api.contains_unpublished_changes(
-        parent_of_two.container_pk
+        parent_of_two.id
     )  # But the container DOES "contain" changes
     assert child_entity1.versioning.has_unpublished_changes
 
@@ -1168,14 +1168,14 @@ def test_publishing_shared_component(lp: LearningPackage):
         container_cls=TestContainer,
     )
     publishing_api.publish_all_drafts(lp.pk)
-    assert containers_api.contains_unpublished_changes(unit1.container_pk) is False
-    assert containers_api.contains_unpublished_changes(unit2.container_pk) is False
+    assert containers_api.contains_unpublished_changes(unit1.id) is False
+    assert containers_api.contains_unpublished_changes(unit2.id) is False
 
     # 2️⃣ Then the author edits C2 inside of Unit 1 making C2v2.
     c2_v2 = modify_entity(c2)
     # This makes U1 and U2 both show up as Units that CONTAIN unpublished changes, because they share the component.
-    assert containers_api.contains_unpublished_changes(unit1.container_pk)
-    assert containers_api.contains_unpublished_changes(unit2.container_pk)
+    assert containers_api.contains_unpublished_changes(unit1.id)
+    assert containers_api.contains_unpublished_changes(unit2.id)
     # (But the units themselves are unchanged:)
     unit1.refresh_from_db()
     unit2.refresh_from_db()
@@ -1205,8 +1205,8 @@ def test_publishing_shared_component(lp: LearningPackage):
     ]
 
     # Result: Unit 2 CONTAINS unpublished changes because of the modified C5. Unit 1 doesn't contain unpub changes.
-    assert containers_api.contains_unpublished_changes(unit1.container_pk) is False
-    assert containers_api.contains_unpublished_changes(unit2.container_pk)
+    assert containers_api.contains_unpublished_changes(unit1.id) is False
+    assert containers_api.contains_unpublished_changes(unit2.id)
 
     # 5️⃣ Publish component C5, which should be the only thing unpublished in the learning package
     publish_entity(c5)
@@ -1216,7 +1216,7 @@ def test_publishing_shared_component(lp: LearningPackage):
         Entry(c4_v1),  # still original version of C4 (it was never modified)
         Entry(c5_v2),  # new published version of C5
     ]
-    assert containers_api.contains_unpublished_changes(unit2.container_pk) is False
+    assert containers_api.contains_unpublished_changes(unit2.id) is False
 
 
 def test_shallow_publish_log(
@@ -1420,7 +1420,7 @@ def test_snapshots_of_published_unit(lp: LearningPackage, child_entity1: TestEnt
     modify_entity(child_entity1, title="Component 1 as of checkpoint 3")
     modify_entity(child_entity2, title="Component 2 as of checkpoint 3")
     containers_api.create_next_container_version(
-        container.container_pk,
+        container.id,
         title="Unit title in checkpoint 3",
         entities=[child_entity1, child_entity2],
         created=now,
@@ -1433,7 +1433,7 @@ def test_snapshots_of_published_unit(lp: LearningPackage, child_entity1: TestEnt
     # Now add a third component to the unit, a pinned 📌 version of component 1.
     # This will test pinned versions and also test adding at the beginning rather than the end of the unit.
     containers_api.create_next_container_version(
-        container.container_pk,
+        container.id,
         title="Unit title in checkpoint 4",
         entities=[child_entity1_v1, child_entity1, child_entity2],
         created=now,
@@ -1496,7 +1496,7 @@ def test_get_containers_with_entity_draft(
 
     # "child_entity1" is found in three different containers:
     with django_assert_num_queries(1):
-        result = list(containers_api.get_containers_with_entity(child_entity1.publishable_entity.pk))
+        result = list(containers_api.get_containers_with_entity(child_entity1.publishable_entity.id))
     assert result == [  # Note: ordering is in order of container creation
         parent_of_two.container,
         parent_of_three.container,
@@ -1505,7 +1505,7 @@ def test_get_containers_with_entity_draft(
 
     # "child_entity3" is found in two different containers:
     with django_assert_num_queries(1):
-        result = list(containers_api.get_containers_with_entity(child_entity3.publishable_entity.pk))
+        result = list(containers_api.get_containers_with_entity(child_entity3.publishable_entity.id))
     assert result == [  # Note: ordering is in order of container creation
         parent_of_three.container,  # pinned in this container
         parent_of_six.container,  # pinned and unpinned in this container
@@ -1516,17 +1516,17 @@ def test_get_containers_with_entity_draft(
 
     with django_assert_num_queries(1):
         result = list(
-            containers_api.get_containers_with_entity(child_entity3.publishable_entity.pk, ignore_pinned=True)
+            containers_api.get_containers_with_entity(child_entity3.publishable_entity.id, ignore_pinned=True)
         )
     assert result == [  # Note: ordering is in order of container creation
         parent_of_six.container,  # it's pinned and unpinned in this container
     ]
 
     # Some basic tests of the other learning package:
-    assert list(containers_api.get_containers_with_entity(other_lp_child.publishable_entity.pk)) == [
+    assert list(containers_api.get_containers_with_entity(other_lp_child.publishable_entity.id)) == [
         other_lp_parent.container
     ]
-    assert not list(containers_api.get_containers_with_entity(other_lp_parent.publishable_entity.pk))
+    assert not list(containers_api.get_containers_with_entity(other_lp_parent.publishable_entity.id))
 
 
 # get_container_children_count

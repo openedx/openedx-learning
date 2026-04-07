@@ -134,7 +134,7 @@ class SectionsTestCase(ComponentTestCase):
         """Test `get_section()`"""
         section = self.create_section_with_subsections([self.subsection_1, self.subsection_2])
 
-        section_retrieved = content_api.get_section(section.container_pk)
+        section_retrieved = content_api.get_section(section.id)
         assert isinstance(section_retrieved, Section)
         assert section_retrieved == section
 
@@ -147,7 +147,7 @@ class SectionsTestCase(ComponentTestCase):
     def test_get_section_other_container_type(self) -> None:
         """Test `get_section()` when the provided PK is for a non-Subsection container"""
         with pytest.raises(Section.DoesNotExist):
-            content_api.get_section(self.unit_1.container_pk)
+            content_api.get_section(self.unit_1.id)
 
     def test_section_queries(self) -> None:
         """
@@ -158,7 +158,7 @@ class SectionsTestCase(ComponentTestCase):
         with self.assertNumQueries(160):
             content_api.publish_from_drafts(
                 self.learning_package.id,
-                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=section.container_pk),
+                draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=section.id),
             )
         with self.assertNumQueries(4):
             result = content_api.get_subsections_in_section(section, published=True)
@@ -187,7 +187,7 @@ class SectionsTestCase(ComponentTestCase):
             )
         # Check that a new version was not created:
         section.refresh_from_db()
-        assert content_api.get_section(section.container_pk).versioning.draft == section_version
+        assert content_api.get_section(section.id).versioning.draft == section_version
         assert section.versioning.draft == section_version
 
         # Also check that `create_section_with_subsections()` has the same restriction

@@ -798,7 +798,7 @@ class LearningPackageUnzipper:
                 (entity_key, version_num)
             )  # Track published version
             components_api.create_next_component_version(
-                self.components_map_by_key[entity_key].publishable_entity.pk,
+                self.components_map_by_key[entity_key].publishable_entity.id,
                 media_to_replace=media_to_replace,
                 force_version_num=valid_published.pop("version_num", None),
                 created_by=self.user_id,
@@ -879,7 +879,7 @@ class LearningPackageUnzipper:
                 continue
             media_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
             components_api.create_next_component_version(
-                self.components_map_by_key[entity_key].publishable_entity.pk,
+                self.components_map_by_key[entity_key].publishable_entity.id,
                 media_to_replace=media_to_replace,
                 force_version_num=valid_draft.pop("version_num", None),
                 # Drafts can diverge from published, so we allow ignoring previous media

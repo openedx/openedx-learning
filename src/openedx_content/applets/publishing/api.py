@@ -504,7 +504,10 @@ def publish_from_drafts(
     return publish_log
 
 
-def get_draft_version(publishable_entity_or_id: PublishableEntity | int, /) -> PublishableEntityVersion | None:
+def get_draft_version(
+    publishable_entity_or_id: PublishableEntity | PublishableEntity.PK,
+    /
+) -> PublishableEntityVersion | None:
     """
     Return current draft PublishableEntityVersion for this PublishableEntity.
 

@@ -182,20 +182,19 @@ class Container(PublishableEntityMixin):
     )
 
     @property
-    @deprecated("Use container_pk instead")
+    def id(self) -> ContainerPK:
+        return cast(ContainerPK, self.publishable_entity_id)
+
+    @property
+    @deprecated("Use .id instead")
     def pk(self):
         """Mark the .pk attribute as deprecated"""
         # Note: Django-Stubs forces mypy to identify the `.pk` attribute of this model as having 'Any' type (due to our
         # use of a OneToOneField primary key), and this is impossible for us to override, so we prefer to use
-        # `.container_pk` which we can control fully.
+        # `.id` which we can control fully.
         # Since Django uses '.pk' internally, we have to make sure it still works, however. So the best we can do is
         # override this with a deprecated marker, so it shows a warning in developer's IDEs like VS Code.
-        return self.publishable_entity_id
-
-    @property
-    def container_pk(self) -> ContainerPK:
-        """Helper that returns the type-safe primary key of this container"""
-        return cast(ContainerPK, self.publishable_entity_id)
+        return self.id
 
     @classmethod
     def validate_entity(cls, entity: PublishableEntity) -> None:
@@ -302,5 +301,5 @@ class ContainerVersion(PublishableEntityVersionMixin):
         called if anything is edited via a ModelForm like the Django admin.
         """
         super().clean()
-        if self.container_id != self.publishable_entity_version.entity.container.container_pk:  # pylint: disable=no-member
+        if self.container_id != self.publishable_entity_version.entity.container.id:  # pylint: disable=no-member
             raise ValidationError("Inconsistent foreign keys to Container")

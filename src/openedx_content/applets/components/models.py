@@ -136,20 +136,19 @@ class Component(PublishableEntityMixin):
     PK: TypeAlias = ComponentPK
 
     @property
-    @deprecated("Use component_pk instead")
+    def id(self) -> ComponentPK:
+        return cast(ComponentPK, self.publishable_entity_id)
+
+    @property
+    @deprecated("Use .id instead")
     def pk(self):
         """Mark the .pk attribute as deprecated"""
         # Note: Django-Stubs forces mypy to identify the `.pk` attribute of this model as having 'Any' type (due to our
         # use of a OneToOneField primary key), and this is impossible for us to override, so we prefer to use
-        # `.component_pk` which we can control fully.
+        # `.id` which we can control fully.
         # Since Django uses '.pk' internally, we have to make sure it still works, however. So the best we can do is
         # override this with a deprecated marker, so it shows a warning in developer's IDEs like VS Code.
-        return self.publishable_entity_id
-
-    @property
-    def component_pk(self) -> ComponentPK:
-        """Helper that returns the type-safe primary key of this component"""
-        return cast(ComponentPK, self.publishable_entity_id)
+        return self.id
 
     # Set up our custom manager. It has the same API as the default one, but selects related objects by default.
     objects: ClassVar[WithRelationsManager[Component]] = WithRelationsManager(  # type: ignore[assignment]
