@@ -198,6 +198,7 @@ def create_publishable_entity_version(
     You'd typically want to call this right before creating your own content
     version model that points to it.
     """
+    assert isinstance(entity_id, TypedPK)
     with atomic(savepoint=False):
         version = PublishableEntityVersion.objects.create(
             entity_id=entity_id,
@@ -604,7 +605,7 @@ def set_draft_version(
         else:
             class_name = draft_or_id.__class__.__name__
             raise TypeError(
-                f"draft_or_id must be a Draft or int, not ({class_name})"
+                f"draft_or_id must be a Draft or TypedPK, not ({class_name})"
             )
 
         # If the Draft is already pointing at this version, there's nothing to do.

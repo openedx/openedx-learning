@@ -6,7 +6,13 @@ from django.db import models
 from django.db.models import F, Q
 from django.utils.translation import gettext_lazy as _
 
-from openedx_django_lib.fields import hash_field, immutable_uuid_field, manual_date_time_field
+from openedx_django_lib.fields import (
+    TypedForeignKey,
+    TypedOneToOneField,
+    hash_field,
+    immutable_uuid_field,
+    manual_date_time_field,
+)
 
 from .learning_package import LearningPackage
 from .publishable_entity import PublishableEntity, PublishableEntityVersion
@@ -45,7 +51,7 @@ class Draft(models.Model):
     # If we're removing a PublishableEntity entirely, also remove the Draft
     # entry for it. This isn't a normal operation, but can happen if you're
     # deleting an entire LearningPackage.
-    entity = models.OneToOneField(
+    entity = TypedOneToOneField(
         PublishableEntity,
         on_delete=models.CASCADE,
         primary_key=True,
@@ -245,7 +251,7 @@ class DraftChangeLogRecord(models.Model):
         on_delete=models.CASCADE,
         related_name="records",
     )
-    entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+    entity = TypedForeignKey(PublishableEntity, on_delete=models.RESTRICT)
     old_version = models.ForeignKey(
         PublishableEntityVersion,
         on_delete=models.RESTRICT,

@@ -23,6 +23,8 @@ from django.db.models import Q, QuerySet
 from django.db.transaction import atomic
 from django.http.response import HttpResponse, HttpResponseNotFound
 
+from openedx_django_lib.fields import TypedPK
+
 from ..media import api as media_api
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionMedia
@@ -127,7 +129,7 @@ def create_component(
 
 
 def create_component_version(
-    component_pk: int,
+    component_pk: Component.PK,
     /,
     version_num: int,
     title: str,
@@ -153,7 +155,7 @@ def create_component_version(
 
 
 def create_next_component_version(
-    component_pk: int,
+    component_pk: Component.PK,
     /,
     media_to_replace: dict[str, int | None | bytes],
     created: datetime,
@@ -212,6 +214,7 @@ def create_next_component_version(
     TODO: Have to add learning_downloadable info to this when it comes time to
           support static asset download.
     """
+    assert isinstance(component_pk, TypedPK)
     # This needs to grab the highest version_num for this Publishable Entity.
     # This will often be the Draft version, but not always. For instance, if
     # an entity was soft-deleted, the draft would be None, but the version_num
@@ -313,7 +316,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
             can_stand_alone=can_stand_alone,
         )
         component_version = create_component_version(
-            component.pk,
+            component.id,
             version_num=1,
             title=title,
             created=created,
@@ -322,7 +325,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
         return (component, component_version)
 
 
-def get_component(component_pk: int, /) -> Component:
+def get_component(component_pk: Component.PK, /) -> Component:
     """
     Get Component by its primary key.
 

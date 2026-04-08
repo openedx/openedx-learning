@@ -99,7 +99,7 @@ class PerformanceTestCase(ComponentTestCase):
         # We should be fetching all of this with a select-related, so only one
         # database query should happen here.
         with self.assertNumQueries(1):
-            component = components_api.get_component(component.pk)
+            component = components_api.get_component(component.id)
             draft = component.versioning.draft
             published = component.versioning.published
             assert draft.title == published.title
@@ -177,7 +177,7 @@ class GetComponentsTestCase(ComponentTestCase):
             created=cls.now,
             created_by=None,
         )
-        publishing_api.soft_delete_draft(cls.deleted_video.pk)
+        publishing_api.soft_delete_draft(cls.deleted_video.id)
 
     def test_no_filters(self):
         """
@@ -338,7 +338,7 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
         )
 
     def test_simple_get(self):
-        assert components_api.get_component(self.problem.pk) == self.problem
+        assert components_api.get_component(self.problem.id) == self.problem
         with self.assertRaises(ObjectDoesNotExist):
             components_api.get_component(-1)
 
@@ -407,7 +407,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
 
     def test_add(self):
         new_version = components_api.create_component_version(
-            self.problem.pk,
+            self.problem.id,
             version_num=1,
             title="My Title",
             created=self.now,
@@ -425,7 +425,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             key="my/path/to/hello.txt",
         )
         # re-fetch from the database to check to see if we wrote it correctly
-        new_version = components_api.get_component(self.problem.pk) \
+        new_version = components_api.get_component(self.problem.id) \
                                     .versions \
                                     .get(publishable_entity_version__version_num=1)
         assert (
@@ -440,7 +440,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             new_media.pk,
             key="//nested/path/hello.txt",
         )
-        new_version = components_api.get_component(self.problem.pk) \
+        new_version = components_api.get_component(self.problem.id) \
                                     .versions \
                                     .get(publishable_entity_version__version_num=1)
         assert (
@@ -452,7 +452,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         bytes_media = b'raw content'
 
         version_1 = components_api.create_next_component_version(
-            self.problem.pk,
+            self.problem.id,
             title="Problem Version 1",
             media_to_replace={
                 "raw.txt": bytes_media,
@@ -494,7 +494,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
 
         # Two text files, hello.txt and goodbye.txt
         version_1 = components_api.create_next_component_version(
-            self.problem.pk,
+            self.problem.id,
             title="Problem Version 1",
             media_to_replace={
                 "hello.txt": hello_media.pk,
@@ -520,7 +520,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         # This should keep the old value for goodbye.txt, add blank.txt, and set
         # hello.txt to be a new value (blank).
         version_2 = components_api.create_next_component_version(
-            self.problem.pk,
+            self.problem.id,
             title="Problem Version 2",
             media_to_replace={
                 "hello.txt": blank_media.pk,
@@ -549,7 +549,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         # Now we're going to set "hello.txt" back to hello_content, but remove
         # blank.txt, goodbye.txt, and an unknown "nothere.txt".
         version_3 = components_api.create_next_component_version(
-            self.problem.pk,
+            self.problem.id,
             title="Problem Version 3",
             media_to_replace={
                 "hello.txt": hello_media.pk,
@@ -570,7 +570,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
     def test_create_next_version_forcing_num_version(self):
         """Test creating a next version with a forced version number."""
         version_1 = components_api.create_next_component_version(
-            self.problem.pk,
+            self.problem.id,
             title="Problem Version 1",
             media_to_replace={},
             created=self.now,
@@ -602,7 +602,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             'static/new_file.webp': python_source_asset.pk,
         }
         version_1_published = components_api.create_next_component_version(
-            self.problem.pk,
+            self.problem.id,
             title="Problem Version 1",
             media_to_replace=media_to_replace_for_published,
             created=self.now,
@@ -615,7 +615,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         )
 
         version_2_draft = components_api.create_next_component_version(
-            self.problem.pk,
+            self.problem.id,
             title="Problem Version 2",
             media_to_replace=media_to_replace_for_draft,
             created=self.now,

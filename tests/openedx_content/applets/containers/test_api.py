@@ -106,7 +106,7 @@ def create_test_entity(learning_package: LearningPackage, key: str, title: str) 
     pe = publishing_api.create_publishable_entity(learning_package.id, key, created=now, created_by=None)
     new_entity = TestEntity.objects.create(publishable_entity=pe)
     pev = publishing_api.create_publishable_entity_version(
-        new_entity.pk,
+        new_entity.id,
         version_num=1,
         title=title,
         created=now,

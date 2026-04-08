@@ -14,6 +14,8 @@ from django.db import models
 from django.utils.translation import gettext as _
 
 from openedx_django_lib.fields import (
+    TypedForeignKey,
+    TypedOneToOneField,
     TypedPK,
     TypedPrimaryKeyField,
     case_insensitive_char_field,
@@ -112,7 +114,7 @@ class PublishableEntity(models.Model):
     more convenient, like file access.
     """
     PK: TypeAlias = TypedPK["PublishableEntity"]
-    id = TypedPrimaryKeyField[PK | int | None, PK](primary_key=True)
+    id = TypedPrimaryKeyField[PK | None, PK](primary_key=True)
 
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(
@@ -196,7 +198,7 @@ class PublishableEntityVersion(models.Model):
     """
 
     uuid = immutable_uuid_field()
-    entity = models.ForeignKey(
+    entity = TypedForeignKey(
         PublishableEntity, on_delete=models.CASCADE, related_name="versions"
     )
 
@@ -306,7 +308,7 @@ class PublishableEntityVersionDependency(models.Model):
     .. no_pii
     """
     referring_version = models.ForeignKey(PublishableEntityVersion, on_delete=models.CASCADE)
-    referenced_entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+    referenced_entity = TypedForeignKey(PublishableEntity, on_delete=models.RESTRICT)
 
     class Meta:
         constraints = [
@@ -334,7 +336,7 @@ class PublishableEntityMixin(models.Model):
         "publishable_entity__draft",
     )
 
-    publishable_entity = models.OneToOneField(
+    publishable_entity = TypedOneToOneField(
         PublishableEntity, on_delete=models.CASCADE, primary_key=True
     )
 

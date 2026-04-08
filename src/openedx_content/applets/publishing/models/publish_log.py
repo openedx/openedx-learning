@@ -6,6 +6,8 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from openedx_django_lib.fields import (
+    TypedForeignKey,
+    TypedOneToOneField,
     case_insensitive_char_field,
     hash_field,
     immutable_uuid_field,
@@ -82,7 +84,7 @@ class PublishLogRecord(models.Model):
         on_delete=models.CASCADE,
         related_name="records",
     )
-    entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+    entity = TypedForeignKey(PublishableEntity, on_delete=models.RESTRICT)
     old_version = models.ForeignKey(
         PublishableEntityVersion,
         on_delete=models.RESTRICT,
@@ -166,7 +168,7 @@ class Published(models.Model):
     is unpublished/deleted?
     """
 
-    entity = models.OneToOneField(
+    entity = TypedOneToOneField(
         PublishableEntity,
         on_delete=models.CASCADE,
         primary_key=True,

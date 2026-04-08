@@ -94,7 +94,7 @@ class LpDumpCommandTestCase(TestCase):
         )
 
         new_problem_version = api.create_next_component_version(
-            cls.published_component.pk,
+            cls.published_component.id,
             title="My published problem draft v2",
             media_to_replace={},
             created=cls.now,
@@ -123,7 +123,7 @@ class LpDumpCommandTestCase(TestCase):
         )
 
         new_html_version = api.create_next_component_version(
-            cls.draft_component.pk,
+            cls.draft_component.id,
             title="My draft html v2",
             media_to_replace={},
             created=cls.now,

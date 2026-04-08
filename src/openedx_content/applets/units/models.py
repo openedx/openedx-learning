@@ -7,6 +7,8 @@ from typing import override
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from openedx_django_lib.fields import TypedOneToOneField
+
 from ..containers.models import Container, ContainerVersion
 from ..publishing.models import PublishableEntity
 
@@ -28,7 +30,7 @@ class Unit(Container):
     type_code = "unit"
     olx_tag_name = "vertical"  # Serializes to OLX as `<unit>...</unit>`.
 
-    container = models.OneToOneField(
+    container = TypedOneToOneField(
         Container,
         on_delete=models.CASCADE,
         parent_link=True,

@@ -104,8 +104,8 @@ class TestModelVersioningQueries(TestCase):
             publish_all_drafts(self.learning_package.id)
 
         # Refetch the entities to get latest versions
-        component_with_changes = get_component(component_with_changes.pk)
-        component_with_no_changes = get_component(component_with_no_changes.pk)
+        component_with_changes = get_component(component_with_changes.id)
+        component_with_no_changes = get_component(component_with_no_changes.id)
 
         # Fetch the most recent PublishLog for these components
         first_publish_log_for_component_with_changes = component_with_changes.versioning.last_publish_log

@@ -9,6 +9,7 @@ from typing import override
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from openedx_django_lib.fields import TypedOneToOneField
 from openedx_content.models_api import (
     Container,
     ContainerVersion,
@@ -25,6 +26,10 @@ class TestEntity(PublishableEntityMixin):
     """
 
     __test__ = False  # Tell pytest this is "an entity for testing" not "a test class for entities"
+
+    @property
+    def id(self):
+        return self.publishable_entity_id
 
 
 class TestEntityVersion(PublishableEntityVersionMixin):
@@ -45,7 +50,7 @@ class TestContainer(Container):
 
     type_code = "test_generic"
 
-    container = models.OneToOneField(Container, on_delete=models.CASCADE, parent_link=True, primary_key=True)
+    container = TypedOneToOneField(Container, on_delete=models.CASCADE, parent_link=True, primary_key=True)
 
     @override
     @classmethod
@@ -77,7 +82,7 @@ class ContainerContainer(Container):
     type_code = "test_container_container"
 
     # Test that we can name this field anything
-    base_container = models.OneToOneField(Container, on_delete=models.CASCADE, parent_link=True, primary_key=True)
+    base_container = TypedOneToOneField(Container, on_delete=models.CASCADE, parent_link=True, primary_key=True)
 
     @override
     @classmethod

@@ -70,7 +70,12 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, key_field
+from openedx_django_lib.fields import (
+    MultiCollationTextField,
+    TypedForeignKey,
+    case_insensitive_char_field,
+    key_field,
+)
 from openedx_django_lib.validators import validate_utc_datetime
 
 from ..publishing.models import LearningPackage, PublishableEntity
@@ -207,7 +212,7 @@ class CollectionPublishableEntity(models.Model):
         Collection,
         on_delete=models.CASCADE,
     )
-    entity = models.ForeignKey(
+    entity = TypedForeignKey(
         PublishableEntity,
         on_delete=models.RESTRICT,
     )

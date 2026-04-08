@@ -7,6 +7,8 @@ from typing import override
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from openedx_django_lib.fields import TypedOneToOneField
+
 from ..containers.api import get_container_subclass_of
 from ..containers.models import Container, ContainerVersion
 from ..publishing.models import PublishableEntity
@@ -30,7 +32,7 @@ class Subsection(Container):
     type_code = "subsection"
     olx_tag_name = "sequential"  # Serializes to OLX as `<sequential>...</sequential>`.
 
-    container = models.OneToOneField(
+    container = TypedOneToOneField(
         Container,
         on_delete=models.CASCADE,
         parent_link=True,

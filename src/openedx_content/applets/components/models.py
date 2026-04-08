@@ -21,11 +21,16 @@ from typing import ClassVar
 
 from django.db import models
 
-from openedx_django_lib.fields import case_sensitive_char_field, key_field
+from openedx_django_lib.fields import TypedPK, case_sensitive_char_field, key_field
 from openedx_django_lib.managers import WithRelationsManager
 
 from ..media.models import Media
-from ..publishing.models import LearningPackage, PublishableEntityMixin, PublishableEntityVersionMixin
+from ..publishing.models import (
+    LearningPackage,
+    PublishableEntity,
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 
 __all__ = [
     "ComponentType",
@@ -123,6 +128,17 @@ class Component(PublishableEntityMixin):
     Make a foreign key to the Component model when you need a stable reference
     that will exist for as long as the LearningPackage itself exists.
     """
+    class PK(PublishableEntity.PK):
+        pass
+
+    @property
+    def id(self) -> PK | None:
+        if self.publishable_entity_id is None:
+            return None
+        if isinstance(self.publishable_entity_id, TypedPK):
+            return self.PK(self.publishable_entity_id.value)  # Convert to our Component.PK
+        return self.PK(self.publishable_entity_id)
+
     # Set up our custom manager. It has the same API as the default one, but selects related objects by default.
     objects: ClassVar[WithRelationsManager[Component]] = WithRelationsManager(  # type: ignore[assignment]
         'component_type'

@@ -10,7 +10,7 @@ from typing import final
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from openedx_django_lib.fields import case_sensitive_char_field
+from openedx_django_lib.fields import TypedForeignKey, case_sensitive_char_field
 
 from ..publishing.models.publishable_entity import (
     PublishableEntity,
@@ -72,7 +72,7 @@ class EntityListRow(models.Model):
     # could be Selectors, in which case we'd need to do more work to find the right
     # variant. The publishing app itself doesn't know anything about Selectors
     # however, and just treats it as another PublishableEntity.
-    entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+    entity = TypedForeignKey(PublishableEntity, on_delete=models.RESTRICT)
 
     # The version references point to the specific PublishableEntityVersion that
     # this EntityList has for this PublishableEntity for both the draft and
