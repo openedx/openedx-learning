@@ -9,8 +9,8 @@ from typing import Iterable
 
 from ..containers import api as containers_api
 from ..containers.models import Container, ContainerVersion
-from ..subsections.models import Subsection, SubsectionVersion
 from ..publishing.models import LearningPackage
+from ..subsections.models import Subsection, SubsectionVersion
 from .models import Section, SectionVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured

@@ -138,7 +138,7 @@ class PublishableEntity(models.Model):
         help_text=_("Set to True when created independently, False when created as part of a container."),
     )
 
-    @property
+    @property  # type: ignore[no-redef]
     @deprecated("Use .id instead")
     def pk(self) -> PublishableEntityPK:
         return self.id

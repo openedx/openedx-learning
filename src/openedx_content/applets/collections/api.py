@@ -196,7 +196,10 @@ def get_entity_collections(learning_package_id: LearningPackage.PK, entity_key: 
     return entity.collections.filter(enabled=True).order_by("pk")
 
 
-def get_collection_entities(learning_package_id: LearningPackage.PK, collection_key: str) -> QuerySet[PublishableEntity]:
+def get_collection_entities(
+    learning_package_id: LearningPackage.PK,
+    collection_key: str,
+) -> QuerySet[PublishableEntity]:
     """
     Returns a QuerySet of PublishableEntities in a Collection.
 
