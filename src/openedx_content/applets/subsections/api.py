@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Iterable
 
 from ..containers import api as containers_api
-from ..containers.models import Container, ContainerVersion
+from ..containers.models import ContainerVersion
 from ..publishing.models import LearningPackage
 from ..units.models import Unit, UnitVersion
 from .models import Subsection, SubsectionVersion
@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-def get_subsection(subsection_id: Container.PK, /):
+def get_subsection(subsection_id: Subsection.PK, /):
     """Get a subsection"""
     return Subsection.objects.select_related("container").get(pk=subsection_id)
 
@@ -61,7 +61,7 @@ def create_subsection_and_version(
 
 
 def create_next_subsection_version(
-    subsection: Subsection | Container.PK,
+    subsection: Subsection | Subsection.PK,
     *,
     title: str | None = None,
     units: Iterable[Unit | UnitVersion] | None = None,

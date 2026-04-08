@@ -9,7 +9,7 @@ from typing import Iterable
 
 from ..components.models import Component, ComponentVersion
 from ..containers import api as containers_api
-from ..containers.models import Container, ContainerVersion
+from ..containers.models import ContainerVersion
 from ..publishing.models import LearningPackage
 from .models import Unit, UnitVersion
 
@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-def get_unit(unit_id: Container.PK, /):
+def get_unit(unit_id: Unit.PK, /):
     """Get a unit"""
     return Unit.objects.select_related("container").get(pk=unit_id)
 
@@ -61,7 +61,7 @@ def create_unit_and_version(
 
 
 def create_next_unit_version(
-    unit: Unit | Container.PK,
+    unit: Unit | Unit.PK,
     *,
     title: str | None = None,
     components: Iterable[Component | ComponentVersion] | None = None,

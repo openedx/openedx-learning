@@ -2,13 +2,13 @@
 Models that implement subsections
 """
 
-from typing import override
+from typing import NewType, TypeAlias, cast, override
 
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from ..containers.api import get_container_subclass_of
-from ..containers.models import Container, ContainerVersion
+from ..containers.models import Container, ContainerPK, ContainerVersion
 from ..publishing.models import PublishableEntity
 from ..units.models import Unit
 
@@ -16,6 +16,8 @@ __all__ = [
     "Subsection",
     "SubsectionVersion",
 ]
+
+SubsectionPK = NewType("SubsectionPK", ContainerPK)
 
 
 @Container.register_subclass
@@ -27,6 +29,8 @@ class Subsection(Container):
     entities and can be added to other containers.
     """
 
+    PK: TypeAlias = SubsectionPK
+
     type_code = "subsection"
     olx_tag_name = "sequential"  # Serializes to OLX as `<sequential>...</sequential>`.
 
@@ -36,6 +40,10 @@ class Subsection(Container):
         parent_link=True,
         primary_key=True,
     )
+
+    @property
+    def id(self) -> SubsectionPK:
+        return cast(SubsectionPK, self.publishable_entity_id)
 
     @override
     @classmethod

@@ -2,18 +2,20 @@
 Models that implement units
 """
 
-from typing import override
+from typing import NewType, TypeAlias, cast, override
 
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from ..containers.models import Container, ContainerVersion
+from ..containers.models import Container, ContainerPK, ContainerVersion
 from ..publishing.models import PublishableEntity
 
 __all__ = [
     "Unit",
     "UnitVersion",
 ]
+
+UnitPK = NewType("UnitPK", ContainerPK)
 
 
 @Container.register_subclass
@@ -25,6 +27,8 @@ class Unit(Container):
     entities and can be added to other containers.
     """
 
+    PK: TypeAlias = UnitPK
+
     type_code = "unit"
     olx_tag_name = "vertical"  # Serializes to OLX as `<unit>...</unit>`.
 
@@ -34,6 +38,10 @@ class Unit(Container):
         parent_link=True,
         primary_key=True,
     )
+
+    @property
+    def id(self) -> UnitPK:
+        return cast(UnitPK, self.publishable_entity_id)
 
     @override
     @classmethod

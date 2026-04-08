@@ -1,13 +1,14 @@
 """
 Basic tests for the subsections API.
 """
+
 from typing import cast
 
 import pytest
 from django.core.exceptions import ValidationError
 
 import openedx_content.api as content_api
-from openedx_content.models_api import Container, Subsection, SubsectionVersion, Unit, UnitVersion
+from openedx_content.models_api import Subsection, SubsectionVersion, Unit, UnitVersion
 
 from ..components.test_api import ComponentTestCase
 
@@ -117,14 +118,14 @@ class SubsectionsTestCase(ComponentTestCase):
 
     def test_get_subsection_nonexistent(self) -> None:
         """Test `get_subsection()` when the subsection doesn't exist"""
-        FAKE_ID = cast(Container.PK, -500)
+        FAKE_ID = cast(Subsection.PK, -500)
         with pytest.raises(Subsection.DoesNotExist):
             content_api.get_subsection(FAKE_ID)
 
     def test_get_subsection_other_container_type(self) -> None:
         """Test `get_subsection()` when the provided PK is for a non-Subsection container"""
         with pytest.raises(Subsection.DoesNotExist):
-            content_api.get_subsection(self.unit_1.id)
+            content_api.get_subsection(self.unit_1.id)  # type: ignore[arg-type]
 
     def test_subsection_queries(self) -> None:
         """

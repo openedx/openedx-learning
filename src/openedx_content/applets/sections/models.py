@@ -2,13 +2,13 @@
 Models that implement sections
 """
 
-from typing import override
+from typing import NewType, TypeAlias, cast, override
 
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from ..containers.api import get_container_subclass_of
-from ..containers.models import Container, ContainerVersion
+from ..containers.models import Container, ContainerPK, ContainerVersion
 from ..publishing.models import PublishableEntity
 from ..subsections.models import Subsection
 
@@ -16,6 +16,8 @@ __all__ = [
     "Section",
     "SectionVersion",
 ]
+
+SectionPK = NewType("SectionPK", ContainerPK)
 
 
 @Container.register_subclass
@@ -27,6 +29,8 @@ class Section(Container):
     entities and can be added to other containers.
     """
 
+    PK: TypeAlias = SectionPK
+
     type_code = "section"
     olx_tag_name = "chapter"  # Serializes to OLX as `<chapter>...</chapter>`.
 
@@ -36,6 +40,10 @@ class Section(Container):
         parent_link=True,
         primary_key=True,
     )
+
+    @property
+    def id(self) -> SectionPK:
+        return cast(SectionPK, self.publishable_entity_id)
 
     @override
     @classmethod

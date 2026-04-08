@@ -1,13 +1,14 @@
 """
 Basic tests for the units API.
 """
+
 from typing import cast
 
 import pytest
 from django.core.exceptions import ValidationError
 
 import openedx_content.api as content_api
-from openedx_content.models_api import Component, ComponentVersion, Container, Unit, UnitVersion
+from openedx_content.models_api import Component, ComponentVersion, Unit, UnitVersion
 from tests.test_django_app.models import TestContainer
 
 from ..components.test_api import ComponentTestCase
@@ -111,7 +112,7 @@ class UnitsTestCase(ComponentTestCase):
 
     def test_get_unit_nonexistent(self) -> None:
         """Test `get_unit()` when the unit doesn't exist"""
-        FAKE_ID = cast(Container.PK, -500)
+        FAKE_ID = cast(Unit.PK, -500)
         with pytest.raises(Unit.DoesNotExist):
             content_api.get_unit(FAKE_ID)
 
@@ -125,7 +126,7 @@ class UnitsTestCase(ComponentTestCase):
             container_cls=TestContainer,
         )
         with pytest.raises(Unit.DoesNotExist):
-            content_api.get_unit(other_container.id)
+            content_api.get_unit(other_container.id)  # type: ignore[arg-type]
 
     def test_unit_queries(self) -> None:
         """
