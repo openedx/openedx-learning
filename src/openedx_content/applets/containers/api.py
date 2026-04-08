@@ -13,7 +13,9 @@ from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 from django.db.transaction import atomic
 from django.db.utils import IntegrityError
-from typing_extensions import TypeVar  # for 'default=...'
+from typing_extensions import TypeVar
+
+from openedx_django_lib.fields import TypedPK  # for 'default=...'
 
 from ..publishing import api as publishing_api
 from ..publishing.models import (
@@ -290,7 +292,7 @@ def _create_container_version(
 
 
 def create_container_version(
-    container_id: int,
+    container_id: Container.PK,
     version_num: int,
     *,
     title: str,
@@ -452,7 +454,7 @@ def create_next_entity_list(
 
 
 def create_next_container_version(
-    container: Container | int,
+    container: Container | Container.PK,
     /,
     *,
     title: str | None = None,
@@ -497,7 +499,7 @@ def create_next_container_version(
         use force_version_num to override the default behavior.
     """
     with atomic():
-        if isinstance(container, int):
+        if isinstance(container, TypedPK):
             container = Container.objects.select_related("publishable_entity").get(pk=container)
         assert isinstance(container, Container)
         entity = container.publishable_entity
@@ -534,7 +536,7 @@ def create_next_container_version(
     return next_container_version
 
 
-def get_container(pk: int) -> Container:
+def get_container(pk: Container.PK) -> Container:
     """
     [ 🛑 UNSTABLE ]
     Get a container by its primary key.
@@ -606,15 +608,15 @@ def get_container_subclass(type_code: str, /) -> ContainerSubclass:
     return Container.subclass_for_type_code(type_code)
 
 
-def get_container_type_code_of(container: Container | int, /) -> str:
+def get_container_type_code_of(container: Container | Container.PK, /) -> str:
     """Get the type of a container, as a string - e.g. "unit"."""
-    if isinstance(container, int):
+    if isinstance(container, TypedPK):
         container = get_container(container)
     assert isinstance(container, Container)
     return container.container_type.type_code
 
 
-def get_container_subclass_of(container: Container | int, /) -> ContainerSubclass:
+def get_container_subclass_of(container: Container | Container.PK, /) -> ContainerSubclass:
     """
     Get the type of a container.
 
@@ -751,7 +753,7 @@ def get_entities_in_container_as_of(
     return container_version, entity_list
 
 
-def contains_unpublished_changes(container_or_pk: Container | int, /) -> bool:
+def contains_unpublished_changes(container_or_pk: Container | Container.PK, /) -> bool:
     """
     [ 🛑 UNSTABLE ]
     Check recursively if a container has any unpublished changes.
@@ -769,11 +771,11 @@ def contains_unpublished_changes(container_or_pk: Container | int, /) -> bool:
     that's in the container, it will be `False`. This method will return `True`
     in either case.
     """
-    if isinstance(container_or_pk, int):
+    if isinstance(container_or_pk, TypedPK):
         container_id = container_or_pk
     else:
         assert isinstance(container_or_pk, Container)
-        container_id = container_or_pk.pk
+        container_id = container_or_pk.id
     container = (
         Container.objects.select_related("publishable_entity__draft__draft_log_record")
         .select_related("publishable_entity__published__publish_log_record")

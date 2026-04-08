@@ -7,8 +7,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable
 
+from openedx_django_lib.fields import TypedPK
+
 from ..containers import api as containers_api
-from ..containers.models import ContainerVersion
+from ..containers.models import Container, ContainerVersion
 from ..units.models import Unit, UnitVersion
 from .models import Subsection, SubsectionVersion
 
@@ -23,7 +25,7 @@ __all__ = [
 ]
 
 
-def get_subsection(subsection_id: int, /):
+def get_subsection(subsection_id: Container.PK, /):
     """Get a subsection"""
     return Subsection.objects.select_related("container").get(pk=subsection_id)
 
@@ -60,7 +62,7 @@ def create_subsection_and_version(
 
 
 def create_next_subsection_version(
-    subsection: Subsection | int,
+    subsection: Subsection | Container.PK,
     *,
     title: str | None = None,
     units: Iterable[Unit | UnitVersion] | None = None,
@@ -74,7 +76,7 @@ def create_next_subsection_version(
     returned is a `SubsectionVersion`. In the future, if `SubsectionVersion` gets some fields that aren't on
     `ContainerVersion`, this function would be more important.
     """
-    if isinstance(subsection, int):
+    if isinstance(subsection, TypedPK):
         subsection = get_subsection(subsection)
     assert isinstance(subsection, Subsection)
     sv = containers_api.create_next_container_version(

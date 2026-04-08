@@ -160,6 +160,12 @@ class Container(PublishableEntityMixin):
     we will also add support for dynamic containers which may contain different
     entities for different learners or at different times.
     """
+    class PK(PublishableEntity.PK):
+        pass
+
+    @property
+    def id(self) -> PK:
+        return self.PK(self.publishable_entity_id.value)
 
     type_code: str  # Subclasses must override this, e.g. "unit"
     # olx_code: the OLX <tag_name> for XML serialization. Subclasses _may_ override this.

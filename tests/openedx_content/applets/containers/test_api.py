@@ -692,7 +692,7 @@ def test_get_container_nonexistent() -> None:
     Test `get_container()` with an invalid ID.
     """
     with pytest.raises(Container.DoesNotExist):
-        containers_api.get_container(-5000)
+        containers_api.get_container(Container.PK(-5000))
 
 
 def test_get_container_soft_deleted(parent_of_two: TestContainer) -> None:

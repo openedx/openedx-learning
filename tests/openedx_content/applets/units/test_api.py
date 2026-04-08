@@ -6,7 +6,7 @@ import pytest
 from django.core.exceptions import ValidationError
 
 import openedx_content.api as content_api
-from openedx_content.models_api import Component, ComponentVersion, Unit, UnitVersion
+from openedx_content.models_api import Container, Component, ComponentVersion, Unit, UnitVersion
 from tests.test_django_app.models import TestContainer
 
 from ..components.test_api import ComponentTestCase
@@ -111,7 +111,7 @@ class UnitsTestCase(ComponentTestCase):
     def test_get_unit_nonexistent(self) -> None:
         """Test `get_unit()` when the unit doesn't exist"""
         with pytest.raises(Unit.DoesNotExist):
-            content_api.get_unit(-500)
+            content_api.get_unit(Container.PK(-500))
 
     def test_get_unit_other_container_type(self) -> None:
         """Test `get_unit()` when the provided PK is for a non-Unit container"""
