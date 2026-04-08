@@ -8,6 +8,10 @@ amqp==5.3.1
     # via
     #   -r requirements/quality.txt
     #   kombu
+annotated-types==0.7.0
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic
 asgiref==3.11.1
     # via
     #   -r requirements/quality.txt
@@ -164,6 +168,7 @@ djangorestframework-stubs==3.16.9
 dnspython==2.8.0
     # via
     #   -r requirements/quality.txt
+    #   email-validator
     #   pymongo
 docutils==0.22.4
     # via
@@ -192,6 +197,10 @@ edx-opaque-keys==4.0.0
     #   edx-organizations
 edx-organizations==8.0.0
     # via -r requirements/quality.txt
+email-validator==2.3.0
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic
 filelock==3.25.2
     # via
     #   -r requirements/ci.txt
@@ -199,6 +208,8 @@ filelock==3.25.2
     #   tox
     #   virtualenv
 freezegun==1.5.5
+    # via -r requirements/quality.txt
+fsspec==2026.3.0
     # via -r requirements/quality.txt
 grimp==3.14
     # via
@@ -211,6 +222,7 @@ id==1.6.1
 idna==3.11
     # via
     #   -r requirements/quality.txt
+    #   email-validator
     #   requests
 import-linter==2.11
     # via -r requirements/quality.txt
@@ -353,6 +365,12 @@ pycparser==3.0
     # via
     #   -r requirements/quality.txt
     #   cffi
+pydantic[email]==2.13.3
+    # via -r requirements/quality.txt
+pydantic-core==2.46.3
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic
 pydocstyle==6.3.0
     # via -r requirements/quality.txt
 pygments==2.20.0
@@ -516,6 +534,13 @@ typing-extensions==4.15.0
     #   grimp
     #   import-linter
     #   mypy
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.2
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic
 tzdata==2026.1
     # via
     #   -r requirements/quality.txt

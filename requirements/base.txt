@@ -6,6 +6,8 @@
 #
 amqp==5.3.1
     # via kombu
+annotated-types==0.7.0
+    # via pydantic
 asgiref==3.11.1
     # via django
 attrs==26.1.0
@@ -67,7 +69,9 @@ djangorestframework==3.17.1
     #   edx-drf-extensions
     #   edx-organizations
 dnspython==2.8.0
-    # via pymongo
+    # via
+    #   email-validator
+    #   pymongo
 drf-jwt==1.19.2
     # via edx-drf-extensions
 edx-django-utils==8.0.1
@@ -82,8 +86,14 @@ edx-opaque-keys==4.0.0
     #   edx-organizations
 edx-organizations==8.0.0
     # via -r requirements/base.in
+email-validator==2.3.0
+    # via pydantic
+fsspec==2026.3.0
+    # via -r requirements/base.in
 idna==3.11
-    # via requests
+    # via
+    #   email-validator
+    #   requests
 kombu==5.6.2
     # via celery
 packaging==26.0
@@ -96,6 +106,10 @@ psutil==7.2.2
     # via edx-django-utils
 pycparser==3.0
     # via cffi
+pydantic[email]==2.13.3
+    # via -r requirements/base.in
+pydantic-core==2.46.3
+    # via pydantic
 pyjwt[crypto]==2.12.1
     # via
     #   drf-jwt
@@ -123,7 +137,13 @@ stevedore==5.7.0
 tomlkit==0.14.0
     # via -r requirements/base.in
 typing-extensions==4.15.0
-    # via edx-opaque-keys
+    # via
+    #   edx-opaque-keys
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.2
+    # via pydantic
 tzdata==2026.1
     # via kombu
 tzlocal==5.3.1

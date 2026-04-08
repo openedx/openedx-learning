@@ -1,0 +1,10 @@
+# This is a fully specified package TOML file with no errors, like we would
+# expect from an Ulmo instance.
+[meta]
+format_version = 1
+
+[learning_package]
+title = "Fun Library"
+
+[unknown]
+new_field = "Aloha!"

@@ -1,0 +1,10 @@
+# No [entity] key
+[entity]
+can_stand_alone = true
+created = 2025-10-31T16:42:04.158245Z
+
+# ### Versions
+
+[[version]]
+title = "Text"
+version_num = 3

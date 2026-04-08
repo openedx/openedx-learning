@@ -8,6 +8,10 @@ amqp==5.3.1
     # via
     #   -r requirements/base.txt
     #   kombu
+annotated-types==0.7.0
+    # via
+    #   -r requirements/base.txt
+    #   pydantic
 asgiref==3.11.1
     # via
     #   -r requirements/base.txt
@@ -118,6 +122,7 @@ djangorestframework-stubs==3.16.9
 dnspython==2.8.0
     # via
     #   -r requirements/base.txt
+    #   email-validator
     #   pymongo
 drf-jwt==1.19.2
     # via
@@ -138,13 +143,20 @@ edx-opaque-keys==4.0.0
     #   edx-organizations
 edx-organizations==8.0.0
     # via -r requirements/base.txt
+email-validator==2.3.0
+    # via
+    #   -r requirements/base.txt
+    #   pydantic
 freezegun==1.5.5
     # via -r requirements/test.in
+fsspec==2026.3.0
+    # via -r requirements/base.txt
 grimp==3.14
     # via import-linter
 idna==3.11
     # via
     #   -r requirements/base.txt
+    #   email-validator
     #   requests
 import-linter==2.11
     # via -r requirements/test.in
@@ -199,6 +211,12 @@ pycparser==3.0
     # via
     #   -r requirements/base.txt
     #   cffi
+pydantic[email]==2.13.3
+    # via -r requirements/base.txt
+pydantic-core==2.46.3
+    # via
+    #   -r requirements/base.txt
+    #   pydantic
 pygments==2.20.0
     # via
     #   pytest
@@ -279,6 +297,13 @@ typing-extensions==4.15.0
     #   grimp
     #   import-linter
     #   mypy
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.2
+    # via
+    #   -r requirements/base.txt
+    #   pydantic
 tzdata==2026.1
     # via
     #   -r requirements/base.txt
