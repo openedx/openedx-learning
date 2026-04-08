@@ -1,0 +1,29 @@
+# Pretty normal Section with a couple of child Subsections
+[entity]
+can_stand_alone = true
+key = "section-9-ac4b9f"
+created = 2026-04-08T15:22:12.780012Z
+
+[entity.draft]
+version_num = 2
+
+[entity.published]
+version_num = 1
+
+[entity.container.section]
+
+# ### Versions
+
+[[version]]
+title = "Section 9"
+version_num = 2
+
+[version.container]
+children = ["week-7-e73782", "subsection-001-e4bbe5"]
+
+[[version]]
+title = "Section 9"
+version_num = 1
+
+[version.container]
+children = ["week-7-e73782"]

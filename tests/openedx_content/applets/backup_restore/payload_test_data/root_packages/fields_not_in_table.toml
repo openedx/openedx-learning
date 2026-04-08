@@ -1,0 +1,15 @@
+# The problem here is that created_by and formt_version are not in a table, and
+# we don't allow that.
+created_by = "eddy"
+format_version = 1
+
+[meta]
+created_at = 2026-03-11T19:20:20.394360Z
+origin_server = "studio.local.openedx.io"
+
+[learning_package]
+title = "Fun Library"
+key = "lib:Axim:FunLib"
+description = "My very fun library! 🐢"
+created = 2026-02-11T16:32:47.524556Z
+updated = 2026-02-20T16:32:47.524556Z

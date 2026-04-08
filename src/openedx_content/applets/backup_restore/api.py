@@ -1,42 +1,105 @@
 """
 Backup Restore API
+
+Archive → Filesystem → Learning Package Doc + Resources → Input Models → LearningPackage
+
+Extract -> Validate -> Load
+
+
+(FS + root) -> UnvalidatedLearningPackage -> ValidatedLearningPackageInput
+
 """
-import zipfile
+from datetime import datetime, timezone
 
+import attrs
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
+from django.db.transaction import atomic
 
-from ..publishing.api import get_learning_package_by_ref
-from .zipper import LearningPackageUnzipper, LearningPackageZipper
+from ..publishing import api as publishing_api
+from . import archive, loading, payload, validation
 
-# The public API that will be re-exported by openedx_content.api
-# is listed in the __all__ entries below. Internal helper functions that are
-# private to this module should start with an underscore. If a function does not
-# start with an underscore AND it is not in __all__, that function is considered
-# to be callable only by other applets in the openedx_content package.
-__all__ = [
-    "create_zip_file",
-    "load_learning_package",
-]
 
+from .zipper import LearningPackageZipper, generate_staged_package_ref
+
+
+@attrs.define(frozen=True)
+class ImportResult:
+    entities_created: int  # Should this be a list of entity refs instead?
+
+
+def load_learning_package(
+    path_str: str,
+    user: UserType,
+    package_ref: str | None = None,
+) -> dict:
+    """
+    Loads a learning package from a zip file at the given path.
+
+    Restores the learning package and its contents to the database.
+
+    The overall pipeline looks like this:
+        Archive location (Path) →
+        FileSystem (fsspec) →
+        UnvalidatedLearningPackageInput →
+        ValidatedLearningPackageInput →
+        LearningPackage
+
+    TODO: Returns a dictionary with the status of the operation and any errors encountered.
+
+    Loads a learning package from a zip file at the given path.
+    Restores the learning package and its contents to the database.
+    Returns a dictionary with the status of the operation and any errors encountered.
+    """
+    fs = archive.read_fs_for_path(path_str)
+    unvalidated_input = payload.extract_unvalidated_learning_package(fs)
+
+    # TODO: need to be able to exit early here if errors make the rest of this
+    # pointless. The Loader class currently knows how to make output that we can
+    # send up to platform, but maybe that knowledge should be in this module
+    # instead?
+    # if unvalidated_input.errors:
+    validated_input = validation.validate(unvalidated_input)
+
+    if package_ref is None:
+        package_ref = generate_staged_package_ref(
+            validated_input.data.learning_package.key, user,
+        )
+
+    loader = loading.Loader(validated_input)
+    now = datetime.now(tz=timezone.utc)
+    with atomic(savepoint=False):
+        learning_package = publishing_api.create_learning_package(
+            package_ref, "Temp Title", created=now
+        )
+        load_target = loading.Loader.Target(learning_package, user, now)
+        result = loader.load_into(load_target)
+
+    return result
+
+
+def pretty_print(obj):
+    from pydantic import TypeAdapter
+    from typing import Any
+    from rich import print_json
+
+    print_json(TypeAdapter(Any).dump_json(obj, indent=2).decode("utf8"))
+
+
+### This was pre-existing:
 
 def create_zip_file(
-        package_ref: str, path: str, user: UserType | None = None, origin_server: str | None = None
+    lp_key: str,
+    path: str,
+    user: UserType | None = None,
+    origin_server: str | None = None,
 ) -> None:
     """
     Creates a dump zip file for the given learning package key at the given path.
     The zip file contains a TOML representation of the learning package and its contents.
 
+    This is used by lp_dump.
+
     Can throw a NotFoundError at get_learning_package_by_ref
     """
-    learning_package = get_learning_package_by_ref(package_ref)
+    learning_package = publishing_api.get_learning_package_by_ref(lp_key)
     LearningPackageZipper(learning_package, user, origin_server).create_zip(path)
-
-
-def load_learning_package(path: str, package_ref: str | None = None, user: UserType | None = None) -> dict:
-    """
-    Loads a learning package from a zip file at the given path.
-    Restores the learning package and its contents to the database.
-    Returns a dictionary with the status of the operation and any errors encountered.
-    """
-    with zipfile.ZipFile(path, "r") as zipf:
-        return LearningPackageUnzipper(zipf, package_ref, user).load()

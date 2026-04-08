@@ -1,0 +1,6 @@
+# format_version needs to be an integer
+[meta]
+format_version = "b"
+
+[learning_package]
+title = "Fun Library"

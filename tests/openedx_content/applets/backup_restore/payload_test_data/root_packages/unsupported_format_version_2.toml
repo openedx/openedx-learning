@@ -1,0 +1,6 @@
+# We don't support format_version > 1
+[meta]
+format_version = 2
+
+[learning_package]
+title = "Fun Library"

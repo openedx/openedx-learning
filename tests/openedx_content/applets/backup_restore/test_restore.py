@@ -291,7 +291,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
 
         # Mock parse_learning_package_toml to return a dict without 'key'
         with patch(
-            "openedx_content.applets.backup_restore.zipper.parse_learning_package_toml",
+            "openedx_content.applets.backup_restore.zipper.LearningPackageUnzipper.extract_root_package_data",
             return_value={
                 "learning_package": {
                     "title": "Library test",
@@ -322,7 +322,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
 
         # Mock parse_learning_package_toml to return a dict without 'meta'
         with patch(
-            "openedx_content.applets.backup_restore.zipper.parse_learning_package_toml",
+            "openedx_content.applets.backup_restore.zipper.LearningPackageUnzipper.extract_root_package_data",
             return_value={
                 "learning_package": {
                     "title": "Library test",
@@ -381,6 +381,14 @@ class RestoreLearningPackageTest(RestoreTestCase):
         }
 
         assert metadata == expected_metadata
+
+
+from textwrap import dedent
+
+class RestoreV2TestCase(RestoreTestCase):
+
+    def test_package_toml_parsing(self):
+        pass
 
 
 class RestoreUtilitiesTest(TestCase):
