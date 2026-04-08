@@ -771,11 +771,12 @@ def test_get_container_by_key_nonexistent(lp: LearningPackage) -> None:
     """
     Test getting a specific container by key, where the key and/or learning package is invalid
     """
+    FAKE_ID = cast(LearningPackage.PK, -500)
     with pytest.raises(LearningPackage.DoesNotExist):
-        containers_api.get_container_by_key(32874, "invalid-key")
+        containers_api.get_container_by_key(FAKE_ID, "invalid-key")
 
     with pytest.raises(Container.DoesNotExist):
-        containers_api.get_container_by_key(lp.pk, "invalid-key")
+        containers_api.get_container_by_key(lp.id, "invalid-key")
 
 
 # get_container_subclass

@@ -1,7 +1,10 @@
 """
 LearningPackage model
 """
+from typing import TypeAlias
+
 from django.db import models
+from typing_extensions import deprecated
 
 from openedx_django_lib.fields import (
     MultiCollationTextField,
@@ -10,6 +13,8 @@ from openedx_django_lib.fields import (
     key_field,
     manual_date_time_field,
 )
+
+from .id_fields import LearningPackagePK, LearningPackagePKField
 
 
 class LearningPackage(models.Model):
@@ -23,7 +28,13 @@ class LearningPackage(models.Model):
     # site. Furthermore, many, many things have foreign keys to this model and
     # uniqueness indexes on those foreign keys + their own fields, so the 4
     # bytes saved will add up over time.
-    id = models.AutoField(primary_key=True)
+    PK: TypeAlias = LearningPackagePK
+    id = LearningPackagePKField(primary_key=True)
+
+    @property  # type: ignore[no-redef]
+    @deprecated("Use .id instead")
+    def pk(self) -> LearningPackagePK:
+        return self.id
 
     uuid = immutable_uuid_field()
 

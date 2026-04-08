@@ -25,7 +25,7 @@ from django.http.response import HttpResponse, HttpResponseNotFound
 
 from ..media import api as media_api
 from ..publishing import api as publishing_api
-from .models import Component, ComponentType, ComponentVersion, ComponentVersionMedia
+from .models import Component, ComponentType, ComponentVersion, ComponentVersionMedia, LearningPackage
 
 # The public API that will be re-exported by openedx_content.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -96,7 +96,7 @@ def get_or_create_component_type_by_entity_key(entity_key: str) -> tuple[Compone
 
 
 def create_component(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     component_type: ComponentType,
     local_key: str,
@@ -290,7 +290,7 @@ def create_next_component_version(
 
 
 def create_component_and_version(  # pylint: disable=too-many-positional-arguments
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     component_type: ComponentType,
     local_key: str,
@@ -332,7 +332,7 @@ def get_component(component_id: Component.PK, /) -> Component:
 
 
 def get_component_by_key(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     namespace: str,
     type_name: str,
@@ -367,7 +367,7 @@ def get_component_version_by_uuid(uuid: UUID) -> ComponentVersion:
 
 
 def component_exists_by_key(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     namespace: str,
     type_name: str,
@@ -392,7 +392,7 @@ def component_exists_by_key(
 
 
 def get_components(  # pylint: disable=too-many-positional-arguments
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     draft: bool | None = None,
     published: bool | None = None,
@@ -435,7 +435,7 @@ def get_components(  # pylint: disable=too-many-positional-arguments
 
 
 def get_collection_components(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     collection_key: str,
 ) -> QuerySet[Component]:
     """

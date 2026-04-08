@@ -135,7 +135,7 @@ class ParsedEntityReference:
 
 
 def create_container(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     key: str,
     created: datetime,
     created_by: int | None,
@@ -190,7 +190,7 @@ def create_entity_list() -> EntityList:
 def create_entity_list_with_rows(
     parsed_entities: list[ParsedEntityReference],
     *,
-    learning_package_id: int | None,
+    learning_package_id: LearningPackage.PK | None,
 ) -> EntityList:
     """
     [ 🛑 UNSTABLE ]
@@ -338,7 +338,7 @@ def create_container_version(
 
 
 def create_container_and_version(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     key: str,
     *,
     title: str,
@@ -394,7 +394,7 @@ class ChildrenEntitiesAction(Enum):
 
 
 def create_next_entity_list(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     last_version: ContainerVersion,
     entities: EntityListInput,
     entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
@@ -564,7 +564,7 @@ def get_container_version(container_version_pk: int) -> ContainerVersion:
     return ContainerVersion.objects.get(pk=container_version_pk)
 
 
-def get_container_by_key(learning_package_id: int, /, key: str) -> Container:
+def get_container_by_key(learning_package_id: LearningPackage.PK, /, key: str) -> Container:
     """
     [ 🛑 UNSTABLE ]
     Get a container by its learning package and primary key.
@@ -628,7 +628,7 @@ def get_container_subclass_of(container: Container | Container.PK, /) -> Contain
 
 
 def get_containers(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     include_deleted: bool | None = False,
 ) -> QuerySet[Container]:
     """

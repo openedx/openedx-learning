@@ -10,6 +10,7 @@ from typing import Iterable
 from ..containers import api as containers_api
 from ..containers.models import Container, ContainerVersion
 from ..subsections.models import Subsection, SubsectionVersion
+from ..publishing.models import LearningPackage
 from .models import Section, SectionVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
@@ -29,7 +30,7 @@ def get_section(section_id: Container.PK, /):
 
 
 def create_section_and_version(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     key: str,
     *,
     title: str,

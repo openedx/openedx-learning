@@ -10,6 +10,7 @@ from typing import Iterable
 from ..components.models import Component, ComponentVersion
 from ..containers import api as containers_api
 from ..containers.models import Container, ContainerVersion
+from ..publishing.models import LearningPackage
 from .models import Unit, UnitVersion
 
 # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
@@ -29,7 +30,7 @@ def get_unit(unit_id: Container.PK, /):
 
 
 def create_unit_and_version(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     key: str,
     *,
     title: str,

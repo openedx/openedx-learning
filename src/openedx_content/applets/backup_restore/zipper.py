@@ -512,7 +512,7 @@ class LearningPackageUnzipper:
         self.user = user
         self.user_id = getattr(self.user, "id", None)
         self.lp_key = key  # If provided, use this key for the restored learning package
-        self.learning_package_id: int | None = None  # Will be set upon restoration
+        self.learning_package_id: LearningPackage.PK | None = None  # Will be set upon restoration
         self.utc_now: datetime = datetime.now(timezone.utc)
         self.component_types_cache: dict[tuple[str, str], ComponentType] = {}
         self.errors: list[dict[str, Any]] = []

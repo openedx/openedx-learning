@@ -69,7 +69,7 @@ __all__ = [
 ]
 
 
-def get_learning_package(learning_package_id: int, /) -> LearningPackage:
+def get_learning_package(learning_package_id: LearningPackage.PK, /) -> LearningPackage:
     """
     Get LearningPackage by ID.
     """
@@ -114,7 +114,7 @@ def create_learning_package(
 
 
 def update_learning_package(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     key: str | None = None,
     title: str | None = None,
@@ -158,7 +158,7 @@ def learning_package_exists(key: str) -> bool:
 
 
 def create_publishable_entity(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     key: str,
     created: datetime,
@@ -286,28 +286,28 @@ def get_publishable_entity(publishable_entity_id: PublishableEntity.PK, /) -> Pu
     return PublishableEntity.objects.get(pk=publishable_entity_id)
 
 
-def get_publishable_entity_by_key(learning_package_id, /, key) -> PublishableEntity:
+def get_publishable_entity_by_key(learning_package_id: LearningPackage.PK, /, key: str) -> PublishableEntity:
     return PublishableEntity.objects.get(
         learning_package_id=learning_package_id,
         key=key,
     )
 
 
-def get_last_publish(learning_package_id: int, /) -> PublishLog | None:
+def get_last_publish(learning_package_id: LearningPackage.PK, /) -> PublishLog | None:
     return PublishLog.objects \
                      .filter(learning_package_id=learning_package_id) \
                      .order_by('-id') \
                      .first()
 
 
-def get_all_drafts(learning_package_id: int, /) -> QuerySet[Draft]:
+def get_all_drafts(learning_package_id: LearningPackage.PK, /) -> QuerySet[Draft]:
     return Draft.objects.filter(
         entity__learning_package_id=learning_package_id,
         version__isnull=False,
     )
 
 
-def get_publishable_entities(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
+def get_publishable_entities(learning_package_id: LearningPackage.PK, /) -> QuerySet[PublishableEntity]:
     """
     Get all entities in a learning package.
     """
@@ -322,7 +322,7 @@ def get_publishable_entities(learning_package_id: int, /) -> QuerySet[Publishabl
 
 
 def get_entities_with_unpublished_changes(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     include_deleted_drafts: bool = False
 ) -> QuerySet[PublishableEntity]:
@@ -354,7 +354,7 @@ def get_entities_with_unpublished_changes(
     return entities_qs.exclude(draft__version__isnull=True)
 
 
-def get_entities_with_unpublished_deletes(learning_package_id: int, /) -> QuerySet[PublishableEntity]:
+def get_entities_with_unpublished_deletes(learning_package_id: LearningPackage.PK, /) -> QuerySet[PublishableEntity]:
     """
     Something will become "deleted" if it has a null Draft version but a
     not-null Published version. (If both are null, it means it's already been
@@ -368,7 +368,7 @@ def get_entities_with_unpublished_deletes(learning_package_id: int, /) -> QueryS
 
 
 def publish_all_drafts(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     message="",
     published_at: datetime | None = None,
@@ -421,7 +421,7 @@ def _get_dependencies_with_unpublished_changes(
 
 
 def publish_from_drafts(
-    learning_package_id: int,  # LearningPackage.id
+    learning_package_id: LearningPackage.PK,
     /,
     draft_qset: QuerySet[Draft],
     message: str = "",
@@ -1187,7 +1187,7 @@ def soft_delete_draft(publishable_entity_id: PublishableEntity.PK, /, deleted_by
 
 
 def reset_drafts_to_published(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     /,
     reset_at: datetime | None = None,
     reset_by: int | None = None,  # User.id
@@ -1337,7 +1337,7 @@ def get_published_version_as_of(
 
 
 def bulk_draft_changes_for(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.PK,
     changed_by: int | None = None,
     changed_at: datetime | None = None
 ) -> DraftChangeLogContext:

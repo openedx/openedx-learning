@@ -443,7 +443,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         """
         Test using `get_collection_entities()` to get containers
         """
-        def get_collection_containers(learning_package_id: int, collection_key: str):
+        def get_collection_containers(learning_package_id: LearningPackage.PK, collection_key: str):
             return (
                 pe.container for pe in
                 api.get_collection_entities(learning_package_id, collection_key).exclude(container=None)
