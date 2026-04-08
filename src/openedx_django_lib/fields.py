@@ -15,6 +15,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from django.db import models
+from django.db.models.fields.related_descriptors import ForeignKeyDeferredAttribute
 from django.db.models.query_utils import DeferredAttribute
 
 from .collations import MultiCollationMixin
@@ -217,10 +218,24 @@ class TypedPK[ModelType]:
         self.value = value
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, TypedPK) and self.value == other.value
+        # Compare equal to other ``TypedPK`` instances and to bare ``int``
+        # values that match. Allowing equality with ``int`` is important for
+        # interop with Django internals like ``Model.__eq__``, which compares
+        # ``self.pk == other.pk`` directly. Not all primary key columns are
+        # wrapped (e.g. multi-table-inheritance ``parent_link`` fields are
+        # auto-generated as plain ``OneToOneField``s and store raw ``int``s),
+        # so insisting on a ``TypedPK`` on both sides would make models with
+        # the same row identity compare unequal.
+        if isinstance(other, TypedPK):
+            return self.value == other.value
+        if isinstance(other, int):
+            return self.value == other
+        return NotImplemented
 
     def __hash__(self) -> int:
-        return hash((TypedPK, self.value))
+        # Must match ``hash(int)`` so that ``TypedPK(3)`` and ``3`` are
+        # interchangeable in sets/dicts, consistent with ``__eq__``.
+        return hash(self.value)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.value!r})"
@@ -322,6 +337,49 @@ class TypedPrimaryKeyField[_ST, _GT](_BigAutoFieldBase[_ST, _GT]):
     def to_python(self, value):
         if value is None:
             return value
-        assert isinstance(value, int)
+        if isinstance(value, TypedPK):
+            return value
         return TypedPK(value)
+
+
+class _TypedFKDeferredAttribute(ForeignKeyDeferredAttribute):
+    """
+    Data descriptor for FKs that target a ``TypedPrimaryKeyField`` PK.
+
+    Django's default ``ForeignKeyDeferredAttribute`` is a data descriptor
+    (it does have ``__set__``), but its ``__set__`` just stores the raw value.
+    For FKs whose target column is a ``TypedPrimaryKeyField``, that means the
+    ``<fk>_id`` attribute holds a bare ``int`` after queryset hydration --
+    inconsistent with how the target model's own ``pk`` is now boxed in a
+    ``TypedPK``. This subclass wraps incoming non-None, non-``TypedPK`` values
+    so that ``container.publishable_entity_id`` (and similar) returns a
+    ``TypedPK`` regardless of whether the model was constructed in-memory or
+    loaded from the database.
+    """
+
+    def __set__(self, instance, value):
+        if value is not None and not isinstance(value, TypedPK):
+            value = TypedPK(int(value))
+        super().__set__(instance, value)
+
+
+class TypedForeignKey(models.ForeignKey):
+    """
+    ``ForeignKey`` variant for relations to a model whose primary key is a
+    ``TypedPrimaryKeyField``. Use this in place of ``models.ForeignKey``
+    whenever the target model's PK is a ``TypedPK`` so that the ``<fk>_id``
+    column attribute is normalized to a ``TypedPK`` at runtime.
+    """
+
+    descriptor_class = _TypedFKDeferredAttribute
+
+
+class TypedOneToOneField(models.OneToOneField):
+    """
+    ``OneToOneField`` counterpart of ``TypedForeignKey``. Use this in place
+    of ``models.OneToOneField`` (most commonly when modeling a 1-to-1 link
+    to ``PublishableEntity`` via ``primary_key=True``).
+    """
+
+    descriptor_class = _TypedFKDeferredAttribute
 
