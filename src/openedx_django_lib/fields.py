@@ -15,6 +15,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from django.db import models
+from django.db.models.query_utils import DeferredAttribute
 
 from .collations import MultiCollationMixin
 from .validators import validate_utc_datetime
@@ -225,6 +226,33 @@ class TypedPK[ModelType]:
         return f"{type(self).__name__}({self.value!r})"
 
 
+class _TypedPKDeferredAttribute(DeferredAttribute):
+    """
+    Data descriptor that wraps incoming ``int`` values into ``TypedPK`` boxes.
+
+    Django's default field descriptor (``DeferredAttribute``) is a *non-data*
+    descriptor -- it defines ``__get__`` only. That means ``setattr`` on a
+    model instance bypasses it and writes straight into ``__dict__``. This
+    matters for ``TypedPrimaryKeyField`` because:
+
+    1. After an ``INSERT``, Django runs
+       ``setattr(instance, pk.attname, last_insert_id)`` where
+       ``last_insert_id`` is the raw ``int`` returned by the DB driver.
+    2. During queryset hydration, ``Model.__init__`` does a ``setattr`` loop
+       over the row values (which are still raw ``int``s for the PK column).
+
+    Without a ``__set__``, both paths leave a bare ``int`` on the instance
+    and ``pe.id`` ends up untyped at runtime. By promoting this to a *data*
+    descriptor we intercept both paths and wrap the value in a ``TypedPK``.
+    Direct user assignments like ``instance.id = 5`` get the same treatment.
+    """
+
+    def __set__(self, instance, value):
+        if value is not None and not isinstance(value, TypedPK):
+            value = TypedPK(int(value))
+        instance.__dict__[self.field.attname] = value
+
+
 if TYPE_CHECKING:
     # django-stubs models the standard ``Field`` descriptor as
     # ``Field[_ST, _GT]`` where ``_ST`` is the type accepted by the field's
@@ -238,6 +266,7 @@ if TYPE_CHECKING:
         pass
 else:
     class _BigAutoFieldBase(models.BigAutoField):
+        # The following is required to mark this class as subscriptable[...].
         def __class_getitem__(cls, _item):
             return cls
 
@@ -255,6 +284,11 @@ class TypedPrimaryKeyField[_ST, _GT](_BigAutoFieldBase[_ST, _GT]):
             PK: TypeAlias = TypedPK["MyModel"]
             id = TypedPrimaryKeyField[PK | int | None, PK](primary_key=True)
     """
+
+    # Install a data descriptor on the model class so that any value assigned
+    # to the field (post-INSERT, queryset hydration, refresh_from_db, or a
+    # direct ``instance.id = ...``) is normalized to a ``TypedPK``.
+    descriptor_class = _TypedPKDeferredAttribute
 
     # The django-stubs plugin reads these class-level descriptor types when
     # generating the implicit ``<fk>_id`` attribute on models that have a
@@ -276,7 +310,6 @@ class TypedPrimaryKeyField[_ST, _GT](_BigAutoFieldBase[_ST, _GT]):
         if value is None:
             return None
         if isinstance(value, int):
-            print("Warning: got integer")
             return value
         assert isinstance(value, TypedPK)
         try:
