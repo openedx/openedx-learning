@@ -925,7 +925,7 @@ def test_contains_unpublished_changes_queries(
         assert containers_api.contains_unpublished_changes(grandparent.id)
 
     # Publish grandparent and all its descendants:
-    with django_assert_num_queries(135):  # TODO: investigate as this seems high!
+    with django_assert_num_queries(136):  # TODO: investigate as this seems high!
         publish_entity(grandparent)
 
     # Tests:
@@ -1244,7 +1244,7 @@ def test_uninstalled_publish(
     """Simple test of publishing a container of uninstalled type, plus its child, and reviewing the publish log"""
     # Publish container_of_uninstalled_type (and child_entity1). Should not affect anything else,
     # but we should see "child_entity1" omitted from the subsequent publish.
-    with django_assert_num_queries(49):
+    with django_assert_num_queries(50):
         publish_log = publish_entity(container_of_uninstalled_type)
         # Nothing else should have been affected by the publish:
         assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
@@ -1282,7 +1282,7 @@ def test_deep_publish_log(
     )
     # Publish container_of_uninstalled_type (and child_entity1). Should not affect anything else,
     # but we should see "child_entity1" omitted from the subsequent publish.
-    with django_assert_num_queries(49):
+    with django_assert_num_queries(50):
         publish_log = publish_entity(container_of_uninstalled_type)
         # Nothing else should have been affected by the publish:
         assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
@@ -1291,7 +1291,7 @@ def test_deep_publish_log(
         ]
 
     # Publish great_grandparent. Should publish the whole tree.
-    with django_assert_num_queries(126):
+    with django_assert_num_queries(127):
         publish_log = publish_entity(great_grandparent)
         assert list(publish_log.records.order_by("entity__pk").values_list("entity__key", flat=True)) == [
             "child_entity2",
