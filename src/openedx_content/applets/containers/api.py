@@ -17,7 +17,6 @@ from typing_extensions import TypeVar  # for 'default=...'
 
 from ..publishing import api as publishing_api
 from ..publishing.models import (
-    Draft,
     LearningPackage,
     PublishableContentModelRegistry,
     PublishableEntity,
@@ -890,9 +889,8 @@ def get_descendant_component_entity_ids(container: Container) -> list[int]:
     Intermediate containers (e.g. Subsections, Units) are never included in the
     result; only leaf component entities are returned.
 
-    The traversal follows draft state only. Soft-deleted children
-    (``Draft.version = None``) are skipped because they have no
-    ``ContainerVersion`` to walk into.
+    The traversal follows draft state only. Soft-deleted children are skipped
+    automatically because ``get_entities_in_container`` omits them.
 
     Edge cases:
     - A container whose draft was soft-deleted has no children to traverse and
@@ -903,40 +901,27 @@ def get_descendant_component_entity_ids(container: Container) -> list[int]:
       cannot occur in practice but is included for safety.
     """
     all_component_ids: set[int] = set()
-    current_level_pks: list[int] = [container.pk]
+    containers_to_visit: list[Container] = [container]
     visited_container_pks: set[int] = {container.pk}
 
-    while current_level_pks:
-        # Step A: resolve entity_list IDs for this level's containers via their draft version
-        entity_list_ids = list(
-            Draft.objects
-            .filter(entity_id__in=current_level_pks, version__isnull=False)
-            .exclude(version__containerversion__isnull=True)
-            .values_list('version__containerversion__entity_list_id', flat=True)
-        )
-        if not entity_list_ids:
-            break
+    while containers_to_visit:
+        current = containers_to_visit.pop()
+        try:
+            children = get_entities_in_container(
+                current,
+                published=False,
+                select_related_version="containerversion__container",
+            )
+        except ContainerVersion.DoesNotExist:
+            continue
 
-        # Step B: collect all child entity IDs
-        child_entity_ids = list(
-            EntityListRow.objects
-            .filter(entity_list_id__in=entity_list_ids)
-            .values_list('entity_id', flat=True)
-            .distinct()
-        )
-        if not child_entity_ids:
-            break
-
-        # Step C: separate sub-containers from leaf entities
-        sub_container_pks = set(
-            Container.objects
-            .filter(publishable_entity_id__in=child_entity_ids)
-            .values_list('publishable_entity_id', flat=True)
-        )
-        all_component_ids.update(set(child_entity_ids) - sub_container_pks)
-
-        next_level = sub_container_pks - visited_container_pks
-        visited_container_pks.update(next_level)
-        current_level_pks = list(next_level)
+        for entry in children:
+            try:
+                child_container = entry.entity_version.containerversion.container
+                if child_container.pk not in visited_container_pks:
+                    visited_container_pks.add(child_container.pk)
+                    containers_to_visit.append(child_container)
+            except ContainerVersion.DoesNotExist:
+                all_component_ids.add(entry.entity.pk)
 
     return list(all_component_ids)

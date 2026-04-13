@@ -12,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
+from openedx_content.applets.containers import api as containers_api
 from openedx_content.applets.publishing import api as publishing_api
 from openedx_content.applets.publishing.models import (
     Draft,
@@ -23,6 +24,8 @@ from openedx_content.applets.publishing.models import (
     PublishLog,
     PublishLogRecord,
 )
+from openedx_content.models_api import Container
+from tests.test_django_app.models import TestContainer
 
 User = get_user_model()
 
@@ -1547,17 +1550,15 @@ class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
 
     def _make_container(self, key: str, children: list) -> Container:
         """Create a Container with a v1 version pointing at the given children."""
-        container: Container = publishing_api.create_container(
+        container: Container = containers_api.create_container(
             self.learning_package.id, key, created=self.time_1, created_by=None,
+            container_cls=TestContainer,
         )
-        publishing_api.create_container_version(
+        containers_api.create_container_version(
             container.pk,
             1,
             title=key,
-            entity_rows=[
-                publishing_api.ContainerEntityRow(entity_pk=child.pk)
-                for child in children
-            ],
+            entities=children,
             created=self.time_1,
             created_by=None,
         )
@@ -1566,7 +1567,7 @@ class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
     def test_no_children_returns_empty(self) -> None:
         """A container with no children returns an empty list."""
         container = self._make_container("empty_container", children=[])
-        result = publishing_api.get_descendant_component_entity_ids(container)
+        result = containers_api.get_descendant_component_entity_ids(container)
         assert not result
 
     def test_direct_component_children(self) -> None:
@@ -1574,7 +1575,7 @@ class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
         second_component = self._make_extra_entity("second_component")
         unit = self._make_container("unit_direct", children=[self.entity, second_component])
 
-        result = publishing_api.get_descendant_component_entity_ids(unit)
+        result = containers_api.get_descendant_component_entity_ids(unit)
 
         assert set(result) == {self.entity.pk, second_component.pk}
 
@@ -1588,7 +1589,7 @@ class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
         subsection = self._make_container("subsection_nested", children=[unit])
         section = self._make_container("section_nested", children=[subsection])
 
-        result = publishing_api.get_descendant_component_entity_ids(section)
+        result = containers_api.get_descendant_component_entity_ids(section)
 
         assert set(result) == {self.entity.pk}
         assert unit.pk not in result
@@ -1602,7 +1603,7 @@ class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
         second_unit = self._make_container("second_unit_multi", children=[third_component])
         section = self._make_container("section_multi", children=[first_unit, second_unit])
 
-        result = publishing_api.get_descendant_component_entity_ids(section)
+        result = containers_api.get_descendant_component_entity_ids(section)
 
         assert set(result) == {self.entity.pk, second_component.pk, third_component.pk}
 
@@ -1616,7 +1617,7 @@ class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
 
         publishing_api.soft_delete_draft(unit.pk)
 
-        result = publishing_api.get_descendant_component_entity_ids(section)
+        result = containers_api.get_descendant_component_entity_ids(section)
 
         assert self.entity.pk not in result
 
@@ -1625,22 +1626,19 @@ class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
         A container created with no ContainerVersion has no Draft.version,
         so the BFS returns nothing.
         """
-        container: Container = publishing_api.create_container(
+        container: Container = containers_api.create_container(
             self.learning_package.id, "no_version_container",
             created=self.time_1, created_by=None,
+            container_cls=TestContainer,
         )
 
-        result = publishing_api.get_descendant_component_entity_ids(container)
+        result = containers_api.get_descendant_component_entity_ids(container)
 
         assert not result
 
 
 # TODO: refactor these tests to use a "fake" container model so there's no dependency on the containers applet?
 # All we need is a similar generic publishableentity with dependencies.
-# pylint: disable=wrong-import-position
-from openedx_content.applets.containers import api as containers_api  # noqa
-from openedx_content.models_api import Container  # noqa
-from tests.test_django_app.models import TestContainer  # noqa
 
 
 class TestContainerSideEffects(TestCase):
