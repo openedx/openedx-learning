@@ -445,6 +445,9 @@ def publish_from_drafts(
         else:
             dependency_drafts_qsets = []
 
+        # Collect PKs of directly-requested drafts before expanding dependencies.
+        direct_draft_ids = set(draft_qset.values_list('pk', flat=True))
+
         # One PublishLog for this entire publish operation.
         publish_log = PublishLog(
             learning_package_id=learning_package_id,
@@ -484,6 +487,7 @@ def publish_from_drafts(
                     entity=draft.entity,
                     old_version=old_version,
                     new_version=draft.version,
+                    direct=draft.pk in direct_draft_ids,
                 )
                 publish_log_record.full_clean()
                 publish_log_record.save(force_insert=True)
@@ -844,18 +848,25 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             # represents editing a Component, the side_effect_change is the
             # DraftChangeLogRecord that represents the fact that the containing
             # Unit was also altered (even if the Unit version doesn't change).
+            side_effect_defaults: dict = {
+                # If a change record already exists because the affected
+                # entity was separately modified, then we don't touch the
+                # old/new version entries. But if we're creating this change
+                # record as a pure side-effect, then we use the (old_version
+                # == new_version) convention to indicate that.
+                'old_version_id': affected.version_id,
+                'new_version_id': affected.version_id,
+            }
+            if branch_cls == Published:
+                # Pure side-effect records are never directly requested by
+                # the user, so mark them as indirect. If the record already
+                # exists (entity was explicitly selected or is a dependency),
+                # get_or_create won't overwrite the direct value it already has.
+                side_effect_defaults['direct'] = False
             side_effect_change, _created = change_record_cls.objects.get_or_create(
                 **change_log_param,
                 entity_id=affected.entity_id,
-                defaults={
-                    # If a change record already exists because the affected
-                    # entity was separately modified, then we don't touch the
-                    # old/new version entries. But if we're creating this change
-                    # record as a pure side-effect, then we use the (old_version
-                    # == new_version) convention to indicate that.
-                    'old_version_id': affected.version_id,
-                    'new_version_id': affected.version_id,
-                }
+                defaults=side_effect_defaults,
             )
             # Update the current branch pointer (Draft or Published) for this
             # entity to point to the side_effect_change (if it's not already).

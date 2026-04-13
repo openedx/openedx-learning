@@ -111,6 +111,18 @@ class PublishLogRecord(models.Model):
     # the values may drift away from each other.
     dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
 
+    # True if this entity was explicitly requested to be published by the user
+    # (e.g. they clicked "publish" on this entity or selected it for bulk publish).
+    # False if it was indirectly published as a child/dependency of a directly
+    # published entity (e.g. a Component published because its parent Unit was
+    # published).
+    # None for historical records created before this field was added.
+    direct = models.BooleanField(
+        null=True,
+        blank=True,
+        default=None,
+    )
+
     class Meta:
         constraints = [
             # A Publishable can have only one PublishLogRecord per PublishLog.
