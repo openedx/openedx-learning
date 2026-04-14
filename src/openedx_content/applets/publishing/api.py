@@ -848,25 +848,18 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             # represents editing a Component, the side_effect_change is the
             # DraftChangeLogRecord that represents the fact that the containing
             # Unit was also altered (even if the Unit version doesn't change).
-            side_effect_defaults: dict = {
-                # If a change record already exists because the affected
-                # entity was separately modified, then we don't touch the
-                # old/new version entries. But if we're creating this change
-                # record as a pure side-effect, then we use the (old_version
-                # == new_version) convention to indicate that.
-                'old_version_id': affected.version_id,
-                'new_version_id': affected.version_id,
-            }
-            if branch_cls == Published:
-                # Pure side-effect records are never directly requested by
-                # the user, so mark them as indirect. If the record already
-                # exists (entity was explicitly selected or is a dependency),
-                # get_or_create won't overwrite the direct value it already has.
-                side_effect_defaults['direct'] = False
             side_effect_change, _created = change_record_cls.objects.get_or_create(
                 **change_log_param,
                 entity_id=affected.entity_id,
-                defaults=side_effect_defaults,
+                defaults={
+                    # If a change record already exists because the affected
+                    # entity was separately modified, then we don't touch the
+                    # old/new version entries. But if we're creating this change
+                    # record as a pure side-effect, then we use the (old_version
+                    # == new_version) convention to indicate that.
+                    'old_version_id': affected.version_id,
+                    'new_version_id': affected.version_id,
+                }
             )
             # Update the current branch pointer (Draft or Published) for this
             # entity to point to the side_effect_change (if it's not already).

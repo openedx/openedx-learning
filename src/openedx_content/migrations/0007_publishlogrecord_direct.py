@@ -3,6 +3,16 @@
 from django.db import migrations, models
 
 
+def backfill_direct_to_none(apps, schema_editor):
+    """
+    Set direct=None for all pre-existing PublishLogRecords so they are treated
+    as historical records whose user intent cannot be determined retroactively.
+    New records created after this migration will default to direct=False.
+    """
+    PublishLogRecord = apps.get_model('openedx_content', 'PublishLogRecord')
+    PublishLogRecord.objects.update(direct=None)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -13,6 +23,10 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='publishlogrecord',
             name='direct',
-            field=models.BooleanField(blank=True, default=None, null=True),
+            field=models.BooleanField(blank=True, default=False, null=True),
+        ),
+        migrations.RunPython(
+            backfill_direct_to_none,
+            reverse_code=migrations.RunPython.noop,
         ),
     ]
