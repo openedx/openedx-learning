@@ -450,9 +450,42 @@ class ObjectTagView(
     serializer_class = ObjectTagSerializer
     # Serializer used in the result in `to_representation` in `ObjectTagsByTaxonomySerializer`
     minimal_serializer_class = ObjectTagMinimalSerializer
+    # Serializer used in `retrieve` to group object tags by taxonomy
+    taxonomy_serializer_class = ObjectTagsByTaxonomySerializer
     permission_classes = [ObjectTagObjectPermissions]
     lookup_field = "object_id"
     lookup_value_regex = r'[\w\.\+\-@:]+'
+
+    def check_view_object_tags_permission(self, object_id: str, taxonomy=None) -> None:
+        """
+        Check if the current user can view object tags for the given object.
+        Raises PermissionDenied if not. Override to customize permission logic.
+        """
+        perm_obj = ObjectTagPermissionItem(taxonomy=taxonomy, object_id=object_id)
+        if not self.request.user.has_perm(
+            "oel_tagging.view_objecttag",
+            # The obj arg expects a model, but we are passing an object
+            perm_obj,  # type: ignore[arg-type]
+        ):
+            raise PermissionDenied(
+                "You do not have permission to view object tags for this taxonomy or object_id."
+            )
+
+    def check_can_tag_object_permission(self, object_id: str, taxonomy) -> None:
+        """
+        Check if the current user can tag the given object with the given taxonomy.
+        Raises PermissionDenied if not. Override to customize permission logic.
+        """
+        perm_obj = ObjectTagPermissionItem(taxonomy=taxonomy, object_id=object_id)
+        if not self.request.user.has_perm(
+            "oel_tagging.can_tag_object",
+            # The obj arg expects a model, but we are passing an object
+            perm_obj,  # type: ignore[arg-type]
+        ):
+            raise PermissionDenied(f"""
+                You do not have permission to change object tags
+                for Taxonomy: {str(taxonomy)} or Object: {object_id}.
+            """)
 
     def get_queryset(self) -> models.QuerySet:
         """
@@ -477,14 +510,7 @@ class ObjectTagView(
             # objects, e.g. if object_id.endswith("*") then it results in a object_id__startswith query. However, for
             # now we have no use case for that so we retrieve tags for one object at a time.
         else:
-            if not self.request.user.has_perm(
-                "oel_tagging.view_objecttag",
-                # The obj arg expects a model, but we are passing an object
-                ObjectTagPermissionItem(taxonomy=taxonomy, object_id=object_id),  # type: ignore[arg-type]
-            ):
-                raise PermissionDenied(
-                    "You do not have permission to view object tags for this taxonomy or object_id."
-                )
+            self.check_view_object_tags_permission(object_id, taxonomy)
 
         return get_object_tags(object_id, taxonomy_id)
 
@@ -500,7 +526,7 @@ class ObjectTagView(
         behavior we want.
         """
         object_tags = self.filter_queryset(self.get_queryset())
-        serializer = ObjectTagsByTaxonomySerializer(list(object_tags), context=self.get_serializer_context())
+        serializer = self.taxonomy_serializer_class(list(object_tags), context=self.get_serializer_context())
         response_data = serializer.data
         if self.kwargs["object_id"] not in response_data:
             # For consistency, the key with the object_id should always be present in the response, even if there
@@ -556,7 +582,6 @@ class ObjectTagView(
             raise MethodNotAllowed("PATCH", detail="PATCH not allowed")
 
         object_id = kwargs.pop('object_id')
-        perm = "oel_tagging.can_tag_object"
         body = ObjectTagUpdateBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
@@ -568,20 +593,7 @@ class ObjectTagView(
         # Check permissions
         for tagsData in data:
             taxonomy = tagsData.get("taxonomy")
-
-            perm_obj = ObjectTagPermissionItem(
-                taxonomy=taxonomy,
-                object_id=object_id,
-            )
-            if not request.user.has_perm(
-                perm,
-                # The obj arg expects a model, but we are passing an object
-                perm_obj,  # type: ignore[arg-type]
-            ):
-                raise PermissionDenied(f"""
-                    You do not have permission to change object tags
-                    for Taxonomy: {str(taxonomy)} or Object: {object_id}.
-                """)
+            self.check_can_tag_object_permission(object_id, taxonomy)
 
         # Tag object_id per taxonomy
         for tagsData in data:

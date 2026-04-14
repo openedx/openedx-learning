@@ -172,6 +172,14 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
     class Meta:
         model = ObjectTag
 
+    def get_can_tag_object(self, obj_tag) -> bool | None:
+        """
+        Returns True if the current request user may tag objects with this taxonomy.
+        Override to customize permission logic.
+        """
+        perm_name = f"{self.app_label}.can_tag_object"
+        return self._can(perm_name, obj_tag)
+
     def to_representation(self, instance: list[ObjectTag]) -> dict:
         """
         Convert this list of ObjectTags to the serialized dictionary, grouped by Taxonomy
@@ -179,7 +187,6 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
         # Allows consumers like edx-platform to override this
         ObjectTagViewMinimalSerializer = self.context["view"].minimal_serializer_class
 
-        can_tag_object_perm = f"{self.app_label}.can_tag_object"
         by_object: dict[str, dict[str, Any]] = {}
         for obj_tag in instance:
             if obj_tag.object_id not in by_object:
@@ -192,7 +199,7 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
                 tax_entry = {
                     "name": obj_tag.taxonomy.name if obj_tag.taxonomy else None,
                     "taxonomy_id": obj_tag.taxonomy_id,
-                    "can_tag_object": self._can(can_tag_object_perm, obj_tag),
+                    "can_tag_object": self.get_can_tag_object(obj_tag),
                     "tags": [],
                     "export_id": obj_tag.export_id,
                 }
