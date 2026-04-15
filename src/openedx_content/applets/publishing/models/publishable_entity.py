@@ -415,7 +415,7 @@ class PublishableEntityMixin(models.Model):
                 learning_package_id=learning_package.id,
                 namespace="xblock.v1",
                 type="problem",
-                local_key="monty_hall",
+                component_code="monty_hall",
                 title="Monty Hall Problem",
                 created=now,
                 created_by=None,

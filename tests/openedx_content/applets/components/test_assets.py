@@ -59,7 +59,7 @@ class AssetTestCase(TestCase):
         cls.component, cls.component_version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=cls.problem_type,
-            local_key="my_problem",
+            component_code="my_problem",
             title="My Problem",
             created=cls.now,
             created_by=None,

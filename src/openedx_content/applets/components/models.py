@@ -22,7 +22,7 @@ from typing import ClassVar, NewType, cast
 from django.db import models
 from typing_extensions import deprecated
 
-from openedx_django_lib.fields import case_sensitive_char_field, key_field
+from openedx_django_lib.fields import case_sensitive_char_field, code_field, key_field
 from openedx_django_lib.managers import WithRelationsManager
 
 from ..media.models import Media
@@ -119,9 +119,10 @@ class Component(PublishableEntityMixin):
     State Consistency
     -----------------
 
-    The ``key`` field on Component's ``publishable_entity`` is dervied from the
-    ``component_type`` and ``local_key`` fields in this model. We don't support
-    changing the keys yet, but if we do, those values need to be kept in sync.
+    The ``key`` field on Component's ``publishable_entity`` is derived from the
+    ``component_type`` and ``component_code`` fields in this model. We don't
+    support changing the keys yet, but if we do, those values need to be kept
+    in sync.
 
     How build on this model
     -----------------------
@@ -176,37 +177,37 @@ class Component(PublishableEntityMixin):
     # XBlock block_type, but we want it to be more flexible in the long term.
     component_type = models.ForeignKey(ComponentType, on_delete=models.PROTECT)
 
-    # local_key is an identifier that is local to the learning_package and
-    # component_type.  The publishable.key should be calculated as a
-    # combination of component_type and local_key.
-    local_key = key_field()
+    # component_code is an identifier that is local to the learning_package and
+    # component_type. The publishable.key is derived from component_type and
+    # component_code.
+    component_code = code_field()
 
     class Meta:
         constraints = [
-            # The combination of (component_type, local_key) is unique within
-            # a given LearningPackage. Note that this means it is possible to
-            # have two Components in the same LearningPackage to have the same
-            # local_key if the component_types are different. So for example,
-            # you could have a ProblemBlock and VideoBlock that both have the
-            # local_key "week_1".
+            # The combination of (component_type, component_code) is unique
+            # within a given LearningPackage. Note that this means it is
+            # possible to have two Components in the same LearningPackage with
+            # the same component_code if their component_types differ. For
+            # example, a ProblemBlock and VideoBlock could both have the
+            # component_code "week_1".
             models.UniqueConstraint(
                 fields=[
                     "learning_package",
                     "component_type",
-                    "local_key",
+                    "component_code",
                 ],
                 name="oel_component_uniq_lc_ct_lk",
             ),
         ]
         indexes = [
-            # Global Component-Type/Local-Key Index:
+            # Global Component-Type/Component-Code Index:
             #   * Search by the different Components fields across all Learning
             #     Packages on the site. This would be a support-oriented tool
             #     from Django Admin.
             models.Index(
                 fields=[
                     "component_type",
-                    "local_key",
+                    "component_code",
                 ],
                 name="oel_component_idx_ct_lk",
             ),
@@ -217,7 +218,7 @@ class Component(PublishableEntityMixin):
         verbose_name_plural = "Components"
 
     def __str__(self) -> str:
-        return f"{self.component_type.namespace}:{self.component_type.name}:{self.local_key}"
+        return f"{self.component_type.namespace}:{self.component_type.name}:{self.component_code}"
 
 
 class ComponentVersion(PublishableEntityVersionMixin):

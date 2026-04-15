@@ -332,7 +332,7 @@ class LearningPackageZipper:
                     #                     v1/
                     #                         static/
 
-                    entity_filename = self.get_entity_toml_filename(entity.component.local_key)
+                    entity_filename = self.get_entity_toml_filename(entity.component.component_code)
 
                     component_root_folder = (
                         # Example: "entities/xblock.v1/html/"
