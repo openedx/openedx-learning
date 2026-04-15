@@ -35,6 +35,7 @@ from .models import (
     PublishSideEffect,
 )
 from .models.publish_log import Published
+from . import signals
 
 # The public API that will be re-exported by openedx_content.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -685,6 +686,17 @@ def set_draft_version(
             )
             draft.save()
             _create_side_effects_for_change_log(change_log)
+            # Send out an event immediately, since this is an isolated change.
+            # TODO: use transaction.on_commit for this event.
+            signals.LEARNING_PACKAGE_ENTITIES_CHANGED.send_event(
+                time=set_at,
+                learning_package=signals.LearningPackageEventData(
+                    id=learning_package_id,
+                    title="TODO: set me",
+                ),
+                changed_by=signals.UserAttributionEventData(user_id=set_by),
+                change_log=signals.DraftChangeLogEventData(draft_change_log_id=change_log.id),
+            )
 
 
 def _add_to_existing_draft_change_log(
