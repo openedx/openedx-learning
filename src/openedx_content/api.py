@@ -9,7 +9,10 @@ APIs.
 """
 
 # These wildcard imports are okay because these api modules declare __all__.
-# pylint: disable=wildcard-import
+# pylint: disable=wildcard-import,unused-import
+
+# Signals are kept in a separate namespace:
+from . import api_signals as signals
 from .applets.backup_restore.api import *
 from .applets.collections.api import *
 from .applets.components.api import *

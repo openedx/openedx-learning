@@ -13,10 +13,11 @@ from typing import ContextManager, Optional, cast
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Prefetch, Q, QuerySet
-from django.db.transaction import atomic
+from django.db.transaction import atomic, on_commit
 
 from openedx_django_lib.fields import create_hash_digest
 
+from . import signals
 from .contextmanagers import DraftChangeLogContext
 from .models import (
     Draft,
@@ -35,7 +36,6 @@ from .models import (
     PublishSideEffect,
 )
 from .models.publish_log import Published
-from . import signals
 
 # The public API that will be re-exported by openedx_content.api
 # is listed in the __all__ entries below. Internal helper functions that are
@@ -686,17 +686,8 @@ def set_draft_version(
             )
             draft.save()
             _create_side_effects_for_change_log(change_log)
-            # Send out an event immediately, since this is an isolated change.
-            # TODO: use transaction.on_commit for this event.
-            signals.LEARNING_PACKAGE_ENTITIES_CHANGED.send_event(
-                time=set_at,
-                learning_package=signals.LearningPackageEventData(
-                    id=learning_package_id,
-                    title="TODO: set me",
-                ),
-                changed_by=signals.UserAttributionEventData(user_id=set_by),
-                change_log=signals.DraftChangeLogEventData(draft_change_log_id=change_log.id),
-            )
+            # Send out an event immediately after this database transaction commits, since this is an isolated change.
+            _emit_event_for_change_log(change_log, time_stamp=set_at, user_id=set_by)
 
 
 def _add_to_existing_draft_change_log(
@@ -930,6 +921,44 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
         )
 
     update_dependencies_hash_digests_for_log(change_log)
+
+
+def _emit_event_for_change_log(
+    change_log: PublishLog | DraftChangeLog, time_stamp: datetime, user_id: int | None
+) -> None:
+    """
+    Construct and emit the _CHANGED event when a set of entities is changed or published.
+
+    Works with either `DraftChangeLog` or `PublishLog`.
+    """
+
+    learning_package_id = change_log.learning_package.id
+    learning_package_title = change_log.learning_package.title
+    changes = [
+        signals.ChangeLogRecordData(
+            entity_id=record.entity_id,
+            old_version=record.old_version.version_num if record.old_version else None,
+            new_version=record.new_version.version_num if record.new_version else None,
+        )
+        for record in change_log.records.select_related("old_version", "new_version").all()
+    ]
+
+    if isinstance(change_log, DraftChangeLog):
+        signal = signals.LEARNING_PACKAGE_ENTITIES_CHANGED
+        change_log_data = signals.DraftChangeLogEventData(draft_change_log_id=change_log.id, changes=changes)
+    else:
+        raise NotImplementedError
+
+    # Send out an event immediately after this database transaction commits.
+    def send_change_event():
+        signal.send_event(
+            time=time_stamp,
+            learning_package=signals.LearningPackageEventData(id=learning_package_id, title=learning_package_title),
+            changed_by=signals.UserAttributionEventData(user_id=user_id),
+            change_log=change_log_data,
+        )
+
+    on_commit(send_change_event)
 
 
 def update_dependencies_hash_digests_for_log(

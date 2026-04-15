@@ -355,10 +355,10 @@ def test_create_container_queries(lp: LearningPackage, child_entity1: TestEntity
         "container_cls": TestContainer,
     }
     # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
-    with django_assert_num_queries(31):
+    with django_assert_num_queries(33):
         containers_api.create_container_and_version(lp.id, key="c1", **base_args)
     # And try with a a container that has children:
-    with django_assert_num_queries(32):
+    with django_assert_num_queries(34):
         containers_api.create_container_and_version(lp.id, key="c2", **base_args, entities=[child_entity1])
 
 

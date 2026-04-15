@@ -57,7 +57,7 @@ def capture_events(
     for signal in signals:
 
         def make_receiver(sig: OpenEdxPublicSignal):
-            def receiver(sender, **kwargs):
+            def receiver(sender, **kwargs):  # pylint: disable=unused-argument
                 kwargs.pop("signal", None)
                 captured.append(CapturedEvent(signal=sig, kwargs=kwargs))
 
