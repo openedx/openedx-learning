@@ -140,7 +140,7 @@ class Command(BaseCommand):
 
         for xml_file_path in block_data_path.glob("*.xml"):
             components_found += 1
-            local_key = xml_file_path.stem
+            component_code = xml_file_path.stem
 
             # Do some basic parsing of the content to see if it's even well
             # constructed enough to add (or whether we should skip/error on it).
@@ -155,7 +155,7 @@ class Command(BaseCommand):
             _component, component_version = content_api.create_component_and_version(
                 self.learning_package.id,
                 component_type=block_type,
-                local_key=local_key,
+                component_code=component_code,
                 title=display_name,
                 created=now,
                 created_by=None,

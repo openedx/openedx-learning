@@ -279,7 +279,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         cls.published_component, _ = api.create_component_and_version(
             cls.learning_package.id,
             cls.problem_type,
-            local_key="my_published_example",
+            component_code="my_published_example",
             title="My published problem",
             created=cls.now,
             created_by=cls.user.id,
@@ -294,7 +294,7 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         cls.draft_component, _ = api.create_component_and_version(
             cls.learning_package.id,
             cls.html_type,
-            local_key="my_draft_example",
+            component_code="my_draft_example",
             title="My draft html",
             created=cls.now,
             created_by=cls.user.id,

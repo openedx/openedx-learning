@@ -22,11 +22,11 @@ class SectionsTestCase(ComponentTestCase):
         """Create some potential desdendants for use in these tests."""
         super().setUp()
         self.component_1, self.component_1_v1 = self.create_component(
-            key="component_1",
+            component_code="component_1",
             title="Great-grandchild component",
         )
         self.component_2, self.component_2_v1 = self.create_component(
-            key="component_2",
+            component_code="component_2",
             title="Great-grandchild component",
         )
         common_args: dict[str, Any] = {
