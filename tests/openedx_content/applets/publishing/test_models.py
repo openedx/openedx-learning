@@ -27,5 +27,5 @@ if TYPE_CHECKING:
 
     # Test typing of PublishableEntity identifiers.
     pe = PublishableEntity()
-    assert_type(pe.pk, PublishableEntity.ID)
-    assert_type(pe.id, PublishableEntity.ID)  # `id` should show as deprecated
+    assert_type(pe.pk, PublishableEntity.ID)  # `pk` should show as deprecated
+    assert_type(pe.id, PublishableEntity.ID)
