@@ -9,7 +9,7 @@ import openedx_django_lib.fields
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('openedx_content', '0011_rename_component_local_key_to_code_in_db'),
+        ('openedx_content', '0010_rename_component_local_key_to_code_in_db'),
     ]
 
     operations = [
@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 max_length=255,
                 validators=[
                     django.core.validators.RegexValidator(
-                        re.compile('^[a-zA-Z0-9\\-\\_\\.]+\\Z'),
+                        re.compile('^[a-zA-Z0-9_.-]+\\Z'),
                         'Enter a valid "code name" consisting of letters, numbers, underscores, hyphens, or periods.',
                         'invalid',
                     ),

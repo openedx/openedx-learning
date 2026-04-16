@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('openedx_content', '0009_add_collection_code_regex_validation'),
+        ('openedx_content', '0008_rename_collection_key_to_collection_code'),
     ]
 
     operations = [

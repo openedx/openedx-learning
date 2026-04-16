@@ -6,7 +6,7 @@ import openedx_django_lib.fields
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('openedx_content', '0010_rename_component_local_key_to_code_in_python'),
+        ('openedx_content', '0009_rename_component_local_key_to_code_in_python'),
     ]
 
     operations = [
