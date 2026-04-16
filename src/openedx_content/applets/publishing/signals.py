@@ -85,8 +85,8 @@ The draft version of one or more entities in a `LearningPackage` has changed.
 
 This is emitted when the first version of an entity is **created**, when a new
 version of an entity is created (i.e. an entity is **modified**), when an entity
-is **reverted** to an old version, or when an entity is **deleted**. (All
-referring to the draft version of the entity.)
+is **reverted** to an old version, when **a dependency is modified**, or when an
+entity is **deleted**. (All referring to the draft version of the entity.)
 
 The ``old_version`` and ``new_version`` fields can be used to distinguish among
 these cases (e.g. ``old_version`` is ``None`` for newly-created entities).
@@ -117,8 +117,10 @@ The published version of one or more entities in a `LearningPackage` has
 changed.
 
 This is emitted when **a newly-created entity is first published**, when
-**changes to an existing entity** are published, when a published entity is
-**reverted** to a previous version, or when **a "delete" is published**.
+**changes to an existing entity** are published, when **changes to a
+dependency** (or a dependency's dependencies...) are published, when a published
+entity is **reverted** to a previous version, or when **a "delete" is
+published**.
 
 The ``old_version`` and ``new_version`` fields can be used to distinguish among
 these cases (e.g. ``old_version`` is ``None`` for newly-created entities).

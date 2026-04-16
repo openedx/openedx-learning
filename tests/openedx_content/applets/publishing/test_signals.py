@@ -8,10 +8,18 @@ from typing import Any
 import pytest
 
 from openedx_content import api
+from openedx_content.models_api import PublishableEntity, PublishLog
 from tests.utils import abort_transaction, capture_events
 
 pytestmark = pytest.mark.django_db(transaction=True)
 now_time = datetime.now(tz=timezone.utc)
+
+
+def publish_entity(obj: PublishableEntity) -> PublishLog:
+    """Helper method to publish a single entity."""
+    lp_id = obj.learning_package_id
+    return api.publish_from_drafts(lp_id, draft_qset=api.get_all_drafts(lp_id).filter(entity=obj))
+
 
 # LEARNING_PACKAGE_ENTITIES_CHANGED
 
@@ -147,6 +155,38 @@ def test_multiple_entites_change_aborted() -> None:
                 api.set_draft_version(entity3.id, None, set_at=now_time, set_by=None)
 
 
+def test_changes_with_side_effects() -> None:
+    """
+    Test that the LEARNING_PACKAGE_ENTITIES_CHANGED event handles dependencies
+    and side effects.
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+    created_args: dict[str, Any] = {"created": now_time, "created_by": None}
+
+    # Create entities with dependencies
+
+    def create_entity(name: str, dependencies: list[PublishableEntity.ID] | None = None) -> PublishableEntity:
+        e = api.create_publishable_entity(learning_package.id, key=name, **created_args)
+        api.create_publishable_entity_version(
+            e.id, version_num=1, title=f"{name} V1", dependencies=dependencies, **created_args
+        )
+        return e
+
+    child1 = create_entity("child1")
+    parent1 = create_entity("parent1", dependencies=[child1.id])
+
+    # now, modifying child1 will affect parent1:
+    with capture_events(expected_count=1) as captured:
+        api.create_publishable_entity_version(child1.id, version_num=2, title="child1 V2", **created_args)
+
+    event = captured[0]
+    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_CHANGED
+    assert event.kwargs["change_log"].changes == [
+        api.signals.ChangeLogRecordData(entity_id=child1.id, old_version=1, new_version=2),  # directly modified
+        api.signals.ChangeLogRecordData(entity_id=parent1.id, old_version=1, new_version=1),  # side effect
+    ]
+
+
 # LEARNING_PACKAGE_ENTITIES_PUBLISHED
 
 
@@ -246,3 +286,63 @@ def test_publish_events_aborted(admin_user) -> None:
 
     with capture_events(expected_count=1):
         do_publish()
+
+
+def test_publish_with_dependencies() -> None:
+    """
+    Test that the LEARNING_PACKAGE_ENTITIES_PUBLISHED event handles dependencies
+    and side effects.
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+    created_args: dict[str, Any] = {"created": now_time, "created_by": None}
+
+    # Create entities with dependencies
+
+    def create_entity(name: str, dependencies: list[PublishableEntity.ID] | None = None) -> PublishableEntity:
+        e = api.create_publishable_entity(learning_package.id, key=name, **created_args)
+        api.create_publishable_entity_version(
+            e.id, version_num=1, title=f"{name} V1", dependencies=dependencies, **created_args
+        )
+        return e
+
+    # 👧👦 children
+    child1 = create_entity("child1")
+    child2 = create_entity("child2")
+    child3 = create_entity("child3")
+    # 🧓👩 parents
+    parent1 = create_entity("parent1", dependencies=[child1.id, child2.id])
+    parent2 = create_entity("parent2", dependencies=[child2.id, child3.id])
+    # 👴👵 grandparents
+    grandparent1 = create_entity("grandparent1", dependencies=[parent1.id])
+    grandparent2 = create_entity("grandparent2", dependencies=[parent2.id])
+
+    # publish grandparent1 directly and all its dependencies indirectly:
+    with capture_events(expected_count=1) as captured:
+        publish_entity(grandparent1)
+
+    event = captured[0]
+    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
+    assert event.kwargs["change_log"].changes == [
+        api.signals.ChangeLogRecordData(entity_id=grandparent1.id, old_version=None, new_version=1),
+        api.signals.ChangeLogRecordData(entity_id=parent1.id, old_version=None, new_version=1),
+        api.signals.ChangeLogRecordData(entity_id=child1.id, old_version=None, new_version=1),
+        api.signals.ChangeLogRecordData(entity_id=child2.id, old_version=None, new_version=1),
+    ]
+
+    # publish the rest:
+    with capture_events(expected_count=1):
+        api.publish_all_drafts(learning_package.id)
+
+    # ✨ Now modify 'child3', causing side effects for parent2 and grandparent2
+    api.create_publishable_entity_version(child3.id, version_num=2, title="child3 V2", **created_args)
+
+    with capture_events(expected_count=1) as captured:
+        publish_entity(child3)
+
+    event = captured[0]
+    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
+    assert event.kwargs["change_log"].changes == [
+        api.signals.ChangeLogRecordData(entity_id=child3.id, old_version=1, new_version=2),  # directly published
+        api.signals.ChangeLogRecordData(entity_id=parent2.id, old_version=1, new_version=1),  # side effect
+        api.signals.ChangeLogRecordData(entity_id=grandparent2.id, old_version=1, new_version=1),  # side effect
+    ]

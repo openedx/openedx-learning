@@ -192,7 +192,7 @@ def create_publishable_entity_version(
     created: datetime,
     created_by: int | None,
     *,
-    dependencies: list[int] | None = None,  # PublishableEntity IDs
+    dependencies: list[PublishableEntity.ID] | None = None,
 ) -> PublishableEntityVersion:
     """
     Create a PublishableEntityVersion.
@@ -223,7 +223,7 @@ def create_publishable_entity_version(
 def set_version_dependencies(
     version_id: int,  # PublishableEntityVersion.id,
     /,
-    dependencies: list[int]  # List of PublishableEntity.id
+    dependencies: list[PublishableEntity.ID],
 ) -> None:
     """
     Set the dependencies of a publishable entity version.
