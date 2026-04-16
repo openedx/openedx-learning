@@ -25,7 +25,7 @@ def backfill_container_code(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("openedx_content", "0011_add_component_code_regex_validation"),
+        ("openedx_content", "0009_rename_component_local_key_to_component_code"),
     ]
 
     operations = [
