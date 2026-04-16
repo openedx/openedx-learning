@@ -14,7 +14,7 @@ import openedx_django_lib.fields
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('openedx_content', '0006_typed_ids'),
+        ('openedx_content', '0007_publishlogrecord_direct'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
