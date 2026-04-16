@@ -74,47 +74,43 @@ def test_single_entity_changed_abort() -> None:
             pass
 
 
-def test_multiple_entites_changed() -> None:
+def test_multiple_entites_changed(admin_user) -> None:
     """
     Test that LEARNING_PACKAGE_ENTITIES_CHANGED is emitted when we change
     several publishable entities in a single edit.
     """
     learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+    created_args = {"created": now_time, "created_by": admin_user.id}
 
     # Entity 1 will have no initial version:
-    entity1 = api.create_publishable_entity(learning_package.id, key="entity1", created=now_time, created_by=None)
+    entity1 = api.create_publishable_entity(learning_package.id, key="entity1", **created_args)
     # Entity 2 will have an initial version:
-    entity2 = api.create_publishable_entity(learning_package.id, key="entity2", created=now_time, created_by=None)
-    api.create_publishable_entity_version(
-        entity2.id, version_num=1, title="Entity 2 V1", created=now_time, created_by=None
-    )
+    entity2 = api.create_publishable_entity(learning_package.id, key="entity2", **created_args)
+    api.create_publishable_entity_version(entity2.id, version_num=1, title="Entity 2 V1", **created_args)
     # Entity 3 will have an initial version that later gets deleted:
-    entity3 = api.create_publishable_entity(learning_package.id, key="entity3", created=now_time, created_by=None)
-    api.create_publishable_entity_version(
-        entity3.id, version_num=1, title="Entity 3 V1", created=now_time, created_by=None
-    )
+    entity3 = api.create_publishable_entity(learning_package.id, key="entity3", **created_args)
+    api.create_publishable_entity_version(entity3.id, version_num=1, title="Entity 3 V1", **created_args)
 
     with capture_events(expected_count=1) as captured:
-        with api.bulk_draft_changes_for(learning_package.id, changed_by=None, changed_at=now_time) as draft_change_log:
+        with api.bulk_draft_changes_for(
+            learning_package.id,
+            changed_by=admin_user.id,
+            changed_at=now_time,
+        ) as draft_change_log:
+            # Note: the 'created_args' values below get ignored because of the bulk context.
             # Create two versions of entity1:
-            api.create_publishable_entity_version(
-                entity1.id, version_num=1, title="Entity 1 V1", created=now_time, created_by=None
-            )
-            api.create_publishable_entity_version(
-                entity1.id, version_num=2, title="Entity 1 V2", created=now_time, created_by=None
-            )
+            api.create_publishable_entity_version(entity1.id, version_num=1, title="Entity 1 V1", **created_args)
+            api.create_publishable_entity_version(entity1.id, version_num=2, title="Entity 1 V2", **created_args)
             # Create a version 2 of entity 2:
-            api.create_publishable_entity_version(
-                entity2.id, version_num=2, title="Entity 2 V2", created=now_time, created_by=None
-            )
+            api.create_publishable_entity_version(entity2.id, version_num=2, title="Entity 2 V2", **created_args)
             # Delete entity 3:
-            api.set_draft_version(entity3.id, None, set_at=now_time, set_by=None)
+            api.set_draft_version(entity3.id, None, set_at=now_time, set_by=admin_user.id)
 
     event = captured[0]
     assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_CHANGED
     assert event.kwargs["learning_package"].id == learning_package.id
     assert event.kwargs["learning_package"].title == "Test LP 📦"
-    assert event.kwargs["changed_by"].user_id is None
+    assert event.kwargs["changed_by"].user_id is admin_user.id
     assert event.kwargs["change_log"].draft_change_log_id == draft_change_log.id
     assert event.kwargs["change_log"].changes == [
         # Entity 1 jumps from no version to version 2:
