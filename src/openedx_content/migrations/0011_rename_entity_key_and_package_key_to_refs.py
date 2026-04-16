@@ -1,8 +1,8 @@
 """
 Rename PublishableEntity.key -> entity_ref and LearningPackage.key -> package_ref.
 
-Both fields previously had db_column='_key'; this migration also renames the
-underlying DB columns to match the new field names.
+Both fields previously had db_column='_key'; the AlterField steps drop that
+override, which causes Django's schema editor to rename the DB column too.
 """
 from django.db import migrations, models
 
@@ -31,25 +31,15 @@ class Migration(migrations.Migration):
             new_name='entity_ref',
         ),
         # RenameField only changes the Django field name; the DB column is still
-        # '_key' (set via db_column). Use SeparateDatabaseAndState to rename the
-        # actual column and drop the db_column override from state.
-        migrations.SeparateDatabaseAndState(
-            state_operations=[
-                migrations.AlterField(
-                    model_name='publishableentity',
-                    name='entity_ref',
-                    field=openedx_django_lib.fields.MultiCollationCharField(
-                        db_collations={'mysql': 'utf8mb4_bin', 'sqlite': 'BINARY'},
-                        max_length=500,
-                    ),
-                ),
-            ],
-            database_operations=[
-                migrations.RunSQL(
-                    sql='ALTER TABLE openedx_content_publishableentity RENAME COLUMN _key TO entity_ref',
-                    reverse_sql='ALTER TABLE openedx_content_publishableentity RENAME COLUMN entity_ref TO _key',
-                ),
-            ],
+        # '_key' (set via db_column). AlterField drops db_column, so Django sees
+        # old column='_key' vs new column='entity_ref' and renames it.
+        migrations.AlterField(
+            model_name='publishableentity',
+            name='entity_ref',
+            field=openedx_django_lib.fields.MultiCollationCharField(
+                db_collations={'mysql': 'utf8mb4_bin', 'sqlite': 'BINARY'},
+                max_length=500,
+            ),
         ),
         migrations.AddConstraint(
             model_name='publishableentity',
@@ -76,23 +66,13 @@ class Migration(migrations.Migration):
             old_name='key',
             new_name='package_ref',
         ),
-        migrations.SeparateDatabaseAndState(
-            state_operations=[
-                migrations.AlterField(
-                    model_name='learningpackage',
-                    name='package_ref',
-                    field=openedx_django_lib.fields.MultiCollationCharField(
-                        db_collations={'mysql': 'utf8mb4_bin', 'sqlite': 'BINARY'},
-                        max_length=500,
-                    ),
-                ),
-            ],
-            database_operations=[
-                migrations.RunSQL(
-                    sql='ALTER TABLE openedx_content_learningpackage RENAME COLUMN _key TO package_ref',
-                    reverse_sql='ALTER TABLE openedx_content_learningpackage RENAME COLUMN package_ref TO _key',
-                ),
-            ],
+        migrations.AlterField(
+            model_name='learningpackage',
+            name='package_ref',
+            field=openedx_django_lib.fields.MultiCollationCharField(
+                db_collations={'mysql': 'utf8mb4_bin', 'sqlite': 'BINARY'},
+                max_length=500,
+            ),
         ),
         migrations.AddConstraint(
             model_name='learningpackage',
