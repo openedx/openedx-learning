@@ -720,10 +720,7 @@ class LearningPackageUnzipper:
                 if entity_key not in self.all_publishable_entities_keys:
                     self.errors.append({
                         "file": file,
-                        "errors": (
-                            f"Entity key {entity_key} not found for collection " +
-                            collection_validated.get('collection_code')
-                        )
+                        "errors": f"Entity key {entity_key} not found for collection {collection_validated.get('key')}"
                     })
             results["collections"].append(collection_validated)
 
@@ -777,6 +774,8 @@ class LearningPackageUnzipper:
         """Save collections and their entities."""
         for valid_collection in collections.get("collections", []):
             entities = valid_collection.pop("entities", [])
+            # The archive format uses "key"; the API now expects "collection_code".
+            valid_collection["collection_code"] = valid_collection.pop("key")
             collection = collections_api.create_collection(
                 learning_package.id, created_by=self.user_id, **valid_collection
             )

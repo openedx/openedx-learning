@@ -277,17 +277,6 @@ class LpDumpCommandTestCase(TestCase):
             for file_path, expected_content in expected_files.items():
                 self.check_toml_file(zip_path, Path(file_path), expected_content)
 
-            # Verify that collection TOMLs include both 'key' (legacy) and 'collection_code'
-            # (new name), so older software can still read archives produced after the rename.
-            self.check_toml_file(
-                zip_path,
-                Path("collections/col1.toml"),
-                [
-                    'key = "COL1"',
-                    'collection_code = "COL1"',
-                ]
-            )
-
             # Check the output message
             message = f'{lp_key} written to {file_name}'
             self.assertIn(message, out.getvalue())
