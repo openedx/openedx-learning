@@ -70,7 +70,7 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, code_field
+from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, code_field, code_field_check
 from openedx_django_lib.validators import validate_utc_datetime
 
 from ..publishing.models import LearningPackage, PublishableEntity
@@ -179,6 +179,7 @@ class Collection(models.Model):
                 ],
                 name="oel_coll_uniq_lp_key",
             ),
+            code_field_check("collection_code", name="oel_coll_collection_code_regex"),
         ]
         indexes = [
             models.Index(
