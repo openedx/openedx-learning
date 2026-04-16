@@ -26,25 +26,15 @@ class Migration(migrations.Migration):
             new_name='path',
         ),
         # RenameField only changes the Django field name; the DB column is still
-        # '_key' (set via db_column). Use SeparateDatabaseAndState to rename the
-        # actual column and drop the db_column override from state.
-        migrations.SeparateDatabaseAndState(
-            state_operations=[
-                migrations.AlterField(
-                    model_name='componentversionmedia',
-                    name='path',
-                    field=openedx_django_lib.fields.MultiCollationCharField(
-                        db_collations={'mysql': 'utf8mb4_bin', 'sqlite': 'BINARY'},
-                        max_length=500,
-                    ),
-                ),
-            ],
-            database_operations=[
-                migrations.RunSQL(
-                    sql='ALTER TABLE openedx_content_componentversionmedia RENAME COLUMN _key TO path',
-                    reverse_sql='ALTER TABLE openedx_content_componentversionmedia RENAME COLUMN path TO _key',
-                ),
-            ],
+        # '_key' (set via db_column). AlterField drops db_column, so Django sees
+        # old column='_key' vs new column='path' and renames it.
+        migrations.AlterField(
+            model_name='componentversionmedia',
+            name='path',
+            field=openedx_django_lib.fields.MultiCollationCharField(
+                db_collations={'mysql': 'utf8mb4_bin', 'sqlite': 'BINARY'},
+                max_length=500,
+            ),
         ),
         migrations.AddConstraint(
             model_name='componentversionmedia',
