@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Generator
 
+from django.db import transaction
 from openedx_events.tooling import OpenEdxPublicSignal  # type: ignore[import-untyped]
 
 
@@ -77,3 +78,27 @@ def capture_events(
         assert len(captured) == expected_count, (
             f"Expected {expected_count} event(s), got {len(captured)}: {[e.signal for e in captured]}"
         )
+
+
+class DeliberateRollbackException(Exception):
+    """Exception used to deliberately cancel and roll back a DB transaction"""
+
+
+@contextmanager
+def abort_transaction() -> Generator[None, None, None]:
+    """
+    Context manager that wraps the block in a transaction that gets rolled back.
+
+    Example usage::
+
+        with abort_transaction():
+            api.do_something(...)
+
+        assert nothing was done
+    """
+    try:
+        with transaction.atomic():
+            yield
+            raise DeliberateRollbackException
+    except DeliberateRollbackException:
+        pass

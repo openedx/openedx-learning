@@ -3,12 +3,12 @@ Tests related to the Catalog signal handlers
 """
 
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
-from django.db import transaction
 
 from openedx_content import api
-from tests.utils import capture_events
+from tests.utils import abort_transaction, capture_events
 
 pytestmark = pytest.mark.django_db(transaction=True)
 now_time = datetime.now(tz=timezone.utc)
@@ -64,14 +64,10 @@ def test_single_entity_changed_abort() -> None:
     entity = api.create_publishable_entity(learning_package.id, key="entity1", created=now_time, created_by=None)
 
     with capture_events(expected_count=0):
-        try:
-            with transaction.atomic():
-                api.create_publishable_entity_version(
-                    entity.id, version_num=1, title="Entity 1 V1", created=now_time, created_by=None
-                )
-                raise DeliberateRollbackException()
-        except DeliberateRollbackException:
-            pass
+        with abort_transaction():
+            api.create_publishable_entity_version(
+                entity.id, version_num=1, title="Entity 1 V1", created=now_time, created_by=None
+            )
 
 
 def test_multiple_entites_changed(admin_user) -> None:
@@ -121,3 +117,33 @@ def test_multiple_entites_changed(admin_user) -> None:
         api.signals.ChangeLogRecordData(entity_id=entity3.id, old_version=1, new_version=None),
     ]
     assert event.kwargs["metadata"].time == now_time
+
+
+def test_multiple_entites_change_aborted() -> None:
+    """
+    Test that LEARNING_PACKAGE_ENTITIES_CHANGED is NOT emitted when we roll back
+    a transaction that would have modified multiple entities in a bulk change.
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+    created_args: dict[str, Any] = {"created": now_time, "created_by": None}
+
+    # Entity 1 will have no initial version:
+    entity1 = api.create_publishable_entity(learning_package.id, key="entity1", **created_args)
+    # Entity 2 will have an initial version:
+    entity2 = api.create_publishable_entity(learning_package.id, key="entity2", **created_args)
+    api.create_publishable_entity_version(entity2.id, version_num=1, title="Entity 2 V1", **created_args)
+    # Entity 3 will have an initial version that later gets deleted:
+    entity3 = api.create_publishable_entity(learning_package.id, key="entity3", **created_args)
+    api.create_publishable_entity_version(entity3.id, version_num=1, title="Entity 3 V1", **created_args)
+
+    with capture_events(expected_count=0):
+        with abort_transaction():
+            with api.bulk_draft_changes_for(learning_package.id, changed_by=None, changed_at=now_time):
+                # Note: the 'created_args' values below get ignored because of the bulk context.
+                # Create two versions of entity1:
+                api.create_publishable_entity_version(entity1.id, version_num=1, title="Entity 1 V1", **created_args)
+                api.create_publishable_entity_version(entity1.id, version_num=2, title="Entity 1 V2", **created_args)
+                # Create a version 2 of entity 2:
+                api.create_publishable_entity_version(entity2.id, version_num=2, title="Entity 2 V2", **created_args)
+                # Delete entity 3:
+                api.set_draft_version(entity3.id, None, set_at=now_time, set_by=None)
