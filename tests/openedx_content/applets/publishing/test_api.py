@@ -1494,7 +1494,7 @@ class TestContainerSideEffects(TestCase):
             created=self.now, created_by=None,
         )
         unit = containers_api.create_container(
-            self.learning_package.id, "direct_unit",
+            self.learning_package.id,
             container_code="direct_unit",
             created=self.now, created_by=None, container_cls=TestContainer,
         )
@@ -1528,7 +1528,7 @@ class TestContainerSideEffects(TestCase):
             created=self.now, created_by=None,
         )
         unit = containers_api.create_container(
-            self.learning_package.id, "no_change_unit",
+            self.learning_package.id,
             container_code="no_change_unit",
             created=self.now, created_by=None, container_cls=TestContainer,
         )
@@ -1584,7 +1584,7 @@ class TestContainerSideEffects(TestCase):
             created=self.now, created_by=None,
         )
         unit = containers_api.create_container(
-            self.learning_package.id, "leaf_unit",
+            self.learning_package.id,
             container_code="leaf_unit",
             created=self.now, created_by=None, container_cls=TestContainer,
         )
@@ -1621,7 +1621,7 @@ class TestContainerSideEffects(TestCase):
             created=self.now, created_by=None,
         )
         unit = containers_api.create_container(
-            self.learning_package.id, "both_unit",
+            self.learning_package.id,
             container_code="both_unit",
             created=self.now, created_by=None, container_cls=TestContainer,
         )
