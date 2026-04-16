@@ -165,3 +165,7 @@ class CollectionSerializer(serializers.Serializer):  # pylint: disable=abstract-
         required=True,
         allow_empty=True,
     )
+
+    def validate(self, attrs):
+        attrs["collection_code"] = attrs.pop("key")
+        return attrs

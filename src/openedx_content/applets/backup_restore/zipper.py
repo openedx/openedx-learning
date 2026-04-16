@@ -774,8 +774,6 @@ class LearningPackageUnzipper:
         """Save collections and their entities."""
         for valid_collection in collections.get("collections", []):
             entities = valid_collection.pop("entities", [])
-            # The archive format uses "key"; the API now expects "collection_code".
-            valid_collection["collection_code"] = valid_collection.pop("key")
             collection = collections_api.create_collection(
                 learning_package.id, created_by=self.user_id, **valid_collection
             )
