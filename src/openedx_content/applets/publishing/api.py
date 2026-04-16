@@ -502,6 +502,7 @@ def publish_from_drafts(
                 published_draft_ids.add(draft.pk)
 
         _create_side_effects_for_change_log(publish_log)
+        _emit_event_for_change_log(publish_log, time_stamp=published_at, user_id=published_by)
 
     return publish_log
 
@@ -928,9 +929,10 @@ def _emit_event_for_change_log(
     change_log: PublishLog | DraftChangeLog, time_stamp: datetime, user_id: int | None
 ) -> None:
     """
-    Construct and emit the _CHANGED event when a set of entities is changed or published.
+    Construct and emit the _CHANGED / _PUBLISHED event when a set of entities is
+    changed or published.
 
-    Works with either `DraftChangeLog` or `PublishLog`.
+    Works with either ``DraftChangeLog`` or ``PublishLog``.
     """
 
     learning_package_id = change_log.learning_package.id
@@ -944,11 +946,14 @@ def _emit_event_for_change_log(
         for record in change_log.records.select_related("old_version", "new_version").all()
     ]
 
+    change_log_data: signals.DraftChangeLogEventData | signals.PublishLogEventData
     if isinstance(change_log, DraftChangeLog):
         signal = signals.LEARNING_PACKAGE_ENTITIES_CHANGED
         change_log_data = signals.DraftChangeLogEventData(draft_change_log_id=change_log.id, changes=changes)
     else:
-        raise NotImplementedError
+        assert isinstance(change_log, PublishLog)
+        signal = signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
+        change_log_data = signals.PublishLogEventData(publish_log_id=change_log.id, changes=changes)
 
     # Send out an event immediately after this database transaction commits.
     def send_change_event():

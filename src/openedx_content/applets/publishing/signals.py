@@ -14,7 +14,9 @@ __all__ = [
     "UserAttributionEventData",
     "ChangeLogRecordData",
     "DraftChangeLogEventData",
+    "PublishLogEventData",
     "LEARNING_PACKAGE_ENTITIES_CHANGED",
+    "LEARNING_PACKAGE_ENTITIES_PUBLISHED",
 ]
 
 
@@ -56,9 +58,17 @@ class ChangeLogRecordData:
 
 @define
 class DraftChangeLogEventData:
-    """Summary of a `DraftChangeLog`"""
+    """Summary of a `DraftChangeLog` for event purposes"""
 
     draft_change_log_id: int
+    changes: list[ChangeLogRecordData]
+
+
+@define
+class PublishLogEventData:
+    """Summary of a `PublishLog` for event purposes"""
+
+    publish_log_id: int
     changes: list[ChangeLogRecordData]
 
 
@@ -73,11 +83,45 @@ LEARNING_PACKAGE_ENTITIES_CHANGED = OpenEdxPublicSignal(
 """
 The draft version of one or more entities in a `LearningPackage` has changed.
 
-This is emitted for when the first version of an entity is **created**, when a
-new version of an entity is created (i.e. an entity is **modified**), when an
-entity is **reverted** to an old version, or when an entity is **deleted**.
-(All referring to the draft version of the entity.) The ``old_version`` and
-``new_version`` fields can be used to distinguish among these cases.
+This is emitted when the first version of an entity is **created**, when a new
+version of an entity is created (i.e. an entity is **modified**), when an entity
+is **reverted** to an old version, or when an entity is **deleted**. (All
+referring to the draft version of the entity.)
+
+The ``old_version`` and ``new_version`` fields can be used to distinguish among
+these cases (e.g. ``old_version`` is ``None`` for newly-created entities).
+
+This is a low-level batch event. It does not have any course or library context
+information available. It does not distinguish between Containers, Components,
+or other entity types.
+
+Collections and tags are not `PublishableEntity`-based, so do not participate in
+this event.
+
+⏳ This **batch** event is emitted **synchronously**. Handlers that do anything
+per-entity or that is possibly slow should dispatch an asynchronous task for
+processing the event.
+"""
+
+
+LEARNING_PACKAGE_ENTITIES_PUBLISHED = OpenEdxPublicSignal(
+    event_type="org.openedx.content.publishing.lp_entities_published.v1",
+    data={
+        "learning_package": LearningPackageEventData,
+        "changed_by": UserAttributionEventData,
+        "change_log": PublishLogEventData,
+    },
+)
+"""
+The published version of one or more entities in a `LearningPackage` has
+changed.
+
+This is emitted when **a newly-created entity is first published**, when
+**changes to an existing entity** are published, when a published entity is
+**reverted** to a previous version, or when **a "delete" is published**.
+
+The ``old_version`` and ``new_version`` fields can be used to distinguish among
+these cases (e.g. ``old_version`` is ``None`` for newly-created entities).
 
 This is a low-level batch event. It does not have any course or library context
 information available. It does not distinguish between Containers, Components,
