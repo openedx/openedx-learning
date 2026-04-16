@@ -43,6 +43,7 @@ class PublishLogRecordTabularInline(admin.TabularInline):
         "old_version_num",
         "new_version_num",
         "dependencies_hash_digest",
+        "direct",
     )
     readonly_fields = fields
 
