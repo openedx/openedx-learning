@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime, timezone
+from functools import partial
 from typing import ContextManager, Optional, cast
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -1413,11 +1414,14 @@ def bulk_draft_changes_for(
         with bulk_draft_changes_for(component.learning_package.id):
             update_one_component(component.learning_package.id, component)
     """
+    if not changed_at:
+        changed_at = datetime.now(tz=timezone.utc)
     return DraftChangeLogContext(
         learning_package_id,
         changed_at=changed_at,
         changed_by=changed_by,
         exit_callbacks=[
             _create_side_effects_for_change_log,
+            partial(_emit_event_for_change_log, time_stamp=changed_at, user_id=changed_by),
         ]
     )
