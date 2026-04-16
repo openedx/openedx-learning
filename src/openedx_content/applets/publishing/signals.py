@@ -73,10 +73,11 @@ LEARNING_PACKAGE_ENTITIES_CHANGED = OpenEdxPublicSignal(
 """
 The draft version of one or more entities in a `LearningPackage` has changed.
 
-This is emitted for when the first version of an entity is created, when a new
-version of an entity is created (i.e. the entity is modified), when an entity is
-reverted to an old version, or when an entity is deleted. (All referring to the
-draft version of the entity.)
+This is emitted for when the first version of an entity is **created**, when a
+new version of an entity is created (i.e. an entity is **modified**), when an
+entity is **reverted** to an old version, or when an entity is **deleted**.
+(All referring to the draft version of the entity.) The ``old_version`` and
+``new_version`` fields can be used to distinguish among these cases.
 
 This is a low-level batch event. It does not have any course or library context
 information available. It does not distinguish between Containers, Components,
@@ -84,4 +85,8 @@ or other entity types.
 
 Collections and tags are not `PublishableEntity`-based, so do not participate in
 this event.
+
+⏳ This **batch** event is emitted **synchronously**. Handlers that do anything
+per-entity or that is possibly slow should dispatch an asynchronous task for
+processing the event.
 """
