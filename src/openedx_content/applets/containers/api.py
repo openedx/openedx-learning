@@ -142,7 +142,6 @@ def create_container(
     container_code: str,
     container_cls: type[ContainerModel],
     can_stand_alone: bool = True,
-    entity_ref: str | None = None,
 ) -> ContainerModel:
     """
     [ 🛑 UNSTABLE ]
@@ -156,17 +155,13 @@ def create_container(
             the learning package (regardless of container type).
         container_cls: The subclass of container to create (e.g. `Unit`)
         can_stand_alone: Set to False when created as part of containers
-        entity_ref: Optional opaque reference string. Defaults to container_code.
-            # TODO: The dev team is considering revisiting the default container
-            # entity_ref derivation in the future.
 
     Returns:
         The newly created container as an instance of `container_cls`.
     """
     assert issubclass(container_cls, Container)
     assert container_cls is not Container, "Creating plain containers is not allowed; use a subclass of Container"
-    if entity_ref is None:
-        entity_ref = container_code  # TODO: The team may revisit this default derivation.
+    entity_ref = container_code
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
@@ -356,7 +351,6 @@ def create_container_and_version(
     created: datetime,
     created_by: int | None = None,
     can_stand_alone: bool = True,
-    entity_ref: str | None = None,
 ) -> tuple[ContainerModel, ContainerVersionModel]:
     """
     [ 🛑 UNSTABLE ] Create a new container and its initial version.
@@ -375,7 +369,6 @@ def create_container_and_version(
         created: The creation date.
         created_by: The ID of the user who created the container.
         can_stand_alone: Set to False when created as part of containers
-        entity_ref: Optional opaque reference string. Defaults to container_code.
     """
     with atomic(savepoint=False):
         container = create_container(
@@ -385,7 +378,6 @@ def create_container_and_version(
             container_code=container_code,
             can_stand_alone=can_stand_alone,
             container_cls=container_cls,
-            entity_ref=entity_ref,
         )
         container_version: ContainerVersionModel = create_container_version(  # type: ignore[assignment]
             container.id,

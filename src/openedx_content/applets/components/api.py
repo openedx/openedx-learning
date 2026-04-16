@@ -82,16 +82,14 @@ def create_component(
     created_by: int | None,
     *,
     can_stand_alone: bool = True,
-    entity_ref: str | None = None,
 ) -> Component:
     """
     Create a new Component (an entity like a Problem or Video).
 
-    If ``entity_ref`` is not provided, it defaults to
+    The ``entity_ref`` is always derived as
     ``"{namespace}:{type_name}:{component_code}"``.
     """
-    if entity_ref is None:
-        entity_ref = f"{component_type.namespace}:{component_type.name}:{component_code}"
+    entity_ref = f"{component_type.namespace}:{component_type.name}:{component_code}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
@@ -282,13 +280,9 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
     created_by: int | None = None,
     *,
     can_stand_alone: bool = True,
-    entity_ref: str | None = None,
 ) -> tuple[Component, ComponentVersion]:
     """
     Create a Component and associated ComponentVersion atomically.
-
-    If ``entity_ref`` is not provided, it defaults to
-    ``"{namespace}:{type_name}:{component_code}"``.
     """
     with atomic():
         component = create_component(
@@ -298,7 +292,6 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
             created,
             created_by,
             can_stand_alone=can_stand_alone,
-            entity_ref=entity_ref,
         )
         component_version = create_component_version(
             component.id,

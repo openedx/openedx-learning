@@ -836,7 +836,6 @@ class LearningPackageUnzipper:
             container = containers_api.create_container(
                 learning_package.id,
                 **data,  # should this be allowed to override any of the following fields?
-                entity_ref=entity_ref,
                 created_by=self.user_id,
                 container_cls=container_cls,
             )
