@@ -119,7 +119,7 @@ def immutable_uuid_field() -> models.UUIDField:
 
 
 # Alphanumeric, hyphens, underscores, periods
-CODE_REGEX = re.compile(r"^[a-zA-Z0-9\-\_\.]+\Z")
+CODE_REGEX = re.compile(r"^[a-zA-Z0-9_.-]+\Z")
 
 
 _CODE_VIOLATION_MSG = _(

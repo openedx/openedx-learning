@@ -1,7 +1,5 @@
 """
 Rename Collection.key -> Collection.collection_code and change from key_field to code_field.
-
-Squashed from 0007–0010.
 """
 import re
 
@@ -42,7 +40,7 @@ class Migration(migrations.Migration):
                 max_length=255,
                 validators=[
                     django.core.validators.RegexValidator(
-                        re.compile('^[a-zA-Z0-9\\-\\_\\.]+\\Z'),
+                        re.compile('^[a-zA-Z0-9_.-]+\\Z'),
                         'Enter a valid "code name" consisting of letters, numbers, underscores, hyphens, or periods.',
                         'invalid',
                     ),
@@ -63,7 +61,7 @@ class Migration(migrations.Migration):
             constraint=models.CheckConstraint(
                 condition=django.db.models.lookups.Regex(
                     models.F('collection_code'),
-                    '^[a-zA-Z0-9\\-\\_\\.]+\\Z',
+                    '^[a-zA-Z0-9_.-]+\\Z',
                 ),
                 name='oel_coll_collection_code_regex',
                 violation_error_message=(
