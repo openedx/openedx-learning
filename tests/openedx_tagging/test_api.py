@@ -752,53 +752,53 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
     @ddt.data(
         ("ChA", [
-            "Archaea (used: 1, children: 2)",
-            "  Euryarchaeida (used: 0, children: 0)",
-            "  Proteoarchaeota (used: 0, children: 0)",
-            "Bacteria (used: 0, children: 1)",  # does not contain "cha" but a child does
-            "  Archaebacteria (used: 1, children: 0)",
+            "Archaea (children: 2)",
+            "  Euryarchaeida (children: 0)",
+            "  Proteoarchaeota (children: 0)",
+            "Bacteria (children: 1)",  # does not contain "cha" but a child does
+            "  Archaebacteria (children: 0)",
         ]),
         ("ar", [
-            "Archaea (used: 1, children: 2)",
-            "  Euryarchaeida (used: 0, children: 0)",
-            "  Proteoarchaeota (used: 0, children: 0)",
-            "Bacteria (used: 0, children: 1)",  # does not contain "ar" but a child does
-            "  Archaebacteria (used: 1, children: 0)",
-            "Eukaryota (used: 0, children: 1)",
-            "  Animalia (used: 1, children: 2)",  # does not contain "ar" but a child does
-            "    Arthropoda (used: 1, children: 0)",
-            "    Cnidaria (used: 0, children: 0)",
+            "Archaea (children: 2)",
+            "  Euryarchaeida (children: 0)",
+            "  Proteoarchaeota (children: 0)",
+            "Bacteria (children: 1)",  # does not contain "ar" but a child does
+            "  Archaebacteria (children: 0)",
+            "Eukaryota (children: 1)",
+            "  Animalia (children: 2)",  # does not contain "ar" but a child does
+            "    Arthropoda (children: 0)",
+            "    Cnidaria (children: 0)",
         ]),
         ("aE", [
-            "Archaea (used: 1, children: 2)",
-            "  Euryarchaeida (used: 0, children: 0)",
-            "  Proteoarchaeota (used: 0, children: 0)",
-            "Bacteria (used: 0, children: 1)",  # does not contain "ae" but a child does
-            "  Archaebacteria (used: 1, children: 0)",
-            "Eukaryota (used: 0, children: 1)",  # does not contain "ae" but a child does
-            "  Plantae (used: 1, children: 0)",
+            "Archaea (children: 2)",
+            "  Euryarchaeida (children: 0)",
+            "  Proteoarchaeota (children: 0)",
+            "Bacteria (children: 1)",  # does not contain "ae" but a child does
+            "  Archaebacteria (children: 0)",
+            "Eukaryota (children: 1)",  # does not contain "ae" but a child does
+            "  Plantae (children: 0)",
         ]),
         ("a", [
-            "Archaea (used: 1, children: 3)",
-            "  DPANN (used: 0, children: 0)",
-            "  Euryarchaeida (used: 0, children: 0)",
-            "  Proteoarchaeota (used: 0, children: 0)",
-            "Bacteria (used: 0, children: 2)",
-            "  Archaebacteria (used: 1, children: 0)",
-            "  Eubacteria (used: 0, children: 0)",
-            "Eukaryota (used: 0, children: 4)",
-            "  Animalia (used: 1, children: 7)",
-            "    Arthropoda (used: 1, children: 0)",
-            "    Chordata (used: 0, children: 1)",
-            "      Mammalia (used: 0, children: 0)",
-            "    Cnidaria (used: 0, children: 0)",
-            "    Ctenophora (used: 0, children: 0)",
-            "    Gastrotrich (used: 1, children: 0)",
-            "    Placozoa (used: 1, children: 0)",
-            "    Porifera (used: 0, children: 0)",
-            "  Monera (used: 1, children: 0)",
-            "  Plantae (used: 1, children: 0)",
-            "  Protista (used: 0, children: 0)",
+            "Archaea (children: 3)",
+            "  DPANN (children: 0)",
+            "  Euryarchaeida (children: 0)",
+            "  Proteoarchaeota (children: 0)",
+            "Bacteria (children: 2)",
+            "  Archaebacteria (children: 0)",
+            "  Eubacteria (children: 0)",
+            "Eukaryota (children: 4)",
+            "  Animalia (children: 7)",
+            "    Arthropoda (children: 0)",
+            "    Chordata (children: 1)",
+            "      Mammalia (children: 0)",
+            "    Cnidaria (children: 0)",
+            "    Ctenophora (children: 0)",
+            "    Gastrotrich (children: 0)",
+            "    Placozoa (children: 0)",
+            "    Porifera (children: 0)",
+            "  Monera (children: 0)",
+            "  Plantae (children: 0)",
+            "  Protista (children: 0)",
         ]),
     )
     @ddt.unpack
@@ -817,7 +817,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 _value=value,
             ).save()
 
-        result = tagging_api.search_tags(closed_taxonomy, search, include_counts=True)
+        result = tagging_api.search_tags(closed_taxonomy, search)
         assert pretty_format_tags(result, parent=False) == expected
 
     def test_autocomplete_tags_closed_omit_object(self) -> None:

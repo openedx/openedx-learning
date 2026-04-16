@@ -426,7 +426,6 @@ class Taxonomy(models.Model):
         depth: int | None = None,
         parent_tag_value: str | None = None,
         search_term: str | None = None,
-        include_counts: bool = False,
         excluded_values: list[str] | None = None,
     ) -> TagDataQuerySet:
         """
@@ -451,7 +450,7 @@ class Taxonomy(models.Model):
         if self.allow_free_text:
             if parent_tag_value is not None:
                 raise ValueError("Cannot specify a parent tag ID for free text taxonomies")
-            result = self._get_filtered_tags_free_text(search_term=search_term, include_counts=include_counts)
+            result = self._get_filtered_tags_free_text(search_term=search_term)
             if excluded_values:
                 return result.exclude(value__in=excluded_values)
             else:
@@ -460,7 +459,6 @@ class Taxonomy(models.Model):
             result = self._get_filtered_tags_one_level(
                 parent_tag_value=parent_tag_value,
                 search_term=search_term,
-                include_counts=include_counts,
             )
             if excluded_values:
                 return result.exclude(value__in=excluded_values)
@@ -470,7 +468,6 @@ class Taxonomy(models.Model):
             return self._get_filtered_tags_deep(
                 parent_tag_value=parent_tag_value,
                 search_term=search_term,
-                include_counts=include_counts,
                 excluded_values=excluded_values,
             )
         else:
@@ -479,7 +476,6 @@ class Taxonomy(models.Model):
     def _get_filtered_tags_free_text(
         self,
         search_term: str | None,
-        include_counts: bool,
     ) -> TagDataQuerySet:
         """
         Implementation of get_filtered_tags() for free text taxonomies.
@@ -499,16 +495,13 @@ class Taxonomy(models.Model):
             _id=Value(None, output_field=models.CharField()),
         )
         qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id").order_by("value")
-        if include_counts:
-            return qs.annotate(usage_count=models.Count("value"))
-        else:
-            return qs.distinct()  # type: ignore[return-value]
+
+        return qs.distinct()  # type: ignore[return-value]
 
     def _get_filtered_tags_one_level(
         self,
         parent_tag_value: str | None,
         search_term: str | None,
-        include_counts: bool,
     ) -> TagDataQuerySet:
         """
         Implementation of get_filtered_tags() for closed taxonomies, where
@@ -531,24 +524,13 @@ class Taxonomy(models.Model):
         qs = qs.annotate(_id=F("id"))  # ID has an underscore to encourage use of 'value' rather than this internal ID
         qs = qs.values("value", "child_count", "depth", "parent_value", "external_id", "_id")
         qs = qs.order_by("value")
-        if include_counts:
-            # We need to include the count of how many times this tag is used to tag objects.
-            # You'd think we could just use:
-            #     qs = qs.annotate(usage_count=models.Count("objecttag__pk"))
-            # but that adds another join which starts creating a cross product and the children and usage_count become
-            # intertwined and multiplied with each other. So we use a subquery.
-            obj_tags = ObjectTag.objects.filter(tag_id=models.OuterRef("pk")).order_by().annotate(
-                # We need to use Func() to get Count() without GROUP BY - see https://stackoverflow.com/a/69031027
-                count=models.Func(F('id'), function='Count')
-            )
-            qs = qs.annotate(usage_count=models.Subquery(obj_tags.values('count')))
+
         return qs  # type: ignore[return-value]
 
     def _get_filtered_tags_deep(
         self,
         parent_tag_value: str | None,
         search_term: str | None,
-        include_counts: bool,
         excluded_values: list[str] | None,
     ) -> TagDataQuerySet:
         """
@@ -615,17 +597,7 @@ class Taxonomy(models.Model):
         # lineage is a case-insensitive column storing "Root\tParent\t...\tThisValue\t", so
         # ordering by it gives the tree sort order that we want.
         qs = qs.order_by("lineage")
-        if include_counts:
-            # Including the counts is a bit tricky; see the comment above in _get_filtered_tags_one_level()
-            obj_tags = (
-                ObjectTag.objects.filter(tag_id=models.OuterRef("pk"))
-                .order_by()
-                .annotate(
-                    # We need to use Func() to get Count() without GROUP BY - see https://stackoverflow.com/a/69031027
-                    count=models.Func(F("id"), function="Count")
-                )
-            )
-            qs = qs.annotate(usage_count=models.Subquery(obj_tags.values("count")))
+
         return qs  # type: ignore[return-value]
 
     def add_tag(

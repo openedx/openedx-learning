@@ -3,6 +3,7 @@ CatalogCourse model
 """
 
 import logging
+from typing import NewType
 
 from django.conf import settings
 from django.contrib import admin
@@ -12,7 +13,7 @@ from django.db.models.lookups import Regex
 from django.utils.translation import gettext_lazy as _
 from organizations.models import Organization  # type: ignore[import]
 
-from openedx_django_lib.fields import case_insensitive_char_field, case_sensitive_char_field
+from openedx_django_lib.fields import TypedBigAutoField, case_insensitive_char_field, case_sensitive_char_field
 from openedx_django_lib.validators import validate_utc_datetime
 
 log = logging.getLogger(__name__)
@@ -59,7 +60,13 @@ class CatalogCourse(models.Model):
     courses in all instances of Open edX will need.)
     """
 
-    id = models.BigAutoField(
+    CatalogCourseID = NewType("CatalogCourseID", int)
+    type ID = CatalogCourseID
+
+    class IDField(TypedBigAutoField[ID]):  # Boilerplate for fully-typed ID field.
+        pass
+
+    id = IDField(
         primary_key=True,
         verbose_name=_("Primary Key"),
         help_text=_("The internal database ID for this catalog course. Should not be exposed to users nor in APIs."),

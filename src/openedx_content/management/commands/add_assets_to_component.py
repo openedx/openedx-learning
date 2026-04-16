@@ -73,7 +73,7 @@ class Command(BaseCommand):
             local_keys_to_content_bytes[local_key] = pathlib.Path(file_path).read_bytes() if file_path else None
 
         next_version = create_next_component_version(
-            component.pk,
+            component.id,
             media_to_replace=local_keys_to_content_bytes,
             created=created,
         )

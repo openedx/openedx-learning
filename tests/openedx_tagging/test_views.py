@@ -4,12 +4,15 @@ Tests tagging rest api views
 from __future__ import annotations
 
 import json
+from unittest.mock import patch
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 import ddt  # type: ignore[import]
 import rules
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -2173,6 +2176,127 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         self.assertEqual(data.get("parent_value"), existing_tag.parent)
         self.assertEqual(data.get("external_id"), existing_tag.external_id)
 
+    def test_update_tag_with_duplicate_value(self):
+        self.client.force_authenticate(user=self.staff)
+        updated_tag_value = "Updated Tag"
+
+        # Existing Tag that will be updated
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        # Create another tag with the value that we will try to update to, to cause a duplicate value scenario
+        Tag.objects.create(
+            value=updated_tag_value,
+            taxonomy=self.small_taxonomy,
+            parent=None
+        )
+
+        update_data = {
+            "tag": existing_tag.value,
+            "updated_tag_value": updated_tag_value
+        }
+
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Check that the error message indicates the duplicate value issue
+        assert "Tag value \"Updated Tag\" already exists in this taxonomy" in str(response.data)
+
+        response = self.client.patch(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Check that the error message indicates the duplicate value issue
+        assert "Tag value \"Updated Tag\" already exists in this taxonomy" in str(response.data)
+
+    def test_should_handle_unexpected_errors_gracefully(self):
+        """
+        Test that if any unexpected error occurs during the processing of the request,
+        the API converts it to a generic 500 response without exposing sensitive info.
+        For example, if there is an IntegrityError, this is handled gracefully and returns a generic 500 error.
+        """
+        self.client.force_authenticate(user=self.staff)
+        expected_error_message = "An unexpected error occurred while processing the request."
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+        update_data = {
+            "tag": existing_tag.value,
+            "updated_tag_value": "Updated Tag"
+        }
+        create_data = {
+            "tag": "New Tag",
+            "parent_tag_value": existing_tag.value
+        }
+        delete_data = {
+            "tags": [existing_tag.value],
+            "with_subtags": True
+        }
+
+        # Simulate a generic exception in a method used across all verbs in this view.
+        with patch("openedx_tagging.rest_api.v1.views.TaxonomyTagsView.get_taxonomy") as mock_get_taxonomy:
+            mock_get_taxonomy.side_effect = Exception("Unexpected error")
+
+            response = self.client.get(self.small_taxonomy_url, {}, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+            response = self.client.put(self.small_taxonomy_url, update_data, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+            response = self.client.patch(self.small_taxonomy_url, update_data, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+            response = self.client.post(self.small_taxonomy_url, create_data, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+            response = self.client.delete(self.small_taxonomy_url, delete_data, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+        # Simulate an IntegrityError in the same shared method.
+        with patch("openedx_tagging.rest_api.v1.views.TaxonomyTagsView.get_taxonomy") as mock_get_taxonomy:
+            mock_get_taxonomy.side_effect = IntegrityError("Integrity error")
+
+            response = self.client.get(self.small_taxonomy_url, {}, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+            response = self.client.put(self.small_taxonomy_url, update_data, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+            response = self.client.patch(self.small_taxonomy_url, update_data, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+            response = self.client.post(self.small_taxonomy_url, create_data, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+            response = self.client.delete(self.small_taxonomy_url, delete_data, format="json")
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert expected_error_message in str(response.data)
+
+    def test_passes_stack_trace_upwards_when_settings_debug_true(self):
+        """
+        Test that when an unexpected error occurs, if we're in debug mode, the stack trace is included in the response
+        to help with debugging, instead of just a generic error message.
+        """
+        self.client.force_authenticate(user=self.staff)
+        # simulate debug mode by patching the settings.DEBUG value to True
+        with override_settings(DEBUG=True):
+            with patch("openedx_tagging.rest_api.v1.views.TaxonomyTagsView.get_taxonomy") as mock_get_taxonomy:
+                mock_get_taxonomy.side_effect = Exception("Specific error message")
+
+                response = self.client.get(self.small_taxonomy_url)
+                assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+                assert "Specific error message" in str(response.data)
+                assert "get_taxonomy" in str(response.data)  # Checking that the stack trace is included
+
     def test_update_tag_in_taxonomy_reflects_changes_in_object_tags(self):
         self.client.force_authenticate(user=self.staff)
 
@@ -2444,6 +2568,436 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         # Check that Tag no longer exists
         with self.assertRaises(Tag.DoesNotExist):
             existing_tag.refresh_from_db()
+
+
+class TestTaxonomyTagsUsageCount(TestTaxonomyViewMixin):
+    """
+    Tests the usage count of tags in a taxonomy, verifies that the
+    usage count is correct according to the rules as described in the
+    comments in src/openedx_tagging/api.py:add_usage_counts()
+    """
+
+    # Taxonomy reference as used in tests below
+    #
+    # - Bacteria
+    #    |- Eubacteria
+    #    |- Archaebacteria
+    # - Archaea
+    #    |- DPANN
+    #    |- Euryarchaeida
+    #    |- Proteoarchaeota
+    # - Eukaryota (Root)
+    #    |- Animalia (L1)
+    #    |   |- Arthropoda
+    #    |   |- Chordata (L2)
+    #    |   |   |- Mammalia (L3)
+    #    |   |   |   |- Carnivora (L4)
+    #    |   |   |   |   |- Felidae (L5)
+    #    |   |   |   |   |   |- Felis (L6)
+    #    |   |   |   |- Canidae
+    #    |   |- Cnidaria
+    #    |   |- Ctenophora
+    #    |   |- Gastrotrich
+    #    |   |- Placozoa
+    #    |   |- Porifera
+    #    |- Fungi
+    #    |- Monera
+    #    |- Plantae
+    #    |- Protista
+
+    def setUp(self):
+        super().setUp()
+        self.taxonomy = Taxonomy.objects.create(name="Usage Count Taxonomy")
+        self.taxonomy_url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.pk)
+
+    def test_simple_usage_count_with_lineage_and_deduplication(self):
+        """
+        Test that usage counts correctly 'roll up' from children to parents,
+        while deduplicating multiple tags applied to the same object.
+
+        This test is a basic case to verify that the tags are correctly
+        counted according to business rules and deduplication
+        requirements; Animalia and Eukaryota should not be counted
+        more than once per object, the children should be counted once each.
+        """
+        # --- Setup Hierarchy ---
+        # Eukaryota -> Animalia -> (Arthropoda, Chordata, Cnidaria)
+        eukaryota = Tag.objects.create(taxonomy=self.taxonomy, value="Eukaryota")
+        animalia = Tag.objects.create(taxonomy=self.taxonomy, value="Animalia", parent=eukaryota)
+        arthropoda = Tag.objects.create(taxonomy=self.taxonomy, value="Arthropoda", parent=animalia)
+        chordata = Tag.objects.create(taxonomy=self.taxonomy, value="Chordata", parent=animalia)
+        cnidaria = Tag.objects.create(taxonomy=self.taxonomy, value="Cnidaria", parent=animalia)
+
+        # --- Setup Tagging ---
+        # Tags applied as:
+        # obj1: Arthropoda, Chordata, Cnidaria
+        # obj2: Arthropoda
+        obj1_id = "obj1"
+        obj2_id = "obj2"
+
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=arthropoda, object_id=obj1_id)
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=chordata, object_id=obj1_id)
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=cnidaria, object_id=obj1_id)
+
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=arthropoda, object_id=obj2_id)
+
+        self.client.force_authenticate(user=self.staff)
+
+        # --- Request all tags with counts ---
+        response = self.client.get(self.taxonomy_url + "?include_counts&full_depth_threshold=100")
+        assert response.status_code == status.HTTP_200_OK
+
+        results = {tag["value"]: tag for tag in response.data["results"]}
+
+        # --- Verification ---
+        # Arthropoda: applied to obj1, obj2 -> count: 2
+        assert results["Arthropoda"]["usage_count"] == 2
+
+        # Chordata: applied to obj1 -> count: 1
+        assert results["Chordata"]["usage_count"] == 1
+
+        # Cnidaria: applied to obj1 -> count: 1
+        assert results["Cnidaria"]["usage_count"] == 1
+
+        # Animalia: applied to obj1 (via Arthropoda, Chordata, Cnidaria) and obj2 (via Arthropoda).
+        # Should be 2, because it counts '1' per object regardless of how many children are applied.
+        assert results["Animalia"]["usage_count"] == 2
+
+        # Eukaryota: same logic as Animalia -> count: 2
+        assert results["Eukaryota"]["usage_count"] == 2
+
+    def test_usage_count_through_multiple_levels(self):
+        """
+        Test that usage count is correctly calculated across multiple levels.
+        Apply a simple set of tags to some objects and verify that the
+        usage_counts are correctly calculated, verifying that the ancestor
+        tags are correctly applied and de-deuplicated across the entire depth
+        of the taxonomy
+        """
+        # --- Setup Hierarchy ---
+        # Eukaryota -> Animalia -> Chordata -> Mammalia
+        eukaryota = Tag.objects.create(taxonomy=self.taxonomy, value="Eukaryota")
+        animalia = Tag.objects.create(taxonomy=self.taxonomy, value="Animalia", parent=eukaryota)
+        chordata = Tag.objects.create(taxonomy=self.taxonomy, value="Chordata", parent=animalia)
+        mammalia = Tag.objects.create(taxonomy=self.taxonomy, value="Mammalia", parent=chordata)
+
+        # --- Setup Tagging ---
+        # obj1: Mammalia
+        # obj2: Chordata
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=mammalia, object_id="obj1")
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=chordata, object_id="obj2")
+
+        self.client.force_authenticate(user=self.staff)
+
+        # --- Request tags with counts ---
+        response = self.client.get(self.taxonomy_url + "?include_counts&full_depth_threshold=100")
+        assert response.status_code == status.HTTP_200_OK
+        results = {tag["value"]: tag for tag in response.data["results"]}
+
+        # --- Verification ---
+        # Mammalia: obj1 -> 1
+        assert results["Mammalia"]["usage_count"] == 1
+        # Chordata: obj1 (via Mammalia), obj2 -> 2
+        assert results["Chordata"]["usage_count"] == 2
+        # Animalia: obj1 (via Mammalia), obj2 (via Chordata) -> 2
+        assert results["Animalia"]["usage_count"] == 2
+        # Eukaryota: obj1 (via Mammalia), obj2 (via Chordata) -> 2
+        assert results["Eukaryota"]["usage_count"] == 2
+
+    def test_usage_count_across_different_objects(self):
+        """
+        Verify that counts are not erroneously shared between different objects
+        that are tagged with distinct branches of the same hierarchy.
+        """
+        # --- Setup Hierarchy ---
+        # Eukaryota -> (Animalia, Fungi)
+        eukaryota = Tag.objects.create(taxonomy=self.taxonomy, value="Eukaryota")
+        animalia = Tag.objects.create(taxonomy=self.taxonomy, value="Animalia", parent=eukaryota)
+        fungi = Tag.objects.create(taxonomy=self.taxonomy, value="Fungi", parent=eukaryota)
+
+        # --- Setup Tagging ---
+        # obj1: Animalia
+        # obj2: Fungi
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=animalia, object_id="obj1")
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=fungi, object_id="obj2")
+
+        self.client.force_authenticate(user=self.staff)
+
+        # --- Request tags with counts ---
+        response = self.client.get(self.taxonomy_url + "?include_counts&full_depth_threshold=100")
+        assert response.status_code == status.HTTP_200_OK
+        results = {tag["value"]: tag for tag in response.data["results"]}
+
+        # --- Verification ---
+        assert results["Animalia"]["usage_count"] == 1
+        assert results["Fungi"]["usage_count"] == 1
+        # Eukaryota should have 2 because it's used on obj1 (via Animalia) and obj2 (via Fungi)
+        assert results["Eukaryota"]["usage_count"] == 2
+
+    def test_usage_count_max_depth(self):
+        """
+        Verify usage_count up to the maximum depth of 7, ensuring redundant
+        tagging on the same object is deduplicated.
+        """
+        # --- Setup Hierarchy (6 Levels) ---
+        # Eukaryota -> Animalia -> Chordata -> Mammalia -> Carnivora -> Felidae
+        eukaryota = Tag.objects.create(taxonomy=self.taxonomy, value="Eukaryota")
+        animalia = Tag.objects.create(taxonomy=self.taxonomy, value="Animalia", parent=eukaryota)
+        chordata = Tag.objects.create(taxonomy=self.taxonomy, value="Chordata", parent=animalia)
+        mammalia = Tag.objects.create(taxonomy=self.taxonomy, value="Mammalia", parent=chordata)
+        carnivora = Tag.objects.create(taxonomy=self.taxonomy, value="Carnivora", parent=mammalia)
+        felidae = Tag.objects.create(taxonomy=self.taxonomy, value="Felidae", parent=carnivora)
+
+        # --- Setup Tagging ---
+        # obj1: Tagged at Felidae AND Carnivora (Redundant tagging)
+        # Should count as '1' for all tags in its lineage.
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=felidae, object_id="obj1")
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=carnivora, object_id="obj1")
+
+        # obj2: Tagged at Chordata
+        # Should count as '1' for Chordata, Animalia, and Eukaryota.
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=chordata, object_id="obj2")
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(self.taxonomy_url + "?include_counts&full_depth_threshold=7")
+        assert response.status_code == status.HTTP_200_OK
+        results = {tag["value"]: tag for tag in response.data["results"]}
+
+        # --- Verification ---
+        # Felidae: obj1 -> 1
+        assert results["Felidae"]["usage_count"] == 1
+        # Carnivora: obj1 (twice, but deduplicated) -> 1
+        assert results["Carnivora"]["usage_count"] == 1
+        # Mammalia: obj1 (via Carnivora/Felidae) -> 1
+        assert results["Mammalia"]["usage_count"] == 1
+        # Chordata: obj1 (via Mammalia), obj2 -> 2
+        assert results["Chordata"]["usage_count"] == 2
+        # Animalia: obj1 (via Chordata), obj2 (via Chordata) -> 2
+        assert results["Animalia"]["usage_count"] == 2
+        # Eukaryota: obj1 (via Animalia), obj2 (via Animalia) -> 2
+        assert results["Eukaryota"]["usage_count"] == 2
+
+    def test_usage_count_only_at_root_when_child_applied(self):
+        """
+        Verify that usage_count for a tag is correct, even if we only query for
+        the root level tag and is only used indirectly because a child is applied.
+        """
+        # Eukaryota -> Animalia -> Chordata
+        eukaryota = Tag.objects.create(taxonomy=self.taxonomy, value="Eukaryota")
+        animalia = Tag.objects.create(taxonomy=self.taxonomy, value="Animalia", parent=eukaryota)
+        chordata = Tag.objects.create(taxonomy=self.taxonomy, value="Chordata", parent=animalia)
+
+        # Tag an object with the deepest tag
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=chordata, object_id="obj1")
+
+        self.client.force_authenticate(user=self.staff)
+
+        # --- Check Root Level (depth=1) ---
+        # Should show Eukaryota with count 1
+        resp_root = self.client.get(self.taxonomy_url + "?include_counts")
+        results_root = {tag["value"]: tag for tag in resp_root.data["results"]}
+        assert results_root["Eukaryota"]["usage_count"] == 1
+
+    def test_usage_count_returns_zero(self):
+        """
+        Ensure usage_count is 0 (int) for unused tags, not None.
+        """
+        Tag.objects.create(taxonomy=self.taxonomy, value="Protista")
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(self.taxonomy_url + "?include_counts")
+        results = {tag["value"]: tag for tag in response.data["results"]}
+
+        assert isinstance(results["Protista"]["usage_count"], int)
+        assert results["Protista"]["usage_count"] == 0
+
+    def test_usage_count_with_search_term(self):
+        """
+        Verify usage_count is correct even when the result set is filtered by search.
+        """
+        eukaryota = Tag.objects.create(taxonomy=self.taxonomy, value="Eukaryota")
+        animalia = Tag.objects.create(taxonomy=self.taxonomy, value="Animalia", parent=eukaryota)
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=animalia, object_id="obj1")
+
+        self.client.force_authenticate(user=self.staff)
+
+        # Search for "Ani"
+        response = self.client.get(self.taxonomy_url + "?include_counts&search_term=Ani&full_depth_threshold=100")
+        results = {tag["value"]: tag for tag in response.data["results"]}
+
+        # "Animalia" should match and have count 1
+        assert "Animalia" in results
+        assert results["Animalia"]["usage_count"] == 1
+
+    def test_usage_count_search_permutations(self):
+        """
+        Extensively test search logic across various depths and match types (partial/complete).
+        Uses the same search terms and result structure as 'test_api.py' as a handy example.
+        Ensures usage_count correctly rolls up even when child tags match but parents don't.
+        """
+        # --- Setup Hierarchy (Matching tagging.yaml used in test_api.py) ---
+        # Bacteria
+        #  - Eubacteria
+        #  - Archaebacteria
+        # Archaea
+        #  - DPANN
+        #  - Euryarchaeida
+        #  - Proteoarchaeota
+        # Eukaryota
+        #  - Animalia
+        #     - Arthropoda
+        #     - Chordata
+        #        - Mammalia
+        #     - Cnidaria
+        #     - Ctenophora
+        #     - Gastrotrich
+        #     - Placozoa
+        #     - Porifera
+        #  - Fungi
+        #  - Monera
+        #  - Plantae
+        #  - Protista
+
+        # Roots
+        bacteria = Tag.objects.create(taxonomy=self.taxonomy, value="Bacteria")
+        archaea = Tag.objects.create(taxonomy=self.taxonomy, value="Archaea")
+        eukaryota = Tag.objects.create(taxonomy=self.taxonomy, value="Eukaryota")
+
+        # Bacteria branch
+        Tag.objects.create(taxonomy=self.taxonomy, value="Eubacteria", parent=bacteria)
+        archaebacteria = Tag.objects.create(taxonomy=self.taxonomy, value="Archaebacteria", parent=bacteria)
+
+        # Archaea branch
+        Tag.objects.create(taxonomy=self.taxonomy, value="DPANN", parent=archaea)
+        euryarchaeida = Tag.objects.create(taxonomy=self.taxonomy, value="Euryarchaeida", parent=archaea)
+        proteoarchaeota = Tag.objects.create(taxonomy=self.taxonomy, value="Proteoarchaeota", parent=archaea)
+
+        # Eukaryota branch
+        animalia = Tag.objects.create(taxonomy=self.taxonomy, value="Animalia", parent=eukaryota)
+        arthropoda = Tag.objects.create(taxonomy=self.taxonomy, value="Arthropoda", parent=animalia)
+        chordata = Tag.objects.create(taxonomy=self.taxonomy, value="Chordata", parent=animalia)
+        cnidaria = Tag.objects.create(taxonomy=self.taxonomy, value="Cnidaria", parent=animalia)
+        Tag.objects.create(taxonomy=self.taxonomy, value="Ctenophora", parent=animalia)
+        Tag.objects.create(taxonomy=self.taxonomy, value="Gastrotrich", parent=animalia)
+        Tag.objects.create(taxonomy=self.taxonomy, value="Placozoa", parent=animalia)
+        Tag.objects.create(taxonomy=self.taxonomy, value="Porifera", parent=animalia)
+        Tag.objects.create(taxonomy=self.taxonomy, value="Mammalia", parent=chordata)
+        Tag.objects.create(taxonomy=self.taxonomy, value="Fungi", parent=eukaryota)
+        Tag.objects.create(taxonomy=self.taxonomy, value="Monera", parent=eukaryota)
+        plantae = Tag.objects.create(taxonomy=self.taxonomy, value="Plantae", parent=eukaryota)
+        Tag.objects.create(taxonomy=self.taxonomy, value="Protista", parent=eukaryota)
+
+        # --- Setup Tagging to Exercise usage_counts ---
+        # Tag a few objects to create counts.
+        # obj1: Archaebacteria, Arthropoda
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=archaebacteria, object_id="obj1")
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=arthropoda, object_id="obj1")
+
+        # obj2: Euryarchaeida, Cnidaria
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=euryarchaeida, object_id="obj2")
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=cnidaria, object_id="obj2")
+
+        # obj3: Proteoarchaeota, Plantae
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=proteoarchaeota, object_id="obj3")
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=plantae, object_id="obj3")
+
+        self.client.force_authenticate(user=self.staff)
+
+        # SCENARIO 1: search="ChA"
+        url = self.taxonomy_url + "?include_counts&search_term=ChA&full_depth_threshold=100"
+        resp = self.client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert pretty_format_tags(resp.data["results"], parent=False) == [
+            "Archaea (used: 2, children: 2)",
+            "  Euryarchaeida (used: 1, children: 0)",
+            "  Proteoarchaeota (used: 1, children: 0)",
+            "Bacteria (used: 1, children: 1)",
+            "  Archaebacteria (used: 1, children: 0)",
+        ]
+
+        # SCENARIO 2: search="ar"
+        url = self.taxonomy_url + "?include_counts&search_term=ar&full_depth_threshold=100"
+        resp = self.client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert pretty_format_tags(resp.data["results"], parent=False) == [
+            "Archaea (used: 2, children: 2)",
+            "  Euryarchaeida (used: 1, children: 0)",
+            "  Proteoarchaeota (used: 1, children: 0)",
+            "Bacteria (used: 1, children: 1)",
+            "  Archaebacteria (used: 1, children: 0)",
+            "Eukaryota (used: 3, children: 1)",
+            "  Animalia (used: 2, children: 2)",
+            "    Arthropoda (used: 1, children: 0)",
+            "    Cnidaria (used: 1, children: 0)",
+        ]
+
+        # SCENARIO 3: search="aE"
+        url = self.taxonomy_url + "?include_counts&search_term=aE&full_depth_threshold=100"
+        resp = self.client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert pretty_format_tags(resp.data["results"], parent=False) == [
+            "Archaea (used: 2, children: 2)",
+            "  Euryarchaeida (used: 1, children: 0)",
+            "  Proteoarchaeota (used: 1, children: 0)",
+            "Bacteria (used: 1, children: 1)",
+            "  Archaebacteria (used: 1, children: 0)",
+            "Eukaryota (used: 3, children: 1)",
+            "  Plantae (used: 1, children: 0)",
+        ]
+
+        # SCENARIO 4: search="a"
+        url = self.taxonomy_url + "?include_counts&search_term=a&full_depth_threshold=100"
+        resp = self.client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert pretty_format_tags(resp.data["results"], parent=False) == [
+            "Archaea (used: 2, children: 3)",
+            "  DPANN (used: 0, children: 0)",
+            "  Euryarchaeida (used: 1, children: 0)",
+            "  Proteoarchaeota (used: 1, children: 0)",
+            "Bacteria (used: 1, children: 2)",
+            "  Archaebacteria (used: 1, children: 0)",
+            "  Eubacteria (used: 0, children: 0)",
+            "Eukaryota (used: 3, children: 4)",
+            "  Animalia (used: 2, children: 7)",
+            "    Arthropoda (used: 1, children: 0)",
+            "    Chordata (used: 0, children: 1)",
+            "      Mammalia (used: 0, children: 0)",
+            "    Cnidaria (used: 1, children: 0)",
+            "    Ctenophora (used: 0, children: 0)",
+            "    Gastrotrich (used: 0, children: 0)",
+            "    Placozoa (used: 0, children: 0)",
+            "    Porifera (used: 0, children: 0)",
+            "  Monera (used: 0, children: 0)",
+            "  Plantae (used: 1, children: 0)",
+            "  Protista (used: 0, children: 0)",
+        ]
+
+    def test_usage_count_sibling_and_ancestor_deduplication(self):
+        """
+        Test deduplication when multiple children of the same parent are applied to the same object.
+        """
+        animalia = Tag.objects.create(taxonomy=self.taxonomy, value="Animalia")
+        arthropoda = Tag.objects.create(taxonomy=self.taxonomy, value="Arthropoda", parent=animalia)
+        chordata = Tag.objects.create(taxonomy=self.taxonomy, value="Chordata", parent=animalia)
+
+        # obj1: tagged with both siblings
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=arthropoda, object_id="obj1")
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=chordata, object_id="obj1")
+
+        # obj2: tagged with only one sibling
+        ObjectTag.objects.create(taxonomy=self.taxonomy, tag=arthropoda, object_id="obj2")
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(self.taxonomy_url + "?include_counts&full_depth_threshold=100")
+        results = {tag["value"]: tag for tag in response.data["results"]}
+
+        # Arthropoda: obj1, obj2 -> 2
+        assert results["Arthropoda"]["usage_count"] == 2
+        # Chordata: obj1 -> 1
+        assert results["Chordata"]["usage_count"] == 1
+        # Animalia: obj1 (via Arthropoda/Chordata), obj2 (via Arthropoda) -> 2
+        # Deduplication check: obj1 only counts as 1 for Animalia even though it has both Arthropoda and Chordata.
+        assert results["Animalia"]["usage_count"] == 2
 
 
 class ImportTaxonomyMixin(TestTaxonomyViewMixin):

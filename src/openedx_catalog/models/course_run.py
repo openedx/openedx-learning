@@ -3,6 +3,7 @@ CourseRun model
 """
 
 import logging
+from typing import NewType
 
 from django.contrib import admin
 from django.core.exceptions import ValidationError
@@ -15,7 +16,7 @@ from opaque_keys import InvalidKeyError
 from opaque_keys.edx.django.models import CourseKeyField
 from opaque_keys.edx.locator import CourseLocator
 
-from openedx_django_lib.fields import case_insensitive_char_field, case_sensitive_char_field
+from openedx_django_lib.fields import TypedBigAutoField, case_insensitive_char_field, case_sensitive_char_field
 from openedx_django_lib.validators import validate_utc_datetime
 
 from .catalog_course import CatalogCourse
@@ -79,8 +80,14 @@ class CourseRun(models.Model):
       learning package.
     """
 
+    CourseRunID = NewType("CourseRunID", int)
+    type ID = CourseRunID
+
+    class IDField(TypedBigAutoField[ID]):  # Boilerplate for fully-typed ID field.
+        pass
+
     # Use this field for relationships within the database:
-    id = models.BigAutoField(
+    id = IDField(
         primary_key=True,
         verbose_name=_("Primary Key"),
         help_text=_("The internal database ID for this course. Should not be exposed to users nor in APIs."),

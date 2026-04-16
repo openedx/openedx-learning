@@ -17,6 +17,7 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from ...api import (
     TagDoesNotExist,
     add_tag_to_taxonomy,
+    add_usage_counts,
     create_taxonomy,
     delete_tags_from_taxonomy,
     get_object_tag_counts,
@@ -34,6 +35,7 @@ from ...models import Tag, Taxonomy
 from ...rules import ObjectTagPermissionItem
 from ..paginators import MAX_FULL_DEPTH_THRESHOLD, DisabledTagsPagination, TagsPagination, TaxonomyPagination
 from ..utils import view_auth_classes
+from .exception_handlers import TaggingExceptionHandlerMixin
 from .permissions import ObjectTagObjectPermissions, TaxonomyObjectPermissions, TaxonomyTagsObjectPermissions
 from .serializers import (
     ObjectTagListQueryParamsSerializer,
@@ -55,7 +57,7 @@ from .serializers import (
 
 
 @view_auth_classes
-class TaxonomyView(ModelViewSet):
+class TaxonomyView(TaggingExceptionHandlerMixin, ModelViewSet):
     """
     View to list, create, retrieve, update, delete, export or import Taxonomies.
 
@@ -640,7 +642,7 @@ class ObjectTagCountsView(
 
 
 @view_auth_classes
-class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
+class TaxonomyTagsView(TaggingExceptionHandlerMixin, ListAPIView, RetrieveUpdateDestroyAPIView):
     """
     View to list/create/update/delete tags of a taxonomy.
 
@@ -843,21 +845,33 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
             parent_tag_value=parent_tag_value,
             search_term=search_term,
             depth=depth,
-            include_counts=include_counts,
         )
         if depth == 1:
             # We're already returning just a single level. It will be paginated normally.
+            if include_counts:
+                results_with_counts = add_usage_counts(self.get_taxonomy(), results)
+                return results_with_counts
+
             return results
         elif full_depth_threshold and len(results) < full_depth_threshold:
             # We can load and display all the tags in this (sub)tree at once:
             self.pagination_class = DisabledTagsPagination
+            if include_counts:
+                results_with_counts = add_usage_counts(self.get_taxonomy(), results)
+                return results_with_counts
+
             return results
         else:
             # We had to do a deep query, but we will only return one level of results.
             # This is because the user did not request a deep response (via full_depth_threshold) or the result was too
             # large (larger than the threshold).
             # It will be paginated normally.
-            return results.filter(parent_value=parent_tag_value)
+            filtered_results = results.filter(parent_value=parent_tag_value)
+            if include_counts:
+                results_with_counts = add_usage_counts(self.get_taxonomy(), results)
+                return results_with_counts
+
+            return filtered_results
 
     def post(self, request, *args, **kwargs):
         """
@@ -865,7 +879,8 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         """
         taxonomy = self.get_taxonomy()
 
-        body = TaxonomyTagCreateBodySerializer(data=request.data)
+        serializer_context = self.get_serializer_context()
+        body = TaxonomyTagCreateBodySerializer(data=request.data, context=serializer_context)
         body.is_valid(raise_exception=True)
 
         tag = body.data.get("tag")
@@ -881,7 +896,6 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         except ValueError as e:
             raise ValidationError(e) from e
 
-        serializer_context = self.get_serializer_context()
         return Response(
             self.serializer_class(new_tag, context=serializer_context).data,
             status=status.HTTP_201_CREATED
@@ -894,7 +908,8 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         """
         taxonomy = self.get_taxonomy()
 
-        body = TaxonomyTagUpdateBodySerializer(data=request.data)
+        serializer_context = self.get_serializer_context()
+        body = TaxonomyTagUpdateBodySerializer(data=request.data, context=serializer_context)
         body.is_valid(raise_exception=True)
 
         tag = body.data.get("tag")
@@ -907,7 +922,6 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         except ValueError as e:
             raise ValidationError(e) from e
 
-        serializer_context = self.get_serializer_context()
         return Response(
             self.serializer_class(updated_tag, context=serializer_context).data,
             status=status.HTTP_200_OK
@@ -921,7 +935,8 @@ class TaxonomyTagsView(ListAPIView, RetrieveUpdateDestroyAPIView):
         """
         taxonomy = self.get_taxonomy()
 
-        body = TaxonomyTagDeleteBodySerializer(data=request.data)
+        serializer_context = self.get_serializer_context()
+        body = TaxonomyTagDeleteBodySerializer(data=request.data, context=serializer_context)
         body.is_valid(raise_exception=True)
 
         tags = body.data.get("tags")

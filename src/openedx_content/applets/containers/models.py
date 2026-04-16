@@ -5,10 +5,11 @@ Container and ContainerVersion models
 from __future__ import annotations
 
 from functools import cached_property
-from typing import final
+from typing import NewType, cast, final
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from typing_extensions import deprecated
 
 from openedx_django_lib.fields import case_sensitive_char_field
 
@@ -161,6 +162,9 @@ class Container(PublishableEntityMixin):
     entities for different learners or at different times.
     """
 
+    ContainerID = NewType("ContainerID", PublishableEntity.ID)
+    type ID = ContainerID
+
     type_code: str  # Subclasses must override this, e.g. "unit"
     # olx_code: the OLX <tag_name> for XML serialization. Subclasses _may_ override this.
     # Only used in openedx-platform at the moment. We'll likely have to replace this with something more sophisticated.
@@ -174,6 +178,21 @@ class Container(PublishableEntityMixin):
         on_delete=models.RESTRICT,
         editable=False,
     )
+
+    @property
+    def id(self) -> ID:
+        return cast(Container.ID, self.publishable_entity_id)
+
+    @property
+    @deprecated("Use .id instead")
+    def pk(self):
+        """Mark the .pk attribute as deprecated"""
+        # Note: Django-Stubs forces mypy to identify the `.pk` attribute of this model as having 'Any' type (due to our
+        # use of a OneToOneField primary key), and this is impossible for us to override, so we prefer to use
+        # `.id` which we can control fully.
+        # Since Django uses '.pk' internally, we have to make sure it still works, however. So the best we can do is
+        # override this with a deprecated marker, so it shows a warning in developer's IDEs like VS Code.
+        return self.id
 
     @classmethod
     def validate_entity(cls, entity: PublishableEntity) -> None:
@@ -280,5 +299,5 @@ class ContainerVersion(PublishableEntityVersionMixin):
         called if anything is edited via a ModelForm like the Django admin.
         """
         super().clean()
-        if self.container_id != self.publishable_entity_version.entity.container.pk:  # pylint: disable=no-member
+        if self.container_id != self.publishable_entity_version.entity.container.id:  # pylint: disable=no-member
             raise ValidationError("Inconsistent foreign keys to Container")

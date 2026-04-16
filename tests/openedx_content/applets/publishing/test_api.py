@@ -932,13 +932,63 @@ class PublishLogTestCase(TestCase):
         )
         publish_e1_log = publishing_api.publish_from_drafts(
             self.learning_package_1.id,
-            Draft.objects.filter(pk=entity1.pk),
+            Draft.objects.filter(pk=entity1.id),
         )
         assert publish_e1_log.records.count() == 1
         e1_pub_record = publish_e1_log.records.get(entity=entity1)
         assert e1_pub_record is not None
         assert e1_pub_record.old_version == entity1_v1
         assert e1_pub_record.new_version == entity1_v2
+
+    def test_publish_all_drafts_sets_direct_true(self) -> None:
+        """publish_all_drafts() marks every PublishLogRecord as direct=True."""
+        entity_1 = publishing_api.create_publishable_entity(
+            self.learning_package_1.id, "direct_entity_1",
+            created=self.now, created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity_1.id, version_num=1, title="Direct Entity 1",
+            created=self.now, created_by=None,
+        )
+        entity_2 = publishing_api.create_publishable_entity(
+            self.learning_package_1.id, "direct_entity_2",
+            created=self.now, created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity_2.id, version_num=1, title="Direct Entity 2",
+            created=self.now, created_by=None,
+        )
+        publish_log = publishing_api.publish_all_drafts(self.learning_package_1.id)
+        assert publish_log.records.get(entity=entity_1).direct is True
+        assert publish_log.records.get(entity=entity_2).direct is True
+
+    def test_publish_from_drafts_sets_direct_true(self) -> None:
+        """An explicitly selected entity in publish_from_drafts() gets direct=True."""
+        entity = publishing_api.create_publishable_entity(
+            self.learning_package_1.id, "explicit_entity",
+            created=self.now, created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity.id, version_num=1, title="Explicit Entity",
+            created=self.now, created_by=None,
+        )
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package_1.id,
+            Draft.objects.filter(entity=entity),
+        )
+        assert publish_log.records.get(entity=entity).direct is True
+
+    def test_publish_log_record_direct_defaults_to_false(self) -> None:
+        """
+        New PublishLogRecords default to direct=False (not None).
+
+        None is reserved for historical records that pre-date the direct field
+        (set via the backfill data migration). Records created by the
+        application—e.g. side-effect records in _create_side_effects_for_change_log()
+        that don't explicitly set direct—should get False, not None.
+        """
+        field = PublishLogRecord._meta.get_field('direct')
+        assert field.default is False
 
 
 class EntitiesQueryTestCase(TestCase):
@@ -1697,7 +1747,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         container_v1 = containers_api.create_container_version(
-            container.pk,
+            container.id,
             1,
             title="My Container",
             entities=[
@@ -1777,7 +1827,7 @@ class TestContainerSideEffects(TestCase):
                 container_cls=TestContainer,
             )
             container_v1 = containers_api.create_container_version(
-                container.pk,
+                container.id,
                 1,
                 title="My Container",
                 entities=[child_1, child_2],
@@ -1861,7 +1911,7 @@ class TestContainerSideEffects(TestCase):
         )
         for unit in [unit_1, unit_2]:
             containers_api.create_container_version(
-                unit.pk,
+                unit.id,
                 1,
                 title="My Unit",
                 entities=[component],
@@ -1915,7 +1965,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            unit.pk,
+            unit.id,
             1,
             title="My Unit",
             entities=[component],
@@ -1930,7 +1980,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            subsection.pk,
+            subsection.id,
             1,
             title="My Subsection",
             entities=[unit],
@@ -1966,7 +2016,7 @@ class TestContainerSideEffects(TestCase):
         assert publish_log.records.count() == 3
 
         publishing_api.create_publishable_entity_version(
-            component.pk,
+            component.id,
             version_num=3,
             title="Component v2",
             created=self.now,
@@ -1974,7 +2024,7 @@ class TestContainerSideEffects(TestCase):
         )
         publish_log = publishing_api.publish_from_drafts(
             self.learning_package.id,
-            Draft.objects.filter(entity_id=component.pk),
+            Draft.objects.filter(entity_id=component.id),
         )
         assert publish_log.records.count() == 3
         component_publish = publish_log.records.get(entity=component)
@@ -2014,7 +2064,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            unit.pk,
+            unit.id,
             1,
             title="My Unit",
             entities=[component],
@@ -2029,7 +2079,7 @@ class TestContainerSideEffects(TestCase):
             container_cls=TestContainer,
         )
         containers_api.create_container_version(
-            subsection.pk,
+            subsection.id,
             1,
             title="My Subsection",
             entities=[unit],
@@ -2038,12 +2088,164 @@ class TestContainerSideEffects(TestCase):
         )
         publish_log = publishing_api.publish_from_drafts(
             self.learning_package.id,
-            Draft.objects.filter(pk=subsection.pk),
+            Draft.objects.filter(pk=subsection.id),
         )
 
         # The component, unit, and subsection should all be accounted for in
         # the publish log records.
         assert publish_log.records.count() == 3
+
+    def test_direct_field_publishing_container_marks_dependencies_indirect(self) -> None:
+        """
+        Publishing a Unit explicitly marks the Unit as direct=True and its
+        unpublished Component dependency as direct=False.
+        """
+        component = publishing_api.create_publishable_entity(
+            self.learning_package.id, "direct_component",
+            created=self.now, created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            component.id, version_num=1, title="Direct Component",
+            created=self.now, created_by=None,
+        )
+        unit = containers_api.create_container(
+            self.learning_package.id, "direct_unit",
+            created=self.now, created_by=None, container_cls=TestContainer,
+        )
+        containers_api.create_container_version(
+            unit.id, 1, title="Direct Unit", entities=[component],
+            created=self.now, created_by=None,
+        )
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(entity=unit.publishable_entity),
+        )
+        assert publish_log.records.get(entity=unit.publishable_entity).direct is True
+        assert publish_log.records.get(entity=component).direct is False
+
+    def test_direct_field_unit_no_version_change_still_direct_true(self) -> None:
+        """
+        Publishing a Unit that has no version change of its own (draft version
+        == published version) still marks the Unit's record as direct=True.
+
+        The user explicitly selected the Unit to publish, so it gets direct=True
+        even though the only actual change is in its Component child. The Unit's
+        record has old_version == new_version (pure side-effect in terms of
+        versioning), but user intent was directed at the Unit.
+        """
+        component = publishing_api.create_publishable_entity(
+            self.learning_package.id, "no_change_component",
+            created=self.now, created_by=None,
+        )
+        component_v1 = publishing_api.create_publishable_entity_version(
+            component.id, version_num=1, title="No-change Component",
+            created=self.now, created_by=None,
+        )
+        unit = containers_api.create_container(
+            self.learning_package.id, "no_change_unit",
+            created=self.now, created_by=None, container_cls=TestContainer,
+        )
+        unit_v1 = containers_api.create_container_version(
+            unit.id, 1, title="No-change Unit", entities=[component],
+            created=self.now, created_by=None,
+        )
+        # Initial publish so both Unit and Component have a published version.
+        publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(entity=unit.publishable_entity),
+        )
+
+        # Create a new Component version. The Unit's draft stays at unit_v1,
+        # but its dependencies_hash_digest now differs from the published state.
+        publishing_api.create_publishable_entity_version(
+            component.id, version_num=2, title="No-change Component v2",
+            created=self.now, created_by=None,
+        )
+
+        # Publish the Unit explicitly. The Unit has no version change of its
+        # own (old_version == new_version == unit_v1).
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(entity=unit.publishable_entity),
+        )
+        unit_record = publish_log.records.get(entity=unit.publishable_entity)
+        component_record = publish_log.records.get(entity=component)
+
+        # User selected the Unit → direct=True despite no version change.
+        assert unit_record.direct is True
+        assert unit_record.old_version_id == unit_v1.pk
+        assert unit_record.new_version_id == unit_v1.pk
+
+        # Component was pulled in as a dependency → direct=False.
+        assert component_record.direct is False
+        assert component_record.old_version == component_v1
+        assert component_record.new_version != component_v1
+
+    def test_direct_field_publishing_component_marks_parent_indirect(self) -> None:
+        """
+        Publishing a Component directly marks the Component as direct=True.
+        The parent Unit also gets a PublishLogRecord (because it has an unpinned
+        reference to the Component and its dependencies_hash_digest now differs
+        from the published state) with direct=False.
+        """
+        component = publishing_api.create_publishable_entity(
+            self.learning_package.id, "leaf_component",
+            created=self.now, created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            component.id, version_num=1, title="Leaf Component",
+            created=self.now, created_by=None,
+        )
+        unit = containers_api.create_container(
+            self.learning_package.id, "leaf_unit",
+            created=self.now, created_by=None, container_cls=TestContainer,
+        )
+        containers_api.create_container_version(
+            unit.id, 1, title="Leaf Unit", entities=[component],
+            created=self.now, created_by=None,
+        )
+        # First publish everything to establish a published baseline for the Unit
+        publishing_api.publish_all_drafts(self.learning_package.id)
+
+        # Create a new component version so it has unpublished changes
+        publishing_api.create_publishable_entity_version(
+            component.id, version_num=2, title="Leaf Component v2",
+            created=self.now, created_by=None,
+        )
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(entity=component),
+        )
+        assert publish_log.records.get(entity=component).direct is True
+        assert publish_log.records.get(entity=unit.publishable_entity).direct is False
+
+    def test_direct_field_both_selected_both_direct(self) -> None:
+        """
+        When both a Unit and its Component are explicitly selected, both
+        get direct=True even though Component is also a dependency of Unit.
+        """
+        component = publishing_api.create_publishable_entity(
+            self.learning_package.id, "both_component",
+            created=self.now, created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            component.id, version_num=1, title="Both Component",
+            created=self.now, created_by=None,
+        )
+        unit = containers_api.create_container(
+            self.learning_package.id, "both_unit",
+            created=self.now, created_by=None, container_cls=TestContainer,
+        )
+        containers_api.create_container_version(
+            unit.id, 1, title="Both Unit", entities=[component],
+            created=self.now, created_by=None,
+        )
+        publish_log = publishing_api.publish_from_drafts(
+            self.learning_package.id,
+            Draft.objects.filter(entity__in=[component, unit.publishable_entity]),
+        )
+        assert publish_log.records.get(entity=component).direct is True
+        assert publish_log.records.get(entity=unit.publishable_entity).direct is True
 
     def test_container_next_version(self) -> None:
         """Test that next_version works for containers."""
@@ -2062,7 +2264,7 @@ class TestContainerSideEffects(TestCase):
         )
         assert container.versioning.latest is None
         v1 = containers_api.create_next_container_version(
-            container.pk,
+            container.id,
             title="My Container v1",
             entities=None,
             created=self.now,
@@ -2071,7 +2273,7 @@ class TestContainerSideEffects(TestCase):
         assert v1.version_num == 1
         assert container.versioning.latest == v1
         v2 = containers_api.create_next_container_version(
-            container.pk,
+            container.id,
             title="My Container v2",
             entities=[child_1],
             created=self.now,
@@ -2081,7 +2283,7 @@ class TestContainerSideEffects(TestCase):
         assert container.versioning.latest == v2
         assert v2.entity_list.entitylistrow_set.count() == 1
         v3 = containers_api.create_next_container_version(
-            container.pk,
+            container.id,
             title="My Container v3",
             entities=None,
             created=self.now,

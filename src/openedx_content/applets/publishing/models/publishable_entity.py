@@ -1,19 +1,22 @@
 """
 PublishableEntity model and PublishableEntityVersion + mixins
 """
+
 from __future__ import annotations
 
 from datetime import datetime
 from functools import cached_property
-from typing import ClassVar, Self
+from typing import ClassVar, NewType, Self
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext as _
+from typing_extensions import deprecated
 
 from openedx_django_lib.fields import (
+    TypedBigAutoField,
     case_insensitive_char_field,
     immutable_uuid_field,
     key_field,
@@ -110,6 +113,14 @@ class PublishableEntity(models.Model):
     more convenient, like file access.
     """
 
+    PublishableEntityID = NewType("PublishableEntityID", int)
+    type ID = PublishableEntityID
+
+    class IDField(TypedBigAutoField[ID]):  # Boilerplate for fully-typed ID field.
+        pass
+
+    id = IDField(primary_key=True)
+
     uuid = immutable_uuid_field()
     learning_package = models.ForeignKey(
         LearningPackage,
@@ -133,6 +144,11 @@ class PublishableEntity(models.Model):
         default=True,
         help_text=_("Set to True when created independently, False when created as part of a container."),
     )
+
+    @property  # type: ignore[no-redef]
+    @deprecated("Use .id instead")
+    def pk(self) -> ID:
+        return self.id
 
     class Meta:
         constraints = [
@@ -334,6 +350,10 @@ class PublishableEntityMixin(models.Model):
         PublishableEntity, on_delete=models.CASCADE, primary_key=True
     )
 
+    @property
+    def id(self) -> PublishableEntity.ID:
+        return self.publishable_entity_id
+
     @cached_property
     def versioning(self):
         return self.VersioningHelper(self)
@@ -414,7 +434,7 @@ class PublishableEntityMixin(models.Model):
 
             # You need to manually refetch it from the database to see the new
             # publish status:
-            component = get_component(component.pk)
+            component = get_component(component.id)
 
             # Now this will work:
             assert component.versioning.published == component_version

@@ -17,7 +17,9 @@ astroid==4.0.4
     #   pylint
     #   pylint-celery
 attrs==26.1.0
-    # via -r requirements/test.txt
+    # via
+    #   -r requirements/test.txt
+    #   openedx-events
 billiard==4.2.4
     # via
     #   -r requirements/test.txt
@@ -71,16 +73,15 @@ coverage[toml]==7.13.5
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==46.0.6
+cryptography==46.0.7
     # via
     #   -r requirements/test.txt
     #   pyjwt
-    #   secretstorage
 ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.4.1
     # via pylint
-django==5.2.12
+django==5.2.13
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -96,6 +97,7 @@ django==5.2.12
     #   edx-django-utils
     #   edx-drf-extensions
     #   edx-organizations
+    #   openedx-events
 django-crum==0.7.9
     # via
     #   -r requirements/test.txt
@@ -141,23 +143,34 @@ drf-jwt==1.19.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
+edx-ccx-keys==2.0.2
+    # via
+    #   -r requirements/test.txt
+    #   openedx-events
 edx-django-utils==8.0.1
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
+    #   openedx-events
 edx-drf-extensions==10.6.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
 edx-lint==6.0.0
     # via -r requirements/quality.in
-edx-opaque-keys==3.1.0
+edx-opaque-keys[django]==4.0.0
     # via
     #   -r requirements/test.txt
+    #   edx-ccx-keys
     #   edx-drf-extensions
     #   edx-organizations
+    #   openedx-events
 edx-organizations==8.0.0
     # via -r requirements/test.txt
+fastavro==1.12.1
+    # via
+    #   -r requirements/test.txt
+    #   openedx-events
 freezegun==1.5.5
     # via -r requirements/test.txt
 grimp==3.14
@@ -186,10 +199,6 @@ jaraco-context==6.1.2
     # via keyring
 jaraco-functools==4.4.0
     # via keyring
-jeepney==0.9.0
-    # via
-    #   keyring
-    #   secretstorage
 jinja2==3.1.6
     # via
     #   -r requirements/test.txt
@@ -200,7 +209,7 @@ kombu==5.6.2
     # via
     #   -r requirements/test.txt
     #   celery
-librt==0.8.1
+librt==0.9.0
     # via
     #   -r requirements/test.txt
     #   mypy
@@ -220,7 +229,7 @@ mdurl==0.1.2
     #   markdown-it-py
 mock==5.2.0
     # via -r requirements/test.txt
-more-itertools==10.8.0
+more-itertools==11.0.2
     # via
     #   jaraco-classes
     #   jaraco-functools
@@ -234,6 +243,10 @@ mysqlclient==2.2.8
     # via -r requirements/test.txt
 nh3==0.3.4
     # via readme-renderer
+openedx-events==11.1.0
+    # via
+    #   -r requirements/quality.in
+    #   -r requirements/test.txt
 packaging==26.0
     # via
     #   -r requirements/test.txt
@@ -248,7 +261,7 @@ pillow==12.1.1
     # via
     #   -r requirements/test.txt
     #   edx-organizations
-platformdirs==4.9.4
+platformdirs==4.9.6
     # via pylint
 pluggy==1.6.0
     # via
@@ -304,7 +317,7 @@ pynacl==1.6.2
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-pytest==9.0.2
+pytest==9.0.3
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -338,15 +351,13 @@ requests-toolbelt==1.0.0
     # via twine
 rfc3986==2.0.0
     # via twine
-rich==14.3.3
+rich==15.0.0
     # via
     #   -r requirements/test.txt
     #   import-linter
     #   twine
 rules==3.5
     # via -r requirements/test.txt
-secretstorage==3.5.0
-    # via keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/test.txt
@@ -354,6 +365,7 @@ semantic-version==2.10.0
 six==1.17.0
     # via
     #   -r requirements/test.txt
+    #   edx-ccx-keys
     #   edx-lint
     #   python-dateutil
 snowballstemmer==3.0.1
@@ -379,7 +391,7 @@ tomlkit==0.14.0
     #   pylint
 twine==6.2.0
     # via -r requirements/quality.in
-types-pyyaml==6.0.12.20250915
+types-pyyaml==6.0.12.20260408
     # via
     #   -r requirements/test.txt
     #   django-stubs

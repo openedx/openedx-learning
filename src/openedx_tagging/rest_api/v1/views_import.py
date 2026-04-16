@@ -9,8 +9,10 @@ from django.http import FileResponse, Http404
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
+from .exception_handlers import TaggingExceptionHandlerMixin
 
-class TemplateView(APIView):
+
+class TemplateView(TaggingExceptionHandlerMixin, APIView):
     """
     View which serves the static Taxonomy Import template files.
 

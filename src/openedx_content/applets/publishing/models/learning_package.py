@@ -1,10 +1,15 @@
 """
 LearningPackage model
 """
+
+from typing import NewType
+
 from django.db import models
+from typing_extensions import deprecated
 
 from openedx_django_lib.fields import (
     MultiCollationTextField,
+    TypedAutoField,
     case_insensitive_char_field,
     immutable_uuid_field,
     key_field,
@@ -18,12 +23,25 @@ class LearningPackage(models.Model):
 
     Each PublishableEntity belongs to exactly one LearningPackage.
     """
+
+    LearningPackageID = NewType("LearningPackageID", int)
+    type ID = LearningPackageID
+
     # Explictly declare a 4-byte ID instead of using the app-default 8-byte ID.
     # We do not expect to have more than 2 billion LearningPackages on a given
     # site. Furthermore, many, many things have foreign keys to this model and
     # uniqueness indexes on those foreign keys + their own fields, so the 4
     # bytes saved will add up over time.
-    id = models.AutoField(primary_key=True)
+
+    class IDField(TypedAutoField[ID]):  # Note: this is ...AutoField not ...BigAutoField
+        pass
+
+    id = IDField(primary_key=True)
+
+    @property  # type: ignore[no-redef]
+    @deprecated("Use .id instead")
+    def pk(self) -> ID:
+        return self.id
 
     uuid = immutable_uuid_field()
 

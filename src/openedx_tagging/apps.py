@@ -17,3 +17,7 @@ class TaggingConfig(AppConfig):
     # Historical note: "oel" comes from "Open edX Learning", the original
     # name of this apps's repository.
     label = "oel_tagging"
+
+    def ready(self):
+        # Import signal handlers so Django registers all @receiver callbacks.
+        from . import signal_handlers  # pylint: disable=unused-import,import-outside-toplevel

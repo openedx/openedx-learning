@@ -12,7 +12,7 @@ from typing import Callable
 
 from django.db.transaction import Atomic
 
-from .models import DraftChangeLog
+from .models import DraftChangeLog, LearningPackage
 
 
 class DraftChangeLogContext(Atomic):
@@ -55,7 +55,7 @@ class DraftChangeLogContext(Atomic):
 
     def __init__(
         self,
-        learning_package_id: int,
+        learning_package_id: LearningPackage.ID,
         changed_at: datetime | None = None,
         changed_by: int | None = None,
         exit_callbacks: list[Callable[[DraftChangeLog], None]] | None = None

@@ -17,15 +17,21 @@ convention, but it's possible we might want to have special identifiers later.
 """
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, NewType, cast
 
 from django.db import models
+from typing_extensions import deprecated
 
 from openedx_django_lib.fields import case_sensitive_char_field, key_field
 from openedx_django_lib.managers import WithRelationsManager
 
 from ..media.models import Media
-from ..publishing.models import LearningPackage, PublishableEntityMixin, PublishableEntityVersionMixin
+from ..publishing.models import (
+    LearningPackage,
+    PublishableEntity,
+    PublishableEntityMixin,
+    PublishableEntityVersionMixin,
+)
 
 __all__ = [
     "ComponentType",
@@ -123,6 +129,25 @@ class Component(PublishableEntityMixin):
     Make a foreign key to the Component model when you need a stable reference
     that will exist for as long as the LearningPackage itself exists.
     """
+
+    ComponentID = NewType("ComponentID", PublishableEntity.ID)
+    type ID = ComponentID
+
+    @property
+    def id(self) -> ID:
+        return cast(Component.ID, self.publishable_entity_id)
+
+    @property
+    @deprecated("Use .id instead")
+    def pk(self):
+        """Mark the .pk attribute as deprecated"""
+        # Note: Django-Stubs forces mypy to identify the `.pk` attribute of this model as having 'Any' type (due to our
+        # use of a OneToOneField primary key), and this is impossible for us to override, so we prefer to use
+        # `.id` which we can control fully.
+        # Since Django uses '.pk' internally, we have to make sure it still works, however. So the best we can do is
+        # override this with a deprecated marker, so it shows a warning in developer's IDEs like VS Code.
+        return self.id
+
     # Set up our custom manager. It has the same API as the default one, but selects related objects by default.
     objects: ClassVar[WithRelationsManager[Component]] = WithRelationsManager(  # type: ignore[assignment]
         'component_type'

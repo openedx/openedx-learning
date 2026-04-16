@@ -12,7 +12,8 @@ are stored in this app.
 """
 from __future__ import annotations
 
-from typing import Any
+from collections import defaultdict
+from typing import Any, Counter
 
 from django.db import models, transaction
 from django.db.models import F, QuerySet, Value
@@ -116,7 +117,6 @@ def search_tags(
     taxonomy: Taxonomy,
     search_term: str,
     exclude_object_id: str | None = None,
-    include_counts: bool = False,
 ) -> TagDataQuerySet:
     """
     Returns a list of all tags that contains `search_term` of the given
@@ -138,7 +138,6 @@ def search_tags(
     qs = taxonomy.cast().get_filtered_tags(
         search_term=search_term,
         excluded_values=excluded_values,
-        include_counts=include_counts,
     )
     return qs
 
@@ -525,3 +524,49 @@ def unmark_copied_tags(object_id: str) -> None:
     Update copied object tags on the given object to mark them as "not copied".
     """
     ObjectTag.objects.filter(object_id=object_id).update(is_copied=False)
+
+
+def add_usage_counts(taxonomy: Taxonomy, tag_data: TagDataQuerySet) -> TagDataQuerySet:
+    """
+    Add usage counts to the query result.
+
+    Not a simple raw count of each tags usage. A tag can be directly
+    applied to an object, which can be a course, library, module,
+    or something else.
+
+    A tag can also be indirectly applied when some of its children
+    are applied to an object, it is considered automatically applied.
+    So, if the tags "Chemistry" and "Physics" are applied once
+    each to different objects, their parent tag "Natural Science" is
+    considered indirectly applied to 2 objects.
+
+    Deduplication: A tag can only be applied to a single object once.
+    So if two child tags are applied to the same object, e.g.
+    "Chemistry" and "Physics" are applied to the same course, the
+    parent tag, "Natural Science" is only applied to it once,
+    because no tag can be applied to the same object twice.
+
+    For performance reasons, we call this function with the list result of the
+    QuerySet so we can then add the counts in-memory rather than annotate to a
+    QuerySet which would require a very expensive annotation to join the
+    in-memory data to the original QuerySet.
+    """
+
+    object_tags = taxonomy.objecttag_set.values_list("object_id", "tag__lineage")
+    tag_counts: Counter[str] = Counter()
+    object_tag_lineage_seen: defaultdict[str, set] = defaultdict(set)
+
+    for object_id, tag_lineage in object_tags:
+        # split the lineages to get a dict of {tag.value: [lineages]}
+        lineage_tags = list(tag_lineage.split('\t')) if tag_lineage else []
+        # de-duplicate based on if the lineage is already 'seen' per object
+        unseen_tags = [t for t in lineage_tags if t not in object_tag_lineage_seen[object_id]]
+
+        tag_counts.update(unseen_tags)
+        object_tag_lineage_seen[object_id].update(unseen_tags)
+
+    # In-memory 'annotation'; this is faster than using annotate() on the QuerySet.
+    for row in tag_data:
+        row["usage_count"] = tag_counts.get(row["value"], 0)
+
+    return tag_data

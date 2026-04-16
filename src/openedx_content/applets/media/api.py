@@ -14,6 +14,7 @@ from django.db.transaction import atomic
 
 from openedx_django_lib.fields import create_hash_digest
 
+from ..publishing.models import LearningPackage
 from .models import Media, MediaType
 
 # The public API that will be re-exported by openedx_content.api
@@ -81,7 +82,7 @@ def get_media(media_id: int, /) -> Media:
 
 
 def get_or_create_text_media(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     media_type_id: int,
     /,
     text: str,
@@ -135,7 +136,7 @@ def get_or_create_text_media(
 
 
 def get_or_create_file_media(
-    learning_package_id: int,
+    learning_package_id: LearningPackage.ID,
     media_type_id: int,
     /,
     data: bytes,

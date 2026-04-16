@@ -108,7 +108,7 @@ class GetCollectionTestCase(CollectionsTestCase):
         """
         Test getting a single collection.
         """
-        collection = api.get_collection(self.learning_package.pk, 'COL1')
+        collection = api.get_collection(self.learning_package.id, 'COL1')
         assert collection == self.collection1
 
     def test_get_collection_not_found(self):
@@ -116,14 +116,14 @@ class GetCollectionTestCase(CollectionsTestCase):
         Test getting a collection that doesn't exist.
         """
         with self.assertRaises(ObjectDoesNotExist):
-            api.get_collection(self.learning_package.pk, '12345')
+            api.get_collection(self.learning_package.id, '12345')
 
     def test_get_collection_wrong_learning_package(self):
         """
         Test getting a collection that doesn't exist in the requested learning package.
         """
         with self.assertRaises(ObjectDoesNotExist):
-            api.get_collection(self.learning_package.pk, self.another_library_collection.key)
+            api.get_collection(self.learning_package.id, self.another_library_collection.key)
 
     def test_get_collections(self):
         """
@@ -284,25 +284,25 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         cls.collection1 = api.add_to_collection(
             cls.learning_package.id,
             key=cls.collection1.key,
-            entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_component.pk,
+            entities_qset=PublishableEntity.objects.filter(pk__in=[
+                cls.published_component.id,
             ]),
             created_by=cls.user.id,
         )
         cls.collection2 = api.add_to_collection(
             cls.learning_package.id,
             key=cls.collection2.key,
-            entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_component.pk,
-                cls.draft_component.pk,
-                cls.draft_unit.pk,
+            entities_qset=PublishableEntity.objects.filter(pk__in=[
+                cls.published_component.id,
+                cls.draft_component.id,
+                cls.draft_unit.id,
             ]),
         )
         cls.disabled_collection = api.add_to_collection(
             cls.learning_package.id,
             key=cls.disabled_collection.key,
-            entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_component.pk,
+            entities_qset=PublishableEntity.objects.filter(pk__in=[
+                cls.published_component.id,
             ]),
         )
 
@@ -336,9 +336,9 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             self.collection1 = api.add_to_collection(
                 self.learning_package.id,
                 self.collection1.key,
-                PublishableEntity.objects.filter(id__in=[
-                    self.draft_component.pk,
-                    self.draft_unit.pk,
+                PublishableEntity.objects.filter(pk__in=[
+                    self.draft_component.id,
+                    self.draft_unit.id,
                 ]),
                 created_by=self.user.id,
             )
@@ -361,8 +361,8 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             self.collection2 = api.add_to_collection(
                 self.learning_package.id,
                 self.collection2.key,
-                PublishableEntity.objects.filter(id__in=[
-                    self.published_component.pk,
+                PublishableEntity.objects.filter(pk__in=[
+                    self.published_component.id,
                 ]),
             )
 
@@ -381,8 +381,8 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             api.add_to_collection(
                 self.learning_package_2.id,
                 self.another_library_collection.key,
-                PublishableEntity.objects.filter(id__in=[
-                    self.published_component.pk,
+                PublishableEntity.objects.filter(pk__in=[
+                    self.published_component.id,
                 ]),
             )
 
@@ -397,9 +397,9 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             self.collection2 = api.remove_from_collection(
                 self.learning_package.id,
                 self.collection2.key,
-                PublishableEntity.objects.filter(id__in=[
-                    self.published_component.pk,
-                    self.draft_unit.pk,
+                PublishableEntity.objects.filter(pk__in=[
+                    self.published_component.id,
+                    self.draft_unit.id,
                 ]),
             )
 
@@ -443,7 +443,7 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
         """
         Test using `get_collection_entities()` to get containers
         """
-        def get_collection_containers(learning_package_id: int, collection_key: str):
+        def get_collection_containers(learning_package_id: LearningPackage.ID, collection_key: str):
             return (
                 pe.container for pe in
                 api.get_collection_entities(learning_package_id, collection_key).exclude(container=None)

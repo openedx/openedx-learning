@@ -8,14 +8,18 @@ https://open-edx-proposals.readthedocs.io/en/latest/best-practices/oep-0038-Data
 We have helpers to make case sensitivity consistent across backends. MySQL is
 case-insensitive by default, SQLite and Postgres are case-sensitive.
 """
+
 from __future__ import annotations
 
 import hashlib
 import uuid
+from typing import Any
 
 from django.db import models
 
 from .collations import MultiCollationMixin
+# Re-export these fields which are in a separate file so we can use .pyi type stubs:
+from .id_fields import TypedAutoField, TypedBigAutoField  # pylint: disable=unused-import
 from .validators import validate_utc_datetime
 
 
@@ -124,7 +128,7 @@ def key_field(**kwargs) -> MultiCollationCharField:
     return case_sensitive_char_field(max_length=500, blank=False, **kwargs)
 
 
-def hash_field(**kwargs) -> models.CharField:
+def hash_field(**kwargs: Any) -> models.CharField:
     """
     Holds a hash digest meant to identify a piece of content.
 
@@ -145,13 +149,14 @@ def hash_field(**kwargs) -> models.CharField:
        didn't seem worthwhile, particularly the possibility of case-sensitivity
        related bugs.
     """
-    default_kwargs = {
+    default_kwargs: dict[str, Any] = {
         "max_length": 40,
         "blank": False,
         "null": False,
         "editable": False,
     }
-    return models.CharField(**(default_kwargs | kwargs))
+    merged: dict[str, Any] = {**default_kwargs, **kwargs}
+    return models.CharField(**merged)
 
 
 def manual_date_time_field() -> models.DateTimeField:

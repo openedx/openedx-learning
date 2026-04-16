@@ -85,7 +85,7 @@ def test_course_code_required(org1) -> None:
     cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100", title="Python 100")
     with pytest.raises(IntegrityError):
         # Using .update() will bypass all checks and defaults in save()/clean(), to see if the DB enforces this:
-        CatalogCourse.objects.filter(pk=cc.pk).update(course_code="")
+        CatalogCourse.objects.filter(pk=cc.id).update(course_code="")
 
 
 # key_str field tests:
@@ -109,7 +109,7 @@ def test_title_required(org1) -> None:
     cc = CatalogCourse.objects.create(org_code="Org1", course_code="Python100", title="Python 100")
     with pytest.raises(IntegrityError):
         # Using .update() will bypass all checks and defaults in save()/clean(), to see if the DB enforces this:
-        CatalogCourse.objects.filter(pk=cc.pk).update(title="")
+        CatalogCourse.objects.filter(pk=cc.id).update(title="")
 
 
 def test_title_unicode(org1) -> None:
@@ -291,7 +291,7 @@ def test_run_code_required(python100: CatalogCourse) -> None:
     course = CourseRun.objects.create(catalog_course=python100, run_code="fall2026")
     with pytest.raises(IntegrityError):
         # Using .update() will bypass all checks and defaults in save()/clean(), to see if the DB enforces this:
-        CourseRun.objects.filter(pk=course.pk).update(run_code="")
+        CourseRun.objects.filter(pk=course.id).update(run_code="")
 
 
 def test_run_code_exact(org1) -> None:
@@ -313,17 +313,17 @@ def test_run_code_exact(org1) -> None:
     # Do not allow modifying the run so it's completely different from the run in the course ID
     with pytest.raises(IntegrityError, match="oex_catalog_courserun_course_key_run_code_match_exactly"):
         with transaction.atomic():
-            CourseRun.objects.filter(pk=run.pk).update(run_code="foobar")
+            CourseRun.objects.filter(pk=run.id).update(run_code="foobar")
 
     # Do not allow modifying the run so it doesn't match the course ID:
     with pytest.raises(IntegrityError):
         with transaction.atomic():
-            CourseRun.objects.filter(pk=run.pk).update(run_code="mixedcase")
+            CourseRun.objects.filter(pk=run.id).update(run_code="mixedcase")
 
     # Do not allow modifying the course ID so it doesn't match the run:
     with pytest.raises(IntegrityError):
         with transaction.atomic():
-            CourseRun.objects.filter(pk=run.pk).update(
+            CourseRun.objects.filter(pk=run.id).update(
                 course_key=CourseLocator(org="Org1", course="Test302", run="mixedcase"),
             )
 

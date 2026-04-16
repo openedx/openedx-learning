@@ -58,14 +58,14 @@ class TestModelVersioningQueries(TestCase):
         )
         assert component.versioning.draft == component_version
         assert component.versioning.published is None
-        publish_all_drafts(self.learning_package.pk, published_at=self.now)
+        publish_all_drafts(self.learning_package.id, published_at=self.now)
 
         # Publishing isn't immediately reflected in the component obj (it's
         # using a cached version).
         assert component.versioning.published is None
 
         # Re-fetching the component and the published version should be updated.
-        component = get_component(component.pk)
+        component = get_component(component.id)
         assert component.versioning.published == component_version
 
         # Grabbing the list of versions for this component
@@ -104,8 +104,8 @@ class TestModelVersioningQueries(TestCase):
             publish_all_drafts(self.learning_package.id)
 
         # Refetch the entities to get latest versions
-        component_with_changes = get_component(component_with_changes.pk)
-        component_with_no_changes = get_component(component_with_no_changes.pk)
+        component_with_changes = get_component(component_with_changes.id)
+        component_with_no_changes = get_component(component_with_no_changes.id)
 
         # Fetch the most recent PublishLog for these components
         first_publish_log_for_component_with_changes = component_with_changes.versioning.last_publish_log
@@ -133,8 +133,8 @@ class TestModelVersioningQueries(TestCase):
             publish_all_drafts(self.learning_package.id)
 
         # Refetch the entities to get latest versions
-        component_with_changes = get_component(component_with_changes.pk)
-        component_with_no_changes = get_component(component_with_no_changes.pk)
+        component_with_changes = get_component(component_with_changes.id)
+        component_with_no_changes = get_component(component_with_no_changes.id)
 
         # Re-fetch the most recent PublishLog for these components
         next_publish_log_for_component_with_changes = component_with_changes.versioning.last_publish_log
