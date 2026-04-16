@@ -447,6 +447,9 @@ def publish_from_drafts(
         else:
             dependency_drafts_qsets = []
 
+        # Collect PKs of directly-requested drafts before expanding dependencies.
+        direct_draft_ids = set(draft_qset.values_list('pk', flat=True))
+
         # One PublishLog for this entire publish operation.
         publish_log = PublishLog(
             learning_package_id=learning_package_id,
@@ -486,6 +489,7 @@ def publish_from_drafts(
                     entity=draft.entity,
                     old_version=old_version,
                     new_version=draft.version,
+                    direct=draft.pk in direct_draft_ids,
                 )
                 publish_log_record.full_clean()
                 publish_log_record.save(force_insert=True)

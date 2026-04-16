@@ -111,6 +111,77 @@ class PublishLogRecord(models.Model):
     # the values may drift away from each other.
     dependencies_hash_digest = hash_field(blank=True, default='', max_length=8)
 
+    # The "direct" field captures user intent during the publishing process. It
+    # is True if the user explicitly requested to publish the entity represented
+    # by this PublishLogRecord—i.e. they clicked "publish" on this entity or
+    # selected it for bulk publish.
+    #
+    # This field is False if this entity was indirectly published either as a
+    # child/dependency or side-effect of a directly published entity.
+    #
+    # If this field is None, that means that this PublishLogRecord was created
+    # before we started capturing user intent (pre-Verawood release), and we
+    # cannot reliably infer what the user clicked on. For example, say we had a
+    # Subsection > Unit > Component arrangement where the Component had an
+    # unpublished change. The user is allowed to press the "publish" button at
+    # the Subsection, Unit, or Component levels in the UI. Before we started
+    # recording this field, the resulting PublishLogs would have looked
+    # identical in all three cases: a version change PublishLogRecord for
+    # Component, and side-effect records for the Unit and Subsection. Therefore,
+    # we cannot accurately backfill this field.
+    #
+    # Here are some examples to illustrate how "direct" gets set and why:
+    #
+    # Example 1: The user clicks "publish" on a Component that's in a Unit.
+    #
+    #   The Component has direct=True, but the side-effect PublishLogRecord for
+    #   the Unit has direct=False. Likewise, any side-effect records at higher
+    #   levels (subsection, section) also have direct=False.
+    #
+    # Example 2: The user clicks "publish" on a Unit, where both the Unit and
+    # Component have unpublished changes:
+    #
+    #   In this case, the Unit has direct=True, and the Component has
+    #   direct=False. The draft status of the Component is irrelevant. The user
+    #   asked for the Unit to the published, so the Unit's PublishLogRecord is
+    #   the only thing that gets direct=True.
+    #
+    # Example 3: The user clicks "publish" on a Unit that has no changes of its
+    # own (draft version == published version), but the Unit contains a Component
+    # that has changes.
+    #
+    #   Again, only the PublishLogRecord for the Unit has direct=True. The
+    #   Component's PublishLogRecord has direct=False. Even though the Unit's
+    #   published version_num does not change (i.e. it is purely a side-effect
+    #   publish), the user intent was to publish the Unit (and anything it
+    #   contains), so the Unit gets direct=True.
+    #
+    # Example 4: The user selects multiple entities for bulk publishing.
+    #
+    #   Those exact entities that the user selected get direct=True. It does not
+    #   matter if some of those entities are children of other selected items or
+    #   not. Other entries like dependencies or side-effects have direct=False.
+    #
+    # Example 5: The user selects "publish all".
+    #
+    #   Selecting "publish all" in our system currently translates into "publish
+    #   all the entities that have a draft version that is different from its
+    #   published version". Those entities would get PublishLogRecords with
+    #   direct=True, while all side-effects would get records with direct=False.
+    #   So if a Unit's draft and published versions match, and one of its
+    #   Components has unpublished changes, then "publish all" would cause the
+    #   Component's record to have direct=True and the Unit's record to have
+    #   direct=False.
+    #
+    #   All PublishLogRecords in the PublishLog have direct=True. The "publish
+    #   all" operation is indistinguishable from bulk publishing and selecting
+    #   every single item.
+    direct = models.BooleanField(
+        null=True,
+        blank=True,
+        default=False,
+    )
+
     class Meta:
         constraints = [
             # A Publishable can have only one PublishLogRecord per PublishLog.
