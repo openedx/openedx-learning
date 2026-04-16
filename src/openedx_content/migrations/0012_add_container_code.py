@@ -25,7 +25,7 @@ def backfill_container_code(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("openedx_content", "0012_add_component_code_regex_validation"),
+        ("openedx_content", "0011_add_component_code_regex_validation"),
     ]
 
     operations = [
@@ -69,7 +69,7 @@ class Migration(migrations.Migration):
                 max_length=255,
                 validators=[
                     django.core.validators.RegexValidator(
-                        re.compile(r"^[a-zA-Z0-9\-\_\.]+\Z"),
+                        re.compile(r"^[a-zA-Z0-9_.-]+\Z"),
                         "Enter a valid \"code name\" consisting of letters, numbers, "
                         "underscores, hyphens, or periods.",
                         "invalid",
