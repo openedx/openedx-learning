@@ -224,9 +224,9 @@ def test_publish_events(admin_user) -> None:
     assert event.kwargs["change_log"].changes == [
         # Entity 1 is not yet published, since it has no draft version.
         # Entity 2 is newly published, and now at v2:
-        api.signals.ChangeLogRecordData(entity_id=entity2.id, old_version=None, new_version=2),
+        api.signals.ChangeLogRecordData(entity_id=entity2.id, old_version=None, new_version=2, direct=True),
         # Entity 3 is newly published, and now at v1:
-        api.signals.ChangeLogRecordData(entity_id=entity3.id, old_version=None, new_version=1),
+        api.signals.ChangeLogRecordData(entity_id=entity3.id, old_version=None, new_version=1, direct=True),
     ]
     assert event.kwargs["metadata"].time == first_publish_time
 
@@ -253,11 +253,11 @@ def test_publish_events(admin_user) -> None:
     assert event.kwargs["change_log"].publish_log_id == second_log.id
     assert event.kwargs["change_log"].changes == [
         # Entity 1 is newly published at v1:
-        api.signals.ChangeLogRecordData(entity_id=entity1.id, old_version=None, new_version=1),
+        api.signals.ChangeLogRecordData(entity_id=entity1.id, old_version=None, new_version=1, direct=True),
         # Entity 2 jumps v2 -> v3:
-        api.signals.ChangeLogRecordData(entity_id=entity2.id, old_version=2, new_version=3),
+        api.signals.ChangeLogRecordData(entity_id=entity2.id, old_version=2, new_version=3, direct=True),
         # Entity 3 gets deleted:
-        api.signals.ChangeLogRecordData(entity_id=entity3.id, old_version=1, new_version=None),
+        api.signals.ChangeLogRecordData(entity_id=entity3.id, old_version=1, new_version=None, direct=True),
     ]
     assert event.kwargs["metadata"].time == second_publish_time
 
@@ -323,10 +323,10 @@ def test_publish_with_dependencies() -> None:
     event = captured[0]
     assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
     assert event.kwargs["change_log"].changes == [
-        api.signals.ChangeLogRecordData(entity_id=grandparent1.id, old_version=None, new_version=1),
-        api.signals.ChangeLogRecordData(entity_id=parent1.id, old_version=None, new_version=1),
-        api.signals.ChangeLogRecordData(entity_id=child1.id, old_version=None, new_version=1),
-        api.signals.ChangeLogRecordData(entity_id=child2.id, old_version=None, new_version=1),
+        api.signals.ChangeLogRecordData(entity_id=grandparent1.id, old_version=None, new_version=1, direct=True),
+        api.signals.ChangeLogRecordData(entity_id=parent1.id, old_version=None, new_version=1, direct=False),
+        api.signals.ChangeLogRecordData(entity_id=child1.id, old_version=None, new_version=1, direct=False),
+        api.signals.ChangeLogRecordData(entity_id=child2.id, old_version=None, new_version=1, direct=False),
     ]
 
     # publish the rest:
@@ -342,7 +342,7 @@ def test_publish_with_dependencies() -> None:
     event = captured[0]
     assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
     assert event.kwargs["change_log"].changes == [
-        api.signals.ChangeLogRecordData(entity_id=child3.id, old_version=1, new_version=2),  # directly published
-        api.signals.ChangeLogRecordData(entity_id=parent2.id, old_version=1, new_version=1),  # side effect
-        api.signals.ChangeLogRecordData(entity_id=grandparent2.id, old_version=1, new_version=1),  # side effect
+        api.signals.ChangeLogRecordData(entity_id=child3.id, old_version=1, new_version=2, direct=True),
+        api.signals.ChangeLogRecordData(entity_id=parent2.id, old_version=1, new_version=1, direct=False),
+        api.signals.ChangeLogRecordData(entity_id=grandparent2.id, old_version=1, new_version=1, direct=False),
     ]

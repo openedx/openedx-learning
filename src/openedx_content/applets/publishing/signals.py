@@ -53,7 +53,11 @@ class ChangeLogRecordData:
     This is None if the entity is now deleted.
     """
 
-    # Future: direct? https://github.com/openedx/openedx-core/pull/539
+    direct: bool | None = None
+    """
+    Did the user chose to directly publish this specific thing, or was it auto-published because it's a dependency?
+    (if applicable/known)
+    """
 
 
 @define
