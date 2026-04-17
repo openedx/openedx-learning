@@ -145,7 +145,17 @@ class ObjectTagMinimalSerializer(UserPermissionsSerializerMixin, serializers.Mod
 
     def get_can_delete_objecttag(self, instance) -> bool | None:
         """
-        Returns True if the current request user may delete object tags on this taxonomy
+        SerializerMethodField callback for `can_delete_objecttag`.
+
+        Delegates to `can_delete_object_tag` so subclasses can
+        override a stable method name that isn't tied to DRF's
+        SerializerMethodField naming convention.
+        """
+        return self.can_delete_object_tag(instance)
+
+    def can_delete_object_tag(self, instance) -> bool | None:
+        """
+        Check if the user is authorized to delete the provided tag.
         """
         perm_name = f'{self.app_label}.remove_objecttag_objectid'
         return self._can(perm_name, instance.object_id)
@@ -179,7 +189,6 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
         # Allows consumers like edx-platform to override this
         ObjectTagViewMinimalSerializer = self.context["view"].minimal_serializer_class
 
-        can_tag_object_perm = f"{self.app_label}.can_tag_object"
         by_object: dict[str, dict[str, Any]] = {}
         for obj_tag in instance:
             if obj_tag.object_id not in by_object:
@@ -192,13 +201,20 @@ class ObjectTagsByTaxonomySerializer(UserPermissionsSerializerMixin, serializers
                 tax_entry = {
                     "name": obj_tag.taxonomy.name if obj_tag.taxonomy else None,
                     "taxonomy_id": obj_tag.taxonomy_id,
-                    "can_tag_object": self._can(can_tag_object_perm, obj_tag),
+                    "can_tag_object": self.can_tag_object(obj_tag),
                     "tags": [],
                     "export_id": obj_tag.export_id,
                 }
                 taxonomies.append(tax_entry)
             tax_entry["tags"].append(ObjectTagViewMinimalSerializer(obj_tag, context=self.context).data)
         return by_object
+
+    def can_tag_object(self, obj_tag) -> bool | None:
+        """
+        Check if the user is authorized to tag the provided object.
+        """
+        perm_name = f"{self.app_label}.can_tag_object"
+        return self._can(perm_name, obj_tag)
 
 
 class ObjectTagUpdateByTaxonomySerializer(serializers.Serializer):  # pylint: disable=abstract-method
