@@ -10,11 +10,13 @@ from .models.publishable_entity import PublishableEntity
 
 # Public API available via openedx_content.api
 __all__ = [
+    # All event data structures should end with "...Data":
     "LearningPackageEventData",
     "UserAttributionEventData",
     "ChangeLogRecordData",
     "DraftChangeLogEventData",
     "PublishLogEventData",
+    # All events:
     "LEARNING_PACKAGE_ENTITIES_CHANGED",
     "LEARNING_PACKAGE_ENTITIES_PUBLISHED",
 ]

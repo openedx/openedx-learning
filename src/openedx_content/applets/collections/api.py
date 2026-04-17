@@ -1,15 +1,18 @@
 """
 Collections API (warning: UNSTABLE, in progress API)
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
+from django.db.transaction import on_commit
 
 from ..publishing import api as publishing_api
 from ..publishing.models import PublishableEntity
+from . import signals
 from .models import Collection, CollectionPublishableEntity, LearningPackage
 
 # The public API that will be re-exported by openedx_content.api
@@ -32,6 +35,42 @@ __all__ = [
 ]
 
 
+def _queue_change_event(
+    collection: Collection,
+    *,
+    created: bool = False,
+    modified: bool = False,
+    deleted: bool = False,
+    entities_added: list[PublishableEntity.ID] | None = None,
+    entities_removed: list[PublishableEntity.ID] | None = None,
+    user_id: int | None = None,
+) -> None:
+    """Helper for emitting the event when a collection has changed."""
+
+    learning_package_id = collection.learning_package.id
+    learning_package_title = collection.learning_package.title
+
+    # Send out an event immediately after this database transaction commits.
+    def send_change_event():
+        signals.LEARNING_PACKAGE_COLLECTION_CHANGED.send_event(
+            time=collection.modified,
+            learning_package=signals.LearningPackageEventData(id=learning_package_id, title=learning_package_title),
+            # FIXME: most collections APIs are missing a user_id parameter.
+            changed_by=signals.UserAttributionEventData(user_id=user_id),
+            change=signals.CollectionChangeData(
+                collection_id=collection.id,
+                collection_code=collection.key,  # TODO: collection_code
+                created=created,
+                modified=modified,
+                deleted=deleted,
+                entities_added=entities_added or [],
+                entities_removed=entities_removed or [],
+            ),
+        )
+
+    on_commit(send_change_event)
+
+
 def create_collection(
     learning_package_id: LearningPackage.ID,
     key: str,
@@ -52,6 +91,8 @@ def create_collection(
         description=description,
         enabled=enabled,
     )
+    if enabled:
+        _queue_change_event(collection, created=True, user_id=created_by)
     return collection
 
 
@@ -85,6 +126,7 @@ def update_collection(
         collection.description = description
 
     collection.save()
+    _queue_change_event(collection, modified=True)
     return collection
 
 
@@ -101,12 +143,17 @@ def delete_collection(
     Soft-deleted collections can be re-enabled using restore_collection.
     """
     collection = get_collection(learning_package_id, key)
+    entities_removed = list(collection.entities.order_by("id").values_list("id", flat=True))
 
     if hard_delete:
+        collection.modified = datetime.now(tz=timezone.utc)  # For the event timestamp; won't get saved to the DB
+        _queue_change_event(collection, deleted=True, entities_removed=entities_removed)
+        # Delete after enqueing the event:
         collection.delete()
     else:
         collection.enabled = False
         collection.save()
+        _queue_change_event(collection, deleted=True, entities_removed=entities_removed)
     return collection
 
 
@@ -118,9 +165,11 @@ def restore_collection(
     Undo a "soft delete" by re-enabling a Collection.
     """
     collection = get_collection(learning_package_id, key)
+    entities_added = list(collection.entities.order_by("id").values_list("id", flat=True))
 
     collection.enabled = True
     collection.save()
+    _queue_change_event(collection, created=True, entities_added=entities_added)
     return collection
 
 
@@ -150,12 +199,12 @@ def add_to_collection(
         )
 
     collection = get_collection(learning_package_id, key)
-    collection.entities.add(
-        *entities_qset.all(),
-        through_defaults={"created_by_id": created_by},
-    )
+    existing_ids = set(collection.entities.values_list("id", flat=True))
+    ids_to_add = entities_qset.values_list("id", flat=True)
+    collection.entities.add(*ids_to_add, through_defaults={"created_by_id": created_by})
     collection.modified = datetime.now(tz=timezone.utc)
     collection.save()
+    _queue_change_event(collection, entities_added=list(set(ids_to_add) - existing_ids), user_id=created_by)
 
     return collection
 
@@ -176,9 +225,12 @@ def remove_from_collection(
     """
     collection = get_collection(learning_package_id, key)
 
-    collection.entities.remove(*entities_qset.all())
+    ids_to_remove = list(entities_qset.values_list("id", flat=True))
+    entities_removed = list(collection.entities.filter(id__in=ids_to_remove).values_list("id", flat=True))
+    collection.entities.remove(*ids_to_remove)
     collection.modified = datetime.now(tz=timezone.utc)
     collection.save()
+    _queue_change_event(collection, entities_removed=entities_removed)
 
     return collection
 
@@ -220,7 +272,7 @@ def get_collections(learning_package_id: LearningPackage.ID, enabled: bool | Non
     qs = Collection.objects.filter(learning_package_id=learning_package_id)
     if enabled is not None:
         qs = qs.filter(enabled=enabled)
-    return qs.select_related("learning_package").order_by('pk')
+    return qs.select_related("learning_package").order_by("pk")
 
 
 def set_collections(
@@ -243,25 +295,33 @@ def set_collections(
         raise ValidationError(
             "Collection entities must be from the same learning package as the collection.",
         )
-    current_relations = CollectionPublishableEntity.objects.filter(
-        entity=publishable_entity
-    ).select_related('collection')
-    # Clear other collections for given entity and add only new collections from collection_qset
-    removed_collections = set(
-        r.collection for r in current_relations.exclude(collection__in=collection_qset)
+    current_relations = CollectionPublishableEntity.objects.filter(entity=publishable_entity).select_related(
+        "collection"
     )
-    new_collections = set(collection_qset.exclude(
-        id__in=current_relations.values_list('collection', flat=True)
-    ))
+    # Clear other collections for given entity and add only new collections from collection_qset
+    removed_collections = set(r.collection for r in current_relations.exclude(collection__in=collection_qset))
+    new_collections = set(collection_qset.exclude(id__in=current_relations.values_list("collection", flat=True)))
     # Triggers a m2m_changed signal
     publishable_entity.collections.set(
         objs=collection_qset,
         through_defaults={"created_by_id": created_by},
     )
     # Update modified date via update to avoid triggering post_save signal for all collections, which can be very slow.
-    affected_collection = removed_collections | new_collections
-    Collection.objects.filter(
-        id__in=[collection.id for collection in affected_collection]
-    ).update(modified=datetime.now(tz=timezone.utc))
+    affected_collections = removed_collections | new_collections
+    Collection.objects.filter(id__in=[collection.id for collection in affected_collections]).update(
+        modified=datetime.now(tz=timezone.utc)
+    )
 
-    return affected_collection
+    # Emit one event per affected collection. Re-fetch with select_related so _queue_change_event
+    # can read collection.learning_package without extra queries; the re-fetch also picks up the
+    # updated modified timestamp from the bulk update above.
+    removed_ids = {c.id for c in removed_collections}
+    for collection in Collection.objects.filter(id__in=[c.id for c in affected_collections]).select_related(
+        "learning_package"
+    ):
+        if collection.id in removed_ids:
+            _queue_change_event(collection, entities_removed=[publishable_entity.id], user_id=created_by)
+        else:
+            _queue_change_event(collection, entities_added=[publishable_entity.id], user_id=created_by)
+
+    return affected_collections
