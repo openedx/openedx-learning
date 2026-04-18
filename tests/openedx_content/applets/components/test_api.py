@@ -666,21 +666,21 @@ class SetCollectionsTestCase(ComponentTestCase):
         )
         cls.collection1 = collection_api.create_collection(
             cls.learning_package.id,
-            key="MYCOL1",
+            collection_code="MYCOL1",
             title="Collection1",
             created_by=None,
             description="Description of Collection 1",
         )
         cls.collection2 = collection_api.create_collection(
             cls.learning_package.id,
-            key="MYCOL2",
+            collection_code="MYCOL2",
             title="Collection2",
             created_by=None,
             description="Description of Collection 2",
         )
         cls.collection3 = collection_api.create_collection(
             cls.learning_package.id,
-            key="MYCOL3",
+            collection_code="MYCOL3",
             title="Collection3",
             created_by=None,
             description="Description of Collection 3",

@@ -37,7 +37,7 @@ def test_create_collection(lp1: LearningPackage, admin_user) -> None:
     with capture_events(expected_count=1) as captured:
         collection = api.create_collection(
             lp1.id,
-            key="col1",
+            collection_code="col1",
             title="Collection 1",
             created_by=admin_user.id,
         )
@@ -67,7 +67,7 @@ def test_create_collection_disabled(lp1: LearningPackage) -> None:
     with capture_events(expected_count=0):
         api.create_collection(
             lp1.id,
-            key="col1",
+            collection_code="col1",
             title="Collection 1",
             created_by=None,
             enabled=False,
@@ -82,7 +82,7 @@ def test_create_collection_aborted(lp1: LearningPackage) -> None:
         with abort_transaction():
             api.create_collection(
                 lp1.id,
-                key="col1",
+                collection_code="col1",
                 title="Collection 1",
                 created_by=None,
             )
@@ -96,7 +96,7 @@ def test_update_collection(lp1: LearningPackage) -> None:
     Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with modified=True
     when a collection's title or description is updated.
     """
-    collection = api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     orig_modified = collection.modified
 
     with capture_events(expected_count=1) as captured:
@@ -120,7 +120,7 @@ def test_update_collection_no_op(lp1: LearningPackage) -> None:
     Test that LEARNING_PACKAGE_COLLECTION_CHANGED is NOT emitted when
     update_collection is called without any fields to update.
     """
-    api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
 
     with capture_events(expected_count=0):
         # No title or description provided — the API short-circuits with no DB write.
@@ -135,7 +135,7 @@ def test_delete_collection_soft(lp1: LearningPackage) -> None:
     Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with deleted=True
     when a collection is soft-deleted (enabled=False).
     """
-    collection = api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity1 = _create_entity(lp1.id, "entity1")
     entity2 = _create_entity(lp1.id, "entity2")
     api.add_to_collection(
@@ -163,7 +163,7 @@ def test_delete_collection_hard(lp1: LearningPackage) -> None:
     Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with deleted=True and
     entities_removed populated when a collection is hard-deleted.
     """
-    collection = api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity1 = _create_entity(lp1.id, "entity1")
     entity2 = _create_entity(lp1.id, "entity2")
     api.add_to_collection(
@@ -196,7 +196,7 @@ def test_restore_collection(lp1: LearningPackage) -> None:
     Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with created=True
     when a soft-deleted collection is restored.
     """
-    collection = api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     api.delete_collection(lp1.id, "col1")  # soft-delete first
 
     with capture_events(expected_count=1) as captured:
@@ -220,7 +220,7 @@ def test_add_to_collection(lp1: LearningPackage) -> None:
     Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with the correct
     entities_added list when entities are added to a collection.
     """
-    collection = api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity1 = _create_entity(lp1.id, "entity1")
     entity2 = _create_entity(lp1.id, "entity2")
 
@@ -245,7 +245,7 @@ def test_add_to_collection_aborted(lp1: LearningPackage) -> None:
     """
     Test that no event is emitted when adding entities to a collection is rolled back.
     """
-    api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity1 = _create_entity(lp1.id, "entity1")
 
     with capture_events(expected_count=0):
@@ -265,7 +265,7 @@ def test_remove_from_collection(lp1: LearningPackage) -> None:
     Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with the correct
     entities_removed list when entities are removed from a collection.
     """
-    collection = api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity1 = _create_entity(lp1.id, "entity1")
     entity2 = _create_entity(lp1.id, "entity2")
     api.add_to_collection(
@@ -303,9 +303,9 @@ def test_set_collections(lp1: LearningPackage, admin_user) -> None:
     We expect two events: one for col1 (entity removed) and one for col3 (entity added).
     col2 is unchanged so it should not emit an event.
     """
-    col1 = api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
-    col2 = api.create_collection(lp1.id, key="col2", title="Collection 2", created_by=None)
-    col3 = api.create_collection(lp1.id, key="col3", title="Collection 3", created_by=None)
+    col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    col2 = api.create_collection(lp1.id, "col2", title="Collection 2", created_by=None)
+    col3 = api.create_collection(lp1.id, "col3", title="Collection 3", created_by=None)
     entity = _create_entity(lp1.id, "entity1")
 
     # Put entity in col1 + col2 to start with
@@ -343,7 +343,7 @@ def test_set_collections_aborted(lp1: LearningPackage) -> None:
     """
     Test that no events are emitted when set_collections is rolled back.
     """
-    col1 = api.create_collection(lp1.id, key="col1", title="Collection 1", created_by=None)
+    col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity = _create_entity(lp1.id, "entity1")
 
     with capture_events(expected_count=0):

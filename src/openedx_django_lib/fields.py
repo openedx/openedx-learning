@@ -12,10 +12,14 @@ case-insensitive by default, SQLite and Postgres are case-sensitive.
 from __future__ import annotations
 
 import hashlib
+import re
 import uuid
 from typing import Any
 
+from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models.lookups import Regex
+from django.utils.translation import gettext_lazy as _
 
 from .collations import MultiCollationMixin
 # Re-export these fields which are in a separate file so we can use .pyi type stubs:
@@ -111,6 +115,60 @@ def immutable_uuid_field() -> models.UUIDField:
         editable=False,
         unique=True,
         verbose_name="UUID",  # Just makes the Django admin output properly capitalized
+    )
+
+
+# Alphanumeric, hyphens, underscores, periods
+CODE_REGEX = re.compile(r"^[a-zA-Z0-9_.-]+\Z")
+
+
+_CODE_VIOLATION_MSG = _(
+    'Enter a valid "code name" consisting of letters, numbers, underscores, hyphens, or periods.'
+)
+
+
+def code_field(**kwargs) -> MultiCollationCharField:
+    """
+    Field to hold a 'code', i.e. a slug-like local identifier.
+
+    Use together with :func:`code_field_check` to enforce the same regex at
+    the database level via a ``CheckConstraint``.
+    """
+    return case_sensitive_char_field(
+        max_length=255,
+        blank=False,
+        validators=[
+            RegexValidator(
+                CODE_REGEX,
+                # Translators: "letters" means latin letters: a-z and A-Z.
+                _CODE_VIOLATION_MSG,
+                "invalid",
+            ),
+        ],
+        **kwargs,
+    )
+
+
+def code_field_check(field_name: str, *, name: str) -> models.CheckConstraint:
+    """
+    Return a ``CheckConstraint`` that enforces :data:`CODE_REGEX` at the DB level.
+
+    Django validators (used by :func:`code_field`) are not called on ``.save()``
+    or ``.update()``.  Adding this constraint ensures the regex is also enforced
+    by the database itself, and Django will additionally run it as a Python-level
+    validator automatically.
+
+    Usage::
+
+        class Meta:
+            constraints = [
+                code_field_check("my_code_field", name="myapp_mymodel_my_code_field_regex"),
+            ]
+    """
+    return models.CheckConstraint(
+        condition=Regex(models.F(field_name), CODE_REGEX.pattern),
+        name=name,
+        violation_error_message=_CODE_VIOLATION_MSG,
     )
 
 

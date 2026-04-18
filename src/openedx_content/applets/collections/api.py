@@ -59,7 +59,7 @@ def _queue_change_event(
             changed_by=signals.UserAttributionEventData(user_id=user_id),
             change=signals.CollectionChangeData(
                 collection_id=collection.id,
-                collection_code=collection.key,  # TODO: collection_code
+                collection_code=collection.collection_code,
                 created=created,
                 modified=modified,
                 deleted=deleted,
@@ -73,7 +73,7 @@ def _queue_change_event(
 
 def create_collection(
     learning_package_id: LearningPackage.ID,
-    key: str,
+    collection_code: str,
     *,
     title: str,
     created_by: int | None,
@@ -83,37 +83,39 @@ def create_collection(
     """
     Create a new Collection
     """
-    collection = Collection.objects.create(
+    collection = Collection(
         learning_package_id=learning_package_id,
-        key=key,
+        collection_code=collection_code,
         title=title,
         created_by_id=created_by,
         description=description,
         enabled=enabled,
     )
+    collection.full_clean()
+    collection.save()
     if enabled:
         _queue_change_event(collection, created=True, user_id=created_by)
     return collection
 
 
-def get_collection(learning_package_id: LearningPackage.ID, collection_key: str) -> Collection:
+def get_collection(learning_package_id: LearningPackage.ID, collection_code: str) -> Collection:
     """
     Get a Collection by ID
     """
-    return Collection.objects.get_by_key(learning_package_id, collection_key)
+    return Collection.objects.get_by_code(learning_package_id, collection_code)
 
 
 def update_collection(
     learning_package_id: LearningPackage.ID,
-    key: str,
+    collection_code: str,
     *,
     title: str | None = None,
     description: str | None = None,
 ) -> Collection:
     """
-    Update a Collection identified by the learning_package_id + key.
+    Update a Collection identified by the learning_package_id + collection_code.
     """
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
 
     # If no changes were requested, there's nothing to update, so just return
     # the Collection as-is
@@ -132,17 +134,17 @@ def update_collection(
 
 def delete_collection(
     learning_package_id: LearningPackage.ID,
-    key: str,
+    collection_code: str,
     *,
     hard_delete=False,
 ) -> Collection:
     """
-    Disables or deletes a collection identified by the given learning_package + key.
+    Disables or deletes a collection identified by the given learning_package + collection_code.
 
     By default (hard_delete=False), the collection is "soft deleted", i.e disabled.
     Soft-deleted collections can be re-enabled using restore_collection.
     """
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
     entities_removed = list(collection.entities.order_by("id").values_list("id", flat=True))
 
     if hard_delete:
@@ -159,12 +161,12 @@ def delete_collection(
 
 def restore_collection(
     learning_package_id: LearningPackage.ID,
-    key: str,
+    collection_code: str,
 ) -> Collection:
     """
     Undo a "soft delete" by re-enabling a Collection.
     """
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
     entities_added = list(collection.entities.order_by("id").values_list("id", flat=True))
 
     collection.enabled = True
@@ -175,7 +177,7 @@ def restore_collection(
 
 def add_to_collection(
     learning_package_id: LearningPackage.ID,
-    key: str,
+    collection_code: str,
     entities_qset: QuerySet[PublishableEntity],
     created_by: int | None = None,
 ) -> Collection:
@@ -195,10 +197,10 @@ def add_to_collection(
     if invalid_entity:
         raise ValidationError(
             f"Cannot add entity {invalid_entity.id} in learning package {invalid_entity.learning_package_id} "
-            f"to collection {key} in learning package {learning_package_id}."
+            f"to collection {collection_code} in learning package {learning_package_id}."
         )
 
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
     existing_ids = set(collection.entities.values_list("id", flat=True))
     ids_to_add = entities_qset.values_list("id", flat=True)
     collection.entities.add(*ids_to_add, through_defaults={"created_by_id": created_by})
@@ -211,7 +213,7 @@ def add_to_collection(
 
 def remove_from_collection(
     learning_package_id: LearningPackage.ID,
-    key: str,
+    collection_code: str,
     entities_qset: QuerySet[PublishableEntity],
 ) -> Collection:
     """
@@ -223,7 +225,7 @@ def remove_from_collection(
 
     Returns the updated Collection.
     """
-    collection = get_collection(learning_package_id, key)
+    collection = get_collection(learning_package_id, collection_code)
 
     ids_to_remove = list(entities_qset.values_list("id", flat=True))
     entities_removed = list(collection.entities.filter(id__in=ids_to_remove).values_list("id", flat=True))
@@ -250,7 +252,7 @@ def get_entity_collections(learning_package_id: LearningPackage.ID, entity_key: 
 
 def get_collection_entities(
     learning_package_id: LearningPackage.ID,
-    collection_key: str,
+    collection_code: str,
 ) -> QuerySet[PublishableEntity]:
     """
     Returns a QuerySet of PublishableEntities in a Collection.
@@ -259,7 +261,7 @@ def get_collection_entities(
     """
     return PublishableEntity.objects.filter(
         learning_package_id=learning_package_id,
-        collections__key=collection_key,
+        collections__collection_code=collection_code,
     ).order_by("pk")
 
 

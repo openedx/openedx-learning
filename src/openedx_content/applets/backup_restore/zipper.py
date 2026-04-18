@@ -401,7 +401,7 @@ class LearningPackageZipper:
             collections = self.get_collections()
 
             for collection in collections:
-                collection_hash_slug = self.get_entity_toml_filename(collection.key)
+                collection_hash_slug = self.get_entity_toml_filename(collection.collection_code)
                 collection_toml_file_path = collections_folder / f"{collection_hash_slug}.toml"
                 entity_keys_related = collection.entities.order_by("key").values_list("key", flat=True)
                 self.add_file_to_zip(
@@ -779,7 +779,7 @@ class LearningPackageUnzipper:
             )
             collection = collections_api.add_to_collection(
                 learning_package_id=learning_package.id,
-                key=collection.key,
+                collection_code=collection.collection_code,
                 entities_qset=publishing_api.get_publishable_entities(learning_package.id).filter(key__in=entities)
             )
 

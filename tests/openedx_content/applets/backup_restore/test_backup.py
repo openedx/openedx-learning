@@ -146,7 +146,7 @@ class LpDumpCommandTestCase(TestCase):
 
         cls.collection = api.create_collection(
             cls.learning_package.id,
-            key="COL1",
+            collection_code="COL1",
             created_by=cls.user.id,
             title="Collection 1",
             description="Description of Collection 1",
@@ -154,7 +154,7 @@ class LpDumpCommandTestCase(TestCase):
 
         api.add_to_collection(
             cls.learning_package.id,
-            cls.collection.key,
+            cls.collection.collection_code,
             components
         )
 
