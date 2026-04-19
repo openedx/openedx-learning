@@ -66,13 +66,19 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
             published_version = publishing_api.get_published_version(container.publishable_entity.id)
             assert container.created_by is not None
             assert container.created_by.username == "lp_user"
+            # The unit has been published. The other two containers haven't been.
+            # It's important that we test with at least one published container in order to
+            # fully cover _create_container in zipper.py.
             if container.key == "unit1-b7eafb":
                 assert containers_api.get_container_type_code_of(container) == "unit"
                 assert draft_version is not None
                 assert draft_version.version_num == 2
                 assert draft_version.created_by is not None
                 assert draft_version.created_by.username == "lp_user"
-                assert published_version is None
+                assert published_version is not None
+                assert published_version.version_num == 2
+                assert published_version.created_by is not None
+                assert published_version.created_by.username == "lp_user"
             elif container.key == "subsection1-48afa3":
                 assert containers_api.get_container_type_code_of(container) == "subsection"
                 assert draft_version is not None

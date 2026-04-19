@@ -7,7 +7,7 @@ created = 2025-09-04T22:51:59.271334Z
 version_num = 2
 
 [entity.published]
-# unpublished: no published_version_num
+version_num = 2
 
 [entity.container.unit]
 
