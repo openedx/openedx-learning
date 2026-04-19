@@ -596,9 +596,9 @@ def get_entity_draft_history(
       it was made after the last real publish.
     """
     if isinstance(publishable_entity_or_id, int):
-        entity_id = publishable_entity_or_id
+        entity_id = PublishableEntity.PublishableEntityID(publishable_entity_or_id)
     else:
-        entity_id = publishable_entity_or_id.pk
+        entity_id = publishable_entity_or_id.id
 
     qs = (
         DraftChangeLogRecord.objects
@@ -667,9 +667,9 @@ def get_entity_publish_history(
       not the intermediate draft versions.
     """
     if isinstance(publishable_entity_or_id, int):
-        entity_id = publishable_entity_or_id
+        entity_id = PublishableEntity.PublishableEntityID(publishable_entity_or_id)
     else:
-        entity_id = publishable_entity_or_id.pk
+        entity_id = publishable_entity_or_id.id
 
     return (
         PublishLogRecord.objects
@@ -719,9 +719,9 @@ def get_entity_publish_history_entries(
     this entity.
     """
     if isinstance(publishable_entity_or_id, int):
-        entity_id = publishable_entity_or_id
+        entity_id = PublishableEntity.PublishableEntityID(publishable_entity_or_id)
     else:
-        entity_id = publishable_entity_or_id.pk
+        entity_id = publishable_entity_or_id.id
 
     # Fetch the PublishLogRecord for the requested PublishLog
     pub_record = (
@@ -811,7 +811,10 @@ def get_entity_version_contributors(
     - A user who contributed multiple versions in the range appears only once
       (results are deduplicated with DISTINCT).
     """
-    entity_id = publishable_entity_or_id if isinstance(publishable_entity_or_id, int) else publishable_entity_or_id.pk
+    if isinstance(publishable_entity_or_id, int):
+        entity_id = PublishableEntity.PublishableEntityID(publishable_entity_or_id)
+    else:
+        entity_id = publishable_entity_or_id.id
 
     if new_version_num is not None:
         version_filter = Q(
