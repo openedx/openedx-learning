@@ -1592,11 +1592,26 @@ class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
     Tests for get_descendant_component_entity_ids.
     """
 
+    def setUp(self) -> None:
+        super().setUp()
+        Container.reset_cache()
+        # self.entity from PublishingHistoryMixin has no version — create one so
+        # get_entities_in_container can access entity.draft without raising.
+        publishing_api.create_publishable_entity_version(
+            self.entity.id, version_num=1, title="Entity v1",
+            created=self.time_1, created_by=None,
+        )
+
     def _make_extra_entity(self, key: str) -> PublishableEntity:
-        """Create an additional PublishableEntity (beyond self.entity)."""
-        return publishing_api.create_publishable_entity(
+        """Create an additional PublishableEntity with a v1 draft version."""
+        entity = publishing_api.create_publishable_entity(
             self.learning_package.id, key, created=self.time_1, created_by=None,
         )
+        publishing_api.create_publishable_entity_version(
+            entity.id, version_num=1, title=key,
+            created=self.time_1, created_by=None,
+        )
+        return entity
 
     def _make_container(self, key: str, children: list) -> Container:
         """Create a Container with a v1 version pointing at the given children."""
@@ -1697,6 +1712,10 @@ class TestContainerSideEffects(TestCase):
     """
     now: datetime
     learning_package: LearningPackage
+
+    def setUp(self) -> None:
+        super().setUp()
+        Container.reset_cache()
 
     @classmethod
     def setUpTestData(cls) -> None:
