@@ -56,6 +56,14 @@ class Migration(migrations.Migration):
                 name='oel_component_uniq_lc_ct_lk',
             ),
         ),
+        migrations.AddConstraint(
+            model_name='component',
+            constraint=models.CheckConstraint(
+                condition=django.db.models.lookups.Regex(models.F('component_code'), '^[a-zA-Z0-9_.-]+\\Z'),
+                name='oel_component_code_regex',
+                violation_error_message='Enter a valid "code name" consisting of letters, numbers, underscores, hyphens, or periods.',
+            ),
+        ),
         migrations.AddIndex(
             model_name='component',
             index=models.Index(

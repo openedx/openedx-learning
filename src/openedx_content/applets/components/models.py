@@ -22,7 +22,7 @@ from typing import ClassVar, NewType, cast
 from django.db import models
 from typing_extensions import deprecated
 
-from openedx_django_lib.fields import case_sensitive_char_field, code_field, key_field
+from openedx_django_lib.fields import case_sensitive_char_field, code_field, code_field_check, key_field
 from openedx_django_lib.managers import WithRelationsManager
 
 from ..media.models import Media
@@ -198,6 +198,7 @@ class Component(PublishableEntityMixin):
                 ],
                 name="oel_component_uniq_lc_ct_lk",
             ),
+            code_field_check("component_code", name="oel_component_code_regex"),
         ]
         indexes = [
             # Global Component-Type/Component-Code Index:
