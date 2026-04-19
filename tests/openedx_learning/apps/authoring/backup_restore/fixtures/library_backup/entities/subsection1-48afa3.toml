@@ -9,7 +9,14 @@ version_num = 2
 [entity.published]
 # unpublished: no published_version_num
 
+# Starting with https://github.com/openedx/openedx-core/pull/545,
+# containers will derive their identity from `container_code` instead of
+# from `key` (although archives without a `container_code` will fall back
+# to `key`). We're adding this bit to the test fixture ahead of time to
+# ensure that older (Ulmo) code is forward-compatible with archives
+# containing `container_code`.
 [entity.container.subsection]
+container_code = "subsection1-48afa3"
 
 # ### Versions
 

@@ -9,6 +9,16 @@ version_num = 2
 [entity.published]
 version_num = 2
 
+# Starting with https://github.com/openedx/openedx-core/pull/544,
+# components will derive their type and code from these attributes rather
+# than by parsing `key` (although archives without an [entity.component] section
+# will fall back to parsing `key`). We're adding this bit to the test fixture
+# early, ensuring that older (Ulmo) code is forward-compatible with archives
+# containing the [entity.component] section.
+[entity.component]
+component_type = "xblock.v1:html"
+component_code = "c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2"
+
 # ### Versions
 
 [[version]]
