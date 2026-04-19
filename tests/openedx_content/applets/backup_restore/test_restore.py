@@ -183,7 +183,7 @@ class RestoreLearningPackageCommandTest(RestoreTestCase):
         assert collections.count() == 1
         collection = collections.first()
         assert collection.title == "Collection test1"
-        assert collection.key == "collection-test"
+        assert collection.collection_code == "collection-test"
         assert collection.description == ""
         assert collection.created_by is not None
         assert collection.created_by.username == "lp_user"

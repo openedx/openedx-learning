@@ -156,7 +156,9 @@ class CollectionSerializer(serializers.Serializer):  # pylint: disable=abstract-
     Serializer for collections.
     """
     title = serializers.CharField(required=True)
-    key = serializers.CharField(required=True)
+    # The model field is now Collection.collection_code, but the archive format
+    # still uses "key".  A future v2 format may align the name.
+    key = serializers.CharField(required=True, source="collection_code")
     description = serializers.CharField(required=True, allow_blank=True)
     entities = serializers.ListField(
         child=serializers.CharField(),
