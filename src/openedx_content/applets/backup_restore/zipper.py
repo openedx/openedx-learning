@@ -829,13 +829,12 @@ class LearningPackageUnzipper:
         for valid_published in containers.get(f"{type_code}_published", []):
             entity_key = valid_published.pop("entity_key")
             children = self._resolve_children(valid_published, children_map)
-            self.all_published_entities_versions.add(
-                (entity_key, valid_published.get('version_num'))
-            )  # Track published version
+            version_num = valid_published.pop("version_num", None)
+            self.all_published_entities_versions.add((entity_key, version_num))
             containers_api.create_next_container_version(
                 container_map[entity_key],
+                force_version_num=version_num,
                 **valid_published,  # should this be allowed to override any of the following fields?
-                force_version_num=valid_published.pop("version_num", None),
                 entities=children,
                 created_by=self.user_id,
             )
