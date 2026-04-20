@@ -160,10 +160,9 @@ class LpDumpCommandTestCase(TestCase):
 
         api.create_container(
             learning_package_id=cls.learning_package.id,
-            key="unit-1",
+            container_code="unit-1",
             created=cls.now,
             created_by=cls.user.id,
-            container_code="unit-1",
             container_cls=Unit,
         )
 

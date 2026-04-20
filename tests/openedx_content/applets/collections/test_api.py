@@ -269,10 +269,9 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         created_time = datetime(2025, 4, 1, tzinfo=timezone.utc)
         cls.draft_unit = api.create_container(
             learning_package_id=cls.learning_package.id,
-            key="unit-1",
+            container_code="unit-1",
             created=created_time,
             created_by=cls.user.id,
-            container_code="unit-1",
             container_cls=Unit,
         )
 

@@ -136,11 +136,10 @@ class ParsedEntityReference:
 
 def create_container(
     learning_package_id: LearningPackage.ID,
-    key: str,
+    container_code: str,
     created: datetime,
     created_by: int | None,
     *,
-    container_code: str,
     container_cls: type[ContainerModel],
     can_stand_alone: bool = True,
 ) -> ContainerModel:
@@ -150,11 +149,10 @@ def create_container(
 
     Args:
         learning_package_id: The ID of the learning package that contains the container.
-        key: The key of the container.
-        created: The date and time the container was created.
-        created_by: The ID of the user who created the container
         container_code: A local slug identifier for the container, unique within
             the learning package (regardless of container type).
+        created: The date and time the container was created.
+        created_by: The ID of the user who created the container
         container_cls: The subclass of container to create (e.g. `Unit`)
         can_stand_alone: Set to False when created as part of containers
 
@@ -164,18 +162,21 @@ def create_container(
     assert issubclass(container_cls, Container)
     assert container_cls is not Container, "Creating plain containers is not allowed; use a subclass of Container"
     with atomic():
+        # By convention, a Container's entity_key is set to its container_code.
+        # Do not bake this assumption into other systems. We may change it at some point.
+        entity_key = container_code
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
-            key,
+            entity_key,
             created,
             created_by,
             can_stand_alone=can_stand_alone,
         )
         container = container_cls.objects.create(
             publishable_entity=publishable_entity,
+            container_code=container_code,
             learning_package_id=learning_package_id,
             container_type=container_cls.get_container_type(),
-            container_code=container_code,
         )
     return container
 
@@ -344,9 +345,8 @@ def create_container_version(
 
 def create_container_and_version(
     learning_package_id: LearningPackage.ID,
-    key: str,
-    *,
     container_code: str,
+    *,
     title: str,
     container_cls: type[ContainerModel],
     entities: EntityListInput | None = None,
@@ -359,7 +359,6 @@ def create_container_and_version(
 
     Args:
         learning_package_id: The learning package ID.
-        key: The key.
         container_code: A local slug identifier for the container, unique within
             the learning package (regardless of container type).
         title: The title of the new container.
@@ -376,10 +375,9 @@ def create_container_and_version(
     with atomic(savepoint=False):
         container = create_container(
             learning_package_id,
-            key,
+            container_code,
             created,
             created_by,
-            container_code=container_code,
             can_stand_alone=can_stand_alone,
             container_cls=container_cls,
         )
