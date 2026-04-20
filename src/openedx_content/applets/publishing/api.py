@@ -948,7 +948,7 @@ def _emit_event_for_change_log(
             new_version=record.new_version.version_num if record.new_version else None,
             direct=record.direct if isinstance(record, PublishLogRecord) else None,
         )
-        for record in change_log.records.select_related("old_version", "new_version").all()
+        for record in change_log.records.order_by("id").select_related("old_version", "new_version").all()
     ]
 
     change_log_data: signals.DraftChangeLogEventData | signals.PublishLogEventData
