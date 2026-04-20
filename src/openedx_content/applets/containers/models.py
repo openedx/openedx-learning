@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from typing_extensions import deprecated
 
-from openedx_django_lib.fields import case_sensitive_char_field, code_field
+from openedx_django_lib.fields import case_sensitive_char_field, code_field, code_field_check
 
 from ..publishing.models.learning_package import LearningPackage
 from ..publishing.models.publishable_entity import (
@@ -212,6 +212,7 @@ class Container(PublishableEntityMixin):
                 fields=["learning_package", "container_code"],
                 name="oel_container_uniq_lp_cc",
             ),
+            code_field_check("container_code", name="oel_container_code_regex"),
         ]
 
     @classmethod

@@ -85,4 +85,13 @@ class Migration(migrations.Migration):
                 name="oel_container_uniq_lp_cc",
             ),
         ),
+        # 6. Add db-level regex validation
+        migrations.AddConstraint(
+            model_name='container',
+            constraint=models.CheckConstraint(
+                condition=django.db.models.lookups.Regex(models.F('container_code'), '^[a-zA-Z0-9_.-]+\\Z'),
+                name='oel_container_code_regex',
+                violation_error_message='Enter a valid "code name" consisting of letters, numbers, underscores, hyphens, or periods.',
+            ),
+        ),
     ]

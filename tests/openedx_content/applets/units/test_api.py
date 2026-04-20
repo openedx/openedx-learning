@@ -35,7 +35,7 @@ class UnitsTestCase(ComponentTestCase):
         components: list[Component | ComponentVersion],
         *,
         title="Unit",
-        key="unit:key",
+        key="unit-key",
     ) -> Unit:
         """Helper method to quickly create a unit with some components"""
         unit, _unit_v1 = content_api.create_unit_and_version(
@@ -60,7 +60,7 @@ class UnitsTestCase(ComponentTestCase):
         """
         unit, unit_version = content_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
-            key="unit:key",
+            key="unit-key",
             container_code="unit-key",
             title="Unit",
             created=self.now,
@@ -156,11 +156,11 @@ class UnitsTestCase(ComponentTestCase):
         # Create two units:
         unit = self.create_unit_with_components([])
         unit_version = unit.versioning.draft
-        unit2 = self.create_unit_with_components([], key="unit:key2", title="Unit 2")
+        unit2 = self.create_unit_with_components([], key="unit-key2", title="Unit 2")
 
         # Try adding a Unit to a Unit
         with pytest.raises(
-            ValidationError, match='The entity "unit:key2" cannot be added to a "unit" container.'
+            ValidationError, match='The entity "unit-key2" cannot be added to a "unit" container.'
         ) as err:
             content_api.create_next_unit_version(
                 unit,
@@ -190,8 +190,8 @@ class UnitsTestCase(ComponentTestCase):
         assert unit.versioning.draft == unit_version
 
         # Also check that `create_unit_and_version()` has the same restriction (not just `create_next_unit_version()`)
-        with pytest.raises(ValidationError, match='The entity "unit:key2" cannot be added to a "unit" container.'):
-            self.create_unit_with_components([unit2], key="unit:key3", title="Unit 3")
+        with pytest.raises(ValidationError, match='The entity "unit-key2" cannot be added to a "unit" container.'):
+            self.create_unit_with_components([unit2], key="unit-key3", title="Unit 3")
 
     def test_is_registered(self):
         assert Unit in content_api.get_all_container_subclasses()

@@ -68,7 +68,7 @@ class SectionsTestCase(ComponentTestCase):
         subsections: list[Subsection | SubsectionVersion],
         *,
         title="Section",
-        key="section:key",
+        key="section-key",
     ) -> Section:
         """Helper method to quickly create a section with some subsections"""
         section, _section_v1 = content_api.create_section_and_version(
@@ -93,7 +93,7 @@ class SectionsTestCase(ComponentTestCase):
         """
         section, section_version = content_api.create_section_and_version(
             learning_package_id=self.learning_package.id,
-            key="section:key",
+            key="section-key",
             container_code="section-key",
             title="Section",
             created=self.now,
@@ -202,7 +202,7 @@ class SectionsTestCase(ComponentTestCase):
             ValidationError,
             match='The entity "unit_1" cannot be added to a "section" container.',
         ):
-            self.create_section_with_subsections([self.unit_1], key="unit:key3", title="Unit 3")
+            self.create_section_with_subsections([self.unit_1], key="unit-key3", title="Unit 3")
 
     def test_is_registered(self):
         assert Section in content_api.get_all_container_subclasses()

@@ -43,7 +43,7 @@ class SubsectionsTestCase(ComponentTestCase):
         units: list[Unit | UnitVersion],
         *,
         title="Subsection",
-        key="subsection:key",
+        key="subsection-key",
     ) -> Subsection:
         """Helper method to quickly create a unit with some units"""
         subsection, _subsection_v1 = content_api.create_subsection_and_version(
@@ -68,7 +68,7 @@ class SubsectionsTestCase(ComponentTestCase):
         """
         subsection, subsection_version = content_api.create_subsection_and_version(
             learning_package_id=self.learning_package.id,
-            key="subsection:key",
+            key="subsection-key",
             container_code="subsection-key",
             title="Subsection",
             created=self.now,
@@ -180,7 +180,7 @@ class SubsectionsTestCase(ComponentTestCase):
             ValidationError,
             match='The entity "xblock.v1:problem:Query_Counting" cannot be added to a "subsection" container.',
         ):
-            self.create_subsection_with_units([self.component_1], key="unit:key3", title="Unit 3")
+            self.create_subsection_with_units([self.component_1], key="unit-key3", title="Unit 3")
 
     def test_is_registered(self):
         assert Subsection in content_api.get_all_container_subclasses()
