@@ -895,7 +895,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
             #    as the new version of the child component). The version of the
             #    Unit will be incremented, but we'll also create the
             #    DraftSideEffect.
-            side_effect_cls.objects.get_or_create(
+            side_effect_cls.objects.get_or_create(  # type: ignore[misc]
                 cause=change,
                 effect=side_effect_change,
             )

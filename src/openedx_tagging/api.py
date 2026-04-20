@@ -13,7 +13,7 @@ are stored in this app.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Counter
+from typing import Any, Counter, cast
 
 from django.db import models, transaction
 from django.db.models import F, QuerySet, Value
@@ -512,8 +512,8 @@ def copy_tags(source_object_id: str, dest_object_id: str):
         for object_tag in source_object_tags:
             ObjectTag.objects.update_or_create(
                 object_id=dest_object_id,
-                taxonomy_id=object_tag.taxonomy_id,
-                tag_id=object_tag.tag_id,
+                taxonomy_id=cast(int, object_tag.taxonomy_id),
+                tag_id=cast(int, object_tag.tag_id),
                 defaults={"is_copied": True},
                 # Note: _value and _export_id are set automatically
             )
