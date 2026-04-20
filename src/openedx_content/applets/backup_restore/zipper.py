@@ -823,6 +823,12 @@ class LearningPackageUnzipper:
                 **data,  # should this be allowed to override any of the following fields?
                 created_by=self.user_id,
                 container_cls=container_cls,
+                # As of Verawood, the primary identity of a container is its
+                # `container_code`.  By convention, this equals the entity's
+                # `key` (aka `entity_ref`). It's safe to assume that all "v1"
+                # archives have an identical `key` and `container_code` for each
+                # entity-container. This assumpion may not hold true v2+.
+                container_code=data["key"],
             )
             container_map[entity_key] = container  # e.g. `self.units_map_by_key[entity_key] = unit`
 

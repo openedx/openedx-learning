@@ -118,45 +118,35 @@ class ComponentVersionSerializer(EntityVersionSerializer):  # pylint: disable=ab
 class ContainerSerializer(EntitySerializer):  # pylint: disable=abstract-method
     """
     Serializer for containers.
-
-    Extracts container_code from the [entity.container] section.
-    Archives created in Verawood or later include an explicit
-    ``container_code`` field. Archives created in Ulmo do not, so we
-    fall back to using the entity key as the container_code.
     """
-
     container = serializers.DictField(required=True)
 
     def validate_container(self, value):
         """
         Custom validation logic for the container field.
-        Ensures that the container dict has exactly one type key ("section",
-        "subsection", or "unit"), optionally alongside "container_code".
+        Ensures that the container dict has exactly one key which is one of
+        "section", "subsection", or "unit" values.
         """
         errors = []
-        type_keys = [k for k in value if k in ("section", "subsection", "unit")]
-        if len(type_keys) != 1:
-            errors.append(
-                "Container must have exactly one type key: 'section', 'subsection', or 'unit'."
-            )
+        if not isinstance(value, dict) or len(value) != 1:
+            errors.append("Container must be a dict with exactly one key.")
+        if len(value) == 1:  # Only check the key if there is exactly one
+            container_type = list(value.keys())[0]
+            if container_type not in ("section", "subsection", "unit"):
+                errors.append(f"Invalid container value: {container_type}")
         if errors:
             raise serializers.ValidationError(errors)
         return value
 
     def validate(self, attrs):
         """
-        Custom validation logic: extract container_type and container_code.
-
-        Archives created in Verawood or later supply an explicit
-        ``container_code`` field inside [entity.container]. Archives created
-        in Ulmo do not, so we fall back to using the entity key.
+        Custom validation logic:
+        parse the container dict to extract the container type.
         """
-        container = attrs.pop("container")
-        # It is safe to do this after validate_container
-        container_type = next(k for k in container if k in ("section", "subsection", "unit"))
+        container = attrs["container"]
+        container_type = list(container.keys())[0]  # It is safe to do this after validate_container
         attrs["container_type"] = container_type
-        # Verawood+: container_code is explicit. Ulmo: fall back to entity key.
-        attrs["container_code"] = container.get("container_code") or attrs["key"]
+        attrs.pop("container")  # Remove the container field after processing
         return attrs
 
 
