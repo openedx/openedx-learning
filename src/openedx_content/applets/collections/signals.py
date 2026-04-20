@@ -37,7 +37,7 @@ class CollectionChangeData:
 
 
 LEARNING_PACKAGE_COLLECTION_CHANGED = OpenEdxPublicSignal(
-    event_type="org.openedx.content.publishing.lp_collection_changed.v1",
+    event_type="org.openedx.content.collections.lp_collection_changed.v1",
     data={
         "learning_package": LearningPackageEventData,
         "changed_by": UserAttributionEventData,
