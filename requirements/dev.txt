@@ -44,13 +44,13 @@ cffi==2.0.0
     #   -r requirements/quality.txt
     #   cryptography
     #   pynacl
-chardet==7.4.1
+chardet==7.4.3
     # via diff-cover
-charset-normalizer==3.4.6
+charset-normalizer==3.4.7
     # via
     #   -r requirements/quality.txt
     #   requests
-click==8.3.1
+click==8.3.2
     # via
     #   -r requirements/pip-tools.txt
     #   -r requirements/quality.txt
@@ -96,6 +96,7 @@ cryptography==46.0.7
     # via
     #   -r requirements/quality.txt
     #   pyjwt
+    #   secretstorage
 ddt==1.7.2
     # via -r requirements/quality.txt
 diff-cover==10.2.0
@@ -130,7 +131,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/quality.txt
     #   edx-django-utils
-django-debug-toolbar==6.2.0
+django-debug-toolbar==6.3.0
     # via
     #   -r requirements/dev.in
     #   -r requirements/quality.txt
@@ -142,11 +143,11 @@ django-simple-history==3.11.0
     # via
     #   -r requirements/quality.txt
     #   edx-organizations
-django-stubs==6.0.1
+django-stubs==6.0.3
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-django-stubs-ext==6.0.1
+django-stubs-ext==6.0.3
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -161,7 +162,7 @@ djangorestframework==3.17.1
     #   drf-jwt
     #   edx-drf-extensions
     #   edx-organizations
-djangorestframework-stubs==3.16.8
+djangorestframework-stubs==3.16.9
     # via -r requirements/quality.txt
 dnspython==2.8.0
     # via
@@ -205,7 +206,7 @@ fastavro==1.12.1
     # via
     #   -r requirements/quality.txt
     #   openedx-events
-filelock==3.25.2
+filelock==3.29.0
     # via
     #   -r requirements/ci.txt
     #   python-discovery
@@ -247,6 +248,11 @@ jaraco-functools==4.4.0
     # via
     #   -r requirements/quality.txt
     #   keyring
+jeepney==0.9.0
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
+    #   secretstorage
 jinja2==3.1.6
     # via
     #   -r requirements/quality.txt
@@ -264,7 +270,7 @@ librt==0.9.0
     # via
     #   -r requirements/quality.txt
     #   mypy
-lxml[html-clean]==6.0.4
+lxml[html-clean]==6.1.0
     # via
     #   edx-i18n-tools
     #   lxml-html-clean
@@ -293,7 +299,7 @@ more-itertools==11.0.2
     #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
-mypy==1.19.1
+mypy==1.20.1
     # via -r requirements/quality.txt
 mypy-extensions==1.1.0
     # via
@@ -305,9 +311,9 @@ nh3==0.3.4
     # via
     #   -r requirements/quality.txt
     #   readme-renderer
-openedx-events==11.1.0
+openedx-events==11.1.1
     # via -r requirements/quality.txt
-packaging==26.0
+packaging==26.1
     # via
     #   -r requirements/ci.txt
     #   -r requirements/pip-tools.txt
@@ -325,7 +331,7 @@ pathspec==1.0.4
     # via
     #   -r requirements/quality.txt
     #   mypy
-pillow==12.1.1
+pillow==12.2.0
     # via
     #   -r requirements/quality.txt
     #   edx-organizations
@@ -446,7 +452,7 @@ readme-renderer==44.0
     # via
     #   -r requirements/quality.txt
     #   twine
-requests==2.33.0
+requests==2.33.1
     # via
     #   -r requirements/quality.txt
     #   edx-drf-extensions
@@ -467,6 +473,10 @@ rich==15.0.0
     #   twine
 rules==3.5
     # via -r requirements/quality.txt
+secretstorage==3.5.0
+    # via
+    #   -r requirements/quality.txt
+    #   keyring
 semantic-version==2.10.0
     # via
     #   -r requirements/quality.txt
@@ -504,7 +514,7 @@ tomlkit==0.14.0
     # via
     #   -r requirements/quality.txt
     #   pylint
-tox==4.52.1
+tox==4.53.0
     # via -r requirements/ci.txt
 twine==6.2.0
     # via -r requirements/quality.txt
@@ -523,7 +533,7 @@ typing-extensions==4.15.0
     #   grimp
     #   import-linter
     #   mypy
-tzdata==2025.3
+tzdata==2026.1
     # via
     #   -r requirements/quality.txt
     #   kombu
@@ -543,7 +553,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==21.2.1
+virtualenv==21.2.4
     # via
     #   -r requirements/ci.txt
     #   tox
