@@ -25,7 +25,7 @@ class CollectionChangeData:
     collection_code: str
     created: bool = False
     """The collection is newly-created, or un-deleted. Some entities may be added simultaneously."""
-    modified: bool = False
+    metadata_modified: bool = False
     """The collection's title/description has changed. Does not indicate whether or not entities were added/removed."""
     deleted: bool = False
     """

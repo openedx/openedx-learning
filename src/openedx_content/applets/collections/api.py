@@ -39,7 +39,7 @@ def _queue_change_event(
     collection: Collection,
     *,
     created: bool = False,
-    modified: bool = False,
+    metadata_modified: bool = False,
     deleted: bool = False,
     entities_added: list[PublishableEntity.ID] | None = None,
     entities_removed: list[PublishableEntity.ID] | None = None,
@@ -61,7 +61,7 @@ def _queue_change_event(
                 collection_id=collection.id,
                 collection_code=collection.collection_code,
                 created=created,
-                modified=modified,
+                metadata_modified=metadata_modified,
                 deleted=deleted,
                 entities_added=entities_added or [],
                 entities_removed=entities_removed or [],
@@ -128,7 +128,7 @@ def update_collection(
         collection.description = description
 
     collection.save()
-    _queue_change_event(collection, modified=True)
+    _queue_change_event(collection, metadata_modified=True)
     return collection
 
 

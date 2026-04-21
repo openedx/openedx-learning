@@ -93,7 +93,7 @@ def test_create_collection_aborted(lp1: LearningPackage) -> None:
 
 def test_update_collection(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with modified=True
+    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with metadata_modified=True
     when a collection's title or description is updated.
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -108,7 +108,7 @@ def test_update_collection(lp1: LearningPackage) -> None:
     assert event.kwargs["change"] == CollectionChangeData(
         collection_id=collection.id,
         collection_code="col1",
-        modified=True,
+        metadata_modified=True,
     )
     collection.refresh_from_db()
     assert collection.modified > orig_modified
