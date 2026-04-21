@@ -45,8 +45,8 @@ class ContentConfig(AppConfig):
 
     def ready(self):
         """
-        Currently used to register publishable models.
-
-        May later be used to register signal handlers as well.
+        Currently used to register publishable models and signal handlers.
         """
         self.register_publishable_models()
+        # Import signal handlers so Django registers all @receiver callbacks.
+        from .applets.collections import signal_handlers  # pylint: disable=unused-import

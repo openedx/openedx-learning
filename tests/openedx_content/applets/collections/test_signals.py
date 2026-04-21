@@ -349,3 +349,89 @@ def test_set_collections_aborted(lp1: LearningPackage) -> None:
     with capture_events(expected_count=0):
         with abort_transaction():
             api.set_collections(entity, Collection.objects.filter(id=col1.id))
+
+
+# LEARNING_PACKAGE_COLLECTION_CHANGED — on entity draft deletion
+
+
+def _create_entity_with_version(learning_package_id: LearningPackage.ID, key: str) -> PublishableEntity:
+    """Helper: create a PublishableEntity with an initial draft version (so its draft can be deleted)."""
+    entity = api.create_publishable_entity(learning_package_id, key=key, created=now_time, created_by=None)
+    api.create_publishable_entity_version(entity.id, version_num=1, title=key, created=now_time, created_by=None)
+    return entity
+
+
+def test_entity_draft_deleted_in_collection(lp1: LearningPackage, admin_user) -> None:
+    """
+    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with entities_removed
+    when an entity's draft is deleted and that entity is in a collection.
+    """
+    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    entity = _create_entity_with_version(lp1.id, "entity1")
+    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+
+    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=1) as captured:
+        api.soft_delete_draft(entity.id, deleted_by=admin_user.id)
+
+    event = captured[0]
+    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.kwargs["learning_package"].id == lp1.id
+    assert event.kwargs["changed_by"].user_id == admin_user.id
+    assert event.kwargs["change"] == CollectionChangeData(
+        collection_id=collection.id,
+        collection_code="col1",
+        entities_removed=[entity.id],
+    )
+
+
+def test_entity_draft_deleted_multiple_collections(lp1: LearningPackage) -> None:
+    """
+    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted once per collection
+    when a deleted entity belongs to multiple collections.
+    """
+    col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    col2 = api.create_collection(lp1.id, "col2", title="Collection 2", created_by=None)
+    entity = _create_entity_with_version(lp1.id, "entity1")
+    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+    api.add_to_collection(lp1.id, "col2", PublishableEntity.objects.filter(id=entity.id))
+
+    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=2) as captured:
+        api.soft_delete_draft(entity.id)
+
+    events_by_collection = {e.kwargs["change"].collection_id: e for e in captured}
+    assert set(events_by_collection.keys()) == {col1.id, col2.id}
+    assert events_by_collection[col1.id].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        entities_removed=[entity.id],
+    )
+    assert events_by_collection[col2.id].kwargs["change"] == CollectionChangeData(
+        collection_id=col2.id,
+        collection_code="col2",
+        entities_removed=[entity.id],
+    )
+
+
+def test_entity_draft_deleted_not_in_collection(lp1: LearningPackage) -> None:
+    """
+    Test that no LEARNING_PACKAGE_COLLECTION_CHANGED is emitted when the deleted
+    entity is not in any collection.
+    """
+    entity = _create_entity_with_version(lp1.id, "entity1")
+
+    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
+        api.soft_delete_draft(entity.id)
+
+
+def test_entity_draft_deleted_aborted(lp1: LearningPackage) -> None:
+    """
+    Test that no LEARNING_PACKAGE_COLLECTION_CHANGED is emitted when the
+    entity-delete transaction is rolled back.
+    """
+    api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    entity = _create_entity_with_version(lp1.id, "entity1")
+    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+
+    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
+        with abort_transaction():
+            api.soft_delete_draft(entity.id)
