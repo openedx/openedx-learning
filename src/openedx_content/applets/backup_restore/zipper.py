@@ -473,6 +473,19 @@ def generate_staged_package_ref(archive_package_ref: str, user: UserType) -> str
     """
     Generate a staged learning package ref based on the archive's package_ref.
 
+    We can't trust package_ref from the archive directly, because the archive
+    could specify *any* arbitrary package_ref, and the user may or may not be
+    permitted to create an Package using that ref. So, instead, this function
+    generates a unique and semi-human-readable package_ref which is namespaced
+    to the current user and appropriate to provisionally save the package under.
+    The package_ref from the archive can then be presented to the user as a
+    *suggestion*, which they may or may not choose to use.
+
+    Please note that the ref returned by this function is valid for Packages is
+    a generic sense, but it's not a valid Content Library key.  Callers who are
+    restoring a Package for Library usage will need to replace this staged
+    package_ref before being able to render the Library's content.
+
     Arguments:
         archive_package_ref (str): The original package_ref from the archive.
         user (UserType | None): The user performing the restore operation.
@@ -480,9 +493,6 @@ def generate_staged_package_ref(archive_package_ref: str, user: UserType) -> str
     Example:
         Input:  "lib:WGU:LIB_C001"
         Output: "lp-restore:dave:WGU:LIB_C001:1728575321"
-
-    The timestamp at the end ensures the ref is unique. Falls back to using
-    the full archive_package_ref when the conventional format is not recognised.
     """
     username = user.username
     org_code, package_code = unpack_package_ref(archive_package_ref)
