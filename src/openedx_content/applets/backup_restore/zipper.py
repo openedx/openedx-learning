@@ -749,7 +749,7 @@ class LearningPackageUnzipper:
     ) -> LearningPackage:
         """Persist all validated entities in two phases: published then drafts."""
 
-        # Important: If not using a specific LP key, generate a temporary one
+        # Important: If not using a specific LP ref/key, generate a temporary one
         # We cannot use the original key because it may generate security issues
         if not self.package_ref:
             # Generate a tmp ref for the staged learning package
@@ -972,7 +972,7 @@ class LearningPackageUnzipper:
             self,
             num_version: int,
             entity_ref: str,
-            component_type,
+            component_type: ComponentType,
             static_files_map: dict[str, List[str]]
     ) -> dict[str, bytes | int]:
         """Resolve static file paths into their binary media content."""

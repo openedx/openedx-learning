@@ -364,7 +364,7 @@ class RestoreUtilitiesTest(TestCase):
     """Tests for utility functions used in the restore process."""
 
     def test_generate_staged_package_ref(self):
-        """Test generating a staged learning package key."""
+        """Test generating a staged learning package ref."""
 
         user_mock = type("User", (), {"username": "dan"})
         package_ref = "lib:WGU:LIB_C001"
