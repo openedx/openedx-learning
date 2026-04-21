@@ -56,4 +56,16 @@ or other entity types.
 per-entity or that is possibly slow should dispatch an asynchronous task for
 processing the event.
 """
-# TODO: also emit an ENTITIES_META_CHANGED for this and tag changes?
+
+# Note: at present, the openedx_tagging code (in this repo) emits a
+# CONTENT_OBJECT_ASSOCIATIONS_CHANGED event whenever an entity's tags change.
+# But we do NOT emit the same event when an entity's collections change; rather
+# we expect code in the platform to listen for
+# LEARNING_PACKAGE_COLLECTION_CHANGED and then re-emit '...ASSOCIATIONS_CHANGED'
+# as needed. The reason we don't emit the '...ASSOCIATIONS_CHANGED' event here
+# is simple: we know the entity IDs but not their opaque keys, and all of the
+# code that listens for that event expects the entity's opaque keys.
+# The tagging code can do it here because the `object_id` in the tagging models
+# _is_ the opaque key ("lb:..."), but the collections code is too low-level to
+# know about opaque keys of the entities. We don't even know which learning
+# context (which content library) a given entity is in.
