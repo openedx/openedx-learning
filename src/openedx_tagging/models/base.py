@@ -182,22 +182,6 @@ class Tag(models.Model):
             Tag.objects.filter(pk=self.pk).values("depth", "lineage").first()
             if self.pk else None
         )
-        if self.parent_id is None:
-            self.depth = 0
-            self.lineage = self.value + "\t"
-        else:
-            if Tag.parent.is_cached(self):  # pylint: disable=no-member
-                parent_depth = self.parent.depth  # type: ignore[union-attr]
-                parent_lineage = self.parent.lineage  # type: ignore[union-attr]
-            else:
-                parent_vals = Tag.objects.values("depth", "lineage").get(pk=self.parent_id)
-                parent_depth = parent_vals["depth"]
-                parent_lineage = parent_vals["lineage"]
-            self.depth = parent_depth + 1
-            self.lineage = parent_lineage + self.value + "\t"
-
-        if self.depth > TAXONOMY_MAX_DEPTH:
-            raise ValidationError(f"Cannot create tags more than {TAXONOMY_MAX_DEPTH + 1} levels deep.")
 
         super().save(*args, **kwargs)
 
@@ -237,6 +221,23 @@ class Tag(models.Model):
 
         if self.external_id and "\t" in self.external_id:
             raise ValidationError("Tag external ID cannot contain a TAB character.")
+
+        if self.parent_id is None:
+            self.depth = 0
+            self.lineage = self.value + "\t"
+        else:
+            if Tag.parent.is_cached(self):  # pylint: disable=no-member
+                parent_depth = self.parent.depth  # type: ignore[union-attr]
+                parent_lineage = self.parent.lineage  # type: ignore[union-attr]
+            else:
+                parent_vals = Tag.objects.values("depth", "lineage").get(pk=self.parent_id)
+                parent_depth = parent_vals["depth"]
+                parent_lineage = parent_vals["lineage"]
+            self.depth = parent_depth + 1
+            self.lineage = parent_lineage + self.value + "\t"
+
+        if self.depth > TAXONOMY_MAX_DEPTH:
+            raise ValidationError(f"Cannot create tags more than {TAXONOMY_MAX_DEPTH + 1} levels deep.")
 
 
 class Taxonomy(models.Model):
@@ -660,6 +661,7 @@ class Taxonomy(models.Model):
         # tag doesn't belong to taxonomy
         tag_to_update = self.tag_set.get(value__iexact=tag)
         tag_to_update.value = new_value
+        tag_to_update.full_clean()
         tag_to_update.save()
         return tag_to_update
 

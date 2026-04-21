@@ -895,6 +895,11 @@ class TaxonomyTagsView(TaggingExceptionHandlerMixin, ListAPIView, RetrieveUpdate
             raise Http404("Parent Tag not found") from e
         except ValueError as e:
             raise ValidationError(e) from e
+        except exceptions.ValidationError as e:
+            if "Tag with this Taxonomy and Value already exists" in str(e):
+                # Make this error message a bit friendlier:
+                raise ValidationError(f"Tag value \"{tag}\" already exists in this taxonomy") from e
+            raise ValidationError(e) from e
 
         return Response(
             self.serializer_class(new_tag, context=serializer_context).data,
@@ -920,6 +925,11 @@ class TaxonomyTagsView(TaggingExceptionHandlerMixin, ListAPIView, RetrieveUpdate
         except TagDoesNotExist as e:
             raise Http404("Tag not found") from e
         except ValueError as e:
+            raise ValidationError(e) from e
+        except exceptions.ValidationError as e:
+            if "Tag with this Taxonomy and Value already exists" in str(e):
+                # Make this error message a bit friendlier:
+                raise ValidationError(f"Tag value \"{updated_tag_value}\" already exists in this taxonomy") from e
             raise ValidationError(e) from e
 
         return Response(

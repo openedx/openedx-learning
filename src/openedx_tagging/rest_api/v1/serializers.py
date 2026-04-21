@@ -218,34 +218,6 @@ class ObjectTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=
     tagsData = serializers.ListField(child=ObjectTagUpdateByTaxonomySerializer(), required=True)
 
 
-def validate_tag_value(value, context, original_value=None):
-    """
-    Validate this tag value is unique within the current taxonomy context and
-    does not contain forbidden characters.
-    """
-    taxonomy_id = context.get("taxonomy_id")
-    original_tag = Tag.objects.filter(taxonomy_id=taxonomy_id, value=original_value).first() if original_value else None
-    tag_id = original_tag.pk if original_tag else None
-    if taxonomy_id is not None:
-        queryset = Tag.objects.filter(taxonomy_id=taxonomy_id, value=value)
-
-        # Don't compare tag against itself when validating its updated value.
-        if tag_id:
-            queryset = queryset.exclude(pk=tag_id)
-
-        # Check if tag value already exists within this taxonomy. If so, raise a validation error.
-        if queryset.exists():
-            raise serializers.ValidationError(
-                f'Tag value "{value}" already exists in this taxonomy.', code='unique'
-            )
-
-    # validator checks there are no forbidden characters ">" or ";":
-    for char in value:
-        if char in RESERVED_TAG_CHARS:
-            raise serializers.ValidationError('Tag values cannot contain "\t" or ">" or ";" characters.')
-    return value
-
-
 class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for TagData dicts. Also can serialize Tag instances.
@@ -265,12 +237,6 @@ class TagDataSerializer(UserPermissionsSerializerMixin, serializers.Serializer):
     sub_tags_url = serializers.SerializerMethodField()
     can_change_tag = serializers.SerializerMethodField()
     can_delete_tag = serializers.SerializerMethodField()
-
-    def validate_value(self, value):
-        """
-        Runs validations for the tag value.
-        """
-        return validate_tag_value(value, self.context)
 
     def get_sub_tags_url(self, obj: TagData | Tag):
         """
@@ -338,12 +304,6 @@ class TaxonomyTagCreateBodySerializer(serializers.Serializer):  # pylint: disabl
     parent_tag_value = serializers.CharField(required=False)
     external_id = serializers.CharField(required=False)
 
-    def validate_tag(self, value):
-        """
-        Run validations for the tag value.
-        """
-        return validate_tag_value(value, self.context)
-
 
 class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
@@ -352,12 +312,6 @@ class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disabl
 
     tag = serializers.CharField(required=True)
     updated_tag_value = serializers.CharField(required=True)
-
-    def validate_updated_tag_value(self, value):
-        """
-        Run validations for the updated tag value.
-        """
-        return validate_tag_value(value, self.context, original_value=self.initial_data.get("tag"))
 
 
 class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method
