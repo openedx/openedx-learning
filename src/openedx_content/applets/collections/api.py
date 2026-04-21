@@ -308,7 +308,7 @@ def set_collections(
         objs=collection_qset,
         through_defaults={"created_by_id": created_by},
     )
-    # Update modified date via update to avoid triggering post_save signal for all collections, which can be very slow.
+    # Update modified date:
     affected_collections = removed_collections | new_collections
     Collection.objects.filter(id__in=[collection.id for collection in affected_collections]).update(
         modified=datetime.now(tz=timezone.utc)
@@ -321,6 +321,7 @@ def set_collections(
     for collection in Collection.objects.filter(id__in=[c.id for c in affected_collections]).select_related(
         "learning_package"
     ):
+        # TODO: test performance of this and potentially send these async if > 1 affected collection.
         if collection.id in removed_ids:
             _queue_change_event(collection, entities_removed=[publishable_entity.id], user_id=created_by)
         else:
