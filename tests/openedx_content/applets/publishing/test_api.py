@@ -1492,6 +1492,31 @@ class GetEntityVersionContributorsTestCase(PublishingHistoryMixin, TestCase):
 
         assert list(contributors_by_int) == list(contributors_by_entity)
 
+    def test_contributors_ordered_by_most_recent_contribution_first(self) -> None:
+        """Contributors are returned most-recent-first based on their latest changed_at."""
+        self._make_version(1, self.time_1)
+        self._make_version(2, self.time_2, created_by=self.user_1.id)  # user_1 earlier
+        self._make_version(3, self.time_3, created_by=self.user_2.id)  # user_2 latest
+
+        contributors = list(publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=3
+        ))
+
+        assert contributors == [self.user_2, self.user_1]
+
+    def test_contributor_order_uses_latest_when_user_appears_multiple_times(self) -> None:
+        """When one user contributes multiple times, their most recent edit determines their position."""
+        self._make_version(1, self.time_1)
+        self._make_version(2, self.time_2, created_by=self.user_2.id)  # user_2 first edit
+        self._make_version(3, self.time_3, created_by=self.user_1.id)  # user_1 only edit
+        self._make_version(4, self.time_4, created_by=self.user_2.id)  # user_2 latest edit → moves to front
+
+        contributors = list(publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=4
+        ))
+
+        assert contributors == [self.user_2, self.user_1]
+
 
 class GetEntityPublishHistoryEntriesTestCase(PublishingHistoryMixin, TestCase):
     """

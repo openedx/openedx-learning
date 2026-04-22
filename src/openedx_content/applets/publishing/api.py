@@ -13,7 +13,7 @@ from typing import ContextManager, Optional, cast
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Prefetch, Q, QuerySet
+from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.transaction import atomic
 
 from openedx_django_lib.fields import create_hash_digest
@@ -836,7 +836,23 @@ def get_entity_version_contributors(
         .values_list("draft_change_log__changed_by", flat=True)
         .distinct()
     )
-    return get_user_model().objects.filter(pk__in=contributor_ids)
+    # Order by most recent contribution first. filter(pk__in=subquery) doesn't
+    # preserve subquery ordering, so we annotate each user with their latest
+    # changed_at via a correlated subquery and order on that. N (contributors
+    # per publish event) is typically 1–5, so the per-row cost is negligible.
+    last_contrib_subquery = (
+        DraftChangeLogRecord.objects
+        .filter(entity_id=entity_id, draft_change_log__changed_by=OuterRef("pk"))
+        .filter(version_filter)
+        .order_by("-draft_change_log__changed_at")
+        .values("draft_change_log__changed_at")[:1]
+    )
+    return (
+        get_user_model().objects
+        .filter(pk__in=contributor_ids)
+        .annotate(last_contributed=Subquery(last_contrib_subquery))
+        .order_by("-last_contributed")
+    )
 
 
 def set_draft_version(
