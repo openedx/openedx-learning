@@ -31,8 +31,9 @@ def emit_collections_changed_for_entity_changes_task(
     with entities_removed (for deletions) and/or entities_added (for restorations).
     A single event covers both if the same collection has entities in both lists.
 
-    Triggered by LEARNING_PACKAGE_ENTITIES_CHANGED. New entities (old_version=None
-    → new_version is not None) that aren't in any collection result in a no-op.
+    Triggered by LEARNING_PACKAGE_ENTITIES_CHANGED. New entities
+    (old_version_id=None, new_version_id is not None) that aren't in any
+    collection result in a no-op.
     """
     all_entity_ids = list(set(removed_entity_ids) | set(added_entity_ids))
     if not all_entity_ids:

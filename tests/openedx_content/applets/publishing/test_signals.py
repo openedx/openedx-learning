@@ -21,6 +21,20 @@ def publish_entity(obj: PublishableEntity) -> PublishLog:
     return api.publish_from_drafts(lp_id, draft_qset=api.get_all_drafts(lp_id).filter(entity=obj))
 
 
+def change_record(obj: PublishableEntity, old_version: int | None, new_version: int | None, direct: bool | None = None):
+    """Helper function to construct ChangeLogRecordData() using only version numbers instead of numbers+IDs"""
+    old_version_id = obj.versions.get(version_num=old_version).id if old_version is not None else None
+    new_version_id = obj.versions.get(version_num=new_version).id if new_version is not None else None
+    return api.signals.ChangeLogRecordData(
+        entity_id=obj.id,
+        old_version=old_version,
+        old_version_id=old_version_id,
+        new_version=new_version,
+        new_version_id=new_version_id,
+        direct=direct,
+    )
+
+
 # LEARNING_PACKAGE_ENTITIES_CHANGED
 
 
@@ -55,7 +69,7 @@ def test_single_entity_changed() -> None:
     assert event.kwargs["changed_by"].user_id is None
     assert event.kwargs["change_log"].draft_change_log_id == expected_draft_change_log_id
     assert event.kwargs["change_log"].changes == [
-        api.signals.ChangeLogRecordData(entity_id=entity.id, old_version=None, new_version=NEW_VERSION_NUM),
+        change_record(entity, old_version=None, new_version=NEW_VERSION_NUM),
     ]
     assert event.kwargs["metadata"].time == now_time
 
@@ -116,11 +130,11 @@ def test_multiple_entites_changed(admin_user) -> None:
     assert event.kwargs["change_log"].draft_change_log_id == draft_change_log.id
     assert event.kwargs["change_log"].changes == [
         # Entity 1 jumps from no version to version 2:
-        api.signals.ChangeLogRecordData(entity_id=entity1.id, old_version=None, new_version=2),
+        change_record(entity1, old_version=None, new_version=2),
         # Entity 2 jumps v1 -> v2:
-        api.signals.ChangeLogRecordData(entity_id=entity2.id, old_version=1, new_version=2),
+        change_record(entity2, old_version=1, new_version=2),
         # Entity 3 gets deleted:
-        api.signals.ChangeLogRecordData(entity_id=entity3.id, old_version=1, new_version=None),
+        change_record(entity3, old_version=1, new_version=None),
     ]
     assert event.kwargs["metadata"].time == now_time
 
@@ -182,8 +196,8 @@ def test_changes_with_side_effects() -> None:
     event = captured[0]
     assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_CHANGED
     assert event.kwargs["change_log"].changes == [
-        api.signals.ChangeLogRecordData(entity_id=child1.id, old_version=1, new_version=2),  # directly modified
-        api.signals.ChangeLogRecordData(entity_id=parent1.id, old_version=1, new_version=1),  # side effect
+        change_record(child1, old_version=1, new_version=2),  # directly modified
+        change_record(parent1, old_version=1, new_version=1),  # side effect
     ]
 
 
@@ -224,9 +238,9 @@ def test_publish_events(admin_user) -> None:
     assert event.kwargs["change_log"].changes == [
         # Entity 1 is not yet published, since it has no draft version.
         # Entity 2 is newly published, and now at v2:
-        api.signals.ChangeLogRecordData(entity_id=entity2.id, old_version=None, new_version=2, direct=True),
+        change_record(entity2, old_version=None, new_version=2, direct=True),
         # Entity 3 is newly published, and now at v1:
-        api.signals.ChangeLogRecordData(entity_id=entity3.id, old_version=None, new_version=1, direct=True),
+        change_record(entity3, old_version=None, new_version=1, direct=True),
     ]
     assert event.kwargs["metadata"].time == first_publish_time
 
@@ -253,11 +267,11 @@ def test_publish_events(admin_user) -> None:
     assert event.kwargs["change_log"].publish_log_id == second_log.id
     assert event.kwargs["change_log"].changes == [
         # Entity 1 is newly published at v1:
-        api.signals.ChangeLogRecordData(entity_id=entity1.id, old_version=None, new_version=1, direct=True),
+        change_record(entity1, old_version=None, new_version=1, direct=True),
         # Entity 2 jumps v2 -> v3:
-        api.signals.ChangeLogRecordData(entity_id=entity2.id, old_version=2, new_version=3, direct=True),
+        change_record(entity2, old_version=2, new_version=3, direct=True),
         # Entity 3 gets deleted:
-        api.signals.ChangeLogRecordData(entity_id=entity3.id, old_version=1, new_version=None, direct=True),
+        change_record(entity3, old_version=1, new_version=None, direct=True),
     ]
     assert event.kwargs["metadata"].time == second_publish_time
 
@@ -323,10 +337,10 @@ def test_publish_with_dependencies() -> None:
     event = captured[0]
     assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
     assert event.kwargs["change_log"].changes == [
-        api.signals.ChangeLogRecordData(entity_id=grandparent1.id, old_version=None, new_version=1, direct=True),
-        api.signals.ChangeLogRecordData(entity_id=parent1.id, old_version=None, new_version=1, direct=False),
-        api.signals.ChangeLogRecordData(entity_id=child1.id, old_version=None, new_version=1, direct=False),
-        api.signals.ChangeLogRecordData(entity_id=child2.id, old_version=None, new_version=1, direct=False),
+        change_record(grandparent1, old_version=None, new_version=1, direct=True),
+        change_record(parent1, old_version=None, new_version=1, direct=False),
+        change_record(child1, old_version=None, new_version=1, direct=False),
+        change_record(child2, old_version=None, new_version=1, direct=False),
     ]
 
     # publish the rest:
@@ -342,7 +356,7 @@ def test_publish_with_dependencies() -> None:
     event = captured[0]
     assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
     assert event.kwargs["change_log"].changes == [
-        api.signals.ChangeLogRecordData(entity_id=child3.id, old_version=1, new_version=2, direct=True),
-        api.signals.ChangeLogRecordData(entity_id=parent2.id, old_version=1, new_version=1, direct=False),
-        api.signals.ChangeLogRecordData(entity_id=grandparent2.id, old_version=1, new_version=1, direct=False),
+        change_record(child3, old_version=1, new_version=2, direct=True),
+        change_record(parent2, old_version=1, new_version=1, direct=False),
+        change_record(grandparent2, old_version=1, new_version=1, direct=False),
     ]

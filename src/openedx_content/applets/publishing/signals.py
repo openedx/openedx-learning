@@ -44,14 +44,18 @@ class ChangeLogRecordData:
     entity_id: PublishableEntity.ID
 
     old_version: int | None
+    """The old version number of this entity. None if newly-created or un-deleted."""
+    old_version_id: int | None
     """
-    The old version_num of this entity (not the PublishableEntityVersion ID).
-    This is None if the entity is newly created.
+    The old version of this entity (the PublishableEntityVersion ID).
+    This is None if the entity is newly created (or un-deleted).
     """
 
     new_version: int | None
+    """The old version number of this entity. None if newly-created or un-deleted."""
+    new_version_id: int | None
     """
-    The new version_num of this entity (not the PublishableEntityVersion ID).
+    The new version of this entity (the PublishableEntityVersion ID.
     This is None if the entity is now deleted.
     """
 

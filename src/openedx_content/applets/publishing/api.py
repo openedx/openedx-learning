@@ -945,7 +945,9 @@ def _emit_event_for_change_log(
         signals.ChangeLogRecordData(
             entity_id=record.entity_id,
             old_version=record.old_version.version_num if record.old_version else None,
+            old_version_id=record.old_version_id,
             new_version=record.new_version.version_num if record.new_version else None,
+            new_version_id=record.new_version_id,
             direct=record.direct if isinstance(record, PublishLogRecord) else None,
         )
         for record in change_log.records.order_by("id").select_related("old_version", "new_version").all()

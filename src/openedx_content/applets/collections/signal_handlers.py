@@ -21,8 +21,8 @@ def on_entities_changed(
     Dispatches a task to emit LEARNING_PACKAGE_COLLECTION_CHANGED for any
     collections that contain the changed entities.
     """
-    removed_entity_ids = [record.entity_id for record in change_log.changes if record.new_version is None]
-    # old_version=None covers both brand-new entities and restored soft-deletes; we can't distinguish
+    removed_entity_ids = [record.entity_id for record in change_log.changes if record.new_version_id is None]
+    # old_version_id=None covers both brand-new entities and restored soft-deletes; we can't distinguish
     # them here without a DB query. The task is a no-op for new entities (not yet in any collection).
     # TODO: if ChangeLogRecordData gains a 'restored' flag, filter to only restored entities here.
     # (Newly-created entities cannot be part of collections yet, so we only care about entities that
@@ -30,7 +30,7 @@ def on_entities_changed(
     added_entity_ids = [
         record.entity_id
         for record in change_log.changes
-        if record.old_version is None and record.new_version is not None
+        if record.old_version_id is None and record.new_version_id is not None
     ]
 
     if not removed_entity_ids and not added_entity_ids:
