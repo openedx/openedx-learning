@@ -31,7 +31,7 @@ def get_section(section_id: Section.ID, /):
 
 def create_section_and_version(
     learning_package_id: LearningPackage.ID,
-    key: str,
+    container_code: str,
     *,
     title: str,
     subsections: Iterable[Subsection | SubsectionVersion] | None = None,
@@ -48,7 +48,7 @@ def create_section_and_version(
     """
     section, sv = containers_api.create_container_and_version(
         learning_package_id,
-        key=key,
+        container_code=container_code,
         title=title,
         entities=subsections,
         created=created,

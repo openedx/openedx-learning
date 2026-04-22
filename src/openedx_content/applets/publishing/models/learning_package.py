@@ -12,8 +12,8 @@ from openedx_django_lib.fields import (
     TypedAutoField,
     case_insensitive_char_field,
     immutable_uuid_field,
-    key_field,
     manual_date_time_field,
+    ref_field,
 )
 
 
@@ -45,19 +45,15 @@ class LearningPackage(models.Model):
 
     uuid = immutable_uuid_field()
 
-    # "key" is a reserved word for MySQL, so we're temporarily using the column
-    # name of "_key" to avoid breaking downstream tooling. There's an open
-    # question as to whether this field needs to exist at all, or whether the
-    # top level library key it's currently used for should be entirely in the
-    # LibraryContent model.
-    key = key_field(db_column="_key")
+    # package_ref is an opaque reference string for the LearningPackage.
+    package_ref = ref_field()
 
     title = case_insensitive_char_field(max_length=500, blank=False)
 
     # TODO: We should probably defer this field, since many things pull back
     # LearningPackage as select_related. Usually those relations only care about
-    # the UUID and key, so maybe it makes sense to separate the model at some
-    # point.
+    # the UUID and package_ref, so maybe it makes sense to separate the model at
+    # some point.
     description = MultiCollationTextField(
         blank=True,
         null=False,
@@ -76,16 +72,13 @@ class LearningPackage(models.Model):
     updated = manual_date_time_field()
 
     def __str__(self):
-        return f"{self.key}"
+        return f"{self.package_ref}"
 
     class Meta:
         constraints = [
-            # LearningPackage keys must be globally unique. This is something
-            # that might be relaxed in the future if this system were to be
-            # extensible to something like multi-tenancy, in which case we'd tie
-            # it to something like a Site or Org.
+            # package_refs must be globally unique.
             models.UniqueConstraint(
-                fields=["key"],
+                fields=["package_ref"],
                 name="oel_publishing_lp_uniq_key",
             )
         ]

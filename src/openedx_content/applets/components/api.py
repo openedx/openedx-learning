@@ -34,16 +34,15 @@ from .models import Component, ComponentType, ComponentVersion, ComponentVersion
 # to be callable only by other apps in the authoring package.
 __all__ = [
     "get_or_create_component_type",
-    "get_or_create_component_type_by_entity_key",
     "create_component",
     "create_component_version",
     "create_next_component_version",
     "create_component_and_version",
     "get_component",
-    "get_component_by_key",
+    "get_component_by_code",
     "get_component_by_uuid",
     "get_component_version_by_uuid",
-    "component_exists_by_key",
+    "component_exists_by_code",
     "get_collection_components",
     "get_components",
     "create_component_version_media",
@@ -74,45 +73,28 @@ def get_or_create_component_type(namespace: str, name: str) -> ComponentType:
     return component_type
 
 
-def get_or_create_component_type_by_entity_key(entity_key: str) -> tuple[ComponentType, str]:
-    """
-    Get or create a ComponentType based on a full entity key string.
-
-    The entity key is expected to be in the format
-    ``"{namespace}:{type_name}:{local_key}"``. This function will parse out the
-    ``namespace`` and ``type_name`` parts and use those to get or create the
-    ComponentType.
-
-    Raises ValueError if the entity_key is not in the expected format.
-    """
-    try:
-        namespace, type_name, local_key = entity_key.split(':', 2)
-    except ValueError as exc:
-        raise ValueError(
-            f"Invalid entity_key format: {entity_key!r}. "
-            "Expected format: '{namespace}:{type_name}:{local_key}'"
-        ) from exc
-    return get_or_create_component_type(namespace, type_name), local_key
-
-
 def create_component(
     learning_package_id: LearningPackage.ID,
     /,
     component_type: ComponentType,
-    local_key: str,
+    component_code: str,
     created: datetime,
     created_by: int | None,
     *,
     can_stand_alone: bool = True,
 ) -> Component:
     """
-    Create a new Component (an entity like a Problem or Video)
+    Create a new Component (an entity like a Problem or Video).
+
+    The ``entity_ref`` is conventionally derived as
+    ``"{namespace}:{type_name}:{component_code}"``, although callers should not assume
+    that this will always be true.
     """
-    key = f"{component_type.namespace}:{component_type.name}:{local_key}"
+    entity_ref = f"{component_type.namespace}:{component_type.name}:{component_code}"
     with atomic():
         publishable_entity = publishing_api.create_publishable_entity(
             learning_package_id,
-            key,
+            entity_ref,
             created,
             created_by,
             can_stand_alone=can_stand_alone
@@ -121,7 +103,7 @@ def create_component(
             publishable_entity=publishable_entity,
             learning_package_id=learning_package_id,
             component_type=component_type,
-            local_key=local_key,
+            component_code=component_code,
         )
     return component
 
@@ -268,7 +250,7 @@ def create_next_component_version(
                 ComponentVersionMedia.objects.create(
                     media_id=media_pk,
                     component_version=component_version,
-                    key=key,
+                    path=key,
                 )
 
         if ignore_previous_media:
@@ -279,11 +261,11 @@ def create_next_component_version(
         last_version_media_mapping = ComponentVersionMedia.objects \
                                                           .filter(component_version=last_version)
         for cvrc in last_version_media_mapping:
-            if cvrc.key not in media_to_replace:
+            if cvrc.path not in media_to_replace:
                 ComponentVersionMedia.objects.create(
                     media_id=cvrc.media_id,
                     component_version=component_version,
-                    key=cvrc.key,
+                    path=cvrc.path,
                 )
 
         return component_version
@@ -293,7 +275,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
     learning_package_id: LearningPackage.ID,
     /,
     component_type: ComponentType,
-    local_key: str,
+    component_code: str,
     title: str,
     created: datetime,
     created_by: int | None = None,
@@ -301,13 +283,13 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
     can_stand_alone: bool = True,
 ) -> tuple[Component, ComponentVersion]:
     """
-    Create a Component and associated ComponentVersion atomically
+    Create a Component and associated ComponentVersion atomically.
     """
     with atomic():
         component = create_component(
             learning_package_id,
             component_type,
-            local_key,
+            component_code,
             created,
             created_by,
             can_stand_alone=can_stand_alone,
@@ -331,22 +313,22 @@ def get_component(component_id: Component.ID, /) -> Component:
     return Component.with_publishing_relations.get(pk=component_id)
 
 
-def get_component_by_key(
+def get_component_by_code(
     learning_package_id: LearningPackage.ID,
     /,
     namespace: str,
     type_name: str,
-    local_key: str,
+    component_code: str,
 ) -> Component:
     """
-    Get a Component by its unique (namespace, type, local_key) tuple.
+    Get a Component by its unique (namespace, type, component_code) tuple.
     """
     return Component.with_publishing_relations \
                     .get(
                         learning_package_id=learning_package_id,
                         component_type__namespace=namespace,
                         component_type__name=type_name,
-                        local_key=local_key,
+                        component_code=component_code,
                     )
 
 
@@ -366,12 +348,12 @@ def get_component_version_by_uuid(uuid: UUID) -> ComponentVersion:
     )
 
 
-def component_exists_by_key(
+def component_exists_by_code(
     learning_package_id: LearningPackage.ID,
     /,
     namespace: str,
     type_name: str,
-    local_key: str
+    component_code: str
 ) -> bool:
     """
     Return True/False for whether a Component exists.
@@ -384,7 +366,7 @@ def component_exists_by_key(
             learning_package_id=learning_package_id,
             component_type__namespace=namespace,
             component_type__name=type_name,
-            local_key=local_key,
+            component_code=component_code,
         )
         return True
     except Component.DoesNotExist:
@@ -423,12 +405,12 @@ def get_components(  # pylint: disable=too-many-positional-arguments
     if draft_title is not None:
         qset = qset.filter(
             Q(publishable_entity__draft__version__title__icontains=draft_title) |
-            Q(local_key__icontains=draft_title)
+            Q(component_code__icontains=draft_title)
         )
     if published_title is not None:
         qset = qset.filter(
             Q(publishable_entity__published__version__title__icontains=published_title) |
-            Q(local_key__icontains=published_title)
+            Q(component_code__icontains=published_title)
         )
 
     return qset
@@ -450,13 +432,13 @@ def get_collection_components(
 
 
 def look_up_component_version_media(
-    learning_package_key: str,
-    component_key: str,
+    learning_package_ref: str,
+    entity_ref: str,
     version_num: int,
-    key: Path,
+    path: Path,
 ) -> ComponentVersionMedia:
     """
-    Look up ComponentVersionMedia by human readable keys.
+    Look up ComponentVersionMedia by human readable identifiers.
 
     Can raise a django.core.exceptions.ObjectDoesNotExist error if there is no
     matching ComponentVersionMedia.
@@ -465,10 +447,10 @@ def look_up_component_version_media(
     I don't know if we wantto make it a part of the public interface.
     """
     queries = (
-        Q(component_version__component__learning_package__key=learning_package_key)
-        & Q(component_version__component__publishable_entity__key=component_key)
+        Q(component_version__component__learning_package__package_ref=learning_package_ref)
+        & Q(component_version__component__publishable_entity__entity_ref=entity_ref)
         & Q(component_version__publishable_entity_version__version_num=version_num)
-        & Q(key=key)
+        & Q(path=path)
     )
     return ComponentVersionMedia.objects \
                                 .select_related(
@@ -484,29 +466,29 @@ def create_component_version_media(
     component_version_id: int,
     media_id: int,
     /,
-    key: str,
+    path: str,
 ) -> ComponentVersionMedia:
     """
     Add a Media to the given ComponentVersion
 
-    We don't allow keys that would be absolute paths, e.g. ones that start with
+    We don't allow paths that would be absolute, e.g. ones that start with
     '/'. Storing these causes headaches with building relative paths and because
     of mismatches with things that expect a leading slash and those that don't.
     So for safety and consistency, we strip off leading slashes and emit a
     warning when we do.
     """
-    if key.startswith('/'):
+    if path.startswith('/'):
         logger.warning(
             "Absolute paths are not supported: "
             f"removed leading '/' from ComponentVersion {component_version_id} "
-            f"media key: {repr(key)} (media_id: {media_id})"
+            f"media path: {repr(path)} (media_id: {media_id})"
         )
-        key = key.lstrip('/')
+        path = path.lstrip('/')
 
     cvrc, _created = ComponentVersionMedia.objects.get_or_create(
         component_version_id=component_version_id,
         media_id=media_id,
-        key=key,
+        path=path,
     )
     return cvrc
 
@@ -529,13 +511,13 @@ def _get_component_version_info_headers(component_version: ComponentVersion) -> 
     learning_package = component.learning_package
     return {
         # Component
-        "X-Open-edX-Component-Key": component.publishable_entity.key,
+        "X-Open-edX-Component-Ref": component.publishable_entity.entity_ref,
         "X-Open-edX-Component-Uuid": component.uuid,
         # Component Version
         "X-Open-edX-Component-Version-Uuid": component_version.uuid,
         "X-Open-edX-Component-Version-Num": str(component_version.version_num),
         # Learning Package
-        "X-Open-edX-Learning-Package-Key": learning_package.key,
+        "X-Open-edX-Learning-Package-Ref": learning_package.package_ref,
         "X-Open-edX-Learning-Package-Uuid": learning_package.uuid,
     }
 
@@ -621,7 +603,7 @@ def get_redirect_response_for_component_asset(
 
     # Check: Does the ComponentVersion have the requested asset (Media)?
     try:
-        cv_media = component_version.componentversionmedia_set.get(key=asset_path)
+        cv_media = component_version.componentversionmedia_set.get(path=asset_path)
     except ComponentVersionMedia.DoesNotExist:
         logger.error(f"ComponentVersion {component_version_uuid} has no asset {asset_path}")
         info_headers.update(

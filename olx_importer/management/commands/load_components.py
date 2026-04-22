@@ -61,12 +61,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("course_data_path", type=pathlib.Path)
-        parser.add_argument("learning_package_key", type=str)
+        parser.add_argument("learning_package_ref", type=str)
 
-    def handle(self, course_data_path, learning_package_key, **options):
+    def handle(self, course_data_path, learning_package_ref, **options):
         self.course_data_path = course_data_path
-        self.learning_package_key = learning_package_key
-        self.load_course_data(learning_package_key)
+        self.learning_package_ref = learning_package_ref
+        self.load_course_data(learning_package_ref)
 
     def get_course_title(self):
         course_type_dir = self.course_data_path / "course"
@@ -74,20 +74,20 @@ class Command(BaseCommand):
         course_root = ET.parse(course_xml_file).getroot()
         return course_root.attrib.get("display_name", "Unknown Course")
 
-    def load_course_data(self, learning_package_key):
+    def load_course_data(self, learning_package_ref):
         print(f"Importing course from: {self.course_data_path}")
         now = datetime.now(timezone.utc)
         title = self.get_course_title()
 
-        if content_api.learning_package_exists(learning_package_key):
+        if content_api.learning_package_exists(learning_package_ref):
             raise CommandError(
-                f"{learning_package_key} already exists. "
+                f"{learning_package_ref} already exists. "
                 "This command currently only supports initial import."
             )
 
         with transaction.atomic():
             self.learning_package = content_api.create_learning_package(
-                learning_package_key, title, created=now,
+                learning_package_ref, title, created=now,
             )
             for block_type in SUPPORTED_TYPES:
                 self.import_block_type(block_type, now) #, publish_log_entry)
@@ -140,7 +140,7 @@ class Command(BaseCommand):
 
         for xml_file_path in block_data_path.glob("*.xml"):
             components_found += 1
-            local_key = xml_file_path.stem
+            component_code = xml_file_path.stem
 
             # Do some basic parsing of the content to see if it's even well
             # constructed enough to add (or whether we should skip/error on it).
@@ -155,7 +155,7 @@ class Command(BaseCommand):
             _component, component_version = content_api.create_component_and_version(
                 self.learning_package.id,
                 component_type=block_type,
-                local_key=local_key,
+                component_code=component_code,
                 title=display_name,
                 created=now,
                 created_by=None,
@@ -173,7 +173,7 @@ class Command(BaseCommand):
             content_api.create_component_version_media(
                 component_version,
                 text_content.pk,
-                key="block.xml",
+                path="block.xml",
             )
 
             # Cycle through static assets references and add those as well...

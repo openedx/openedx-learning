@@ -22,11 +22,11 @@ class SectionsTestCase(ComponentTestCase):
         """Create some potential desdendants for use in these tests."""
         super().setUp()
         self.component_1, self.component_1_v1 = self.create_component(
-            key="component_1",
+            component_code="component_1",
             title="Great-grandchild component",
         )
         self.component_2, self.component_2_v1 = self.create_component(
-            key="component_2",
+            component_code="component_2",
             title="Great-grandchild component",
         )
         common_args: dict[str, Any] = {
@@ -35,25 +35,25 @@ class SectionsTestCase(ComponentTestCase):
             "created_by": None,
         }
         self.unit_1, self.unit_1_v1 = content_api.create_unit_and_version(
-            key="unit_1",
+            container_code="unit_1",
             title="Grandchild Unit 1",
             components=[self.component_1, self.component_2],
             **common_args,
         )
         self.unit_2, self.unit_2_v1 = content_api.create_unit_and_version(
-            key="unit_2",
+            container_code="unit_2",
             title="Grandchild Unit 2",
             components=[self.component_2, self.component_1],  # Backwards order from Unit 1
             **common_args,
         )
         self.subsection_1, self.subsection_1_v1 = content_api.create_subsection_and_version(
-            key="subsection_1",
+            container_code="subsection_1",
             title="Child Subsection 1",
             units=[self.unit_1, self.unit_2],
             **common_args,
         )
         self.subsection_2, self.subsection_2_v1 = content_api.create_subsection_and_version(
-            key="subsection_2",
+            container_code="subsection_2",
             title="Child Subsection 2",
             units=[self.unit_2, self.unit_1],  # Backwards order from subsection 1
             **common_args,
@@ -64,12 +64,12 @@ class SectionsTestCase(ComponentTestCase):
         subsections: list[Subsection | SubsectionVersion],
         *,
         title="Section",
-        key="section:key",
+        container_code="section-key",
     ) -> Section:
         """Helper method to quickly create a section with some subsections"""
         section, _section_v1 = content_api.create_section_and_version(
             learning_package_id=self.learning_package.id,
-            key=key,
+            container_code=container_code,
             title=title,
             subsections=subsections,
             created=self.now,
@@ -88,7 +88,7 @@ class SectionsTestCase(ComponentTestCase):
         """
         section, section_version = content_api.create_section_and_version(
             learning_package_id=self.learning_package.id,
-            key="section:key",
+            container_code="section-key",
             title="Section",
             created=self.now,
             created_by=None,
@@ -196,7 +196,7 @@ class SectionsTestCase(ComponentTestCase):
             ValidationError,
             match='The entity "unit_1" cannot be added to a "section" container.',
         ):
-            self.create_section_with_subsections([self.unit_1], key="unit:key3", title="Unit 3")
+            self.create_section_with_subsections([self.unit_1], container_code="unit-key3", title="Unit 3")
 
     def test_is_registered(self):
         assert Section in content_api.get_all_container_subclasses()

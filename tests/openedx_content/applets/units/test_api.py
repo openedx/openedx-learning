@@ -22,11 +22,11 @@ class UnitsTestCase(ComponentTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.component_1, self.component_1_v1 = self.create_component(
-            key="Query Counting",
+            component_code="Query_Counting",
             title="Querying Counting Problem",
         )
         self.component_2, self.component_2_v1 = self.create_component(
-            key="Query Counting (2)",
+            component_code="Query_Counting_2",
             title="Querying Counting Problem (2)",
         )
 
@@ -35,12 +35,12 @@ class UnitsTestCase(ComponentTestCase):
         components: list[Component | ComponentVersion],
         *,
         title="Unit",
-        key="unit:key",
+        container_code="unit-key",
     ) -> Unit:
         """Helper method to quickly create a unit with some components"""
         unit, _unit_v1 = content_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
-            key=key,
+            container_code=container_code,
             title=title,
             components=components,
             created=self.now,
@@ -59,7 +59,7 @@ class UnitsTestCase(ComponentTestCase):
         """
         unit, unit_version = content_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
-            key="unit:key",
+            container_code="unit-key",
             title="Unit",
             created=self.now,
             created_by=None,
@@ -120,7 +120,7 @@ class UnitsTestCase(ComponentTestCase):
         """Test `get_unit()` when the provided ID is for a non-Unit container"""
         other_container = content_api.create_container(
             self.learning_package.id,
-            key="test",
+            container_code="test",
             created=self.now,
             created_by=None,
             container_cls=TestContainer,
@@ -153,11 +153,11 @@ class UnitsTestCase(ComponentTestCase):
         # Create two units:
         unit = self.create_unit_with_components([])
         unit_version = unit.versioning.draft
-        unit2 = self.create_unit_with_components([], key="unit:key2", title="Unit 2")
+        unit2 = self.create_unit_with_components([], container_code="unit-key2", title="Unit 2")
 
         # Try adding a Unit to a Unit
         with pytest.raises(
-            ValidationError, match='The entity "unit:key2" cannot be added to a "unit" container.'
+            ValidationError, match='The entity "unit-key2" cannot be added to a "unit" container.'
         ) as err:
             content_api.create_next_unit_version(
                 unit,
@@ -187,8 +187,8 @@ class UnitsTestCase(ComponentTestCase):
         assert unit.versioning.draft == unit_version
 
         # Also check that `create_unit_and_version()` has the same restriction (not just `create_next_unit_version()`)
-        with pytest.raises(ValidationError, match='The entity "unit:key2" cannot be added to a "unit" container.'):
-            self.create_unit_with_components([unit2], key="unit:key3", title="Unit 3")
+        with pytest.raises(ValidationError, match='The entity "unit-key2" cannot be added to a "unit" container.'):
+            self.create_unit_with_components([unit2], container_code="unit-key3", title="Unit 3")
 
     def test_is_registered(self):
         assert Unit in content_api.get_all_container_subclasses()

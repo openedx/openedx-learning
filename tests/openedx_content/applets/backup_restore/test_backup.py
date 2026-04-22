@@ -51,7 +51,7 @@ class LpDumpCommandTestCase(TestCase):
 
         # Create a Learning Package for the test
         cls.learning_package = api.create_learning_package(
-            key="ComponentTestCase-test-key",
+            package_ref="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
             description="This is a test learning package for components.",
         )
@@ -69,7 +69,7 @@ class LpDumpCommandTestCase(TestCase):
         cls.published_component, _ = api.create_component_and_version(
             cls.learning_package.id,
             cls.problem_type,
-            local_key="my_published_example",
+            component_code="my_published_example",
             title="My published problem",
             created=cls.now,
             created_by=cls.user.id,
@@ -80,7 +80,7 @@ class LpDumpCommandTestCase(TestCase):
         cls.published_component2, _ = api.create_component_and_version(
             cls.learning_package.id,
             cls.problem_type,
-            local_key="My_published_example",
+            component_code="My_published_example",
             title="My published problem 2",
             created=cls.now,
             created_by=cls.user.id,
@@ -109,14 +109,14 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_media(
             new_problem_version.pk,
             new_txt_media.pk,
-            key="hello.txt",
+            path="hello.txt",
         )
 
         # Create a Draft component, one in each learning package
         cls.draft_component, _ = api.create_component_and_version(
             cls.learning_package.id,
             cls.html_type,
-            local_key="my_draft_example",
+            component_code="my_draft_example",
             title="My draft html",
             created=cls.now,
             created_by=cls.user.id,
@@ -138,7 +138,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_version_media(
             new_html_version.pk,
             cls.html_asset_media.id,
-            key="static/other/subdirectory/hello.html",
+            path="static/other/subdirectory/hello.html",
         )
 
         components = api.get_publishable_entities(cls.learning_package)
@@ -160,7 +160,7 @@ class LpDumpCommandTestCase(TestCase):
 
         api.create_container(
             learning_package_id=cls.learning_package.id,
-            key="unit-1",
+            container_code="unit-1",
             created=cls.now,
             created_by=cls.user.id,
             container_cls=Unit,
@@ -216,8 +216,8 @@ class LpDumpCommandTestCase(TestCase):
                 self.assertIn(expected_path, zip_name_list)
 
     def test_lp_dump_command(self):
-        lp_key = self.learning_package.key
-        file_name = f"{lp_key}.zip"
+        package_ref = self.learning_package.package_ref
+        file_name = f"{package_ref}.zip"
         try:
             out = StringIO()
 
@@ -225,7 +225,7 @@ class LpDumpCommandTestCase(TestCase):
 
             # Call the management command to dump the learning package
             call_command(
-                "lp_dump", lp_key, file_name, username=self.user.username, origin_server=origin_server, stdout=out
+                "lp_dump", package_ref, file_name, username=self.user.username, origin_server=origin_server, stdout=out
             )
 
             # Check that the zip file was created
@@ -242,7 +242,7 @@ class LpDumpCommandTestCase(TestCase):
                 Path("package.toml"),
                 [
                     '[learning_package]',
-                    f'key = "{self.learning_package.key}"',
+                    f'key = "{self.learning_package.package_ref}"',
                     f'title = "{self.learning_package.title}"',
                     f'description = "{self.learning_package.description}"',
                     '[meta]',
@@ -278,7 +278,7 @@ class LpDumpCommandTestCase(TestCase):
                 self.check_toml_file(zip_path, Path(file_path), expected_content)
 
             # Check the output message
-            message = f'{lp_key} written to {file_name}'
+            message = f'{package_ref} written to {file_name}'
             self.assertIn(message, out.getvalue())
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.fail(f"lp_dump command failed with error: {e}")
@@ -289,11 +289,11 @@ class LpDumpCommandTestCase(TestCase):
 
     def test_dump_nonexistent_learning_package(self):
         out = StringIO()
-        lp_key = "nonexistent_lp"
-        file_name = f"{lp_key}.zip"
+        package_ref = "nonexistent_lp"
+        file_name = f"{package_ref}.zip"
         with self.assertRaises(CommandError):
             # Attempt to dump a learning package that does not exist
-            call_command("lp_dump", lp_key, file_name, stdout=out)
+            call_command("lp_dump", package_ref, file_name, stdout=out)
             self.assertIn("Learning package 'nonexistent_lp' does not exist", out.getvalue())
 
     def test_queries_n_plus_problem(self):
@@ -315,7 +315,7 @@ class LpDumpCommandTestCase(TestCase):
         api.create_component_and_version(
             self.learning_package.id,
             self.problem_type,
-            local_key="my_published_example2",
+            component_code="my_published_example2",
             title="My published problem 2",
             created=self.now,
             created_by=self.user.id,

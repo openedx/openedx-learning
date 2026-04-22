@@ -41,11 +41,11 @@ cffi==2.0.0
     #   -r requirements/test.txt
     #   cryptography
     #   pynacl
-charset-normalizer==3.4.6
+charset-normalizer==3.4.7
     # via
     #   -r requirements/test.txt
     #   requests
-click==8.3.1
+click==8.3.2
     # via
     #   -r requirements/test.txt
     #   celery
@@ -101,7 +101,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-django-debug-toolbar==6.2.0
+django-debug-toolbar==6.3.0
     # via -r requirements/test.txt
 django-model-utils==5.0.0
     # via
@@ -111,11 +111,11 @@ django-simple-history==3.11.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
-django-stubs==6.0.1
+django-stubs==6.0.3
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==6.0.1
+django-stubs-ext==6.0.3
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -130,7 +130,7 @@ djangorestframework==3.17.1
     #   drf-jwt
     #   edx-drf-extensions
     #   edx-organizations
-djangorestframework-stubs==3.16.8
+djangorestframework-stubs==3.16.9
     # via -r requirements/test.txt
 dnspython==2.8.0
     # via
@@ -220,7 +220,7 @@ mdurl==0.1.2
     #   markdown-it-py
 mock==5.2.0
     # via -r requirements/test.txt
-mypy==1.19.1
+mypy==1.20.1
     # via -r requirements/test.txt
 mypy-extensions==1.1.0
     # via
@@ -230,9 +230,9 @@ mysqlclient==2.2.8
     # via -r requirements/test.txt
 nh3==0.3.4
     # via readme-renderer
-openedx-events==11.1.0
+openedx-events==11.1.1
     # via -r requirements/test.txt
-packaging==26.0
+packaging==26.1
     # via
     #   -r requirements/test.txt
     #   kombu
@@ -242,7 +242,7 @@ pathspec==1.0.4
     # via
     #   -r requirements/test.txt
     #   mypy
-pillow==12.1.1
+pillow==12.2.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
@@ -314,7 +314,7 @@ pyyaml==6.0.3
     #   code-annotations
 readme-renderer==44.0
     # via -r requirements/doc.in
-requests==2.33.0
+requests==2.33.1
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -399,7 +399,7 @@ typing-extensions==4.15.0
     #   import-linter
     #   mypy
     #   pydata-sphinx-theme
-tzdata==2025.3
+tzdata==2026.1
     # via
     #   -r requirements/test.txt
     #   kombu

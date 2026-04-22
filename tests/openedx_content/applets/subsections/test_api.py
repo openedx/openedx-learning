@@ -21,16 +21,16 @@ class SubsectionsTestCase(ComponentTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.component_1, self.component_1_v1 = self.create_component(
-            key="Query Counting",
+            component_code="Query_Counting",
             title="Querying Counting Problem",
         )
         self.component_2, self.component_2_v1 = self.create_component(
-            key="Query Counting (2)",
+            component_code="Query_Counting_2",
             title="Querying Counting Problem (2)",
         )
         self.unit_1, self.unit_1_v1 = content_api.create_unit_and_version(
             learning_package_id=self.learning_package.id,
-            key="unit1",
+            container_code="unit1",
             title="Unit 1",
             components=[self.component_1, self.component_2],
             created=self.now,
@@ -42,12 +42,12 @@ class SubsectionsTestCase(ComponentTestCase):
         units: list[Unit | UnitVersion],
         *,
         title="Subsection",
-        key="subsection:key",
+        container_code="subsection-key",
     ) -> Subsection:
         """Helper method to quickly create a unit with some units"""
         subsection, _subsection_v1 = content_api.create_subsection_and_version(
             learning_package_id=self.learning_package.id,
-            key=key,
+            container_code=container_code,
             title=title,
             units=units,
             created=self.now,
@@ -66,7 +66,7 @@ class SubsectionsTestCase(ComponentTestCase):
         """
         subsection, subsection_version = content_api.create_subsection_and_version(
             learning_package_id=self.learning_package.id,
-            key="subsection:key",
+            container_code="subsection-key",
             title="Subsection",
             created=self.now,
             created_by=None,
@@ -156,7 +156,7 @@ class SubsectionsTestCase(ComponentTestCase):
         # Try adding a Component to a Subsection
         with pytest.raises(
             ValidationError,
-            match='The entity "xblock.v1:problem:Query Counting" cannot be added to a "subsection" container.',
+            match='The entity "xblock.v1:problem:Query_Counting" cannot be added to a "subsection" container.',
         ) as err:
             content_api.create_next_subsection_version(
                 subsection,
@@ -175,9 +175,9 @@ class SubsectionsTestCase(ComponentTestCase):
         # (not just `create_next_subsection_version()`)
         with pytest.raises(
             ValidationError,
-            match='The entity "xblock.v1:problem:Query Counting" cannot be added to a "subsection" container.',
+            match='The entity "xblock.v1:problem:Query_Counting" cannot be added to a "subsection" container.',
         ):
-            self.create_subsection_with_units([self.component_1], key="unit:key3", title="Unit 3")
+            self.create_subsection_with_units([self.component_1], container_code="unit-key3", title="Unit 3")
 
     def test_is_registered(self):
         assert Subsection in content_api.get_all_container_subclasses()

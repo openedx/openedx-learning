@@ -202,7 +202,7 @@ class LearningPackageZipper:
                     to_attr="prefetched_media",
                 ),
             )
-            .order_by("key")
+            .order_by("entity_ref")
         )
 
     def get_collections(self) -> QuerySet[Collection]:
@@ -238,25 +238,25 @@ class LearningPackageZipper:
             versions_to_write.append(published_version)
         return versions_to_write, draft_version, published_version
 
-    def get_entity_toml_filename(self, entity_key: str) -> str:
+    def get_entity_toml_filename(self, entity_ref: str) -> str:
         """
         Generate a unique TOML filename for a publishable entity.
         Ensures that the filename is unique within the zip file.
 
         Behavior:
-        - If the slugified key has not been used yet, use it as the filename.
+        - If the slugified ref has not been used yet, use it as the filename.
         - If it has been used, append a short hash to ensure uniqueness.
 
         Args:
-            entity_key (str): The key of the publishable entity.
+            entity_ref (str): The entity_ref of the publishable entity.
 
         Returns:
             str: A unique TOML filename for the entity.
         """
-        slugify_name = slugify(entity_key, allow_unicode=True)
+        slugify_name = slugify(entity_ref, allow_unicode=True)
 
         if slugify_name in self.entities_filenames_already_created:
-            filename = slugify_hashed_filename(entity_key)
+            filename = slugify_hashed_filename(entity_ref)
         else:
             filename = slugify_name
 
@@ -316,7 +316,7 @@ class LearningPackageZipper:
                 )
 
                 if hasattr(entity, 'container'):
-                    entity_filename = self.get_entity_toml_filename(entity.key)
+                    entity_filename = self.get_entity_toml_filename(entity.entity_ref)
                     entity_toml_filename = f"{entity_filename}.toml"
                     entity_toml_path = entities_folder / entity_toml_filename
                     self.add_file_to_zip(zipf, entity_toml_path, entity_toml_content, timestamp=latest_modified)
@@ -332,7 +332,7 @@ class LearningPackageZipper:
                     #                     v1/
                     #                         static/
 
-                    entity_filename = self.get_entity_toml_filename(entity.component.local_key)
+                    entity_filename = self.get_entity_toml_filename(entity.component.component_code)
 
                     component_root_folder = (
                         # Example: "entities/xblock.v1/html/"
@@ -381,9 +381,8 @@ class LearningPackageZipper:
                         for component_version_media in prefetched_media:
                             media: Media = component_version_media.media
 
-                            # Important: The component_version_media.key contains implicitly
-                            # the file name and the file extension
-                            file_path = version_folder / component_version_media.key
+                            # component_version_media.path is the file name and extension
+                            file_path = version_folder / component_version_media.path
 
                             if media.has_file and media.path:
                                 # If has_file, we pull it from the file system
@@ -403,11 +402,11 @@ class LearningPackageZipper:
             for collection in collections:
                 collection_hash_slug = self.get_entity_toml_filename(collection.collection_code)
                 collection_toml_file_path = collections_folder / f"{collection_hash_slug}.toml"
-                entity_keys_related = collection.entities.order_by("key").values_list("key", flat=True)
+                entity_refs_related = collection.entities.order_by("entity_ref").values_list("entity_ref", flat=True)
                 self.add_file_to_zip(
                     zipf,
                     collection_toml_file_path,
-                    toml_collection(collection, list(entity_keys_related)),
+                    toml_collection(collection, list(entity_refs_related)),
                     timestamp=collection.modified,
                 )
 
@@ -418,10 +417,10 @@ class RestoreLearningPackageData:
     Data about the restored learning package.
     """
     id: int  # The ID of the restored learning package
-    key: str  # The key of the restored learning package (may be different if staged)
-    archive_lp_key: str  # The original key from the archive
-    archive_org_key: str  # The original organization key from the archive
-    archive_slug: str  # The original slug from the archive
+    package_ref: str  # The package_ref of the restored learning package (may be different if staged)
+    archive_package_ref: str  # The original package_ref from the archive
+    archive_org_code: str | None  # The org code parsed from archive_package_ref, or None if unparseable
+    archive_package_code: str | None  # The package code parsed from archive_package_ref, or None if unparseable
     title: str
     num_containers: int
     num_sections: int
@@ -454,35 +453,53 @@ class RestoreResult:
     backup_metadata: BackupMetadata | None = None
 
 
-def unpack_lp_key(lp_key: str) -> tuple[str, str]:
+def unpack_package_ref(package_ref: str) -> tuple[str | None, str | None]:
     """
-    Unpack a learning package key into its components.
+    Try to parse org_code and package_code from a package_ref.
+
+    By convention, package_refs take the form ``"{prefix}:{org_code}:{package_code}"``,
+    but this is only a convention — package_ref is opaque and the parse may fail.
+    Returns ``(None, None)`` if the ref does not match the expected format.
     """
-    parts = lp_key.split(":")
+    parts = package_ref.split(":")
     if len(parts) < 3:
-        raise ValueError(f"Invalid learning package key: {lp_key}")
-    _, org_key, lp_slug = parts[:3]
-    return org_key, lp_slug
+        return None, None
+    _, org_code, package_code = parts[:3]
+    return org_code, package_code
 
 
-def generate_staged_lp_key(archive_lp_key: str, user: UserType) -> str:
+def generate_staged_package_ref(archive_package_ref: str, user: UserType) -> str:
     """
-    Generate a staged learning package key based on the given base key.
+    Generate a staged learning package ref based on the archive's package_ref.
+
+    We can't trust package_ref from the archive directly, because the archive
+    could specify *any* arbitrary package_ref, and the user may or may not be
+    permitted to create an Package using that ref. So, instead, this function
+    generates a unique and semi-human-readable package_ref which is namespaced
+    to the current user and appropriate to provisionally save the package under.
+    The package_ref from the archive can then be presented to the user as a
+    *suggestion*, which they may or may not choose to use.
+
+    Please note that the ref returned by this function is valid for Packages is
+    a generic sense, but it's not a valid Content Library key.  Callers who are
+    restoring a Package for Library usage will need to replace this staged
+    package_ref before being able to render the Library's content.
 
     Arguments:
-        archive_lp_key (str): The original learning package key from the archive.
+        archive_package_ref (str): The original package_ref from the archive.
         user (UserType | None): The user performing the restore operation.
 
     Example:
         Input:  "lib:WGU:LIB_C001"
         Output: "lp-restore:dave:WGU:LIB_C001:1728575321"
-
-    The timestamp at the end ensures the key is unique.
     """
     username = user.username
-    org_key, lp_slug = unpack_lp_key(archive_lp_key)
+    org_code, package_code = unpack_package_ref(archive_package_ref)
     timestamp = int(time.time() * 1000)  # Current time in milliseconds
-    return f"lp-restore:{username}:{org_key}:{lp_slug}:{timestamp}"
+    if org_code and package_code:
+        return f"lp-restore:{username}:{org_code}:{package_code}:{timestamp}"
+    # Fallback for non-conventional package_refs
+    return f"lp-restore:{username}:{archive_package_ref}:{timestamp}"
 
 
 class LearningPackageUnzipper:
@@ -507,21 +524,21 @@ class LearningPackageUnzipper:
         result = unzipper.load()
     """
 
-    def __init__(self, zipf: zipfile.ZipFile, key: str | None = None, user: UserType | None = None):
+    def __init__(self, zipf: zipfile.ZipFile, package_ref: str | None = None, user: UserType | None = None):
         self.zipf = zipf
         self.user = user
         self.user_id = getattr(self.user, "id", None)
-        self.lp_key = key  # If provided, use this key for the restored learning package
+        self.package_ref = package_ref  # If provided, use this package_ref for the restored learning package
         self.learning_package_id: LearningPackage.ID | None = None  # Will be set upon restoration
         self.utc_now: datetime = datetime.now(timezone.utc)
         self.component_types_cache: dict[tuple[str, str], ComponentType] = {}
         self.errors: list[dict[str, Any]] = []
         # Maps for resolving relationships
-        self.components_map_by_key: dict[str, Any] = {}
-        self.units_map_by_key: dict[str, Any] = {}
-        self.subsections_map_by_key: dict[str, Any] = {}
-        self.sections_map_by_key: dict[str, Any] = {}
-        self.all_publishable_entities_keys: set[str] = set()
+        self.components_map_by_ref: dict[str, Any] = {}
+        self.units_map_by_ref: dict[str, Any] = {}
+        self.subsections_map_by_ref: dict[str, Any] = {}
+        self.sections_map_by_ref: dict[str, Any] = {}
+        self.all_publishable_entity_refs: set[str] = set()
         self.all_published_entities_versions: set[tuple[str, int]] = set()  # To track published entity versions
 
     # --------------------------
@@ -574,7 +591,7 @@ class LearningPackageUnzipper:
         # Step 3.2: Save everything to the DB
         # All validations passed, we can proceed to save everything
         # Save the learning package first to get its ID
-        archive_lp_key = learning_package_validated["key"]
+        archive_package_ref = learning_package_validated["package_ref"]
         learning_package = self._save(
             learning_package_validated,
             components_validated,
@@ -588,16 +605,16 @@ class LearningPackageUnzipper:
             for container_type in ["section", "subsection", "unit"]
         )
 
-        org_key, lp_slug = unpack_lp_key(archive_lp_key)
+        org_code, package_code = unpack_package_ref(archive_package_ref)
         result = RestoreResult(
             status="success",
             log_file_error=None,
             lp_restored_data=RestoreLearningPackageData(
                 id=learning_package.id,
-                key=learning_package.key,
-                archive_lp_key=archive_lp_key,  # The original key from the backup archive
-                archive_org_key=org_key,  # The original organization key from the backup archive
-                archive_slug=lp_slug,  # The original slug from the backup archive
+                package_ref=learning_package.package_ref,
+                archive_package_ref=archive_package_ref,
+                archive_org_code=org_code,
+                archive_package_code=package_code,
                 title=learning_package.title,
                 num_containers=num_containers,
                 num_sections=len(containers_validated.get("section", [])),
@@ -678,7 +695,7 @@ class LearningPackageUnzipper:
                 continue
 
             entity_data = serializer.validated_data
-            self.all_publishable_entities_keys.add(entity_data["key"])
+            self.all_publishable_entity_refs.add(entity_data["entity_ref"])
             entity_type = entity_data.pop("container_type", "components")
             results[entity_type].append(entity_data)
 
@@ -716,11 +733,11 @@ class LearningPackageUnzipper:
                 continue
             collection_validated = serializer.validated_data
             entities_list = collection_validated["entities"]
-            for entity_key in entities_list:
-                if entity_key not in self.all_publishable_entities_keys:
+            for entity_ref in entities_list:
+                if entity_ref not in self.all_publishable_entity_refs:
                     self.errors.append({
                         "file": file,
-                        "errors": f"Entity key {entity_key} not found for collection {collection_validated.get('key')}"
+                        "errors": f"Entity ref {entity_ref} not found for collection {collection_validated.get('key')}"
                     })
             results["collections"].append(collection_validated)
 
@@ -741,18 +758,18 @@ class LearningPackageUnzipper:
     ) -> LearningPackage:
         """Persist all validated entities in two phases: published then drafts."""
 
-        # Important: If not using a specific LP key, generate a temporary one
+        # Important: If not using a specific LP ref/key, generate a temporary one
         # We cannot use the original key because it may generate security issues
-        if not self.lp_key:
-            # Generate a tmp key for the staged learning package
+        if not self.package_ref:
+            # Generate a tmp ref for the staged learning package
             if not self.user:
-                raise ValueError("User is required to create lp_key")
-            learning_package["key"] = generate_staged_lp_key(
-                archive_lp_key=learning_package["key"],
+                raise ValueError("User is required to generate a staged package_ref")
+            learning_package["package_ref"] = generate_staged_package_ref(
+                archive_package_ref=learning_package["package_ref"],
                 user=self.user
             )
         else:
-            learning_package["key"] = self.lp_key
+            learning_package["package_ref"] = self.package_ref
 
         learning_package_obj = publishing_api.create_learning_package(**learning_package)
         self.learning_package_id = learning_package_obj.id
@@ -780,25 +797,30 @@ class LearningPackageUnzipper:
             collection = collections_api.add_to_collection(
                 learning_package_id=learning_package.id,
                 collection_code=collection.collection_code,
-                entities_qset=publishing_api.get_publishable_entities(learning_package.id).filter(key__in=entities)
+                entities_qset=publishing_api.get_publishable_entities(learning_package.id).filter(
+                    entity_ref__in=entities
+                )
             )
 
     def _save_components(self, learning_package, components, component_static_files):
         """Save components and published component versions."""
         for valid_component in components.get("components", []):
-            entity_key = valid_component.pop("key")
+            entity_ref = valid_component.pop("entity_ref")
             component = components_api.create_component(learning_package.id, created_by=self.user_id, **valid_component)
-            self.components_map_by_key[entity_key] = component
+            self.components_map_by_ref[entity_ref] = component
 
         for valid_published in components.get("components_published", []):
-            entity_key = valid_published.pop("entity_key")
+            entity_ref = valid_published.pop("entity_ref")
             version_num = valid_published["version_num"]  # Should exist, validated earlier
-            media_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
+            component = self.components_map_by_ref[entity_ref]
+            media_to_replace = self._resolve_static_files(
+                version_num, entity_ref, component.component_type, component_static_files
+            )
             self.all_published_entities_versions.add(
-                (entity_key, version_num)
+                (entity_ref, version_num)
             )  # Track published version
             components_api.create_next_component_version(
-                self.components_map_by_key[entity_key].publishable_entity.id,
+                component.publishable_entity.id,
                 media_to_replace=media_to_replace,
                 force_version_num=valid_published.pop("version_num", None),
                 created_by=self.user_id,
@@ -817,25 +839,30 @@ class LearningPackageUnzipper:
         """Internal logic for _save_units, _save_subsections, and _save_sections"""
         type_code = container_cls.type_code  # e.g. "unit"
         for data in containers.get(type_code, []):
-            entity_key = data.get("key")
+            entity_ref = data.pop("entity_ref")
             container = containers_api.create_container(
                 learning_package.id,
+                # As of Verawood, the primary identity of a container is its
+                # `container_code`.  By convention, this equals the `entity_ref`
+                # (aka `[entity].key`). It's safe to assume that all v1
+                # archives have an identical `entity_ref` and `container_code` for each
+                # entity-container. BUT, this assumpion may not hold true v2+.
+                container_code=entity_ref,
                 **data,  # should this be allowed to override any of the following fields?
                 created_by=self.user_id,
                 container_cls=container_cls,
             )
-            container_map[entity_key] = container  # e.g. `self.units_map_by_key[entity_key] = unit`
+            container_map[entity_ref] = container  # e.g. `self.units_map_by_ref[entity_ref] = unit`
 
         for valid_published in containers.get(f"{type_code}_published", []):
-            entity_key = valid_published.pop("entity_key")
+            entity_ref = valid_published.pop("entity_ref")
             children = self._resolve_children(valid_published, children_map)
-            self.all_published_entities_versions.add(
-                (entity_key, valid_published.get('version_num'))
-            )  # Track published version
+            version_num = valid_published.pop("version_num", None)
+            self.all_published_entities_versions.add((entity_ref, version_num))
             containers_api.create_next_container_version(
-                container_map[entity_key],
+                container_map[entity_ref],
+                force_version_num=version_num,
                 **valid_published,  # should this be allowed to override any of the following fields?
-                force_version_num=valid_published.pop("version_num", None),
                 entities=children,
                 created_by=self.user_id,
             )
@@ -846,8 +873,8 @@ class LearningPackageUnzipper:
             learning_package,
             containers,
             container_cls=Unit,
-            container_map=self.units_map_by_key,
-            children_map=self.components_map_by_key,
+            container_map=self.units_map_by_ref,
+            children_map=self.components_map_by_ref,
         )
 
     def _save_subsections(self, learning_package, containers):
@@ -856,8 +883,8 @@ class LearningPackageUnzipper:
             learning_package,
             containers,
             container_cls=Subsection,
-            container_map=self.subsections_map_by_key,
-            children_map=self.units_map_by_key,
+            container_map=self.subsections_map_by_ref,
+            children_map=self.units_map_by_ref,
         )
 
     def _save_sections(self, learning_package, containers):
@@ -866,20 +893,23 @@ class LearningPackageUnzipper:
             learning_package,
             containers,
             container_cls=Section,
-            container_map=self.sections_map_by_key,
-            children_map=self.subsections_map_by_key,
+            container_map=self.sections_map_by_ref,
+            children_map=self.subsections_map_by_ref,
         )
 
     def _save_draft_versions(self, components, containers, component_static_files):
         """Save draft versions for all entity types."""
         for valid_draft in components.get("components_drafts", []):
-            entity_key = valid_draft.pop("entity_key")
+            entity_ref = valid_draft.pop("entity_ref")
             version_num = valid_draft["version_num"]  # Should exist, validated earlier
-            if self._is_version_already_exists(entity_key, version_num):
+            if self._is_version_already_exists(entity_ref, version_num):
                 continue
-            media_to_replace = self._resolve_static_files(version_num, entity_key, component_static_files)
+            component = self.components_map_by_ref[entity_ref]
+            media_to_replace = self._resolve_static_files(
+                version_num, entity_ref, component.component_type, component_static_files
+            )
             components_api.create_next_component_version(
-                self.components_map_by_key[entity_key].publishable_entity.id,
+                component.publishable_entity.id,
                 media_to_replace=media_to_replace,
                 force_version_num=valid_draft.pop("version_num", None),
                 # Drafts can diverge from published, so we allow ignoring previous media
@@ -895,23 +925,23 @@ class LearningPackageUnzipper:
             children_map: dict,
         ):
             for valid_draft in containers.get(f"{container_cls.type_code}_drafts", []):
-                entity_key = valid_draft.pop("entity_key")
+                entity_ref = valid_draft.pop("entity_ref")
                 version_num = valid_draft["version_num"]  # Should exist, validated earlier
-                if self._is_version_already_exists(entity_key, version_num):
+                if self._is_version_already_exists(entity_ref, version_num):
                     continue
                 children = self._resolve_children(valid_draft, children_map)
                 del valid_draft["version_num"]
                 containers_api.create_next_container_version(
-                    container_map[entity_key],
+                    container_map[entity_ref],
                     **valid_draft,  # should this be allowed to override any of the following fields?
                     entities=children,
                     force_version_num=version_num,
                     created_by=self.user_id,
                 )
 
-        _process_draft_containers(Unit, self.units_map_by_key, children_map=self.components_map_by_key)
-        _process_draft_containers(Subsection, self.subsections_map_by_key, children_map=self.units_map_by_key)
-        _process_draft_containers(Section, self.sections_map_by_key, children_map=self.subsections_map_by_key)
+        _process_draft_containers(Unit, self.units_map_by_ref, children_map=self.components_map_by_ref)
+        _process_draft_containers(Subsection, self.subsections_map_by_ref, children_map=self.units_map_by_ref)
+        _process_draft_containers(Section, self.sections_map_by_ref, children_map=self.subsections_map_by_ref)
 
     # --------------------------
     # Utilities
@@ -933,9 +963,9 @@ class LearningPackageUnzipper:
             return None
         return StringIO(content)
 
-    def _is_version_already_exists(self, entity_key: str, version_num: int) -> bool:
+    def _is_version_already_exists(self, entity_ref: str, version_num: int) -> bool:
         """
-        Check if a version already exists for a given entity key and version number.
+        Check if a version already exists for a given entity_ref and version number.
 
         Note:
             Skip creating draft if this version is already published
@@ -944,20 +974,21 @@ class LearningPackageUnzipper:
             Otherwise, we will raise an IntegrityError on PublishableEntityVersion
             due to unique constraints between publishable_entity and version_num.
         """
-        identifier = (entity_key, version_num)
+        identifier = (entity_ref, version_num)
         return identifier in self.all_published_entities_versions
 
     def _resolve_static_files(
             self,
             num_version: int,
-            entity_key: str,
+            entity_ref: str,
+            component_type: ComponentType,
             static_files_map: dict[str, List[str]]
     ) -> dict[str, bytes | int]:
         """Resolve static file paths into their binary media content."""
         resolved_files: dict[str, bytes | int] = {}
 
-        static_file_key = f"{entity_key}:v{num_version}"  # e.g., "xblock.v1:html:my_component_123456:v1"
-        block_type = entity_key.split(":")[1]  # e.g., "html"
+        static_file_key = f"{entity_ref}:v{num_version}"  # e.g., "xblock.v1:html:my_component_123456:v1"
+        block_type = component_type.name  # e.g., "html"
         static_files = static_files_map.get(static_file_key, [])
         for static_file in static_files:
             local_key = static_file.split(f"v{num_version}/")[-1]
@@ -980,9 +1011,9 @@ class LearningPackageUnzipper:
         return resolved_files
 
     def _resolve_children(self, entity_data: dict[str, Any], lookup_map: dict[str, Any]) -> list[Any]:
-        """Resolve child entity keys into model instances."""
-        children_keys = entity_data.pop("children", [])
-        return [lookup_map[key] for key in children_keys if key in lookup_map]
+        """Resolve child entity refs into model instances."""
+        children_refs = entity_data.pop("children", [])
+        return [lookup_map[ref] for ref in children_refs if ref in lookup_map]
 
     def _load_entity_data(
         self, entity_file: str
@@ -1002,7 +1033,7 @@ class LearningPackageUnzipper:
                 continue
             serializer = serializer_cls(
                 data={
-                    "entity_key": entity_data["key"],
+                    "entity_ref": entity_data["entity_ref"],
                     "created": self.utc_now,
                     "created_by": None,
                     **version

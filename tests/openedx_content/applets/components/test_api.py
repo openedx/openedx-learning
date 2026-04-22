@@ -35,7 +35,7 @@ class ComponentTestCase(TestCase):
     @classmethod
     def setUpTestData(cls) -> None:
         cls.learning_package = publishing_api.create_learning_package(
-            key="ComponentTestCase-test-key",
+            package_ref="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
         )
         cls.now = datetime(2023, 5, 8, tzinfo=timezone.utc)
@@ -54,14 +54,14 @@ class ComponentTestCase(TestCase):
             ),
         )
 
-    def create_component(self, *, title: str = "Test Component", key: str = "component:1") -> tuple[
+    def create_component(self, *, title: str = "Test Component", component_code: str = "component_1") -> tuple[
         Component, ComponentVersion
     ]:
         """ Helper method to quickly create a component """
         return components_api.create_component_and_version(
             self.learning_package.id,
             component_type=self.problem_type,
-            local_key=key,
+            component_code=component_code,
             title=title,
             created=self.now,
             created_by=None,
@@ -86,7 +86,7 @@ class PerformanceTestCase(ComponentTestCase):
         component, _version = components_api.create_component_and_version(
             self.learning_package.id,
             component_type=self.problem_type,
-            local_key="Query Counting",
+            component_code="Query_Counting",
             title="Querying Counting Problem",
             created=self.now,
             created_by=None,
@@ -131,7 +131,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.published_problem, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=v2_problem_type,
-            local_key="pp_lk",
+            component_code="pp_lk",
             title="Published Problem",
             created=cls.now,
             created_by=None,
@@ -139,7 +139,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.published_html, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=cls.html_type,
-            local_key="ph_lk",
+            component_code="ph_lk",
             title="Published HTML",
             created=cls.now,
             created_by=None,
@@ -153,7 +153,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.unpublished_problem, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=v2_problem_type,
-            local_key="upp_lk",
+            component_code="upp_lk",
             title="Unpublished Problem",
             created=cls.now,
             created_by=None,
@@ -161,7 +161,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.unpublished_html, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=cls.html_type,
-            local_key="uph_lk",
+            component_code="uph_lk",
             title="Unpublished HTML",
             created=cls.now,
             created_by=None,
@@ -172,7 +172,7 @@ class GetComponentsTestCase(ComponentTestCase):
         cls.deleted_video, _version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=cls.video_type,
-            local_key="dv_lk",
+            component_code="dv_lk",
             title="Deleted Video",
             created=cls.now,
             created_by=None,
@@ -324,14 +324,14 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
         cls.problem = components_api.create_component(
             cls.learning_package.id,
             component_type=cls.problem_type,
-            local_key='my_component',
+            component_code='my_component',
             created=cls.now,
             created_by=None,
         )
         cls.html = components_api.create_component(
             cls.learning_package.id,
             component_type=cls.html_type,
-            local_key='my_component',
+            component_code='my_component',
             created=cls.now,
             created_by=None,
             can_stand_alone=False,
@@ -342,47 +342,47 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
         with self.assertRaises(ObjectDoesNotExist):
             components_api.get_component(-1)
 
-    def test_publishing_entity_key_convention(self):
-        """Our mapping convention is {namespace}:{component_type}:{local_key}"""
-        assert self.problem.key == "xblock.v1:problem:my_component"
+    def test_publishing_entity_ref_convention(self):
+        """entity_ref convention: {namespace}:{component_type}:{component_code}"""
+        assert self.problem.entity_ref == "xblock.v1:problem:my_component"
 
     def test_stand_alone_flag(self):
         """Check if can_stand_alone flag is set"""
-        component = components_api.get_component_by_key(
+        component = components_api.get_component_by_code(
             self.learning_package.id,
             namespace='xblock.v1',
             type_name='html',
-            local_key='my_component',
+            component_code='my_component',
         )
         assert not component.publishable_entity.can_stand_alone
 
-    def test_get_by_key(self):
-        assert self.html == components_api.get_component_by_key(
+    def test_get_by_code(self):
+        assert self.html == components_api.get_component_by_code(
             self.learning_package.id,
             namespace='xblock.v1',
             type_name='html',
-            local_key='my_component',
+            component_code='my_component',
         )
         with self.assertRaises(ObjectDoesNotExist):
-            components_api.get_component_by_key(
+            components_api.get_component_by_code(
                 self.learning_package.id,
                 namespace='xblock.v1',
                 type_name='video',  # 'video' doesn't match anything we have
-                local_key='my_component',
+                component_code='my_component',
             )
 
-    def test_exists_by_key(self):
-        assert components_api.component_exists_by_key(
+    def test_exists_by_code(self):
+        assert components_api.component_exists_by_code(
             self.learning_package.id,
             namespace='xblock.v1',
             type_name='problem',
-            local_key='my_component',
+            component_code='my_component',
         )
-        assert not components_api.component_exists_by_key(
+        assert not components_api.component_exists_by_code(
             self.learning_package.id,
             namespace='xblock.v1',
             type_name='problem',
-            local_key='not_my_component',
+            component_code='not_my_component',
         )
 
 
@@ -399,7 +399,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         cls.problem = components_api.create_component(
             cls.learning_package.id,
             component_type=cls.problem_type,
-            local_key='my_component',
+            component_code='my_component',
             created=cls.now,
             created_by=None,
         )
@@ -422,7 +422,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         components_api.create_component_version_media(
             new_version.pk,
             new_media.pk,
-            key="my/path/to/hello.txt",
+            path="my/path/to/hello.txt",
         )
         # re-fetch from the database to check to see if we wrote it correctly
         new_version = components_api.get_component(self.problem.id) \
@@ -430,7 +430,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
                                     .get(publishable_entity_version__version_num=1)
         assert (
             new_media ==
-            new_version.media.get(componentversionmedia__key="my/path/to/hello.txt")
+            new_version.media.get(componentversionmedia__path="my/path/to/hello.txt")
         )
 
         # Write the same content again, but to an absolute path (should auto-
@@ -438,14 +438,14 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         components_api.create_component_version_media(
             new_version.pk,
             new_media.pk,
-            key="//nested/path/hello.txt",
+            path="//nested/path/hello.txt",
         )
         new_version = components_api.get_component(self.problem.id) \
                                     .versions \
                                     .get(publishable_entity_version__version_num=1)
         assert (
             new_media ==
-            new_version.media.get(componentversionmedia__key="nested/path/hello.txt")
+            new_version.media.get(componentversionmedia__path="nested/path/hello.txt")
         )
 
     def test_bytes_content(self):
@@ -461,8 +461,8 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             created=self.now,
         )
 
-        content_txt = version_1.media.get(componentversionmedia__key="raw.txt")
-        content_raw_txt = version_1.media.get(componentversionmedia__key="no_ext")
+        content_txt = version_1.media.get(componentversionmedia__path="raw.txt")
+        content_raw_txt = version_1.media.get(componentversionmedia__path="no_ext")
 
         assert content_txt.size == len(bytes_media)
         assert str(content_txt.media_type) == 'text/plain'
@@ -509,12 +509,12 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         assert (
             hello_media ==
             version_1.media
-                     .get(componentversionmedia__key="hello.txt")
+                     .get(componentversionmedia__path="hello.txt")
         )
         assert (
             goodbye_media ==
             version_1.media
-                     .get(componentversionmedia__key="goodbye.txt")
+                     .get(componentversionmedia__path="goodbye.txt")
         )
 
         # This should keep the old value for goodbye.txt, add blank.txt, and set
@@ -533,17 +533,17 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         assert (
             blank_media ==
             version_2.media
-                     .get(componentversionmedia__key="hello.txt")
+                     .get(componentversionmedia__path="hello.txt")
         )
         assert (
             goodbye_media ==
             version_2.media
-                     .get(componentversionmedia__key="goodbye.txt")
+                     .get(componentversionmedia__path="goodbye.txt")
         )
         assert (
             blank_media ==
             version_2.media
-                     .get(componentversionmedia__key="blank.txt")
+                     .get(componentversionmedia__path="blank.txt")
         )
 
         # Now we're going to set "hello.txt" back to hello_content, but remove
@@ -564,7 +564,7 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         assert (
             hello_media ==
             version_3.media
-                     .get(componentversionmedia__key="hello.txt")
+                     .get(componentversionmedia__path="hello.txt")
         )
 
     def test_create_next_version_forcing_num_version(self):
@@ -626,17 +626,17 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         assert (
             python_source_asset ==
             version_2_draft.media.get(
-                componentversionmedia__key="static/profile.webp")
+                componentversionmedia__path="static/profile.webp")
         )
         assert (
             python_source_asset ==
             version_2_draft.media.get(
-                componentversionmedia__key="static/new_file.webp")
+                componentversionmedia__path="static/new_file.webp")
         )
         with self.assertRaises(ObjectDoesNotExist):
             # This file was in the published version, but not in the draft version
             # since we ignored previous content.
-            version_2_draft.media.get(componentversionmedia__key="static/background.webp")
+            version_2_draft.media.get(componentversionmedia__path="static/background.webp")
 
 
 class SetCollectionsTestCase(ComponentTestCase):
@@ -659,7 +659,7 @@ class SetCollectionsTestCase(ComponentTestCase):
         cls.published_problem, _ = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=v2_problem_type,
-            local_key="pp_lk",
+            component_code="pp_lk",
             title="Published Problem",
             created=cls.now,
             created_by=None,
@@ -696,31 +696,19 @@ class TestComponentTypeUtils(TestCase):
     Test the component type utility functions.
     """
 
-    def test_get_or_create_component_type_by_entity_key_creates_new(self):
-        comp_type, local_key = components_api.get_or_create_component_type_by_entity_key(
-            "video:youtube:abcd1234"
-        )
+    def test_get_or_create_component_type_creates_new(self):
+        comp_type = components_api.get_or_create_component_type("video", "youtube")
 
         assert isinstance(comp_type, ComponentType)
         assert comp_type.namespace == "video"
         assert comp_type.name == "youtube"
-        assert local_key == "abcd1234"
         assert ComponentType.objects.count() == 1
 
-    def test_get_or_create_component_type_by_entity_key_existing(self):
+    def test_get_or_create_component_type_existing(self):
         ComponentType.objects.create(namespace="video", name="youtube")
 
-        comp_type, local_key = components_api.get_or_create_component_type_by_entity_key(
-            "video:youtube:efgh5678"
-        )
+        comp_type = components_api.get_or_create_component_type("video", "youtube")
 
         assert comp_type.namespace == "video"
         assert comp_type.name == "youtube"
-        assert local_key == "efgh5678"
         assert ComponentType.objects.count() == 1
-
-    def test_get_or_create_component_type_by_entity_key_invalid_format(self):
-        with self.assertRaises(ValueError) as ctx:
-            components_api.get_or_create_component_type_by_entity_key("not-enough-parts")
-
-        self.assertIn("Invalid entity_key format", str(ctx.exception))
