@@ -104,6 +104,8 @@ or other entity types.
 Collections and tags are not `PublishableEntity`-based, so do not participate in
 this event.
 
+💾 This event is only emitted after any transaction has been committed.
+
 ⏳ This **batch** event is emitted **synchronously**. Handlers that do anything
 per-entity or that is possibly slow should dispatch an asynchronous task for
 processing the event.
@@ -137,6 +139,8 @@ or other entity types.
 
 Collections and tags are not `PublishableEntity`-based, so do not participate in
 this event.
+
+💾 This event is only emitted after any transaction has been committed.
 
 ⏳ This **batch** event is emitted **synchronously**. Handlers that do anything
 per-entity or that is possibly slow should dispatch an asynchronous task for

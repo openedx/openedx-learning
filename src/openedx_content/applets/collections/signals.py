@@ -52,6 +52,8 @@ This is a low-level batch event. It does not have any course or library context
 information available. It does not distinguish between Containers, Components,
 or other entity types.
 
+💾 This event is only emitted after any transaction has been committed.
+
 ⏳ This **batch** event is emitted **synchronously**. Handlers that do anything
 per-entity or that is possibly slow should dispatch an asynchronous task for
 processing the event.
