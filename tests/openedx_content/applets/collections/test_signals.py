@@ -435,3 +435,92 @@ def test_entity_draft_deleted_aborted(lp1: LearningPackage) -> None:
     with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
         with abort_transaction():
             api.soft_delete_draft(entity.id)
+
+
+# LEARNING_PACKAGE_COLLECTION_CHANGED — on entity draft restore (deletion reverted)
+
+
+def test_entity_draft_restored_in_collection(lp1: LearningPackage) -> None:
+    """
+    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with entities_added
+    when a soft-deleted entity's draft is restored while it is in a collection.
+    """
+    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    entity = _create_entity_with_version(lp1.id, "entity1")
+    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+    api.soft_delete_draft(entity.id)
+
+    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=1) as captured:
+        api.create_publishable_entity_version(
+            entity.id, version_num=2, title="entity1 v2", created=now_time, created_by=None
+        )
+
+    event = captured[0]
+    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.kwargs["learning_package"].id == lp1.id
+    assert event.kwargs["change"] == CollectionChangeData(
+        collection_id=collection.id,
+        collection_code="col1",
+        entities_added=[entity.id],
+    )
+
+
+def test_entity_draft_restored_multiple_collections(lp1: LearningPackage) -> None:
+    """
+    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted once per collection
+    when a restored entity belongs to multiple collections.
+    """
+    col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    col2 = api.create_collection(lp1.id, "col2", title="Collection 2", created_by=None)
+    entity = _create_entity_with_version(lp1.id, "entity1")
+    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+    api.add_to_collection(lp1.id, "col2", PublishableEntity.objects.filter(id=entity.id))
+    original_version = api.get_draft_version(entity)
+    assert original_version is not None
+
+    api.soft_delete_draft(entity.id)
+
+    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=2) as captured:
+        # Restore the deleted draft to its previous version:
+        api.set_draft_version(entity.id, original_version.id)
+
+    events_by_collection = {e.kwargs["change"].collection_id: e for e in captured}
+    assert set(events_by_collection.keys()) == {col1.id, col2.id}
+    assert events_by_collection[col1.id].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        entities_added=[entity.id],
+    )
+    assert events_by_collection[col2.id].kwargs["change"] == CollectionChangeData(
+        collection_id=col2.id,
+        collection_code="col2",
+        entities_added=[entity.id],
+    )
+
+
+def test_entity_draft_restored_aborted(lp1: LearningPackage) -> None:
+    """
+    Test that no LEARNING_PACKAGE_COLLECTION_CHANGED is emitted when the
+    restore transaction is rolled back.
+    """
+    api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    entity = _create_entity_with_version(lp1.id, "entity1")
+    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+    api.soft_delete_draft(entity.id)
+
+    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
+        with abort_transaction():
+            api.create_publishable_entity_version(
+                entity.id, version_num=2, title="entity1 v2", created=now_time, created_by=None
+            )
+
+
+def test_entity_created_no_collection_event(lp1: LearningPackage) -> None:
+    """
+    Test that no LEARNING_PACKAGE_COLLECTION_CHANGED is emitted when a brand-new
+    entity gets its first version — even though the change log also has old_version=None.
+
+    A freshly created entity is never in any collections yet, so the task is a no-op.
+    """
+    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
+        _create_entity_with_version(lp1.id, "entity1")

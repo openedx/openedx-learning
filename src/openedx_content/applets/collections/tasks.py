@@ -18,28 +18,45 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task
-def emit_collections_changed_for_deleted_entities_task(
-    entity_ids: list[int],
+def emit_collections_changed_for_entity_changes_task(
+    removed_entity_ids: list[int],
+    added_entity_ids: list[int],
     user_id: int | None,
 ) -> int:
     """
-    Emit LEARNING_PACKAGE_COLLECTION_CHANGED for each collection that contains
-    any of the given (now-deleted) entities, listing them as entities_removed.
+    Emit LEARNING_PACKAGE_COLLECTION_CHANGED for each collection affected by
+    entity draft deletions or restorations.
 
-    Triggered by LEARNING_PACKAGE_ENTITIES_CHANGED when entity drafts are deleted.
+    For each collection that contains any of the given entities, emits one event
+    with entities_removed (for deletions) and/or entities_added (for restorations).
+    A single event covers both if the same collection has entities in both lists.
+
+    Triggered by LEARNING_PACKAGE_ENTITIES_CHANGED. New entities (old_version=None
+    → new_version is not None) that aren't in any collection result in a no-op.
     """
+    all_entity_ids = list(set(removed_entity_ids) | set(added_entity_ids))
+    if not all_entity_ids:
+        return 0
+
     affected_cpes = (
         CollectionPublishableEntity.objects
-        .filter(entity_id__in=entity_ids)
+        .filter(entity_id__in=all_entity_ids)
         .select_related("collection__learning_package")
         .order_by("collection_id", "entity_id")
     )
 
     collection_map: dict[int, Collection] = {}
-    entity_map: dict[int, list[PublishableEntity.ID]] = defaultdict(list)
+    removed_map: dict[int, list[PublishableEntity.ID]] = defaultdict(list)
+    added_map: dict[int, list[PublishableEntity.ID]] = defaultdict(list)
+    removed_set = set(removed_entity_ids)
+    added_set = set(added_entity_ids)
+
     for cpe in affected_cpes:
         collection_map[cpe.collection_id] = cpe.collection
-        entity_map[cpe.collection_id].append(cpe.entity_id)
+        if cpe.entity_id in removed_set:
+            removed_map[cpe.collection_id].append(cpe.entity_id)
+        if cpe.entity_id in added_set:
+            added_map[cpe.collection_id].append(cpe.entity_id)
 
     emitted_events = 0
     for collection_id, collection in collection_map.items():
@@ -55,14 +72,18 @@ def emit_collections_changed_for_deleted_entities_task(
             change=CollectionChangeData(
                 collection_id=collection.id,
                 collection_code=collection.collection_code,
-                entities_removed=entity_map[collection_id],
+                entities_removed=removed_map[collection_id],
+                entities_added=added_map[collection_id],
             ),
         )
         emitted_events += 1
 
-    logger.info(
-        "Entities deleted (ids: %s): emitted LEARNING_PACKAGE_COLLECTION_CHANGED for %s collections.",
-        entity_ids,
-        emitted_events,
-    )
+    if emitted_events:
+        logger.info(
+            "Entity draft changes (removed=%s, added=%s): emitted LEARNING_PACKAGE_COLLECTION_CHANGED"
+            " for %s collections.",
+            removed_entity_ids,
+            added_entity_ids,
+            emitted_events,
+        )
     return emitted_events

@@ -6,7 +6,7 @@ from django.db import transaction
 from django.dispatch import receiver
 
 from ..publishing.signals import LEARNING_PACKAGE_ENTITIES_CHANGED, DraftChangeLogEventData, UserAttributionEventData
-from .tasks import emit_collections_changed_for_deleted_entities_task
+from .tasks import emit_collections_changed_for_entity_changes_task
 
 
 @receiver(LEARNING_PACKAGE_ENTITIES_CHANGED)
@@ -16,21 +16,31 @@ def on_entities_changed(
     **kwargs,
 ):
     """
-    When entity drafts are deleted, update all affected collections.
+    When entity drafts are deleted or restored, notify affected collections.
 
-    Finds all deleted entities (new_version=None) from the change log and
-    dispatches a task to emit LEARNING_PACKAGE_COLLECTION_CHANGED for any
-    collections that contain those entities.
+    Dispatches a task to emit LEARNING_PACKAGE_COLLECTION_CHANGED for any
+    collections that contain the changed entities.
     """
-    deleted_entity_ids = [record.entity_id for record in change_log.changes if record.new_version is None]
+    removed_entity_ids = [record.entity_id for record in change_log.changes if record.new_version is None]
+    # old_version=None covers both brand-new entities and restored soft-deletes; we can't distinguish
+    # them here without a DB query. The task is a no-op for new entities (not yet in any collection).
+    # TODO: if ChangeLogRecordData gains a 'restored' flag, filter to only restored entities here.
+    # (Newly-created entities cannot be part of collections yet, so we only care about entities that
+    # were previously in collections, then deleted and then restored.)
+    added_entity_ids = [
+        record.entity_id
+        for record in change_log.changes
+        if record.old_version is None and record.new_version is not None
+    ]
 
-    if not deleted_entity_ids:
+    if not removed_entity_ids and not added_entity_ids:
         return
 
     transaction.on_commit(
         partial(
-            emit_collections_changed_for_deleted_entities_task.delay,
-            entity_ids=deleted_entity_ids,
+            emit_collections_changed_for_entity_changes_task.delay,
+            removed_entity_ids=removed_entity_ids,
+            added_entity_ids=added_entity_ids,
             user_id=changed_by.user_id,
         )
     )
