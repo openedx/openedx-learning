@@ -11,8 +11,12 @@ APIs.
 # These wildcard imports are okay because these api modules declare __all__.
 # pylint: disable=wildcard-import,unused-import
 
-# Signals are kept in a separate namespace:
-from . import api_signals as signals
+# Signals are kept in a separate namespace, for two reasons:
+# (1) so they can easily be imported/used as `api.signals` (e.g. `from openedx_content import api`, use `api.signals.x`)
+# (2) to avoid confusion between event data structures and other API symbols with similar names (e.g.
+#     `DraftChangeLogEventData` vs `DraftChangeLogRecord` is clearer if the former is `signals.DraftChangeLogEventData`)
+from . import signals
+# The rest of the public API (other than models):
 from .applets.backup_restore.api import *
 from .applets.collections.api import *
 from .applets.components.api import *
