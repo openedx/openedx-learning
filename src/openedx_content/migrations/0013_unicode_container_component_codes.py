@@ -14,7 +14,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('openedx_content', '0012_rename_componentversionmedia_key_to_path'),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
