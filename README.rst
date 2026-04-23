@@ -11,7 +11,10 @@ Overview
 
 The ``openedx-core`` project holds Django apps which represent core teaching & learning platform concepts.
 
-Each app exposes stable, public API of Python functions and Django models. Some apps additionally provides REST APIs. These APIs are suitable for use in ``openedx-platform`` as well as in community-developed Open edX plugins.
+Each app exposes a public API of Python functions and Django models; some apps also provide REST APIs. These APIs are suitable for use in openedx-platform and in community-developed Open edX plugins.
+
+APIs marked "UNSTABLE" are subject to change at any time. All other APIs are considered stable, and any breaking changes will be announced through the community DEPR (deprecation and removal) process.
+
 
 Motivation
 ----------
