@@ -578,11 +578,6 @@ def get_entity_draft_history(
     Return DraftChangeLogRecords for a PublishableEntity since its last publication,
     ordered from most recent to oldest.
 
-    Each record pre-fetches ``entity__component__component_type`` so callers can
-    access ``record.entity.component.component_type`` (namespace and name) without
-    extra queries. Note: accessing ``.component`` on a record whose entity backs a
-    Container rather than a Component will raise ``RelatedObjectDoesNotExist``.
-
     Edge cases:
     - Never published, no versions: returns an empty queryset.
     - Never published, has versions: returns all DraftChangeLogRecords.
@@ -605,7 +600,6 @@ def get_entity_draft_history(
         .filter(entity_id=entity_id)
         .select_related(
             "draft_change_log__changed_by",
-            "entity__component__component_type",
             "old_version",
             "new_version",
         )
@@ -650,13 +644,6 @@ def get_entity_publish_history(
     """
     Return all PublishLogRecords for a PublishableEntity, ordered most recent first.
 
-    Each record represents one publish event for this entity. old_version,
-    new_version, and ``entity__component__component_type`` are pre-fetched so
-    callers can access ``record.entity.component.component_type`` (namespace and
-    name) without extra queries. Note: accessing ``.component`` on a record whose
-    entity backs a Container rather than a Component will raise
-    ``RelatedObjectDoesNotExist``.
-
     Edge cases:
     - Never published: returns an empty queryset.
     - Soft-delete published (new_version=None): the record is included with
@@ -676,7 +663,6 @@ def get_entity_publish_history(
         .filter(entity_id=entity_id)
         .select_related(
             "publish_log__published_by",
-            "entity__component__component_type",
             "old_version",
             "new_version",
         )
@@ -701,11 +687,6 @@ def get_entity_publish_history_entries(
     has no single version_num field (soft-delete records have new_version=None),
     and using published_at timestamps cleanly handles all cases without extra
     joins.
-
-    Each record pre-fetches ``entity__component__component_type`` so callers can
-    access ``record.entity.component.component_type`` (namespace and name) without
-    extra queries. Note: accessing ``.component`` on a record whose entity backs a
-    Container rather than a Component will raise ``RelatedObjectDoesNotExist``.
 
     Edge cases:
     - Each publish group is independent: only the DraftChangeLogRecords that
@@ -748,7 +729,6 @@ def get_entity_publish_history_entries(
         .filter(entity_id=entity_id, draft_change_log__changed_at__lte=published_at)
         .select_related(
             "draft_change_log__changed_by",
-            "entity__component__component_type",
             "old_version",
             "new_version",
         )
