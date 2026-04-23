@@ -111,6 +111,14 @@ def create_learning_package(
     )
     package.full_clean()
     package.save()
+    new_id = package.id
+
+    def send_event():
+        signals.LEARNING_PACKAGE_CREATED.send_event(
+            learning_package=signals.LearningPackageEventData(id=new_id, title=title),
+        )
+
+    on_commit(send_event)
 
     return package
 

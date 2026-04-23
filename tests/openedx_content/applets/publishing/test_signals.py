@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from openedx_content import api
-from openedx_content.models_api import PublishableEntity, PublishLog
+from openedx_content.models_api import LearningPackage, PublishableEntity, PublishLog
 from tests.utils import abort_transaction, capture_events
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -33,6 +33,98 @@ def change_record(obj: PublishableEntity, old_version: int | None, new_version: 
         new_version_id=new_version_id,
         direct=direct,
     )
+
+
+# LEARNING_PACKAGE_CREATED
+
+
+def test_learning_package_created() -> None:
+    """
+    Test that LEARNING_PACKAGE_CREATED is emitted when a new ``LearningPackage``
+    is created.
+    """
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_CREATED], expected_count=1) as captured:
+        learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+
+    event = captured[0]
+    assert event.signal is api.signals.LEARNING_PACKAGE_CREATED
+    assert event.kwargs["learning_package"].id == learning_package.id
+    assert event.kwargs["learning_package"].title == "Test LP 📦"
+
+
+def test_learning_package_created_not_emitted_on_update() -> None:
+    """
+    Test that updating an existing ``LearningPackage`` does NOT emit
+    LEARNING_PACKAGE_CREATED. The event is only for new rows.
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_CREATED], expected_count=0):
+        api.update_learning_package(learning_package.id, title="Updated Title")
+
+
+def test_learning_package_created_aborted() -> None:
+    """
+    Test that LEARNING_PACKAGE_CREATED is NOT emitted when the transaction
+    that created the ``LearningPackage`` is rolled back.
+    """
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_CREATED], expected_count=0):
+        with abort_transaction():
+            api.create_learning_package(key="lp1", title="Test LP 📦")
+
+
+# LEARNING_PACKAGE_DELETED
+
+
+def test_learning_package_deleted() -> None:
+    """
+    Test that LEARNING_PACKAGE_DELETED is emitted when a ``LearningPackage``
+    is deleted.
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+    lp_id = learning_package.id
+
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_DELETED], expected_count=1) as captured:
+        learning_package.delete()
+
+    event = captured[0]
+    assert event.signal is api.signals.LEARNING_PACKAGE_DELETED
+    assert event.kwargs["learning_package"].id == lp_id
+    assert event.kwargs["learning_package"].title == "Test LP 📦"
+
+
+def test_learning_package_deleted_via_queryset() -> None:
+    """
+    Test that LEARNING_PACKAGE_DELETED fires once per row when multiple
+    ``LearningPackage`` instances are deleted via a ``QuerySet.delete()``.
+    """
+    lp1 = api.create_learning_package(key="lp1", title="LP 1")
+    lp2 = api.create_learning_package(key="lp2", title="LP 2")
+
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_DELETED], expected_count=2) as captured:
+        LearningPackage.objects.filter(id__in=[lp1.id, lp2.id]).delete()
+
+    deleted_ids = {event.kwargs["learning_package"].id for event in captured}
+    assert deleted_ids == {lp1.id, lp2.id}
+
+
+def test_learning_package_deleted_aborted() -> None:
+    """
+    Test that LEARNING_PACKAGE_DELETED is NOT emitted when the transaction
+    that would have deleted the ``LearningPackage`` is rolled back.
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+    lp_id = learning_package.id
+
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_DELETED], expected_count=0):
+        with abort_transaction():
+            learning_package.delete()
+
+    # Confirm it's still in the database (the row survived the rollback).
+    # Note: we can't use ``learning_package.id`` here because Django sets
+    # ``instance.id = None`` after ``.delete()``, even if the transaction
+    # ultimately rolls back; that's why we captured it beforehand.
+    assert LearningPackage.objects.filter(id=lp_id).exists()
 
 
 # LEARNING_PACKAGE_ENTITIES_CHANGED

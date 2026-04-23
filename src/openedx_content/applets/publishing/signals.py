@@ -17,6 +17,8 @@ __all__ = [
     "DraftChangeLogEventData",
     "PublishLogEventData",
     # All events:
+    "LEARNING_PACKAGE_CREATED",
+    "LEARNING_PACKAGE_DELETED",
     "LEARNING_PACKAGE_ENTITIES_CHANGED",
     "LEARNING_PACKAGE_ENTITIES_PUBLISHED",
 ]
@@ -82,6 +84,59 @@ class PublishLogEventData:
     changes: list[ChangeLogRecordData]
 
 
+LEARNING_PACKAGE_CREATED = OpenEdxPublicSignal(
+    event_type="org.openedx.content.publishing.lp_created.v1",
+    data={
+        "learning_package": LearningPackageEventData,
+    },
+)
+"""
+A new ``LearningPackage`` has been created.
+
+This is emitted exactly once per ``LearningPackage``, after the row is inserted
+in the database. This is a low-level event. It's most likely that the Learning
+Package is still being prepared/populated, and any necessary relationships,
+entities, metadata, or other data may not yet exist at the time this event is
+emitted.
+
+💾 This event is only emitted after the enclosing database transaction has
+been committed. If the transaction is rolled back, no event is emitted.
+
+⏳ This event is emitted synchronously.
+"""
+
+
+LEARNING_PACKAGE_DELETED = OpenEdxPublicSignal(
+    event_type="org.openedx.content.publishing.lp_deleted.v1",
+    data={
+        "learning_package": LearningPackageEventData,
+    },
+)
+"""
+A ``LearningPackage`` has been deleted.
+
+This is emitted exactly once per ``LearningPackage``, after the row has been
+removed from the database. It is emitted regardless of how the row was deleted
+(via a direct ORM ``.delete()`` call, via the Django admin, or as part of a
+``QuerySet.delete()``), because it is fired by a Django ``post_delete`` signal
+on the ``LearningPackage`` model.
+
+Note: at the time this event is emitted, the ``LearningPackage`` and all of
+its related content (entities, versions, drafts, publishes, etc.) have already
+been removed from the database. Handlers cannot look up the learning package
+by ID — they only get the ``id`` and ``title`` that are captured in the
+``LearningPackageEventData`` payload.
+
+🗑️ Unlike other ``publishing`` events, the effects of this deletion are
+completely irreversible and the LearningPackage cannot be restored/un-deleted.
+
+💾 This event is only emitted after the enclosing database transaction has
+been committed. If the transaction is rolled back, no event is emitted.
+
+⏳ This event is emitted synchronously.
+"""
+
+
 LEARNING_PACKAGE_ENTITIES_CHANGED = OpenEdxPublicSignal(
     event_type="org.openedx.content.publishing.lp_entities_changed.v1",
     data={
@@ -108,7 +163,8 @@ or other entity types.
 Collections and tags are not `PublishableEntity`-based, so do not participate in
 this event.
 
-💾 This event is only emitted after any transaction has been committed.
+💾 This event is only emitted after the enclosing database transaction has
+been committed. If the transaction is rolled back, no event is emitted.
 
 ⏳ This **batch** event is emitted **synchronously**. Handlers that do anything
 per-entity or that is possibly slow should dispatch an asynchronous task for
@@ -144,7 +200,8 @@ or other entity types.
 Collections and tags are not `PublishableEntity`-based, so do not participate in
 this event.
 
-💾 This event is only emitted after any transaction has been committed.
+💾 This event is only emitted after the enclosing database transaction has
+been committed. If the transaction is rolled back, no event is emitted.
 
 ⏳ This **batch** event is emitted **synchronously**. Handlers that do anything
 per-entity or that is possibly slow should dispatch an asynchronous task for
