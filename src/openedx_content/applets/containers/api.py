@@ -74,7 +74,7 @@ __all__ = [
 @dataclass(frozen=True)
 class ContainerEntityListEntry:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Data about a single entity in a container, e.g. a component in a unit.
     """
 
@@ -143,7 +143,7 @@ def create_container(
     can_stand_alone: bool = True,
 ) -> ContainerModel:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Create a new container.
 
     Args:
@@ -183,7 +183,7 @@ def create_container(
 
 def create_entity_list() -> EntityList:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Create a new entity list. This is an structure that holds a list of entities
     that will be referenced by the container.
 
@@ -199,7 +199,7 @@ def create_entity_list_with_rows(
     learning_package_id: LearningPackage.ID | None,
 ) -> EntityList:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Create new entity list rows for an entity list.
 
     Args:
@@ -305,7 +305,7 @@ def create_container_version(
     created_by: int | None,
 ) -> ContainerVersion:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Create a new container version.
 
     Args:
@@ -355,7 +355,7 @@ def create_container_and_version(
     can_stand_alone: bool = True,
 ) -> tuple[ContainerModel, ContainerVersionModel]:
     """
-    [ 🛑 UNSTABLE ] Create a new container and its initial version.
+    [ ❓TODO: STABLE or UNSTABLE? ] Create a new container and its initial version.
 
     Args:
         learning_package_id: The learning package ID.
@@ -470,7 +470,7 @@ def create_next_container_version(
     force_version_num: int | None = None,
 ) -> ContainerVersion:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Create the next version of a container. A new version of the container is created
     only when its metadata changes:
 
@@ -543,7 +543,7 @@ def create_next_container_version(
 
 def get_container(pk: Container.ID) -> Container:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Get a container by its primary key.
 
     This returns the Container, not any specific version. It may not be published, or may have been soft deleted.
@@ -559,7 +559,7 @@ def get_container(pk: Container.ID) -> Container:
 
 def get_container_version(container_version_pk: int) -> ContainerVersion:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Get a container version by its primary key.
 
     Args:
@@ -573,7 +573,7 @@ def get_container_version(container_version_pk: int) -> ContainerVersion:
 
 def get_container_by_code(learning_package_id: LearningPackage.ID, /, container_code: str) -> Container:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Get a container by its learning package and container code.
 
     Args:
@@ -639,7 +639,7 @@ def get_containers(
     include_deleted: bool | None = False,
 ) -> QuerySet[Container]:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Get all containers in the given learning package.
 
     Args:
@@ -667,7 +667,7 @@ def get_entities_in_container(
     select_related_version: str | None = None,
 ) -> list[ContainerEntityListEntry]:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Get the list of entities and their versions in the current draft or
     published version of the given container.
 
@@ -726,7 +726,7 @@ def get_entities_in_container_as_of(
     publish_log_id: int,
 ) -> tuple[ContainerVersion | None, list[ContainerEntityListEntry]]:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Get the list of entities and their versions in the published version of the
     given container as of the given PublishLog version (which is essentially a
     version for the entire learning package).
@@ -760,7 +760,7 @@ def get_entities_in_container_as_of(
 
 def contains_unpublished_changes(container_or_pk: Container | Container.ID, /) -> bool:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Check recursively if a container has any unpublished changes.
 
     Note: I've preserved the API signature for now, but we probably eventually
@@ -813,7 +813,7 @@ def get_containers_with_entity(
     published=False,
 ) -> QuerySet[Container]:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Find all draft containers that directly contain the given entity.
 
     They will always be from the same learning package; cross-package containers
@@ -854,7 +854,7 @@ def get_container_children_count(
     published: bool,
 ):
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Get the count of entities in the current draft or published version of the given container.
 
     Args:
@@ -892,7 +892,7 @@ def get_container_children_entity_refs(container_version: ContainerVersion) -> l
 
 def get_descendant_component_entity_ids(container: Container) -> list[int]:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Return the entity IDs of all leaf (non-Container) descendants of ``container``.
 
     Intermediate containers (e.g. Subsections, Units) are never included in the

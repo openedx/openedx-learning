@@ -621,7 +621,7 @@ def get_entity_draft_history(
     publishable_entity_or_id: PublishableEntity | int, /
 ) -> QuerySet[DraftChangeLogRecord]:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Return DraftChangeLogRecords for a PublishableEntity since its last publication,
     ordered from most recent to oldest.
 
@@ -689,7 +689,7 @@ def get_entity_publish_history(
     publishable_entity_or_id: PublishableEntity | int, /
 ) -> QuerySet[PublishLogRecord]:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Return all PublishLogRecords for a PublishableEntity, ordered most recent first.
 
     Edge cases:
@@ -724,7 +724,7 @@ def get_entity_publish_history_entries(
     publish_log_uuid: str,
 ) -> QuerySet[DraftChangeLogRecord]:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Return the DraftChangeLogRecords associated with a specific PublishLog.
 
     Finds the PublishLogRecord for the given entity and publish_log_uuid, then
@@ -822,7 +822,7 @@ def get_entity_version_contributors(
     new_version_num: int | None,
 ) -> QuerySet:
     """
-    [ 🛑 UNSTABLE ]
+    [ ❓TODO: STABLE or UNSTABLE? ]
     Return distinct User queryset of contributors (changed_by) for
     DraftChangeLogRecords of a PublishableEntity after old_version_num.
 
