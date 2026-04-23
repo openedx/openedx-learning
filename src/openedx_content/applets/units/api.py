@@ -13,8 +13,6 @@ from ..containers.models import ContainerVersion
 from ..publishing.models import LearningPackage
 from .models import Unit, UnitVersion
 
-# 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
-#              out our approach to dynamic content (randomized, A/B tests, etc.)
 __all__ = [
     "get_unit",
     "create_unit_and_version",

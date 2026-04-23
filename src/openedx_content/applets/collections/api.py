@@ -1,5 +1,5 @@
 """
-Collections API (warning: UNSTABLE, in progress API)
+Collections API
 """
 
 from __future__ import annotations

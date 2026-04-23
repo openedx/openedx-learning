@@ -1,5 +1,5 @@
 """
-Containers API (warning: UNSTABLE, in progress API)
+Containers API
 """
 
 from __future__ import annotations
@@ -45,8 +45,6 @@ ContainerVersionModel = TypeVar("ContainerVersionModel", bound=ContainerVersion,
 # start with an underscore AND it is not in __all__, that function is considered
 # to be callable only by other apps in the authoring package.
 __all__ = [
-    # 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
-    #              out our approach to dynamic content (randomized, A/B tests, etc.)
     "ContainerSubclass",
     "ContainerImplementationMissingError",
     "create_container",
