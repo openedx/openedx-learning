@@ -1,4 +1,4 @@
-"""Shared fixtures for collection tests."""
+"""Shared fixtures for openedx_content tests."""
 
 import pytest
 from celery import current_app  # type: ignore[import]

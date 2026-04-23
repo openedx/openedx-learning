@@ -529,7 +529,7 @@ def publish_from_drafts(
                 published_draft_ids.add(draft.pk)
 
         _create_side_effects_for_change_log(publish_log)
-        _emit_event_for_change_log(publish_log, time_stamp=published_at, user_id=published_by)
+        _emit_event_for_change_log(publish_log, timestamp=published_at, user_id=published_by)
 
     return publish_log
 
@@ -716,7 +716,7 @@ def set_draft_version(
             draft.save()
             _create_side_effects_for_change_log(change_log)
             # Send out an event immediately after this database transaction commits, since this is an isolated change.
-            _emit_event_for_change_log(change_log, time_stamp=set_at, user_id=set_by)
+            _emit_event_for_change_log(change_log, timestamp=set_at, user_id=set_by)
 
 
 def _add_to_existing_draft_change_log(
@@ -953,7 +953,7 @@ def _create_side_effects_for_change_log(change_log: DraftChangeLog | PublishLog)
 
 
 def _emit_event_for_change_log(
-    change_log: PublishLog | DraftChangeLog, time_stamp: datetime, user_id: int | None
+    change_log: PublishLog | DraftChangeLog, timestamp: datetime, user_id: int | None
 ) -> None:
     """
     Construct and emit the _CHANGED / _PUBLISHED event when a set of entities is
@@ -986,15 +986,13 @@ def _emit_event_for_change_log(
         change_log_data = signals.PublishLogEventData(publish_log_id=change_log.id, changes=changes)
 
     # Send out an event immediately after this database transaction commits.
-    def send_change_event():
-        signal.send_event(
-            time=time_stamp,
-            learning_package=signals.LearningPackageEventData(id=learning_package_id, title=learning_package_title),
-            changed_by=signals.UserAttributionEventData(user_id=user_id),
-            change_log=change_log_data,
-        )
-
-    on_commit(send_change_event)
+    on_commit(partial(
+        signal.send_event,
+        time=timestamp,
+        learning_package=signals.LearningPackageEventData(id=learning_package_id, title=learning_package_title),
+        changed_by=signals.UserAttributionEventData(user_id=user_id),
+        change_log=change_log_data,
+    ))
 
 
 def update_dependencies_hash_digests_for_log(
@@ -1457,6 +1455,6 @@ def bulk_draft_changes_for(
         changed_by=changed_by,
         exit_callbacks=[
             _create_side_effects_for_change_log,
-            partial(_emit_event_for_change_log, time_stamp=changed_at, user_id=changed_by),
+            partial(_emit_event_for_change_log, timestamp=changed_at, user_id=changed_by),
         ]
     )

@@ -5,6 +5,7 @@ Collections API (warning: UNSTABLE, in progress API)
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import partial
 
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
@@ -51,24 +52,21 @@ def _queue_change_event(
     learning_package_title = collection.learning_package.title
 
     # Send out an event immediately after this database transaction commits.
-    def send_change_event():
-        signals.LEARNING_PACKAGE_COLLECTION_CHANGED.send_event(
-            time=collection.modified,
-            learning_package=signals.LearningPackageEventData(id=learning_package_id, title=learning_package_title),
-            # FIXME: most collections APIs are missing a user_id parameter.
-            changed_by=signals.UserAttributionEventData(user_id=user_id),
-            change=signals.CollectionChangeData(
-                collection_id=collection.id,
-                collection_code=collection.collection_code,
-                created=created,
-                metadata_modified=metadata_modified,
-                deleted=deleted,
-                entities_added=entities_added or [],
-                entities_removed=entities_removed or [],
-            ),
-        )
-
-    on_commit(send_change_event)
+    on_commit(partial(
+        signals.LEARNING_PACKAGE_COLLECTION_CHANGED.send_event,
+        time=collection.modified,
+        learning_package=signals.LearningPackageEventData(id=learning_package_id, title=learning_package_title),
+        changed_by=signals.UserAttributionEventData(user_id=user_id),
+        change=signals.CollectionChangeData(
+            collection_id=collection.id,
+            collection_code=collection.collection_code,
+            created=created,
+            metadata_modified=metadata_modified,
+            deleted=deleted,
+            entities_added=entities_added or [],
+            entities_removed=entities_removed or [],
+        ),
+    ))
 
 
 def create_collection(
