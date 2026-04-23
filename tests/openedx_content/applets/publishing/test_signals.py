@@ -73,6 +73,54 @@ def test_learning_package_created_aborted() -> None:
             api.create_learning_package(key="lp1", title="Test LP 📦")
 
 
+# LEARNING_PACKAGE_UPDATED
+
+
+def test_learning_package_updated() -> None:
+    """
+    Test that LEARNING_PACKAGE_UPDATED is emitted when
+    ``update_learning_package`` actually changes a field, and that the payload
+    reflects the post-update title.
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Original Title")
+
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_UPDATED], expected_count=1) as captured:
+        api.update_learning_package(learning_package.id, title="New Title 📦")
+
+    event = captured[0]
+    assert event.signal is api.signals.LEARNING_PACKAGE_UPDATED
+    assert event.kwargs["learning_package"].id == learning_package.id
+    assert event.kwargs["learning_package"].title == "New Title 📦"
+
+
+def test_learning_package_updated_noop() -> None:
+    """
+    Test that LEARNING_PACKAGE_UPDATED is NOT emitted when
+    ``update_learning_package`` is called with no field changes (the early
+    return in the API means the row is never saved).
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Test LP 📦")
+
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_UPDATED], expected_count=0):
+        api.update_learning_package(learning_package.id)
+
+
+def test_learning_package_updated_aborted() -> None:
+    """
+    Test that LEARNING_PACKAGE_UPDATED is NOT emitted when the transaction
+    that would have updated the ``LearningPackage`` is rolled back.
+    """
+    learning_package = api.create_learning_package(key="lp1", title="Original Title")
+
+    with capture_events(signals=[api.signals.LEARNING_PACKAGE_UPDATED], expected_count=0):
+        with abort_transaction():
+            api.update_learning_package(learning_package.id, title="Not going to stick")
+
+    # Confirm the title was not actually changed:
+    learning_package.refresh_from_db()
+    assert learning_package.title == "Original Title"
+
+
 # LEARNING_PACKAGE_DELETED
 
 

@@ -18,6 +18,7 @@ __all__ = [
     "PublishLogEventData",
     # All events:
     "LEARNING_PACKAGE_CREATED",
+    "LEARNING_PACKAGE_UPDATED",
     "LEARNING_PACKAGE_DELETED",
     "LEARNING_PACKAGE_ENTITIES_CHANGED",
     "LEARNING_PACKAGE_ENTITIES_PUBLISHED",
@@ -98,6 +99,35 @@ in the database. This is a low-level event. It's most likely that the Learning
 Package is still being prepared/populated, and any necessary relationships,
 entities, metadata, or other data may not yet exist at the time this event is
 emitted.
+
+💾 This event is only emitted after the enclosing database transaction has
+been committed. If the transaction is rolled back, no event is emitted.
+
+⏳ This event is emitted synchronously.
+"""
+
+
+LEARNING_PACKAGE_UPDATED = OpenEdxPublicSignal(
+    event_type="org.openedx.content.publishing.lp_updated.v1",
+    data={
+        "learning_package": LearningPackageEventData,
+    },
+)
+"""
+A ``LearningPackage``'s own metadata (key, title, and/or description) has been
+changed.
+
+This is emitted only when the ``update_learning_package`` API is called, with at
+least one field change that actually modifies the row.
+
+This event covers changes to the ``LearningPackage`` row itself (its ``key``,
+``title``, and ``description``). Changes to the content inside the package
+(entities, versions, drafts, publishes) are covered by
+``LEARNING_PACKAGE_ENTITIES_CHANGED`` and ``LEARNING_PACKAGE_ENTITIES_PUBLISHED``
+instead.
+
+The ``learning_package`` payload reflects the ``id`` and the post-update
+``title`` of the package.
 
 💾 This event is only emitted after the enclosing database transaction has
 been committed. If the transaction is rolled back, no event is emitted.

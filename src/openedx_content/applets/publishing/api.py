@@ -157,6 +157,21 @@ def update_learning_package(
     lp.updated = updated
 
     lp.save()
+
+    # Emit LEARNING_PACKAGE_UPDATED once the transaction commits. Note: we only
+    # reach this point if at least one of key/title/description/updated was
+    # passed in (the early-return above handles the no-op case), so the update
+    # really did touch the row.
+    lp_id = lp.id
+    lp_title = lp.title
+
+    def send_event():
+        signals.LEARNING_PACKAGE_UPDATED.send_event(
+            learning_package=signals.LearningPackageEventData(id=lp_id, title=lp_title),
+        )
+
+    on_commit(send_event)
+
     return lp
 
 
