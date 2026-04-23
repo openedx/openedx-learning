@@ -218,15 +218,25 @@ class ObjectTagUpdateBodySerializer(serializers.Serializer):  # pylint: disable=
     tagsData = serializers.ListField(child=ObjectTagUpdateByTaxonomySerializer(), required=True)
 
 
-def validate_tag_value(value, context):
+def validate_tag_value(value, context, original_value=None):
     """
-    Validate this tag value is unique within the current taxonomy context and
-    does not contain forbidden characters.
+    Validates the incoming request early:
+    - This tag is unique, not a duplicate. (The model only validates this if you call `full_clean()`.)
+    - There are no forbidden / reserved characters present. There is an additional
+    model-side validation for this as well, but we are keeping this so we can validate
+    the incoming request immediately.
     """
     taxonomy_id = context.get("taxonomy_id")
+    original_tag = Tag.objects.filter(taxonomy_id=taxonomy_id, value=original_value).first() if original_value else None
+    tag_id = original_tag.pk if original_tag else None
     if taxonomy_id is not None:
-        # Check if tag value already exists within this taxonomy. If so, raise a validation error.
         queryset = Tag.objects.filter(taxonomy_id=taxonomy_id, value=value)
+
+        # Don't compare tag against itself when validating its updated value.
+        if tag_id:
+            queryset = queryset.exclude(pk=tag_id)
+
+        # Check if tag value already exists within this taxonomy. If so, raise a validation error.
         if queryset.exists():
             raise serializers.ValidationError(
                 f'Tag value "{value}" already exists in this taxonomy.', code='unique'
@@ -350,7 +360,7 @@ class TaxonomyTagUpdateBodySerializer(serializers.Serializer):  # pylint: disabl
         """
         Run validations for the updated tag value.
         """
-        return validate_tag_value(value, self.context)
+        return validate_tag_value(value, self.context, original_value=self.initial_data.get("tag"))
 
 
 class TaxonomyTagDeleteBodySerializer(serializers.Serializer):  # pylint: disable=abstract-method

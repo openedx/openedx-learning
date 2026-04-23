@@ -2211,6 +2211,35 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         # Check that the error message indicates the duplicate value issue
         assert "Tag value \"Updated Tag\" already exists in this taxonomy" in str(response.data)
 
+    def test_update_tag_change_capitalization(self):
+        """
+        Test that renaming a tag by only changing its capitalization is allowed.
+        """
+        self.client.force_authenticate(user=self.staff)
+        existing_tag = self.small_taxonomy.tag_set.filter(parent=None).first()
+
+        # Avoiding false positives
+        assert existing_tag.value is not existing_tag.value.upper()
+
+        update_data = {
+            "tag": existing_tag.value,
+            "updated_tag_value": existing_tag.value.upper()
+        }
+
+        response = self.client.put(
+            self.small_taxonomy_url, update_data, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.data
+
+        # Check that Tag value got updated with the new capitalization
+        self.assertEqual(data.get("_id"), existing_tag.id)
+        self.assertEqual(data.get("value"), existing_tag.value.upper())
+        self.assertEqual(data.get("parent_value"), existing_tag.parent)
+        self.assertEqual(data.get("external_id"), existing_tag.external_id)
+
     def test_should_handle_unexpected_errors_gracefully(self):
         """
         Test that if any unexpected error occurs during the processing of the request,

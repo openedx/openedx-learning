@@ -24,7 +24,7 @@ class Command(BaseCommand):
     help = 'Export a learning package to a zip file.'
 
     def add_arguments(self, parser):
-        parser.add_argument('lp_key', type=str, help='The key of the LearningPackage to dump')
+        parser.add_argument('package_ref', type=str, help='The package_ref of the LearningPackage to dump')
         parser.add_argument('file_name', type=str, help='The name of the output zip file')
         parser.add_argument(
             '--username',
@@ -40,7 +40,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        lp_key = options['lp_key']
+        package_ref = options['package_ref']
         file_name = options['file_name']
         username = options['username']
         origin_server = options['origin_server']
@@ -52,18 +52,18 @@ class Command(BaseCommand):
             if username:
                 user = User.objects.get(username=username)
             start_time = time.time()
-            create_zip_file(lp_key, file_name, user=user, origin_server=origin_server)
+            create_zip_file(package_ref, file_name, user=user, origin_server=origin_server)
             elapsed = time.time() - start_time
-            message = f'{lp_key} written to {file_name} (create_zip_file: {elapsed:.2f} seconds)'
+            message = f'{package_ref} written to {file_name} (create_zip_file: {elapsed:.2f} seconds)'
             self.stdout.write(self.style.SUCCESS(message))
         except LearningPackage.DoesNotExist as exc:
-            message = f"Learning package with key {lp_key} not found"
+            message = f"Learning package {package_ref!r} not found"
             raise CommandError(message) from exc
         except Exception as e:
-            message = f"Failed to export learning package '{lp_key}': {e}"
+            message = f"Failed to export learning package {package_ref!r}: {e}"
             logger.exception(
-                "Failed to create zip file %s (learning‑package key %s)",
+                "Failed to create zip file %s (package_ref %s)",
                 file_name,
-                lp_key,
+                package_ref,
             )
             raise CommandError(message) from e

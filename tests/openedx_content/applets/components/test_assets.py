@@ -53,13 +53,13 @@ class AssetTestCase(TestCase):
         cls.html_media_type = media_api.get_or_create_media_type("text/html")
 
         cls.learning_package = publishing_api.create_learning_package(
-            key="ComponentTestCase-test-key",
+            package_ref="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
         )
         cls.component, cls.component_version = components_api.create_component_and_version(
             cls.learning_package.id,
             component_type=cls.problem_type,
-            local_key="my_problem",
+            component_code="my_problem",
             title="My Problem",
             created=cls.now,
             created_by=None,
@@ -75,7 +75,7 @@ class AssetTestCase(TestCase):
         components_api.create_component_version_media(
             cls.component_version.pk,
             cls.problem_media.id,
-            key="block.xml",
+            path="block.xml",
         )
 
         # Python source file, stored as a file. This is hypothetical, as we
@@ -89,7 +89,7 @@ class AssetTestCase(TestCase):
         components_api.create_component_version_media(
             cls.component_version.pk,
             cls.python_source_asset.id,
-            key="src/grader.py",
+            path="src/grader.py",
         )
 
         # An HTML file that is student downloadable
@@ -102,7 +102,7 @@ class AssetTestCase(TestCase):
         components_api.create_component_version_media(
             cls.component_version.pk,
             cls.html_asset_media.id,
-            key="static/hello.html",
+            path="static/hello.html",
         )
 
     def test_no_component_version(self):
@@ -125,11 +125,11 @@ class AssetTestCase(TestCase):
         Note: The request header values in an HttpResponse will all have been
         serialized to strings.
         """
-        assert headers["X-Open-edX-Component-Key"] == self.component.key
+        assert headers["X-Open-edX-Component-Ref"] == self.component.entity_ref
         assert headers["X-Open-edX-Component-Uuid"] == str(self.component.uuid)
         assert headers["X-Open-edX-Component-Version-Uuid"] == str(self.component_version.uuid)
         assert headers["X-Open-edX-Component-Version-Num"] == str(self.component_version.version_num)
-        assert headers["X-Open-edX-Learning-Package-Key"] == self.learning_package.key
+        assert headers["X-Open-edX-Learning-Package-Ref"] == self.learning_package.package_ref
         assert headers["X-Open-edX-Learning-Package-Uuid"] == str(self.learning_package.uuid)
 
     def test_404s_with_component_version_info(self):

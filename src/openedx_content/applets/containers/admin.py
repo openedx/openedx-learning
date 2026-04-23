@@ -89,11 +89,13 @@ class ContainerAdmin(ReadOnlyModelAdmin):
     Django admin configuration for Container
     """
 
-    list_display = ("key", "container_type_display", "published", "draft", "created")
+    list_display = ("container_code", "container_type_display", "published", "draft", "created")
     fields = [
         "pk",
         "publishable_entity",
         "learning_package",
+        "container_code",
+        "container_type_display",
         "published",
         "draft",
         "created",
@@ -101,14 +103,15 @@ class ContainerAdmin(ReadOnlyModelAdmin):
         "see_also",
         "most_recent_parent_entity_list",
     ]
+    # container_code is a model field; container_type_display is a method
     readonly_fields = fields  # type: ignore[assignment]
-    search_fields = ["publishable_entity__uuid", "publishable_entity__key"]
+    search_fields = ["publishable_entity__uuid", "publishable_entity__entity_ref", "container_code"]
     inlines = [ContainerVersionInlineForContainer]
 
     def learning_package(self, obj: Container) -> SafeText:
         return model_detail_link(
             obj.publishable_entity.learning_package,
-            obj.publishable_entity.learning_package.key,
+            obj.publishable_entity.learning_package.package_ref,
         )
 
     def get_queryset(self, request):
@@ -184,7 +187,7 @@ class ContainerVersionInlineForEntityList(admin.TabularInline):
     fields = [
         "pk",
         "version_num",
-        "container_key",
+        "container_code",
         "title",
         "created",
         "created_by",
@@ -203,8 +206,8 @@ class ContainerVersionInlineForEntityList(admin.TabularInline):
             )
         )
 
-    def container_key(self, obj: ContainerVersion) -> SafeText:
-        return model_detail_link(obj.container, obj.container.key)
+    def container_code(self, obj: ContainerVersion) -> SafeText:
+        return model_detail_link(obj.container, obj.container.container_code)
 
 
 class EntityListRowInline(admin.TabularInline):
@@ -238,7 +241,7 @@ class EntityListRowInline(admin.TabularInline):
     def entity_models(self, obj: EntityListRow):
         return format_html(
             "{}<ul>{}</ul>",
-            model_detail_link(obj.entity, obj.entity.key),
+            model_detail_link(obj.entity, obj.entity.entity_ref),
             one_to_one_related_model_html(obj.entity),
         )
 
@@ -301,7 +304,7 @@ class EntityListAdmin(ReadOnlyModelAdmin):
         Link to the Container of the newest ContainerVersion that references this EntityList
         """
         if latest := _latest_container_version(obj):
-            return format_html("of: {}", model_detail_link(latest.container, latest.container.key))
+            return format_html("of: {}", model_detail_link(latest.container, latest.container.entity_ref))
         else:
             return None
 
@@ -314,7 +317,7 @@ class EntityListAdmin(ReadOnlyModelAdmin):
                 "in: {}",
                 model_detail_link(
                     latest.container.publishable_entity.learning_package,
-                    latest.container.publishable_entity.learning_package.key,
+                    latest.container.publishable_entity.learning_package.package_ref,
                 ),
             )
         else:

@@ -26,10 +26,10 @@ class LearningPackageAdmin(ReadOnlyModelAdmin):
     """
     Read-only admin for LearningPackage model
     """
-    fields = ["key", "title", "uuid", "created", "updated"]
-    readonly_fields = ["key", "title", "uuid", "created", "updated"]
-    list_display = ["key", "title", "uuid", "created", "updated"]
-    search_fields = ["key", "title", "uuid"]
+    fields = ["package_ref", "title", "uuid", "created", "updated"]
+    readonly_fields = ["package_ref", "title", "uuid", "created", "updated"]
+    list_display = ["package_ref", "title", "uuid", "created", "updated"]
+    search_fields = ["package_ref", "title", "uuid"]
 
 
 class PublishLogRecordTabularInline(admin.TabularInline):
@@ -102,7 +102,7 @@ class PublishableEntityVersionTabularInline(admin.TabularInline):
 
     def dependencies_list(self, version: PublishableEntityVersion):
         identifiers = sorted(
-            [str(dep.key) for dep in version.dependencies.all()]
+            [str(dep.entity_ref) for dep in version.dependencies.all()]
         )
         return "\n".join(identifiers)
 
@@ -152,7 +152,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
     inlines = [PublishableEntityVersionTabularInline]
 
     list_display = [
-        "key",
+        "entity_ref",
         "published_version",
         "draft_version",
         "uuid",
@@ -162,10 +162,10 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         "can_stand_alone",
     ]
     list_filter = ["learning_package", PublishStatusFilter]
-    search_fields = ["key", "uuid"]
+    search_fields = ["entity_ref", "uuid"]
 
     fields = [
-        "key",
+        "entity_ref",
         "published_version",
         "draft_version",
         "uuid",
@@ -176,7 +176,7 @@ class PublishableEntityAdmin(ReadOnlyModelAdmin):
         "can_stand_alone",
     ]
     readonly_fields = [
-        "key",
+        "entity_ref",
         "published_version",
         "draft_version",
         "uuid",
@@ -295,7 +295,7 @@ class DraftChangeLogRecordTabularInline(admin.TabularInline):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related("entity", "old_version", "new_version") \
-                       .order_by("entity__key")
+                       .order_by("entity__entity_ref")
 
     def old_version_num(self, draft_change: DraftChangeLogRecord):
         if draft_change.old_version is None:

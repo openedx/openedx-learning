@@ -18,12 +18,12 @@ now_time = datetime.now(tz=timezone.utc)
 @pytest.fixture(name="lp1")
 def _lp1() -> LearningPackage:
     """A learning package for use across collection signal tests."""
-    return api.create_learning_package(key="lp1", title="Test LP 📦")
+    return api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
 
-def _create_entity(learning_package_id: LearningPackage.ID, key: str) -> PublishableEntity:
+def _create_entity(learning_package_id: LearningPackage.ID, entity_ref: str) -> PublishableEntity:
     """Helper: create a bare PublishableEntity in the given learning package."""
-    return api.create_publishable_entity(learning_package_id, key=key, created=now_time, created_by=None)
+    return api.create_publishable_entity(learning_package_id, entity_ref=entity_ref, created=now_time, created_by=None)
 
 
 # LEARNING_PACKAGE_COLLECTION_CHANGED — create_collection
@@ -354,10 +354,12 @@ def test_set_collections_aborted(lp1: LearningPackage) -> None:
 # LEARNING_PACKAGE_COLLECTION_CHANGED — on entity draft deletion
 
 
-def _create_entity_with_version(learning_package_id: LearningPackage.ID, key: str) -> PublishableEntity:
+def _create_entity_with_version(learning_package_id: LearningPackage.ID, entity_ref: str) -> PublishableEntity:
     """Helper: create a PublishableEntity with an initial draft version (so its draft can be deleted)."""
-    entity = api.create_publishable_entity(learning_package_id, key=key, created=now_time, created_by=None)
-    api.create_publishable_entity_version(entity.id, version_num=1, title=key, created=now_time, created_by=None)
+    entity = api.create_publishable_entity(
+        learning_package_id, entity_ref=entity_ref, created=now_time, created_by=None
+    )
+    api.create_publishable_entity_version(entity.id, version_num=1, title=entity_ref, created=now_time, created_by=None)
     return entity
 
 

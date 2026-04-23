@@ -109,7 +109,8 @@ class Collection(models.Model):
     # collection's opaque key:
     # e.g. "lib-collection:{org_code}:{library_code}:{collection_code}"
     #       is the opaque key for a library collection.
-    collection_code = code_field()
+    # TODO: Consider supporting unicode https://github.com/openedx/openedx-platform/issues/38413
+    collection_code = code_field(unicode=False)
 
     title = case_insensitive_char_field(
         null=False,
@@ -179,7 +180,7 @@ class Collection(models.Model):
                 ],
                 name="oel_coll_uniq_lp_key",
             ),
-            code_field_check("collection_code", name="oel_coll_collection_code_regex"),
+            code_field_check("collection_code", name="oel_coll_collection_code_regex", unicode=False),
         ]
         indexes = [
             models.Index(
