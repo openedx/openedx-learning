@@ -1,5 +1,5 @@
 """
-Low Level media.api (warning: UNSTABLE, in progress API)
+Low Level media.api
 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.

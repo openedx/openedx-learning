@@ -1,5 +1,5 @@
 """
-Components API (warning: UNSTABLE, in progress API)
+Components API
 
 These functions are often going to be simple-looking write operations, but there
 is bookkeeping logic needed across multiple models to keep state consistent. You

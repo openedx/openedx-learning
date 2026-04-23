@@ -1,5 +1,5 @@
 """
-Publishing API (warning: UNSTABLE, in progress API)
+Publishing API
 
 Please look at the models.py file for more information about the kinds of data
 are stored in this app.

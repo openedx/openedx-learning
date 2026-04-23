@@ -13,8 +13,6 @@ from ..publishing.models import LearningPackage
 from ..subsections.models import Subsection, SubsectionVersion
 from .models import Section, SectionVersion
 
-# 🛑 UNSTABLE: All APIs related to containers are unstable until we've figured
-#              out our approach to dynamic content (randomized, A/B tests, etc.)
 __all__ = [
     "get_section",
     "create_section_and_version",
