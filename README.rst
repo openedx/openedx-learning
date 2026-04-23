@@ -63,11 +63,6 @@ The code in this repository is licensed under the AGPL 3.0 unless otherwise note
 
 Please see `LICENSE.txt <LICENSE.txt>`_ for details.
 
-How To Contribute
------------------
-
-This repo is in a very experimental state. Discussion using GitHub Issues is welcome, but you probably don't want to make contributions as everything can shift around drastically with little notice.
-
 Reporting Security Issues
 -------------------------
 
