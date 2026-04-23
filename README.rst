@@ -47,10 +47,10 @@ We have a few different identifier types in the schema, and we try to avoid ``_i
 See Also
 ~~~~~~~~
 
-The structure of this repo follows [OEP-0049](https://open-edx-proposals.readthedocs.io/en/latest/architectural-decisions/oep-0049-django-app-patterns.html) where possible, and also borrows inspiration from:
+The structure of this repo follows `OEP-0049 <https://open-edx-proposals.readthedocs.io/en/latest/architectural-decisions/oep-0049-django-app-patterns.html>`_ where possible, and also borrows inspiration from:
 
-* [Scaling Django to 500 apps](https://2021.djangocon.us/talks/scaling-django-to-500-apps/) (Dan Palmer, DjangoCon US 2021)
-* [Django structure for scale and longevity](https://www.youtube.com/watch?v=yG3ZdxBb1oo) (Radoslav Georgiev, EuroPython 2018)
+* `Scaling Django to 500 apps <https://2021.djangocon.us/talks/scaling-django-to-500-apps/>`_ (Dan Palmer, DjangoCon US 2021)
+* `Django structure for scale and longevity <https://www.youtube.com/watch?v=yG3ZdxBb1oo>`_ (Radoslav Georgiev, EuroPython 2018)
 
 Code Overview
 -------------
