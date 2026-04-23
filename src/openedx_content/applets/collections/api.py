@@ -206,7 +206,7 @@ def add_to_collection(
     collection.entities.add(*ids_to_add, through_defaults={"created_by_id": created_by})
     collection.modified = datetime.now(tz=timezone.utc)
     collection.save()
-    _queue_change_event(collection, entities_added=list(set(ids_to_add) - existing_ids), user_id=created_by)
+    _queue_change_event(collection, entities_added=sorted(list(set(ids_to_add) - existing_ids)), user_id=created_by)
 
     return collection
 
@@ -228,7 +228,7 @@ def remove_from_collection(
     collection = get_collection(learning_package_id, collection_code)
 
     ids_to_remove = list(entities_qset.values_list("id", flat=True))
-    entities_removed = list(collection.entities.filter(id__in=ids_to_remove).values_list("id", flat=True))
+    entities_removed = sorted(list(collection.entities.filter(id__in=ids_to_remove).values_list("id", flat=True)))
     collection.entities.remove(*ids_to_remove)
     collection.modified = datetime.now(tz=timezone.utc)
     collection.save()
