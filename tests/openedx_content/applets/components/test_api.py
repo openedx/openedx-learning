@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import IntegrityError
 from django.test import TestCase
 
 from openedx_content.applets.collections import api as collection_api
@@ -384,6 +385,37 @@ class ComponentGetAndExistsTestCase(ComponentTestCase):
             type_name='problem',
             component_code='not_my_component',
         )
+
+    def test_unicode_code(self):
+        """component_code supports non-ascii letters."""
+        unicode_code = "柏倉隆史"
+        component = components_api.create_component(
+            self.learning_package.id,
+            component_type=self.problem_type,
+            component_code=unicode_code,
+            created=self.now,
+            created_by=None,
+        )
+        assert component.component_code == unicode_code
+        assert components_api.get_component_by_code(
+            self.learning_package.id,
+            namespace='xblock.v1',
+            type_name='problem',
+            component_code=unicode_code,
+        ).id == component.id
+
+    def test_create_container_fails_with_invalid_chars(self):
+        """component_code does NOT support whitespace, most symbols, emoji"""
+        for invalid_code in ["a b", "a,b", "a:b", "a☃b"]:
+            with self.subTest(invalid_code=invalid_code):
+                with self.assertRaisesRegex(IntegrityError, r'.*oel_component_code_regex.*'):
+                    components_api.create_component(
+                        self.learning_package.id,
+                        component_type=self.problem_type,
+                        component_code=invalid_code,
+                        created=self.now,
+                        created_by=None,
+                    )
 
 
 class CreateNewVersionsTestCase(ComponentTestCase):

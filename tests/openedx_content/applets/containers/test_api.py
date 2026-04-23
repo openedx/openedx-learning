@@ -349,6 +349,21 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
         containers_api.get_container_children_count(container, published=True)
 
 
+def test_unicode_code(lp: LearningPackage) -> None:
+    """container_code supports non-ascii letters."""
+    unicode_code = "柏倉隆史"
+    container, _ = containers_api.create_container_and_version(
+        lp.id,
+        container_code=unicode_code,
+        title="Unicode Container",
+        container_cls=TestContainer,
+        created=now,
+        created_by=None,
+    )
+    assert container.container_code == unicode_code
+    assert containers_api.get_container_by_code(lp.id, unicode_code).id == container.id
+
+
 def test_create_container_queries(lp: LearningPackage, child_entity1: TestEntity, django_assert_num_queries) -> None:
     """Test how many database queries are required to create a container."""
     base_args: dict[str, Any] = {

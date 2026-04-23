@@ -189,7 +189,7 @@ class Container(PublishableEntityMixin):
     # container_code is an identifier that is local to the learning_package.
     # Unlike component_code, it is unique across all container types within
     # the same LearningPackage.
-    container_code = code_field()
+    container_code = code_field(unicode=True)
 
     @property
     def id(self) -> ID:
@@ -212,7 +212,7 @@ class Container(PublishableEntityMixin):
                 fields=["learning_package", "container_code"],
                 name="oel_container_uniq_lp_cc",
             ),
-            code_field_check("container_code", name="oel_container_code_regex"),
+            code_field_check("container_code", name="oel_container_code_regex", unicode=True),
         ]
 
     @classmethod

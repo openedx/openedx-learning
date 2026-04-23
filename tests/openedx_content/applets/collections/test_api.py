@@ -229,6 +229,8 @@ class CollectionCreateTestCase(CollectionTestCase):
             "has@symbol",
             "has/slash",
             "has#hash",
+            "café",  # non-ascii letters not allowed for collection_code
+            "柏倉隆史",
         ]
         for code in invalid_codes:
             with self.subTest(code=code):

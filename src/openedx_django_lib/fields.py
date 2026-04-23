@@ -119,15 +119,21 @@ def immutable_uuid_field() -> models.UUIDField:
 
 
 # Alphanumeric, hyphens, underscores, periods
-CODE_REGEX = re.compile(r"^[a-zA-Z0-9_.-]+\Z")
+CODE_REGEX_ASCII = re.compile(r"^[a-zA-Z0-9_.-]+\Z")
 
+# Anything which passes isalnum(), plus underscores, hyphens, and periods
+CODE_REGEX_UNICODE = re.compile(r"^[\w.-]+\Z", flags=re.UNICODE)
 
-_CODE_VIOLATION_MSG = _(
-    'Enter a valid "code name" consisting of letters, numbers, underscores, hyphens, or periods.'
+_CODE_VIOLATION_MSG_ASCII = _(
+    'Enter a valid "code name" consisting of latin letters (A-Z, a-z), numbers, underscores, hyphens, or periods.'
+)
+
+_CODE_VIOLATION_MSG_UNICODE = _(
+    'Enter a valid "code name" consisting of any letters, numbers, underscores, hyphens, or periods.'
 )
 
 
-def code_field(**kwargs) -> MultiCollationCharField:
+def code_field(unicode: bool, **kwargs) -> MultiCollationCharField:
     """
     Field to hold a 'code', i.e. a slug-like local identifier.
 
@@ -139,9 +145,8 @@ def code_field(**kwargs) -> MultiCollationCharField:
         blank=False,
         validators=[
             RegexValidator(
-                CODE_REGEX,
-                # Translators: "letters" means latin letters: a-z and A-Z.
-                _CODE_VIOLATION_MSG,
+                CODE_REGEX_UNICODE if unicode else CODE_REGEX_ASCII,
+                _CODE_VIOLATION_MSG_UNICODE if unicode else _CODE_VIOLATION_MSG_ASCII,
                 "invalid",
             ),
         ],
@@ -149,9 +154,9 @@ def code_field(**kwargs) -> MultiCollationCharField:
     )
 
 
-def code_field_check(field_name: str, *, name: str) -> models.CheckConstraint:
+def code_field_check(field_name: str, *, name: str, unicode: bool) -> models.CheckConstraint:
     """
-    Return a ``CheckConstraint`` that enforces :data:`CODE_REGEX` at the DB level.
+    Return a ``CheckConstraint`` that enforces :data:`CODE_REGEX_UNICODE` or :data:`CODE_REGEX_ASCII` at the DB level.
 
     Django validators (used by :func:`code_field`) are not called on ``.save()``
     or ``.update()``.  Adding this constraint ensures the regex is also enforced
@@ -162,13 +167,22 @@ def code_field_check(field_name: str, *, name: str) -> models.CheckConstraint:
 
         class Meta:
             constraints = [
-                code_field_check("my_code_field", name="myapp_mymodel_my_code_field_regex"),
+                code_field_check(
+                    "my_code_field",
+                    name="myapp_mymodel_my_code_field_regex",
+                    unicode=True/False,  # Make sure this matches the code_field!
+                ),
             ]
     """
     return models.CheckConstraint(
-        condition=Regex(models.F(field_name), CODE_REGEX.pattern),
+        condition=Regex(
+            models.F(field_name),
+            (CODE_REGEX_UNICODE if unicode else CODE_REGEX_ASCII).pattern,
+        ),
         name=name,
-        violation_error_message=_CODE_VIOLATION_MSG,
+        violation_error_message=(
+            _CODE_VIOLATION_MSG_UNICODE if unicode else _CODE_VIOLATION_MSG_ASCII
+        ),
     )
 
 

@@ -180,7 +180,7 @@ class Component(PublishableEntityMixin):
     # component_code is an identifier that is local to the learning_package and
     # component_type. The publishable.entity_ref is derived from component_type
     # and component_code.
-    component_code = code_field()
+    component_code = code_field(unicode=True)
 
     class Meta:
         constraints = [
@@ -198,7 +198,7 @@ class Component(PublishableEntityMixin):
                 ],
                 name="oel_component_uniq_lc_ct_lk",
             ),
-            code_field_check("component_code", name="oel_component_code_regex"),
+            code_field_check("component_code", name="oel_component_code_regex", unicode=True),
         ]
         indexes = [
             # Global Component-Type/Component-Code Index:

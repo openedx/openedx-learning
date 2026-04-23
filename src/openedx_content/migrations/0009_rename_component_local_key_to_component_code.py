@@ -59,7 +59,14 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='component',
             constraint=models.CheckConstraint(
-                condition=django.db.models.lookups.Regex(models.F('component_code'), '^[a-zA-Z0-9_.-]+\\Z'),
+                # The original version of this migration had an ascii-only regex constraint,
+                # matching the django-level RegexValidator defined above. However,
+                # that constraint caused an IntegrityError on some dev sites with non-ascii component
+                # codes in libraries, which technically we allow. So, we've loosened this constraint
+                # just to ensure that the migration applies cleanly. Migration 0013 will re-create
+                # the constraint and validator to be unicode-friendly, regardless of whether 0009
+                # was applied with the ascii-only or unicode-friendly constraint.
+                condition=django.db.models.lookups.Regex(models.F('component_code'), '^[\\w.-]+\\Z'),
                 name='oel_component_code_regex',
                 violation_error_message='Enter a valid "code name" consisting of letters, numbers, underscores, hyphens, or periods.',
             ),
