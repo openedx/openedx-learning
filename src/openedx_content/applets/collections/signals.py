@@ -13,7 +13,7 @@ __all__ = [
     # All event data structures should end with "...Data":
     "CollectionChangeData",
     # All events:
-    "LEARNING_PACKAGE_COLLECTION_CHANGED",
+    "COLLECTION_CHANGED",
 ]
 
 
@@ -36,8 +36,8 @@ class CollectionChangeData:
     entities_removed: list[PublishableEntity.ID] = field(factory=list)
 
 
-LEARNING_PACKAGE_COLLECTION_CHANGED = OpenEdxPublicSignal(
-    event_type="org.openedx.content.collections.lp_collection_changed.v1",
+COLLECTION_CHANGED = OpenEdxPublicSignal(
+    event_type="org.openedx.content.collections.collection_changed.v1",
     data={
         "learning_package": LearningPackageEventData,
         "changed_by": UserAttributionEventData,
@@ -62,9 +62,9 @@ processing the event.
 # Note: at present, the openedx_tagging code (in this repo) emits a
 # CONTENT_OBJECT_ASSOCIATIONS_CHANGED event whenever an entity's tags change.
 # But we do NOT emit the same event when an entity's collections change; rather
-# we expect code in the platform to listen for
-# LEARNING_PACKAGE_COLLECTION_CHANGED and then re-emit '...ASSOCIATIONS_CHANGED'
-# as needed. The reason we don't emit the '...ASSOCIATIONS_CHANGED' event here
+# we expect code in the platform to listen for COLLECTION_CHANGED and then
+# re-emit '...ASSOCIATIONS_CHANGED' as needed.
+# The reason we don't emit the '...ASSOCIATIONS_CHANGED' event here
 # is simple: we know the entity IDs but not their opaque keys, and all of the
 # code that listens for that event expects the entity's opaque keys.
 # The tagging code can do it here because the `object_id` in the tagging models

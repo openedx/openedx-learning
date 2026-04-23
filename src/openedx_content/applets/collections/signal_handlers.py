@@ -5,11 +5,11 @@ from functools import partial
 from django.db import transaction
 from django.dispatch import receiver
 
-from ..publishing.signals import LEARNING_PACKAGE_ENTITIES_CHANGED, DraftChangeLogEventData, UserAttributionEventData
+from ..publishing.signals import ENTITIES_DRAFT_CHANGED, DraftChangeLogEventData, UserAttributionEventData
 from .tasks import emit_collections_changed_for_entity_changes_task
 
 
-@receiver(LEARNING_PACKAGE_ENTITIES_CHANGED)
+@receiver(ENTITIES_DRAFT_CHANGED)
 def on_entities_changed(
     change_log: DraftChangeLogEventData,
     changed_by: UserAttributionEventData,
@@ -18,7 +18,7 @@ def on_entities_changed(
     """
     When entity drafts are deleted or restored, notify affected collections.
 
-    Dispatches a task to emit LEARNING_PACKAGE_COLLECTION_CHANGED for any
+    Dispatches a task to emit COLLECTION_CHANGED for any
     collections that contain the changed entities.
     """
     removed_entity_ids = [record.entity_id for record in change_log.changes if record.new_version_id is None]

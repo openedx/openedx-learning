@@ -1,5 +1,5 @@
 """
-Tests for the LEARNING_PACKAGE_COLLECTION_CHANGED signal.
+Tests for the COLLECTION_CHANGED signal.
 """
 
 from datetime import datetime, timezone
@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 
 from openedx_content import api
-from openedx_content.applets.collections.signals import LEARNING_PACKAGE_COLLECTION_CHANGED, CollectionChangeData
+from openedx_content.applets.collections.signals import COLLECTION_CHANGED, CollectionChangeData
 from openedx_content.models_api import Collection, LearningPackage, PublishableEntity
 from tests.utils import abort_transaction, capture_events
 
@@ -26,12 +26,12 @@ def _create_entity(learning_package_id: LearningPackage.ID, entity_ref: str) -> 
     return api.create_publishable_entity(learning_package_id, entity_ref=entity_ref, created=now_time, created_by=None)
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — create_collection
+# COLLECTION_CHANGED — create_collection
 
 
 def test_create_collection(lp1: LearningPackage, admin_user) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with created=True
+    Test that COLLECTION_CHANGED is emitted with created=True
     when a new collection is created.
     """
     with capture_events(expected_count=1) as captured:
@@ -43,7 +43,7 @@ def test_create_collection(lp1: LearningPackage, admin_user) -> None:
         )
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["learning_package"].title == "Test LP 📦"
     assert event.kwargs["changed_by"].user_id == admin_user.id
@@ -88,12 +88,12 @@ def test_create_collection_aborted(lp1: LearningPackage) -> None:
             )
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — update_collection
+# COLLECTION_CHANGED — update_collection
 
 
 def test_update_collection(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with metadata_modified=True
+    Test that COLLECTION_CHANGED is emitted with metadata_modified=True
     when a collection's title or description is updated.
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -103,7 +103,7 @@ def test_update_collection(lp1: LearningPackage) -> None:
         api.update_collection(lp1.id, "col1", title="Updated Title")
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["change"] == CollectionChangeData(
         collection_id=collection.id,
@@ -117,7 +117,7 @@ def test_update_collection(lp1: LearningPackage) -> None:
 
 def test_update_collection_no_op(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is NOT emitted when
+    Test that COLLECTION_CHANGED is NOT emitted when
     update_collection is called without any fields to update.
     """
     api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -127,12 +127,12 @@ def test_update_collection_no_op(lp1: LearningPackage) -> None:
         api.update_collection(lp1.id, "col1")
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — delete_collection
+# COLLECTION_CHANGED — delete_collection
 
 
 def test_delete_collection_soft(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with deleted=True
+    Test that COLLECTION_CHANGED is emitted with deleted=True
     when a collection is soft-deleted (enabled=False).
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -148,7 +148,7 @@ def test_delete_collection_soft(lp1: LearningPackage) -> None:
         api.delete_collection(lp1.id, "col1")
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["change"] == CollectionChangeData(
         collection_id=collection.id,
@@ -160,7 +160,7 @@ def test_delete_collection_soft(lp1: LearningPackage) -> None:
 
 def test_delete_collection_hard(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with deleted=True and
+    Test that COLLECTION_CHANGED is emitted with deleted=True and
     entities_removed populated when a collection is hard-deleted.
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -178,7 +178,7 @@ def test_delete_collection_hard(lp1: LearningPackage) -> None:
         api.delete_collection(lp1.id, "col1", hard_delete=True)
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["change"] == CollectionChangeData(
         collection_id=collection_id,
@@ -188,12 +188,12 @@ def test_delete_collection_hard(lp1: LearningPackage) -> None:
     )
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — restore_collection
+# COLLECTION_CHANGED — restore_collection
 
 
 def test_restore_collection(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with created=True
+    Test that COLLECTION_CHANGED is emitted with created=True
     when a soft-deleted collection is restored.
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -203,7 +203,7 @@ def test_restore_collection(lp1: LearningPackage) -> None:
         api.restore_collection(lp1.id, "col1")
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["change"] == CollectionChangeData(
         collection_id=collection.id,
@@ -212,12 +212,12 @@ def test_restore_collection(lp1: LearningPackage) -> None:
     )
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — add_to_collection
+# COLLECTION_CHANGED — add_to_collection
 
 
 def test_add_to_collection(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with the correct
+    Test that COLLECTION_CHANGED is emitted with the correct
     entities_added list when entities are added to a collection.
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -232,7 +232,7 @@ def test_add_to_collection(lp1: LearningPackage) -> None:
         )
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["change"] == CollectionChangeData(
         collection_id=collection.id,
@@ -257,12 +257,12 @@ def test_add_to_collection_aborted(lp1: LearningPackage) -> None:
             )
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — remove_from_collection
+# COLLECTION_CHANGED — remove_from_collection
 
 
 def test_remove_from_collection(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with the correct
+    Test that COLLECTION_CHANGED is emitted with the correct
     entities_removed list when entities are removed from a collection.
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -282,7 +282,7 @@ def test_remove_from_collection(lp1: LearningPackage) -> None:
         )
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["change"] == CollectionChangeData(
         collection_id=collection.id,
@@ -291,12 +291,12 @@ def test_remove_from_collection(lp1: LearningPackage) -> None:
     )
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — set_collections
+# COLLECTION_CHANGED — set_collections
 
 
 def test_set_collections(lp1: LearningPackage, admin_user) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted once per affected
+    Test that COLLECTION_CHANGED is emitted once per affected
     collection when set_collections reassigns an entity's collections.
 
     In this scenario entity starts in col1+col2, then is moved to col2+col3.
@@ -351,7 +351,7 @@ def test_set_collections_aborted(lp1: LearningPackage) -> None:
             api.set_collections(entity, Collection.objects.filter(id=col1.id))
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — on entity draft deletion
+# COLLECTION_CHANGED — on entity draft deletion
 
 
 def _create_entity_with_version(learning_package_id: LearningPackage.ID, entity_ref: str) -> PublishableEntity:
@@ -365,18 +365,18 @@ def _create_entity_with_version(learning_package_id: LearningPackage.ID, entity_
 
 def test_entity_draft_deleted_in_collection(lp1: LearningPackage, admin_user) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with entities_removed
+    Test that COLLECTION_CHANGED is emitted with entities_removed
     when an entity's draft is deleted and that entity is in a collection.
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity = _create_entity_with_version(lp1.id, "entity1")
     api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
 
-    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=1) as captured:
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=1) as captured:
         api.soft_delete_draft(entity.id, deleted_by=admin_user.id)
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["changed_by"].user_id == admin_user.id
     assert event.kwargs["change"] == CollectionChangeData(
@@ -388,7 +388,7 @@ def test_entity_draft_deleted_in_collection(lp1: LearningPackage, admin_user) ->
 
 def test_entity_draft_deleted_multiple_collections(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted once per collection
+    Test that COLLECTION_CHANGED is emitted once per collection
     when a deleted entity belongs to multiple collections.
     """
     col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -397,7 +397,7 @@ def test_entity_draft_deleted_multiple_collections(lp1: LearningPackage) -> None
     api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
     api.add_to_collection(lp1.id, "col2", PublishableEntity.objects.filter(id=entity.id))
 
-    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=2) as captured:
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
         api.soft_delete_draft(entity.id)
 
     events_by_collection = {e.kwargs["change"].collection_id: e for e in captured}
@@ -416,35 +416,35 @@ def test_entity_draft_deleted_multiple_collections(lp1: LearningPackage) -> None
 
 def test_entity_draft_deleted_not_in_collection(lp1: LearningPackage) -> None:
     """
-    Test that no LEARNING_PACKAGE_COLLECTION_CHANGED is emitted when the deleted
+    Test that no COLLECTION_CHANGED is emitted when the deleted
     entity is not in any collection.
     """
     entity = _create_entity_with_version(lp1.id, "entity1")
 
-    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
         api.soft_delete_draft(entity.id)
 
 
 def test_entity_draft_deleted_aborted(lp1: LearningPackage) -> None:
     """
-    Test that no LEARNING_PACKAGE_COLLECTION_CHANGED is emitted when the
+    Test that no COLLECTION_CHANGED is emitted when the
     entity-delete transaction is rolled back.
     """
     api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity = _create_entity_with_version(lp1.id, "entity1")
     api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
 
-    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
         with abort_transaction():
             api.soft_delete_draft(entity.id)
 
 
-# LEARNING_PACKAGE_COLLECTION_CHANGED — on entity draft restore (deletion reverted)
+# COLLECTION_CHANGED — on entity draft restore (deletion reverted)
 
 
 def test_entity_draft_restored_in_collection(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted with entities_added
+    Test that COLLECTION_CHANGED is emitted with entities_added
     when a soft-deleted entity's draft is restored while it is in a collection.
     """
     collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -452,13 +452,13 @@ def test_entity_draft_restored_in_collection(lp1: LearningPackage) -> None:
     api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
     api.soft_delete_draft(entity.id)
 
-    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=1) as captured:
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=1) as captured:
         api.create_publishable_entity_version(
             entity.id, version_num=2, title="entity1 v2", created=now_time, created_by=None
         )
 
     event = captured[0]
-    assert event.signal is LEARNING_PACKAGE_COLLECTION_CHANGED
+    assert event.signal is COLLECTION_CHANGED
     assert event.kwargs["learning_package"].id == lp1.id
     assert event.kwargs["change"] == CollectionChangeData(
         collection_id=collection.id,
@@ -469,7 +469,7 @@ def test_entity_draft_restored_in_collection(lp1: LearningPackage) -> None:
 
 def test_entity_draft_restored_multiple_collections(lp1: LearningPackage) -> None:
     """
-    Test that LEARNING_PACKAGE_COLLECTION_CHANGED is emitted once per collection
+    Test that COLLECTION_CHANGED is emitted once per collection
     when a restored entity belongs to multiple collections.
     """
     col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -482,7 +482,7 @@ def test_entity_draft_restored_multiple_collections(lp1: LearningPackage) -> Non
 
     api.soft_delete_draft(entity.id)
 
-    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=2) as captured:
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
         # Restore the deleted draft to its previous version:
         api.set_draft_version(entity.id, original_version.id)
 
@@ -502,7 +502,7 @@ def test_entity_draft_restored_multiple_collections(lp1: LearningPackage) -> Non
 
 def test_entity_draft_restored_aborted(lp1: LearningPackage) -> None:
     """
-    Test that no LEARNING_PACKAGE_COLLECTION_CHANGED is emitted when the
+    Test that no COLLECTION_CHANGED is emitted when the
     restore transaction is rolled back.
     """
     api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
@@ -510,7 +510,7 @@ def test_entity_draft_restored_aborted(lp1: LearningPackage) -> None:
     api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
     api.soft_delete_draft(entity.id)
 
-    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
         with abort_transaction():
             api.create_publishable_entity_version(
                 entity.id, version_num=2, title="entity1 v2", created=now_time, created_by=None
@@ -519,10 +519,10 @@ def test_entity_draft_restored_aborted(lp1: LearningPackage) -> None:
 
 def test_entity_created_no_collection_event(lp1: LearningPackage) -> None:
     """
-    Test that no LEARNING_PACKAGE_COLLECTION_CHANGED is emitted when a brand-new
+    Test that no COLLECTION_CHANGED is emitted when a brand-new
     entity gets its first version — even though the change log also has old_version=None.
 
     A freshly created entity is never in any collections yet, so the task is a no-op.
     """
-    with capture_events(signals=[LEARNING_PACKAGE_COLLECTION_CHANGED], expected_count=0):
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
         _create_entity_with_version(lp1.id, "entity1")

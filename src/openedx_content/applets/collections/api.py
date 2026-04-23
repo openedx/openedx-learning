@@ -53,7 +53,7 @@ def _queue_change_event(
 
     # Send out an event immediately after this database transaction commits.
     on_commit(partial(
-        signals.LEARNING_PACKAGE_COLLECTION_CHANGED.send_event,
+        signals.COLLECTION_CHANGED.send_event,
         time=collection.modified,
         learning_package=signals.LearningPackageEventData(id=learning_package_id, title=learning_package_title),
         changed_by=signals.UserAttributionEventData(user_id=user_id),

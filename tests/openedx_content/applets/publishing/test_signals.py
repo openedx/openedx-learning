@@ -175,13 +175,12 @@ def test_learning_package_deleted_aborted() -> None:
     assert LearningPackage.objects.filter(id=lp_id).exists()
 
 
-# LEARNING_PACKAGE_ENTITIES_CHANGED
+# ENTITIES_DRAFT_CHANGED
 
 
 def test_single_entity_changed() -> None:
     """
-    Test that LEARNING_PACKAGE_ENTITIES_CHANGED is emitted when we change a
-    publishable entity.
+    Test that ENTITIES_DRAFT_CHANGED is emitted when we change a publishable entity.
     """
     learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
@@ -205,7 +204,7 @@ def test_single_entity_changed() -> None:
     expected_draft_change_log_id = v1.draftchangelogrecord_set.get().draft_change_log_id
 
     event = captured[0]  # capture_events(...) context manager already asserted there's only one event.
-    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_CHANGED
+    assert event.signal is api.signals.ENTITIES_DRAFT_CHANGED
     assert event.kwargs["learning_package"].id == learning_package.id
     assert event.kwargs["learning_package"].title == "Test LP 📦"
     assert event.kwargs["changed_by"].user_id is None
@@ -234,8 +233,7 @@ def test_single_entity_changed_abort() -> None:
 
 def test_multiple_entites_changed(admin_user) -> None:
     """
-    Test that LEARNING_PACKAGE_ENTITIES_CHANGED is emitted when we change
-    several publishable entities in a single edit.
+    Test that ENTITIES_DRAFT_CHANGED is emitted when we change several publishable entities in a single edit.
     """
     learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     created_args = {"created": now_time, "created_by": admin_user.id}
@@ -265,7 +263,7 @@ def test_multiple_entites_changed(admin_user) -> None:
             api.set_draft_version(entity3.id, None, set_at=now_time, set_by=admin_user.id)
 
     event = captured[0]
-    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_CHANGED
+    assert event.signal is api.signals.ENTITIES_DRAFT_CHANGED
     assert event.kwargs["learning_package"].id == learning_package.id
     assert event.kwargs["learning_package"].title == "Test LP 📦"
     assert event.kwargs["changed_by"].user_id is admin_user.id
@@ -283,7 +281,7 @@ def test_multiple_entites_changed(admin_user) -> None:
 
 def test_multiple_entites_change_aborted() -> None:
     """
-    Test that LEARNING_PACKAGE_ENTITIES_CHANGED is NOT emitted when we roll back
+    Test that ENTITIES_DRAFT_CHANGED is NOT emitted when we roll back
     a transaction that would have modified multiple entities in a bulk change.
     """
     learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
@@ -313,7 +311,7 @@ def test_multiple_entites_change_aborted() -> None:
 
 def test_changes_with_side_effects() -> None:
     """
-    Test that the LEARNING_PACKAGE_ENTITIES_CHANGED event handles dependencies
+    Test that the ENTITIES_DRAFT_CHANGED event handles dependencies
     and side effects.
     """
     learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
@@ -336,19 +334,19 @@ def test_changes_with_side_effects() -> None:
         api.create_publishable_entity_version(child1.id, version_num=2, title="child1 V2", **created_args)
 
     event = captured[0]
-    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_CHANGED
+    assert event.signal is api.signals.ENTITIES_DRAFT_CHANGED
     assert event.kwargs["change_log"].changes == [
         change_record(child1, old_version=1, new_version=2),  # directly modified
         change_record(parent1, old_version=1, new_version=1),  # side effect
     ]
 
 
-# LEARNING_PACKAGE_ENTITIES_PUBLISHED
+# ENTITIES_PUBLISHED
 
 
 def test_publish_events(admin_user) -> None:
     """
-    Test that LEARNING_PACKAGE_ENTITIES_PUBLISHED is emitted when we publish
+    Test that ENTITIES_PUBLISHED is emitted when we publish
     changes to entities in a learning package.
     """
     learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
@@ -372,7 +370,7 @@ def test_publish_events(admin_user) -> None:
         )
 
     event = captured[0]
-    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
+    assert event.signal is api.signals.ENTITIES_PUBLISHED
     assert event.kwargs["learning_package"].id == learning_package.id
     assert event.kwargs["learning_package"].title == "Test LP 📦"
     assert event.kwargs["changed_by"].user_id is admin_user.id
@@ -402,7 +400,7 @@ def test_publish_events(admin_user) -> None:
         )
 
     event = captured[0]
-    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
+    assert event.signal is api.signals.ENTITIES_PUBLISHED
     assert event.kwargs["learning_package"].id == learning_package.id
     assert event.kwargs["learning_package"].title == "Test LP 📦"
     assert event.kwargs["changed_by"].user_id is admin_user.id
@@ -420,7 +418,7 @@ def test_publish_events(admin_user) -> None:
 
 def test_publish_events_aborted(admin_user) -> None:
     """
-    Test that LEARNING_PACKAGE_ENTITIES_PUBLISHED is NOT emitted when we roll
+    Test that ENTITIES_PUBLISHED is NOT emitted when we roll
     back a transaction that would have published some entities.
     """
     learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
@@ -446,7 +444,7 @@ def test_publish_events_aborted(admin_user) -> None:
 
 def test_publish_with_dependencies() -> None:
     """
-    Test that the LEARNING_PACKAGE_ENTITIES_PUBLISHED event handles dependencies
+    Test that the ENTITIES_PUBLISHED event handles dependencies
     and side effects.
     """
     learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
@@ -477,7 +475,7 @@ def test_publish_with_dependencies() -> None:
         publish_entity(grandparent1)
 
     event = captured[0]
-    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
+    assert event.signal is api.signals.ENTITIES_PUBLISHED
     assert event.kwargs["change_log"].changes == [
         change_record(grandparent1, old_version=None, new_version=1, direct=True),
         change_record(parent1, old_version=None, new_version=1, direct=False),
@@ -496,7 +494,7 @@ def test_publish_with_dependencies() -> None:
         publish_entity(child3)
 
     event = captured[0]
-    assert event.signal is api.signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
+    assert event.signal is api.signals.ENTITIES_PUBLISHED
     assert event.kwargs["change_log"].changes == [
         change_record(child3, old_version=1, new_version=2, direct=True),
         change_record(parent2, old_version=1, new_version=1, direct=False),

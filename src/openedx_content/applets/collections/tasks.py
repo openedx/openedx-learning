@@ -7,12 +7,7 @@ from celery import shared_task  # type: ignore[import]
 
 from ..publishing.models import PublishableEntity
 from .models import Collection, CollectionPublishableEntity
-from .signals import (
-    LEARNING_PACKAGE_COLLECTION_CHANGED,
-    CollectionChangeData,
-    LearningPackageEventData,
-    UserAttributionEventData,
-)
+from .signals import COLLECTION_CHANGED, CollectionChangeData, LearningPackageEventData, UserAttributionEventData
 
 logger = logging.getLogger(__name__)
 
@@ -24,24 +19,23 @@ def emit_collections_changed_for_entity_changes_task(
     user_id: int | None,
 ) -> int:
     """
-    Emit LEARNING_PACKAGE_COLLECTION_CHANGED for each collection affected by
-    entity draft deletions or restorations.
+    Emit COLLECTION_CHANGED for each collection affected by entity draft
+    deletions or restorations.
 
     For each collection that contains any of the given entities, emits one event
-    with entities_removed (for deletions) and/or entities_added (for restorations).
-    A single event covers both if the same collection has entities in both lists.
+    with entities_removed (for deletions) and/or entities_added (for
+    restorations). A single event covers both if the same collection has
+    entities in both lists.
 
-    Triggered by LEARNING_PACKAGE_ENTITIES_CHANGED. New entities
-    (old_version_id=None, new_version_id is not None) that aren't in any
-    collection result in a no-op.
+    Triggered by ENTITIES_DRAFT_CHANGED. New entities (old_version_id=None,
+    new_version_id is not None) that aren't in any collection result in a no-op.
     """
     all_entity_ids = list(set(removed_entity_ids) | set(added_entity_ids))
     if not all_entity_ids:
         return 0
 
     affected_cpes = (
-        CollectionPublishableEntity.objects
-        .filter(entity_id__in=all_entity_ids)
+        CollectionPublishableEntity.objects.filter(entity_id__in=all_entity_ids)
         .select_related("collection__learning_package")
         .order_by("collection_id", "entity_id")
     )
@@ -61,9 +55,9 @@ def emit_collections_changed_for_entity_changes_task(
 
     emitted_events = 0
     for collection_id, collection in collection_map.items():
-        # .. event_implemented_name: LEARNING_PACKAGE_COLLECTION_CHANGED
-        # .. event_type: org.openedx.content.collections.lp_collection_changed.v1
-        LEARNING_PACKAGE_COLLECTION_CHANGED.send_event(
+        # .. event_implemented_name: COLLECTION_CHANGED
+        # .. event_type: org.openedx.content.collections.collection_changed.v1
+        COLLECTION_CHANGED.send_event(
             time=collection.modified,
             learning_package=LearningPackageEventData(
                 id=collection.learning_package.id,
@@ -81,8 +75,7 @@ def emit_collections_changed_for_entity_changes_task(
 
     if emitted_events:
         logger.info(
-            "Entity draft changes (removed=%s, added=%s): emitted LEARNING_PACKAGE_COLLECTION_CHANGED"
-            " for %s collections.",
+            "Entity draft changes (removed=%s, added=%s): emitted COLLECTION_CHANGED for %s collections.",
             removed_entity_ids,
             added_entity_ids,
             emitted_events,

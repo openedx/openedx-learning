@@ -46,7 +46,7 @@ def capture_events(
         with capture_events(expected_count=1) as captured:
             api.do_something(entity.id, ...)
 
-        assert captured[0].signal is LEARNING_PACKAGE_ENTITIES_CHANGED
+        assert captured[0].signal is ENTITIES_DRAFT_CHANGED
         assert captured[0].kwargs['learning_package'].id == learning_package.id
     """
     if signals is None:

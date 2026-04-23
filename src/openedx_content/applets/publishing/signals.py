@@ -20,8 +20,8 @@ __all__ = [
     "LEARNING_PACKAGE_CREATED",
     "LEARNING_PACKAGE_UPDATED",
     "LEARNING_PACKAGE_DELETED",
-    "LEARNING_PACKAGE_ENTITIES_CHANGED",
-    "LEARNING_PACKAGE_ENTITIES_PUBLISHED",
+    "ENTITIES_DRAFT_CHANGED",
+    "ENTITIES_PUBLISHED",
 ]
 
 
@@ -123,8 +123,7 @@ least one field change that actually modifies the row.
 This event covers changes to the ``LearningPackage`` row itself (its ``key``,
 ``title``, and ``description``). Changes to the content inside the package
 (entities, versions, drafts, publishes) are covered by
-``LEARNING_PACKAGE_ENTITIES_CHANGED`` and ``LEARNING_PACKAGE_ENTITIES_PUBLISHED``
-instead.
+``ENTITIES_DRAFT_CHANGED`` and ``ENTITIES_PUBLISHED`` instead.
 
 The ``learning_package`` payload reflects the ``id`` and the post-update
 ``title`` of the package.
@@ -167,8 +166,8 @@ been committed. If the transaction is rolled back, no event is emitted.
 """
 
 
-LEARNING_PACKAGE_ENTITIES_CHANGED = OpenEdxPublicSignal(
-    event_type="org.openedx.content.publishing.lp_entities_changed.v1",
+ENTITIES_DRAFT_CHANGED = OpenEdxPublicSignal(
+    event_type="org.openedx.content.publishing.entities_draft_changed.v1",
     data={
         "learning_package": LearningPackageEventData,
         "changed_by": UserAttributionEventData,
@@ -202,8 +201,8 @@ processing the event.
 """
 
 
-LEARNING_PACKAGE_ENTITIES_PUBLISHED = OpenEdxPublicSignal(
-    event_type="org.openedx.content.publishing.lp_entities_published.v1",
+ENTITIES_PUBLISHED = OpenEdxPublicSignal(
+    event_type="org.openedx.content.publishing.entities_published.v1",
     data={
         "learning_package": LearningPackageEventData,
         "changed_by": UserAttributionEventData,

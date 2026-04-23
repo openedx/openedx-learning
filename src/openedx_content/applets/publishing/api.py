@@ -978,11 +978,11 @@ def _emit_event_for_change_log(
 
     change_log_data: signals.DraftChangeLogEventData | signals.PublishLogEventData
     if isinstance(change_log, DraftChangeLog):
-        signal = signals.LEARNING_PACKAGE_ENTITIES_CHANGED
+        signal = signals.ENTITIES_DRAFT_CHANGED
         change_log_data = signals.DraftChangeLogEventData(draft_change_log_id=change_log.id, changes=changes)
     else:
         assert isinstance(change_log, PublishLog)
-        signal = signals.LEARNING_PACKAGE_ENTITIES_PUBLISHED
+        signal = signals.ENTITIES_PUBLISHED
         change_log_data = signals.PublishLogEventData(publish_log_id=change_log.id, changes=changes)
 
     # Send out an event immediately after this database transaction commits.
