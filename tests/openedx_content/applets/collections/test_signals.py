@@ -73,6 +73,40 @@ def test_create_collection_disabled(lp1: LearningPackage) -> None:
             enabled=False,
         )
 
+    # And if that disabled collection is deleted, no event is emitted. We don't want to emit a deleted event for a
+    # collection that never had a created event.
+    with capture_events(expected_count=0):
+        api.delete_collection(lp1.id, collection_code="col1", hard_delete=True)
+
+
+def test_create_collection_disabled_then_enabled(lp1: LearningPackage) -> None:
+    """
+    Test that no event is emitted when a collection is created already soft
+    deleted (with enabled=False), but IS emitted when we enable/un-delete it.
+    """
+    with capture_events(expected_count=0):
+        collection = api.create_collection(
+            lp1.id,
+            collection_code="col1",
+            title="Collection 1",
+            created_by=None,
+            enabled=False,
+        )
+
+    # Enabling (un-deleting) that collection will result in a "created" event:
+    with capture_events(expected_count=1) as captured:
+        api.restore_collection(lp1.id, collection_code="col1")  # FIXME: we can't specify a user here.
+
+    event = captured[0]
+    assert event.signal is COLLECTION_CHANGED
+    assert event.kwargs["learning_package"].id == lp1.id
+    assert event.kwargs["changed_by"].user_id is None
+    assert event.kwargs["change"] == CollectionChangeData(
+        collection_id=collection.id,
+        collection_code="col1",
+        created=True,
+    )
+
 
 def test_create_collection_aborted(lp1: LearningPackage) -> None:
     """

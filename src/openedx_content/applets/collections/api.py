@@ -144,13 +144,16 @@ def delete_collection(
     """
     collection = get_collection(learning_package_id, collection_code)
     entities_removed = list(collection.entities.order_by("id").values_list("id", flat=True))
+    was_already_soft_deleted = not collection.enabled
 
     if hard_delete:
         collection.modified = datetime.now(tz=timezone.utc)  # For the event timestamp; won't get saved to the DB
-        _queue_change_event(collection, deleted=True, entities_removed=entities_removed)
+        if not was_already_soft_deleted:  # Send the deleted event unless this was already soft deleted.
+            _queue_change_event(collection, deleted=True, entities_removed=entities_removed)
         # Delete after enqueing the event:
         collection.delete()
-    else:
+    elif not was_already_soft_deleted:
+        # Soft delete:
         collection.enabled = False
         collection.save()
         _queue_change_event(collection, deleted=True, entities_removed=entities_removed)
