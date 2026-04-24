@@ -4,6 +4,7 @@ Tests of the Publishing app's python API
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
 import pytest
@@ -11,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
+from openedx_content.applets.containers import api as containers_api
 from openedx_content.applets.publishing import api as publishing_api
 from openedx_content.applets.publishing.models import (
     Draft,
@@ -22,6 +24,8 @@ from openedx_content.applets.publishing.models import (
     PublishLog,
     PublishLogRecord,
 )
+from openedx_content.models_api import Container
+from tests.test_django_app.models import TestContainer
 
 User = get_user_model()
 
@@ -1068,12 +1072,663 @@ class EntitiesQueryTestCase(TestCase):
                 assert published and published.version.version_num == 1
 
 
+class PublishingHistoryMixin:
+    """
+    Shared setup for history-related TestCases.
+
+    Provides timestamps and a setUpTestData that creates a single
+    LearningPackage and PublishableEntity reused across all tests in the class.
+    """
+    learning_package: LearningPackage
+    entity: PublishableEntity
+
+    time_1 = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
+    time_2 = datetime(2026, 6, 1, 11, 0, 0, tzinfo=timezone.utc)
+    time_3 = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+    time_4 = datetime(2026, 6, 1, 13, 0, 0, tzinfo=timezone.utc)
+    time_5 = datetime(2026, 6, 1, 14, 0, 0, tzinfo=timezone.utc)
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        """Create a shared LearningPackage and PublishableEntity for all tests in the class."""
+        cls.learning_package = publishing_api.create_learning_package(
+            "history_pkg",
+            "History Test Package",
+            created=cls.time_1,
+        )
+        cls.entity = publishing_api.create_publishable_entity(
+            cls.learning_package.id,
+            "test_entity",
+            created=cls.time_1,
+            created_by=None,
+        )
+
+    def _make_version(self, version_num: int, at: datetime, created_by=None):
+        return publishing_api.create_publishable_entity_version(
+            self.entity.id,
+            version_num=version_num,
+            title=f"v{version_num}",
+            created=at,
+            created_by=created_by,
+        )
+
+    def _publish(self, at: datetime) -> PublishLog:
+        return publishing_api.publish_all_drafts(self.learning_package.id, published_at=at)
+
+
+class GetEntityDraftHistoryTestCase(PublishingHistoryMixin, TestCase):
+    """
+    Tests for get_entity_draft_history.
+    """
+    # Publish timestamps sit strictly between draft-change timestamps
+    publish_time_1 = datetime(2026, 6, 1, 10, 30, 0, tzinfo=timezone.utc)
+    publish_time_2 = datetime(2026, 6, 1, 11, 30, 0, tzinfo=timezone.utc)
+
+    def test_no_versions_never_published(self) -> None:
+        """Returns empty queryset when the entity has no versions and has never been published."""
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 0
+
+    def test_never_published(self) -> None:
+        """Returns all draft records when the entity has never been published."""
+        self._make_version(1, self.time_1)
+        self._make_version(2, self.time_2)
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 2
+        # most-recent-first ordering
+        assert list(history.values_list("new_version__version_num", flat=True)) == [2, 1]
+
+    def test_no_changes_since_publish(self) -> None:
+        """Returns empty queryset when no draft changes have been made after the last publish."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 0
+
+    def test_changes_since_publish(self) -> None:
+        """Returns only draft records made after the last publish, ordered most-recent-first."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        self._make_version(3, self.time_3)
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 2
+        assert list(history.values_list("new_version__version_num", flat=True)) == [3, 2]
+
+    def test_unpublished_soft_delete(self) -> None:
+        """
+        A soft-delete that is still pending (not yet published) is included in
+        the draft history since the last real publish.
+        """
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        publishing_api.set_draft_version(self.entity.id, None, set_at=self.time_2)
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 1
+        record = history.get()
+        assert record.new_version is None
+
+    def test_after_published_soft_delete_no_new_changes(self) -> None:
+        """
+        When the last publish was a soft-delete (Published.version=None) and
+        there are no subsequent draft changes, history is empty.
+        """
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        publishing_api.set_draft_version(self.entity.id, None, set_at=self.time_2)
+        self._publish(self.publish_time_2)  # publish the soft-delete
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 0
+
+    def test_after_published_soft_delete_with_new_changes(self) -> None:
+        """
+        When the last publish was a soft-delete, only the draft changes made
+        after that publish are returned (i.e. the post-delete edits).
+        """
+        version_1 = self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        publishing_api.set_draft_version(self.entity.id, None, set_at=self.time_2)
+        self._publish(self.publish_time_2)  # publish the soft-delete
+        # Restore: point draft back to v1 after the delete was published
+        publishing_api.set_draft_version(self.entity.id, version_1.id, set_at=self.time_3)
+        self._make_version(2, self.time_4)
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 2
+        assert list(history.values_list("new_version__version_num", flat=True)) == [2, 1]
+
+    def test_accepts_entity_or_int(self) -> None:
+        """Works identically when called with a PublishableEntity or its int pk."""
+        self._make_version(1, self.time_1)
+
+        history_by_int = publishing_api.get_entity_draft_history(self.entity.id)
+        history_by_entity = publishing_api.get_entity_draft_history(self.entity)
+
+        assert list(history_by_int) == list(history_by_entity)
+
+    def test_reset_to_published_clears_draft_history(self) -> None:
+        """After reset_drafts_to_published, the draft history is empty."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_3
+        )
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 0
+
+    def test_reset_to_published_then_new_changes(self) -> None:
+        """After reset + new edits, only the post-reset changes appear."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_3
+        )
+        self._make_version(3, self.time_4)
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 1
+        record = history.get()
+        assert record.new_version is not None
+        assert record.new_version.version_num == 3
+
+    def test_multiple_resets_use_latest(self) -> None:
+        """When reset is called multiple times, the latest reset time is used as lower bound."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_3
+        )
+        self._make_version(3, self.time_4)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_5
+        )
+
+        history = publishing_api.get_entity_draft_history(self.entity.id)
+
+        assert history.count() == 0
+
+
+class GetEntityPublishHistoryTestCase(PublishingHistoryMixin, TestCase):
+    """
+    Tests for get_entity_publish_history.
+    """
+    publish_time_1 = datetime(2026, 6, 1, 10, 30, 0, tzinfo=timezone.utc)
+    publish_time_2 = datetime(2026, 6, 1, 12, 30, 0, tzinfo=timezone.utc)
+    publish_time_3 = datetime(2026, 6, 1, 14, 30, 0, tzinfo=timezone.utc)
+
+    def test_never_published(self) -> None:
+        """Returns empty queryset when the entity has never been published."""
+        history = publishing_api.get_entity_publish_history(self.entity.id)
+
+        assert history.count() == 0
+
+    def test_single_publish(self) -> None:
+        """Returns one record with correct old/new versions after the first publish."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+
+        history = publishing_api.get_entity_publish_history(self.entity.id)
+
+        assert history.count() == 1
+        record = history.get()
+        assert record.old_version is None
+        assert record.new_version is not None
+        assert record.new_version.version_num == 1
+
+    def test_multiple_publishes_ordered_most_recent_first(self) -> None:
+        """
+        Returns one record per publish ordered most-recent-first, with the
+        correct old/new versions. Multiple draft versions created between
+        publishes are compacted: the record only captures the version that was
+        actually published, not the intermediate ones.
+        """
+        # First publish: v1
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+
+        # Create v2 and v3 between the first and second publish; only v3 lands in the record.
+        self._make_version(2, self.time_2)
+        self._make_version(3, self.time_3)
+        self._publish(self.publish_time_2)
+
+        # Create v4 and v5 before the third publish; only v5 lands in the record.
+        self._make_version(4, self.time_4)
+        self._make_version(5, self.time_5)
+        self._publish(self.publish_time_3)
+
+        history = list(publishing_api.get_entity_publish_history(self.entity.id))
+
+        assert len(history) == 3
+        # most recent publish: v3 -> v5
+        assert history[0].old_version is not None
+        assert history[0].new_version is not None
+        assert history[0].old_version.version_num == 3
+        assert history[0].new_version.version_num == 5
+        # second publish: v1 -> v3
+        assert history[1].old_version is not None
+        assert history[1].new_version is not None
+        assert history[1].old_version.version_num == 1
+        assert history[1].new_version.version_num == 3
+        # first publish: None -> v1
+        assert history[2].old_version is None
+        assert history[2].new_version is not None
+        assert history[2].new_version.version_num == 1
+
+    def test_soft_delete_publish(self) -> None:
+        """
+        Publishing a soft-delete produces a record with new_version=None,
+        reflecting that the entity was removed from the published state.
+        """
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        publishing_api.set_draft_version(self.entity.id, None, set_at=self.time_2)
+        self._publish(self.publish_time_2)
+
+        history = list(publishing_api.get_entity_publish_history(self.entity.id))
+
+        assert len(history) == 2
+        # most recent: the soft-delete publish
+        assert history[0].old_version is not None
+        assert history[0].old_version.version_num == 1
+        assert history[0].new_version is None
+        # original publish
+        assert history[1].old_version is None
+        assert history[1].new_version is not None
+        assert history[1].new_version.version_num == 1
+
+    def test_accepts_entity_or_int(self) -> None:
+        """Works identically when called with a PublishableEntity or its int pk."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+
+        history_by_int = publishing_api.get_entity_publish_history(self.entity.id)
+        history_by_entity = publishing_api.get_entity_publish_history(self.entity)
+
+        assert list(history_by_int) == list(history_by_entity)
+
+
+class GetEntityVersionContributorsTestCase(PublishingHistoryMixin, TestCase):
+    """
+    Tests for get_entity_version_contributors.
+    """
+    user_1: Any
+    user_2: Any
+    user_3: Any
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.user_1 = User.objects.create(username="contributor_1")
+        cls.user_2 = User.objects.create(username="contributor_2")
+        cls.user_3 = User.objects.create(username="contributor_3")
+
+    def test_no_changes_in_range(self) -> None:
+        """Returns empty queryset when no draft changes fall within the version range."""
+        self._make_version(1, self.time_1, created_by=self.user_1.id)
+
+        contributors = publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=1
+        )
+
+        assert contributors.count() == 0
+
+    def test_single_contributor(self) -> None:
+        """Returns the user who made changes in the version range."""
+        self._make_version(1, self.time_1)
+        self._make_version(2, self.time_2, created_by=self.user_1.id)
+
+        contributors = publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=2
+        )
+
+        assert contributors.count() == 1
+        assert contributors.get() == self.user_1
+
+    def test_multiple_contributors_are_distinct(self) -> None:
+        """Returns distinct users even if one user contributed multiple versions in the range."""
+        self._make_version(1, self.time_1)
+        self._make_version(2, self.time_2, created_by=self.user_1.id)
+        self._make_version(3, self.time_3, created_by=self.user_2.id)
+        self._make_version(4, self.time_4, created_by=self.user_1.id)  # user_1 again
+
+        contributors = publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=4
+        )
+
+        assert contributors.count() == 2
+        assert set(contributors) == {self.user_1, self.user_2}
+
+    def test_excludes_changes_outside_version_range(self) -> None:
+        """Changes at or before old_version_num and after new_version_num are excluded."""
+        self._make_version(1, self.time_1, created_by=self.user_1.id)  # at boundary, excluded
+        self._make_version(2, self.time_2, created_by=self.user_2.id)  # inside range
+        self._make_version(3, self.time_3, created_by=self.user_3.id)  # after range, excluded
+
+        contributors = publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=2
+        )
+
+        assert contributors.count() == 1
+        assert contributors.get() == self.user_2
+
+    def test_excludes_null_changed_by(self) -> None:
+        """Changes with no associated user (changed_by=None) are never returned."""
+        self._make_version(1, self.time_1, created_by=None)
+        self._make_version(2, self.time_2, created_by=None)
+
+        contributors = publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=2
+        )
+
+        assert contributors.count() == 0
+
+    def test_soft_delete_includes_edits_and_delete_record(self) -> None:
+        """
+        When new_version_num is None (soft-delete publish), both regular edits
+        after old_version_num and the soft-delete record itself are included.
+        """
+        self._make_version(1, self.time_1)
+        self._make_version(2, self.time_2, created_by=self.user_1.id)
+        self._make_version(3, self.time_3, created_by=self.user_2.id)
+        # Soft-delete from v3 by user_3
+        publishing_api.set_draft_version(
+            self.entity.id, None, set_at=self.time_4, set_by=self.user_3.id
+        )
+
+        contributors = publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=None
+        )
+
+        assert set(contributors) == {self.user_1, self.user_2, self.user_3}
+
+    def test_soft_delete_excludes_changes_before_range(self) -> None:
+        """
+        When new_version_num is None, changes at or before old_version_num
+        are still excluded, including a soft-delete record whose old_version
+        falls before the range.
+        """
+        self._make_version(1, self.time_1, created_by=self.user_1.id)
+        # Soft-delete from v1 — old_version_num=1, so old_version(1) < 1 is false,
+        # but old_version_num >= old_version_num means 1 >= 2 → excluded
+        publishing_api.set_draft_version(
+            self.entity.id, None, set_at=self.time_2, set_by=self.user_2.id
+        )
+
+        contributors = publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=2, new_version_num=None
+        )
+
+        assert contributors.count() == 0
+
+    def test_accepts_entity_or_int(self) -> None:
+        """Works identically when called with a PublishableEntity or its int pk."""
+        self._make_version(1, self.time_1, created_by=self.user_1.id)
+        self._make_version(2, self.time_2, created_by=self.user_2.id)
+
+        contributors_by_int = publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=2
+        )
+        contributors_by_entity = publishing_api.get_entity_version_contributors(
+            self.entity, old_version_num=1, new_version_num=2
+        )
+
+        assert list(contributors_by_int) == list(contributors_by_entity)
+
+    def test_contributors_ordered_by_most_recent_contribution_first(self) -> None:
+        """Contributors are returned most-recent-first based on their latest changed_at."""
+        self._make_version(1, self.time_1)
+        self._make_version(2, self.time_2, created_by=self.user_1.id)  # user_1 earlier
+        self._make_version(3, self.time_3, created_by=self.user_2.id)  # user_2 latest
+
+        contributors = list(publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=3
+        ))
+
+        assert contributors == [self.user_2, self.user_1]
+
+    def test_contributor_order_uses_latest_when_user_appears_multiple_times(self) -> None:
+        """When one user contributes multiple times, their most recent edit determines their position."""
+        self._make_version(1, self.time_1)
+        self._make_version(2, self.time_2, created_by=self.user_2.id)  # user_2 first edit
+        self._make_version(3, self.time_3, created_by=self.user_1.id)  # user_1 only edit
+        self._make_version(4, self.time_4, created_by=self.user_2.id)  # user_2 latest edit → moves to front
+
+        contributors = list(publishing_api.get_entity_version_contributors(
+            self.entity.id, old_version_num=1, new_version_num=4
+        ))
+
+        assert contributors == [self.user_2, self.user_1]
+
+
+class GetEntityPublishHistoryEntriesTestCase(PublishingHistoryMixin, TestCase):
+    """
+    Tests for get_entity_publish_history_entries.
+    """
+    publish_time_1 = datetime(2026, 6, 1, 10, 30, 0, tzinfo=timezone.utc)
+    publish_time_2 = datetime(2026, 6, 1, 12, 30, 0, tzinfo=timezone.utc)
+    publish_time_3 = datetime(2026, 6, 1, 13, 30, 0, tzinfo=timezone.utc)
+
+    def test_returns_draft_changes_for_the_requested_publish_group(self) -> None:
+        """
+        Returns only the DraftChangeLogRecords that belong to the requested
+        publish group (identified by its uuid), not those from other groups.
+        """
+        self._make_version(1, self.time_1)
+        first_publish = self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        self._make_version(3, self.time_3)
+        second_publish = self._publish(self.publish_time_2)
+
+        entries_first = publishing_api.get_entity_publish_history_entries(
+            self.entity.id, str(first_publish.uuid)
+        )
+        entries_second = publishing_api.get_entity_publish_history_entries(
+            self.entity.id, str(second_publish.uuid)
+        )
+
+        assert list(entries_first.values_list("new_version__version_num", flat=True)) == [1]
+        assert list(entries_second.values_list("new_version__version_num", flat=True)) == [3, 2]
+
+    def test_soft_delete_publish_includes_delete_record(self) -> None:
+        """
+        When the requested publish group was a soft-delete, the soft-delete
+        DraftChangeLogRecord (new_version=None) is included in the entries.
+        """
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        publishing_api.set_draft_version(self.entity.id, None, set_at=self.time_2)
+        soft_delete_publish = self._publish(self.publish_time_2)
+
+        entries = publishing_api.get_entity_publish_history_entries(
+            self.entity.id, str(soft_delete_publish.uuid)
+        )
+
+        assert entries.count() == 1
+        assert entries.get().new_version is None
+
+    def test_raises_if_publish_log_uuid_not_found(self) -> None:
+        """Raises PublishLogRecord.DoesNotExist for a uuid not associated with this entity."""
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+
+        with pytest.raises(PublishLogRecord.DoesNotExist):
+            publishing_api.get_entity_publish_history_entries(
+                self.entity.id, "00000000-0000-0000-0000-000000000000"
+            )
+
+    def test_accepts_entity_or_int(self) -> None:
+        """Works identically when called with a PublishableEntity or its int pk."""
+        self._make_version(1, self.time_1)
+        publish_log = self._publish(self.publish_time_1)
+
+        entries_by_int = publishing_api.get_entity_publish_history_entries(
+            self.entity.id, str(publish_log.uuid)
+        )
+        entries_by_entity = publishing_api.get_entity_publish_history_entries(
+            self.entity, str(publish_log.uuid)
+        )
+
+        assert list(entries_by_int) == list(entries_by_entity)
+
+    def test_reset_within_publish_window_excluded(self) -> None:
+        """
+        Draft entries from a reset_drafts_to_published() call within the publish
+        window are excluded. Only entries made after the last reset appear.
+        """
+        self._make_version(1, self.time_1)
+        self._publish(self.publish_time_1)
+        self._make_version(2, self.time_2)
+        publishing_api.reset_drafts_to_published(
+            self.learning_package.id, reset_at=self.time_3
+        )
+        self._make_version(3, self.time_4)
+        second_publish = self._publish(self.publish_time_3)
+
+        entries = publishing_api.get_entity_publish_history_entries(
+            self.entity.id, str(second_publish.uuid)
+        )
+
+        assert entries.count() == 1
+        entry = entries.get()
+        assert entry.new_version is not None
+        assert entry.new_version.version_num == 3
+
+
+class GetDescendantComponentEntityIdsTestCase(PublishingHistoryMixin, TestCase):
+    """
+    Tests for get_descendant_component_entity_ids.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        Container.reset_cache()
+        # self.entity from PublishingHistoryMixin has no version — create one so
+        # get_entities_in_container can access entity.draft without raising.
+        publishing_api.create_publishable_entity_version(
+            self.entity.id, version_num=1, title="Entity v1",
+            created=self.time_1, created_by=None,
+        )
+
+    def _make_extra_entity(self, key: str) -> PublishableEntity:
+        """Create an additional PublishableEntity with a v1 draft version."""
+        entity = publishing_api.create_publishable_entity(
+            self.learning_package.id, key, created=self.time_1, created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity.id, version_num=1, title=key,
+            created=self.time_1, created_by=None,
+        )
+        return entity
+
+    def _make_container(self, key: str, children: list) -> Container:
+        """Create a Container with a v1 version pointing at the given children."""
+        container: Container = containers_api.create_container(
+            self.learning_package.id, key, created=self.time_1, created_by=None,
+            container_cls=TestContainer,
+        )
+        containers_api.create_container_version(
+            container.pk,
+            1,
+            title=key,
+            entities=children,
+            created=self.time_1,
+            created_by=None,
+        )
+        return container
+
+    def test_no_children_returns_empty(self) -> None:
+        """A container with no children returns an empty list."""
+        container = self._make_container("empty_container", children=[])
+        result = containers_api.get_descendant_component_entity_ids(container)
+        assert not result
+
+    def test_direct_component_children(self) -> None:
+        """Direct component children are returned."""
+        second_component = self._make_extra_entity("second_component")
+        unit = self._make_container("unit_direct", children=[self.entity, second_component])
+
+        result = containers_api.get_descendant_component_entity_ids(unit)
+
+        assert set(result) == {self.entity.pk, second_component.pk}
+
+    def test_nested_returns_only_leaf_components(self) -> None:
+        """
+        Section → Subsection → Unit → Component hierarchy.
+        Only the leaf component entity ID is returned; intermediate containers
+        (subsection, unit) are excluded.
+        """
+        unit = self._make_container("unit_nested", children=[self.entity])
+        subsection = self._make_container("subsection_nested", children=[unit])
+        section = self._make_container("section_nested", children=[subsection])
+
+        result = containers_api.get_descendant_component_entity_ids(section)
+
+        assert set(result) == {self.entity.pk}
+        assert unit.pk not in result
+        assert subsection.pk not in result
+
+    def test_multiple_components_across_sub_containers(self) -> None:
+        """All leaf components across multiple sub-containers are collected."""
+        second_component = self._make_extra_entity("second_component_multi")
+        third_component = self._make_extra_entity("third_component_multi")
+        first_unit = self._make_container("first_unit_multi", children=[self.entity, second_component])
+        second_unit = self._make_container("second_unit_multi", children=[third_component])
+        section = self._make_container("section_multi", children=[first_unit, second_unit])
+
+        result = containers_api.get_descendant_component_entity_ids(section)
+
+        assert set(result) == {self.entity.pk, second_component.pk, third_component.pk}
+
+    def test_soft_deleted_sub_container_stops_traversal(self) -> None:
+        """
+        When a sub-container's draft is soft-deleted, the BFS skips it and its
+        descendants are not included.
+        """
+        unit = self._make_container("unit_soft_deleted", children=[self.entity])
+        section = self._make_container("section_with_deleted_unit", children=[unit])
+
+        publishing_api.soft_delete_draft(unit.pk)
+
+        result = containers_api.get_descendant_component_entity_ids(section)
+
+        assert self.entity.pk not in result
+
+    def test_container_without_version_returns_empty(self) -> None:
+        """
+        A container created with no ContainerVersion has no Draft.version,
+        so the BFS returns nothing.
+        """
+        container: Container = containers_api.create_container(
+            self.learning_package.id, "no_version_container",
+            created=self.time_1, created_by=None,
+            container_cls=TestContainer,
+        )
+
+        result = containers_api.get_descendant_component_entity_ids(container)
+
+        assert not result
+
+
 # TODO: refactor these tests to use a "fake" container model so there's no dependency on the containers applet?
 # All we need is a similar generic publishableentity with dependencies.
-# pylint: disable=wrong-import-position
-from openedx_content.applets.containers import api as containers_api  # noqa
-from openedx_content.models_api import Container  # noqa
-from tests.test_django_app.models import TestContainer  # noqa
 
 
 class TestContainerSideEffects(TestCase):
@@ -1082,6 +1737,10 @@ class TestContainerSideEffects(TestCase):
     """
     now: datetime
     learning_package: LearningPackage
+
+    def setUp(self) -> None:
+        super().setUp()
+        Container.reset_cache()
 
     @classmethod
     def setUpTestData(cls) -> None:

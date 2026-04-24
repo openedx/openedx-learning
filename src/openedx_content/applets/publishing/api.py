@@ -12,8 +12,9 @@ from datetime import datetime, timezone
 from functools import partial
 from typing import ContextManager, Optional, cast
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Prefetch, Q, QuerySet
+from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.transaction import atomic, on_commit
 
 from openedx_django_lib.fields import create_hash_digest
@@ -62,6 +63,10 @@ __all__ = [
     "publish_from_drafts",
     "get_draft_version",
     "get_published_version",
+    "get_entity_draft_history",
+    "get_entity_publish_history",
+    "get_entity_publish_history_entries",
+    "get_entity_version_contributors",
     "set_draft_version",
     "soft_delete_draft",
     "reset_drafts_to_published",
@@ -590,6 +595,274 @@ def get_published_version(
     # published.version could be None if something was published at one point,
     # had its draft soft deleted, and then was published again.
     return published.version
+
+
+def get_entity_draft_history(
+    publishable_entity_or_id: PublishableEntity | int, /
+) -> QuerySet[DraftChangeLogRecord]:
+    """
+    [ 🛑 UNSTABLE ]
+    Return DraftChangeLogRecords for a PublishableEntity since its last publication,
+    ordered from most recent to oldest.
+
+    Edge cases:
+    - Never published, no versions: returns an empty queryset.
+    - Never published, has versions: returns all DraftChangeLogRecords.
+    - No changes since the last publish: returns an empty queryset.
+    - Last publish was a soft-delete (Published.version=None): the Published row
+      still exists and its published_at timestamp is used as the lower bound, so
+      only draft changes made after that soft-delete publish are returned. If
+      there are no subsequent changes, the queryset is empty.
+    - Unpublished soft-delete (soft-delete in draft, not yet published): the
+      soft-delete DraftChangeLogRecord (new_version=None) is included because
+      it was made after the last real publish.
+    """
+    if isinstance(publishable_entity_or_id, int):
+        entity_id = PublishableEntity.PublishableEntityID(publishable_entity_or_id)
+    else:
+        entity_id = publishable_entity_or_id.id
+
+    qs = (
+        DraftChangeLogRecord.objects
+        .filter(entity_id=entity_id)
+        .select_related(
+            "draft_change_log__changed_by",
+            "old_version",
+            "new_version",
+        )
+        .order_by("-draft_change_log__changed_at")
+    )
+
+    # Narrow to changes since the last publication (or last reset to published)
+    try:
+        published = Published.objects.select_related(
+            "publish_log_record__publish_log"
+        ).get(entity_id=entity_id)
+        published_at = published.publish_log_record.publish_log.published_at
+        published_version_id = published.version_id
+
+        # If reset_drafts_to_published() was called after the last publish,
+        # there will be a DraftChangeLogRecord where new_version == published
+        # version. Use the most recent such record's timestamp as the lower
+        # bound so that discarded entries no longer appear in the draft history.
+        last_reset_at = (
+            DraftChangeLogRecord.objects
+            .filter(
+                entity_id=entity_id,
+                new_version_id=published_version_id,
+                draft_change_log__changed_at__gt=published_at,
+            )
+            .order_by("-draft_change_log__changed_at")
+            .values_list("draft_change_log__changed_at", flat=True)
+            .first()
+        )
+
+        lower_bound = last_reset_at if last_reset_at else published_at
+        qs = qs.filter(draft_change_log__changed_at__gt=lower_bound)
+    except Published.DoesNotExist:
+        pass
+
+    return qs
+
+
+def get_entity_publish_history(
+    publishable_entity_or_id: PublishableEntity | int, /
+) -> QuerySet[PublishLogRecord]:
+    """
+    [ 🛑 UNSTABLE ]
+    Return all PublishLogRecords for a PublishableEntity, ordered most recent first.
+
+    Edge cases:
+    - Never published: returns an empty queryset.
+    - Soft-delete published (new_version=None): the record is included with
+      old_version pointing to the last published version and new_version=None,
+      indicating the entity was removed from the published state.
+    - Multiple draft versions created between two publishes are compacted: each
+      PublishLogRecord captures only the version that was actually published,
+      not the intermediate draft versions.
+    """
+    if isinstance(publishable_entity_or_id, int):
+        entity_id = PublishableEntity.PublishableEntityID(publishable_entity_or_id)
+    else:
+        entity_id = publishable_entity_or_id.id
+
+    return (
+        PublishLogRecord.objects
+        .filter(entity_id=entity_id)
+        .select_related(
+            "publish_log__published_by",
+            "old_version",
+            "new_version",
+        )
+        .order_by("-publish_log__published_at")
+    )
+
+
+def get_entity_publish_history_entries(
+    publishable_entity_or_id: PublishableEntity | int,
+    /,
+    publish_log_uuid: str,
+) -> QuerySet[DraftChangeLogRecord]:
+    """
+    [ 🛑 UNSTABLE ]
+    Return the DraftChangeLogRecords associated with a specific PublishLog.
+
+    Finds the PublishLogRecord for the given entity and publish_log_uuid, then
+    returns all DraftChangeLogRecords whose changed_at falls between the previous
+    publish for this entity (exclusive) and this publish (inclusive), ordered
+    most-recent-first.
+
+    Time bounds are used instead of version bounds because DraftChangeLogRecord
+    has no single version_num field (soft-delete records have new_version=None),
+    and using published_at timestamps cleanly handles all cases without extra
+    joins.
+
+    Edge cases:
+    - Each publish group is independent: only the DraftChangeLogRecords that
+      belong to the requested publish_log_uuid are returned; changes attributed
+      to other publish groups are excluded.
+    - Soft-delete publish (PublishLogRecord.new_version=None): the soft-delete
+      DraftChangeLogRecord (new_version=None) is included in the entries because
+      it falls within the time window of that publish group.
+
+    Raises PublishLogRecord.DoesNotExist if publish_log_uuid is not found for
+    this entity.
+    """
+    if isinstance(publishable_entity_or_id, int):
+        entity_id = PublishableEntity.PublishableEntityID(publishable_entity_or_id)
+    else:
+        entity_id = publishable_entity_or_id.id
+
+    # Fetch the PublishLogRecord for the requested PublishLog
+    pub_record = (
+        PublishLogRecord.objects
+        .filter(entity_id=entity_id, publish_log__uuid=publish_log_uuid)
+        .select_related("publish_log")
+        .get()
+    )
+    published_at = pub_record.publish_log.published_at
+
+    # Find the previous publish for this entity to use as the lower time bound
+    prev_pub_record = (
+        PublishLogRecord.objects
+        .filter(entity_id=entity_id, publish_log__published_at__lt=published_at)
+        .select_related("publish_log")
+        .order_by("-publish_log__published_at")
+        .first()
+    )
+    prev_published_at = prev_pub_record.publish_log.published_at if prev_pub_record else None
+
+    # All draft changes up to (and including) this publish's timestamp
+    draft_qs = (
+        DraftChangeLogRecord.objects
+        .filter(entity_id=entity_id, draft_change_log__changed_at__lte=published_at)
+        .select_related(
+            "draft_change_log__changed_by",
+            "old_version",
+            "new_version",
+        )
+        .order_by("-draft_change_log__changed_at")
+    )
+    # Exclude changes that belong to an earlier PublishLog's window
+    if prev_published_at:
+        draft_qs = draft_qs.filter(draft_change_log__changed_at__gt=prev_published_at)
+
+    # Find the baseline: the version that was published in the previous publish group
+    # (None if this is the first publish for this entity).
+    baseline_version_id = prev_pub_record.new_version_id if prev_pub_record else None
+
+    # If reset_drafts_to_published() was called within this publish window, there
+    # will be a DraftChangeLogRecord where new_version == baseline. Use the most
+    # recent such record as the new lower bound so discarded entries are excluded.
+    reset_filter = {
+        "entity_id": entity_id,
+        "new_version_id": baseline_version_id,
+        "draft_change_log__changed_at__lte": published_at,
+    }
+    if prev_published_at:
+        reset_filter["draft_change_log__changed_at__gt"] = prev_published_at
+
+    last_reset_at = (
+        DraftChangeLogRecord.objects
+        .filter(**reset_filter)
+        .order_by("-draft_change_log__changed_at")
+        .values_list("draft_change_log__changed_at", flat=True)
+        .first()
+    )
+    if last_reset_at:
+        draft_qs = draft_qs.filter(draft_change_log__changed_at__gt=last_reset_at)
+
+    return draft_qs
+
+
+def get_entity_version_contributors(
+    publishable_entity_or_id: PublishableEntity | int,
+    /,
+    old_version_num: int,
+    new_version_num: int | None,
+) -> QuerySet:
+    """
+    [ 🛑 UNSTABLE ]
+    Return distinct User queryset of contributors (changed_by) for
+    DraftChangeLogRecords of a PublishableEntity after old_version_num.
+
+    If new_version_num is not None (normal publish), captures records where
+    new_version is between old_version_num (exclusive) and new_version_num (inclusive).
+
+    If new_version_num is None (soft delete published), captures both normal
+    edits after old_version_num AND the soft-delete record itself (identified
+    by new_version=None and old_version >= old_version_num). A soft-delete
+    record whose old_version falls before old_version_num is excluded.
+
+    Edge cases:
+    - If no DraftChangeLogRecords fall in the range, returns an empty queryset.
+    - Records with changed_by=None (system changes with no associated user) are
+      always excluded.
+    - A user who contributed multiple versions in the range appears only once
+      (results are deduplicated with DISTINCT).
+    """
+    if isinstance(publishable_entity_or_id, int):
+        entity_id = PublishableEntity.PublishableEntityID(publishable_entity_or_id)
+    else:
+        entity_id = publishable_entity_or_id.id
+
+    if new_version_num is not None:
+        version_filter = Q(
+            new_version__version_num__gt=old_version_num,
+            new_version__version_num__lte=new_version_num,
+        )
+    else:
+        # Soft delete: include edits after old_version_num + the soft-delete record
+        version_filter = (
+            Q(new_version__version_num__gt=old_version_num) |
+            Q(new_version__isnull=True, old_version__version_num__gte=old_version_num)
+        )
+
+    contributor_ids = (
+        DraftChangeLogRecord.objects
+        .filter(entity_id=entity_id)
+        .filter(version_filter)
+        .exclude(draft_change_log__changed_by=None)
+        .values_list("draft_change_log__changed_by", flat=True)
+        .distinct()
+    )
+    # Order by most recent contribution first. filter(pk__in=subquery) doesn't
+    # preserve subquery ordering, so we annotate each user with their latest
+    # changed_at via a correlated subquery and order on that. N (contributors
+    # per publish event) is typically 1–5, so the per-row cost is negligible.
+    last_contrib_subquery = (
+        DraftChangeLogRecord.objects
+        .filter(entity_id=entity_id, draft_change_log__changed_by=OuterRef("pk"))
+        .filter(version_filter)
+        .order_by("-draft_change_log__changed_at")
+        .values("draft_change_log__changed_at")[:1]
+    )
+    return (
+        get_user_model().objects
+        .filter(pk__in=contributor_ids)
+        .annotate(last_contributed=Subquery(last_contrib_subquery))
+        .order_by("-last_contributed")
+    )
 
 
 def set_draft_version(

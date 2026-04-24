@@ -69,6 +69,7 @@ __all__ = [
     "get_containers_with_entity",
     "get_container_children_count",
     "get_container_children_entity_refs",
+    "get_descendant_component_entity_ids",
 ]
 
 
@@ -889,3 +890,49 @@ def get_container_children_entity_refs(container_version: ContainerVersion) -> l
         .values_list("entity__entity_ref", flat=True)
         .order_by("order_num")
     )
+
+
+def get_descendant_component_entity_ids(container: Container) -> list[int]:
+    """
+    [ 🛑 UNSTABLE ]
+    Return the entity IDs of all leaf (non-Container) descendants of ``container``.
+
+    Intermediate containers (e.g. Subsections, Units) are never included in the
+    result; only leaf component entities are returned.
+
+    The traversal follows draft state only. Soft-deleted children are skipped
+    automatically because ``get_entities_in_container`` omits them.
+
+    Edge cases:
+    - A container whose draft was soft-deleted has no children to traverse and
+      contributes no entity IDs.
+    - An entity that appears as a child of multiple containers is deduplicated
+      because the result is built from a set.
+    - A cycle-guard (``visited_container_pks``) prevents infinite loops, which
+      cannot occur in practice but is included for safety.
+    """
+    all_component_ids: set[int] = set()
+    containers_to_visit: list[Container] = [container]
+    visited_container_pks: set[int] = {container.pk}
+
+    while containers_to_visit:
+        current = containers_to_visit.pop()
+        try:
+            children = get_entities_in_container(
+                current,
+                published=False,
+                select_related_version="containerversion__container",
+            )
+        except ContainerVersion.DoesNotExist:
+            continue
+
+        for entry in children:
+            try:
+                child_container = entry.entity_version.containerversion.container
+                if child_container.pk not in visited_container_pks:
+                    visited_container_pks.add(child_container.pk)
+                    containers_to_visit.append(child_container)
+            except ContainerVersion.DoesNotExist:
+                all_component_ids.add(entry.entity.pk)
+
+    return list(all_component_ids)
