@@ -21,7 +21,7 @@ from .models import Media, MediaType
 # is listed in the __all__ entries below. Internal helper functions that are
 # private to this module should start with an underscore. If a function does not
 # start with an underscore AND it is not in __all__, that function is considered
-# to be callable only by other apps in the authoring package.
+# to be callable only by other applets in the openedx_content package.
 __all__ = [
     "get_or_create_media_type",
     "get_media",
