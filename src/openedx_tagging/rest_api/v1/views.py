@@ -448,6 +448,8 @@ class ObjectTagView(
 
     # Serializer used in `get_queryset` when getting tags per taxonomy
     serializer_class = ObjectTagSerializer
+    # Serializer used in `retrieve` to represent all tags of a given object
+    object_tags_serializer_class = ObjectTagsByTaxonomySerializer
     # Serializer used in the result in `to_representation` in `ObjectTagsByTaxonomySerializer`
     minimal_serializer_class = ObjectTagMinimalSerializer
     permission_classes = [ObjectTagObjectPermissions]
@@ -471,22 +473,28 @@ class ObjectTagView(
             taxonomy = taxonomy.cast()
             taxonomy_id = taxonomy.id
 
-        if object_id.endswith("*") or "," in object_id:  # pylint: disable=no-else-raise
-            raise ValidationError("Retrieving tags from multiple objects is not yet supported.")
+        if object_id.endswith("*") or "," in object_id:
             # Note: This API is actually designed so that in the future it can be extended to return tags for multiple
             # objects, e.g. if object_id.endswith("*") then it results in a object_id__startswith query. However, for
             # now we have no use case for that so we retrieve tags for one object at a time.
-        else:
-            if not self.request.user.has_perm(
-                "oel_tagging.view_objecttag",
-                # The obj arg expects a model, but we are passing an object
-                ObjectTagPermissionItem(taxonomy=taxonomy, object_id=object_id),  # type: ignore[arg-type]
-            ):
-                raise PermissionDenied(
-                    "You do not have permission to view object tags for this taxonomy or object_id."
-                )
+            raise ValidationError("Retrieving tags from multiple objects is not yet supported.")
+
+        self.ensure_has_view_object_tag_permission(self.request.user, taxonomy, object_id)
 
         return get_object_tags(object_id, taxonomy_id)
+
+    def ensure_has_view_object_tag_permission(self, user, taxonomy, object_id):
+        """
+        Check if user has permission to view object tags.
+        """
+        if not user.has_perm(
+            "oel_tagging.view_objecttag",
+            # The obj arg expects a model, but we are passing an object
+            ObjectTagPermissionItem(taxonomy=taxonomy, object_id=object_id),  # type: ignore[arg-type]
+        ):
+            raise PermissionDenied(
+                "You do not have permission to view object tags for this taxonomy or object_id."
+            )
 
     def retrieve(self, request, *args, **kwargs) -> Response:
         """
@@ -500,7 +508,7 @@ class ObjectTagView(
         behavior we want.
         """
         object_tags = self.filter_queryset(self.get_queryset())
-        serializer = ObjectTagsByTaxonomySerializer(list(object_tags), context=self.get_serializer_context())
+        serializer = self.object_tags_serializer_class(list(object_tags), context=self.get_serializer_context())
         response_data = serializer.data
         if self.kwargs["object_id"] not in response_data:
             # For consistency, the key with the object_id should always be present in the response, even if there
@@ -514,7 +522,7 @@ class ObjectTagView(
 
         Pass a list of Tag ids or Tag values to be applied to an object id in the
         body `tag` parameter, by each taxonomy. Passing an empty list will remove all tags from
-        the object id on an specific taxonomy.
+        the object id on a specific taxonomy.
 
         **Example Body Requests**
 
@@ -550,13 +558,13 @@ class ObjectTagView(
                 },
             ]
         }
+        ```
         """
         partial = kwargs.pop('partial', False)
         if partial:
             raise MethodNotAllowed("PATCH", detail="PATCH not allowed")
 
         object_id = kwargs.pop('object_id')
-        perm = "oel_tagging.can_tag_object"
         body = ObjectTagUpdateBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
@@ -566,27 +574,12 @@ class ObjectTagView(
             return self.retrieve(request, object_id)
 
         # Check permissions
-        for tagsData in data:
-            taxonomy = tagsData.get("taxonomy")
-
-            perm_obj = ObjectTagPermissionItem(
-                taxonomy=taxonomy,
-                object_id=object_id,
-            )
-            if not request.user.has_perm(
-                perm,
-                # The obj arg expects a model, but we are passing an object
-                perm_obj,  # type: ignore[arg-type]
-            ):
-                raise PermissionDenied(f"""
-                    You do not have permission to change object tags
-                    for Taxonomy: {str(taxonomy)} or Object: {object_id}.
-                """)
+        self.ensure_user_has_can_tag_object_permissions(request.user, data, object_id)
 
         # Tag object_id per taxonomy
-        for tagsData in data:
-            taxonomy = tagsData.get("taxonomy")
-            tags = tagsData.get("tags", [])
+        for tag_data in data:
+            taxonomy = tag_data.get("taxonomy")
+            tags = tag_data.get("tags", [])
             try:
                 tag_object(object_id, taxonomy, tags)
             except TagDoesNotExist as e:
@@ -595,6 +588,27 @@ class ObjectTagView(
                 raise ValidationError from e
 
         return self.retrieve(request, object_id)
+
+    def ensure_user_has_can_tag_object_permissions(self, user, tags_data, object_id):
+        """
+        Check if user has permission to tag object for each taxonomy.
+        """
+        perm = "oel_tagging.can_tag_object"
+        for tag_data in tags_data:
+            taxonomy = tag_data.get("taxonomy")
+            perm_obj = ObjectTagPermissionItem(
+                taxonomy=taxonomy,
+                object_id=object_id,
+            )
+            if not user.has_perm(
+                perm,
+                # The obj arg expects a model, but we are passing an object
+                perm_obj,  # type: ignore[arg-type]
+            ):
+                raise PermissionDenied(f"""
+                    You do not have permission to change object tags
+                    for Taxonomy: {str(taxonomy)} or Object: {object_id}.
+                """)
 
 
 @view_auth_classes
