@@ -9,6 +9,17 @@ from ..publishing.api import get_learning_package_by_ref
 from .zipper import LearningPackageUnzipper, LearningPackageZipper
 
 
+# The public API that will be re-exported by openedx_content.api
+# is listed in the __all__ entries below. Internal helper functions that are
+# private to this module should start with an underscore. If a function does not
+# start with an underscore AND it is not in __all__, that function is considered
+# to be callable only by other applets in the openedx_content package.
+__all__ = [
+    "create_zip_file",
+    "load_learning_package",
+]
+
+
 def create_zip_file(
         package_ref: str, path: str, user: UserType | None = None, origin_server: str | None = None
 ) -> None:
