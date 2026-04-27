@@ -15,6 +15,7 @@ from __future__ import annotations
 import mimetypes
 from datetime import datetime
 from enum import StrEnum, auto
+from functools import cache
 from logging import getLogger
 from pathlib import Path
 from uuid import UUID
@@ -24,6 +25,7 @@ from django.db.transaction import atomic
 from django.http.response import HttpResponse, HttpResponseNotFound
 
 from ..media import api as media_api
+from ..media.models import Media
 from ..publishing import api as publishing_api
 from .models import Component, ComponentType, ComponentVersion, ComponentVersionMedia, LearningPackage
 
@@ -45,7 +47,6 @@ __all__ = [
     "component_exists_by_code",
     "get_collection_components",
     "get_components",
-    "create_component_version_media",
     "look_up_component_version_media",
     "AssetError",
     "get_redirect_response_for_component_asset",
@@ -115,6 +116,8 @@ def create_component_version(
     title: str,
     created: datetime,
     created_by: int | None,
+    *,
+    media: dict[str, Media.ID | Media | bytes] | None = None,
 ) -> ComponentVersion:
     """
     Create a new ComponentVersion
@@ -131,13 +134,16 @@ def create_component_version(
             publishable_entity_version=publishable_entity_version,
             component_id=component_id,
         )
+        if media:
+            _set_component_version_media(component_version, media, created=created)
+
     return component_version
 
 
 def create_next_component_version(
     component_id: Component.ID,
     /,
-    media_to_replace: dict[str, int | None | bytes],
+    media_to_replace: dict[str, Media.ID | Media | bytes | None],
     created: datetime,
     title: str | None = None,
     created_by: int | None = None,
@@ -191,8 +197,6 @@ def create_next_component_version(
     Why not use create_component_version?
         The main reason is that we want to reuse the logic to create a static file component from a dictionary.
 
-    TODO: Have to add learning_downloadable info to this when it comes time to
-          support static asset download.
     """
     # This needs to grab the highest version_num for this Publishable Entity.
     # This will often be the Draft version, but not always. For instance, if
@@ -225,50 +229,31 @@ def create_next_component_version(
             publishable_entity_version=publishable_entity_version,
             component_id=component_id,
         )
-        # First copy the new stuff over...
-        for key, media_pk_or_bytes in media_to_replace.items():
-            # If the media_pk is None, it means we want to remove the
-            # media represented by our key from the next version. Otherwise,
-            # we add our key->media_pk mapping to the next version.
-            if media_pk_or_bytes is not None:
-                if isinstance(media_pk_or_bytes, bytes):
-                    file_path, file_media = key, media_pk_or_bytes
-                    media_type_str, _encoding = mimetypes.guess_type(file_path)
-                    # We use "application/octet-stream" as a generic fallback media type, per
-                    # RFC 2046: https://datatracker.ietf.org/doc/html/rfc2046
-                    media_type_str = media_type_str or "application/octet-stream"
-                    media_type = media_api.get_or_create_media_type(media_type_str)
-                    media = media_api.get_or_create_file_media(
-                        component.learning_package.id,
-                        media_type.id,
-                        data=file_media,
-                        created=created,
-                    )
-                    media_pk = media.pk
-                else:
-                    media_pk = media_pk_or_bytes
-                ComponentVersionMedia.objects.create(
-                    media_id=media_pk,
-                    component_version=component_version,
-                    path=key,
+
+        if ignore_previous_media or last_version is None:
+            paths_to_media = {
+                path: media
+                for path, media in media_to_replace.items()
+                if media is not None  # Ignore deletion entries in this case.
+            }
+        else:
+            # Most of the time, we're adding our media changes as a delta on top
+            # of the last version's media.
+            previous_media = {
+                cvm.path: cvm.media_id
+                for cvm in ComponentVersionMedia.objects.filter(
+                    component_version=last_version
                 )
+            }
+            paths_to_media = {
+                path: media
+                for path, media in (previous_media | media_to_replace).items()
+                if media is not None  # "media is None" means "delete this"
+            }
 
-        if ignore_previous_media:
-            return component_version
+        _set_component_version_media(component_version, paths_to_media, created)
 
-        # Now copy any old associations that existed, as long as they aren't
-        # in conflict with the new stuff or marked for deletion.
-        last_version_media_mapping = ComponentVersionMedia.objects \
-                                                          .filter(component_version=last_version)
-        for cvrc in last_version_media_mapping:
-            if cvrc.path not in media_to_replace:
-                ComponentVersionMedia.objects.create(
-                    media_id=cvrc.media_id,
-                    component_version=component_version,
-                    path=cvrc.path,
-                )
-
-        return component_version
+    return component_version
 
 
 def create_component_and_version(  # pylint: disable=too-many-positional-arguments
@@ -281,6 +266,7 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
     created_by: int | None = None,
     *,
     can_stand_alone: bool = True,
+    media: dict[str, Media.ID | Media | bytes] | None = None,
 ) -> tuple[Component, ComponentVersion]:
     """
     Create a Component and associated ComponentVersion atomically.
@@ -300,8 +286,76 @@ def create_component_and_version(  # pylint: disable=too-many-positional-argumen
             title=title,
             created=created,
             created_by=created_by,
+            media=media or {},
         )
-        return (component, component_version)
+
+    return (component, component_version)
+
+
+def _set_component_version_media(
+    version: ComponentVersion,
+    paths_to_media_values: dict[str, Media.ID | Media | bytes],
+    created: datetime,
+):
+    """
+    Internal helper to set the Media for this ComponentVersion.
+
+    Only call this when we're first initializing a ComponentVersion.
+
+    Media can be specified as ``bytes`` for testing convenience, but you will
+    almost always want to create a Media object first in actual app code,
+    because that will give you better control over the MIME type and storage
+    specifics (file vs. database).
+
+    Note that unlike create_next_component_version(), we don't accept `None` as
+    a media value here. This function does not carry over any Media associations
+    from past ComponentVersions, so our "None means Delete" convention doesn't
+    apply here.
+    """
+    @cache  # want to avoid repeated lookups, e.g. a component with ten images
+    def cached_media_type(media_type_str):
+        return media_api.get_or_create_media_type(media_type_str)
+
+    # We allow a range of values to be in paths_to_media_values, but we want to
+    # normalize to media_ids for our bulk insert later.
+    paths_to_media_ids: dict[str, Media.ID] = {}
+
+    for path, media_value in paths_to_media_values.items():
+        match media_value:
+            case int():  # MediaID
+                media_id = media_value
+            case Media():
+                media_id = media_value.id
+            case bytes():
+                media_type_str, _encoding = mimetypes.guess_type(path)
+                # We use "application/octet-stream" as a generic fallback media type, per
+                # RFC 2046: https://datatracker.ietf.org/doc/html/rfc2046
+                media_type_str = media_type_str or "application/octet-stream"
+                media_type = cached_media_type(media_type_str)
+                media = media_api.get_or_create_file_media(
+                    version.component.learning_package.id,
+                    media_type.id,
+                    data=media_value,
+                    created=created,
+                )
+                media_id = media.id
+            case _:
+                raise ValueError(f"Invalid object for paths_to_media Media: {media_value!r}")
+
+        # Don't allow whitespace, absolute paths, or Windows-style paths
+        normalized_path = path.strip().replace('\\', '/').lstrip('/')
+        paths_to_media_ids[normalized_path] = media_id
+
+    ComponentVersionMedia.objects.bulk_create(
+        [
+            ComponentVersionMedia(
+                component_version=version,
+                path=normalized_path,
+                media_id=media_id,
+            )
+            for normalized_path, media_id in paths_to_media_ids.items()
+        ]
+    )
 
 
 def get_component(component_id: Component.ID, /) -> Component:
@@ -460,37 +514,6 @@ def look_up_component_version_media(
                                     "component_version__component",
                                     "component_version__component__learning_package",
                                 ).get(queries)
-
-
-def create_component_version_media(
-    component_version_id: int,
-    media_id: int,
-    /,
-    path: str,
-) -> ComponentVersionMedia:
-    """
-    Add a Media to the given ComponentVersion
-
-    We don't allow paths that would be absolute, e.g. ones that start with
-    '/'. Storing these causes headaches with building relative paths and because
-    of mismatches with things that expect a leading slash and those that don't.
-    So for safety and consistency, we strip off leading slashes and emit a
-    warning when we do.
-    """
-    if path.startswith('/'):
-        logger.warning(
-            "Absolute paths are not supported: "
-            f"removed leading '/' from ComponentVersion {component_version_id} "
-            f"media path: {repr(path)} (media_id: {media_id})"
-        )
-        path = path.lstrip('/')
-
-    cvrc, _created = ComponentVersionMedia.objects.get_or_create(
-        component_version_id=component_version_id,
-        media_id=media_id,
-        path=path,
-    )
-    return cvrc
 
 
 class AssetError(StrEnum):

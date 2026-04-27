@@ -56,26 +56,12 @@ class AssetTestCase(TestCase):
             package_ref="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
         )
-        cls.component, cls.component_version = components_api.create_component_and_version(
-            cls.learning_package.id,
-            component_type=cls.problem_type,
-            component_code="my_problem",
-            title="My Problem",
-            created=cls.now,
-            created_by=None,
-        )
-
         # ProblemBlock content that is stored as text Content, not a file.
         cls.problem_media = media_api.get_or_create_text_media(
             cls.learning_package.id,
             cls.problem_block_media_type.id,
             text="<problem>(pretend problem OLX is here)</problem>",
             created=cls.now,
-        )
-        components_api.create_component_version_media(
-            cls.component_version.pk,
-            cls.problem_media.id,
-            path="block.xml",
         )
 
         # Python source file, stored as a file. This is hypothetical, as we
@@ -86,12 +72,6 @@ class AssetTestCase(TestCase):
             data=b"print('hello world!')",
             created=cls.now,
         )
-        components_api.create_component_version_media(
-            cls.component_version.pk,
-            cls.python_source_asset.id,
-            path="src/grader.py",
-        )
-
         # An HTML file that is student downloadable
         cls.html_asset_media = media_api.get_or_create_file_media(
             cls.learning_package.id,
@@ -99,10 +79,18 @@ class AssetTestCase(TestCase):
             data=b"<html>hello world!</html>",
             created=cls.now,
         )
-        components_api.create_component_version_media(
-            cls.component_version.pk,
-            cls.html_asset_media.id,
-            path="static/hello.html",
+        cls.component, cls.component_version = components_api.create_component_and_version(
+            cls.learning_package.id,
+            component_type=cls.problem_type,
+            component_code="my_problem",
+            title="My Problem",
+            created=cls.now,
+            created_by=None,
+            media={
+                "block.xml": cls.problem_media,
+                "src/grader.py": cls.python_source_asset,
+                "static/hello.html": cls.html_asset_media
+            }
         )
 
     def test_no_component_version(self):

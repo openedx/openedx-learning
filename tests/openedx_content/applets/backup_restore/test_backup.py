@@ -93,23 +93,19 @@ class LpDumpCommandTestCase(TestCase):
             published_at=cls.now,
         )
 
-        new_problem_version = api.create_next_component_version(
-            cls.published_component.id,
-            title="My published problem draft v2",
-            media_to_replace={},
-            created=cls.now,
-        )
-
         new_txt_media = api.get_or_create_text_media(
             cls.learning_package.id,
             text_media_type.id,
             text="This is some data",
             created=cls.now,
         )
-        api.create_component_version_media(
-            new_problem_version.pk,
-            new_txt_media.pk,
-            path="hello.txt",
+        api.create_next_component_version(
+            cls.published_component.id,
+            title="My published problem draft v2",
+            media_to_replace={
+                'hello.txt': new_txt_media
+            },
+            created=cls.now,
         )
 
         # Create a Draft component, one in each learning package
@@ -122,23 +118,19 @@ class LpDumpCommandTestCase(TestCase):
             created_by=cls.user.id,
         )
 
-        new_html_version = api.create_next_component_version(
-            cls.draft_component.id,
-            title="My draft html v2",
-            media_to_replace={},
-            created=cls.now,
-        )
-
         cls.html_asset_media = api.get_or_create_file_media(
             cls.learning_package.id,
             html_media_type.id,
             data=b"<html>hello world!</html>",
             created=cls.now,
         )
-        api.create_component_version_media(
-            new_html_version.pk,
-            cls.html_asset_media.id,
-            path="static/other/subdirectory/hello.html",
+        api.create_next_component_version(
+            cls.draft_component.id,
+            title="My draft html v2",
+            media_to_replace={
+                "static/other/subdirectory/hello.html": cls.html_asset_media
+            },
+            created=cls.now,
         )
 
         components = api.get_publishable_entities(cls.learning_package)

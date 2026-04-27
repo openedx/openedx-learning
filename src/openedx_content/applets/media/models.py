@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from functools import cache, cached_property
 from logging import getLogger
+from typing import NewType
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, ValidationError
@@ -18,6 +19,7 @@ from django.utils.module_loading import import_string
 
 from openedx_django_lib.fields import (
     MultiCollationTextField,
+    TypedBigAutoField,
     case_insensitive_char_field,
     hash_field,
     manual_date_time_field,
@@ -239,6 +241,16 @@ class Media(models.Model):
     # not bytes. Since UTF-8 encodes characters using as many as 4 bytes, this
     # could be as much as 200K of data if we had nothing but emojis.
     MAX_TEXT_LENGTH = 50_000
+
+    # Custom type for our primary key, to make it more type-safe when using in
+    # API calls.
+    MediaID = NewType("MediaID", int)
+    type ID = MediaID
+
+    class IDField(TypedBigAutoField[ID]):  # Boilerplate for fully-typed ID field.
+        pass
+
+    id = IDField(primary_key=True)
 
     objects: models.Manager[Media] = WithRelationsManager('media_type')
 
