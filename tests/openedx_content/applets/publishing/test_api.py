@@ -2345,3 +2345,205 @@ class TestContainerSideEffects(TestCase):
 # Test that I can get a [PublishLog] history of a given container and its children, that includes changes made to the
 #     child components while they were part of the container but excludes changes made to those children while they were
 #     not part of the container. 🫣
+
+
+class CrossEntityValidationTestCase(TestCase):
+    """
+    Tests for validation gaps where API calls can corrupt state by mixing
+    entities/versions/packages that shouldn't be combined.
+    """
+    now: datetime
+    learning_package_1: LearningPackage
+    learning_package_2: LearningPackage
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        cls.learning_package_1 = publishing_api.create_learning_package(
+            "cross_entity_validation_lp_1",
+            "Cross-Entity Validation LP 1",
+            created=cls.now,
+        )
+        cls.learning_package_2 = publishing_api.create_learning_package(
+            "cross_entity_validation_lp_2",
+            "Cross-Entity Validation LP 2",
+            created=cls.now,
+        )
+
+    def test_set_draft_version_rejects_version_from_different_entity(self) -> None:
+        """
+        set_draft_version() should reject a PublishableEntityVersion that
+        belongs to a different PublishableEntity.
+
+        If this validation is missing, entity_a's Draft will point to a version
+        that was defined for entity_b. This corrupts the publishing state:
+        component_a.versioning.draft would return component_b's data, and
+        publishing would propagate the wrong content.
+        """
+        entity_a = publishing_api.create_publishable_entity(
+            self.learning_package_1.id,
+            "entity_a",
+            created=self.now,
+            created_by=None,
+        )
+        entity_b = publishing_api.create_publishable_entity(
+            self.learning_package_1.id,
+            "entity_b",
+            created=self.now,
+            created_by=None,
+        )
+
+        # Create v1 for entity_a (draft_a -> v1)
+        publishing_api.create_publishable_entity_version(
+            entity_a.id,
+            version_num=1,
+            title="Entity A v1",
+            created=self.now,
+            created_by=None,
+        )
+
+        # Create v1 and v2 for entity_b. After v2 is created, entity_b's
+        # draft points to v2, so v1 is "free" (no Draft points to it) and
+        # won't trigger a OneToOne constraint violation.
+        version_b_v1 = publishing_api.create_publishable_entity_version(
+            entity_b.id,
+            version_num=1,
+            title="Entity B v1",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity_b.id,
+            version_num=2,
+            title="Entity B v2",
+            created=self.now,
+            created_by=None,
+        )
+
+        # Confirm version_b_v1 belongs to entity_b, not entity_a.
+        assert version_b_v1.entity_id == entity_b.id
+        assert version_b_v1.entity_id != entity_a.id
+
+        # This should raise an error because version_b_v1 belongs to entity_b,
+        # not entity_a. Without validation, this silently corrupts entity_a's
+        # draft to point to entity_b's content.
+        with pytest.raises((ValidationError, ValueError)):
+            publishing_api.set_draft_version(entity_a.id, version_b_v1.pk)
+
+    def test_publish_from_drafts_rejects_cross_package_drafts(self) -> None:
+        """
+        publish_from_drafts() should reject drafts that don't belong to the
+        specified LearningPackage.
+
+        If this validation is missing, a PublishLog is created for LP 1 but
+        with PublishLogRecords referencing entities from LP 2. The Published
+        rows for LP 2's entities would point to records in LP 1's PublishLog,
+        corrupting the publish history for both packages.
+        """
+        # Create an entity in LP 2
+        entity_in_lp2 = publishing_api.create_publishable_entity(
+            self.learning_package_2.id,
+            "entity_in_lp2",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity_in_lp2.id,
+            version_num=1,
+            title="Entity in LP2",
+            created=self.now,
+            created_by=None,
+        )
+
+        # Get drafts from LP 2
+        drafts_from_lp2 = Draft.objects.filter(
+            entity__learning_package_id=self.learning_package_2.id
+        )
+        assert drafts_from_lp2.exists()
+
+        # This should raise an error because we're trying to publish LP 2's
+        # drafts under LP 1's PublishLog.
+        with pytest.raises((ValidationError, ValueError)):
+            publishing_api.publish_from_drafts(
+                self.learning_package_1.id,
+                drafts_from_lp2,
+            )
+
+    def test_create_version_rejects_cross_package_dependencies(self) -> None:
+        """
+        create_publishable_entity_version() should reject dependencies that
+        are from a different LearningPackage.
+
+        If this validation is missing, PublishableEntityVersionDependency rows
+        are created linking entities across packages. The side-effect machinery
+        would then propagate draft/publish changes across LearningPackage
+        boundaries, creating DraftChangeLogRecords and PublishLogRecords in the
+        wrong package's logs.
+        """
+        entity_in_lp1 = publishing_api.create_publishable_entity(
+            self.learning_package_1.id,
+            "entity_in_lp1",
+            created=self.now,
+            created_by=None,
+        )
+        entity_in_lp2 = publishing_api.create_publishable_entity(
+            self.learning_package_2.id,
+            "dep_entity_in_lp2",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity_in_lp2.id,
+            version_num=1,
+            title="Dependency in LP2",
+            created=self.now,
+            created_by=None,
+        )
+
+        # This should raise an error because entity_in_lp2 is from a
+        # different LearningPackage than entity_in_lp1.
+        with pytest.raises((ValidationError, ValueError)):
+            publishing_api.create_publishable_entity_version(
+                entity_in_lp1.id,
+                version_num=1,
+                title="Entity in LP1 with cross-package dep",
+                created=self.now,
+                created_by=None,
+                dependencies=[entity_in_lp2.id],
+            )
+
+    def test_publish_functions_rejected_inside_bulk_draft_changes_for(self) -> None:
+        """
+        publish_all_drafts() and publish_from_drafts() must not be callable
+        from within a bulk_draft_changes_for() context.
+
+        bulk_draft_changes_for() opens a DraftChangeLog for accumulating draft
+        edits; running a publish inside it mixes draft-change bookkeeping with
+        publish bookkeeping in the same atomic block, which corrupts the
+        ordering of DraftChangeLog vs. PublishLog records and can leave Drafts
+        and Published rows out of sync if the outer context later raises.
+        """
+        entity = publishing_api.create_publishable_entity(
+            self.learning_package_1.id,
+            "entity_for_bulk_publish_check",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity.id,
+            version_num=1,
+            title="Entity v1",
+            created=self.now,
+            created_by=None,
+        )
+
+        with pytest.raises((ValidationError, RuntimeError)):
+            with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+                publishing_api.publish_all_drafts(self.learning_package_1.id)
+
+        with pytest.raises((ValidationError, RuntimeError)):
+            with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+                publishing_api.publish_from_drafts(
+                    self.learning_package_1.id,
+                    Draft.objects.filter(entity__learning_package_id=self.learning_package_1.id),
+                )
