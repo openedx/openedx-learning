@@ -2,7 +2,7 @@
 Context Managers for internal use in the publishing app.
 
 Do not use this directly outside the publishing app. Use the public API's
-bulk_draft_changes_for instead (which will invoke this internally).
+draft_changes_for instead (which will invoke this internally).
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ class DraftChangeLogContext(Atomic):
     Context manager for batching draft changes into DraftChangeChangeLogs.
 
     🛑 This is a PRIVATE implementation. Outside of the publishing app, clients
-    should use the bulk_draft_changes_for() API call instead of using this
+    should use the draft_changes_for() API call instead of using this
     manager directly, since this is a bit experimental and the implementation
     may shift around a bit.
 
@@ -30,7 +30,7 @@ class DraftChangeLogContext(Atomic):
     layers higher in the stack than doing the draft changes. For instance,
     imagine::
 
-        with bulk_draft_changes_for(learning_package.id):
+        with draft_changes_for(learning_package.id, request.user.id):
             for section in course:
                 update_section_drafts(learning_package_id, section)
 
@@ -73,6 +73,18 @@ class DraftChangeLogContext(Atomic):
         # side-effect creation. DraftChangeLogContext itself is a lower-level
         # part of the code that doesn't understand what containers are.
         self.exit_callbacks = exit_callbacks or []
+
+    @classmethod
+    def get_active_draft_change_log_or_raise(cls, learning_package_id: int) -> DraftChangeLog:
+        """
+        Get the DraftChangeLogContext, or raise ValueError if there is none.
+
+        Appropriate to call for operations which must be associated with a DraftChangeLog,
+        such as create_publishable_entity_version.
+        """
+        if ctx := cls.get_active_draft_change_log(learning_package_id):
+            return ctx
+        raise ValueError("Draft changes can only be made inside a `with draft_changes_for(...):` block.")
 
     @classmethod
     def get_active_draft_change_log(cls, learning_package_id: int) -> DraftChangeLog | None:

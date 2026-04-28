@@ -74,25 +74,29 @@ def create_collection(
     collection_code: str,
     *,
     title: str,
-    created_by: int | None,
+    created: publishing_api.DatetimeOrAuto = publishing_api.DATETIME_AUTO,
+    created_by: publishing_api.AuthorOrAuto = publishing_api.AUTHOR_AUTO,
     description: str = "",
     enabled: bool = True,
 ) -> Collection:
     """
     Create a new Collection
     """
+    created_dt = publishing_api.resolve_datetime(learning_package_id, created)
+    created_by_id = publishing_api.resolve_author(learning_package_id, created_by)
     collection = Collection(
         learning_package_id=learning_package_id,
         collection_code=collection_code,
         title=title,
-        created_by_id=created_by,
+        created=created_dt,
+        created_by_id=created_by_id,
         description=description,
         enabled=enabled,
     )
     collection.full_clean()
     collection.save()
     if enabled:
-        _queue_change_event(collection, created=True, user_id=created_by)
+        _queue_change_event(collection, created=True, user_id=created_by_id)
     return collection
 
 
@@ -281,7 +285,9 @@ def get_collections(learning_package_id: LearningPackage.ID, enabled: bool | Non
 def set_collections(
     publishable_entity: PublishableEntity,
     collection_qset: QuerySet[Collection],
-    created_by: int | None = None,
+    *,
+    created: publishing_api.DatetimeOrAuto = publishing_api.DATETIME_AUTO,
+    created_by: publishing_api.AuthorOrAuto = publishing_api.AUTHOR_AUTO,
 ) -> set[Collection]:
     """
     Set collections for a given publishable entity.
@@ -304,10 +310,18 @@ def set_collections(
     # Clear other collections for given entity and add only new collections from collection_qset
     removed_collections = set(r.collection for r in current_relations.exclude(collection__in=collection_qset))
     new_collections = set(collection_qset.exclude(id__in=current_relations.values_list("collection", flat=True)))
+
+    created_dt = publishing_api.resolve_datetime(
+        publishable_entity.learning_package_id, created
+    )
+    created_by_id = publishing_api.resolve_author(
+        publishable_entity.learning_package_id, created_by
+    )
+
     # Triggers a m2m_changed signal
     publishable_entity.collections.set(
         objs=collection_qset,
-        through_defaults={"created_by_id": created_by},
+        through_defaults={"created_by_id": created_by_id, "created": created_dt},
     )
     # Update modified date:
     affected_collections = removed_collections | new_collections
@@ -324,8 +338,8 @@ def set_collections(
     ):
         # TODO: test performance of this and potentially send these async if > 1 affected collection.
         if collection.id in removed_ids:
-            _queue_change_event(collection, entities_removed=[publishable_entity.id], user_id=created_by)
+            _queue_change_event(collection, entities_removed=[publishable_entity.id], user_id=created_by_id)
         else:
-            _queue_change_event(collection, entities_added=[publishable_entity.id], user_id=created_by)
+            _queue_change_event(collection, entities_added=[publishable_entity.id], user_id=created_by_id)
 
     return affected_collections

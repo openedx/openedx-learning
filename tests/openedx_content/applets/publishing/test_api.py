@@ -310,61 +310,51 @@ class DraftTestCase(TestCase):
         wanted to make sure nothing went wrong when multiple types of reset were
         happening at the same time.
         """
-        with (publishing_api.bulk_draft_changes_for(self.learning_package_1.id) if bulk else nullcontext()):
+        with (publishing_api.draft_changes_for(self.learning_package_1.id, None) if bulk else nullcontext()):
             # This is the Entity that's going to get a couple of new versions
             # between Draft and Published.
             entity_with_changes = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "entity_with_changes",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 entity_with_changes.id,
                 version_num=1,
                 title="I'm entity_with_changes v1",
-                created=self.now,
-                created_by=None,
             )
 
             # This Entity is going to remain unchanged between Draft and Published.
             entity_with_no_changes = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "entity_with_no_changes",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 entity_with_no_changes.id,
                 version_num=1,
                 title="I'm entity_with_no_changes v1",
-                created=self.now,
-                created_by=None,
             )
 
             # This Entity will be Published, but will then be soft-deleted.
             entity_with_pending_delete = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "entity_with_pending_delete",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 entity_with_pending_delete.id,
                 version_num=1,
                 title="I'm entity_with_pending_delete v1",
-                created=self.now,
-                created_by=None,
             )
 
         if bulk:
-            # bulk_draft_changes_for creates only one DraftChangeLog for all the preceeding operations
+            # draft_changes_for creates only one DraftChangeLog for all the preceeding operations
             assert DraftChangeLog.objects.count() == 1
 
         # Publish!
         publishing_api.publish_all_drafts(self.learning_package_1.id)
 
-        with (publishing_api.bulk_draft_changes_for(self.learning_package_1.id) if bulk else nullcontext()) as changes2:
+        with (
+            publishing_api.draft_changes_for(self.learning_package_1.id, None) if bulk else nullcontext()
+        ) as changes2:
             # Create versions 2, 3, 4 of entity_with_changes. After this, the
             # Published version is 1 and the Draft version is 4.
             for version_num in range(2, 5):
@@ -372,8 +362,6 @@ class DraftTestCase(TestCase):
                     entity_with_changes.id,
                     version_num=version_num,
                     title=f"I'm entity_with_changes v{version_num}",
-                    created=self.now,
-                    created_by=None,
                 )
 
             # Soft-delete entity_with_pending_delete. After this, the Published
@@ -385,15 +373,11 @@ class DraftTestCase(TestCase):
             new_entity = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "new_entity",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 new_entity.id,
                 version_num=1,
                 title="I'm new_entity v1",
-                created=self.now,
-                created_by=None,
             )
 
             # The versions we expect in (entity, published version_num, draft
@@ -436,19 +420,16 @@ class DraftTestCase(TestCase):
 
     def test_get_entities_with_unpublished_changes(self) -> None:
         """Test fetching entities with unpublished changes after soft deletes."""
-        entity = publishing_api.create_publishable_entity(
-            self.learning_package_1.id,
-            "my_entity",
-            created=self.now,
-            created_by=None,
-        )
-        publishing_api.create_publishable_entity_version(
-            entity.id,
-            version_num=1,
-            title="An Entity 🌴",
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(learning_package_id, None):
+            entity = publishing_api.create_publishable_entity(
+                self.learning_package_1.id,
+                "my_entity",
+            )
+            publishing_api.create_publishable_entity_version(
+                entity.id,
+                version_num=1,
+                title="An Entity 🌴",
+            )
 
         # Fetch unpublished entities
         entities = publishing_api.get_entities_with_unpublished_changes(self.learning_package_1.id)
@@ -480,48 +461,39 @@ class DraftTestCase(TestCase):
         count_drafts = 6
         count_no_drafts = 3
 
-        for index in range(count_published):
-            # Create entities to publish
-            entity = publishing_api.create_publishable_entity(
-                self.learning_package_1.id,
-                f"entity_published_{index}",
-                created=self.now,
-                created_by=None,
-            )
-
-            publishing_api.create_publishable_entity_version(
-                entity.id,
-                version_num=1,
-                title=f"Entity_published_{index}",
-                created=self.now,
-                created_by=None,
-            )
+        with publishing_api.draft_changes_for(learning_package_id, None):
+            for index in range(count_published):
+                # Create entities to publish
+                entity = publishing_api.create_publishable_entity(
+                    self.learning_package_1.id,
+                    f"entity_published_{index}",
+                )
+                publishing_api.create_publishable_entity_version(
+                    entity.id,
+                    version_num=1,
+                    title=f"Entity_published_{index}",
+                )
 
         publishing_api.publish_all_drafts(self.learning_package_1.id)
 
-        for index in range(count_drafts):
-            # Create entities with drafts
-            entity = publishing_api.create_publishable_entity(
-                self.learning_package_1.id,
-                f"entity_draft_{index}",
-                created=self.now,
-                created_by=None,
-            )
-
-            publishing_api.create_publishable_entity_version(
-                entity.id,
-                version_num=1,
-                title=f"Entity_draft_{index}",
-                created=self.now,
-                created_by=None,
-            )
+        with publishing_api.draft_changes_for(learning_package_id, None):
+            for index in range(count_drafts):
+                # Create entities with drafts
+                entity = publishing_api.create_publishable_entity(
+                    self.learning_package_1.id,
+                    f"entity_draft_{index}",
+                )
+                publishing_api.create_publishable_entity_version(
+                    entity.id,
+                    version_num=1,
+                    title=f"Entity_draft_{index}",
+                )
 
         for index in range(count_no_drafts):
             # Create entities without drafts
             entity = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 f"entity_no_draft_{index}",
-                created=self.now,
                 created_by=None,
             )
 
@@ -588,52 +560,40 @@ class DraftChangeLogTestCase(TestCase):
         """
         Simplest test that multiple writes make it into one DraftChangeLog.
         """
-        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
             entity = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 entity.id,
                 version_num=1,
                 title="An Entity 🌴",
-                created=self.now,
-                created_by=None,
             )
             entity2 = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity2",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 entity2.id,
                 version_num=1,
                 title="An Entity 🌴 2",
-                created=self.now,
-                created_by=None,
             )
         draft_sets = list(DraftChangeLog.objects.all())
         assert len(draft_sets) == 1
         assert len(draft_sets[0].records.all()) == 2
 
-        # Now that we're outside of the context manager, check that we're making
-        # a new DraftChangeLog...
-        entity3 = publishing_api.create_publishable_entity(
-            self.learning_package_1.id,
-            "my_entity3",
-            created=self.now,
-            created_by=None,
-        )
-        e3_v1 = publishing_api.create_publishable_entity_version(
-            entity3.id,
-            version_num=1,
-            title="An Entity 🌴 3",
-            created=self.now,
-            created_by=None,
-        )
+        # And make one more version in a separate context manager
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
+            entity3 = publishing_api.create_publishable_entity(
+                self.learning_package_1.id,
+                "my_entity3",
+            )
+            e3_v1 = publishing_api.create_publishable_entity_version(
+                entity3.id,
+                version_num=1,
+                title="An Entity 🌴 3",
+            )
         draft_sets = list(DraftChangeLog.objects.all().order_by('id'))
         assert len(draft_sets) == 2
         assert len(draft_sets[1].records.all()) == 1
@@ -650,21 +610,17 @@ class DraftChangeLogTestCase(TestCase):
         """
         We should look up the stack to find the right one for our Learning Package.
         """
-        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id) as dcl_1:
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None) as dcl_1:
             lp1_e1 = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "lp1_e1",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 lp1_e1.id,
                 version_num=1,
                 title="LP1 E1 v1",
-                created=self.now,
-                created_by=None,
             )
-            with publishing_api.bulk_draft_changes_for(self.learning_package_2.id) as dcl_2:
+            with publishing_api.draft_changes_for(self.learning_package_2.id, None) as dcl_2:
                 # This should make its way into the *outer* context, because
                 # we're creating the new publishable entity version for
                 # learning_package_1, not learning_package_2
@@ -672,8 +628,6 @@ class DraftChangeLogTestCase(TestCase):
                     lp1_e1.id,
                     version_num=2,
                     title="LP1 E1 v1",
-                    created=self.now,
-                    created_by=None,
                 )
 
                 # Make sure our change above made it to the outer context and
@@ -690,15 +644,11 @@ class DraftChangeLogTestCase(TestCase):
                 lp2_e1 = publishing_api.create_publishable_entity(
                     self.learning_package_2.id,
                     "lp2_e1",
-                    created=self.now,
-                    created_by=None,
                 )
                 lp2_e1_v1 = publishing_api.create_publishable_entity_version(
                     lp2_e1.id,
                     version_num=1,
                     title="LP2 E1 v1",
-                    created=self.now,
-                    created_by=None,
                 )
             # This doesn't error, but it creates a new DraftChangeLog instead of
             # re-using dcl_2
@@ -706,8 +656,6 @@ class DraftChangeLogTestCase(TestCase):
                 lp2_e1.id,
                 version_num=2,
                 title="LP2 E1 v2",
-                created=self.now,
-                created_by=None,
             )
 
         # Sanity check that the first/outer DraftChangeLog hasn't changed.
@@ -735,26 +683,20 @@ class DraftChangeLogTestCase(TestCase):
         """
         Test that multiple changes to the same entity are collapsed.
         """
-        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
             entity = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 entity.id,
                 version_num=1,
                 title="An Entity 🌴 v1",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 entity.id,
                 version_num=2,
                 title="An Entity 🌴 v2",
-                created=self.now,
-                created_by=None,
             )
         draft_sets = list(DraftChangeLog.objects.all().order_by('id'))
         assert len(draft_sets) == 1
@@ -767,22 +709,18 @@ class DraftChangeLogTestCase(TestCase):
 
     def test_some_draft_changes_cancel_out(self) -> None:
         """Test that re remove redundant changes from our DraftChangeLog."""
-        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
             # This change will get cancelled out (because we create a draft and
             # then delete it), so changes related to entity_1 will be removed
             # after the context ends.
             entity_1 = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "Entity-1",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.create_publishable_entity_version(
                 entity_1.id,
                 version_num=1,
                 title="An Entity 🌴 v1",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.soft_delete_draft(entity_1.id)
 
@@ -790,15 +728,11 @@ class DraftChangeLogTestCase(TestCase):
             entity_2 = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "Entity-2",
-                created=self.now,
-                created_by=None,
             )
             e2_v1 = publishing_api.create_publishable_entity_version(
                 entity_2.id,
                 version_num=1,
                 title="E2 title",
-                created=self.now,
-                created_by=None,
             )
         assert DraftChangeLog.objects.all().count() == 1
         change_log = DraftChangeLog.objects.first()
@@ -813,19 +747,15 @@ class DraftChangeLogTestCase(TestCase):
         If all changes made cancel out, the entire DraftRecord gets deleted.
         """
         # Make sure a version change from (None -> None) gets removed.
-        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
             entity = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity",
-                created=self.now,
-                created_by=None,
             )
             v1 = publishing_api.create_publishable_entity_version(
                 entity.id,
                 version_num=1,
                 title="An Entity 🌴 v1",
-                created=self.now,
-                created_by=None,
             )
             publishing_api.soft_delete_draft(entity.id)
 
@@ -836,15 +766,13 @@ class DraftChangeLogTestCase(TestCase):
         assert DraftChangeLog.objects.all().count() == 1
 
         # Make sure a change from v1 -> v2 -> v1 gets removed.
-        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
             for i in range(2, 5):
                 # Make a few new versions
                 publishing_api.create_publishable_entity_version(
                     entity.id,
                     version_num=i,
                     title=f"An Entity v{i}",
-                    created=self.now,
-                    created_by=None,
                 )
             # Reset to version 1
             publishing_api.set_draft_version(entity.id, v1.pk)
@@ -878,32 +806,24 @@ class PublishLogTestCase(TestCase):
         """
         Simplest test that multiple writes make it into one PublishLog.
         """
-        with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
             entity1 = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity",
-                created=self.now,
-                created_by=None,
             )
             entity1_v1 = publishing_api.create_publishable_entity_version(
                 entity1.id,
                 version_num=1,
                 title="An Entity 🌴",
-                created=self.now,
-                created_by=None,
             )
             entity2 = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity2",
-                created=self.now,
-                created_by=None,
             )
             entity2_v1 = publishing_api.create_publishable_entity_version(
                 entity2.id,
                 version_num=1,
                 title="An Entity 🌴 2",
-                created=self.now,
-                created_by=None,
             )
 
         # Check simplest publish of two things...
@@ -1024,7 +944,7 @@ class EntitiesQueryTestCase(TestCase):
             created=cls.now,
         )
 
-        with publishing_api.bulk_draft_changes_for(cls.learning_package_1.id):
+        with publishing_api.draft_changes_for(cls.learning_package_1.id):
             entity = publishing_api.create_publishable_entity(
                 cls.learning_package_1.id,
                 "my_entity",
@@ -1849,7 +1769,7 @@ class TestContainerSideEffects(TestCase):
 
     def test_bulk_parent_child_side_effects(self) -> None:
         """Test that modifying a child has side-effects on its parent. (bulk version)"""
-        with publishing_api.bulk_draft_changes_for(self.learning_package.id):
+        with publishing_api.draft_changes_for(self.learning_package.id):
             child_1 = publishing_api.create_publishable_entity(
                 self.learning_package.id,
                 "child_1",
@@ -1923,7 +1843,7 @@ class TestContainerSideEffects(TestCase):
         assert container_change.new_version == container_v1.publishable_entity_version
 
         # There are two side effects here, because we grouped our draft edits
-        # together using bulk_draft_changes_for, so changes to both children
+        # together using draft_changes_for, so changes to both children
         # count towards side-effects on the container.
         side_effects = DraftSideEffect.objects.all()
         assert side_effects.count() == 2
@@ -2049,7 +1969,7 @@ class TestContainerSideEffects(TestCase):
         # bottom-up using different DraftChangeLogs
         assert not DraftSideEffect.objects.all().exists()
 
-        with publishing_api.bulk_draft_changes_for(self.learning_package.id) as change_log:
+        with publishing_api.draft_changes_for(self.learning_package.id) as change_log:
             publishing_api.create_publishable_entity_version(
                 component.id,
                 version_num=2,
@@ -2533,3 +2453,39 @@ class CrossEntityValidationTestCase(TransactionTestCase):
                 created_by=None,
                 dependencies=[entity_in_lp2.id],
             )
+
+    def test_publish_functions_rejected_inside_draft_changes_for(self) -> None:
+        """
+        publish_all_drafts() and publish_from_drafts() must not be callable
+        from within a draft_changes_for() context.
+
+        draft_changes_for() opens a DraftChangeLog for accumulating draft
+        edits; running a publish inside it mixes draft-change bookkeeping with
+        publish bookkeeping in the same atomic block, which corrupts the
+        ordering of DraftChangeLog vs. PublishLog records and can leave Drafts
+        and Published rows out of sync if the outer context later raises.
+        """
+        entity = publishing_api.create_publishable_entity(
+            self.learning_package_1.id,
+            "entity_for_bulk_publish_check",
+            created=self.now,
+            created_by=None,
+        )
+        publishing_api.create_publishable_entity_version(
+            entity.id,
+            version_num=1,
+            title="Entity v1",
+            created=self.now,
+            created_by=None,
+        )
+
+        with pytest.raises(ValidationError, match="Cannot publish while in draft_changes_for()."):
+            with publishing_api.draft_changes_for(self.learning_package_1.id):
+                publishing_api.publish_all_drafts(self.learning_package_1.id)
+
+        with pytest.raises(ValidationError, match="Cannot publish while in draft_changes_for()."):
+            with publishing_api.draft_changes_for(self.learning_package_1.id):
+                publishing_api.publish_from_drafts(
+                    self.learning_package_1.id,
+                    Draft.objects.filter(entity__learning_package_id=self.learning_package_1.id),
+                )

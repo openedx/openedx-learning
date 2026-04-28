@@ -7,12 +7,12 @@ are stored in this app.
 
 from __future__ import annotations
 
-from contextlib import nullcontext
 from datetime import datetime, timezone
 from functools import partial
-from typing import ContextManager, Optional, cast
+from typing import Literal, Optional, TypeAlias, cast
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AbstractUser, AnonymousUser
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.transaction import atomic, on_commit
@@ -45,6 +45,11 @@ from .models.publish_log import Published
 # start with an underscore AND it is not in __all__, that function is considered
 # to be callable only by other applets in the openedx_content package.
 __all__ = [
+    "DATETIME_AUTO",
+    "DatetimeOrAuto",
+    "UserID",
+    "AUTHOR_AUTO",
+    "AuthorOrAuto",
     "get_learning_package",
     "get_learning_package_by_ref",
     "create_learning_package",
@@ -72,8 +77,123 @@ __all__ = [
     "reset_drafts_to_published",
     "register_publishable_models",
     "filter_publishable_entities",
-    "bulk_draft_changes_for",
+    "draft_changes_for",
 ]
+
+
+DATETIME_AUTO: Literal["DATETIME_AUTO"] = "DATETIME_AUTO"
+"""
+Automatically choose a timestamp for a creation, deletion, edit, or change.
+
+Within a `draft_changes_for` context, `DATETIME_AUTO` indicates to use the
+context's timestamp.  Outside of `draft_changes_for`, `DATETIME_AUTO` indicates
+to the current time (`datetime.now`).
+
+`DATETIME_AUTO` is a reasonable default for most situations.
+"""
+
+
+type DatetimeOrAuto = datetime | Literal["DATETIME_AUTO"]
+"""
+How to choose a datetime indicating when an operation occured.
+
+This is either a specific `datetime`, or it is `DATETIME_AUTO`.
+When in doubt, `DATETIME_AUTO` is a reasonable default.
+"""
+
+
+UserID: TypeAlias = int
+"""
+UserID is an integer.
+
+A UserID is meant to hold a primary key of a User object, but this is not
+enforced by the type checker. Future versions of openedx-core may enforce
+this more strictly by making UserID a NewType (subclass) of int.
+"""
+
+
+AUTHOR_AUTO: Literal["AUTHOR_AUTO"] = "AUTHOR_AUTO"
+"""
+Attribute the operation to the same user as the enclosing `draft_changes_for` context.
+
+Outside of a context, using `AUTHOR_AUTO` is meaningless and will result in a `ValueError`.
+"""
+
+
+type AuthorOrAuto = (
+    # Attribute to a specific user:
+    UserID | AbstractUser
+    # Attribue to nobody:
+    | None | AnonymousUser
+    # Attribute to the same user as the enclosing draft_changes_for:
+    | Literal["AUTHOR_AUTO"]
+)
+"""
+How to attribute an operation (creation, edit, deletion, change) to a user.
+
+For attributable changes, this could be a User, or its database ID.
+
+For changes without any attributable author (e.g. backfills), this could be None
+or an AnonymousUser, both of which map to NULL in the database. This should be
+reserved for special cases--most changes have a concrete author!
+
+Finally, this could be AUTHOR_AUTO, which means "use the same author (or lack
+thereof) that the draft change context is using." Most functions default to AUTHOR_AUTO.
+"""
+
+
+def resolve_datetime(
+    learning_package_id: LearningPackage.ID,
+    dt: DatetimeOrAuto,
+) -> datetime:
+    """
+    Convert a Timestamp specifier into a concerete datetime to be saved to the DB.
+
+    If `timestamp is DATETIME_AUTO`, then return either the datetime of the
+    enclosing `draft_changes_for` context, or `datetime.now` if there is
+    no enclosing context.
+
+    This function can be used by other openedx_content applets, but it is not part of the public API.
+    """
+    if dt is DATETIME_AUTO:
+        if ctx := DraftChangeLogContext.get_active_draft_change_log(learning_package_id):
+            return ctx.changed_at
+        return datetime.now(tz=timezone.utc)
+    assert isinstance(dt, datetime)
+    return dt
+
+
+def resolve_author(
+    learning_package_id: LearningPackage.ID,
+    author: AuthorOrAuto,
+) -> UserID | None:
+    """
+    Convert a Author specifier into a concerete user ID (or None) to be saved to the DB.
+
+    If `author is AUTHOR_AUTO`, then return either the author of the enclosing
+    `draft_changes_for` context. Raises `ValueError` if there is no
+    enclosing context.
+
+    This function can be used by other openedx_content applets, but it is not part of the public API.
+    """
+    if author is AUTHOR_AUTO:
+        if ctx := DraftChangeLogContext.get_active_draft_change_log(learning_package_id):
+            return ctx.changed_by.id if ctx.changed_by else None
+        else:
+            raise ValueError(
+                "An author (other than AUTHOR_AUTO) must be specified when changing content "
+                "outside of a `draft_changes_for` context."
+            )
+    elif isinstance(author, AnonymousUser):
+        return None
+    elif isinstance(author, AbstractUser):
+        assert isinstance(author.pk, int)
+        return author.pk
+    elif author:
+        assert isinstance(author, int)
+        return author
+    else:
+        return None
 
 
 def get_learning_package(learning_package_id: LearningPackage.ID, /) -> LearningPackage:
@@ -93,7 +213,7 @@ def get_learning_package_by_ref(package_ref: str) -> LearningPackage:
 
 
 def create_learning_package(
-    package_ref: str, title: str, description: str = "", created: datetime | None = None
+    package_ref: str, title: str, description: str = "", created: DatetimeOrAuto = DATETIME_AUTO,
 ) -> LearningPackage:
     """
     Create a new LearningPackage.
@@ -104,7 +224,7 @@ def create_learning_package(
 
     * django.core.exceptions.ValidationError
     """
-    if not created:
+    if created is DATETIME_AUTO:
         created = datetime.now(tz=timezone.utc)
 
     package = LearningPackage(
@@ -134,7 +254,7 @@ def update_learning_package(
     package_ref: str | None = None,
     title: str | None = None,
     description: str | None = None,
-    updated: datetime | None = None,
+    updated: DatetimeOrAuto = DATETIME_AUTO,
 ) -> LearningPackage:
     """
     Make an update to LearningPackage metadata.
@@ -155,11 +275,7 @@ def update_learning_package(
     if description is not None:
         lp.description = description
 
-    # updated is a bit different–we auto-generate it if it's not explicitly
-    # passed in.
-    if updated is None:
-        updated = datetime.now(tz=timezone.utc)
-    lp.updated = updated
+    lp.updated = resolve_datetime(learning_package_id, updated)
 
     lp.save()
 
@@ -191,9 +307,8 @@ def create_publishable_entity(
     learning_package_id: LearningPackage.ID,
     /,
     entity_ref: str,
-    created: datetime,
-    # User ID who created this
-    created_by: int | None,
+    created: DatetimeOrAuto = DATETIME_AUTO,
+    created_by: AuthorOrAuto = AUTHOR_AUTO,
     *,
     can_stand_alone: bool = True,
 ) -> PublishableEntity:
@@ -202,12 +317,15 @@ def create_publishable_entity(
 
     You'd typically want to call this right before creating your own content
     model that points to it.
+
+    Must be called inside `with draft_changes_for(...):`
     """
+
     return PublishableEntity.objects.create(
         learning_package_id=learning_package_id,
         entity_ref=entity_ref,
-        created=created,
-        created_by_id=created_by,
+        created=resolve_datetime(learning_package_id, created),
+        created_by_id=resolve_author(learning_package_id, created_by),
         can_stand_alone=can_stand_alone,
     )
 
@@ -217,8 +335,6 @@ def create_publishable_entity_version(
     /,
     version_num: int,
     title: str,
-    created: datetime,
-    created_by: int | None,
     *,
     dependencies: list[PublishableEntity.ID] | None = None,
 ) -> PublishableEntityVersion:
@@ -228,13 +344,14 @@ def create_publishable_entity_version(
     You'd typically want to call this right before creating your own content
     version model that points to it.
     """
+    learning_package_id = get_publishable_entity(entity_id).learning_package_id
     with atomic(savepoint=False):
         version = PublishableEntityVersion.objects.create(
             entity_id=entity_id,
             version_num=version_num,
             title=title,
-            created=created,
-            created_by_id=created_by,
+            created=resolve_datetime(learning_package_id, DATETIME_AUTO),
+            created_by_id=resolve_author(learning_package_id, AUTHOR_AUTO),
         )
         if dependencies:
             # Validate that dependencies are from the same learning package:
@@ -247,12 +364,7 @@ def create_publishable_entity_version(
             # Store dependencies:
             set_version_dependencies(version.id, dependencies)
 
-        set_draft_version(
-            entity_id,
-            version.id,
-            set_at=created,
-            set_by=created_by,
-        )
+        set_draft_version(entity_id, version.id)
     return version
 
 
@@ -409,8 +521,8 @@ def publish_all_drafts(
     learning_package_id: LearningPackage.ID,
     /,
     message="",
-    published_at: datetime | None = None,
-    published_by: int | None = None
+    published_at: DatetimeOrAuto = DATETIME_AUTO,
+    published_by: AuthorOrAuto = AUTHOR_AUTO,
 ) -> PublishLog:
     """
     Publish everything that is a Draft and is not already published.
@@ -463,8 +575,8 @@ def publish_from_drafts(
     /,
     draft_qset: QuerySet[Draft],
     message: str = "",
-    published_at: datetime | None = None,
-    published_by: int | None = None,  # User.id
+    published_at: DatetimeOrAuto = DATETIME_AUTO,
+    published_by: AuthorOrAuto = AUTHOR_AUTO,
     *,
     publish_dependencies: bool = True,
 ) -> PublishLog:
@@ -474,9 +586,10 @@ def publish_from_drafts(
     By default, this will also publish all dependencies (e.g. unpinned children)
     of the Drafts that are passed in.
     """
-    if published_at is None:
-        published_at = datetime.now(tz=timezone.utc)
-
+    if DraftChangeLogContext.get_active_draft_change_log(learning_package_id) is not None:
+        raise ValidationError("Cannot publish while in draft_changes_for().")
+    published_at = resolve_datetime(learning_package_id, published_at)
+    published_by = resolve_author(learning_package_id, published_by)
     with atomic():
         if publish_dependencies:
             dependency_drafts_qsets = _get_dependencies_with_unpublished_changes(draft_qset)
@@ -885,8 +998,6 @@ def set_draft_version(
     draft_or_id: Draft | PublishableEntity.ID,
     publishable_entity_version_pk: int | None,
     /,
-    set_at: datetime | None = None,
-    set_by: int | None = None,  # User.id
 ) -> None:
     """
     Modify the Draft of a PublishableEntity to be a PublishableEntityVersion.
@@ -906,14 +1017,13 @@ def set_draft_version(
 
     This function will create DraftSideEffect entries and properly add any
     containers that may have been affected by this draft update, UNLESS it is
-    called from within a bulk_draft_changes_for block. If it is called from
-    inside a bulk_draft_changes_for block, it will not add side-effects for
-    containers, as bulk_draft_changes_for will automatically do that when the
-    block exits.
-    """
-    if set_at is None:
-        set_at = datetime.now(tz=timezone.utc)
+    called from within a draft_changes_for block. If it is called from
+    inside a draft_changes_for block, it will not add side-effects for
+    containers, as draft_changes_for will automatically do that when the
+    block exits. @@TODO update this docstring
 
+    Must be called inside `with draft_changes_for(...):`
+    """
     with atomic(savepoint=False):
         if isinstance(draft_or_id, Draft):
             draft = draft_or_id
@@ -946,77 +1056,56 @@ def set_draft_version(
                     f"the PublishableEntity ({repr(draft.entity)})."
                 )
 
-        # Check to see if we're inside a context manager for an active
-        # DraftChangeLog (i.e. what happens if the caller is using the public
-        # bulk_draft_changes_for() API call), or if we have to make our own.
+        # Ensure we're inside a context manager for an active DraftChangeLog
+        # (i.e. what happens if the caller is using the public
+        # draft_changes_for() API call).
         learning_package_id = draft.entity.learning_package_id
-        active_change_log = DraftChangeLogContext.get_active_draft_change_log(
+        active_change_log = DraftChangeLogContext.get_active_draft_change_log_or_raise(
             learning_package_id
         )
-        if active_change_log:
-            draft_log_record = _add_to_existing_draft_change_log(
-                active_change_log,
-                draft.entity_id,
-                old_version_id=old_version_id,
-                new_version_id=publishable_entity_version_pk,
-            )
-            if draft_log_record:
-                # Normal case: a DraftChangeLogRecord was created or updated.
-                draft.draft_log_record = draft_log_record
-            else:
-                # Edge case: this change cancelled out other changes, and the
-                # net effect is that the DraftChangeLogRecord shouldn't exist,
-                # i.e. the version at the start and end of the DraftChangeLog is
-                # the same. In that case, _add_to_existing_draft_change_log will
-                # delete the log record for this Draft state, and we have to
-                # look for the most recently created DraftLogRecord from another
-                # DraftChangeLog. This value may be None.
-                #
-                # NOTE: There may be some weird edge cases here around soft-
-                # deletions and modifications of the same Draft entry in nested
-                # bulk_draft_changes_for() calls. I haven't thought that through
-                # yet--it might be better to just throw an error rather than try
-                # to accommodate it.
-                draft.draft_log_record = (
-                    DraftChangeLogRecord.objects
-                                        .filter(entity_id=draft.entity_id)
-                                        .order_by("-pk")
-                                        .first()
-                )
-            draft.save()
-
-            # We also *don't* create container side effects here because there
-            # may be many changes in this DraftChangeLog, some of which haven't
-            # been made yet. It wouldn't make sense to create a side effect that
-            # says, "this Unit changed because this Component in it changed" if
-            # we were changing that same Unit later on in the same
-            # DraftChangeLog, because that new Unit version might not even
-            # include that child Component. Also, calculating side-effects is
-            # expensive, and would result in a lot of wasted queries if we did
-            # it for every change will inside an active change log context.
-            #
-            # Therefore we'll let DraftChangeLogContext do that work when it
-            # exits its context.
+        draft_log_record = _add_to_existing_draft_change_log(
+            active_change_log,
+            draft.entity_id,
+            old_version_id=old_version_id,
+            new_version_id=publishable_entity_version_pk,
+        )
+        if draft_log_record:
+            # Normal case: a DraftChangeLogRecord was created or updated.
+            draft.draft_log_record = draft_log_record
         else:
-            # This means there is no active DraftChangeLog, so we create our own
-            # and add our DraftChangeLogRecord to it. This has the very minor
-            # optimization that we don't have to check for an existing
-            # DraftChangeLogRecord, because we know it can't exist yet.
-            change_log = DraftChangeLog.objects.create(
-                learning_package_id=learning_package_id,
-                changed_at=set_at,
-                changed_by_id=set_by,
+            # Edge case: this change cancelled out other changes, and the
+            # net effect is that the DraftChangeLogRecord shouldn't exist,
+            # i.e. the version at the start and end of the DraftChangeLog is
+            # the same. In that case, _add_to_existing_draft_change_log will
+            # delete the log record for this Draft state, and we have to
+            # look for the most recently created DraftLogRecord from another
+            # DraftChangeLog. This value may be None.
+            #
+            # NOTE: There may be some weird edge cases here around soft-
+            # deletions and modifications of the same Draft entry in nested
+            # draft_changes_for() calls. I haven't thought that through
+            # yet--it might be better to just throw an error rather than try
+            # to accommodate it.
+            draft.draft_log_record = (
+                DraftChangeLogRecord.objects
+                                    .filter(entity_id=draft.entity_id)
+                                    .order_by("-pk")
+                                    .first()
             )
-            draft.draft_log_record = DraftChangeLogRecord.objects.create(
-                draft_change_log=change_log,
-                entity_id=draft.entity_id,
-                old_version_id=old_version_id,
-                new_version_id=publishable_entity_version_pk,
-            )
-            draft.save()
-            _create_side_effects_for_change_log(change_log)
-            # Send out an event immediately after this database transaction commits, since this is an isolated change.
-            _emit_event_for_change_log(change_log, timestamp=set_at, user_id=set_by)
+        draft.save()
+
+        # We also *don't* create container side effects here because there
+        # may be many changes in this DraftChangeLog, some of which haven't
+        # been made yet. It wouldn't make sense to create a side effect that
+        # says, "this Unit changed because this Component in it changed" if
+        # we were changing that same Unit later on in the same
+        # DraftChangeLog, because that new Unit version might not even
+        # include that child Component. Also, calculating side-effects is
+        # expensive, and would result in a lot of wasted queries if we did
+        # it for every change will inside an active change log context.
+        #
+        # Therefore we'll let DraftChangeLogContext do that work when it
+        # exits its context.
 
 
 def _add_to_existing_draft_change_log(
@@ -1060,7 +1149,7 @@ def _add_to_existing_draft_change_log(
             # Special case: This change undoes the previous change(s). The value
             # in change.old_version_id represents the Draft version before the
             # DraftChangeLog was started, regardless of how many times we've
-            # changed it since we entered the bulk_draft_changes_for() context.
+            # changed it since we entered the draft_changes_for() context.
             # If we get here in the code, it means that we're now setting the
             # Draft version of this entity to be exactly what it was at the
             # start, and we should remove it entirely from the DraftChangeLog.
@@ -1075,7 +1164,7 @@ def _add_to_existing_draft_change_log(
         else:
             # Normal case: We update the new_version, but leave the old_version
             # as is. The old_version represents what the Draft was pointing to
-            # when the bulk_draft_changes_for() context started, so it persists
+            # when the draft_changes_for() context started, so it persists
             # if we change the same entity multiple times in the DraftChangeLog.
             change.new_version_id = new_version_id
             change.save()
@@ -1550,7 +1639,10 @@ def hash_for_log_record(
     return digest
 
 
-def soft_delete_draft(publishable_entity_id: PublishableEntity.ID, /, deleted_by: int | None = None) -> None:
+def soft_delete_draft(
+    publishable_entity_id: PublishableEntity.ID,
+    /,
+) -> None:
     """
     Sets the Draft version to None.
 
@@ -1559,15 +1651,15 @@ def soft_delete_draft(publishable_entity_id: PublishableEntity.ID, /, deleted_by
     version. No version data is actually deleted, so restoring is just a matter
     of pointing the Draft back to the most recent ``PublishableEntityVersion``
     for a given ``PublishableEntity``.
+
+    Must be called inside `with draft_changes_for(...):`
     """
-    return set_draft_version(publishable_entity_id, None, set_by=deleted_by)
+    return set_draft_version(publishable_entity_id, None)
 
 
 def reset_drafts_to_published(
     learning_package_id: LearningPackage.ID,
     /,
-    reset_at: datetime | None = None,
-    reset_by: int | None = None,  # User.id
 ) -> None:
     """
     Reset all Drafts to point to the most recently Published versions.
@@ -1592,9 +1684,12 @@ def reset_drafts_to_published(
     it's important that the code creating the "next" version_num looks at the
     latest version created for a PublishableEntity (its ``latest`` attribute),
     rather than basing it off of the version that Draft points to.
+
+    Must be called inside `with draft_changes_for(...):`
     """
-    if reset_at is None:
-        reset_at = datetime.now(tz=timezone.utc)
+    # Ensure we're inside `with draft_changes_for(...)` (and, thus, inside a
+    # transaction).
+    DraftChangeLogContext.get_active_draft_change_log_or_raise(learning_package_id)
 
     # These are all the drafts that are different from the published versions.
     draft_qset = Draft.objects \
@@ -1616,31 +1711,18 @@ def reset_drafts_to_published(
     if not draft_qset:
         return
 
-    active_change_log = DraftChangeLogContext.get_active_draft_change_log(learning_package_id)
+    # Note: We can't do an .update with a F() on a joined field in the ORM,
+    # so we have to loop through the drafts individually to reset them
+    # anyhow. We can rework this into a bulk update or custom SQL if it
+    # becomes a performance issue, as long as we also port over the
+    # bookkeeping code in set_draft_version.
+    for draft in draft_qset:
+        if hasattr(draft.entity, 'published'):
+            published_version_id = draft.entity.published.version_id
+        else:
+            published_version_id = None
 
-    # If there's an active DraftChangeLog, we're already in a transaction, so
-    # there's no need to open a new one.
-    tx_context: ContextManager
-    if active_change_log:
-        tx_context = nullcontext()
-    else:
-        tx_context = bulk_draft_changes_for(
-            learning_package_id, changed_at=reset_at, changed_by=reset_by
-        )
-
-    with tx_context:
-        # Note: We can't do an .update with a F() on a joined field in the ORM,
-        # so we have to loop through the drafts individually to reset them
-        # anyhow. We can rework this into a bulk update or custom SQL if it
-        # becomes a performance issue, as long as we also port over the
-        # bookkeeping code in set_draft_version.
-        for draft in draft_qset:
-            if hasattr(draft.entity, 'published'):
-                published_version_id = draft.entity.published.version_id
-            else:
-                published_version_id = None
-
-            set_draft_version(draft, published_version_id)
+        set_draft_version(draft, published_version_id)
 
 
 def register_publishable_models(
@@ -1713,10 +1795,10 @@ def get_published_version_as_of(
     return record.new_version if record else None
 
 
-def bulk_draft_changes_for(
+def draft_changes_for(
     learning_package_id: LearningPackage.ID,
-    changed_by: int | None = None,
-    changed_at: datetime | None = None
+    changed_by: UserID | AbstractUser | AnonymousUser | None,
+    changed_at: DatetimeOrAuto = DATETIME_AUTO,
 ) -> DraftChangeLogContext:
     """
     Context manager to do a single batch of Draft changes in.
@@ -1732,29 +1814,31 @@ def bulk_draft_changes_for(
 
     Example::
 
-        with bulk_draft_changes_for(learning_package.id):
+        with draft_changes_for(learning_package.id, changed_by=request.user.id):
             for section in course:
                 update_section_drafts(learning_package.id, section)
-
-    If you make a change to an entity *without* using this context manager, then
-    the individual change (and its side effects) will be automatically wrapped
-    in a one-off change context. For example, this::
-
-        update_one_component(component.learning_package, component)
-
-    is identical to this::
-
-        with bulk_draft_changes_for(component.learning_package.id):
-            update_one_component(component.learning_package.id, component)
     """
-    if not changed_at:
-        changed_at = datetime.now(tz=timezone.utc)
+    changed_at_dt: datetime
+    if changed_at is DATETIME_AUTO:
+        changed_at_dt = datetime.now(tz=timezone.utc)
+    else:
+        assert isinstance(changed_at, datetime)
+        changed_at_dt = changed_at
+    changed_by_id: UserID | None
+    if isinstance(changed_by, AnonymousUser):
+        changed_by_id = None
+    elif isinstance(changed_by, AbstractUser):
+        assert isinstance(changed_by.pk, int)
+        changed_by_id = changed_by.pk
+    elif changed_by:
+        assert isinstance(changed_by, int)
+        changed_by_id = changed_by
     return DraftChangeLogContext(
         learning_package_id,
-        changed_at=changed_at,
-        changed_by=changed_by,
+        changed_at=changed_at_dt,
+        changed_by=changed_by_id,
         exit_callbacks=[
             _create_side_effects_for_change_log,
-            partial(_emit_event_for_change_log, timestamp=changed_at, user_id=changed_by),
+            partial(_emit_event_for_change_log, timestamp=changed_at_dt, user_id=changed_by_id),
         ]
     )

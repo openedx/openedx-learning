@@ -248,7 +248,7 @@ def test_multiple_entites_changed(admin_user) -> None:
     api.create_publishable_entity_version(entity3.id, version_num=1, title="Entity 3 V1", **created_args)
 
     with capture_events(expected_count=1) as captured:
-        with api.bulk_draft_changes_for(
+        with api.draft_changes_for(
             learning_package.id,
             changed_by=admin_user.id,
             changed_at=now_time,
@@ -298,7 +298,7 @@ def test_multiple_entites_change_aborted() -> None:
 
     with capture_events(expected_count=0):
         with abort_transaction():
-            with api.bulk_draft_changes_for(learning_package.id, changed_by=None, changed_at=now_time):
+            with api.draft_changes_for(learning_package.id, changed_by=None, changed_at=now_time):
                 # Note: the 'created_args' values below get ignored because of the bulk context.
                 # Create two versions of entity1:
                 api.create_publishable_entity_version(entity1.id, version_num=1, title="Entity 1 V1", **created_args)
