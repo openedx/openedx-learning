@@ -511,6 +511,9 @@ def publish_from_drafts(
                 # Skip duplicates that we might get from expanding dependencies.
                 if draft.pk in published_draft_ids:
                     continue
+                # Validate Learning Package here where it won't require any extra queries
+                if draft.entity.learning_package_id != learning_package_id:
+                    raise ValidationError("Draft entity is from a different learning package.")
 
                 try:
                     old_version = draft.entity.published.version

@@ -2463,7 +2463,7 @@ class CrossEntityValidationTestCase(TestCase):
 
         # This should raise an error because we're trying to publish LP 2's
         # drafts under LP 1's PublishLog.
-        with pytest.raises((ValidationError, ValueError)):
+        with pytest.raises(ValidationError, match="Draft entity is from a different learning package."):
             publishing_api.publish_from_drafts(
                 self.learning_package_1.id,
                 drafts_from_lp2,
