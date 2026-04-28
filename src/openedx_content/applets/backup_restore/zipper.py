@@ -780,7 +780,7 @@ class LearningPackageUnzipper:
             self._save_subsections(learning_package_obj, containers)
             self._save_sections(learning_package_obj, containers)
             self._save_collections(learning_package_obj, collections)
-            publishing_api.publish_all_drafts(learning_package_obj.id)
+        publishing_api.publish_all_drafts(learning_package_obj.id)
 
         with publishing_api.bulk_draft_changes_for(learning_package_obj.id):
             self._save_draft_versions(components, containers, component_static_files)
