@@ -55,7 +55,6 @@ Code Overview
 * ``./src/``: All published code. Packages are importable relative to this directory (e.g., ``import openedx_content``). See ``readme.rst`` in each sub-folder.
 * ``./tests/``: Unit tests (not published).
 * ``./test_utils/``: Internal helpers for unit tests (not published).
-* ``./olx_importer/``: Internal utility for importing data for development (not published).
 
 License
 -------
