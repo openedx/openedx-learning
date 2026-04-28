@@ -13,7 +13,7 @@ from functools import partial
 from typing import ContextManager, Optional, cast
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.transaction import atomic, on_commit
 
@@ -237,6 +237,14 @@ def create_publishable_entity_version(
             created_by_id=created_by,
         )
         if dependencies:
+            # Validate that dependencies are from the same learning package:
+            if (
+                PublishableEntity.objects.filter(id__in=dependencies)
+                .exclude(learning_package_id=version.entity.learning_package_id)
+                .exists()
+            ):
+                raise ValidationError("Dependencies must be from the same learning package")
+            # Store dependencies:
             set_version_dependencies(version.id, dependencies)
 
         set_draft_version(

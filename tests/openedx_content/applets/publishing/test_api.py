@@ -2502,7 +2502,7 @@ class CrossEntityValidationTestCase(TestCase):
 
         # This should raise an error because entity_in_lp2 is from a
         # different LearningPackage than entity_in_lp1.
-        with pytest.raises((ValidationError, ValueError)):
+        with pytest.raises(ValidationError, match="Dependencies must be from the same learning package"):
             publishing_api.create_publishable_entity_version(
                 entity_in_lp1.id,
                 version_num=1,
