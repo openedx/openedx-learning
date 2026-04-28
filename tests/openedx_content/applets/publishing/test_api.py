@@ -2440,7 +2440,7 @@ class CrossEntityValidationTestCase(TransactionTestCase):
         # This should raise an error because version_b_v1 belongs to entity_b,
         # not entity_a. Without validation, this silently corrupts entity_a's
         # draft to point to entity_b's content.
-        with pytest.raises((ValidationError, ValueError)):
+        with pytest.raises(ValidationError, match="Entity mismatch"):
             publishing_api.set_draft_version(entity_a.id, version_b_v1.pk)
 
     def test_publish_from_drafts_rejects_cross_package_drafts(self) -> None:

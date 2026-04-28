@@ -932,6 +932,15 @@ def set_draft_version(
         # block is bookkeeping in our DraftChangeLog.
         draft.version_id = publishable_entity_version_pk
 
+        # Validate the entity
+        if publishable_entity_version_pk is not None:
+            if draft.entity.id != PublishableEntityVersion.objects.only("entity_id").get(
+                pk=publishable_entity_version_pk
+            ).entity_id:
+                raise ValidationError(
+                    "Entity mismatch - the specified PublishableEntityVersion does not match the PublishableEntity"
+                )
+
         # Check to see if we're inside a context manager for an active
         # DraftChangeLog (i.e. what happens if the caller is using the public
         # bulk_draft_changes_for() API call), or if we have to make our own.
