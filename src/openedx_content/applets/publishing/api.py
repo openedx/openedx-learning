@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime, timezone
-from typing import ContextManager, Optional, cast
+from typing import ContextManager, Optional, cast, TypeAlias, Literal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
@@ -43,6 +43,12 @@ from .models.publish_log import Published
 # start with an underscore AND it is not in __all__, that function is considered
 # to be callable only by other applets in the openedx_content package.
 __all__ = [
+    "Timestamp",
+    "TIMESTAMP_AUTO",
+    "UserID",
+    "AUTHOR_AUTO",
+    "AUTHOR_NONE",
+    "Author",
     "get_learning_package",
     "get_learning_package_by_ref",
     "create_learning_package",
@@ -72,6 +78,65 @@ __all__ = [
     "filter_publishable_entities",
     "bulk_draft_changes_for",
 ]
+
+
+TIMESTAMP_AUTO: Literal["TIMESTAMP_AUTO"] = "TIMESTAMP_AUTO"
+"""
+Automatically choose a timestamp for a creation, deletion, edit, or change.
+
+Within a `bulk_draft_changes_for` context, `TIMESTAMP_AUTO` indicates to use the
+context's timestamp.  Outside of `bulk_draft_changes_for`, `TIMESTAMP_AUTO` indicates
+to the current time (`datetime.now`).
+
+`TIMESTAMP_AUTO` is a reasonable default for most situations.
+"""
+
+
+type Timestamp = datetime | Literal["TIMESTAMP_AUTO"]
+"""
+How to choose a datetime indicating when an operation occured.
+
+This is either a specific `datetime`, or it is `TIMESTAMP_AUTO`.
+When in doubt, `TIMESTAMP_AUTO` is a reasonable default.
+"""
+
+
+UserID: TypeAlias = int
+"""
+A UserID is an integer.
+
+A UserID is meant to hold a primary key of a User object, but this is not
+enforced by the type checker. Future versions of openedx-core may enforce
+this more strictly by making UserID a NewType (subclass) of int.
+"""
+
+
+AUTHOR_NONE: Literal["AUTHOR_NONE"] = "AUTHOR_NONE"
+"""
+The operation cannot be attributed to a particular user.
+
+Most operations can and should be attributed to a user; AUTHOR_NONE is to be
+reserved for special scenarios, such as data backfills. AUTHOR_NONE is not a
+reasonable default for standard application API usage--consider AUTO_AUTHOR
+instead.
+"""
+
+
+AUTHOR_AUTO: Literal["AUTHOR_AUTO"] = "AUTHOR_AUTO"
+"""
+Attribute the operation to the same user as the enclosing `bulk_draft_changes_for` context.
+
+Outside of a context, using `AUTHOR_AUTO` is meaningless and will result in a `ValueError`.
+"""
+
+
+type Author = UserID | Literal["AUTHOR_AUTO"] | Literal["AUTHOR_NONE"]
+"""
+How to attribute an operation (creation, edit, deletion, change) to a user.
+
+This is either the database ID of a `User`, or it is `AUTHOR_NONE`, or it is `AUTHOR_AUTO`.
+When in doubt, `AUTHOR_AUTO` is a reasonable default.
+"""
 
 
 def get_learning_package(learning_package_id: LearningPackage.ID, /) -> LearningPackage:
@@ -124,7 +189,7 @@ def update_learning_package(
     package_ref: str | None = None,
     title: str | None = None,
     description: str | None = None,
-    updated: datetime | None = None,
+    updated: Timestamp = TIMESTAMP_AUTO,
 ) -> LearningPackage:
     """
     Make an update to LearningPackage metadata.
@@ -147,7 +212,7 @@ def update_learning_package(
 
     # updated is a bit different–we auto-generate it if it's not explicitly
     # passed in.
-    if updated is None:
+    if updated is TIMESTAMP_AUTO:
         updated = datetime.now(tz=timezone.utc)
     lp.updated = updated
 
@@ -162,13 +227,101 @@ def learning_package_exists(package_ref: str) -> bool:
     return LearningPackage.objects.filter(package_ref=package_ref).exists()
 
 
+def resolve_timestamp(
+    learning_package_id: LearningPackage.ID,
+    timestamp: Timestamp,
+    *,
+    can_override_context: bool = True,
+) -> datetime:
+    """
+    Convert a Timestamp specifier into a concerete datetime to be saved to the DB.
+
+    If `timestamp is TIMESTAMP_AUTO`, then return either the datetime of the
+    enclosing `bulk_draft_changes_for` context, or `datetime.now` if there is
+    no enclosing context.
+
+    If `can_override_context==False`, then raise ValueError if there's an enclosing
+    context whose timestamp is incompatible with the supplied timestamp. This is only
+    appropriate for the the handful of operations which cannot be timestamped differently
+    than their context
+
+    This function can be used by other openedx_content applets, but it is not part of the public API.
+    """
+    if timestamp is TIMESTAMP_AUTO:
+        if ctx := DraftChangeLogContext.get_active_draft_change_log(learning_package_id):
+            return ctx.changed_at
+        else:
+            return datetime.now(tz=timezone.utc)
+    assert isinstance(timestamp, datetime)
+    # Timestamp is specified as a datetime...
+    if can_override_context:
+        return timestamp
+    # If we get here, then timestamp is specified, but we can't override the context's timestamp.
+    # So, if there's a context, ensure they match, and raise if they don't.
+    if ctx := DraftChangeLogContext.get_active_draft_change_log(learning_package_id):
+        if ctx.changed_at != timestamp:
+            raise ValueError(
+                f"Tried to give operation the timestamp {timestamp}, but this operation requires "
+                f"using the same timestamp as the enclosing context, which is {ctx.changed_at}."
+            )
+        return ctx.changed_at
+    # No change context -- use the specified timestamp.
+    return timestamp
+
+
+def resolve_author(
+    learning_package_id: LearningPackage.ID,
+    author: Author,
+    *,
+    can_override_context: bool = True,
+) -> UserID | None:
+    """
+    Convert a Author specifier into a concerete user ID (or None) to be saved to the DB.
+
+    If `author is AUTHOR_AUTO`, then return either the author of the enclosing
+    `bulk_draft_changes_for` context. Raises `ValueError` if there is no
+    enclosing context.
+
+    If `author is AUTHOR_NONE`, then return None.
+
+    If `can_override_context==False`, then raise `ValueError` if there's an enclosing
+    context whose author is incompatible with the supplied author. This is only
+    appropriate for the the handful of operations which cannot be attributed differently
+    than their context.
+
+    This function can be used by other openedx_content applets, but it is not part of the public API.
+    """
+    if author is AUTHOR_AUTO:
+        if ctx := DraftChangeLogContext.get_active_draft_change_log(learning_package_id):
+            return ctx.changed_by.id if ctx.changed_by else None
+        raise ValueError(
+            "An author (other than AUTHOR_AUTO) must be specified when changing content "
+            "outside of a `bulk_draft_changes_for` context."
+        )
+    author_id: UserID | None = None if author is AUTHOR_NONE else cast(UserID, author)
+    # author is UserID or None...
+    if can_override_context:
+        return author_id
+    # If we get here, then author is UserID/None, but we can't override the context's user.
+    # So, if there's a context, ensure they match, and raise if they don't.
+    if ctx := DraftChangeLogContext.get_active_draft_change_log(learning_package_id):
+        ctx_author_id = ctx.changed_by.id if ctx.changed_by else None
+        if ctx_author_id != author_id:
+            raise ValueError(
+                f"Tried to attribute operation to author {author_id}, but this operation can only be "
+                "attributed to the author of the enclosing `bulk_draft_changes_for` context, "
+                f"which is {ctx_author_id}."
+            )
+    # No change context -- use the specified author.
+    return author_id
+
+
 def create_publishable_entity(
     learning_package_id: LearningPackage.ID,
     /,
     entity_ref: str,
-    created: datetime,
-    # User ID who created this
-    created_by: int | None,
+    created: Timestamp = TIMESTAMP_AUTO,
+    created_by: Author = AUTHOR_AUTO,
     *,
     can_stand_alone: bool = True,
 ) -> PublishableEntity:
@@ -178,11 +331,12 @@ def create_publishable_entity(
     You'd typically want to call this right before creating your own content
     model that points to it.
     """
+
     return PublishableEntity.objects.create(
         learning_package_id=learning_package_id,
         entity_ref=entity_ref,
-        created=created,
-        created_by_id=created_by,
+        created=resolve_timestamp(learning_package_id, created),
+        created_by_id=resolve_author(learning_package_id, created_by),
         can_stand_alone=can_stand_alone,
     )
 
@@ -192,8 +346,8 @@ def create_publishable_entity_version(
     /,
     version_num: int,
     title: str,
-    created: datetime,
-    created_by: int | None,
+    created: Timestamp = TIMESTAMP_AUTO,
+    created_by: Author = AUTHOR_AUTO,
     *,
     dependencies: list[int] | None = None,  # PublishableEntity IDs
 ) -> PublishableEntityVersion:
@@ -203,13 +357,14 @@ def create_publishable_entity_version(
     You'd typically want to call this right before creating your own content
     version model that points to it.
     """
+    learning_package_id = get_publishable_entity(entity_id).learning_package_id
     with atomic(savepoint=False):
         version = PublishableEntityVersion.objects.create(
             entity_id=entity_id,
             version_num=version_num,
             title=title,
-            created=created,
-            created_by_id=created_by,
+            created=resolve_timestamp(learning_package_id, created),
+            created_by_id=resolve_author(learning_package_id, created_by),
         )
         if dependencies:
             set_version_dependencies(version.id, dependencies)
@@ -376,8 +531,8 @@ def publish_all_drafts(
     learning_package_id: LearningPackage.ID,
     /,
     message="",
-    published_at: datetime | None = None,
-    published_by: int | None = None
+    published_at: Timestamp = TIMESTAMP_AUTO,
+    published_by: Author = AUTHOR_AUTO,
 ) -> PublishLog:
     """
     Publish everything that is a Draft and is not already published.
@@ -430,8 +585,8 @@ def publish_from_drafts(
     /,
     draft_qset: QuerySet[Draft],
     message: str = "",
-    published_at: datetime | None = None,
-    published_by: int | None = None,  # User.id
+    published_at: Timestamp = TIMESTAMP_AUTO,
+    published_by: Author = AUTHOR_AUTO,
     *,
     publish_dependencies: bool = True,
 ) -> PublishLog:
@@ -441,9 +596,6 @@ def publish_from_drafts(
     By default, this will also publish all dependencies (e.g. unpinned children)
     of the Drafts that are passed in.
     """
-    if published_at is None:
-        published_at = datetime.now(tz=timezone.utc)
-
     with atomic():
         if publish_dependencies:
             dependency_drafts_qsets = _get_dependencies_with_unpublished_changes(draft_qset)
@@ -457,8 +609,8 @@ def publish_from_drafts(
         publish_log = PublishLog(
             learning_package_id=learning_package_id,
             message=message,
-            published_at=published_at,
-            published_by_id=published_by,
+            published_at=resolve_timestamp(learning_package_id, published_at),
+            published_by_id=resolve_author(learning_package_id, published_by),
         )
         publish_log.full_clean()
         publish_log.save(force_insert=True)
@@ -843,8 +995,8 @@ def set_draft_version(
     draft_or_id: Draft | PublishableEntity.ID,
     publishable_entity_version_pk: int | None,
     /,
-    set_at: datetime | None = None,
-    set_by: int | None = None,  # User.id
+    set_at: Timestamp = TIMESTAMP_AUTO,
+    set_by: Author = AUTHOR_AUTO,
 ) -> None:
     """
     Modify the Draft of a PublishableEntity to be a PublishableEntityVersion.
@@ -869,9 +1021,6 @@ def set_draft_version(
     containers, as bulk_draft_changes_for will automatically do that when the
     block exits.
     """
-    if set_at is None:
-        set_at = datetime.now(tz=timezone.utc)
-
     with atomic(savepoint=False):
         if isinstance(draft_or_id, Draft):
             draft = draft_or_id
@@ -883,6 +1032,17 @@ def set_draft_version(
             raise TypeError(
                 f"draft_or_id must be a Draft or int, not ({class_name})"
             )
+
+        # If there is an active DraftChangeLog context, then timestamp & authorship cannot be
+        # overriden. That's because we have nowhere to put the custom timesetamp & author
+        # other than the DraftChangeLog model itself!
+        learning_package_id = draft.entity.learning_package_id
+        set_at_dt: datetime = resolve_timestamp(
+            learning_package_id, set_at, can_override_context=False
+        )
+        set_by_id: UserID | None = resolve_author(
+            learning_package_id, set_by, can_override_context=False
+        )
 
         # If the Draft is already pointing at this version, there's nothing to do.
         old_version_id = draft.version_id
@@ -951,8 +1111,8 @@ def set_draft_version(
             # DraftChangeLogRecord, because we know it can't exist yet.
             change_log = DraftChangeLog.objects.create(
                 learning_package_id=learning_package_id,
-                changed_at=set_at,
-                changed_by_id=set_by,
+                changed_at=set_at_dt,
+                changed_by_id=set_by_id,
             )
             draft.draft_log_record = DraftChangeLogRecord.objects.create(
                 draft_change_log=change_log,
@@ -1452,7 +1612,12 @@ def hash_for_log_record(
     return digest
 
 
-def soft_delete_draft(publishable_entity_id: PublishableEntity.ID, /, deleted_by: int | None = None) -> None:
+def soft_delete_draft(
+    publishable_entity_id: PublishableEntity.ID,
+    /,
+    deleted_at: Timestamp = TIMESTAMP_AUTO,
+    deleted_by: Author = AUTHOR_AUTO,
+) -> None:
     """
     Sets the Draft version to None.
 
@@ -1462,14 +1627,14 @@ def soft_delete_draft(publishable_entity_id: PublishableEntity.ID, /, deleted_by
     of pointing the Draft back to the most recent ``PublishableEntityVersion``
     for a given ``PublishableEntity``.
     """
-    return set_draft_version(publishable_entity_id, None, set_by=deleted_by)
+    return set_draft_version(publishable_entity_id, None, set_at=deleted_at, set_by=deleted_by)
 
 
 def reset_drafts_to_published(
     learning_package_id: LearningPackage.ID,
     /,
-    reset_at: datetime | None = None,
-    reset_by: int | None = None,  # User.id
+    reset_at: Timestamp = TIMESTAMP_AUTO,
+    reset_by: Author = AUTHOR_AUTO,
 ) -> None:
     """
     Reset all Drafts to point to the most recently Published versions.
@@ -1495,9 +1660,6 @@ def reset_drafts_to_published(
     latest version created for a PublishableEntity (its ``latest`` attribute),
     rather than basing it off of the version that Draft points to.
     """
-    if reset_at is None:
-        reset_at = datetime.now(tz=timezone.utc)
-
     # These are all the drafts that are different from the published versions.
     draft_qset = Draft.objects \
                       .select_related("entity__published") \
@@ -1518,6 +1680,16 @@ def reset_drafts_to_published(
     if not draft_qset:
         return
 
+    # If there is an active DraftChangeLog context, then timestamp & authorship cannot be
+    # overriden. That's because we have nowhere to put the custom timesetamp & author
+    # other than the DraftChangeLog model itself!
+    reset_at_dt: datetime = resolve_timestamp(
+        learning_package_id, reset_at, can_override_context=False
+    )
+    reset_by_id: UserID | None = resolve_author(
+        learning_package_id, reset_by, can_override_context=False
+    )
+
     active_change_log = DraftChangeLogContext.get_active_draft_change_log(learning_package_id)
 
     # If there's an active DraftChangeLog, we're already in a transaction, so
@@ -1527,7 +1699,7 @@ def reset_drafts_to_published(
         tx_context = nullcontext()
     else:
         tx_context = bulk_draft_changes_for(
-            learning_package_id, changed_at=reset_at, changed_by=reset_by
+            learning_package_id, changed_at=reset_at_dt, changed_by=(reset_by_id or AUTHOR_NONE),
         )
 
     with tx_context:
@@ -1617,8 +1789,8 @@ def get_published_version_as_of(
 
 def bulk_draft_changes_for(
     learning_package_id: LearningPackage.ID,
-    changed_by: int | None = None,
-    changed_at: datetime | None = None
+    changed_by: UserID | Literal["AUTHOR_NONE"],  # Unlike in other functions, this is required! No AUTHOR_AUTO.
+    changed_at: Timestamp = TIMESTAMP_AUTO,
 ) -> DraftChangeLogContext:
     """
     Context manager to do a single batch of Draft changes in.
@@ -1634,7 +1806,7 @@ def bulk_draft_changes_for(
 
     Example::
 
-        with bulk_draft_changes_for(learning_package.id):
+        with bulk_draft_changes_for(learning_package.id, changed_by=request.user.id):
             for section in course:
                 update_section_drafts(learning_package.id, section)
 
@@ -1642,17 +1814,25 @@ def bulk_draft_changes_for(
     the individual change (and its side effects) will be automatically wrapped
     in a one-off change context. For example, this::
 
-        update_one_component(component.learning_package, component)
+        update_one_component(component.learning_package, component, changed_by=request.user.id)
 
     is identical to this::
 
-        with bulk_draft_changes_for(component.learning_package.id):
+        with bulk_draft_changes_for(component.learning_package.id, changed_by=request.user.id):
             update_one_component(component.learning_package.id, component)
     """
+    if changed_at is TIMESTAMP_AUTO:
+        changed_at_dt = datetime.now(tz=timezone.utc)
+    else:
+        changed_at_dt = cast(datetime, changed_at)
+    if changed_by is AUTHOR_NONE:
+        changed_by_id = None
+    else:
+        changed_by_id = cast(UserID, changed_by)
     return DraftChangeLogContext(
         learning_package_id,
-        changed_at=changed_at,
-        changed_by=changed_by,
+        changed_at=changed_at_dt,
+        changed_by=changed_by_id,
         exit_callbacks=[
             _create_side_effects_for_change_log,
         ]
