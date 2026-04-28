@@ -1685,3 +1685,58 @@ def test_soft_delete_container(lp: LearningPackage, parent_of_two: TestContainer
     child_entity1.refresh_from_db()
     assert child_entity1.versioning.draft == child_entity1.versioning.published
     assert child_entity1.versioning.draft is not None
+
+
+def test_publish_container_without_children_should_fail(lp: LearningPackage):
+    """
+    Publishing a container with publish_dependencies=False when its unpinned
+    children have never been published should either fail at publish time or
+    produce a readable published state.
+
+    If this validation is missing, the published container references child
+    entities that have no Published row. Reading the published container's
+    contents via get_entities_in_container(published=True) will crash with
+    RelatedObjectDoesNotExist because row.entity.published doesn't exist for
+    never-published children.
+    """
+    # Create child entities (draft-only, never published)
+    child_1 = create_test_entity(lp, ref="unpublished_child_1", title="Unpublished Child 1")
+    child_2 = create_test_entity(lp, ref="unpublished_child_2", title="Unpublished Child 2")
+
+    # Create a container with unpinned references to these children
+    container = create_test_container(
+        lp,
+        container_code="container_with_unpublished_children",
+        title="Container with Unpublished Children",
+        entities=[child_1, child_2],  # unpinned references
+    )
+
+    # Publish ONLY the container, skipping its dependencies (children).
+    # This should either:
+    # (a) raise an error at publish time (preventing the bad state), or
+    # (b) produce a published state where get_entities_in_container works
+    #     gracefully (e.g. returns an empty list for unpublished children).
+    container_drafts = publishing_api.get_all_drafts(lp.id).filter(entity=container.publishable_entity)
+    with pytest.raises(ValidationError, match="Cannot publish entities that have unpublished dependencies."):
+        publishing_api.publish_from_drafts(
+            lp.id,
+            container_drafts,
+            publish_dependencies=False,
+        )
+
+    # The children were never published, so reading the published container
+    # should not crash. It should either raise a clear error, or gracefully
+    # handle the missing children.
+    container.refresh_from_db()
+    assert container.versioning.published is None
+
+    # If we changed to allow the above publish, then we'd want to check the following:
+    # # This is the call that currently crashes with RelatedObjectDoesNotExist
+    # # because the unpinned children have no Published row.
+    # entries = containers_api.get_entities_in_container(
+    #     container,
+    #     published=True,
+    # )
+    # # If we get here without crashing, the children should be excluded since
+    # # they were never published.
+    # assert len(entries) == 0

@@ -13,7 +13,7 @@ from functools import partial
 from typing import ContextManager, Optional, cast
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.transaction import atomic, on_commit
 
@@ -474,6 +474,12 @@ def publish_from_drafts(
             dependency_drafts_qsets = _get_dependencies_with_unpublished_changes(draft_qset)
         else:
             dependency_drafts_qsets = []
+            # Validation: check that all dependencies have been published already.
+            if Draft.objects.filter(
+                entity__affects__in=draft_qset.values_list("version_id", flat=True),
+                entity__published=None,
+            ).exists():
+                raise ValidationError("Cannot publish entities that have unpublished dependencies.")
 
         # Collect PKs of directly-requested drafts before expanding dependencies.
         direct_draft_ids = set(draft_qset.values_list('pk', flat=True))
