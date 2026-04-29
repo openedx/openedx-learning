@@ -121,6 +121,17 @@ def create_component_version(
 ) -> ComponentVersion:
     """
     Create a new ComponentVersion
+
+    The ``media`` parameter is a dict of file paths to Media-like things (a
+    Media.ID, Media model object, or simple bytes). This is the Media that we
+    want to associate with the new ComponentVersion. This will typically include
+    a "block.xml" for the XBlock OLX definition, and possibly some static files
+    like "static/diagram.png".
+
+    Media can be specified as ``bytes`` for testing convenience, but you will
+    almost always want to create a Media object first in actual app code,
+    because that will give you better control over the MIME type and storage
+    specifics (file vs. database).
     """
     with atomic():
         publishable_entity_version = publishing_api.create_publishable_entity_version(
@@ -175,8 +186,14 @@ def create_next_component_version(
     API or send the media bytes as part of ``media_to_replace`` values.
 
     The ``media_to_replace`` dict is a mapping of strings representing the
-    local path/key for a file, to ``Media.id`` or media bytes values. Using
-    `None` for a value in this dict means to delete that key in the next version.
+    local path/key for a file, to ``Media.id``, ``Media`` object, or media bytes
+    values. Passing media as ``bytes`` is useful for testing purposes, but you
+    will almost always want to create a Media object first in actual app code,
+    because that will give you better control over the resulting Media's MIME
+    type and storage specifics (file vs. database).
+
+    Using `None` for a value in this dict means to delete that key in the next
+    version.
 
     Make sure to wrap the function call on a atomic statement:
     ``with transaction.atomic():``
@@ -316,16 +333,33 @@ def _set_component_version_media(
     def cached_media_type(media_type_str):
         return media_api.get_or_create_media_type(media_type_str)
 
+    def valid_path(path):
+        """No absolute paths, whitespace, or backslashes (Windows separators)"""
+        return path == path.strip().lstrip('/') and '\\' not in path
+
     # We allow a range of values to be in paths_to_media_values, but we want to
     # normalize to media_ids for our bulk insert later.
     paths_to_media_ids: dict[str, Media.ID] = {}
 
+    cv_learning_package_id = version.component.learning_package_id
+
     for path, media_value in paths_to_media_values.items():
+        if not valid_path(path):
+            raise ValueError(f"{path!r} is an invalid media path ({version!r})")
+
         match media_value:
             case int():  # MediaID
                 media_id = media_value
             case Media():
                 media_id = media_value.id
+                if media_value.learning_package_id != cv_learning_package_id:
+                    raise ValueError(
+                        f"Media LearningPackage does not match Component: "
+                        f"Tried to create ComponentVersion {version!r} "
+                        f"(Learning Package ID {cv_learning_package_id!r}) "
+                        f"with Media {media_value!r} "
+                        f"(Learning Package ID {media_value.learning_package_id!r})"
+                    )
             case bytes():
                 media_type_str, _encoding = mimetypes.guess_type(path)
                 # We use "application/octet-stream" as a generic fallback media type, per
@@ -333,7 +367,7 @@ def _set_component_version_media(
                 media_type_str = media_type_str or "application/octet-stream"
                 media_type = cached_media_type(media_type_str)
                 media = media_api.get_or_create_file_media(
-                    version.component.learning_package.id,
+                    cv_learning_package_id,
                     media_type.id,
                     data=media_value,
                     created=created,
@@ -342,9 +376,7 @@ def _set_component_version_media(
             case _:
                 raise ValueError(f"Invalid object for paths_to_media Media: {media_value!r}")
 
-        # Don't allow whitespace, absolute paths, or Windows-style paths
-        normalized_path = path.strip().replace('\\', '/').lstrip('/')
-        paths_to_media_ids[normalized_path] = media_id
+        paths_to_media_ids[path] = media_id
 
     ComponentVersionMedia.objects.bulk_create(
         [

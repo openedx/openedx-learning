@@ -464,20 +464,22 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             new_version.media.get(componentversionmedia__path="my/path/to/hello.txt")
         )
 
-        # Write the same content again, but to an absolute path (should auto-
-        # strip the leading '/'s) and Windows style separators (should convert
-        # to "/").
-        new_version = components_api.create_next_component_version(
-            self.problem.id,
-            media_to_replace={
-                "//nested\\path\\hello.txt": new_media
-            },
-            created=self.now,
-        )
-        assert (
-            new_media ==
-            new_version.media.get(componentversionmedia__path="nested/path/hello.txt")
-        )
+        # Invalid paths raise ValueError
+        invalid_paths = [
+            "/absolute/paths/not-allowed.txt",
+            "   no/whitespace.txt",
+            "no/whitespace.txt   ",
+            "no\\windows\\style\\seprators",
+        ]
+        for invalid_path in invalid_paths:
+            with self.assertRaises(ValueError):
+                new_version = components_api.create_next_component_version(
+                    self.problem.id,
+                    media_to_replace={
+                        invalid_path: new_media
+                    },
+                    created=self.now,
+                )
 
     def test_create_with_media_or_id(self):
         """Test that we can create Media associations with Media or Media.ID."""
@@ -515,6 +517,28 @@ class CreateNewVersionsTestCase(ComponentTestCase):
                 created=self.now,
                 media={
                     "block.xml": None
+                }
+            )
+
+        # We also don't allow a different LearningPackage's Media to be assigned
+        different_lp = publishing_api.create_learning_package(
+            "different_lp", title="Media LP"
+        )
+        outside_media = media_api.get_or_create_file_media(
+            different_lp.id,
+            self.text_media_type.id,
+            data=b'Hello outside media!',
+            created=self.now,
+        )
+        with self.assertRaises(ValueError):
+            components_api.create_component_and_version(
+                self.learning_package.id,
+                component_type=self.problem_type,
+                component_code="media_problem_3",
+                title="This also shouldn't work",
+                created=self.now,
+                media={
+                    "invalid-outside-media.txt": outside_media,
                 }
             )
 
