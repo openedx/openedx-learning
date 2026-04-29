@@ -2365,6 +2365,7 @@ class CrossEntityValidationTestCase(TransactionTestCase):
     Tests for validation gaps where API calls can corrupt state by mixing
     entities/versions/packages that shouldn't be combined.
     """
+
     now: datetime
     learning_package_1: LearningPackage
     learning_package_2: LearningPackage
@@ -2440,7 +2441,14 @@ class CrossEntityValidationTestCase(TransactionTestCase):
         # This should raise an error because version_b_v1 belongs to entity_b,
         # not entity_a. Without validation, this silently corrupts entity_a's
         # draft to point to entity_b's content.
-        with pytest.raises(ValidationError, match="Entity mismatch"):
+        with pytest.raises(
+            ValidationError,
+            match=(
+                r"Entity mismatch - the specified PublishableEntityVersion "
+                r"\(<PublishableEntityVersion: entity_b @ v1 - Entity B v1>\) does not match the "
+                r"PublishableEntity \(<PublishableEntity: entity_a>\)."
+            ),
+        ):
             publishing_api.set_draft_version(entity_a.id, version_b_v1.pk)
 
     def test_publish_from_drafts_rejects_cross_package_drafts(self) -> None:
@@ -2469,14 +2477,15 @@ class CrossEntityValidationTestCase(TransactionTestCase):
         )
 
         # Get drafts from LP 2
-        drafts_from_lp2 = Draft.objects.filter(
-            entity__learning_package_id=self.learning_package_2.id
-        )
+        drafts_from_lp2 = Draft.objects.filter(entity__learning_package_id=self.learning_package_2.id)
         assert drafts_from_lp2.exists()
 
         # This should raise an error because we're trying to publish LP 2's
         # drafts under LP 1's PublishLog.
-        with pytest.raises(ValidationError, match="Draft entity is from a different learning package."):
+        with pytest.raises(
+            ValidationError,
+            match=r"Draft entity \(id=\d+\) is from learning package \d+; expected learning package \d+.",
+        ):
             publishing_api.publish_from_drafts(
                 self.learning_package_1.id,
                 drafts_from_lp2,

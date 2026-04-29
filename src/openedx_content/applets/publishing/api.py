@@ -515,7 +515,10 @@ def publish_from_drafts(
                     continue
                 # Validate Learning Package here where it won't require any extra queries
                 if draft.entity.learning_package_id != learning_package_id:
-                    raise ValidationError("Draft entity is from a different learning package.")
+                    raise ValidationError(
+                        f"Draft entity (id={draft.entity.id}) is from learning package "
+                        f"{draft.entity.learning_package_id}; expected learning package {learning_package_id}."
+                    )
 
                 try:
                     old_version = draft.entity.published.version
@@ -937,8 +940,10 @@ def set_draft_version(
             if draft.entity.id != PublishableEntityVersion.objects.only("entity_id").get(
                 pk=publishable_entity_version_pk
             ).entity_id:
+                invalid_pev = PublishableEntityVersion.objects.get(pk=publishable_entity_version_pk)
                 raise ValidationError(
-                    "Entity mismatch - the specified PublishableEntityVersion does not match the PublishableEntity"
+                    f"Entity mismatch - the specified PublishableEntityVersion ({repr(invalid_pev)}) does not match "
+                    f"the PublishableEntity ({repr(draft.entity)})."
                 )
 
         # Check to see if we're inside a context manager for an active
