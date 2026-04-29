@@ -91,7 +91,6 @@ def create_next_unit_version(
 @dataclass(frozen=True)
 class UnitListEntry:
     """
-    [ ❓TODO: STABLE or UNSTABLE? ]
     Data about a single entity in a container, e.g. a component in a unit.
     """
 
@@ -109,7 +108,6 @@ def get_components_in_unit(
     published: bool,
 ) -> list[UnitListEntry]:
     """
-    [ ❓TODO: STABLE or UNSTABLE? ]
     Get the list of entities and their versions in the draft or published
     version of the given Unit.
 

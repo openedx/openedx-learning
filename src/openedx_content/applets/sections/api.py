@@ -91,7 +91,6 @@ def create_next_section_version(
 @dataclass(frozen=True)
 class SectionListEntry:
     """
-    [ ❓TODO: STABLE or UNSTABLE? ]
     Data about a single subsection in a section.
     """
 
@@ -109,7 +108,6 @@ def get_subsections_in_section(
     published: bool,
 ) -> list[SectionListEntry]:
     """
-    [ ❓TODO: STABLE or UNSTABLE? ]
     Get the list of entities and their versions in the draft or published
     version of the given Section.
 

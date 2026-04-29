@@ -91,7 +91,6 @@ def create_next_subsection_version(
 @dataclass(frozen=True)
 class SubsectionListEntry:
     """
-    [ ❓TODO: STABLE or UNSTABLE? ]
     Data about a single unit in a subsection.
     """
 
@@ -109,7 +108,6 @@ def get_units_in_subsection(
     published: bool,
 ) -> list[SubsectionListEntry]:
     """
-    [ ❓TODO: STABLE or UNSTABLE? ]
     Get the list of entities and their versions in the draft or published
     version of the given Subsection.
 
