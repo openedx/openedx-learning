@@ -18,7 +18,6 @@ from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.transaction import atomic, on_commit
 
 from openedx_django_lib.fields import create_hash_digest
-from openedx_django_lib.typing import get_model_id
 
 from . import signals
 from .contextmanagers import DraftChangeLogContext
@@ -205,7 +204,10 @@ def create_publishable_entity(
     You'd typically want to call this right before creating your own content
     model that points to it.
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     return PublishableEntity.objects.create(
         learning_package_id=learning_package_id,
         entity_ref=entity_ref,
@@ -231,7 +233,10 @@ def create_publishable_entity_version(
     You'd typically want to call this right before creating your own content
     version model that points to it.
     """
-    entity_id = get_model_id(entity_id)
+    entity_id = (
+        entity_id.id if isinstance(entity_id, PublishableEntity)
+        else entity_id
+    )
     with atomic(savepoint=False):
         version = PublishableEntityVersion.objects.create(
             entity_id=entity_id,
@@ -305,7 +310,10 @@ def set_version_dependencies(
        will cause recalculation to the higher levels that depend on it.
     3. Do not create circular dependencies.
     """
-    version_id = get_model_id(version_id)
+    version_id = (
+        version_id.id if isinstance(version_id, PublishableEntityVersion)
+        else version_id
+    )
     PublishableEntityVersionDependency.objects.bulk_create(
         [
             PublishableEntityVersionDependency(
@@ -333,7 +341,10 @@ def get_publishable_entity_by_ref(
     """
     Given a learning package and an entity_ref, get the matching publishable entity.
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     return PublishableEntity.objects.get(
         learning_package_id=learning_package_id,
         entity_ref=entity_ref,
@@ -341,7 +352,13 @@ def get_publishable_entity_by_ref(
 
 
 def get_last_publish(learning_package_id: LearningPackage | LearningPackage.ID, /) -> PublishLog | None:
-    learning_package_id = get_model_id(learning_package_id)
+    """
+    Get the log of the latest publish in the LearningPackage, or None if nothing has been published.
+    """
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     return PublishLog.objects \
                      .filter(learning_package_id=learning_package_id) \
                      .order_by('-id') \
@@ -361,7 +378,10 @@ def get_publishable_entities(
     """
     Get all entities in a learning package.
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     return (
         PublishableEntity.objects
         .filter(learning_package_id=learning_package_id)
@@ -383,7 +403,10 @@ def get_entities_with_unpublished_changes(
     By default, this excludes soft-deleted drafts but can be included using
     include_deleted_drafts option.
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     entities_qs = (
         PublishableEntity.objects
         .filter(learning_package_id=learning_package_id)
@@ -414,7 +437,10 @@ def get_entities_with_unpublished_deletes(
     not-null Published version. (If both are null, it means it's already been
     deleted in a previous publish, or it was never published.)
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     return PublishableEntity.objects \
                             .filter(
                                 learning_package_id=learning_package_id,
@@ -432,7 +458,10 @@ def publish_all_drafts(
     """
     Publish everything that is a Draft and is not already published.
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     draft_qset = (
         Draft.objects
              .filter(entity__learning_package_id=learning_package_id)
@@ -492,7 +521,10 @@ def publish_from_drafts(
     By default, this will also publish all dependencies (e.g. unpinned children)
     of the Drafts that are passed in.
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     if published_at is None:
         published_at = datetime.now(tz=timezone.utc)
 
@@ -644,7 +676,10 @@ def get_entity_draft_history(
       soft-delete DraftChangeLogRecord (new_version=None) is included because
       it was made after the last real publish.
     """
-    entity_id = get_model_id(entity_id)
+    entity_id = (
+        entity_id.id if isinstance(entity_id, PublishableEntity)
+        else entity_id
+    )
     qs = (
         DraftChangeLogRecord.objects
         .filter(entity_id=entity_id)
@@ -704,7 +739,10 @@ def get_entity_publish_history(
       PublishLogRecord captures only the version that was actually published,
       not the intermediate draft versions.
     """
-    entity_id = get_model_id(entity_id)
+    entity_id = (
+        entity_id.id if isinstance(entity_id, PublishableEntity)
+        else entity_id
+    )
     return (
         PublishLogRecord.objects
         .filter(entity_id=entity_id)
@@ -747,7 +785,10 @@ def get_entity_publish_history_entries(
     Raises PublishLogRecord.DoesNotExist if publish_log_uuid is not found for
     this entity.
     """
-    entity_id = get_model_id(entity_id)
+    entity_id = (
+        entity_id.id if isinstance(entity_id, PublishableEntity)
+        else entity_id
+    )
 
     # Fetch the PublishLogRecord for the requested PublishLog
     pub_record = (
@@ -837,7 +878,10 @@ def get_entity_version_contributors(
     - A user who contributed multiple versions in the range appears only once
       (results are deduplicated with DISTINCT).
     """
-    entity_id = get_model_id(entity_id)
+    entity_id = (
+        entity_id.id if isinstance(entity_id, PublishableEntity)
+        else entity_id
+    )
 
     if new_version_num is not None:
         version_filter = Q(
@@ -880,7 +924,7 @@ def get_entity_version_contributors(
 
 def set_draft_version(
     draft: Draft | PublishableEntity.ID,
-    entity_version_id: PublishableEntityVersion | int | None,
+    version_id: PublishableEntityVersion | int | None,
     /,
     set_at: datetime | None = None,
     set_by: int | None = None,  # User.id
@@ -910,7 +954,10 @@ def set_draft_version(
     """
     if set_at is None:
         set_at = datetime.now(tz=timezone.utc)
-    entity_version_id = get_model_id(entity_version_id) if entity_version_id else None
+    version_id = (
+        version_id.id if isinstance(version_id, PublishableEntityVersion)
+        else version_id
+    )
 
     with atomic(savepoint=False):
         if isinstance(draft, int):
@@ -924,12 +971,12 @@ def set_draft_version(
 
         # If the Draft is already pointing at this version, there's nothing to do.
         old_version_id = draft.version_id
-        if old_version_id == entity_version_id:
+        if old_version_id == version_id:
             return
 
         # The actual update of the Draft model is here. Everything after this
         # block is bookkeeping in our DraftChangeLog.
-        draft.version_id = entity_version_id
+        draft.version_id = version_id
 
         # Check to see if we're inside a context manager for an active
         # DraftChangeLog (i.e. what happens if the caller is using the public
@@ -943,7 +990,7 @@ def set_draft_version(
                 active_change_log,
                 draft.entity_id,
                 old_version_id=old_version_id,
-                new_version_id=entity_version_id,
+                new_version_id=version_id,
             )
             if draft_log_record:
                 # Normal case: a DraftChangeLogRecord was created or updated.
@@ -996,7 +1043,7 @@ def set_draft_version(
                 draft_change_log=change_log,
                 entity_id=draft.entity_id,
                 old_version_id=old_version_id,
-                new_version_id=entity_version_id,
+                new_version_id=version_id,
             )
             draft.save()
             _create_side_effects_for_change_log(change_log)
@@ -1033,7 +1080,10 @@ def _add_to_existing_draft_change_log(
     log records (the only place where it's normal to have the same old and new
     versions).
     """
-    entity_id = get_model_id(entity_id)
+    entity_id = (
+        entity_id.id if isinstance(entity_id, PublishableEntity)
+        else entity_id
+    )
     try:
         # Check to see if this PublishableEntity has already been changed in
         # this DraftChangeLog. If so, we update that record instead of creating
@@ -1537,7 +1587,7 @@ def hash_for_log_record(
 
 
 def soft_delete_draft(
-    publishable_entity_id: PublishableEntity | PublishableEntity.ID, /, deleted_by: int | None = None
+    entity_id: PublishableEntity | PublishableEntity.ID, /, deleted_by: int | None = None
 ) -> None:
     """
     Sets the Draft version to None.
@@ -1548,8 +1598,11 @@ def soft_delete_draft(
     of pointing the Draft back to the most recent ``PublishableEntityVersion``
     for a given ``PublishableEntity``.
     """
-    publishable_entity_id = get_model_id(publishable_entity_id)
-    return set_draft_version(publishable_entity_id, None, set_by=deleted_by)
+    entity_id = (
+        entity_id.id if isinstance(entity_id, PublishableEntity)
+        else entity_id
+    )
+    return set_draft_version(entity_id, None, set_by=deleted_by)
 
 
 def reset_drafts_to_published(
@@ -1582,7 +1635,10 @@ def reset_drafts_to_published(
     latest version created for a PublishableEntity (its ``latest`` attribute),
     rather than basing it off of the version that Draft points to.
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     if reset_at is None:
         reset_at = datetime.now(tz=timezone.utc)
 
@@ -1692,7 +1748,10 @@ def get_published_version_as_of(
     This is a semi-private function, only available to other apps in the
     authoring package.
     """
-    entity_id = get_model_id(entity_id)
+    entity_id = (
+        entity_id.id if isinstance(entity_id, PublishableEntity)
+        else entity_id
+    )
     record = (
         PublishLogRecord.objects.filter(
             entity_id=entity_id,
@@ -1738,7 +1797,10 @@ def bulk_draft_changes_for(
         with bulk_draft_changes_for(component.learning_package.id):
             update_one_component(component.learning_package.id, component)
     """
-    learning_package_id = get_model_id(learning_package_id)
+    learning_package_id = (
+        learning_package_id.id if isinstance(learning_package_id, LearningPackage)
+        else learning_package_id
+    )
     if not changed_at:
         changed_at = datetime.now(tz=timezone.utc)
     return DraftChangeLogContext(

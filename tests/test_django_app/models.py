@@ -1,8 +1,10 @@
 """
 Models that are only for use in tests.
+
+These models are specifically for testing the `containers` API.
 """
 
-from typing import override, NewType
+from typing import override
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -14,34 +16,6 @@ from openedx_content.models_api import (
     PublishableEntityMixin,
     PublishableEntityVersionMixin,
 )
-from openedx_django_lib.fields import TypedBigAutoField
-
-
-class MyTypedModel(models.Model):
-    """
-    A model with nothing but a typed ID field.
-    """
-    MyTypedModelID = NewType("MyTypedModelID", int)
-    type ID = MyTypedModelID
-
-    class IDField(TypedBigAutoField[ID]):
-        pass
-
-    id = IDField(primary_key=True)
-
-
-class RelatedTypedModel(models.Model):
-    """
-    A model with nothing but a typed ID field and an FK to another typed model.
-    """
-    MyRelatedModelID = NewType("MyRelatedModelID", int)
-    type ID = MyRelatedModelID
-
-    class IDField(TypedBigAutoField[ID]):
-        pass
-
-    id = IDField(primary_key=True)
-    my_model = models.ForeignKey(MyTypedModel, on_delete=models.CASCADE)
 
 
 class TestEntity(PublishableEntityMixin):
