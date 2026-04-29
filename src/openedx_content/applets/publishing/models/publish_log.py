@@ -172,10 +172,6 @@ class PublishLogRecord(models.Model):
     #   Components has unpublished changes, then "publish all" would cause the
     #   Component's record to have direct=True and the Unit's record to have
     #   direct=False.
-    #
-    #   All PublishLogRecords in the PublishLog have direct=True. The "publish
-    #   all" operation is indistinguishable from bulk publishing and selecting
-    #   every single item.
     direct = models.BooleanField(
         null=True,
         blank=True,
