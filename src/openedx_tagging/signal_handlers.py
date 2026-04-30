@@ -16,30 +16,33 @@ from openedx_tagging.tasks import (
 
 def _is_explicit_tag_delete(
     instance: Tag,
-    origin: Tag | QuerySet[Tag] | None,
+    origin: object,
     using: str | None,
 ) -> bool:
     """
     Return True only for tags explicitly targeted by the delete operation.
 
     Descendants deleted via CASCADE are skipped here because the explicit root
-    tag's handler emits updates for the whole subtree.
+    tag's handler emits updates for the whole subtree via lineage__startswith.
 
     Args:
         instance: The Tag being deleted.
-        origin: The source of the delete operation - either a Tag instance (for instance.delete())
-                or a QuerySet[Tag] (for queryset.delete()), or None for other origins.
+        origin: The source of the delete operation — a Tag instance (instance.delete()),
+                a QuerySet[Tag] (queryset.delete()), or any other value when the delete
+                was triggered by CASCADE from a parent model (e.g. taxonomy.delete()).
         using: The database alias to use for queries, passed from the Django signal.
     """
     if isinstance(origin, Tag):
         return origin.pk == instance.pk
 
-    # Fail fast if origin has an unexpected type so callsites don't silently
-    # skip event emission logic.
     if not isinstance(origin, QuerySet):
-        raise TypeError(f"Expected origin to be Tag, QuerySet[Tag], or None; got {type(origin).__name__}")
+        # CASCADE from a non-queryset origin (e.g., taxonomy.delete(), or None for unknown callers).
+        # Only emit for root-level tags; the root handler covers the whole subtree via lineage__startswith.
+        return len(instance.get_lineage()) == 1
     if origin.model is not Tag:
-        raise TypeError(f"Expected origin queryset model Tag; got {origin.model.__name__}")
+        # CASCADE from a queryset of a non-Tag model (e.g., Taxonomy.objects.filter(...).delete()).
+        # Only emit for root-level tags; the root handler covers the whole subtree via lineage__startswith.
+        return len(instance.get_lineage()) == 1
 
     # Check if this instance is in the set of explicitly-targeted tags. If not, it's being deleted
     # as a CASCADE side-effect, so it's not explicit.

@@ -676,12 +676,16 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         self.object_tag.refresh_from_db()
         assert self.object_tag.export_id == "another-taxonomy"
 
-    def test_is_explicit_tag_delete_raises_for_unexpected_origin_type(self):
-        with pytest.raises(
-            TypeError,
-            match=r"Expected origin to be Tag, QuerySet\[Tag\], or None; got Taxonomy",
-        ):
-            _is_explicit_tag_delete(instance=self.tag, origin=cast(Any, self.taxonomy), using="default")
+    def test_is_explicit_tag_delete_taxonomy_cascade(self):
+        # Root-level tag is treated as explicit when cascaded from a Taxonomy deletion,
+        # so its handler covers the whole subtree via lineage__startswith.
+        assert _is_explicit_tag_delete(
+            instance=self.tag, origin=cast(Any, self.taxonomy), using="default"
+        )
+        # Non-root tag returns False — its ancestor's handler already covers it.
+        assert not _is_explicit_tag_delete(
+            instance=self.eubacteria, origin=cast(Any, self.taxonomy), using="default"
+        )
 
     def test_object_tag_value(self):
         # ObjectTag's value defaults to its tag's value
@@ -1184,6 +1188,25 @@ class TestTagLineage(TestCase):
             alice_object_id,
             delta_object_id,
         }
+
+    @patch("openedx_tagging.signal_handlers.emit_content_object_associations_changed_for_object_ids_task.delay")
+    def test_taxonomy_delete_updates_search_index(self, mock_task_delay) -> None:
+        """
+        Deleting a Taxonomy should enqueue updates for any tagged objects,
+        including ones tagged with deep descendants of root tags.
+        """
+        object_id = "content-v1:org+course+run+type@unit+block@128"
+        api.tag_object(
+            object_id=object_id,
+            taxonomy=self.foxtrot.taxonomy,
+            tags=[self.foxtrot.value],
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.foxtrot.taxonomy.delete()
+
+        assert mock_task_delay.call_count == 1
+        assert mock_task_delay.call_args.kwargs["object_ids"] == [object_id]
 
     @patch("openedx_tagging.tasks.CONTENT_OBJECT_ASSOCIATIONS_CHANGED", new_callable=MagicMock)
     def test_emit_content_object_associations_changed_for_object_ids_task(self, mock_signal) -> None:
