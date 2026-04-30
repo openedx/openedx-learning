@@ -1,7 +1,6 @@
 """Celery tasks for openedx_tagging."""
 
 import logging
-from collections.abc import Iterable
 
 from celery import shared_task  # type: ignore[import]
 from openedx_events.content_authoring.data import ContentObjectChangedData  # type: ignore[import-untyped]
@@ -12,12 +11,16 @@ from openedx_tagging.models.base import ObjectTag, Tag
 logger = logging.getLogger(__name__)
 
 
-def _emit_content_object_associations_changed_for_object_ids(object_ids: Iterable[str]) -> int:
+def _emit_content_object_associations_changed_for_tag(tag: Tag) -> int:
     """
-    Emit CONTENT_OBJECT_ASSOCIATIONS_CHANGED once for each distinct object ID.
+    Emit CONTENT_OBJECT_ASSOCIATIONS_CHANGED events for each content object linked to this tag
+    via the ObjectTag assciations. This is used to trigger downstream updates
+    like search index refreshes in Meilisearch.
     """
+    object_ids = ObjectTag.objects.filter(tag=tag).values_list("object_id", flat=True)
     emitted_events = 0
-    for object_id in set(object_ids):
+
+    for object_id in object_ids.iterator():
         # .. event_implemented_name: CONTENT_OBJECT_ASSOCIATIONS_CHANGED
         # .. event_type: org.openedx.content_authoring.content.object.associations.changed.v1
         CONTENT_OBJECT_ASSOCIATIONS_CHANGED.send_event(
@@ -27,18 +30,6 @@ def _emit_content_object_associations_changed_for_object_ids(object_ids: Iterabl
             ),
         )
         emitted_events += 1
-
-    return emitted_events
-
-
-def _emit_content_object_associations_changed_for_tag(tag: Tag) -> int:
-    """
-    Emit CONTENT_OBJECT_ASSOCIATIONS_CHANGED events for each content object linked to this tag
-    via the ObjectTag associations. This is used to trigger downstream updates
-    like search index refreshes in Meilisearch.
-    """
-    object_ids = ObjectTag.objects.filter(tag=tag).values_list("object_id", flat=True).distinct()
-    emitted_events = _emit_content_object_associations_changed_for_object_ids(object_ids.iterator())
 
     logger.info(
         "Tag with id %s was updated. Emitted CONTENT_OBJECT_ASSOCIATIONS_CHANGED events for %s associated objects.",
@@ -66,17 +57,3 @@ def emit_content_object_associations_changed_for_tag_task(tag_id: int) -> int:
         return 0
 
     return _emit_content_object_associations_changed_for_tag(tag)
-
-
-@shared_task
-def emit_content_object_associations_changed_for_object_ids_task(object_ids: list[str]) -> int:
-    """
-    Emit CONTENT_OBJECT_ASSOCIATIONS_CHANGED events for content objects whose
-    tag associations changed because one or more tags were deleted.
-    """
-    emitted_events = _emit_content_object_associations_changed_for_object_ids(object_ids)
-    logger.info(
-        "Deleted tag(s) affected %s associated objects. Emitted CONTENT_OBJECT_ASSOCIATIONS_CHANGED events.",
-        emitted_events,
-    )
-    return emitted_events

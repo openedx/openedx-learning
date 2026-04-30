@@ -4,7 +4,6 @@ Test the tagging base models
 
 from __future__ import annotations
 
-from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import ddt  # type: ignore[import]
@@ -18,11 +17,7 @@ from django.test.testcases import TestCase
 from openedx_tagging import api
 from openedx_tagging.models import LanguageTaxonomy, ObjectTag, Tag, Taxonomy
 from openedx_tagging.models.utils import RESERVED_TAG_CHARS
-from openedx_tagging.signal_handlers import _is_explicit_tag_delete
-from openedx_tagging.tasks import (
-    emit_content_object_associations_changed_for_object_ids_task,
-    emit_content_object_associations_changed_for_tag_task,
-)
+from openedx_tagging.tasks import emit_content_object_associations_changed_for_tag_task
 
 from .utils import pretty_format_tags
 
@@ -668,20 +663,10 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
         self.object_tag.save()
         assert self.object_tag.export_id == self.taxonomy.export_id
 
-        # But if the taxonomy is deleted, then the object_tag's export_id reverts to our cached export_id.
-        # Patch explicit-delete detection because this test is about ObjectTag fallback behavior,
-        # not tag deletion event-origins.
-        with patch("openedx_tagging.signal_handlers._is_explicit_tag_delete", return_value=False):
-            self.taxonomy.delete()
+        # But if the taxonomy is deleted, then the object_tag's export_id reverts to our cached export_id
+        self.taxonomy.delete()
         self.object_tag.refresh_from_db()
         assert self.object_tag.export_id == "another-taxonomy"
-
-    def test_is_explicit_tag_delete_raises_for_unexpected_origin_type(self):
-        with pytest.raises(
-            TypeError,
-            match=r"Expected origin to be Tag, QuerySet\[Tag\], or None; got Taxonomy",
-        ):
-            _is_explicit_tag_delete(instance=self.tag, origin=cast(Any, self.taxonomy), using="default")
 
     def test_object_tag_value(self):
         # ObjectTag's value defaults to its tag's value
@@ -839,11 +824,8 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
             (self.bacteria.value, True),  # <--- deleted! But the value is preserved.
         ]
 
-        # Then delete the whole free text taxonomy.
-        # Patch explicit-delete detection because this
-        # test validates ObjectTag deleted-state behavior, not tag deletion event-origins.
-        with patch("openedx_tagging.signal_handlers._is_explicit_tag_delete", return_value=False):
-            self.free_text_taxonomy.delete()
+        # Then delete the whole free text taxonomy
+        self.free_text_taxonomy.delete()
 
         assert [(t.value, t.is_deleted) for t in api.get_object_tags(object_id, include_deleted=True)] == [
             ("bar", True),  # <--- Deleted, but the value is preserved
@@ -1113,18 +1095,16 @@ class TestTagLineage(TestCase):
         assert self.bob.depth == 1
         assert self.bob.lineage == "Charlie\tBob\t"
 
-    # TODO: The following event-emission tests don't really belong in TestTagLineage.
-    # They should be moved to a separate test_events.py module.
     @patch("openedx_tagging.signal_handlers.emit_content_object_associations_changed_for_tag_task.delay")
     def test_rename_updates_search_index(self, mock_task_delay) -> None:
         """
         Renaming a tag should enqueue an async task that emits
         CONTENT_OBJECT_ASSOCIATIONS_CHANGED events.
         """
-        api.tag_object(
+        ObjectTag.objects.create(
             object_id="content-v1:org+course+run+type@unit+block@123",
             taxonomy=self.alice.taxonomy,
-            tags=[self.alice.value],
+            tag=self.alice,
         )
 
         with self.captureOnCommitCallbacks(execute=True):
@@ -1134,89 +1114,20 @@ class TestTagLineage(TestCase):
         assert mock_task_delay.call_count == 1
         assert mock_task_delay.call_args[1]['tag_id'] == self.alice.id
 
-    @patch("openedx_tagging.signal_handlers.emit_content_object_associations_changed_for_object_ids_task.delay")
-    def test_delete_updates_search_index(self, mock_task_delay) -> None:
-        """
-        Deleting a tag should enqueue an async task that emits
-        CONTENT_OBJECT_ASSOCIATIONS_CHANGED events for affected objects.
-
-        Note: this tests deleting a ``Tag`` (not an ``ObjectTag``). Deleting a
-        ``Tag`` triggers the event here in openedx-learning. Deleting an
-        ``ObjectTag`` (i.e. untagging a content object) triggers the same event
-        in openedx-platform instead, so that case is not tested here.
-        """
-        object_id = "content-v1:org+course+run+type@unit+block@125"
-        api.tag_object(
-            object_id=object_id,
-            taxonomy=self.bob.taxonomy,
-            tags=[self.bob.value],
-        )
-
-        with self.captureOnCommitCallbacks(execute=True):
-            self.bob.delete()
-
-        assert mock_task_delay.call_count == 1
-        assert mock_task_delay.call_args[1]["object_ids"] == [object_id]
-
-    @patch("openedx_tagging.signal_handlers.emit_content_object_associations_changed_for_object_ids_task.delay")
-    def test_delete_with_descendants_updates_search_index(self, mock_task_delay) -> None:
-        """
-        Deleting a tag should also enqueue updates for any deleted descendants.
-        """
-        alice_object_id = "content-v1:org+course+run+type@unit+block@126"
-        delta_object_id = "content-v1:org+course+run+type@unit+block@127"
-        api.tag_object(
-            object_id=alice_object_id,
-            taxonomy=self.alice.taxonomy,
-            tags=[self.alice.value],
-        )
-        api.tag_object(
-            object_id=delta_object_id,
-            taxonomy=self.delta.taxonomy,
-            tags=[self.delta.value],
-        )
-
-        with self.captureOnCommitCallbacks(execute=True):
-            api.delete_tags_from_taxonomy(self.alice.taxonomy, ["Alice"], with_subtags=True)
-
-        assert mock_task_delay.call_count == 1
-        assert set(mock_task_delay.call_args.kwargs["object_ids"]) == {
-            alice_object_id,
-            delta_object_id,
-        }
-
-    @patch("openedx_tagging.tasks.CONTENT_OBJECT_ASSOCIATIONS_CHANGED", new_callable=MagicMock)
-    def test_emit_content_object_associations_changed_for_object_ids_task(self, mock_signal) -> None:
-        """Task emits one CONTENT_OBJECT_ASSOCIATIONS_CHANGED event per distinct object."""
-        first_object_id = "content-v1:org+course+run+type@unit+block@123"
-        second_object_id = "content-v1:org+course+run+type@unit+block@124"
-
-        emitted_events = emit_content_object_associations_changed_for_object_ids_task(
-            [first_object_id, second_object_id, first_object_id]
-        )
-
-        assert emitted_events == 2
-        assert mock_signal.send_event.call_count == 2
-        emitted_object_ids = {
-            call.kwargs["content_object"].object_id
-            for call in mock_signal.send_event.call_args_list
-        }
-        assert emitted_object_ids == {first_object_id, second_object_id}
-
     @patch("openedx_tagging.tasks.CONTENT_OBJECT_ASSOCIATIONS_CHANGED", new_callable=MagicMock)
     def test_emit_content_object_associations_changed_for_tag_task(self, mock_signal) -> None:
         """Task emits one CONTENT_OBJECT_ASSOCIATIONS_CHANGED event per associated object."""
         first_object_id = "content-v1:org+course+run+type@unit+block@123"
         second_object_id = "content-v1:org+course+run+type@unit+block@124"
-        api.tag_object(
+        ObjectTag.objects.create(
             object_id=first_object_id,
             taxonomy=self.alice.taxonomy,
-            tags=[self.alice.value],
+            tag=self.alice,
         )
-        api.tag_object(
+        ObjectTag.objects.create(
             object_id=second_object_id,
             taxonomy=self.alice.taxonomy,
-            tags=[self.alice.value],
+            tag=self.alice,
         )
 
         emitted_events = emit_content_object_associations_changed_for_tag_task(self.alice.id)
