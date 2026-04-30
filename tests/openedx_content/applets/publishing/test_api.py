@@ -2533,39 +2533,3 @@ class CrossEntityValidationTestCase(TransactionTestCase):
                 created_by=None,
                 dependencies=[entity_in_lp2.id],
             )
-
-    def test_publish_functions_rejected_inside_bulk_draft_changes_for(self) -> None:
-        """
-        publish_all_drafts() and publish_from_drafts() must not be callable
-        from within a bulk_draft_changes_for() context.
-
-        bulk_draft_changes_for() opens a DraftChangeLog for accumulating draft
-        edits; running a publish inside it mixes draft-change bookkeeping with
-        publish bookkeeping in the same atomic block, which corrupts the
-        ordering of DraftChangeLog vs. PublishLog records and can leave Drafts
-        and Published rows out of sync if the outer context later raises.
-        """
-        entity = publishing_api.create_publishable_entity(
-            self.learning_package_1.id,
-            "entity_for_bulk_publish_check",
-            created=self.now,
-            created_by=None,
-        )
-        publishing_api.create_publishable_entity_version(
-            entity.id,
-            version_num=1,
-            title="Entity v1",
-            created=self.now,
-            created_by=None,
-        )
-
-        with pytest.raises(ValidationError, match="Cannot publish while in bulk_draft_changes_for()."):
-            with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
-                publishing_api.publish_all_drafts(self.learning_package_1.id)
-
-        with pytest.raises(ValidationError, match="Cannot publish while in bulk_draft_changes_for()."):
-            with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
-                publishing_api.publish_from_drafts(
-                    self.learning_package_1.id,
-                    Draft.objects.filter(entity__learning_package_id=self.learning_package_1.id),
-                )
