@@ -79,19 +79,18 @@ class AssetTestCase(TestCase):
             data=b"<html>hello world!</html>",
             created=cls.now,
         )
-        cls.component, cls.component_version = components_api.create_component_and_version(
-            cls.learning_package.id,
-            component_type=cls.problem_type,
-            component_code="my_problem",
-            title="My Problem",
-            created=cls.now,
-            created_by=None,
-            media={
-                "block.xml": cls.problem_media,
-                "src/grader.py": cls.python_source_asset,
-                "static/hello.html": cls.html_asset_media
-            }
-        )
+        with publishing_api.draft_changes_for(cls.learning_package.id, None):
+            cls.component, cls.component_version = components_api.create_component_and_version(
+                cls.learning_package.id,
+                component_type=cls.problem_type,
+                component_code="my_problem",
+                title="My Problem",
+                media={
+                    "block.xml": cls.problem_media,
+                    "src/grader.py": cls.python_source_asset,
+                    "static/hello.html": cls.html_asset_media
+                }
+            )
 
     def test_no_component_version(self):
         """No ComponentVersion matching the UUID exists."""

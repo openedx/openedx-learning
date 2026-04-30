@@ -105,14 +105,13 @@ def create_test_entity(learning_package: LearningPackage, ref: str, title: str) 
     """Create a TestEntity with a draft version"""
     pe = publishing_api.create_publishable_entity(learning_package.id, ref, created=now, created_by=None)
     new_entity = TestEntity.objects.create(publishable_entity=pe)
-    pev = publishing_api.create_publishable_entity_version(
-        new_entity.pk,
-        version_num=1,
-        title=title,
-        created=now,
-        created_by=None,
-    )
-    TestEntityVersion.objects.create(publishable_entity_version=pev)
+    with publishing_api.draft_changes_for(learning_package.id, None):
+        pev = publishing_api.create_publishable_entity_version(
+            new_entity.pk,
+            version_num=1,
+            title=title,
+        )
+        TestEntityVersion.objects.create(publishable_entity_version=pev)
     return new_entity
 
 
@@ -147,15 +146,14 @@ def create_test_container(
     title: str = "",
 ) -> TestContainer:
     """Create a TestContainer with a draft version"""
-    container, _version = containers_api.create_container_and_version(
-        learning_package.id,
-        container_code=container_code,
-        title=title or f"Container ({container_code})",
-        entities=entities,
-        container_cls=TestContainer,
-        created=now,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(learning_package.id, None):
+        container, _version = containers_api.create_container_and_version(
+            learning_package.id,
+            container_code=container_code,
+            title=title or f"Container ({container_code})",
+            entities=entities,
+            container_cls=TestContainer,
+        )
     return container
 
 
@@ -217,15 +215,14 @@ def _grandparent(
     parent_of_three: TestContainer,
 ) -> ContainerContainer:
     """An ContainerContainer with two unpinned children"""
-    grandparent, _version = containers_api.create_container_and_version(
-        lp.id,
-        container_code="grandparent",
-        title="Generic Container with Two Unpinned TestContainer children",
-        entities=[parent_of_two, parent_of_three],
-        container_cls=ContainerContainer,
-        created=now,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        grandparent, _version = containers_api.create_container_and_version(
+            lp.id,
+            container_code="grandparent",
+            title="Generic Container with Two Unpinned TestContainer children",
+            entities=[parent_of_two, parent_of_three],
+            container_cls=ContainerContainer,
+        )
     return grandparent
 
 
@@ -236,14 +233,14 @@ def _container_of_uninstalled_type(lp: LearningPackage, child_entity1: TestEntit
     e.g. leftover data from an uninstalled plugin.
     """
     # First create a TestContainer, then we'll modify it to simulate it being from an uninstalled plugin
-    container, _ = containers_api.create_container_and_version(
-        lp.id,
-        container_code="abandoned-container",
-        title="Abandoned Container 1",
-        entities=[child_entity1],
-        container_cls=TestContainer,
-        created=now,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        container, _ = containers_api.create_container_and_version(
+            lp.id,
+            container_code="abandoned-container",
+            title="Abandoned Container 1",
+            entities=[child_entity1],
+            container_cls=TestContainer,
+        )
     # Now create the plugin type (no public API for this; only do this in a test)
     ctr = ContainerType.objects.create(type_code="misc")
     Container.objects.filter(pk=container.id).update(container_type=ctr)
@@ -253,15 +250,14 @@ def _container_of_uninstalled_type(lp: LearningPackage, child_entity1: TestEntit
 @pytest.fixture(name="other_lp_parent")
 def _other_lp_parent(lp2: LearningPackage, other_lp_child: TestEntity) -> TestContainer:
     """An TestContainer with one child"""
-    other_lp_parent, _version = containers_api.create_container_and_version(
-        lp2.id,
-        container_code="other_lp_parent",
-        title="Generic Container with One Unpinned Child Entity",
-        entities=[other_lp_child],
-        container_cls=TestContainer,
-        created=now,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(lp2.id, None):
+        other_lp_parent, _version = containers_api.create_container_and_version(
+            lp2.id,
+            container_code="other_lp_parent",
+            title="Generic Container with One Unpinned Child Entity",
+            entities=[other_lp_child],
+            container_cls=TestContainer,
+        )
     return other_lp_parent
 
 
@@ -271,16 +267,19 @@ def publish_entity(obj: PublishableEntityMixin) -> PublishLog:
     return publishing_api.publish_from_drafts(
         lp_id,
         draft_qset=publishing_api.get_all_drafts(lp_id).filter(entity=obj.publishable_entity),
+        published_by=None,
     )
 
 
 def modify_entity(obj: TestEntity, title="Newly modified entity"):
     """Modify a TestEntity, creating a new version with a new title"""
     assert isinstance(obj, TestEntity)
-    new_raw_version = publishing_api.create_publishable_entity_version(
-        obj.pk, version_num=obj.versioning.latest.version_num + 1, title=title, created=now, created_by=None
-    )
-    return TestEntityVersion.objects.create(pk=new_raw_version.pk)
+    lp_id = obj.publishable_entity.learning_package_id
+    with publishing_api.draft_changes_for(lp_id, None):
+        new_raw_version = publishing_api.create_publishable_entity_version(
+            obj.pk, version_num=obj.versioning.latest.version_num + 1, title=title
+        )
+        return TestEntityVersion.objects.create(pk=new_raw_version.pk)
 
 
 def Entry(
@@ -303,15 +302,14 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
     """
     Creating an empty TestContainer. It will have only a draft version.
     """
-    container, container_v1 = containers_api.create_container_and_version(
-        lp.id,
-        container_code="new-container-1",
-        title="Test Container 1",
-        container_cls=TestContainer,
-        created=now,
-        created_by=admin_user.pk,
-        can_stand_alone=False,
-    )
+    with publishing_api.draft_changes_for(lp.id, admin_user, changed_at=now):
+        container, container_v1 = containers_api.create_container_and_version(
+            lp.id,
+            container_code="new-container-1",
+            title="Test Container 1",
+            container_cls=TestContainer,
+            can_stand_alone=False,
+        )
 
     if TYPE_CHECKING:
         # `create_container_and_version()` should return the correct Container subclass, based on `container_cls=...`:
@@ -352,14 +350,13 @@ def test_create_generic_empty_container(lp: LearningPackage, admin_user) -> None
 def test_unicode_code(lp: LearningPackage) -> None:
     """container_code supports non-ascii letters."""
     unicode_code = "柏倉隆史"
-    container, _ = containers_api.create_container_and_version(
-        lp.id,
-        container_code=unicode_code,
-        title="Unicode Container",
-        container_cls=TestContainer,
-        created=now,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        container, _ = containers_api.create_container_and_version(
+            lp.id,
+            container_code=unicode_code,
+            title="Unicode Container",
+            container_cls=TestContainer,
+        )
     assert container.container_code == unicode_code
     assert containers_api.get_container_by_code(lp.id, unicode_code).id == container.id
 
@@ -368,16 +365,15 @@ def test_create_container_queries(lp: LearningPackage, child_entity1: TestEntity
     """Test how many database queries are required to create a container."""
     base_args: dict[str, Any] = {
         "title": "Test Container",
-        "created": now,
-        "created_by": None,
         "container_cls": TestContainer,
     }
     # The exact numbers here aren't too important - this is just to alert us if anything significant changes.
-    with django_assert_num_queries(34):
-        containers_api.create_container_and_version(lp.id, container_code="c1", **base_args)
-    # And try with a a container that has children:
-    with django_assert_num_queries(37):
-        containers_api.create_container_and_version(lp.id, container_code="c2", **base_args, entities=[child_entity1])
+    with publishing_api.draft_changes_for(lp.id, None):
+        with django_assert_num_queries(34):
+            containers_api.create_container_and_version(lp.id, container_code="c1", **base_args)
+        # And try with a a container that has children:
+        with django_assert_num_queries(37):
+            containers_api.create_container_and_version(lp.id, container_code="c2", **base_args, entities=[child_entity1])
 
 
 # versioning helpers
@@ -403,7 +399,7 @@ def test_container_versioning_helpers(parent_of_two: TestContainer):
 # create_next_container_version
 
 
-def test_create_next_container_version_no_changes(parent_of_two: TestContainer, other_user):
+def test_create_next_container_version_no_changes(lp: LearningPackage, parent_of_two: TestContainer, other_user):
     """
     Test creating a new version of the "parent of two" container, but without
     any actual changes.
@@ -413,12 +409,11 @@ def test_create_next_container_version_no_changes(parent_of_two: TestContainer, 
 
     # Create a new version with no changes:
     v2_date = datetime.now(tz=timezone.utc)
-    version_2 = containers_api.create_next_container_version(
-        parent_of_two,
-        created=v2_date,
-        created_by=other_user.pk,
-        # Specify no changes at all
-    )
+    with publishing_api.draft_changes_for(lp.id, other_user, changed_at=v2_date):
+        version_2 = containers_api.create_next_container_version(
+            parent_of_two,
+            # Specify no changes at all
+        )
 
     # assert_type(version_2, TestContainerVersion)
     # ^ Must come before 'assert isinstance(...)'. Unfortunately, getting the subclass return type in python 3.12 is not
@@ -441,7 +436,7 @@ def test_create_next_container_version_no_changes(parent_of_two: TestContainer, 
 
 
 def test_create_next_container_version_with_changes(
-    parent_of_two: TestContainer, child_entity1: TestEntity, child_entity2: TestEntity
+    lp: LearningPackage, parent_of_two: TestContainer, child_entity1: TestEntity, child_entity2: TestEntity
 ):
     """
     Test creating a new version of the "parent of two" container, changing the
@@ -452,14 +447,13 @@ def test_create_next_container_version_with_changes(
 
     # Create a new version, specifying version number 5 and changing the title and the order of the children:
     v5_date = datetime.now(tz=timezone.utc)
-    containers_api.create_next_container_version(
-        parent_of_two,
-        title="New Title - children reversed",
-        entities=[child_entity2, child_entity1],  # Reversed from original [child_entity1, child_entity2] order
-        force_version_num=5,
-        created=v5_date,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(lp.id, None, changed_at=v5_date):
+        containers_api.create_next_container_version(
+            parent_of_two,
+            title="New Title - children reversed",
+            entities=[child_entity2, child_entity1],  # Reversed from original [child_entity1, child_entity2] order
+            force_version_num=5,
+        )
 
     # Now retrieve the new version:
     version_5 = parent_of_two.versioning.draft
@@ -473,6 +467,7 @@ def test_create_next_container_version_with_changes(
 
 
 def test_create_next_container_version_with_append(
+    lp: LearningPackage,
     parent_of_two: TestContainer,
     child_entity1: TestEntity,
     child_entity2: TestEntity,
@@ -487,13 +482,12 @@ def test_create_next_container_version_with_append(
     assert child_entity1_v1.version_num == 1
 
     # Create a new version, APPENDing entity 3 and 📌 pinned entity1 (v1)
-    version_2 = containers_api.create_next_container_version(
-        parent_of_two,
-        entities=[child_entity3, child_entity1_v1],
-        created=now,
-        created_by=None,
-        entities_action=containers_api.ChildrenEntitiesAction.APPEND,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        version_2 = containers_api.create_next_container_version(
+            parent_of_two,
+            entities=[child_entity3, child_entity1_v1],
+            entities_action=containers_api.ChildrenEntitiesAction.APPEND,
+        )
 
     assert parent_of_two.versioning.draft == version_2
     assert containers_api.get_entities_in_container(parent_of_two, published=False) == [
@@ -505,6 +499,7 @@ def test_create_next_container_version_with_append(
 
 
 def test_create_next_container_version_with_remove_1(
+    lp: LearningPackage,
     parent_of_six: TestContainer,
     child_entity1: TestEntity,
     child_entity2: TestEntity,
@@ -523,13 +518,12 @@ def test_create_next_container_version_with_remove_1(
         Entry(child_entity3.versioning.draft, pinned=False),  # entity 3, unpinned
     ]
     # Remove "entity 1 unpinned" - should remove both:
-    containers_api.create_next_container_version(
-        parent_of_six.id,
-        entities=[child_entity1],
-        created=now,
-        created_by=None,
-        entities_action=containers_api.ChildrenEntitiesAction.REMOVE,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        containers_api.create_next_container_version(
+            parent_of_six.id,
+            entities=[child_entity1],
+            entities_action=containers_api.ChildrenEntitiesAction.REMOVE,
+        )
     # Now it looks like:
 
     assert containers_api.get_entities_in_container(parent_of_six, published=False) == [
@@ -542,6 +536,7 @@ def test_create_next_container_version_with_remove_1(
 
 
 def test_create_next_container_version_with_remove_2(
+    lp: LearningPackage,
     parent_of_six: TestContainer,
     child_entity1: TestEntity,
     child_entity2: TestEntity,
@@ -560,13 +555,12 @@ def test_create_next_container_version_with_remove_2(
         Entry(child_entity3.versioning.draft, pinned=False),  # entity 3, unpinned
     ]
     # Remove "entity 2 pinned" - should remove both:
-    containers_api.create_next_container_version(
-        parent_of_six.id,
-        entities=[child_entity2.versioning.draft],  # specify the version for "pinned"
-        created=now,
-        created_by=None,
-        entities_action=containers_api.ChildrenEntitiesAction.REMOVE,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        containers_api.create_next_container_version(
+            parent_of_six.id,
+            entities=[child_entity2.versioning.draft],  # specify the version for "pinned"
+            entities_action=containers_api.ChildrenEntitiesAction.REMOVE,
+        )
     # Now it looks like:
 
     assert containers_api.get_entities_in_container(parent_of_six, published=False) == [
@@ -580,6 +574,7 @@ def test_create_next_container_version_with_remove_2(
 
 
 def test_create_next_container_version_with_remove_3(
+    lp: LearningPackage,
     parent_of_six: TestContainer,
     child_entity1: TestEntity,
     child_entity2: TestEntity,
@@ -598,13 +593,12 @@ def test_create_next_container_version_with_remove_3(
         Entry(child_entity3.versioning.draft, pinned=False),  # entity 3, unpinned
     ]
     # Remove "entity 3 pinned" - should remove only one:
-    containers_api.create_next_container_version(
-        parent_of_six.id,
-        entities=[child_entity3.versioning.draft],  # specify the version for "pinned"
-        created=now,
-        created_by=None,
-        entities_action=containers_api.ChildrenEntitiesAction.REMOVE,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        containers_api.create_next_container_version(
+            parent_of_six.id,
+            entities=[child_entity3.versioning.draft],  # specify the version for "pinned"
+            entities_action=containers_api.ChildrenEntitiesAction.REMOVE,
+        )
     # Now it looks like:
 
     assert containers_api.get_entities_in_container(parent_of_six, published=False) == [
@@ -618,6 +612,7 @@ def test_create_next_container_version_with_remove_3(
 
 
 def test_create_next_container_version_with_remove_4(
+    lp: LearningPackage,
     parent_of_six: TestContainer,
     child_entity1: TestEntity,
     child_entity2: TestEntity,
@@ -636,13 +631,12 @@ def test_create_next_container_version_with_remove_4(
         Entry(child_entity3.versioning.draft, pinned=False),  # entity 3, unpinned
     ]
     # Remove "entity 3 unpinned" - should remove only one:
-    containers_api.create_next_container_version(
-        parent_of_six.id,
-        entities=[child_entity3],
-        created=now,
-        created_by=None,
-        entities_action=containers_api.ChildrenEntitiesAction.REMOVE,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        containers_api.create_next_container_version(
+            parent_of_six.id,
+            entities=[child_entity3],
+            entities_action=containers_api.ChildrenEntitiesAction.REMOVE,
+        )
     # Now it looks like:
 
     assert containers_api.get_entities_in_container(parent_of_six, published=False) == [
@@ -655,7 +649,7 @@ def test_create_next_container_version_with_remove_4(
     ]
 
 
-def test_create_next_container_version_with_conflicting_version(parent_of_two: TestContainer):
+def test_create_next_container_version_with_conflicting_version(lp: LearningPackage, parent_of_two: TestContainer):
     """
     Test that an appropriate error is raised when calling `create_next_container_version` and specifying a version
     number that already exists.
@@ -663,13 +657,12 @@ def test_create_next_container_version_with_conflicting_version(parent_of_two: T
 
     def create_v5():
         """Create a new version, specifying version number 5 and changing the title and the order of the children."""
-        containers_api.create_next_container_version(
-            parent_of_two.id,
-            title="New version - forced as v5",
-            force_version_num=5,
-            created=now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(lp.id, None):
+            containers_api.create_next_container_version(
+                parent_of_two.id,
+                title="New version - forced as v5",
+                force_version_num=5,
+            )
 
     # First it should work:
     create_v5()
@@ -678,32 +671,30 @@ def test_create_next_container_version_with_conflicting_version(parent_of_two: T
         create_v5()
 
 
-def test_create_next_container_version_uninstalled_plugin(container_of_uninstalled_type: Container):
+def test_create_next_container_version_uninstalled_plugin(lp: LearningPackage, container_of_uninstalled_type: Container):
     """
     Test that an appropriate error is raised when calling `create_next_container_version` for a container whose type
     implementation is no longer installed. Such containers should still be readable but not writable.
     """
     with pytest.raises(containers_api.ContainerImplementationMissingError):
-        containers_api.create_next_container_version(
-            container_of_uninstalled_type.id,
-            title="New version of the container",
-            created=now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(lp.id, None):
+            containers_api.create_next_container_version(
+                container_of_uninstalled_type.id,
+                title="New version of the container",
+            )
 
 
-def test_create_next_container_version_other_lp(parent_of_two: TestContainer, other_lp_child: PublishableEntity):
+def test_create_next_container_version_other_lp(lp: LearningPackage, parent_of_two: TestContainer, other_lp_child: PublishableEntity):
     """
     Test that an appropriate error is raised when trying to add a child from another learning package to a container.
     """
     with pytest.raises(ValidationError, match="Container entities must be from the same learning package."):
-        containers_api.create_next_container_version(
-            parent_of_two.id,
-            title="Bad Version with entities from another learning package",
-            created=now,
-            created_by=None,
-            entities=[other_lp_child],  # <-- from "lp2" Learning Package
-        )
+        with publishing_api.draft_changes_for(lp.id, None):
+            containers_api.create_next_container_version(
+                parent_of_two.id,
+                title="Bad Version with entities from another learning package",
+                entities=[other_lp_child],  # <-- from "lp2" Learning Package
+            )
 
 
 # get_container
@@ -730,11 +721,12 @@ def test_get_container_nonexistent() -> None:
         containers_api.get_container(FAKE_ID)
 
 
-def test_get_container_soft_deleted(parent_of_two: TestContainer) -> None:
+def test_get_container_soft_deleted(lp: LearningPackage, parent_of_two: TestContainer) -> None:
     """
     Test `get_container()` with a soft deleted container
     """
-    publishing_api.soft_delete_draft(parent_of_two.id, deleted_by=None)
+    with publishing_api.draft_changes_for(lp.id, None):
+        publishing_api.soft_delete_draft(parent_of_two.id)
     parent_of_two.refresh_from_db()
     assert parent_of_two.versioning.draft is None
     assert parent_of_two.versioning.published is None
@@ -911,7 +903,8 @@ def test_get_containers_soft_deleted(
     default, but can be included.
     """
     # Soft delete `parent_of_two`:
-    publishing_api.soft_delete_draft(parent_of_two.id)
+    with publishing_api.draft_changes_for(lp.id, None):
+        publishing_api.soft_delete_draft(parent_of_two.id)
     # Now it should not be included in the result:
     assert list(containers_api.get_containers(lp.id)) == [
         # parent_of_two is not returned.
@@ -930,7 +923,7 @@ def test_get_containers_soft_deleted(
 
 
 def test_contains_unpublished_changes_queries(
-    grandparent: ContainerContainer, child_entity1: TestEntity, django_assert_num_queries
+    lp: LearningPackage, grandparent: ContainerContainer, child_entity1: TestEntity, django_assert_num_queries
 ) -> None:
     """Test that `contains_unpublished_changes()` works, and check how many queries it uses"""
     # Setup: grandparent and all its descendants are unpublished drafts only.
@@ -952,13 +945,12 @@ def test_contains_unpublished_changes_queries(
 
     # Now make a tiny change to a grandchild component (not a direct child of "grandparent"), and make sure it's
     # detected:
-    publishing_api.create_publishable_entity_version(
-        child_entity1.pk,
-        version_num=2,
-        title="Modified grandchild",
-        created=now,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        publishing_api.create_publishable_entity_version(
+            child_entity1.pk,
+            version_num=2,
+            title="Modified grandchild",
+        )
     child_entity1.refresh_from_db()
     assert child_entity1.versioning.has_unpublished_changes
 
@@ -1034,19 +1026,18 @@ def test_add_entity_after_publish(lp: LearningPackage, parent_of_two: TestContai
     assert parent_of_two_v1.version_num == 1
     assert parent_of_two.versioning.published is None
     # Publish everything in the learning package:
-    publishing_api.publish_all_drafts(lp.id)
+    publishing_api.publish_all_drafts(lp.id, None)
     parent_of_two.refresh_from_db()  # Reloading is necessary
     assert not parent_of_two.versioning.has_unpublished_changes  # Shallow check
     assert not containers_api.contains_unpublished_changes(parent_of_two)  # Deeper check
 
     # Add a published entity (child_entity3, unpinned):
-    parent_of_two_v2 = containers_api.create_next_container_version(
-        parent_of_two.id,
-        entities=[child_entity3],
-        created=now,
-        created_by=None,
-        entities_action=containers_api.ChildrenEntitiesAction.APPEND,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        parent_of_two_v2 = containers_api.create_next_container_version(
+            parent_of_two.id,
+            entities=[child_entity3],
+            entities_action=containers_api.ChildrenEntitiesAction.APPEND,
+        )
     # Now the container should have unpublished changes:
     parent_of_two.refresh_from_db()  # Reloading the container is necessary
     assert parent_of_two.versioning.has_unpublished_changes  # Shallow check - adding a child changes the container
@@ -1131,7 +1122,7 @@ def test_modify_pinned_entity(
     assert containers_api.get_entities_in_container(parent_of_three, published=False) == expected_contents
 
     # Publish everything
-    publishing_api.publish_all_drafts(lp.id)
+    publishing_api.publish_all_drafts(lp.id, None)
 
     # Now modify the first 📌 pinned child entity (#3) by changing its title (it remains a draft):
     modify_entity(child_entity3)
@@ -1169,25 +1160,22 @@ def test_publishing_shared_component(lp: LearningPackage):
     c3_v1 = c3.versioning.draft
     c4_v1 = c4.versioning.draft
     c5_v1 = c5.versioning.draft
-    unit1, _ = containers_api.create_container_and_version(
-        lp.id,
-        entities=[c1, c2, c3],
-        title="Unit 1",
-        container_code="unit-1",
-        created=now,
-        created_by=None,
-        container_cls=TestContainer,
-    )
-    unit2, _ = containers_api.create_container_and_version(
-        lp.id,
-        entities=[c2, c4, c5],
-        title="Unit 2",
-        container_code="unit-2",
-        created=now,
-        created_by=None,
-        container_cls=TestContainer,
-    )
-    publishing_api.publish_all_drafts(lp.id)
+    with publishing_api.draft_changes_for(lp.id, None):
+        unit1, _ = containers_api.create_container_and_version(
+            lp.id,
+            entities=[c1, c2, c3],
+            title="Unit 1",
+            container_code="unit-1",
+            container_cls=TestContainer,
+        )
+        unit2, _ = containers_api.create_container_and_version(
+            lp.id,
+            entities=[c2, c4, c5],
+            title="Unit 2",
+            container_code="unit-2",
+            container_cls=TestContainer,
+        )
+    publishing_api.publish_all_drafts(lp.id, None)
     assert containers_api.contains_unpublished_changes(unit1.id) is False
     assert containers_api.contains_unpublished_changes(unit2.id) is False
 
@@ -1351,6 +1339,7 @@ def test_get_entities_in_container(
 
 
 def test_get_entities_in_container_soft_deletion_unpinned(
+    lp: LearningPackage,
     parent_of_three: TestContainer,
     child_entity1: TestEntity,
     child_entity2: TestEntity,
@@ -1367,7 +1356,8 @@ def test_get_entities_in_container_soft_deletion_unpinned(
     # First, publish everything:
     publish_entity(parent_of_three)
     # Soft delete the third, unpinned child (child_entity1):
-    publishing_api.soft_delete_draft(child_entity1.pk)
+    with publishing_api.draft_changes_for(lp.id, None):
+        publishing_api.soft_delete_draft(child_entity1.pk)
 
     # That deletion should NOT count as a change to the container itself:
     parent_of_three.refresh_from_db()
@@ -1384,6 +1374,7 @@ def test_get_entities_in_container_soft_deletion_unpinned(
 
 
 def test_get_entities_in_container_soft_deletion_pinned(
+    lp: LearningPackage,
     parent_of_three: TestContainer,
     child_entity1: TestEntity,
     child_entity2: TestEntity,
@@ -1400,7 +1391,8 @@ def test_get_entities_in_container_soft_deletion_pinned(
     # First, publish everything:
     publish_entity(parent_of_three)
     # Soft delete child 2:
-    publishing_api.soft_delete_draft(child_entity2.pk)
+    with publishing_api.draft_changes_for(lp.id, None):
+        publishing_api.soft_delete_draft(child_entity2.pk)
 
     # The above deletions should NOT count as a change to the container itself, in any way:
     parent_of_three.refresh_from_db()
@@ -1426,41 +1418,39 @@ def test_snapshots_of_published_unit(lp: LearningPackage, child_entity1: TestEnt
     assert not before_publish  # Empty list
 
     # Publish everything, creating Checkpoint 1
-    checkpoint_1 = publishing_api.publish_all_drafts(lp.id, message="checkpoint 1")
+    checkpoint_1 = publishing_api.publish_all_drafts(lp.id, None, message="checkpoint 1")
 
     ########################################################################
 
     # Now we update the title of the component.
     modify_entity(child_entity1, title="Component 1 as of checkpoint 2")
     # Publish everything, creating Checkpoint 2
-    checkpoint_2 = publishing_api.publish_all_drafts(lp.id, message="checkpoint 2")
+    checkpoint_2 = publishing_api.publish_all_drafts(lp.id, None, message="checkpoint 2")
     ########################################################################
 
     # Now add a second component to the unit:
     modify_entity(child_entity1, title="Component 1 as of checkpoint 3")
     modify_entity(child_entity2, title="Component 2 as of checkpoint 3")
-    containers_api.create_next_container_version(
-        container.id,
-        title="Unit title in checkpoint 3",
-        entities=[child_entity1, child_entity2],
-        created=now,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        containers_api.create_next_container_version(
+            container.id,
+            title="Unit title in checkpoint 3",
+            entities=[child_entity1, child_entity2],
+        )
     # Publish everything, creating Checkpoint 3
-    checkpoint_3 = publishing_api.publish_all_drafts(lp.id, message="checkpoint 3")
+    checkpoint_3 = publishing_api.publish_all_drafts(lp.id, None, message="checkpoint 3")
     ########################################################################
 
     # Now add a third component to the unit, a pinned 📌 version of component 1.
     # This will test pinned versions and also test adding at the beginning rather than the end of the unit.
-    containers_api.create_next_container_version(
-        container.id,
-        title="Unit title in checkpoint 4",
-        entities=[child_entity1_v1, child_entity1, child_entity2],
-        created=now,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        containers_api.create_next_container_version(
+            container.id,
+            title="Unit title in checkpoint 4",
+            entities=[child_entity1_v1, child_entity1, child_entity2],
+        )
     # Publish everything, creating Checkpoint 4
-    checkpoint_4 = publishing_api.publish_all_drafts(lp.id, message="checkpoint 4")
+    checkpoint_4 = publishing_api.publish_all_drafts(lp.id, None, message="checkpoint 4")
     ########################################################################
 
     # Modify the drafts, but don't publish:
@@ -1560,7 +1550,7 @@ def test_get_container_children_count(
     grandparent: ContainerContainer,
 ):
     """Test `get_container_children_count()`"""
-    publishing_api.publish_all_drafts(lp.id)
+    publishing_api.publish_all_drafts(lp.id, None)
     assert containers_api.get_container_children_count(parent_of_two, published=False) == 2
     assert containers_api.get_container_children_count(parent_of_two, published=True) == 2
 
@@ -1574,12 +1564,11 @@ def test_get_container_children_count(
     assert containers_api.get_container_children_count(grandparent, published=True) == 2
 
     # Add another container to "grandparent":
-    containers_api.create_next_container_version(
-        grandparent,
-        entities=[parent_of_two, parent_of_three, parent_of_six],
-        created=now,
-        created_by=None,
-    )
+    with publishing_api.draft_changes_for(lp.id, None):
+        containers_api.create_next_container_version(
+            grandparent,
+            entities=[parent_of_two, parent_of_three, parent_of_six],
+        )
     # Warning: this is required if 'grandparent' is passed by ID to `create_next_container_version()`:
     # grandparent.refresh_from_db()
     assert containers_api.get_container_children_count(grandparent, published=False) == 3
@@ -1593,8 +1582,9 @@ def test_get_container_children_count_soft_deletion(
     child_entity2: TestEntity,
 ):
     """Test `get_container_children_count()` when an entity is soft deleted"""
-    publishing_api.publish_all_drafts(lp.id)
-    publishing_api.soft_delete_draft(child_entity2.pk)
+    publishing_api.publish_all_drafts(lp.id, None)
+    with publishing_api.draft_changes_for(lp.id, None):
+        publishing_api.soft_delete_draft(child_entity2.pk)
     # "parent_of_two" contains the soft deleted child, so its draft child count is decreased by one:
     assert containers_api.get_container_children_count(parent_of_two, published=False) == 1
     assert containers_api.get_container_children_count(parent_of_two, published=True) == 2
@@ -1611,7 +1601,7 @@ def test_get_container_children_count_queries(
     django_assert_num_queries,
 ):
     """Test how many database queries `get_container_children_count()` needs"""
-    publishing_api.publish_all_drafts(lp.id)
+    publishing_api.publish_all_drafts(lp.id, None)
     # The 6 queries are:
     # - Draft.objects.get()
     # - PublishableEntityVersion.objects.get()

@@ -278,29 +278,28 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
         )
 
         # Make and publish one Component
-        cls.published_component, _ = api.create_component_and_version(
-            cls.learning_package.id,
-            cls.problem_type,
-            component_code="my_published_example",
-            title="My published problem",
-            created=cls.now,
-            created_by=cls.user.id,
-        )
+        with api.draft_changes_for(cls.learning_package.id, cls.user):
+            cls.published_component, _ = api.create_component_and_version(
+                cls.learning_package.id,
+                cls.problem_type,
+                component_code="my_published_example",
+                title="My published problem",
+            )
         api.publish_all_drafts(
             cls.learning_package.id,
+            cls.user,
             message="Publish from CollectionTestCase.setUpTestData",
             published_at=cls.now,
         )
 
         # Create a Draft component, one in each learning package
-        cls.draft_component, _ = api.create_component_and_version(
-            cls.learning_package.id,
-            cls.html_type,
-            component_code="my_draft_example",
-            title="My draft html",
-            created=cls.now,
-            created_by=cls.user.id,
-        )
+        with api.draft_changes_for(cls.learning_package.id, cls.user):
+            cls.draft_component, _ = api.create_component_and_version(
+                cls.learning_package.id,
+                cls.html_type,
+                component_code="my_draft_example",
+                title="My draft html",
+            )
 
         # Add some shared components to the collections
         cls.collection1 = api.add_to_collection(

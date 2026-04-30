@@ -17,6 +17,7 @@ from openedx_content.applets.publishing.api import (
     LearningPackage,
     create_learning_package,
     create_publishable_entity_version,
+    draft_changes_for,
     publish_all_drafts,
 )
 
@@ -48,17 +49,16 @@ class TestModelVersioningQueries(TestCase):
         cls.problem_type = get_or_create_component_type("xblock.v1", "problem")
 
     def test_latest_version(self) -> None:
-        component, component_version = create_component_and_version(
-            self.learning_package.id,
-            component_type=self.problem_type,
-            component_code="monty_hall",
-            title="Monty Hall Problem",
-            created=self.now,
-            created_by=None,
-        )
+        with draft_changes_for(self.learning_package.id, None):
+            component, component_version = create_component_and_version(
+                self.learning_package.id,
+                component_type=self.problem_type,
+                component_code="monty_hall",
+                title="Monty Hall Problem",
+            )
         assert component.versioning.draft == component_version
         assert component.versioning.published is None
-        publish_all_drafts(self.learning_package.id, published_at=self.now)
+        publish_all_drafts(self.learning_package.id, published_by=None, published_at=self.now)
 
         # Publishing isn't immediately reflected in the component obj (it's
         # using a cached version).
@@ -78,30 +78,27 @@ class TestModelVersioningQueries(TestCase):
         """
         Test last_publish_log versioning property for published Components.
         """
-        # This Component will get a couple of Published versions
-        component_with_changes, _ = create_component_and_version(
-            self.learning_package.id,
-            component_type=self.problem_type,
-            component_code="with_changes",
-            title="Component with changes v1",
-            created=self.now,
-            created_by=None,
-        )
+        with draft_changes_for(self.learning_package.id, None):
+            # This Component will get a couple of Published versions
+            component_with_changes, _ = create_component_and_version(
+                self.learning_package.id,
+                component_type=self.problem_type,
+                component_code="with_changes",
+                title="Component with changes v1",
+            )
 
-        # This Component will only be Published once.
-        component_with_no_changes, _ = create_component_and_version(
-            self.learning_package.id,
-            component_type=self.problem_type,
-            component_code="with_no_changes",
-            title="Component with no changes v1",
-            created=self.now,
-            created_by=None,
-        )
+            # This Component will only be Published once.
+            component_with_no_changes, _ = create_component_and_version(
+                self.learning_package.id,
+                component_type=self.problem_type,
+                component_code="with_no_changes",
+                title="Component with no changes v1",
+            )
 
         # Publish first time.
         published_first_time = datetime(2024, 5, 6, 7, 8, 9, tzinfo=timezone.utc)
         with freeze_time(published_first_time):
-            publish_all_drafts(self.learning_package.id)
+            publish_all_drafts(self.learning_package.id, published_by=None)
 
         # Refetch the entities to get latest versions
         component_with_changes = get_component(component_with_changes.id)
@@ -119,18 +116,17 @@ class TestModelVersioningQueries(TestCase):
         )
 
         # Modify component_with_changes
-        create_publishable_entity_version(
-            component_with_changes.publishable_entity.id,
-            version_num=2,
-            title="Component with changes v2",
-            created=self.now,
-            created_by=None,
-        )
+        with draft_changes_for(self.learning_package.id, None):
+            create_publishable_entity_version(
+                component_with_changes.publishable_entity.id,
+                version_num=2,
+                title="Component with changes v2",
+            )
 
         # Publish second time
         published_second_time = datetime(2024, 5, 6, 7, 8, 9, tzinfo=timezone.utc)
         with freeze_time(published_second_time):
-            publish_all_drafts(self.learning_package.id)
+            publish_all_drafts(self.learning_package.id, published_by=None)
 
         # Refetch the entities to get latest versions
         component_with_changes = get_component(component_with_changes.id)
