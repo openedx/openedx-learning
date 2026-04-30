@@ -8,6 +8,7 @@ from django.contrib.auth.models import User as UserType  # pylint: disable=impor
 from ..publishing.api import get_learning_package_by_ref
 from .zipper import LearningPackageUnzipper, LearningPackageZipper
 
+
 # The public API that will be re-exported by openedx_content.api
 # is listed in the __all__ entries below. Internal helper functions that are
 # private to this module should start with an underscore. If a function does not

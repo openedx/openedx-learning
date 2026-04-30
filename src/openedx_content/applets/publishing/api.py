@@ -48,6 +48,7 @@ __all__ = [
     "DATETIME_AUTO",
     "DatetimeOrAuto",
     "UserID",
+    "Author",
     "AUTHOR_AUTO",
     "AuthorOrAuto",
     "get_learning_package",
@@ -120,25 +121,26 @@ Outside of a context, using `AUTHOR_AUTO` is meaningless and will result in a `V
 """
 
 
-type AuthorOrAuto = (
-    # Attribute to a specific user:
-    UserID | AbstractUser
-    # Attribue to nobody:
-    | None | AnonymousUser
-    # Attribute to the same user as the enclosing draft_changes_for:
-    | Literal["AUTHOR_AUTO"]
-)
+type Author = UserID | AbstractUser | AnonymousUser | None
 """
-How to attribute an operation (creation, edit, deletion, change) to a user.
+A user attribution for a content operation (creation, edit, deletion, change).
 
 For attributable changes, this could be a User, or its database ID.
 
 For changes without any attributable author (e.g. backfills), this could be None
 or an AnonymousUser, both of which map to NULL in the database. This should be
 reserved for special cases--most changes have a concrete author!
+"""
 
-Finally, this could be AUTHOR_AUTO, which means "use the same author (or lack
-thereof) that the draft change context is using." Most functions default to AUTHOR_AUTO.
+
+type AuthorOrAuto = Author | Literal["AUTHOR_AUTO"]
+"""
+Either an Author (which could be None) or AUTHOR_AUTO.
+
+Most functions default to AUTHOR_AUTO. Please note that `None` is not an
+appopriate default author--only certain special operations are author-less;
+by default, users should supply an author user or use AUTHOR_AUTO in order to
+inherit the context's author user.
 """
 
 
@@ -147,7 +149,7 @@ def resolve_datetime(
     dt: DatetimeOrAuto,
 ) -> datetime:
     """
-    Convert a Timestamp specifier into a concerete datetime to be saved to the DB.
+    Convert a Timestamp specifier into a concrete datetime to be saved to the DB.
 
     If `timestamp is DATETIME_AUTO`, then return either the datetime of the
     enclosing `draft_changes_for` context, or `datetime.now` if there is
@@ -168,7 +170,7 @@ def resolve_author(
     author: AuthorOrAuto,
 ) -> UserID | None:
     """
-    Convert a Author specifier into a concerete user ID (or None) to be saved to the DB.
+    Convert a Author specifier into a concrete user ID (or None) to be saved to the DB.
 
     If `author is AUTHOR_AUTO`, then return either the author of the enclosing
     `draft_changes_for` context. Raises `ValueError` if there is no
@@ -184,7 +186,14 @@ def resolve_author(
                 "An author (other than AUTHOR_AUTO) must be specified when changing content "
                 "outside of a `draft_changes_for` context."
             )
-    elif isinstance(author, AnonymousUser):
+    return _normalize_author_to_user_id(author)  # type: ignore[arg-type]
+
+
+def _normalize_author_to_user_id(author: Author) -> UserID | None:
+    """
+    Given a user (object or ID) or lack thereof (AnonymousUser or None), return the ID or None.
+    """
+    if isinstance(author, AnonymousUser):
         return None
     elif isinstance(author, AbstractUser):
         assert isinstance(author.pk, int)
@@ -318,7 +327,7 @@ def create_publishable_entity(
     You'd typically want to call this right before creating your own content
     model that points to it.
 
-    Must be called inside `with draft_changes_for(...):`
+    You must specify `created_by=` unless you're inside a `draft_changes_for` context.
     """
 
     return PublishableEntity.objects.create(
@@ -520,9 +529,10 @@ def get_entities_with_unpublished_deletes(learning_package_id: LearningPackage.I
 def publish_all_drafts(
     learning_package_id: LearningPackage.ID,
     /,
+    published_by: Author,
+    *,
     message="",
     published_at: DatetimeOrAuto = DATETIME_AUTO,
-    published_by: AuthorOrAuto = AUTHOR_AUTO,
 ) -> PublishLog:
     """
     Publish everything that is a Draft and is not already published.
@@ -533,7 +543,11 @@ def publish_all_drafts(
              .with_unpublished_changes()
     )
     return publish_from_drafts(
-        learning_package_id, draft_qset, message, published_at, published_by
+        learning_package_id,
+        draft_qset,
+        published_by=published_by,
+        message=message,
+        published_at=published_at,
     )
 
 
@@ -574,10 +588,10 @@ def publish_from_drafts(
     learning_package_id: LearningPackage.ID,
     /,
     draft_qset: QuerySet[Draft],
+    published_by: Author,
+    *,
     message: str = "",
     published_at: DatetimeOrAuto = DATETIME_AUTO,
-    published_by: AuthorOrAuto = AUTHOR_AUTO,
-    *,
     publish_dependencies: bool = True,
 ) -> PublishLog:
     """
@@ -589,7 +603,7 @@ def publish_from_drafts(
     if DraftChangeLogContext.get_active_draft_change_log(learning_package_id) is not None:
         raise ValidationError("Cannot publish while in draft_changes_for().")
     published_at = resolve_datetime(learning_package_id, published_at)
-    published_by = resolve_author(learning_package_id, published_by)
+    published_by = _normalize_author_to_user_id(published_by)
     with atomic():
         if publish_dependencies:
             dependency_drafts_qsets = _get_dependencies_with_unpublished_changes(draft_qset)
@@ -1014,13 +1028,6 @@ def set_draft_version(
 
     Calling this function attaches a new DraftChangeLogRecord and attaches it to
     a DraftChangeLog.
-
-    This function will create DraftSideEffect entries and properly add any
-    containers that may have been affected by this draft update, UNLESS it is
-    called from within a draft_changes_for block. If it is called from
-    inside a draft_changes_for block, it will not add side-effects for
-    containers, as draft_changes_for will automatically do that when the
-    block exits. @@TODO update this docstring
 
     Must be called inside `with draft_changes_for(...):`
     """
@@ -1797,7 +1804,7 @@ def get_published_version_as_of(
 
 def draft_changes_for(
     learning_package_id: LearningPackage.ID,
-    changed_by: UserID | AbstractUser | AnonymousUser | None,
+    changed_by: Author,
     changed_at: DatetimeOrAuto = DATETIME_AUTO,
 ) -> DraftChangeLogContext:
     """
@@ -1824,15 +1831,7 @@ def draft_changes_for(
     else:
         assert isinstance(changed_at, datetime)
         changed_at_dt = changed_at
-    changed_by_id: UserID | None
-    if isinstance(changed_by, AnonymousUser):
-        changed_by_id = None
-    elif isinstance(changed_by, AbstractUser):
-        assert isinstance(changed_by.pk, int)
-        changed_by_id = changed_by.pk
-    elif changed_by:
-        assert isinstance(changed_by, int)
-        changed_by_id = changed_by
+    changed_by_id = _normalize_author_to_user_id(changed_by)
     return DraftChangeLogContext(
         learning_package_id,
         changed_at=changed_at_dt,

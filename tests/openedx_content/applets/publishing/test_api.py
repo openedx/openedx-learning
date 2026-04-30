@@ -420,7 +420,7 @@ class DraftTestCase(TestCase):
 
     def test_get_entities_with_unpublished_changes(self) -> None:
         """Test fetching entities with unpublished changes after soft deletes."""
-        with publishing_api.draft_changes_for(learning_package_id, None):
+        with publishing_api.draft_changes_for(learning_package.id, None):
             entity = publishing_api.create_publishable_entity(
                 self.learning_package_1.id,
                 "my_entity",
@@ -461,7 +461,7 @@ class DraftTestCase(TestCase):
         count_drafts = 6
         count_no_drafts = 3
 
-        with publishing_api.draft_changes_for(learning_package_id, None):
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
             for index in range(count_published):
                 # Create entities to publish
                 entity = publishing_api.create_publishable_entity(
@@ -476,7 +476,7 @@ class DraftTestCase(TestCase):
 
         publishing_api.publish_all_drafts(self.learning_package_1.id)
 
-        with publishing_api.draft_changes_for(learning_package_id, None):
+        with publishing_api.draft_changes_for(self.learning_package_1.id, None):
             for index in range(count_drafts):
                 # Create entities with drafts
                 entity = publishing_api.create_publishable_entity(

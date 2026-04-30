@@ -246,7 +246,7 @@ def _create_container_version(
     entity_list: EntityList,
 ) -> ContainerVersion:
     """
-    Private internal method for logic shared juby create_container_version() and
+    Private internal method for logic shared by create_container_version() and
     create_next_container_version().
     """
     # validate entity_list using the type implementation:

@@ -90,6 +90,8 @@ def create_component(
     The ``entity_ref`` is conventionally derived as
     ``"{namespace}:{type_name}:{component_code}"``, although callers should not assume
     that this will always be true.
+
+    You must specify `created_by=` unless you're inside a `draft_changes_for` context.
     """
     entity_ref = f"{component_type.namespace}:{component_type.name}:{component_code}"
     with atomic():
