@@ -35,7 +35,7 @@ Rejected Alternatives
         - Does not align with the applet-based top-level structure being created in openedx-learning (``openedx_learning/applets/...``).
 2. edx-platform repository
     - Pros: This is where all data currently associated with students is stored, so it would match the existing pattern and reduce integration work for the LMS.
-    - Cons: The intention is to move core learning concepts out of edx-platform (see `0001-purpose-of-this-repo.rst <../../decisions/0001-purpose-of-this-repo.rst>`_), and keeping it there makes reuse and pluggability harder.
+    - Cons: The intention is to move core learning concepts out of edx-platform (see `0001-purpose-of-this-repo.rst <../../openedx_core/decisions/0001-purpose-of-this-repo.rst>`_), and keeping it there makes reuse and pluggability harder.
 3. All code related to adding Competency Criteria to Open edX goes in openedx-learning/openedx\_learning/apps/authoring/competency\_criteria
     - Pros:
         - Tagging and competency criteria are part of content authoring workflows as is all of the other code in this directory.

@@ -6,17 +6,13 @@
 Open edX Core
 =============
 
-Contents:
-
 .. toctree::
    :maxdepth: 2
 
-   readme
-   getting_started
-   testing
-   internationalization
-   api_reference
-   decisions
+   openedx_core/index
+   openedx_content/index
+   openedx_tagging/index
+   openedx_learning/index
 
 Indices and tables
 ==================

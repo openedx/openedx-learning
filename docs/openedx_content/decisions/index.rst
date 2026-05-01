@@ -1,5 +1,5 @@
-openedx_content Decisions
-==========================
+Decisions
+=========
 
 Architecture Decision Records for the ``openedx_content`` app.
 

@@ -1,5 +1,5 @@
-General / Repository-wide Decisions
-=====================================
+Decisions
+=========
 
 Architecture Decision Records relating to the overall openedx-core repository.
 

@@ -1,5 +1,5 @@
-openedx_tagging Decisions
-==========================
+Decisions
+=========
 
 Architecture Decision Records for the ``openedx_tagging`` app.
 

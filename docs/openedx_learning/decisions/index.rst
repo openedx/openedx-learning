@@ -1,5 +1,5 @@
-openedx_learning Decisions
-===========================
+Decisions
+=========
 
 Architecture Decision Records for the ``openedx_learning`` app.
 
