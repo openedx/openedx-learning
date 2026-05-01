@@ -4,10 +4,10 @@ Open edX Core
 |pypi-badge| |ci-badge| |codecov-badge| |doc-badge| |pyversions-badge|
 |license-badge|
 
-Foundational Packages for a Teaching & Learning Platform
---------------------------------------------------------
+Overview
+--------
 
-*Formerly known as "Learning Core" or "openedx-learning".*
+**Foundational Packages for a Teaching & Learning Platform** (*formerly known as "Learning Core" or "openedx-learning"*)
 
 The ``openedx-core`` project holds Django apps which represent core teaching & learning platform concepts.
 
