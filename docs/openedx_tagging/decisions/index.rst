@@ -1,0 +1,10 @@
+openedx_tagging Decisions
+==========================
+
+Architecture Decision Records for the ``openedx_tagging`` app.
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   0*
