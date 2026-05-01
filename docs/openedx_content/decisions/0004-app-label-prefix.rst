@@ -6,7 +6,7 @@
 Status
 ------
 
-Obsolete. See decision 0020. Apps like ``openedx_content`` no longer use the ``oel_`` prefix, and this repo is no longer called "learning core".
+Obsolete. See decision :ref:`Merge authoring apps into openedx_content (using Applets) <openedx-content-adr-0010>`. Apps like ``openedx_content`` no longer use the ``oel_`` prefix, and this repo is no longer called "learning core".
 
 Context
 -------
