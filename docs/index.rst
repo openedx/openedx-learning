@@ -3,13 +3,16 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Open edX Core
-=============
+.. include:: ../README.rst
 
 .. toctree::
    :maxdepth: 2
 
-   openedx_core/index
+   openedx_core/getting_started
+   openedx_core/testing
+   openedx_core/internationalization
+   openedx_core/decisions/index
+
    openedx_content/index
    openedx_tagging/index
    openedx_learning/index

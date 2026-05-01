@@ -1,11 +1,11 @@
-Open edX Core: Foundational Packages for a Teaching & Learning Platform
-=======================================================================
+Open edX Core
+=============
 
 |pypi-badge| |ci-badge| |codecov-badge| |doc-badge| |pyversions-badge|
 |license-badge|
 
-Overview
---------
+Foundational Packages for a Teaching & Learning Platform
+--------------------------------------------------------
 
 *Formerly known as "Learning Core" or "openedx-learning".*
 
