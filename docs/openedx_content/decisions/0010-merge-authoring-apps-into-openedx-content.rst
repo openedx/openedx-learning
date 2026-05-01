@@ -52,7 +52,7 @@ We are going to take advantage of the fact that these two can be separated using
 
 There are a few high level constraints that we have to consider:
 
-#. Existing openedx-platform migrations should not be modified. Existing openedx-platform migrations should remain unchanged. This is important to make sure that we do not introduce ordering inconsistencies for sites that have already run migrations for the old apps and are upgrading to a new release (e.g. Verawood).
+#. Existing openedx-platform migrations should not be modified. This is important to make sure that we do not introduce ordering inconsistencies for sites that have already run migrations for the old apps and are upgrading to a new release (e.g. Verawood).
 #. The openedx-learning repo should not have any dependencies on openedx-platform migrations, because our dependencies strictly go in the other direction: openedx-platform calls openedx-learning, not the other way around. Furthermore, openedx-learning will often be run without openedx-platform, such as for local development or during CI.
 #. Two of the openedx-platform apps that have foreign keys to openedx-learning models are only in Studio's INSTALLED_APPS (``contentstore`` and ``modulestore_migrator``), while ``content_libraries`` is installed in both Studio and LMS. Migrations may be run for LMS or Studio first, depending on the user and environment. Tutor runs LMS first, but we can't assume that will always be true.
 #. We must support people who are installing from scratch, those who are upgrading from the Ulmo release, as well as those who are running off of the master branch of openedx-platform.
@@ -68,7 +68,7 @@ Therefore, the migrations will happen in the following order:
 
 The tricky part is that all the ``opendx-learning`` migrations will run before any of the ``openedx-platform`` migrations run. We can't force it to do otherwise without making ``openedx-learning`` aware of ``opendx-platform``, and we explicitly want to avoid that. This makes things tricky with respect to the model state dependencies. There are two scenarios we have to worry about:
 
-Migration from Scrach
+Migration from Scratch
   The ``openedx-platform`` apps will each run the squashed migration that jumps straight to making foreign keys against the new ``openedx_content`` models, so the fact that the old authoring app models have been removed and the tables have been renamed doesn't matter.
 
 Migration from Ulmo/master
