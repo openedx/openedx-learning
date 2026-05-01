@@ -47,8 +47,8 @@ We'll implement this change immediately as detailed in https://github.com/opened
 Rejected alternatives
 ---------------------
 
-* Separate repos for ``openedx-content``, ``openedx-cbe``, etc. 
-  
+* Separate repos for ``openedx-content``, ``openedx-cbe``, etc.
+
   * Axim is making a conscious effort to slow the proliferation of new repos, as it has been challenging to maintain consistent standards, tooling, and upgrades across all of them. If there is not a strong reason to separate repos, then we would prefer to start off with a single repo.
 
 * A combined top level Python package with nested apps: ``openedx_core.content.api``, ``openedx_core.cbe.api``, etc.

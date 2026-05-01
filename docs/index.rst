@@ -17,7 +17,6 @@ Contents:
    getting_started
    testing
    internationalization
-   changelog
    api_reference
    decisions
 

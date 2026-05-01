@@ -266,12 +266,12 @@ Rejected Alternatives
 1. Update ``oel_tagging_taxonomy`` to have a new column for ``taxonomy_type`` where the value could be “Competency” or “Tag”.
 
    1. Pros
-   
+
       1. Simpler model with fewer tables
       2. Reuses existing taxonomy table and keeps reads straightforward when checking taxonomy usage
       3. Avoids introducing an additional join for queries that only need to know whether a taxonomy is competency-enabled
    2. Cons
-   
+
       1. Couples CBE concerns directly into the generic tagging domain model, reducing separation of concerns
       2. Makes ``oel_tagging_taxonomy`` less generic and encourages enum/flag growth as new specialized usages are added
       3. Prevents strong foreign key guarantees for CBE tables, since they can only point to ``oel_tagging_taxonomy`` and not specifically to competency-enabled taxonomies
@@ -295,7 +295,7 @@ Rejected Alternatives
       6. Performance risk if the objecttag table becomes very large and is queried for both generic tagging and competency criteria use cases with mostly-null criteria fields.
       7. Future rule types may require different fields, further bloating ``objecttag`` and reducing performance for non-competency use cases.
 
-3. Add a generic oel\_tagging\_objecttag\_metadata table to attempt to assist with pluggable metadata concept. This table would have foreign keys to each metadata table, currently only competency\_criteria\_group and competency\_criteria as well as a type field to indicate what metadata table is being pointed to.  
+3. Add a generic oel\_tagging\_objecttag\_metadata table to attempt to assist with pluggable metadata concept. This table would have foreign keys to each metadata table, currently only competency\_criteria\_group and competency\_criteria as well as a type field to indicate what metadata table is being pointed to.
 
    1. Pros
 
@@ -304,7 +304,7 @@ Rejected Alternatives
 
       1. Adds additional overhead to retrieve specific metadata
 
-4. Split rule storage into per-type tables (for example, ``competency_criteria_grade_rule`` and ``competency_criteria_mastery_rule``) instead of a single JSON payload.  
+4. Split rule storage into per-type tables (for example, ``competency_criteria_grade_rule`` and ``competency_criteria_mastery_rule``) instead of a single JSON payload.
 
    1. Pros
 
