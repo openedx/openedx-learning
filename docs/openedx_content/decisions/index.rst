@@ -9,4 +9,4 @@ Architecture Decision Records for the ``openedx_content`` app.
    :maxdepth: 1
    :glob:
 
-   0*
+   *

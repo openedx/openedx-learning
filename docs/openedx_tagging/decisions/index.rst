@@ -9,4 +9,4 @@ Architecture Decision Records for the ``openedx_tagging`` app.
    :maxdepth: 1
    :glob:
 
-   0*
+   *
