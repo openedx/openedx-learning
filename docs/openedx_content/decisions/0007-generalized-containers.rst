@@ -52,8 +52,8 @@ This section defines container types, content constraints, hierarchy, and extens
 - Containers can be nested within other containers, allowing for complex content structures. For example, subsections can contain units.
 - Containers might be of different types, with each type potentially having different restrictions on the type of content it can hold but that will not be enforced by containers.
 - Content restrictions for containers are implemented at the app layer, allowing specific container types, like units, to limit their children to particular content types, e.g., units are restricted to contain only components.
-- The course hierarchy Course > Section > Subsection > Unit will be implemented as relationships between containers, with each level acting as a container that holds other content. The hierarchy will be enforced by the content restrictions of each particular container but allowed to be overridden to support :ref:`Approach to Content Flexibility <openedx-content-adr-0001>`.
-- Containers will follow extensibility principles in :ref:`Content Extensibility Through Model Relations <openedx-content-adr-0002>` for creating new container types or subtypes.
+- The course hierarchy Course > Section > Subsection > Unit will be implemented as relationships between containers, with each level acting as a container that holds other content. The hierarchy will be enforced by the content restrictions of each particular container but allowed to be overridden to support :ref:`openedx-content-adr-0001`.
+- Containers will follow extensibility principles in :ref:`openedx-content-adr-0002` for creating new container types or subtypes.
 
 3. Container Children and Relationships
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

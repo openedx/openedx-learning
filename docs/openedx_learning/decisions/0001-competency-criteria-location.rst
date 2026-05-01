@@ -11,7 +11,7 @@ Decisions
 ---------
 CBE Competency Criteria, Student Competency Criteria Status, and Student Competency Status values should go in the openedx-learning repository as there are broader architectural goals to refactor as much code as possible out of the edx-platform repository into the openedx-learning repository such that it can be designed in a way that is easy for plugin developers to utilize. Additionally, we intend to treat CBE features as core features of Open edX rather than optional plugins, and as a result, CBE competency criteria and learner status should live in the learning core rather than in a separate new repo.
 
-Given the current refactor of openedx-learning (see :ref:`Merge authoring apps into openedx_content <openedx-content-adr-0010>`), we will place CBE code inside the top-level ``openedx_learning`` app as an applet, alongside Learning Pathways. The intended layout is:
+Given the current refactor of openedx-learning (see :ref:`openedx-content-adr-0010`), we will place CBE code inside the top-level ``openedx_learning`` app as an applet, alongside Learning Pathways. The intended layout is:
 
 ::
 
@@ -37,7 +37,7 @@ Rejected Alternatives
         - Does not align with the applet-based top-level structure being created in openedx-learning (``openedx_learning/applets/...``).
 2. edx-platform repository
     - Pros: This is where all data currently associated with students is stored, so it would match the existing pattern and reduce integration work for the LMS.
-    - Cons: The intention is to move core learning concepts out of edx-platform (see :ref:`Purpose of this Repo <openedx-core-adr-0001>`), and keeping it there makes reuse and pluggability harder.
+    - Cons: The intention is to move core learning concepts out of edx-platform (see :ref:`openedx-core-adr-0001`), and keeping it there makes reuse and pluggability harder.
 3. All code related to adding Competency Criteria to Open edX goes in openedx-learning/openedx\_learning/apps/authoring/competency\_criteria
     - Pros:
         - Tagging and competency criteria are part of content authoring workflows as is all of the other code in this directory.
@@ -50,7 +50,7 @@ Rejected Alternatives
     - Pros:
         - Keeps competency criteria in the same package as the tags that they are dependent on.
     - Cons:
-        - `openedx_tagging` is intended to be a standalone library without Open edX-specific dependencies (see :ref:`Tagging App structure <openedx-tagging-adr-0002>`) competency criteria would violate that boundary.
+        - `openedx_tagging` is intended to be a standalone library without Open edX-specific dependencies (see :ref:`openedx-tagging-adr-0002`) competency criteria would violate that boundary.
         - Splitting Competency Criteria and Student Statuses into two apps would require cross-app foreign keys (e.g., status rows pointing at criteria/tag rows in another app), migration ordering and dependency declarations to ensure tables exist in the right order, and shared business logic or APIs for computing/updating status that now must live in one app but reference models in the other.
 5. Split competency criteria and learner statuses into two apps inside openedx-learning/openedx\_learning/apps (e.g., competency\_criteria and learner\_status)
     - Pros:

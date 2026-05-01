@@ -11,7 +11,7 @@ The container capability is a generalized capability to hold different types of 
 Decisions
 ---------
 
-All decisions from :ref:`Modeling Containers as a Generalized Capability <openedx-content-adr-0007>` are still valid but are written here alongside unit-specific decisions for better illustration.
+All decisions from :ref:`openedx-content-adr-0007` are still valid but are written here alongside unit-specific decisions for better illustration.
 
 1. Units as Containers
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -27,7 +27,7 @@ All decisions from :ref:`Modeling Containers as a Generalized Capability <opened
 - Units can only hold components as their children but will not enforce this restriction at the model level.
 - Units are the first level of nested content types Unit > Components.
 - Content restrictions for units are implemented at the application layer, allowing units to limit their children to only components. None of this is enforced at the model level.
-- Unit subtypes can be created by following the extensibility principles in :ref:`Content Extensibility Through Model Relations <openedx-content-adr-0002>`.
+- Unit subtypes can be created by following the extensibility principles in :ref:`openedx-content-adr-0002`.
 
 3. Unit Children and Relationships
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -6,7 +6,7 @@
 Status
 ------
 
-Superseded by decision :ref:`Merge authoring apps into openedx_content (using Applets) <openedx-content-adr-0010>`.
+Superseded by decision :ref:`openedx-content-adr-0010`.
 
 Context
 --------
