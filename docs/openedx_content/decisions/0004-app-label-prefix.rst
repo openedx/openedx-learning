@@ -1,4 +1,4 @@
-6. App Label Prefix
+4. App Label Prefix
 ===================
 
 Status

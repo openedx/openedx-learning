@@ -1,4 +1,4 @@
-10. Taxonomy enabled for context
+5. Taxonomy enabled for context
 ================================
 
 Status

@@ -1,4 +1,4 @@
-7. Tagging App structure
+2. Tagging App structure
 ========================
 
 Status

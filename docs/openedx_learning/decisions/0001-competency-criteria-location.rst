@@ -1,4 +1,4 @@
-22. Where in the codebase should CBE competency criteria go?
+1. Where in the codebase should CBE competency criteria go?
 ============================================================
 
 Context
@@ -9,7 +9,7 @@ Decisions
 ---------
 CBE Competency Criteria, Student Competency Criteria Status, and Student Competency Status values should go in the openedx-learning repository as there are broader architectural goals to refactor as much code as possible out of the edx-platform repository into the openedx-learning repository such that it can be designed in a way that is easy for plugin developers to utilize. Additionally, we intend to treat CBE features as core features of Open edX rather than optional plugins, and as a result, CBE competency criteria and learner status should live in the learning core rather than in a separate new repo.
 
-Given the current refactor of openedx-learning (see `0020-merge-authoring-apps-into-openedx-content.rst <../../openedx_content/decisions/0020-merge-authoring-apps-into-openedx-content.rst>`_), we will place CBE code inside the top-level ``openedx_learning`` app as an applet, alongside Learning Pathways. The intended layout is:
+Given the current refactor of openedx-learning (see `0020-merge-authoring-apps-into-openedx-content.rst <../../openedx_content/decisions/0010-merge-authoring-apps-into-openedx-content.rst>`_), we will place CBE code inside the top-level ``openedx_learning`` app as an applet, alongside Learning Pathways. The intended layout is:
 
 ::
 
@@ -48,7 +48,7 @@ Rejected Alternatives
     - Pros:
         - Keeps competency criteria in the same package as the tags that they are dependent on.
     - Cons:
-        - `openedx_tagging` is intended to be a standalone library without Open edX-specific dependencies (see `0007-tagging-app.rst <../../openedx_tagging/decisions/0007-tagging-app.rst>`_) competency criteria would violate that boundary.
+        - `openedx_tagging` is intended to be a standalone library without Open edX-specific dependencies (see `0007-tagging-app.rst <../../openedx_tagging/decisions/0002-tagging-app.rst>`_) competency criteria would violate that boundary.
         - Splitting Competency Criteria and Student Statuses into two apps would require cross-app foreign keys (e.g., status rows pointing at criteria/tag rows in another app), migration ordering and dependency declarations to ensure tables exist in the right order, and shared business logic or APIs for computing/updating status that now must live in one app but reference models in the other.
 5. Split competency criteria and learner statuses into two apps inside openedx-learning/openedx\_learning/apps (e.g., competency\_criteria and learner\_status)
     - Pros:

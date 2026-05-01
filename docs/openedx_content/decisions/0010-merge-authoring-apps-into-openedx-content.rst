@@ -1,4 +1,4 @@
-20. Merge authoring apps into openedx_content (using Applets)
+10. Merge authoring apps into openedx_content (using Applets)
 =============================================================
 
 Context

@@ -6,8 +6,6 @@
 Open edX Core
 =============
 
-The boring, foundational bits of a learning platform that are hard to get right at scale. Currently being developed for content storage.
-
 Contents:
 
 .. toctree::

@@ -1,4 +1,4 @@
-9. Taxonomy administrators
+4. Taxonomy administrators
 ==========================
 
 Context

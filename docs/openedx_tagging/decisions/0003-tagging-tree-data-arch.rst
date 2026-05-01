@@ -1,4 +1,4 @@
-8. Tag tree data structure
+3. Tag tree data structure
 ==========================
 
 Context

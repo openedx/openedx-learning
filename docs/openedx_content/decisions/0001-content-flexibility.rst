@@ -1,4 +1,4 @@
-2. Approach to Content Flexibility
+1. Approach to Content Flexibility
 ==================================
 
 Status

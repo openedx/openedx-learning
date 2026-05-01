@@ -1,4 +1,4 @@
-14. Single taxonomy view API
+9. Single taxonomy view API
 =====================================
 
 Status

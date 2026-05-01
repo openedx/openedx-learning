@@ -1,4 +1,4 @@
-18. Modeling Units as a Concrete Implementation of the Container Capability
+8. Modeling Units as a Concrete Implementation of the Container Capability
 ===========================================================================
 
 Context
@@ -9,7 +9,7 @@ The container capability is a generalized capability to hold different types of 
 Decisions
 ---------
 
-All decisions from `0017-generalized-containers.rst <0017-generalized-containers.rst>`_ are still valid but are written here alongside unit-specific decisions for better illustration.
+All decisions from `0007-generalized-containers.rst <0007-generalized-containers.rst>`_ are still valid but are written here alongside unit-specific decisions for better illustration.
 
 1. Units as Containers
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -25,7 +25,7 @@ All decisions from `0017-generalized-containers.rst <0017-generalized-containers
 - Units can only hold components as their children but will not enforce this restriction at the model level.
 - Units are the first level of nested content types Unit > Components.
 - Content restrictions for units are implemented at the application layer, allowing units to limit their children to only components. None of this is enforced at the model level.
-- Unit subtypes can be created by following the extensibility principles in `Content Extensibility Through Model Relations <0003-content-extensibility.rst>`_.
+- Unit subtypes can be created by following the extensibility principles in `Content Extensibility Through Model Relations <0002-content-extensibility.rst>`_.
 
 3. Unit Children and Relationships
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

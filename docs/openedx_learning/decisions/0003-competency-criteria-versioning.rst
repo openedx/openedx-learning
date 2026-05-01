@@ -1,4 +1,4 @@
-24. How should versioning be handled for CBE competency achievement criteria?
+3. How should versioning be handled for CBE competency achievement criteria?
 =============================================================================
 
 Context

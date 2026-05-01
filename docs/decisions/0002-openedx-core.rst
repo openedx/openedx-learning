@@ -1,4 +1,4 @@
-21. Learning Core is now Open edX Core
+2. Learning Core is now Open edX Core
 ======================================
 
 Context

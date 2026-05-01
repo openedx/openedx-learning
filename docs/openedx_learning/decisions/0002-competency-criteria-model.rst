@@ -1,4 +1,4 @@
-23. How should CBE competency achievement criteria be modeled in the database?
+2. How should CBE competency achievement criteria be modeled in the database?
 ==============================================================================
 
 Context

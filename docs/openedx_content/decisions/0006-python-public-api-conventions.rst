@@ -1,4 +1,4 @@
-16. Python Public API Conventions
+6. Python Public API Conventions
 =================================
 
 Status

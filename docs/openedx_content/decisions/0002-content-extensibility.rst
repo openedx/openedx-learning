@@ -1,4 +1,4 @@
-3. Content Extensibility Through Model Relations
+2. Content Extensibility Through Model Relations
 ================================================
 
 Context

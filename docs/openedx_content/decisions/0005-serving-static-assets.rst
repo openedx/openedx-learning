@@ -1,4 +1,4 @@
-15. Serving Course Team Authored Static Assets
+5. Serving Course Team Authored Static Assets
 ==============================================
 
 Context

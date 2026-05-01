@@ -1,4 +1,4 @@
-11. Taxonomy and tag changes
+6. Taxonomy and tag changes
 ============================
 
 Context

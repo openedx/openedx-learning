@@ -31,7 +31,7 @@ Open edX Core Package Dependencies
 
 Open edX Core code should never import from ``openedx-platform``.
 
-We want to be very strict about dependency management internally as well. Please read the `.importlinter config file <.importlinter>`_ file and the `Python API Conventions ADR <docs/openedx_content/decisions/0016-python-public-api-conventions>`_ for more details.
+We want to be very strict about dependency management internally as well. Please read the `.importlinter config file <.importlinter>`_ file and the `Python API Conventions ADR <docs/openedx_content/decisions/0006-python-public-api-conventions>`_ for more details.
 
 
 Model Conventions

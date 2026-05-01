@@ -1,4 +1,4 @@
-12. System-defined Taxonomy & Tags creation
+7. System-defined Taxonomy & Tags creation
 ============================================
 
 Context

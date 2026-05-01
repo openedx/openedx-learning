@@ -14,7 +14,7 @@ def openedx_content_backcompat_apps_to_install():
     from many Django apps within `openedx_learning.apps.authoring` into a single `openedx_content`
     Django app. But, anything installing the `openedx_content` Django will also need to install
     these backcompat Django apps for the forseeable future. For more details, see
-    /docs/openedx_content/decisions/0020-merge-authoring-apps-into-openedx-content.rst
+    /docs/openedx_content/decisions/0010-merge-authoring-apps-into-openedx-content.rst
 
     Example::
 

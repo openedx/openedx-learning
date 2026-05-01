@@ -1,4 +1,4 @@
-4. Content Tagging
+1. Content Tagging
 ==================
 
 Context
