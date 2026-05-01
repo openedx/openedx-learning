@@ -1,3 +1,5 @@
+.. _openedx-learning-adr-0003:
+
 3. How should versioning be handled for CBE competency achievement criteria?
 =============================================================================
 

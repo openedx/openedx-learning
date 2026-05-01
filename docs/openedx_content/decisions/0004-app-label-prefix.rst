@@ -1,3 +1,5 @@
+.. _openedx-content-adr-0004:
+
 4. App Label Prefix
 ===================
 

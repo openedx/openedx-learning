@@ -1,3 +1,5 @@
+.. _openedx-tagging-decisions-index:
+
 Decisions
 =========
 

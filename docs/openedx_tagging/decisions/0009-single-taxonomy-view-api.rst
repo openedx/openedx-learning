@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0009:
+
 9. Single taxonomy view API
 =====================================
 

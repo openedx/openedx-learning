@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0006:
+
 6. Taxonomy and tag changes
 ============================
 

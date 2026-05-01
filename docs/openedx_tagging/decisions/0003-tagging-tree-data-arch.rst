@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0003:
+
 3. Tag tree data structure
 ==========================
 

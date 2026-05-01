@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0005:
+
 5. Taxonomy enabled for context
 ================================
 

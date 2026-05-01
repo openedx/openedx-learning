@@ -1,3 +1,5 @@
+.. _openedx-learning-adr-0002:
+
 2. How should CBE competency achievement criteria be modeled in the database?
 ==============================================================================
 

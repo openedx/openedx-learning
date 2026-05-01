@@ -1,3 +1,5 @@
+.. _openedx-learning-decisions-index:
+
 Decisions
 =========
 

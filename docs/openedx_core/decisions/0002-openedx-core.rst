@@ -1,3 +1,5 @@
+.. _openedx-core-adr-0002:
+
 2. Learning Core is now Open edX Core
 ======================================
 

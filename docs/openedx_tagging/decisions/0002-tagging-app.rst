@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0002:
+
 2. Tagging App structure
 ========================
 

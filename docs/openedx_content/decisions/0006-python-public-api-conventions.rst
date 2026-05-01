@@ -1,3 +1,5 @@
+.. _openedx-content-adr-0006:
+
 6. Python Public API Conventions
 =================================
 

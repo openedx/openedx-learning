@@ -1,3 +1,5 @@
+.. _openedx-core-decisions-index:
+
 Decisions
 =========
 

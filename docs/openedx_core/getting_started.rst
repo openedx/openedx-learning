@@ -1,3 +1,5 @@
+.. _openedx-core-getting-started:
+
 Getting Started
 ===============
 

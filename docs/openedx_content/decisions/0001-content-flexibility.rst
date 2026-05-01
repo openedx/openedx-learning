@@ -1,3 +1,5 @@
+.. _openedx-content-adr-0001:
+
 1. Approach to Content Flexibility
 ==================================
 

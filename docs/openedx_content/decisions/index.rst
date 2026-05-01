@@ -1,3 +1,5 @@
+.. _openedx-content-decisions-index:
+
 Decisions
 =========
 

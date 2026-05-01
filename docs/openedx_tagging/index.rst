@@ -1,3 +1,5 @@
+.. _openedx-tagging-index:
+
 openedx_tagging
 ===============
 

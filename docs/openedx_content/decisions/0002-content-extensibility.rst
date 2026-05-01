@@ -1,3 +1,5 @@
+.. _openedx-content-adr-0002:
+
 2. Content Extensibility Through Model Relations
 ================================================
 

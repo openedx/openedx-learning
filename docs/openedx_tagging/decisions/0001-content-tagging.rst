@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0001:
+
 1. Content Tagging
 ==================
 

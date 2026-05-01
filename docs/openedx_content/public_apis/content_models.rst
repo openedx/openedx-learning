@@ -1,3 +1,5 @@
+.. _openedx-content-models-api:
+
 Content Models
 ==============
 

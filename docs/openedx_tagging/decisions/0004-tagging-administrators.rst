@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0004:
+
 4. Taxonomy administrators
 ==========================
 

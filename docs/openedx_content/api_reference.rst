@@ -1,3 +1,5 @@
+.. _openedx-content-api-reference:
+
 API Reference
 =============
 

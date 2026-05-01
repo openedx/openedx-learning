@@ -1,3 +1,5 @@
+.. _openedx-learning-index:
+
 openedx_learning
 ================
 

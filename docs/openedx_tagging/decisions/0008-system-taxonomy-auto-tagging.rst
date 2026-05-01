@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0008:
+
 8. System-defined automatic tagging
 =====================================
 

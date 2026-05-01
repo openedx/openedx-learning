@@ -1,3 +1,5 @@
+.. _openedx-content-adr-0003:
+
 3. Identifier Conventions
 =========================
 

@@ -1,3 +1,5 @@
+.. _openedx-core-adr-0001:
+
 1. Purpose of this Repo
 =======================
 

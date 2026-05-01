@@ -1,3 +1,5 @@
+.. _openedx-content-adr-0010:
+
 10. Merge authoring apps into openedx_content (using Applets)
 =============================================================
 

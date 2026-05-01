@@ -1,3 +1,5 @@
+.. _openedx-content-adr-0005:
+
 5. Serving Course Team Authored Static Assets
 ==============================================
 

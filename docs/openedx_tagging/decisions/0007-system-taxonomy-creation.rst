@@ -1,3 +1,5 @@
+.. _openedx-tagging-adr-0007:
+
 7. System-defined Taxonomy & Tags creation
 ============================================
 

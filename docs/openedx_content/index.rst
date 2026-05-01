@@ -1,3 +1,5 @@
+.. _openedx-content-index:
+
 openedx_content
 ===============
 
