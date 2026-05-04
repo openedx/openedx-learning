@@ -25,11 +25,11 @@ billiard==4.2.4
     # via
     #   -r requirements/quality.txt
     #   celery
-build==1.4.4
+build==1.5.0
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
-cachetools==7.0.6
+cachetools==7.1.1
     # via
     #   -r requirements/ci.txt
     #   tox
@@ -191,7 +191,7 @@ edx-drf-extensions==10.6.0
     #   edx-organizations
 edx-i18n-tools==2.0.0
     # via -r requirements/dev.in
-edx-lint==6.0.0
+edx-lint==6.1.0
     # via -r requirements/quality.txt
 edx-opaque-keys[django]==4.0.0
     # via
@@ -327,7 +327,7 @@ packaging==26.2
     #   wheel
 path==16.16.0
     # via edx-i18n-tools
-pathspec==1.1.0
+pathspec==1.1.1
     # via
     #   -r requirements/quality.txt
     #   mypy
@@ -513,8 +513,9 @@ tomli-w==1.2.0
 tomlkit==0.14.0
     # via
     #   -r requirements/quality.txt
+    #   edx-lint
     #   pylint
-tox==4.53.0
+tox==4.53.1
     # via -r requirements/ci.txt
 twine==6.2.0
     # via -r requirements/quality.txt
@@ -553,11 +554,11 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-virtualenv==21.2.4
+virtualenv==21.3.0
     # via
     #   -r requirements/ci.txt
     #   tox
-wcwidth==0.6.0
+wcwidth==0.7.0
     # via
     #   -r requirements/quality.txt
     #   prompt-toolkit
