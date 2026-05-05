@@ -21,10 +21,12 @@ __all__ = [
 @Container.register_subclass
 class Subsection(Container):
     """
-    A Subsection is type of Container that holds Units.
+    A Subsection is type of :class:`Container` that holds :class:`Unit`
+    children.
 
-    Via Container and its PublishableEntityMixin, Subsections are also publishable
-    entities and can be added to other containers.
+    Via :class:`Container` and its :class:`PublishableEntityMixin`,
+    Subsections are also publishable entities and can be added to other
+    containers.
     """
 
     SubsectionID = NewType("SubsectionID", Container.ID)
@@ -57,10 +59,11 @@ class Subsection(Container):
 
 class SubsectionVersion(ContainerVersion):
     """
-    A SubsectionVersion is a specific version of a Subsection.
+    A SubsectionVersion is a specific version of a :class:`Subsection`.
 
-    Via ContainerVersion and its EntityList, it defines the list of Units
-    in this version of the Subsection.
+    Via :class:`ContainerVersion` and its :class:`EntityList`, it defines the
+    list of :class:`Unit` children in this version of the
+    :class:`Subsection`.
     """
 
     container_version = models.OneToOneField(

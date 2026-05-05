@@ -30,47 +30,51 @@ from .learning_package import LearningPackage
 class PublishableEntity(models.Model):
     """
     This represents any publishable thing that has ever existed in a
-    LearningPackage. It serves as a stable model that will not go away even if
-    these things are later unpublished or deleted.
+    :class:`LearningPackage`. It serves as a stable model that will not go
+    away even if these things are later unpublished or deleted.
 
-    A PublishableEntity belongs to exactly one LearningPackage.
+    A :class:`PublishableEntity` belongs to exactly one
+    :class:`LearningPackage`.
 
     Examples of Publishable Entities
     --------------------------------
 
-    Components (e.g. VideoBlock, ProblemBlock), Units, and Sections/Subsections
-    would all be considered Publishable Entites. But anything that can be
-    imported, exported, published, and reverted in a course or library could be
-    modeled as a PublishableEntity, including things like Grading Policy or
-    possibly Taxonomies (?).
+    :class:`Component` objects (e.g. VideoBlock, ProblemBlock), Units, and
+    Sections/Subsections would all be considered Publishable Entites. But
+    anything that can be imported, exported, published, and reverted in a
+    course or library could be modeled as a :class:`PublishableEntity`,
+    including things like Grading Policy or possibly Taxonomies (?).
 
     How to use this model
     ---------------------
 
-    The publishing app understands that publishable entities exist, along with
-    their drafts and published versions. It has some basic metadata, such as
-    identifiers, who created it, and when it was created. It's meant to
-    encapsulate the draft and publishing related aspects of your content, but
-    the ``publishing`` app doesn't know anything about the actual content being
-    referenced.
+    The publishing app understands that publishable entities exist, along
+    with their drafts and published versions. It has some basic metadata,
+    such as identifiers, who created it, and when it was created. It's
+    meant to encapsulate the draft and publishing related aspects of your
+    content, but the :mod:`publishing` app doesn't know anything about
+    the actual content being referenced.
 
-    You have to provide actual meaning to PublishableEntity by creating your own
-    models that will represent your particular content and associating them to
-    PublishableEntity via a OneToOneField with primary_key=True. The easiest way
-    to do this is to have your model inherit from PublishableEntityMixin.
+    You have to provide actual meaning to :class:`PublishableEntity` by
+    creating your own models that will represent your particular content
+    and associating them to :class:`PublishableEntity` via a
+    ``OneToOneField`` with ``primary_key=True``. The easiest way to do
+    this is to have your model inherit from :class:`PublishableEntityMixin`.
 
     Identifiers
     -----------
     The UUID is globally unique and should be treated as immutable.
 
     The key field *is* mutable, but changing it will affect all
-    PublishedEntityVersions. They are locally unique within the LearningPackage.
+    :class:`PublishableEntityVersion` objects. They are locally unique
+    within the :class:`LearningPackage`.
 
     If you are referencing this model from within the same process, use a
-    foreign key to the id. If you are referencing this PublishedEntity from an
-    external system/service, use the UUID. The key is the part that is most
-    likely to be human-readable, and may be exported/copied, but try not to rely
-    on it, since this value may change.
+    foreign key to the id. If you are referencing this
+    :class:`PublishableEntity` from an external system/service, use the
+    UUID. The key is the part that is most likely to be human-readable,
+    and may be exported/copied, but try not to rely on it, since this
+    value may change.
 
     Note: When we actually implement the ability to change identifiers, we
     should make a history table and a modified attribute on this model.
@@ -78,39 +82,43 @@ class PublishableEntity(models.Model):
     Why are Identifiers in this Model?
     ----------------------------------
 
-    A PublishableEntity never stands alone–it's always intended to be used with
-    a 1:1 model like Component or Unit. So why have all the identifiers in this
-    model instead of storing them in those other models? Two reasons:
+    A :class:`PublishableEntity` never stands alone–it's always intended
+    to be used with a 1:1 model like :class:`Component` or Unit. So why
+    have all the identifiers in this model instead of storing them in
+    those other models? Two reasons:
 
-    * Published things need to have the right identifiers so they can be used
-      throughout the system, and the UUID is serving the role of ISBN in physical
-      book publishing.
-    * We want to be able to enforce the idea that "entity_ref" is locally unique across
-      all PublishableEntities within a given LearningPackage. Component and Unit
-      can't do that without a shared model.
+    * Published things need to have the right identifiers so they can be
+      used throughout the system, and the UUID is serving the role of
+      ISBN in physical book publishing.
+    * We want to be able to enforce the idea that ``entity_ref`` is
+      locally unique across all :class:`PublishableEntity` objects within
+      a given :class:`LearningPackage`. :class:`Component` and Unit can't
+      do that without a shared model.
 
-    That being said, models that build on PublishableEntity are free to add
-    their own identifiers if it's useful to do so.
+    That being said, models that build on :class:`PublishableEntity` are
+    free to add their own identifiers if it's useful to do so.
 
     Why not Inherit from this Model?
     --------------------------------
 
-    Django supports multi-table inheritance:
-
-      https://docs.djangoproject.com/en/4.2/topics/db/models/#multi-table-inheritance
+    Django supports `multi-table inheritance
+    <https://docs.djangoproject.com/en/4.2/topics/db/models/#multi-table-inheritance>`_.
 
     We don't use that, primarily because we want to more clearly decouple
-    publishing concerns from the rest of the logic around Components, Units,
-    etc. If you made a Component and ComponentVersion models that subclassed
-    PublishableEntity and PublishableEntityVersion, and then accessed
-    ``component.versions``, you might expect ComponentVersions to come back and
-    be surprised when you get EntityVersions instead.
+    publishing concerns from the rest of the logic around
+    :class:`Component` objects, Units, etc. If you made a
+    :class:`Component` and :class:`ComponentVersion` models that
+    subclassed :class:`PublishableEntity` and
+    :class:`PublishableEntityVersion`, and then accessed
+    ``component.versions``, you might expect :class:`ComponentVersion`
+    objects to come back and be surprised when you get EntityVersions
+    instead.
 
     In general, we want freedom to add new Publishing models, fields, and
-    methods without having to worry about the downstream name collisions with
-    other apps (many of which might live in other repositories). The helper
-    mixins will provide a little syntactic sugar to make common access patterns
-    more convenient, like file access.
+    methods without having to worry about the downstream name collisions
+    with other apps (many of which might live in other repositories).
+    The helper mixins will provide a little syntactic sugar to make
+    common access patterns more convenient, like file access.
     """
 
     PublishableEntityID = NewType("PublishableEntityID", int)
@@ -128,11 +136,13 @@ class PublishableEntity(models.Model):
         related_name="publishable_entities",
     )
 
-    # entity_ref is an opaque reference string assigned by the creator of this
-    # entity (e.g. derived from component_type + component_code for Components).
-    # Consumers must treat it as an atomic string — do not parse or reconstruct
-    # it.
     entity_ref = ref_field()
+    """
+    ``entity_ref`` is an opaque reference string assigned by the creator of
+    this entity (e.g. derived from ``component_type + component_code`` for
+    :class:`Component` objects). Consumers must treat it as an atomic
+    string — do not parse or reconstruct it.
+    """
 
     created = manual_date_time_field()
     created_by = models.ForeignKey(
@@ -189,23 +199,25 @@ class PublishableEntity(models.Model):
 
 class PublishableEntityVersion(models.Model):
     """
-    A particular version of a PublishableEntity.
+    A particular version of a :class:`PublishableEntity`.
 
-    This model has its own ``uuid`` so that it can be referenced directly. The
-    ``uuid`` should be treated as immutable.
+    This model has its own ``uuid`` so that it can be referenced directly.
+    The ``uuid`` should be treated as immutable.
 
-    PublishableEntityVersions are created once and never updated. So for
-    instance, the ``title`` should never be modified.
+    :class:`PublishableEntityVersion` objects are created once and never
+    updated. So for instance, the ``title`` should never be modified.
 
-    Like PublishableEntity, the data in this model is only enough to cover the
-    parts that are most important for the actual process of managing drafts and
-    publishes. You will want to create your own models to represent the actual
-    content data that's associated with this PublishableEntityVersion, and
-    connect them using a OneToOneField with primary_key=True. The easiest way to
-    do this is to inherit from PublishableEntityVersionMixin. Be sure to treat
-    these versioned models in your app as immutable as well.
+    Like :class:`PublishableEntity`, the data in this model is only enough
+    to cover the parts that are most important for the actual process of
+    managing drafts and publishes. You will want to create your own
+    models to represent the actual content data that's associated with
+    this :class:`PublishableEntityVersion`, and connect them using a
+    ``OneToOneField`` with ``primary_key=True``. The easiest way to do
+    this is to inherit from :class:`PublishableEntityVersionMixin`. Be
+    sure to treat these versioned models in your app as immutable as
+    well.
 
-    .. no_pii
+    .. no_pii:
     """
 
     uuid = immutable_uuid_field()
@@ -213,34 +225,43 @@ class PublishableEntityVersion(models.Model):
         PublishableEntity, on_delete=models.CASCADE, related_name="versions"
     )
 
-    # Most publishable things will have some sort of title, but blanks are
-    # allowed for those that don't require one.
     title = case_insensitive_char_field(max_length=500, blank=True, default="")
+    """
+    Most publishable things will have some sort of title, but blanks are
+    allowed for those that don't require one.
+    """
 
-    # The version_num starts at 1 and increments by 1 with each new version for
-    # a given PublishableEntity. Doing it this way makes it more convenient for
-    # users to refer to than a hash or UUID value. It also helps us catch race
-    # conditions on save, by setting a unique constraint on the entity and
-    # version_num.
     version_num = models.PositiveIntegerField(
         null=False,
         validators=[MinValueValidator(1)],
     )
+    """
+    The ``version_num`` starts at 1 and increments by 1 with each new
+    version for a given :class:`PublishableEntity`. Doing it this way
+    makes it more convenient for users to refer to than a hash or UUID
+    value. It also helps us catch race conditions on save, by setting a
+    unique constraint on the entity and ``version_num``.
+    """
 
-    # All PublishableEntityVersions created as part of the same publish should
-    # have the exact same created datetime (not off by a handful of
-    # microseconds).
     created = manual_date_time_field()
+    """
+    All :class:`PublishableEntityVersion` objects created as part of the
+    same publish should have the exact same created datetime (not off by
+    a handful of microseconds).
+    """
 
-    # User who created the PublishableEntityVersion. This can be null if the
-    # user is later removed. Open edX in general doesn't let you remove users,
-    # but we should try to model it so that this is possible eventually.
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
     )
+    """
+    User who created the :class:`PublishableEntityVersion`. This can be
+    null if the user is later removed. Open edX in general doesn't let
+    you remove users, but we should try to model it so that this is
+    possible eventually.
+    """
 
     dependencies: models.ManyToManyField[
         PublishableEntity, PublishableEntityVersionDependency
@@ -296,27 +317,29 @@ class PublishableEntityVersion(models.Model):
 
 class PublishableEntityVersionDependency(models.Model):
     """
-    Track the PublishableEntities that a PublishableEntityVersion depends on.
+    Track the :class:`PublishableEntity` objects that a
+    :class:`PublishableEntityVersion` depends on.
 
-    For example, a partcular version of a Unit (U1.v1) might be defined to have
-    unpinned references to Components C1 and C2. That means that any changes in
-    C1 or C2 will affect U1.v1 via DraftSideEffects and PublishedSideEffects. We
-    say that C1 and C2 are dependencies of U1.v1.
+    For example, a partcular version of a Unit (U1.v1) might be defined to
+    have unpinned references to Components C1 and C2. That means that any
+    changes in C1 or C2 will affect U1.v1 via :class:`DraftSideEffect` and
+    :class:`PublishSideEffect`. We say that C1 and C2 are dependencies of
+    U1.v1.
 
-    An important restriction is that a PublishableEntityVersion's list of
-    dependencies are defined when the version is created. It is not modified
-    after that. No matter what happens to C1 or C2 (e.g. edit, deletion,
-    un-deletion, reset-draft-version-to-published), they will always be
-    dependencies of U1.v1.
+    An important restriction is that a :class:`PublishableEntityVersion`'s
+    list of dependencies are defined when the version is created. It is
+    not modified after that. No matter what happens to C1 or C2 (e.g.
+    edit, deletion, un-deletion, reset-draft-version-to-published), they
+    will always be dependencies of U1.v1.
 
-    If someone removes C2 from U1, then that requires creating a new version of
-    U1 (so U1.v2).
+    If someone removes C2 from U1, then that requires creating a new
+    version of U1 (so U1.v2).
 
-    This restriction is important because our ability to calculate and cache the
-    state of "this version of this publishable entity and all its dependencies
-    (children)" relies on this being true.
+    This restriction is important because our ability to calculate and
+    cache the state of "this version of this publishable entity and all
+    its dependencies (children)" relies on this being true.
 
-    .. no_pii
+    .. no_pii:
     """
     referring_version = models.ForeignKey(PublishableEntityVersion, on_delete=models.CASCADE)
     referenced_entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
@@ -332,13 +355,13 @@ class PublishableEntityVersionDependency(models.Model):
 
 class PublishableEntityMixin(models.Model):
     """
-    Convenience mixin to link your models against PublishableEntity.
+    Convenience mixin to link your models against :class:`PublishableEntity`.
 
-    Please see docstring for PublishableEntity for more details.
+    Please see docstring for :class:`PublishableEntity` for more details.
 
-    If you use this class, you *MUST* also use PublishableEntityVersionMixin and
-    the publishing app's api.register_publishable_models (see its docstring for
-    details).
+    If you use this class, you *MUST* also use
+    :class:`PublishableEntityVersionMixin` and the publishing app's
+    ``api.register_publishable_models`` (see its docstring for details).
     """
     # select these related entities by default for all queries
     objects: ClassVar[WithRelationsManager[Self]] = WithRelationsManager(
@@ -389,27 +412,29 @@ class PublishableEntityMixin(models.Model):
         """
         Helper class to link content models to their versions.
 
-        The publishing app has PublishableEntity and PublishableEntityVersion.
-        This is a helper class so that if you mix PublishableEntityMixin into
-        a content model like Component, then you can do something like::
+        The publishing app has :class:`PublishableEntity` and
+        :class:`PublishableEntityVersion`. This is a helper class so that
+        if you mix :class:`PublishableEntityMixin` into a content model
+        like :class:`Component`, then you can do something like::
 
             component.versioning.draft  # current draft ComponentVersion
             component.versioning.published  # current published ComponentVersion
 
-        It links the relationships between content models and their versioned
-        counterparts *through* the connection between PublishableEntity and
-        PublishableEntityVersion. So ``component.versioning.draft`` ends up
-        querying: Component -> PublishableEntity -> Draft ->
-        PublishableEntityVersion -> ComponentVersion. But the people writing
-        Component don't need to understand how the publishing models work to do
-        these common queries.
+        It links the relationships between content models and their
+        versioned counterparts *through* the connection between
+        :class:`PublishableEntity` and :class:`PublishableEntityVersion`.
+        So ``component.versioning.draft`` ends up querying:
+        :class:`Component` → :class:`PublishableEntity` → :class:`Draft` →
+        :class:`PublishableEntityVersion` → :class:`ComponentVersion`. But
+        the people writing :class:`Component` don't need to understand
+        how the publishing models work to do these common queries.
 
         Caching Warning
         ---------------
-        Note that because we're just using the underlying model's relations,
-        calling this a second time will returned the cached relation, and
-        not cause a fetch of new data from the database. So for instance, if
-        you do::
+        Note that because we're just using the underlying model's
+        relations, calling this a second time will returned the cached
+        relation, and not cause a fetch of new data from the database. So
+        for instance, if you do::
 
             # Create a new Component + ComponentVersion
             component, component_version = create_component_and_version(
@@ -475,10 +500,11 @@ class PublishableEntityMixin(models.Model):
 
         def _content_obj_version(self, pub_ent_version: PublishableEntityVersion | None):
             """
-            PublishableEntityVersion -> Content object version
+            :class:`PublishableEntityVersion` → Content object version.
 
-            Given a reference to a PublishableEntityVersion, return the version
-            of the content object that we've been mixed into.
+            Given a reference to a :class:`PublishableEntityVersion`,
+            return the version of the content object that we've been
+            mixed into.
             """
             if pub_ent_version is None:
                 return None
@@ -492,13 +518,14 @@ class PublishableEntityMixin(models.Model):
             """
             Return the content version object that is the current draft.
 
-            So if you mix ``PublishableEntityMixin`` into ``Component``, then
-            ``component.versioning.draft`` will return you the
-            ``ComponentVersion`` that is the current draft (not the underlying
-            ``PublishableEntityVersion``).
+            So if you mix :class:`PublishableEntityMixin` into
+            :class:`Component`, then ``component.versioning.draft`` will
+            return you the :class:`ComponentVersion` that is the current
+            draft (not the underlying :class:`PublishableEntityVersion`).
 
-            If this is causing many queries, it might be the case that you need
-            to add ``select_related('publishable_entity__draft__version')`` to
+            If this is causing many queries, it might be the case that
+            you need to add
+            ``select_related('publishable_entity__draft__version')`` to
             the queryset.
             """
             # Check if there's an entry in Drafts, i.e. has there ever been a
@@ -533,13 +560,15 @@ class PublishableEntityMixin(models.Model):
             """
             Return the content version object that is currently published.
 
-            So if you mix ``PublishableEntityMixin`` into ``Component``, then
-            ``component.versioning.published`` will return you the
-            ``ComponentVersion`` that is currently published (not the underlying
-            ``PublishableEntityVersion``).
+            So if you mix :class:`PublishableEntityMixin` into
+            :class:`Component`, then ``component.versioning.published``
+            will return you the :class:`ComponentVersion` that is
+            currently published (not the underlying
+            :class:`PublishableEntityVersion`).
 
-            If this is causing many queries, it might be the case that you need
-            to add ``select_related('publishable_entity__published__version')``
+            If this is causing many queries, it might be the case that
+            you need to add
+            ``select_related('publishable_entity__published__version')``
             to the queryset.
             """
             # Check if there's an entry in Published, i.e. has there ever been a
@@ -584,7 +613,7 @@ class PublishableEntityMixin(models.Model):
         @property
         def last_publish_log(self):
             """
-            Return the most recent PublishLog for this component.
+            Return the most recent :class:`PublishLog` for this component.
 
             Return None if the component is not published.
             """
@@ -596,10 +625,12 @@ class PublishableEntityMixin(models.Model):
         @property
         def versions(self):
             """
-            Return a QuerySet of content version models for this content model.
+            Return a QuerySet of content version models for this content
+            model.
 
-            Example: If you mix PublishableEntityMixin into a Component model,
-            This would return you a QuerySet of ComponentVersion models.
+            Example: If you mix :class:`PublishableEntityMixin` into a
+            :class:`Component` model, this would return you a QuerySet of
+            :class:`ComponentVersion` models.
             """
             pub_ent = self.content_obj.publishable_entity
             return self.content_version_model_cls.objects.filter(
@@ -619,13 +650,15 @@ class PublishableEntityMixin(models.Model):
 
 class PublishableEntityVersionMixin(models.Model):
     """
-    Convenience mixin to link your models against PublishableEntityVersion.
+    Convenience mixin to link your models against
+    :class:`PublishableEntityVersion`.
 
-    Please see docstring for PublishableEntityVersion for more details.
+    Please see docstring for :class:`PublishableEntityVersion` for more
+    details.
 
-    If you use this class, you *MUST* also use PublishableEntityMixin and the
-    publishing app's api.register_publishable_models (see its docstring for
-    details).
+    If you use this class, you *MUST* also use
+    :class:`PublishableEntityMixin` and the publishing app's
+    ``api.register_publishable_models`` (see its docstring for details).
     """
 
     # select these related entities by default for all queries
@@ -666,7 +699,8 @@ class PublishableEntityVersionMixin(models.Model):
 
 class PublishableContentModelRegistry:
     """
-    This class tracks content models built on PublishableEntity(Version).
+    This class tracks content models built on :class:`PublishableEntity`
+    (and :class:`PublishableEntityVersion`).
     """
 
     _unversioned_to_versioned: dict[type[PublishableEntityMixin], type[PublishableEntityVersionMixin]] = {}

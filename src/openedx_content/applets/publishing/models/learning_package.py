@@ -21,20 +21,21 @@ class LearningPackage(models.Model):
     """
     Top level container for a grouping of authored content.
 
-    Each PublishableEntity belongs to exactly one LearningPackage.
+    Each :class:`PublishableEntity` belongs to exactly one
+    :class:`LearningPackage`.
     """
 
     LearningPackageID = NewType("LearningPackageID", int)
     type ID = LearningPackageID
 
-    # Explictly declare a 4-byte ID instead of using the app-default 8-byte ID.
-    # We do not expect to have more than 2 billion LearningPackages on a given
-    # site. Furthermore, many, many things have foreign keys to this model and
-    # uniqueness indexes on those foreign keys + their own fields, so the 4
-    # bytes saved will add up over time.
-
-    class IDField(TypedAutoField[ID]):  # Note: this is ...AutoField not ...BigAutoField
-        pass
+    class IDField(TypedAutoField[ID]):  # Note: ...AutoField not ...BigAutoField
+        """
+        Explictly declare a 4-byte ID instead of using the app-default 8-byte
+        ID. We do not expect to have more than 2 billion LearningPackages on
+        a given site. Furthermore, many, many things have foreign keys to
+        this model and uniqueness indexes on those foreign keys + their own
+        fields, so the 4 bytes saved will add up over time.
+        """
 
     id = IDField(primary_key=True)
 
@@ -45,15 +46,13 @@ class LearningPackage(models.Model):
 
     uuid = immutable_uuid_field()
 
-    # package_ref is an opaque reference string for the LearningPackage.
     package_ref = ref_field()
+    """
+    An opaque reference string for the :class:`LearningPackage`.
+    """
 
     title = case_insensitive_char_field(max_length=500, blank=False)
 
-    # TODO: We should probably defer this field, since many things pull back
-    # LearningPackage as select_related. Usually those relations only care about
-    # the UUID and package_ref, so maybe it makes sense to separate the model at
-    # some point.
     description = MultiCollationTextField(
         blank=True,
         null=False,
@@ -67,6 +66,12 @@ class LearningPackage(models.Model):
             "mysql": "utf8mb4_unicode_ci",
         }
     )
+    """
+    TODO: We should probably defer this field, since many things pull back
+    :class:`LearningPackage` as select_related. Usually those relations only
+    care about the UUID and ``package_ref``, so maybe it makes sense to
+    separate the model at some point.
+    """
 
     created = manual_date_time_field()
     updated = manual_date_time_field()

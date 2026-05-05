@@ -20,10 +20,11 @@ __all__ = [
 @Container.register_subclass
 class Unit(Container):
     """
-    A Unit is type of Container that holds Components.
+    A Unit is type of :class:`Container` that holds :class:`Component`
+    children.
 
-    Via Container and its PublishableEntityMixin, Units are also publishable
-    entities and can be added to other containers.
+    Via :class:`Container` and its :class:`PublishableEntityMixin`, Units are
+    also publishable entities and can be added to other containers.
     """
 
     UnitID = NewType("UnitID", Container.ID)
@@ -54,10 +55,10 @@ class Unit(Container):
 
 class UnitVersion(ContainerVersion):
     """
-    A UnitVersion is a specific version of a Unit.
+    A UnitVersion is a specific version of a :class:`Unit`.
 
-    Via ContainerVersion and its EntityList, it defines the list of Components
-    in this version of the Unit.
+    Via :class:`ContainerVersion` and its :class:`EntityList`, it defines the
+    list of :class:`Component` children in this version of the :class:`Unit`.
     """
 
     container_version = models.OneToOneField(

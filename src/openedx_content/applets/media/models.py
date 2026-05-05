@@ -39,13 +39,15 @@ __all__ = [
 @cache
 def get_storage() -> Storage:
     """
-    Return the Storage instance for our Media file persistence.
+    Return the :class:`Storage` instance for our :class:`Media` file
+    persistence.
 
-    This will first search for an OPENEDX_LEARNING config dictionary and return
-    a Storage subclass based on that configuration.
+    This will first search for an ``OPENEDX_LEARNING`` config dictionary and
+    return a :class:`Storage` subclass based on that configuration.
 
-    If there is no value for the OPENEDX_LEARNING setting, we return the default
-    MEDIA storage class. TODO: Should we make it just error instead?
+    If there is no value for the ``OPENEDX_LEARNING`` setting, we return the
+    default ``MEDIA`` storage class. TODO: Should we make it just error
+    instead?
     """
     # TODO: Document & rename this setting (https://github.com/openedx/openedx-core/issues/481)
     config_dict = getattr(settings, 'OPENEDX_LEARNING', {})
@@ -65,57 +67,69 @@ def get_storage() -> Storage:
 
 class MediaType(models.Model):
     """
-    Stores Media types for use by Media models.
+    Stores Media types for use by :class:`Media` models.
 
-    This is the same as MIME types (the IANA renamed MIME Types to Media Types).
-    We don't pre-populate this table, so APIs that add Media must ensure that
-    the desired Media Type exists.
+    This is the same as MIME types (the IANA renamed MIME Types to Media
+    Types). We don't pre-populate this table, so APIs that add
+    :class:`Media` must ensure that the desired Media Type exists.
 
-    Media types are written as {type}/{sub_type}+{suffix}, where suffixes are
-    seldom used. Examples:
+    Media types are written as ``{type}/{sub_type}+{suffix}``, where
+    suffixes are seldom used. Examples:
 
-    * application/json
-    * text/css
-    * image/svg+xml
-    * application/vnd.openedx.xblock.v1.problem+xml
+    * ``application/json``
+    * ``text/css``
+    * ``image/svg+xml``
+    * ``application/vnd.openedx.xblock.v1.problem+xml``
 
-    We have this as a separate model (instead of a field on Media) because:
+    We have this as a separate model (instead of a field on :class:`Media`)
+    because:
 
-    1. We can save a lot on storage and indexing for Media if we're just
-       storing foreign key references there, rather than the entire content
-       string to be indexed. This is especially relevant for our (long) custom
-       types like "application/vnd.openedx.xblock.v1.problem+xml".
-    2. These values can occasionally change. For instance, "text/javascript" vs.
-       "application/javascript". Also, we will be using a fair number of "vnd."
-       style of custom content types, and we may want the flexibility of
-       changing that without having to worry about migrating millions of rows of
-       Media.
+    1. We can save a lot on storage and indexing for :class:`Media` if
+       we're just storing foreign key references there, rather than the
+       entire content string to be indexed. This is especially relevant
+       for our (long) custom types like
+       ``application/vnd.openedx.xblock.v1.problem+xml``.
+    2. These values can occasionally change. For instance,
+       ``text/javascript`` vs. ``application/javascript``. Also, we will
+       be using a fair number of ``vnd.`` style of custom content types,
+       and we may want the flexibility of changing that without having to
+       worry about migrating millions of rows of :class:`Media`.
+
+    Media types are denoted as ``{type}/{sub_type}+{suffix}``. We currently
+    do not support parameters.
     """
-    # We're going to have many foreign key references from Media into this
-    # model, and we don't need to store those as 8-byte BigAutoField, as is the
-    # default for this app. It's likely that a SmallAutoField would work, but I
-    # can just barely imagine using more than 32K Media types if we have a bunch
-    # of custom "vnd." entries, or start tracking suffixes and parameters. Which
-    # is how we end up at the 4-byte AutoField.
     id = models.AutoField(primary_key=True)
+    """
+    We're going to have many foreign key references from :class:`Media`
+    into this model, and we don't need to store those as 8-byte
+    ``BigAutoField``, as is the default for this app. It's likely that a
+    ``SmallAutoField`` would work, but I can just barely imagine using
+    more than 32K Media types if we have a bunch of custom ``vnd.``
+    entries, or start tracking suffixes and parameters. Which is how we
+    end up at the 4-byte ``AutoField``.
+    """
 
-    # Media types are denoted as {type}/{sub_type}+{suffix}. We currently do not
-    # support parameters.
-
-    # Media type, e.g. "application", "text", "image". Per RFC 4288, this can be
-    # at most 127 chars long and is case insensitive. In practice, it's almost
-    # always written in lowercase.
     type = case_insensitive_char_field(max_length=127, blank=False, null=False)
+    """
+    Media type, e.g. ``application``, ``text``, ``image``. Per RFC 4288,
+    this can be at most 127 chars long and is case insensitive. In
+    practice, it's almost always written in lowercase.
+    """
 
-    # Media sub-type, e.g. "json", "css", "png". Per RFC 4288, this can be at
-    # most 127 chars long and is case insensitive. In practice, it's almost
-    # always written in lowercase.
     sub_type = case_insensitive_char_field(max_length=127, blank=False, null=False)
+    """
+    Media sub-type, e.g. ``json``, ``css``, ``png``. Per RFC 4288, this
+    can be at most 127 chars long and is case insensitive. In practice,
+    it's almost always written in lowercase.
+    """
 
-    # Suffix, like "xml" (e.g. "image/svg+xml"). Usually blank. I couldn't find
-    # an RFC description of the length limit, and 127 is probably excessive. But
-    # this table should be small enough where it doesn't really matter.
     suffix = case_insensitive_char_field(max_length=127, blank=True, null=False)
+    """
+    Suffix, like ``xml`` (e.g. ``image/svg+xml``). Usually blank. I
+    couldn't find an RFC description of the length limit, and 127 is
+    probably excessive. But this table should be small enough where it
+    doesn't really matter.
+    """
 
     class Meta:
         constraints = [
@@ -141,109 +155,132 @@ class Media(models.Model):
     """
     This is the most primitive piece of content.
 
-    This model serves to lookup, de-duplicate, and store text and files. A piece
-    of Media is identified purely by its data, the media type, and the
-    LearningPackage it is associated with. It has no version or file name
-    metadata associated with it. It exists to be a dumb blob of data that higher
-    level models like ComponentVersions can assemble together.
+    This model serves to lookup, de-duplicate, and store text and files. A
+    piece of :class:`Media` is identified purely by its data, the media
+    type, and the :class:`LearningPackage` it is associated with. It has
+    no version or file name metadata associated with it. It exists to be a
+    dumb blob of data that higher level models like
+    :class:`ComponentVersion` objects can assemble together.
 
-    # In-model Text vs. File
+    In-model Text vs. File
+    ----------------------
 
-    That being said, the Media model does have some complexity to accomodate
-    different access patterns that we have in our app. In particular, it can
-    store data in two ways: the ``text`` field and a file (``has_file=True``)
-    A Media object must use at least one of these methods, but can use both if
-    it's appropriate.
+    That being said, the :class:`Media` model does have some complexity to
+    accomodate different access patterns that we have in our app. In
+    particular, it can store data in two ways: the ``text`` field and a
+    file (``has_file=True``) A :class:`Media` object must use at least one
+    of these methods, but can use both if it's appropriate.
 
     Use the ``text`` field when:
-    * the content is a relatively small (< 50K, usually much less) piece of text
+
+    * the content is a relatively small (< 50K, usually much less) piece
+      of text
     * you want to do be able to query across many rows at once
     * low, predictable latency is important
 
     Use file storage when:
+
     * the content is large, or not text-based
-    * you want to be able to serve the file content directly to the browser
+    * you want to be able to serve the file content directly to the
+      browser
 
-    The high level tradeoff is that ``text`` will give you faster access, and
-    file storage will give you a much more affordable and scalable backend. The
-    backend used for files will also eventually allow direct browser download
-    access, whereas the ``text`` field will not. But again, you can use both at
-    the same time if needed.
+    The high level tradeoff is that ``text`` will give you faster access,
+    and file storage will give you a much more affordable and scalable
+    backend. The backend used for files will also eventually allow direct
+    browser download access, whereas the ``text`` field will not. But
+    again, you can use both at the same time if needed.
 
-    # Association with a LearningPackage
+    Association with a LearningPackage
+    ----------------------------------
 
-    Media is associated with a specific LearningPackage. Doing so allows us to
-    more easily query for how much storge space a specific LearningPackage
-    (likely a library) is using, and to clean up unused data.
+    :class:`Media` is associated with a specific :class:`LearningPackage`.
+    Doing so allows us to more easily query for how much storge space a
+    specific :class:`LearningPackage` (likely a library) is using, and to
+    clean up unused data.
 
-    When we get to borrowing Media across LearningPackages, it's likely that
-    we will want to copy them. That way, even if the originating LearningPackage
-    is deleted, it won't break other LearningPackages that are making use if it.
+    When we get to borrowing :class:`Media` across :class:`LearningPackage`
+    objects, it's likely that we will want to copy them. That way, even if
+    the originating :class:`LearningPackage` is deleted, it won't break
+    other :class:`LearningPackage` objects that are making use if it.
 
-    # Media Types, and file duplication
+    Media Types, and file duplication
+    ---------------------------------
 
-    Media is almost 1:1 with the files that it pushes to a storage backend,
-    but not quite. The file locations are generated purely as a product of the
-    LearningPackage UUID and the Media's ``hash_digest``, but Media also
-    takes into account the ``media_type``.
+    :class:`Media` is almost 1:1 with the files that it pushes to a storage
+    backend, but not quite. The file locations are generated purely as a
+    product of the :class:`LearningPackage` UUID and the :class:`Media`'s
+    ``hash_digest``, but :class:`Media` also takes into account the
+    ``media_type``.
 
-    For example, say we had a Media with the following data:
+    For example, say we had a :class:`Media` with the following data::
 
         ["hello", "world"]
 
-    That is legal syntax for both JSON and YAML. If you want to attach some
-    YAML-specific metadata in a new model, you could make it 1:1 with the
-    Media that matched the "application/yaml" media type. The YAML and JSON
-    versions of this data would be two separate Media rows that would share
-    the same ``hash_digest`` value. If they both stored a file, they would be
-    pointing to the same file location. If they only used the ``text`` field,
-    then that value would be duplicated across the two separate Media rows.
+    That is legal syntax for both JSON and YAML. If you want to attach
+    some YAML-specific metadata in a new model, you could make it 1:1 with
+    the :class:`Media` that matched the ``application/yaml`` media type.
+    The YAML and JSON versions of this data would be two separate
+    :class:`Media` rows that would share the same ``hash_digest`` value.
+    If they both stored a file, they would be pointing to the same file
+    location. If they only used the ``text`` field, then that value would
+    be duplicated across the two separate :class:`Media` rows.
 
-    The alternative would have been to associate media types at the level where
-    this data was being added to a ComponentVersion, but that would have added
-    more complexity. Right now, you could make an ImageMedia 1:1 model that
-    analyzed images and created metatdata entries for them (dimensions, GPS)
-    without having to understand how ComponentVerisons work.
+    The alternative would have been to associate media types at the level
+    where this data was being added to a :class:`ComponentVersion`, but
+    that would have added more complexity. Right now, you could make an
+    ``ImageMedia`` 1:1 model that analyzed images and created metatdata
+    entries for them (dimensions, GPS) without having to understand how
+    :class:`ComponentVersion` objects work.
 
-    This is definitely an edge case, and it's likely the only time collisions
-    like this will happen in practice is with blank files. It also means that
-    using this table to measure disk usage may be slightly inaccurate when used
-    in a LearningPackage with collisions–though we expect to use numbers like
-    that mostly to get a broad sense of usage and look for major outliers,
-    rather than for byte-level accuracy (it wouldn't account for the non-trivial
-    indexing storage costs either).
+    This is definitely an edge case, and it's likely the only time
+    collisions like this will happen in practice is with blank files. It
+    also means that using this table to measure disk usage may be
+    slightly inaccurate when used in a :class:`LearningPackage` with
+    collisions–though we expect to use numbers like that mostly to get a
+    broad sense of usage and look for major outliers, rather than for
+    byte-level accuracy (it wouldn't account for the non-trivial indexing
+    storage costs either).
 
-    # Immutability
+    Immutability
+    ------------
 
-    From the outside, Media should appear immutable. Since the Media is
-    looked up by a hash of its data, a change in the data means that we should
-    look up the hash value of that new data and create a new Media if we don't
-    find a match.
+    From the outside, :class:`Media` should appear immutable. Since the
+    :class:`Media` is looked up by a hash of its data, a change in the
+    data means that we should look up the hash value of that new data and
+    create a new :class:`Media` if we don't find a match.
 
-    That being said, the Media model has different ways of storing that data,
-    and that is mutable. We could decide that a certain type of Media should
-    be optimized to store its text in the table. Or that a media type that we
-    had previously only stored as text now also needs to be stored on in the
-    file storage backend so that it can be made available to be downloaded.
-    These operations would be done as data migrations.
+    That being said, the :class:`Media` model has different ways of
+    storing that data, and that is mutable. We could decide that a
+    certain type of :class:`Media` should be optimized to store its text
+    in the table. Or that a media type that we had previously only stored
+    as text now also needs to be stored on in the file storage backend so
+    that it can be made available to be downloaded. These operations
+    would be done as data migrations.
 
-    # Extensibility
+    Extensibility
+    -------------
 
-    Third-party apps are encouraged to create models that have a OneToOneField
-    relationship with Media. For instance, an ImageMedia model might join
-    1:1 with all Media that has image/* media types, and provide additional
-    metadata for that data.
+    Third-party apps are encouraged to create models that have a
+    ``OneToOneField`` relationship with :class:`Media`. For instance, an
+    ``ImageMedia`` model might join 1:1 with all :class:`Media` that has
+    ``image/*`` media types, and provide additional metadata for that
+    data.
     """
-    # Max size of the file.
     MAX_FILE_SIZE = 50_000_000
+    """
+    Max size of the file.
+    """
 
-    # 50K is our limit for text data, like OLX. This means 50K *characters*,
-    # not bytes. Since UTF-8 encodes characters using as many as 4 bytes, this
-    # could be as much as 200K of data if we had nothing but emojis.
     MAX_TEXT_LENGTH = 50_000
+    """
+    50K is our limit for text data, like OLX. This means 50K *characters*,
+    not bytes. Since UTF-8 encodes characters using as many as 4 bytes,
+    this could be as much as 200K of data if we had nothing but emojis.
+    """
 
-    # Custom type for our primary key, to make it more type-safe when using in
-    # API calls.
+    # Custom type for our primary key, to make it more type-safe when using
+    # in API calls. (Note: This can't be a docstring comment, because that
+    # breaks sphinxcontrib-django, which doesn't handle NewType properly).
     MediaID = NewType("MediaID", int)
     type ID = MediaID
 
@@ -256,36 +293,39 @@ class Media(models.Model):
 
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
 
-    # What is the Media type (a.k.a. MIME type) of this data?
     media_type = models.ForeignKey(MediaType, on_delete=models.PROTECT)
+    """
+    What is the :class:`MediaType` (a.k.a. MIME type) of this data?
+    """
 
-    # This is the size of the file in bytes. This can be different than the
-    # character length of a text file, since UTF-8 encoding can use anywhere
-    # between 1-4 bytes to represent any given character.
     size = models.PositiveBigIntegerField(
         validators=[MaxValueValidator(MAX_FILE_SIZE)],
     )
+    """
+    This is the size of the file in bytes. This can be different than the
+    character length of a text file, since UTF-8 encoding can use anywhere
+    between 1-4 bytes to represent any given character.
+    """
 
-    # This hash value may be calculated using create_hash_digest from the
-    # openedx.lib.fields module. When storing text, we hash the UTF-8
-    # encoding of that text value, regardless of whether we also write it to a
-    # file or not. When storing just a file, we hash the bytes in the file.
     hash_digest = hash_field()
+    """
+    This hash value may be calculated using ``create_hash_digest`` from the
+    ``openedx.lib.fields`` module. When storing text, we hash the UTF-8
+    encoding of that text value, regardless of whether we also write it
+    to a file or not. When storing just a file, we hash the bytes in the
+    file.
+    """
 
-    # Do we have file data stored for this Media in our file storage backend?
-    # We use has_file instead of a FileField because it's more space efficient.
-    # The location of a Media's file data is derivable from the Learning
-    # Package's UUID and the hash of the Media. There's no need to waste that
-    # space to encode it in every row.
     has_file = models.BooleanField()
+    """
+    Do we have file data stored for this :class:`Media` in our file
+    storage backend? We use ``has_file`` instead of a ``FileField`` because
+    it's more space efficient. The location of a :class:`Media`'s file
+    data is derivable from the :class:`LearningPackage`'s UUID and the
+    hash of the :class:`Media`. There's no need to waste that space to
+    encode it in every row.
+    """
 
-    # The ``text`` field contains the text representation of the Media, if
-    # it is available. A blank value means means that we are storing text for
-    # this Media, and that text happens to be an empty string. A null value
-    # here means that we are not storing any text here, and the Media exists
-    # only in file form. It is an error for ``text`` to be None and ``has_file``
-    # to be False, since that would mean we haven't stored data anywhere at all.
-    #
     text = MultiCollationTextField(
         blank=True,
         null=True,
@@ -298,19 +338,31 @@ class Media(models.Model):
             "mysql": "utf8mb4_unicode_ci",
         }
     )
+    """
+    The ``text`` field contains the text representation of the
+    :class:`Media`, if it is available. A blank value means means that we
+    are storing text for this :class:`Media`, and that text happens to be
+    an empty string. A null value here means that we are not storing any
+    text here, and the :class:`Media` exists only in file form. It is an
+    error for ``text`` to be None and ``has_file`` to be False, since that
+    would mean we haven't stored data anywhere at all.
+    """
 
-    # This should be manually set so that multiple Media rows being set in
-    # the same transaction are created with the same timestamp. The timestamp
-    # should be UTC.
     created = manual_date_time_field()
+    """
+    This should be manually set so that multiple :class:`Media` rows being
+    set in the same transaction are created with the same timestamp. The
+    timestamp should be UTC.
+    """
 
     @cached_property
     def mime_type(self) -> str:
         """
-        The IANA media type (a.k.a. MIME type) of the Media, in string form.
+        The IANA media type (a.k.a. MIME type) of the :class:`Media`, in
+        string form.
 
         MIME types reference:
-          https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+        https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
         """
         return str(self.media_type)
 
@@ -319,23 +371,24 @@ class Media(models.Model):
         """
         Logical path at which this content is stored (or would be stored).
 
-        This path is relative to OPENEDX_LEARNING['MEDIA'] configured storage
-        root. This file may not exist because has_file=False, or because we
-        haven't written the file yet (this is the method we call when trying to
-        figure out where the file *should* go).
+        This path is relative to ``OPENEDX_LEARNING['MEDIA']`` configured
+        storage root. This file may not exist because ``has_file=False``,
+        or because we haven't written the file yet (this is the method we
+        call when trying to figure out where the file *should* go).
 
-        For historical reasons (and backwards compatibility), the prefix for
-        this path is "content/" and not "media/".
+        For historical reasons (and backwards compatibility), the prefix
+        for this path is ``content/`` and not ``media/``.
         """
         return f"content/{self.learning_package.uuid}/{self.hash_digest}"
 
     def os_path(self):
         """
-        The full OS path for the underlying file for this Media.
+        The full OS path for the underlying file for this :class:`Media`.
 
-        This will not be supported by all Storage class types.
+        This will not be supported by all :class:`Storage` class types.
 
-        This will return ``None`` if there is no backing file (has_file=False).
+        This will return ``None`` if there is no backing file
+        (``has_file=False``).
         """
         try:
             if self.has_file:
@@ -346,15 +399,16 @@ class Media(models.Model):
 
     def read_file(self) -> File:
         """
-        Get a File object that has been open for reading.
+        Get a :class:`File` object that has been open for reading.
 
-        We intentionally don't expose an `open()` call where callers can open
-        this file in write mode. Writing a Media file should happen at most
-        once, and the logic is not obvious (see ``write_file``).
+        We intentionally don't expose an ``open()`` call where callers can
+        open this file in write mode. Writing a :class:`Media` file should
+        happen at most once, and the logic is not obvious (see
+        :meth:`write_file`).
 
-        At the end of the day, the caller can close the returned File and reopen
-        it in whatever mode they want, but we're trying to gently discourage
-        that kind of usage.
+        At the end of the day, the caller can close the returned
+        :class:`File` and reopen it in whatever mode they want, but we're
+        trying to gently discourage that kind of usage.
         """
         return get_storage().open(self.path, 'rb')
 
@@ -362,9 +416,9 @@ class Media(models.Model):
         """
         Write file contents to the file storage backend.
 
-        This function does nothing if the file already exists. Note that Media
-        is supposed to be immutable, so this should normally only be called once
-        for a given Media row.
+        This function does nothing if the file already exists. Note that
+        :class:`Media` is supposed to be immutable, so this should
+        normally only be called once for a given :class:`Media` row.
         """
         storage = get_storage()
 
@@ -397,8 +451,8 @@ class Media(models.Model):
         """
         Make sure we're actually storing *something*.
 
-        If this Media has neither a file or text data associated with it,
-        it's in a broken/useless state and shouldn't be saved.
+        If this :class:`Media` has neither a file or text data associated
+        with it, it's in a broken/useless state and shouldn't be saved.
         """
         if (not self.has_file) and (self.text is None):
             raise ValidationError(

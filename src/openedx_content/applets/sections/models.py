@@ -21,10 +21,11 @@ __all__ = [
 @Container.register_subclass
 class Section(Container):
     """
-    A Section is type of Container that holds Subsections.
+    A Section is type of :class:`Container` that holds :class:`Subsection`
+    children.
 
-    Via Container and its PublishableEntityMixin, Sections are also publishable
-    entities and can be added to other containers.
+    Via :class:`Container` and its :class:`PublishableEntityMixin`, Sections
+    are also publishable entities and can be added to other containers.
     """
 
     SectionID = NewType("SectionID", Container.ID)
@@ -57,10 +58,11 @@ class Section(Container):
 
 class SectionVersion(ContainerVersion):
     """
-    A SectionVersion is a specific version of a Section.
+    A SectionVersion is a specific version of a :class:`Section`.
 
-    Via ContainerVersion and its EntityList, it defines the list of Subsections
-    in this version of the Section.
+    Via :class:`ContainerVersion` and its :class:`EntityList`, it defines the
+    list of :class:`Subsection` children in this version of the
+    :class:`Section`.
     """
 
     container_version = models.OneToOneField(

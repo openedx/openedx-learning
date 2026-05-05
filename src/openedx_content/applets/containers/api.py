@@ -876,7 +876,7 @@ def get_container_children_entity_refs(container_version: ContainerVersion) -> l
 
 def get_descendant_component_entity_ids(container: Container) -> list[int]:
     """
-    Return the entity IDs of all leaf (non-Container) descendants of ``container``.
+    Return entity IDs of all leaf (non-Container) descendants of ``container``.
 
     Intermediate containers (e.g. Subsections, Units) are never included in the
     result; only leaf component entities are returned.

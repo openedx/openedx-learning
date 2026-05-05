@@ -32,12 +32,13 @@ __all__ = [
 
 class EntityList(models.Model):
     """
-    EntityLists are a common structure to hold parent-child relations.
+    :class:`EntityList` is a common structure to hold parent-child relations.
 
-    EntityLists are not PublishableEntities in and of themselves. That's because
-    sometimes we'll want the same kind of data structure for things that we
-    dynamically generate for individual students (e.g. Variants). EntityLists are
-    anonymous in a sense–they're pointed to by ContainerVersions and
+    :class:`EntityList` objects are not :class:`PublishableEntity` objects in
+    and of themselves. That's because sometimes we'll want the same kind of
+    data structure for things that we dynamically generate for individual
+    students (e.g. Variants). :class:`EntityList` objects are anonymous in
+    a sense–they're pointed to by :class:`ContainerVersion` objects and
     other models, rather than being looked up by their own identifiers.
     """
 
@@ -46,54 +47,63 @@ class EntityList(models.Model):
         """
         Convenience method to iterate rows.
 
-        I'd normally make this the reverse lookup name for the EntityListRow ->
-        EntityList foreign key relation, but we already have references to
-        entitylistrow_set in various places, and I thought this would be better
-        than breaking compatibility.
+        I'd normally make this the reverse lookup name for the
+        :class:`EntityListRow` → :class:`EntityList` foreign key relation,
+        but we already have references to ``entitylistrow_set`` in various
+        places, and I thought this would be better than breaking
+        compatibility.
         """
         return self.entitylistrow_set.order_by("order_num")
 
 
 class EntityListRow(models.Model):
     """
-    Each EntityListRow points to a PublishableEntity, optionally at a specific
-    version.
+    Each :class:`EntityListRow` points to a :class:`PublishableEntity`,
+    optionally at a specific version.
 
-    There is a row in this table for each member of an EntityList. The order_num
-    field is used to determine the order of the members in the list.
+    There is a row in this table for each member of an :class:`EntityList`.
+    The ``order_num`` field is used to determine the order of the members
+    in the list.
     """
 
     entity_list = models.ForeignKey(EntityList, on_delete=models.CASCADE)
 
-    # This ordering should be treated as immutable–if the ordering needs to
-    # change, we create a new EntityList and copy things over.
     order_num = models.PositiveIntegerField()
+    """
+    This ordering should be treated as immutable–if the ordering needs to
+    change, we create a new :class:`EntityList` and copy things over.
+    """
 
-    # Simple case would use these fields with our convention that null versions
-    # means "get the latest draft or published as appropriate". These entities
-    # could be Selectors, in which case we'd need to do more work to find the right
-    # variant. The publishing app itself doesn't know anything about Selectors
-    # however, and just treats it as another PublishableEntity.
     entity = models.ForeignKey(PublishableEntity, on_delete=models.RESTRICT)
+    """
+    Simple case would use this field with our convention that null versions
+    means "get the latest draft or published as appropriate". These
+    entities could be Selectors, in which case we'd need to do more work
+    to find the right variant.
+    """
 
-    # The version references point to the specific PublishableEntityVersion that
-    # this EntityList has for this PublishableEntity for both the draft and
-    # published states. However, we don't want to have to create new EntityList
-    # every time that a member is updated, because that would waste a lot of
-    # space and make it difficult to figure out when the metadata of something
-    # like a Unit *actually* changed, vs. when its child members were being
-    # updated. Doing so could also potentially lead to race conditions when
-    # updating multiple layers of containers.
-    #
-    # So our approach to this is to use a value of None (null) to represent an
-    # unpinned reference to a PublishableEntity. It's shorthand for "just use
-    # the latest draft or published version of this, as appropriate".
     entity_version = models.ForeignKey(
         PublishableEntityVersion,
         on_delete=models.RESTRICT,
         null=True,
         related_name="+",  # Do we need the reverse relation?
     )
+    """
+    The version references point to the specific
+    :class:`PublishableEntityVersion` that this :class:`EntityList` has for
+    this :class:`PublishableEntity` for both the draft and published
+    states. However, we don't want to have to create new
+    :class:`EntityList` every time that a member is updated, because that
+    would waste a lot of space and make it difficult to figure out when
+    the metadata of something like a Unit *actually* changed, vs. when its
+    child members were being updated. Doing so could also potentially
+    lead to race conditions when updating multiple layers of containers.
+
+    So our approach to this is to use a value of ``None`` (null) to represent
+    an unpinned reference to a :class:`PublishableEntity`. It's shorthand
+    for "just use the latest draft or published version of this, as
+    appropriate".
+    """
 
     def is_pinned(self):
         return self.entity_version_id is not None
@@ -121,22 +131,25 @@ class ContainerImplementationMissingError(Exception):
 
 class ContainerType(models.Model):
     """
-    Normalized representation of the type of Container.
+    Normalized representation of the type of :class:`Container`.
 
-    Typical container types are "unit", "subsection", and "section", but there
-    may be others in the future.
+    Typical container types are "unit", "subsection", and "section", but
+    there may be others in the future.
     """
 
     id = models.AutoField(primary_key=True)
 
-    # type_code uniquely identifies the type of container, e.g. "unit", "subsection", etc.
-    # Plugins/apps that add their own ContainerTypes should prefix it, e.g.
-    # "myapp_custom_unit" instead of "custom_unit", to avoid collisions.
     type_code = case_sensitive_char_field(
         max_length=100,
         blank=False,
         unique=True,
     )
+    """
+    ``type_code`` uniquely identifies the type of container, e.g. ``unit``,
+    ``subsection``, etc. Plugins/apps that add their own
+    :class:`ContainerType` objects should prefix it, e.g.
+    ``myapp_custom_unit`` instead of ``custom_unit``, to avoid collisions.
+    """
 
     class Meta:
         constraints = [
@@ -153,43 +166,54 @@ class ContainerType(models.Model):
 
 class Container(PublishableEntityMixin):
     """
-    A Container is a type of PublishableEntity that holds other
-    PublishableEntities. For example, a "Unit" Container might hold several
-    Components.
+    A :class:`Container` is a type of :class:`PublishableEntity` that holds
+    other :class:`PublishableEntity` objects. For example, a "Unit"
+    :class:`Container` might hold several :class:`Component` objects.
 
     For now, all containers have a static "entity list" that defines which
-    containers/components/enities they hold. As we complete the Containers API,
-    we will also add support for dynamic containers which may contain different
-    entities for different learners or at different times.
+    containers/components/enities they hold. As we complete the Containers
+    API, we will also add support for dynamic containers which may contain
+    different entities for different learners or at different times.
     """
 
     ContainerID = NewType("ContainerID", PublishableEntity.ID)
     type ID = ContainerID
 
     type_code: str  # Subclasses must override this, e.g. "unit"
-    # olx_code: the OLX <tag_name> for XML serialization. Subclasses _may_ override this.
-    # Only used in openedx-platform at the moment. We'll likely have to replace this with something more sophisticated.
     olx_tag_name: str = ""
+    """
+    The OLX ``<tag_name>`` for XML serialization. Subclasses _may_ override
+    this. Only used in openedx-platform at the moment. We'll likely have
+    to replace this with something more sophisticated.
+    """
     _type_instance: ContainerType  # Cache used by get_container_type()
 
-    # This foreign key is technically redundant because we're already locked to
-    # a single LearningPackage through our publishable_entity relation. However,
-    # having this foreign key directly allows us to make indexes that efficiently
-    # query by other Container fields within a given LearningPackage.
     learning_package = models.ForeignKey(LearningPackage, on_delete=models.CASCADE)
+    """
+    This foreign key is technically redundant because we're already locked
+    to a single :class:`LearningPackage` through our ``publishable_entity``
+    relation. However, having this foreign key directly allows us to make
+    indexes that efficiently query by other :class:`Container` fields
+    within a given :class:`LearningPackage`.
+    """
 
-    # The type of the container. Cannot be changed once the container is created.
     container_type = models.ForeignKey(
         ContainerType,
         null=False,
         on_delete=models.RESTRICT,
         editable=False,
     )
+    """
+    The type of the container. Cannot be changed once the container is
+    created.
+    """
 
-    # container_code is an identifier that is local to the learning_package.
-    # Unlike component_code, it is unique across all container types within
-    # the same LearningPackage.
     container_code = code_field(unicode=True)
+    """
+    ``container_code`` is an identifier that is local to the
+    ``learning_package``. Unlike ``component_code``, it is unique across
+    all container types within the same :class:`LearningPackage`.
+    """
 
     @property
     def id(self) -> ID:
@@ -281,23 +305,23 @@ class Container(PublishableEntityMixin):
 
 class ContainerVersion(PublishableEntityVersionMixin):
     """
-    A version of a Container.
+    A version of a :class:`Container`.
 
-    By convention, we would only want to create new versions when the Container
-    itself changes, and not when the Container's child elements change. For
-    example:
+    By convention, we would only want to create new versions when the
+    :class:`Container` itself changes, and not when the :class:`Container`'s
+    child elements change. For example:
 
-    * Something was added to the Container.
+    * Something was added to the :class:`Container`.
     * We re-ordered the rows in the container.
     * Something was removed to the container.
-    * The Container's metadata changed, e.g. the title.
-    * We pin to different versions of the Container.
+    * The :class:`Container`'s metadata changed, e.g. the title.
+    * We pin to different versions of the :class:`Container`.
 
-    The last looks a bit odd, but it's because *how we've defined the Unit* has
-    changed if we decide to explicitly pin a set of versions for the children,
-    and then later change our minds and move to a different set. It also just
-    makes things easier to reason about if we say that entity_list never
-    changes for a given ContainerVersion.
+    The last looks a bit odd, but it's because *how we've defined the Unit*
+    has changed if we decide to explicitly pin a set of versions for the
+    children, and then later change our minds and move to a different set.
+    It also just makes things easier to reason about if we say that
+    ``entity_list`` never changes for a given :class:`ContainerVersion`.
     """
 
     container = models.ForeignKey(
@@ -306,13 +330,15 @@ class ContainerVersion(PublishableEntityVersionMixin):
         related_name="versions",
     )
 
-    # The list of entities (frozen and/or unfrozen) in this container
     entity_list = models.ForeignKey(
         EntityList,
         on_delete=models.RESTRICT,
         null=False,
         related_name="container_versions",
     )
+    """
+    The list of entities (frozen and/or unfrozen) in this container.
+    """
 
     def clean(self):
         """

@@ -621,8 +621,9 @@ def get_entity_draft_history(
     publishable_entity_or_id: PublishableEntity | int, /
 ) -> QuerySet[DraftChangeLogRecord]:
     """
-    Return DraftChangeLogRecords for a PublishableEntity since its last publication,
-    ordered from most recent to oldest.
+    DraftChangeLogRecords for a PublishableEntity since its last publication.
+
+    Records are ordered from most recent to oldest.
 
     Edge cases:
 
@@ -689,7 +690,7 @@ def get_entity_publish_history(
     publishable_entity_or_id: PublishableEntity | int, /
 ) -> QuerySet[PublishLogRecord]:
     """
-    Return all PublishLogRecords for a PublishableEntity, ordered most recent first.
+    All PublishLogRecords for a PublishableEntity, ordered most recent first.
 
     Edge cases:
 
@@ -822,6 +823,8 @@ def get_entity_version_contributors(
     new_version_num: int | None,
 ) -> QuerySet:
     """
+    Distinct Users who edited this entity after ``old_version_num``.
+
     Return distinct User queryset of contributors (changed_by) for
     DraftChangeLogRecords of a PublishableEntity after old_version_num.
 
