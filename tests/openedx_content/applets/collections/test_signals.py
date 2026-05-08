@@ -534,6 +534,34 @@ def test_entity_draft_restored_multiple_collections(lp1: LearningPackage) -> Non
     )
 
 
+def test_entity_draft_restored_skips_soft_deleted_collections(lp1: LearningPackage) -> None:
+    """
+    Test that COLLECTION_CHANGED is NOT emitted for soft-deleted collections
+    when an entity's draft is restored, even if the entity is still a member
+    of those collections.
+    """
+    col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    api.create_collection(lp1.id, "col2-deleted", title="Collection 2", created_by=None)
+    entity = _create_entity_with_version(lp1.id, "entity1")
+    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+    api.add_to_collection(lp1.id, "col2-deleted", PublishableEntity.objects.filter(id=entity.id))
+    api.soft_delete_draft(entity.id)
+    api.delete_collection(lp1.id, "col2-deleted")  # soft-delete col2
+
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=1) as captured:
+        api.create_publishable_entity_version(
+            entity.id, version_num=2, title="entity1 v2", created=now_time, created_by=None
+        )
+
+    # Only the still-enabled collection (col1) should receive an event.
+    event = captured[0]
+    assert event.kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        entities_added=[entity.id],
+    )
+
+
 def test_entity_draft_restored_aborted(lp1: LearningPackage) -> None:
     """
     Test that no COLLECTION_CHANGED is emitted when the

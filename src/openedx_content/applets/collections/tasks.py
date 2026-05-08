@@ -39,6 +39,7 @@ def emit_collections_changed_for_entity_changes_task(
 
     affected_cpes = (
         CollectionPublishableEntity.objects.filter(entity_id__in=all_entity_ids)
+        .filter(collection__enabled=True)  # Don't send events for soft-deleted collections
         .select_related("collection__learning_package")
         .order_by("collection_id", "entity_id")
     )
