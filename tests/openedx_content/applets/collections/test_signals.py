@@ -641,3 +641,30 @@ def test_entity_created_and_assigned_in_transaction(lp1: LearningPackage) -> Non
         collection_code="col1",
         entities_added=[entity.id],
     )
+
+
+def test_entity_restored_and_assigned_in_bulk_context(lp1: LearningPackage) -> None:
+    """
+    Test that no redundant events are emitted when an entity is undeleted and
+    assigned to a new collection in a bulk draft change context.
+    """
+    entity = _create_entity_with_version(lp1.id, "entity1")
+    v1 = api.get_draft_version(entity)
+    api.soft_delete_draft(entity.id, deleted_by=None)
+
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
+        with api.bulk_draft_changes_for(lp1.id, changed_by=None, changed_at=now_time):
+            api.set_draft_version(entity.id, v1.id)
+            col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+            api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+
+    assert captured[0].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        created=True,
+    )
+    assert captured[1].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        entities_added=[entity.id],
+    )
