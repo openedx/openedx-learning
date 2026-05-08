@@ -83,11 +83,11 @@ class PublishableEntity(models.Model):
     model instead of storing them in those other models? Two reasons:
 
     * Published things need to have the right identifiers so they can be used
-    throughout the system, and the UUID is serving the role of ISBN in physical
-    book publishing.
+      throughout the system, and the UUID is serving the role of ISBN in physical
+      book publishing.
     * We want to be able to enforce the idea that "entity_ref" is locally unique across
-    all PublishableEntities within a given LearningPackage. Component and Unit
-    can't do that without a shared model.
+      all PublishableEntities within a given LearningPackage. Component and Unit
+      can't do that without a shared model.
 
     That being said, models that build on PublishableEntity are free to add
     their own identifiers if it's useful to do so.

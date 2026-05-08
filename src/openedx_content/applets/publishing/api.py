@@ -625,6 +625,7 @@ def get_entity_draft_history(
     ordered from most recent to oldest.
 
     Edge cases:
+
     - Never published, no versions: returns an empty queryset.
     - Never published, has versions: returns all DraftChangeLogRecords.
     - No changes since the last publish: returns an empty queryset.
@@ -691,6 +692,7 @@ def get_entity_publish_history(
     Return all PublishLogRecords for a PublishableEntity, ordered most recent first.
 
     Edge cases:
+
     - Never published: returns an empty queryset.
     - Soft-delete published (new_version=None): the record is included with
       old_version pointing to the last published version and new_version=None,
@@ -735,6 +737,7 @@ def get_entity_publish_history_entries(
     joins.
 
     Edge cases:
+
     - Each publish group is independent: only the DraftChangeLogRecords that
       belong to the requested publish_log_uuid are returned; changes attributed
       to other publish groups are excluded.
@@ -831,6 +834,7 @@ def get_entity_version_contributors(
     record whose old_version falls before old_version_num is excluded.
 
     Edge cases:
+
     - If no DraftChangeLogRecords fall in the range, returns an empty queryset.
     - Records with changed_by=None (system changes with no associated user) are
       always excluded.

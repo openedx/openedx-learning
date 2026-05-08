@@ -338,6 +338,7 @@ class DraftSideEffect(models.Model):
 
     Scenario 1: In the a bulk_draft_changes_for context, we edit C1 so that the
     draft version of C1 is now C1.v2. Result:
+
     - a DraftChangeLogRecord is created for C1.v1 -> C1.v2
     - a DraftChangeLogRecord is created for U1.v1 -> U1.v1
     - a DraftSideEffect is created with cause (C1.v1 -> C1.v2) and effect
@@ -350,6 +351,7 @@ class DraftSideEffect(models.Model):
     draft version of C1 is now C1.v2. In the same context, we edit U1's metadata
     so that the draft version of U1 is now U1.v2. U1.v2 still lists C1 as a
     child entity. Result:
+
     - a DraftChangeLogRecord is created for C1.v1 -> C1.v2
     - a DraftChangeLogRecord is created for U1.v1 -> U1.v2
     - a DraftSideEffect is created with cause (C1.v1 -> C1.v2) and effect
@@ -358,6 +360,7 @@ class DraftSideEffect(models.Model):
     Scenario 3: In a bulk_draft_changes_for context, we edit C1 so that the
     draft version of C1 is now C1.v2. In the same context, we edit U1's list of
     children so that C1 is no longer a child of U1.v2. Result:
+
     - a DraftChangeLogRecord is created for C1.v1 -> C1.v2
     - a DraftChangeLogRecord is created for U1.v1 -> U1.v2
     - no SideEffect is created, since changing C1 does not have an impact on the

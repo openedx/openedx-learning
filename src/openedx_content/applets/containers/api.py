@@ -885,6 +885,7 @@ def get_descendant_component_entity_ids(container: Container) -> list[int]:
     automatically because ``get_entities_in_container`` omits them.
 
     Edge cases:
+
     - A container whose draft was soft-deleted has no children to traverse and
       contributes no entity IDs.
     - An entity that appears as a child of multiple containers is deduplicated
