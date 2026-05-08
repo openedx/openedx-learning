@@ -22,16 +22,11 @@ def on_entities_changed(
     collections that contain the changed entities.
     """
     removed_entity_ids = [record.entity_id for record in change_log.changes if record.new_version_id is None]
-    # old_version_id=None covers both brand-new entities and restored soft-deletes; we can't distinguish
-    # them here without a DB query. The task is a no-op for new entities (not yet in any collection).
-    # TODO: if ChangeLogRecordData gains a 'restored' flag, filter to only restored entities here.
-    # (Newly-created entities cannot be part of collections yet, so we only care about entities that
-    # were previously in collections, then deleted and then restored.)
-    added_entity_ids = [
-        record.entity_id
-        for record in change_log.changes
-        if record.old_version_id is None and record.new_version_id is not None
-    ]
+    # We only care about *restored* entities (un-soft-deleted) here. Brand-new entities also have
+    # old_version_id=None, but they cannot be in any collection at the moment they're created, so
+    # they would be a no-op for the task — and emitting on them produces a redundant event when
+    # the same transaction also explicitly adds the new entity to a collection.
+    added_entity_ids = [record.entity_id for record in change_log.changes if record.restored]
 
     if not removed_entity_ids and not added_entity_ids:
         return
