@@ -4,6 +4,7 @@ Tests for the COLLECTION_CHANGED signal.
 
 from datetime import datetime, timezone
 
+from django.db import transaction
 import pytest
 
 from openedx_content import api
@@ -588,3 +589,55 @@ def test_entity_created_no_collection_event(lp1: LearningPackage) -> None:
     """
     with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
         _create_entity_with_version(lp1.id, "entity1")
+
+
+# COLLECTION_CHANGED — combined events
+
+
+def test_entity_created_and_assigned_in_bulk_context(lp1: LearningPackage) -> None:
+    """
+    Test that no redundant events are emitted when an entity is created and
+    assigned to a collection in a bulk draft change context: a brand-new entity
+    can't have been in any prior collection, so the ENTITIES_DRAFT_CHANGED
+    handler must not emit an extra COLLECTION_CHANGED that just duplicates the
+    one ``add_to_collection`` already queues.
+    """
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
+        with api.bulk_draft_changes_for(lp1.id, changed_by=None, changed_at=now_time):
+            col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+            entity = _create_entity_with_version(lp1.id, "entity1")
+            api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+
+    assert captured[0].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        created=True,
+    )
+    assert captured[1].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        entities_added=[entity.id],
+    )
+
+
+def test_entity_created_and_assigned_in_transaction(lp1: LearningPackage) -> None:
+    """
+    Test that no redundant events are emitted when an entity is created and
+    assigned to a collection in a single database transaction.
+    """
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
+        with transaction.atomic():
+            col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+            entity = _create_entity_with_version(lp1.id, "entity1")
+            api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+
+    assert captured[0].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        created=True,
+    )
+    assert captured[1].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        entities_added=[entity.id],
+    )
