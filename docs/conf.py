@@ -37,17 +37,16 @@ sys.path.append(REPO_ROOT)
 
 VERSION = get_version('../src/openedx_core', '__init__.py')
 
-# Configure Django for autodoc usage
-os.environ['DJANGO_SETTINGS_MODULE'] = 'test_settings'
-django_setup()
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+
+sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../src'))
+
+# Configure Django for autodoc usage
+os.environ['DJANGO_SETTINGS_MODULE'] = 'test_settings'
+django_setup()
 
 # -- General configuration ------------------------------------------------
 
