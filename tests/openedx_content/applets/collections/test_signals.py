@@ -494,6 +494,7 @@ def test_entity_restored_and_assigned_in_bulk_context(lp1: LearningPackage) -> N
     """
     entity = _create_entity_with_version(lp1.id, "entity1")
     v1 = api.get_draft_version(entity)
+    assert v1 is not None
     api.soft_delete_draft(entity.id, deleted_by=None)
 
     with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:

@@ -1268,7 +1268,9 @@ def _emit_event_for_change_log(
 
     learning_package_id = change_log.learning_package.id
     learning_package_title = change_log.learning_package.title
-    records = list(change_log.records.order_by("id").select_related("old_version", "new_version").all())
+    records: list[DraftChangeLogRecord | PublishLogRecord] = list(
+        change_log.records.order_by("id").select_related("old_version", "new_version").all()
+    )
 
     # For draft change logs, distinguish "restored" entities (un-soft-delete) from brand-new entities.
     # Both have old_version_id=None, but a brand-new entity has no DraftChangeLogRecord in any prior
