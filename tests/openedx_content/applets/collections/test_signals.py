@@ -4,8 +4,8 @@ Tests for the COLLECTION_CHANGED signal.
 
 from datetime import datetime, timezone
 
-from django.db import transaction
 import pytest
+from django.db import transaction
 
 from openedx_content import api
 from openedx_content.applets.collections.signals import COLLECTION_CHANGED, CollectionChangeData
