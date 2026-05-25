@@ -62,7 +62,7 @@ class Draft(models.Model):
     # addition to this data model, so we have to allow null values for the
     # initial migration. But making this nullable also has another advantage,
     # in that it allows us to set the draft_log_record to the most recent change
-    # while inside a bulk_draft_changes_for operation, and then delete that log
+    # while inside a draft_changes_for operation, and then delete that log
     # record if it is undone in the same bulk operation.
     draft_log_record = models.ForeignKey(
         "DraftChangeLogRecord",
@@ -206,7 +206,7 @@ class DraftChangeLogRecord(models.Model):
       - (v1, v4): Normal edit in draft
 
       This could also technically happen if we change the same entity more than
-      once in the the same bulk_draft_changes_for() context, thereby putting
+      once in the the same draft_changes_for() context, thereby putting
       them into the same DraftChangeLog, which forces us to squash the changes
       together into one DraftChangeLogRecord.
 
@@ -330,13 +330,13 @@ class DraftSideEffect(models.Model):
     The child change is still affecting the parent container, whether the
     container happens to be changing for other reasons as well. Whether a parent
     -child relationship exists or not depends on the draft state of the
-    container at the *end* of a bulk_draft_changes_for context. To give concrete
+    container at the *end* of a draft_changes_for context. To give concrete
     examples:
 
     Setup: A Unit version U1.v1 has defined C1 to be a child. The current draft
     version of C1 is C1.v1.
 
-    Scenario 1: In the a bulk_draft_changes_for context, we edit C1 so that the
+    Scenario 1: In the a draft_changes_for context, we edit C1 so that the
     draft version of C1 is now C1.v2. Result:
 
     - a DraftChangeLogRecord is created for C1.v1 -> C1.v2
@@ -347,7 +347,7 @@ class DraftSideEffect(models.Model):
       has *changed* in some way because of the side effect of its child being
       edited.
 
-    Scenario 2: In a bulk_draft_changes_for context, we edit C1 so that the
+    Scenario 2: In a draft_changes_for context, we edit C1 so that the
     draft version of C1 is now C1.v2. In the same context, we edit U1's metadata
     so that the draft version of U1 is now U1.v2. U1.v2 still lists C1 as a
     child entity. Result:
@@ -357,7 +357,7 @@ class DraftSideEffect(models.Model):
     - a DraftSideEffect is created with cause (C1.v1 -> C1.v2) and effect
       (U1.v1 -> U1.v2)
 
-    Scenario 3: In a bulk_draft_changes_for context, we edit C1 so that the
+    Scenario 3: In a draft_changes_for context, we edit C1 so that the
     draft version of C1 is now C1.v2. In the same context, we edit U1's list of
     children so that C1 is no longer a child of U1.v2. Result:
 

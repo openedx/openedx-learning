@@ -774,15 +774,15 @@ class LearningPackageUnzipper:
         learning_package_obj = publishing_api.create_learning_package(**learning_package)
         self.learning_package_id = learning_package_obj.id
 
-        with publishing_api.bulk_draft_changes_for(learning_package_obj.id):
+        with publishing_api.draft_changes_for(learning_package_obj.id, self.user):
             self._save_components(learning_package_obj, components, component_static_files)
             self._save_units(learning_package_obj, containers)
             self._save_subsections(learning_package_obj, containers)
             self._save_sections(learning_package_obj, containers)
             self._save_collections(learning_package_obj, collections)
-        publishing_api.publish_all_drafts(learning_package_obj.id)
+        publishing_api.publish_all_drafts(learning_package_obj.id, self.user)
 
-        with publishing_api.bulk_draft_changes_for(learning_package_obj.id):
+        with publishing_api.draft_changes_for(learning_package_obj.id, self.user):
             self._save_draft_versions(components, containers, component_static_files)
 
         return learning_package_obj
@@ -849,7 +849,6 @@ class LearningPackageUnzipper:
                 # entity-container. BUT, this assumpion may not hold true v2+.
                 container_code=entity_ref,
                 **data,  # should this be allowed to override any of the following fields?
-                created_by=self.user_id,
                 container_cls=container_cls,
             )
             container_map[entity_ref] = container  # e.g. `self.units_map_by_ref[entity_ref] = unit`
@@ -864,7 +863,6 @@ class LearningPackageUnzipper:
                 force_version_num=version_num,
                 **valid_published,  # should this be allowed to override any of the following fields?
                 entities=children,
-                created_by=self.user_id,
             )
 
     def _save_units(self, learning_package, containers):
@@ -915,7 +913,6 @@ class LearningPackageUnzipper:
                 # Drafts can diverge from published, so we allow ignoring previous media
                 # Use case: published v1 had files A, B; draft v2 only has file A
                 ignore_previous_media=True,
-                created_by=self.user_id,
                 **valid_draft
             )
 
@@ -936,7 +933,6 @@ class LearningPackageUnzipper:
                     **valid_draft,  # should this be allowed to override any of the following fields?
                     entities=children,
                     force_version_num=version_num,
-                    created_by=self.user_id,
                 )
 
         _process_draft_containers(Unit, self.units_map_by_ref, children_map=self.components_map_by_ref)

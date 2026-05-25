@@ -2,12 +2,13 @@
 Basic tests for the sections API.
 """
 
-from typing import Any, cast
+from typing import cast
 
 import pytest
 from django.core.exceptions import ValidationError
 
 import openedx_content.api as content_api
+from openedx_content.applets.publishing import api as publishing_api
 from openedx_content.models_api import Section, SectionVersion, Subsection, SubsectionVersion
 
 from ..components.test_api import ComponentTestCase
@@ -29,35 +30,31 @@ class SectionsTestCase(ComponentTestCase):
             component_code="component_2",
             title="Great-grandchild component",
         )
-        common_args: dict[str, Any] = {
-            "learning_package_id": self.learning_package.id,
-            "created": self.now,
-            "created_by": None,
-        }
-        self.unit_1, self.unit_1_v1 = content_api.create_unit_and_version(
-            container_code="unit_1",
-            title="Grandchild Unit 1",
-            components=[self.component_1, self.component_2],
-            **common_args,
-        )
-        self.unit_2, self.unit_2_v1 = content_api.create_unit_and_version(
-            container_code="unit_2",
-            title="Grandchild Unit 2",
-            components=[self.component_2, self.component_1],  # Backwards order from Unit 1
-            **common_args,
-        )
-        self.subsection_1, self.subsection_1_v1 = content_api.create_subsection_and_version(
-            container_code="subsection_1",
-            title="Child Subsection 1",
-            units=[self.unit_1, self.unit_2],
-            **common_args,
-        )
-        self.subsection_2, self.subsection_2_v1 = content_api.create_subsection_and_version(
-            container_code="subsection_2",
-            title="Child Subsection 2",
-            units=[self.unit_2, self.unit_1],  # Backwards order from subsection 1
-            **common_args,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            self.unit_1, self.unit_1_v1 = content_api.create_unit_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code="unit_1",
+                title="Grandchild Unit 1",
+                components=[self.component_1, self.component_2],
+            )
+            self.unit_2, self.unit_2_v1 = content_api.create_unit_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code="unit_2",
+                title="Grandchild Unit 2",
+                components=[self.component_2, self.component_1],  # Backwards order from Unit 1
+            )
+            self.subsection_1, self.subsection_1_v1 = content_api.create_subsection_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code="subsection_1",
+                title="Child Subsection 1",
+                units=[self.unit_1, self.unit_2],
+            )
+            self.subsection_2, self.subsection_2_v1 = content_api.create_subsection_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code="subsection_2",
+                title="Child Subsection 2",
+                units=[self.unit_2, self.unit_1],  # Backwards order from subsection 1
+            )
 
     def create_section_with_subsections(
         self,
@@ -67,14 +64,13 @@ class SectionsTestCase(ComponentTestCase):
         container_code="section-key",
     ) -> Section:
         """Helper method to quickly create a section with some subsections"""
-        section, _section_v1 = content_api.create_section_and_version(
-            learning_package_id=self.learning_package.id,
-            container_code=container_code,
-            title=title,
-            subsections=subsections,
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            section, _section_v1 = content_api.create_section_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code=container_code,
+                title=title,
+                subsections=subsections,
+            )
         return section
 
     def test_create_empty_section_and_version(self) -> None:
@@ -86,13 +82,12 @@ class SectionsTestCase(ComponentTestCase):
         3. The section is a draft with unpublished changes.
         4. There is no published version of the section.
         """
-        section, section_version = content_api.create_section_and_version(
-            learning_package_id=self.learning_package.id,
-            container_code="section-key",
-            title="Section",
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            section, section_version = content_api.create_section_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code="section-key",
+                title="Section",
+            )
         assert isinstance(section, Section)
         assert isinstance(section_version, SectionVersion)
         assert section, section_version
@@ -113,13 +108,12 @@ class SectionsTestCase(ComponentTestCase):
         4. The unit is in the draft section version's subsection list and is unpinned.
         """
         section = self.create_section_with_subsections([])
-        section_version_v2 = content_api.create_next_section_version(
-            section,
-            title="Section",
-            subsections=[self.subsection_1],
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            section_version_v2 = content_api.create_next_section_version(
+                section,
+                title="Section",
+                subsections=[self.subsection_1],
+            )
         assert isinstance(section_version_v2, SectionVersion)
         assert section_version_v2.version_num == 2
         assert section_version_v2 in section.versioning.versions.all()
@@ -159,6 +153,7 @@ class SectionsTestCase(ComponentTestCase):
             content_api.publish_from_drafts(
                 self.learning_package.id,
                 draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=section.id),
+                published_by=None,
             )
         with self.assertNumQueries(4):
             result = content_api.get_subsections_in_section(section, published=True)
@@ -179,12 +174,11 @@ class SectionsTestCase(ComponentTestCase):
             ValidationError,
             match='The entity "unit_1" cannot be added to a "section" container.',
         ):
-            content_api.create_next_section_version(
-                section,
-                subsections=[self.unit_1],
-                created=self.now,
-                created_by=None,
-            )
+            with publishing_api.draft_changes_for(self.learning_package.id, None):
+                content_api.create_next_section_version(
+                    section,
+                    subsections=[self.unit_1],
+                )
         # Check that a new version was not created:
         section.refresh_from_db()
         assert content_api.get_section(section.id).versioning.draft == section_version

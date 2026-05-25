@@ -4,7 +4,6 @@ This module provides functions to manage units.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Iterable
 
 from ..components.models import Component, ComponentVersion
@@ -33,8 +32,6 @@ def create_unit_and_version(
     *,
     title: str,
     components: Iterable[Component | ComponentVersion] | None = None,
-    created: datetime,
-    created_by: int | None = None,
     can_stand_alone: bool = True,
 ) -> tuple[Unit, UnitVersion]:
     """
@@ -43,14 +40,14 @@ def create_unit_and_version(
     The only real purpose of this function is to rename `entities` to `components`, and to specify that the version
     returned is a `UnitVersion`. In the future, if `UnitVersion` gets some fields that aren't on `ContainerVersion`,
     this function would be more important.
+
+    Must be called inside `with draft_changes_for(...):`
     """
     unit, uv = containers_api.create_container_and_version(
         learning_package_id,
         container_code=container_code,
         title=title,
         entities=components,
-        created=created,
-        created_by=created_by,
         can_stand_alone=can_stand_alone,
         container_cls=Unit,
     )
@@ -63,8 +60,6 @@ def create_next_unit_version(
     *,
     title: str | None = None,
     components: Iterable[Component | ComponentVersion] | None = None,
-    created: datetime,
-    created_by: int | None,
 ) -> UnitVersion:
     """
     See documentation of content_api.create_next_container_version()
@@ -72,6 +67,8 @@ def create_next_unit_version(
     The only real purpose of this function is to rename `entities` to `components`, and to specify that the version
     returned is a `UnitVersion`. In the future, if `UnitVersion` gets some fields that aren't on `ContainerVersion`,
     this function would be more important.
+
+    Must be called inside `with draft_changes_for(...):`
     """
     if isinstance(unit, int):
         unit = get_unit(unit)
@@ -80,8 +77,6 @@ def create_next_unit_version(
         unit,
         title=title,
         entities=components,
-        created=created,
-        created_by=created_by,
         # For now, `entities_action` and `force_version_num` are unsupported but we could add them in the future.
     )
     assert isinstance(uv, UnitVersion)

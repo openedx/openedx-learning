@@ -8,6 +8,7 @@ import pytest
 from django.core.exceptions import ValidationError
 
 import openedx_content.api as content_api
+from openedx_content.applets.publishing import api as publishing_api
 from openedx_content.models_api import Subsection, SubsectionVersion, Unit, UnitVersion
 
 from ..components.test_api import ComponentTestCase
@@ -28,14 +29,13 @@ class SubsectionsTestCase(ComponentTestCase):
             component_code="Query_Counting_2",
             title="Querying Counting Problem (2)",
         )
-        self.unit_1, self.unit_1_v1 = content_api.create_unit_and_version(
-            learning_package_id=self.learning_package.id,
-            container_code="unit1",
-            title="Unit 1",
-            components=[self.component_1, self.component_2],
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            self.unit_1, self.unit_1_v1 = content_api.create_unit_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code="unit1",
+                title="Unit 1",
+                components=[self.component_1, self.component_2],
+            )
 
     def create_subsection_with_units(
         self,
@@ -45,14 +45,13 @@ class SubsectionsTestCase(ComponentTestCase):
         container_code="subsection-key",
     ) -> Subsection:
         """Helper method to quickly create a unit with some units"""
-        subsection, _subsection_v1 = content_api.create_subsection_and_version(
-            learning_package_id=self.learning_package.id,
-            container_code=container_code,
-            title=title,
-            units=units,
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            subsection, _subsection_v1 = content_api.create_subsection_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code=container_code,
+                title=title,
+                units=units,
+            )
         return subsection
 
     def test_create_empty_subsection_and_version(self):
@@ -64,13 +63,12 @@ class SubsectionsTestCase(ComponentTestCase):
         3. The subsection is a draft with unpublished changes.
         4. There is no published version of the subsection.
         """
-        subsection, subsection_version = content_api.create_subsection_and_version(
-            learning_package_id=self.learning_package.id,
-            container_code="subsection-key",
-            title="Subsection",
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            subsection, subsection_version = content_api.create_subsection_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code="subsection-key",
+                title="Subsection",
+            )
         assert isinstance(subsection, Subsection)
         assert isinstance(subsection_version, SubsectionVersion)
         assert subsection, subsection_version
@@ -91,13 +89,12 @@ class SubsectionsTestCase(ComponentTestCase):
         4. The unit is in the draft subsection version's unit list and is unpinned.
         """
         subsection = self.create_subsection_with_units([])
-        subsection_version_v2 = content_api.create_next_subsection_version(
-            subsection,
-            title="Subsection",
-            units=[self.unit_1],
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            subsection_version_v2 = content_api.create_next_subsection_version(
+                subsection,
+                title="Subsection",
+                units=[self.unit_1],
+            )
         assert isinstance(subsection_version_v2, SubsectionVersion)
         assert subsection_version_v2.version_num == 2
         assert subsection_version_v2 in subsection.versioning.versions.all()
@@ -137,6 +134,7 @@ class SubsectionsTestCase(ComponentTestCase):
             content_api.publish_from_drafts(
                 self.learning_package.id,
                 draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=subsection.id),
+                published_by=None,
             )
         with self.assertNumQueries(4):
             result = content_api.get_units_in_subsection(subsection, published=True)
@@ -158,12 +156,11 @@ class SubsectionsTestCase(ComponentTestCase):
             ValidationError,
             match='The entity "xblock.v1:problem:Query_Counting" cannot be added to a "subsection" container.',
         ) as err:
-            content_api.create_next_subsection_version(
-                subsection,
-                units=[self.component_1],
-                created=self.now,
-                created_by=None,
-            )
+            with publishing_api.draft_changes_for(self.learning_package.id, None):
+                content_api.create_next_subsection_version(
+                    subsection,
+                    units=[self.component_1],
+                )
         assert "(found non-Container child)" in str(err.value.__cause__)
 
         # Check that a new version was not created:

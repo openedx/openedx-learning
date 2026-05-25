@@ -65,30 +65,28 @@ class LpDumpCommandTestCase(TestCase):
         cls.html_type = api.get_or_create_component_type(cls.xblock_v1_namespace, "html")
         cls.problem_type = api.get_or_create_component_type(cls.xblock_v1_namespace, "problem")
 
-        # Make and publish one Component
-        cls.published_component, _ = api.create_component_and_version(
-            cls.learning_package.id,
-            cls.problem_type,
-            component_code="my_published_example",
-            title="My published problem",
-            created=cls.now,
-            created_by=cls.user.id,
-        )
+        with api.draft_changes_for(cls.learning_package.id, cls.user):
+            # Make and publish one Component
+            cls.published_component, _ = api.create_component_and_version(
+                cls.learning_package.id,
+                cls.problem_type,
+                component_code="my_published_example",
+                title="My published problem",
+            )
 
-        # Make and publish one Component
-        # Same local key as above to test uniqueness of slugified hash
-        cls.published_component2, _ = api.create_component_and_version(
-            cls.learning_package.id,
-            cls.problem_type,
-            component_code="My_published_example",
-            title="My published problem 2",
-            created=cls.now,
-            created_by=cls.user.id,
-        )
+            # Make and publish one Component
+            # Same local key as above to test uniqueness of slugified hash
+            cls.published_component2, _ = api.create_component_and_version(
+                cls.learning_package.id,
+                cls.problem_type,
+                component_code="My_published_example",
+                title="My published problem 2",
+            )
 
         # Create a Content entry for the published Component
         api.publish_all_drafts(
             cls.learning_package.id,
+            cls.user,
             message="Publish from CollectionTestCase.setUpTestData",
             published_at=cls.now,
         )
@@ -99,24 +97,22 @@ class LpDumpCommandTestCase(TestCase):
             text="This is some data",
             created=cls.now,
         )
-        api.create_next_component_version(
-            cls.published_component.id,
-            title="My published problem draft v2",
-            media_to_replace={
-                'hello.txt': new_txt_media
-            },
-            created=cls.now,
-        )
+        with api.draft_changes_for(cls.learning_package.id, cls.user):
+            api.create_next_component_version(
+                cls.published_component.id,
+                title="My published problem draft v2",
+                media_to_replace={
+                    'hello.txt': new_txt_media
+                },
+            )
 
-        # Create a Draft component, one in each learning package
-        cls.draft_component, _ = api.create_component_and_version(
-            cls.learning_package.id,
-            cls.html_type,
-            component_code="my_draft_example",
-            title="My draft html",
-            created=cls.now,
-            created_by=cls.user.id,
-        )
+            # Create a Draft component, one in each learning package
+            cls.draft_component, _ = api.create_component_and_version(
+                cls.learning_package.id,
+                cls.html_type,
+                component_code="my_draft_example",
+                title="My draft html",
+            )
 
         cls.html_asset_media = api.get_or_create_file_media(
             cls.learning_package.id,
@@ -124,39 +120,36 @@ class LpDumpCommandTestCase(TestCase):
             data=b"<html>hello world!</html>",
             created=cls.now,
         )
-        api.create_next_component_version(
-            cls.draft_component.id,
-            title="My draft html v2",
-            media_to_replace={
-                "static/other/subdirectory/hello.html": cls.html_asset_media
-            },
-            created=cls.now,
-        )
+        with api.draft_changes_for(cls.learning_package.id, cls.user):
+            api.create_next_component_version(
+                cls.draft_component.id,
+                title="My draft html v2",
+                media_to_replace={
+                    "static/other/subdirectory/hello.html": cls.html_asset_media
+                },
+            )
 
-        components = api.get_publishable_entities(cls.learning_package)
-        cls.all_components = components
+            components = api.get_publishable_entities(cls.learning_package)
+            cls.all_components = components
 
-        cls.collection = api.create_collection(
-            cls.learning_package.id,
-            collection_code="COL1",
-            created_by=cls.user.id,
-            title="Collection 1",
-            description="Description of Collection 1",
-        )
+            cls.collection = api.create_collection(
+                cls.learning_package.id,
+                collection_code="COL1",
+                title="Collection 1",
+                description="Description of Collection 1",
+            )
 
-        api.add_to_collection(
-            cls.learning_package.id,
-            cls.collection.collection_code,
-            components
-        )
+            api.add_to_collection(
+                cls.learning_package.id,
+                cls.collection.collection_code,
+                components
+            )
 
-        api.create_container(
-            learning_package_id=cls.learning_package.id,
-            container_code="unit-1",
-            created=cls.now,
-            created_by=cls.user.id,
-            container_cls=Unit,
-        )
+            api.create_container(
+                learning_package_id=cls.learning_package.id,
+                container_code="unit-1",
+                container_cls=Unit,
+            )
 
     def check_toml_file(self, zip_path: Path, zip_member_name: Path, content_to_check: list):
         """
@@ -304,14 +297,13 @@ class LpDumpCommandTestCase(TestCase):
             list(entities)  # force evaluation
             self.assertEqual(len(entities), 4)
         # Add another component
-        api.create_component_and_version(
-            self.learning_package.id,
-            self.problem_type,
-            component_code="my_published_example2",
-            title="My published problem 2",
-            created=self.now,
-            created_by=self.user.id,
-        )
+        with api.draft_changes_for(self.learning_package.id, self.user):
+            api.create_component_and_version(
+                self.learning_package.id,
+                self.problem_type,
+                component_code="my_published_example2",
+                title="My published problem 2",
+            )
         entities = zipper.get_publishable_entities()
         with self.assertNumQueries(3):
             list(entities)  # force evaluation

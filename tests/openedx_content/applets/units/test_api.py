@@ -8,6 +8,7 @@ import pytest
 from django.core.exceptions import ValidationError
 
 import openedx_content.api as content_api
+from openedx_content.applets.publishing import api as publishing_api
 from openedx_content.models_api import Component, ComponentVersion, Unit, UnitVersion
 from tests.test_django_app.models import TestContainer
 
@@ -38,14 +39,13 @@ class UnitsTestCase(ComponentTestCase):
         container_code="unit-key",
     ) -> Unit:
         """Helper method to quickly create a unit with some components"""
-        unit, _unit_v1 = content_api.create_unit_and_version(
-            learning_package_id=self.learning_package.id,
-            container_code=container_code,
-            title=title,
-            components=components,
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            unit, _unit_v1 = content_api.create_unit_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code=container_code,
+                title=title,
+                components=components,
+            )
         return unit
 
     def test_create_empty_unit_and_version(self):
@@ -57,13 +57,12 @@ class UnitsTestCase(ComponentTestCase):
         3. The unit is a draft with unpublished changes.
         4. There is no published version of the unit.
         """
-        unit, unit_version = content_api.create_unit_and_version(
-            learning_package_id=self.learning_package.id,
-            container_code="unit-key",
-            title="Unit",
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            unit, unit_version = content_api.create_unit_and_version(
+                learning_package_id=self.learning_package.id,
+                container_code="unit-key",
+                title="Unit",
+            )
         assert isinstance(unit, Unit)
         assert isinstance(unit_version, UnitVersion)
         assert unit, unit_version
@@ -84,13 +83,12 @@ class UnitsTestCase(ComponentTestCase):
         4. The components are in the draft unit version's component list and are unpinned.
         """
         unit = self.create_unit_with_components([])
-        unit_version_v2 = content_api.create_next_unit_version(
-            unit,
-            title="Unit",
-            components=[self.component_1, self.component_2],
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            unit_version_v2 = content_api.create_next_unit_version(
+                unit,
+                title="Unit",
+                components=[self.component_1, self.component_2],
+            )
         assert isinstance(unit_version_v2, UnitVersion)
         assert unit_version_v2.version_num == 2
         assert unit_version_v2 in unit.versioning.versions.all()
@@ -138,6 +136,7 @@ class UnitsTestCase(ComponentTestCase):
             content_api.publish_from_drafts(
                 self.learning_package.id,
                 draft_qset=content_api.get_all_drafts(self.learning_package.id).filter(entity=unit.id),
+                published_by=None,
             )
         with self.assertNumQueries(3):
             result = content_api.get_components_in_unit(unit, published=True)
@@ -159,26 +158,25 @@ class UnitsTestCase(ComponentTestCase):
         with pytest.raises(
             ValidationError, match='The entity "unit-key2" cannot be added to a "unit" container.'
         ) as err:
-            content_api.create_next_unit_version(
-                unit,
-                components=[unit2],
-                created=self.now,
-                created_by=None,
-            )
+            with publishing_api.draft_changes_for(self.learning_package.id, None):
+                content_api.create_next_unit_version(
+                    unit,
+                    components=[unit2],
+                )
         assert "Only Components can be added as children of a Unit" in str(err.value.__cause__)
 
         # Try adding a generic entity to a Unit
-        pe = content_api.create_publishable_entity(self.learning_package.id, "pe", created=self.now, created_by=None)
-        pev = content_api.create_publishable_entity_version(
-            pe.id, version_num=1, title="t", created=self.now, created_by=None
-        )
-        with pytest.raises(ValidationError, match='The entity "pe" cannot be added to a "unit" container.') as err:
-            content_api.create_next_unit_version(
-                unit,
-                components=[pev],
-                created=self.now,
-                created_by=None,
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            pe = content_api.create_publishable_entity(self.learning_package.id, "pe")
+            pev = content_api.create_publishable_entity_version(
+                pe.id, version_num=1, title="t",
             )
+        with pytest.raises(ValidationError, match='The entity "pe" cannot be added to a "unit" container.') as err:
+            with publishing_api.draft_changes_for(self.learning_package.id, None):
+                content_api.create_next_unit_version(
+                    unit,
+                    components=[pev],
+                )
         assert "Only Components can be added as children of a Unit" in str(err.value.__cause__)
 
         # Check that a new version was not created:

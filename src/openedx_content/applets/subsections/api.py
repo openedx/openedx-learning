@@ -4,7 +4,6 @@ This module provides functions to manage subsections.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Iterable
 
 from ..containers import api as containers_api
@@ -33,8 +32,6 @@ def create_subsection_and_version(
     *,
     title: str,
     units: Iterable[Unit | UnitVersion] | None = None,
-    created: datetime,
-    created_by: int | None = None,
     can_stand_alone: bool = True,
 ) -> tuple[Subsection, SubsectionVersion]:
     """
@@ -43,14 +40,14 @@ def create_subsection_and_version(
     The only real purpose of this function is to rename `entities` to `units`, and to specify that the version
     returned is a `SubsectionVersion`. In the future, if `SubsectionVersion` gets some fields that aren't on
     `ContainerVersion`, this function would be more important.
+
+    Must be called inside `with draft_changes_for(...):`
     """
     subsection, sv = containers_api.create_container_and_version(
         learning_package_id,
         container_code=container_code,
         title=title,
         entities=units,
-        created=created,
-        created_by=created_by,
         can_stand_alone=can_stand_alone,
         container_cls=Subsection,
     )
@@ -63,8 +60,6 @@ def create_next_subsection_version(
     *,
     title: str | None = None,
     units: Iterable[Unit | UnitVersion] | None = None,
-    created: datetime,
-    created_by: int | None,
 ) -> SubsectionVersion:
     """
     See documentation of content_api.create_next_container_version()
@@ -72,6 +67,8 @@ def create_next_subsection_version(
     The only real purpose of this function is to rename `entities` to `units`, and to specify that the version
     returned is a `SubsectionVersion`. In the future, if `SubsectionVersion` gets some fields that aren't on
     `ContainerVersion`, this function would be more important.
+
+    Must be called inside `with draft_changes_for(...):`
     """
     if isinstance(subsection, int):
         subsection = get_subsection(subsection)
@@ -80,8 +77,6 @@ def create_next_subsection_version(
         subsection,
         title=title,
         entities=units,
-        created=created,
-        created_by=created_by,
         # For now, `entities_action` and `force_version_num` are unsupported but we could add them in the future.
     )
     assert isinstance(sv, SubsectionVersion)

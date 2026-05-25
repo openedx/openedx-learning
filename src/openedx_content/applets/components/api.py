@@ -79,10 +79,10 @@ def create_component(
     /,
     component_type: ComponentType,
     component_code: str,
-    created: datetime,
-    created_by: int | None,
     *,
     can_stand_alone: bool = True,
+    created: publishing_api.DatetimeOrAuto = publishing_api.DATETIME_AUTO,
+    created_by: publishing_api.AuthorOrAuto = publishing_api.AUTHOR_AUTO,
 ) -> Component:
     """
     Create a new Component (an entity like a Problem or Video).
@@ -90,6 +90,8 @@ def create_component(
     The ``entity_ref`` is conventionally derived as
     ``"{namespace}:{type_name}:{component_code}"``, although callers should not assume
     that this will always be true.
+
+    You must specify `created_by=` unless you're inside a `draft_changes_for` context.
     """
     entity_ref = f"{component_type.namespace}:{component_type.name}:{component_code}"
     with atomic():
@@ -114,8 +116,6 @@ def create_component_version(
     /,
     version_num: int,
     title: str,
-    created: datetime,
-    created_by: int | None,
     *,
     media: dict[str, Media.ID | Media | bytes] | None = None,
 ) -> ComponentVersion:
@@ -132,21 +132,27 @@ def create_component_version(
     almost always want to create a Media object first in actual app code,
     because that will give you better control over the MIME type and storage
     specifics (file vs. database).
+
+    Must be called inside `with draft_changes_for(...):`
     """
-    with atomic():
-        publishable_entity_version = publishing_api.create_publishable_entity_version(
-            component_id,
-            version_num=version_num,
-            title=title,
-            created=created,
-            created_by=created_by,
+    publishable_entity_version = publishing_api.create_publishable_entity_version(
+        component_id,
+        version_num=version_num,
+        title=title,
+    )
+    component_version = ComponentVersion.objects.create(
+        publishable_entity_version=publishable_entity_version,
+        component_id=component_id,
+    )
+    if media:
+        _set_component_version_media(
+            component_version,
+            media,
+            created=publishing_api.resolve_datetime(
+                publishable_entity_version.entity.learning_package_id,
+                publishing_api.DATETIME_AUTO,
+            ),
         )
-        component_version = ComponentVersion.objects.create(
-            publishable_entity_version=publishable_entity_version,
-            component_id=component_id,
-        )
-        if media:
-            _set_component_version_media(component_version, media, created=created)
 
     return component_version
 
@@ -155,9 +161,7 @@ def create_next_component_version(
     component_id: Component.ID,
     /,
     media_to_replace: dict[str, Media.ID | Media | bytes | None],
-    created: datetime,
     title: str | None = None,
-    created_by: int | None = None,
     *,
     force_version_num: int | None = None,
     ignore_previous_media: bool = False,
@@ -169,9 +173,7 @@ def create_next_component_version(
         component_id (int): The primary key of the Component to version.
         media_to_replace (dict): Mapping of file keys to Media IDs,
             None (for deletion), or bytes (for new file media).
-        created (datetime): The creation timestamp for the new version.
         title (str, optional): Title for the new version. If None, uses the previous version's title.
-        created_by (int, optional): User ID of the creator.
         force_version_num (int, optional): If provided, overrides the automatic version number increment and sets
             this version's number explicitly. Use this if you need to restore or import a version with a specific
             version number, such as during data migration or when synchronizing with external systems.
@@ -195,8 +197,7 @@ def create_next_component_version(
     Using `None` for a value in this dict means to delete that key in the next
     version.
 
-    Make sure to wrap the function call on a atomic statement:
-    ``with transaction.atomic():``
+    Must be called inside `with draft_changes_for(...):`
 
     It is okay to mark entries for deletion that don't exist. For instance, if a
     version has ``a.txt`` and ``b.txt``, sending a ``media_to_replace`` value
@@ -239,8 +240,6 @@ def create_next_component_version(
             component_id,
             version_num=next_version_num,
             title=title,
-            created=created,
-            created_by=created_by,
         )
         component_version = ComponentVersion.objects.create(
             publishable_entity_version=publishable_entity_version,
@@ -268,41 +267,44 @@ def create_next_component_version(
                 if media is not None  # "media is None" means "delete this"
             }
 
-        _set_component_version_media(component_version, paths_to_media, created)
+        _set_component_version_media(
+            component_version,
+            paths_to_media,
+            created=publishing_api.resolve_datetime(
+                publishable_entity_version.entity.learning_package_id,
+                publishing_api.DATETIME_AUTO,
+            ),
+        )
 
     return component_version
 
 
-def create_component_and_version(  # pylint: disable=too-many-positional-arguments
+def create_component_and_version(
     learning_package_id: LearningPackage.ID,
     /,
     component_type: ComponentType,
     component_code: str,
     title: str,
-    created: datetime,
-    created_by: int | None = None,
     *,
     can_stand_alone: bool = True,
     media: dict[str, Media.ID | Media | bytes] | None = None,
 ) -> tuple[Component, ComponentVersion]:
     """
     Create a Component and associated ComponentVersion atomically.
+
+    Must be called inside `with draft_changes_for(...):`
     """
     with atomic():
         component = create_component(
             learning_package_id,
             component_type,
             component_code,
-            created,
-            created_by,
             can_stand_alone=can_stand_alone,
         )
         component_version = create_component_version(
             component.id,
             version_num=1,
             title=title,
-            created=created,
-            created_by=created_by,
             media=media or {},
         )
 

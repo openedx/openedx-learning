@@ -5,7 +5,6 @@ Containers API
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 from typing import Iterable
 
@@ -135,11 +134,11 @@ class ParsedEntityReference:
 def create_container(
     learning_package_id: LearningPackage.ID,
     container_code: str,
-    created: datetime,
-    created_by: int | None,
     *,
     container_cls: type[ContainerModel],
     can_stand_alone: bool = True,
+    created: publishing_api.DatetimeOrAuto = publishing_api.DATETIME_AUTO,
+    created_by: publishing_api.AuthorOrAuto = publishing_api.AUTHOR_AUTO,
 ) -> ContainerModel:
     """
     Create a new container.
@@ -148,8 +147,8 @@ def create_container(
         learning_package_id: The ID of the learning package that contains the container.
         container_code: A local slug identifier for the container, unique within
             the learning package (regardless of container type).
-        created: The date and time the container was created.
-        created_by: The ID of the user who created the container
+        created: The date and time the container was created, or DATETIME_AUTO
+        created_by: The ID of the user who created the container, or AUTHOR_AUTO
         container_cls: The subclass of container to create (e.g. `Unit`)
         can_stand_alone: Set to False when created as part of containers
 
@@ -245,8 +244,6 @@ def _create_container_version(
     *,
     title: str,
     entity_list: EntityList,
-    created: datetime,
-    created_by: int | None,
 ) -> ContainerVersion:
     """
     Private internal method for logic shared by create_container_version() and
@@ -277,8 +274,6 @@ def _create_container_version(
             container.publishable_entity_id,
             version_num=version_num,
             title=title,
-            created=created,
-            created_by=created_by,
             dependencies=[entity_row.entity_id for entity_row in entity_list.rows if entity_row.is_unpinned()],
         )
         container_version = version_type.objects.create(
@@ -297,8 +292,6 @@ def create_container_version(
     *,
     title: str,
     entities: EntityListInput,
-    created: datetime,
-    created_by: int | None,
 ) -> ContainerVersion:
     """
     Create a new container version.
@@ -312,11 +305,11 @@ def create_container_version(
             `PublishableEntityVersionMixin` to pin to a specific version. Pass
             `PublishableEntity` or objects that use `PublishableEntityMixin` for
             unpinned.
-        created: The date and time the container version was created.
-        created_by: The ID of the user who created the container version.
 
     Returns:
         The newly created container version.
+
+    Must be called inside `with draft_changes_for(...):`
     """
     assert title is not None
     assert entities is not None
@@ -331,8 +324,6 @@ def create_container_version(
             version_num,
             title=title,
             entity_list=entity_list,
-            created=created,
-            created_by=created_by,
         )
 
     return container_version
@@ -345,8 +336,6 @@ def create_container_and_version(
     title: str,
     container_cls: type[ContainerModel],
     entities: EntityListInput | None = None,
-    created: datetime,
-    created_by: int | None = None,
     can_stand_alone: bool = True,
 ) -> tuple[ContainerModel, ContainerVersionModel]:
     """
@@ -362,27 +351,22 @@ def create_container_and_version(
             `PublishableEntityVersionMixin` to pin to a specific version. Pass
             `PublishableEntity` or objects that use `PublishableEntityMixin` for
             unpinned. Pass `None` for "no change".
-        created: The creation date.
-        created_by: The ID of the user who created the container.
         can_stand_alone: Set to False when created as part of containers
+
+    Must be called inside `with draft_changes_for(...):`
     """
-    with atomic(savepoint=False):
-        container = create_container(
-            learning_package_id,
-            container_code,
-            created,
-            created_by,
-            can_stand_alone=can_stand_alone,
-            container_cls=container_cls,
-        )
-        container_version: ContainerVersionModel = create_container_version(  # type: ignore[assignment]
-            container.id,
-            1,
-            title=title,
-            entities=entities or [],
-            created=created,
-            created_by=created_by,
-        )
+    container = create_container(
+        learning_package_id,
+        container_code,
+        can_stand_alone=can_stand_alone,
+        container_cls=container_cls,
+    )
+    container_version: ContainerVersionModel = create_container_version(  # type: ignore[assignment]
+        container.id,
+        1,
+        title=title,
+        entities=entities or [],
+    )
     return container, container_version
 
 
@@ -415,6 +399,7 @@ def create_next_entity_list(
 
     Returns:
         The newly created entity list.
+    Must be called inside `with draft_changes_for(...):`
     """
     parsed_entities = ParsedEntityReference.parse(entities)
     # Do a quick check that the given entities are in the right learning package:
@@ -458,8 +443,6 @@ def create_next_container_version(
     *,
     title: str | None = None,
     entities: EntityListInput | None = None,
-    created: datetime,
-    created_by: int | None,
     entities_action: ChildrenEntitiesAction = ChildrenEntitiesAction.REPLACE,
     force_version_num: int | None = None,
 ) -> ContainerVersion:
@@ -481,8 +464,6 @@ def create_next_container_version(
             `PublishableEntityVersionMixin` to pin to a specific version. Pass
             `PublishableEntity` or objects that use `PublishableEntityMixin` for
             unpinned. Pass `None` for "no change".
-        created: The date and time the container version was created.
-        created_by: The ID of the user who created the container version.
         force_version_num (int, optional): If provided, overrides the automatic version number increment and sets
             this version's number explicitly. Use this if you need to restore or import a version with a specific
             version number, such as during data migration or when synchronizing with external systems.
@@ -495,6 +476,8 @@ def create_next_container_version(
         If you need to set a specific version number (for example, when restoring from backup,
         importing legacy data, or synchronizing with another system),
         use force_version_num to override the default behavior.
+
+    Must be called inside `with draft_changes_for(...):`
     """
     with atomic():
         if isinstance(container, int):
@@ -523,8 +506,6 @@ def create_next_container_version(
             next_version_num,
             title=title if title is not None else last_version.title,
             entity_list=next_entity_list,
-            created=created,
-            created_by=created_by,
         )
 
     # reset any potentially cached 'container.versioning.draft' value on the passed 'container' instance, since we've

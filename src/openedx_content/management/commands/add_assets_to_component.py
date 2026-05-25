@@ -5,11 +5,10 @@ This is mostly meant to be a debugging tool to let us to easily load some test
 asset data into the system.
 """
 import pathlib
-from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 
-from ...api import create_next_component_version, get_component_by_code, get_learning_package_by_ref
+from ...api import create_next_component_version, draft_changes_for, get_component_by_code, get_learning_package_by_ref
 
 
 class Command(BaseCommand):
@@ -64,7 +63,6 @@ class Command(BaseCommand):
             learning_package.id, namespace, type_name, component_code
         )
 
-        created = datetime.now(tz=timezone.utc)
         media_path_to_content_bytes = {}
 
         for file_mapping in file_mappings:
@@ -72,11 +70,11 @@ class Command(BaseCommand):
 
             media_path_to_content_bytes[media_path] = pathlib.Path(file_path).read_bytes() if file_path else None
 
-        next_version = create_next_component_version(
-            component.id,
-            media_to_replace=media_path_to_content_bytes,
-            created=created,
-        )
+        with draft_changes_for(learning_package.id, None):
+            next_version = create_next_component_version(
+                component.id,
+                media_to_replace=media_path_to_content_bytes,
+            )
 
         self.stdout.write(
             f"Created v{next_version.version_num} of "

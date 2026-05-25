@@ -53,20 +53,20 @@ class ComponentTestCase(TestCase):
             draft_qset=publishing_api.get_all_drafts(self.learning_package.id).filter(
                 entity=component.publishable_entity,
             ),
+            published_by=None,
         )
 
     def create_component(self, *, title: str = "Test Component", component_code: str = "component_1") -> tuple[
         Component, ComponentVersion
     ]:
         """ Helper method to quickly create a component """
-        return components_api.create_component_and_version(
-            self.learning_package.id,
-            component_type=self.problem_type,
-            component_code=component_code,
-            title=title,
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            return components_api.create_component_and_version(
+                self.learning_package.id,
+                component_type=self.problem_type,
+                component_code=component_code,
+                title=title,
+            )
 
 
 class PerformanceTestCase(ComponentTestCase):
@@ -84,17 +84,17 @@ class PerformanceTestCase(ComponentTestCase):
         """
         Create a basic component and test that we fetch it back in 1 query.
         """
-        component, _version = components_api.create_component_and_version(
-            self.learning_package.id,
-            component_type=self.problem_type,
-            component_code="Query_Counting",
-            title="Querying Counting Problem",
-            created=self.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            component, _version = components_api.create_component_and_version(
+                self.learning_package.id,
+                component_type=self.problem_type,
+                component_code="Query_Counting",
+                title="Querying Counting Problem",
+            )
         publishing_api.publish_all_drafts(
             self.learning_package.id,
-            published_at=self.now
+            published_by=None,
+            published_at=self.now,
         )
 
         # We should be fetching all of this with a select-related, so only one
@@ -129,56 +129,49 @@ class GetComponentsTestCase(ComponentTestCase):
         super().setUpTestData()
         v2_problem_type = components_api.get_or_create_component_type("xblock.v2", "problem")
 
-        cls.published_problem, _version = components_api.create_component_and_version(
-            cls.learning_package.id,
-            component_type=v2_problem_type,
-            component_code="pp_lk",
-            title="Published Problem",
-            created=cls.now,
-            created_by=None,
-        )
-        cls.published_html, _version = components_api.create_component_and_version(
-            cls.learning_package.id,
-            component_type=cls.html_type,
-            component_code="ph_lk",
-            title="Published HTML",
-            created=cls.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(cls.learning_package.id, None):
+            cls.published_problem, _version = components_api.create_component_and_version(
+                cls.learning_package.id,
+                component_type=v2_problem_type,
+                component_code="pp_lk",
+                title="Published Problem",
+            )
+            cls.published_html, _version = components_api.create_component_and_version(
+                cls.learning_package.id,
+                component_type=cls.html_type,
+                component_code="ph_lk",
+                title="Published HTML",
+            )
         publishing_api.publish_all_drafts(
             cls.learning_package.id,
-            published_at=cls.now
+            published_by=None,
+            published_at=cls.now,
         )
 
-        # Components that exist only as Drafts
-        cls.unpublished_problem, _version = components_api.create_component_and_version(
-            cls.learning_package.id,
-            component_type=v2_problem_type,
-            component_code="upp_lk",
-            title="Unpublished Problem",
-            created=cls.now,
-            created_by=None,
-        )
-        cls.unpublished_html, _version = components_api.create_component_and_version(
-            cls.learning_package.id,
-            component_type=cls.html_type,
-            component_code="uph_lk",
-            title="Unpublished HTML",
-            created=cls.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(cls.learning_package.id, None):
+            # Components that exist only as Drafts
+            cls.unpublished_problem, _version = components_api.create_component_and_version(
+                cls.learning_package.id,
+                component_type=v2_problem_type,
+                component_code="upp_lk",
+                title="Unpublished Problem",
+            )
+            cls.unpublished_html, _version = components_api.create_component_and_version(
+                cls.learning_package.id,
+                component_type=cls.html_type,
+                component_code="uph_lk",
+                title="Unpublished HTML",
+            )
 
-        # Component we're putting here to soft delete (this will remove the
-        # Draft entry)
-        cls.deleted_video, _version = components_api.create_component_and_version(
-            cls.learning_package.id,
-            component_type=cls.video_type,
-            component_code="dv_lk",
-            title="Deleted Video",
-            created=cls.now,
-            created_by=None,
-        )
-        publishing_api.soft_delete_draft(cls.deleted_video.id)
+            # Component we're putting here to soft delete (this will remove the
+            # Draft entry)
+            cls.deleted_video, _version = components_api.create_component_and_version(
+                cls.learning_package.id,
+                component_type=cls.video_type,
+                component_code="dv_lk",
+                title="Deleted Video",
+            )
+            publishing_api.soft_delete_draft(cls.deleted_video.id)
 
     def test_no_filters(self):
         """
@@ -444,16 +437,15 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             text="This is some data",
             created=self.now,
         )
-        components_api.create_component_version(
-            self.problem.id,
-            version_num=1,
-            title="My Title",
-            created=self.now,
-            created_by=None,
-            media={
-                "my/path/to/hello.txt": new_media
-            }
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            components_api.create_component_version(
+                self.problem.id,
+                version_num=1,
+                title="My Title",
+                media={
+                    "my/path/to/hello.txt": new_media
+                }
+            )
 
         # re-fetch from the database to check to see if we wrote it correctly
         new_version = components_api.get_component(self.problem.id) \
@@ -473,13 +465,13 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         ]
         for invalid_path in invalid_paths:
             with self.assertRaises(ValueError):
-                new_version = components_api.create_next_component_version(
-                    self.problem.id,
-                    media_to_replace={
-                        invalid_path: new_media
-                    },
-                    created=self.now,
-                )
+                with publishing_api.draft_changes_for(self.learning_package.id, None):
+                    new_version = components_api.create_next_component_version(
+                        self.problem.id,
+                        media_to_replace={
+                            invalid_path: new_media
+                        },
+                    )
 
     def test_create_with_media_or_id(self):
         """Test that we can create Media associations with Media or Media.ID."""
@@ -489,18 +481,18 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             data=b"print('hello world!')",
             created=self.now,
         )
-        _problem, version = components_api.create_component_and_version(
-            self.learning_package.id,
-            component_type=self.problem_type,
-            component_code="media_problem_1",
-            title="Testing Media Associations",
-            created=self.now,
-            media={
-                'hello.py': python_src_media,
-                'hello2.py': python_src_media.id,
-                'hello.txt': b"Bytes are tested in test_bytes_content()"
-            }
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            _problem, version = components_api.create_component_and_version(
+                self.learning_package.id,
+                component_type=self.problem_type,
+                component_code="media_problem_1",
+                title="Testing Media Associations",
+                media={
+                    'hello.py': python_src_media,
+                    'hello2.py': python_src_media.id,
+                    'hello.txt': b"Bytes are tested in test_bytes_content()"
+                }
+            )
         assert (
             python_src_media ==
             version.media.get(componentversionmedia__path="hello.py") ==
@@ -509,16 +501,16 @@ class CreateNewVersionsTestCase(ComponentTestCase):
 
         # But we don't accept None as a media value
         with self.assertRaises(ValueError):
-            components_api.create_component_and_version(
-                self.learning_package.id,
-                component_type=self.problem_type,
-                component_code="media_problem_2",
-                title="This shouldn't work",
-                created=self.now,
-                media={
-                    "block.xml": None
-                }
-            )
+            with publishing_api.draft_changes_for(self.learning_package.id, None):
+                components_api.create_component_and_version(
+                    self.learning_package.id,
+                    component_type=self.problem_type,
+                    component_code="media_problem_2",
+                    title="This shouldn't work",
+                    media={
+                        "block.xml": None
+                    }
+                )
 
         # We also don't allow a different LearningPackage's Media to be assigned
         different_lp = publishing_api.create_learning_package(
@@ -531,29 +523,29 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             created=self.now,
         )
         with self.assertRaises(ValueError):
-            components_api.create_component_and_version(
-                self.learning_package.id,
-                component_type=self.problem_type,
-                component_code="media_problem_3",
-                title="This also shouldn't work",
-                created=self.now,
-                media={
-                    "invalid-outside-media.txt": outside_media,
-                }
-            )
+            with publishing_api.draft_changes_for(self.learning_package.id, None):
+                components_api.create_component_and_version(
+                    self.learning_package.id,
+                    component_type=self.problem_type,
+                    component_code="media_problem_3",
+                    title="This also shouldn't work",
+                    media={
+                        "invalid-outside-media.txt": outside_media,
+                    }
+                )
 
     def test_bytes_content(self):
         bytes_media = b'raw content'
 
-        version_1 = components_api.create_next_component_version(
-            self.problem.id,
-            title="Problem Version 1",
-            media_to_replace={
-                "raw.txt": bytes_media,
-                "no_ext": bytes_media,
-            },
-            created=self.now,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            version_1 = components_api.create_next_component_version(
+                self.problem.id,
+                title="Problem Version 1",
+                media_to_replace={
+                    "raw.txt": bytes_media,
+                    "no_ext": bytes_media,
+                },
+            )
 
         content_txt = version_1.media.get(componentversionmedia__path="raw.txt")
         content_raw_txt = version_1.media.get(componentversionmedia__path="no_ext")
@@ -587,15 +579,15 @@ class CreateNewVersionsTestCase(ComponentTestCase):
         )
 
         # Two text files, hello.txt and goodbye.txt
-        version_1 = components_api.create_next_component_version(
-            self.problem.id,
-            title="Problem Version 1",
-            media_to_replace={
-                "hello.txt": hello_media.pk,
-                "goodbye.txt": goodbye_media.pk,
-            },
-            created=self.now,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            version_1 = components_api.create_next_component_version(
+                self.problem.id,
+                title="Problem Version 1",
+                media_to_replace={
+                    "hello.txt": hello_media.pk,
+                    "goodbye.txt": goodbye_media.pk,
+                },
+            )
         assert version_1.version_num == 1
         assert version_1.title == "Problem Version 1"
         version_1_contents = list(version_1.media.all())
@@ -613,15 +605,15 @@ class CreateNewVersionsTestCase(ComponentTestCase):
 
         # This should keep the old value for goodbye.txt, add blank.txt, and set
         # hello.txt to be a new value (blank).
-        version_2 = components_api.create_next_component_version(
-            self.problem.id,
-            title="Problem Version 2",
-            media_to_replace={
-                "hello.txt": blank_media.pk,
-                "blank.txt": blank_media.pk,
-            },
-            created=self.now,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            version_2 = components_api.create_next_component_version(
+                self.problem.id,
+                title="Problem Version 2",
+                media_to_replace={
+                    "hello.txt": blank_media.pk,
+                    "blank.txt": blank_media.pk,
+                },
+            )
         assert version_2.version_num == 2
         assert version_2.media.count() == 3
         assert (
@@ -642,17 +634,17 @@ class CreateNewVersionsTestCase(ComponentTestCase):
 
         # Now we're going to set "hello.txt" back to hello_content, but remove
         # blank.txt, goodbye.txt, and an unknown "nothere.txt".
-        version_3 = components_api.create_next_component_version(
-            self.problem.id,
-            title="Problem Version 3",
-            media_to_replace={
-                "hello.txt": hello_media.pk,
-                "blank.txt": None,
-                "goodbye.txt": None,
-                "nothere.txt": None,  # should not error
-            },
-            created=self.now,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            version_3 = components_api.create_next_component_version(
+                self.problem.id,
+                title="Problem Version 3",
+                media_to_replace={
+                    "hello.txt": hello_media.pk,
+                    "blank.txt": None,
+                    "goodbye.txt": None,
+                    "nothere.txt": None,  # should not error
+                },
+            )
         assert version_3.version_num == 3
         assert version_3.media.count() == 1
         assert (
@@ -663,13 +655,13 @@ class CreateNewVersionsTestCase(ComponentTestCase):
 
     def test_create_next_version_forcing_num_version(self):
         """Test creating a next version with a forced version number."""
-        version_1 = components_api.create_next_component_version(
-            self.problem.id,
-            title="Problem Version 1",
-            media_to_replace={},
-            created=self.now,
-            force_version_num=5,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            version_1 = components_api.create_next_component_version(
+                self.problem.id,
+                title="Problem Version 1",
+                media_to_replace={},
+                force_version_num=5,
+            )
         assert version_1.version_num == 5
 
     def test_create_multiple_next_versions_and_diff_content(self):
@@ -695,26 +687,27 @@ class CreateNewVersionsTestCase(ComponentTestCase):
             'static/profile.webp': python_source_asset.pk,
             'static/new_file.webp': python_source_asset.pk,
         }
-        version_1_published = components_api.create_next_component_version(
-            self.problem.id,
-            title="Problem Version 1",
-            media_to_replace=media_to_replace_for_published,
-            created=self.now,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            version_1_published = components_api.create_next_component_version(
+                self.problem.id,
+                title="Problem Version 1",
+                media_to_replace=media_to_replace_for_published,
+            )
         assert version_1_published.version_num == 1
 
         publishing_api.publish_all_drafts(
             self.learning_package.id,
-            published_at=self.now
+            published_by=None,
+            published_at=self.now,
         )
 
-        version_2_draft = components_api.create_next_component_version(
-            self.problem.id,
-            title="Problem Version 2",
-            media_to_replace=media_to_replace_for_draft,
-            created=self.now,
-            ignore_previous_media=True,
-        )
+        with publishing_api.draft_changes_for(self.learning_package.id, None):
+            version_2_draft = components_api.create_next_component_version(
+                self.problem.id,
+                title="Problem Version 2",
+                media_to_replace=media_to_replace_for_draft,
+                ignore_previous_media=True,
+            )
         assert version_2_draft.version_num == 2
         assert version_2_draft.media.count() == 2
         assert (
@@ -750,14 +743,13 @@ class SetCollectionsTestCase(ComponentTestCase):
         """
         super().setUpTestData()
         v2_problem_type = components_api.get_or_create_component_type("xblock.v2", "problem")
-        cls.published_problem, _ = components_api.create_component_and_version(
-            cls.learning_package.id,
-            component_type=v2_problem_type,
-            component_code="pp_lk",
-            title="Published Problem",
-            created=cls.now,
-            created_by=None,
-        )
+        with publishing_api.draft_changes_for(cls.learning_package.id, None):
+            cls.published_problem, _ = components_api.create_component_and_version(
+                cls.learning_package.id,
+                component_type=v2_problem_type,
+                component_code="pp_lk",
+                title="Published Problem",
+            )
         cls.collection1 = collection_api.create_collection(
             cls.learning_package.id,
             collection_code="MYCOL1",
