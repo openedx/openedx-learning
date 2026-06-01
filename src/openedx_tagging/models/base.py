@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List, Self
+from typing import List, Self, cast
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -562,11 +562,11 @@ class Taxonomy(models.Model):
             )
             if excluded_values:
                 matching_tags = matching_tags.exclude(value__in=excluded_values)
-            matching_ids = []
+            matching_ids: list[int] = []
             for row in matching_tags:
                 for pk in row.values():
                     if pk is not None:
-                        matching_ids.append(pk)
+                        matching_ids.append(cast(int, pk))
                 next_ancestor_id = row["parent__parent__parent_id"]
                 while next_ancestor_id:  # If there are even deeper ancestors, add them (inefficiently):
                     next_ancestor_id = Tag.objects.get(pk=next_ancestor_id).parent_id
