@@ -1,0 +1,115 @@
+# This is a Code Annotations automatically-generated Django model safelist file.
+# These models must be annotated as follows in order to be counted in the coverage report.
+# See https://code-annotations.readthedocs.io/en/latest/safelist.html for more information.
+#
+# fake_app_1.FakeModelName:
+#    ".. no_pii:": "This model has no PII"
+# fake_app_2.FakeModel2:
+#    ".. choice_annotation:": foo, bar, baz
+
+admin.LogEntry:
+  ".. no_pii:": "This model has no PII"
+auth.Group:
+  ".. no_pii:": "This model has no PII"
+auth.Permission:
+  ".. no_pii:": "This model has no PII"
+auth.User:
+  ".. pii": "This model minimally contains a username, password, and email"
+  ".. pii_types": "username, email_address, password"
+  ".. pii_retirement": "consumer_api"
+contenttypes.ContentType:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Asset:
+  ".. no_pii:": "This model has no PII"
+openedx_content.AssetBundle:
+  ".. no_pii:": "This model has no PII"
+openedx_content.AssetBundleType:
+  ".. no_pii:": "This model has no PII"
+openedx_content.AssetBundleVersion:
+  ".. no_pii:": "This model has no PII"
+openedx_content.AssetBundleVersionAsset:
+  ".. no_pii:": "This model has no PII"
+openedx_content.AssetType:
+  ".. no_pii:": "This model has no PII"
+openedx_content.AssetVersion:
+  ".. no_pii:": "This model has no PII"
+openedx_content.AssetVersionMedia:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Collection:
+  ".. no_pii:": "This model has no PII"
+openedx_content.CollectionPublishableEntity:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Component:
+  ".. no_pii:": "This model has no PII"
+openedx_content.ComponentType:
+  ".. no_pii:": "This model has no PII"
+openedx_content.ComponentVersion:
+  ".. no_pii:": "This model has no PII"
+openedx_content.ComponentVersionContent:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Content:
+  ".. no_pii:": "This model has no PII"
+openedx_content.MediaType:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Container:
+  ".. no_pii:": "This model has no PII"
+openedx_content.ContainerVersion:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Draft:
+  ".. no_pii:": "This model has no PII"
+openedx_content.EntityList:
+  ".. no_pii:": "This model has no PII"
+openedx_content.EntityListRow:
+  ".. no_pii:": "This model has no PII"
+openedx_content.LearningPackage:
+  ".. no_pii:": "This model has no PII"
+openedx_content.PublishLog:
+  ".. no_pii:": "This model has no PII"
+openedx_content.PublishLogRecord:
+  ".. no_pii:": "This model has no PII"
+openedx_content.PublishableEntity:
+  ".. no_pii:": "This model has no PII"
+openedx_content.PublishableEntityVersion:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Published:
+  ".. no_pii:": "This model has no PII"
+oel_tagging.ObjectTag:
+  ".. no_pii:": "This model has no PII"
+oel_tagging.Tag:
+  ".. no_pii:": "This model has no PII"
+oel_tagging.TagImportTask:
+  ".. no_pii:": "This model has no PII"
+oel_tagging.Taxonomy:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Section:
+  ".. no_pii:": "This model has no PII"
+openedx_content.SectionVersion:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Subsection:
+  ".. no_pii:": "This model has no PII"
+openedx_content.SubsectionVersion:
+  ".. no_pii:": "This model has no PII"
+openedx_content.Unit:
+  ".. no_pii:": "This model has no PII"
+openedx_content.UnitVersion:
+  ".. no_pii:": "This model has no PII"
+social_django.Association:
+  ".. no_pii:": "This model has no PII"
+social_django.Code:
+  ".. pii:": "Email address"
+  ".. pii_types:": other
+  ".. pii_retirement:": local_api
+social_django.Nonce:
+  ".. no_pii:": "This model has no PII"
+social_django.Partial:
+  ".. no_pii:": "This model has no PII"
+social_django.UserSocialAuth:
+  ".. no_pii:": "This model has no PII"
+sessions.Session:
+  ".. no_pii:": "This model has no PII"
+waffle.Flag:
+  ".. no_pii:": "This model has no PII"
+waffle.Sample:
+  ".. no_pii:": "This model has no PII"
+waffle.Switch:
+  ".. no_pii:": "This model has no PII"
