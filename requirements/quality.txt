@@ -30,7 +30,7 @@ billiard==4.2.4
     #   celery
 celery==5.6.3
     # via -r requirements/test.txt
-certifi==2026.4.22
+certifi==2026.5.20
     # via
     #   -r requirements/test.txt
     #   requests
@@ -43,7 +43,7 @@ charset-normalizer==3.4.7
     # via
     #   -r requirements/test.txt
     #   requests
-click==8.4.0
+click==8.4.1
     # via
     #   -r requirements/test.txt
     #   celery
@@ -73,7 +73,7 @@ code-annotations==3.0.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.14.0
+coverage[toml]==7.14.1
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -117,11 +117,11 @@ django-simple-history==3.11.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
-django-stubs==6.0.4
+django-stubs==6.0.5
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==6.0.4
+django-stubs-ext==6.0.5
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -142,7 +142,7 @@ dnspython==2.8.0
     # via
     #   -r requirements/test.txt
     #   pymongo
-docutils==0.22.4
+docutils==0.23
     # via readme-renderer
 drf-jwt==1.19.2
     # via
@@ -184,7 +184,7 @@ grimp==3.14
     #   import-linter
 id==1.6.1
     # via twine
-idna==3.15
+idna==3.17
     # via
     #   -r requirements/test.txt
     #   requests
@@ -238,7 +238,7 @@ mdurl==0.1.2
     #   markdown-it-py
 mock==5.2.0
     # via -r requirements/test.txt
-more-itertools==11.0.2
+more-itertools==11.1.0
     # via
     #   jaraco-classes
     #   jaraco-functools
@@ -270,7 +270,7 @@ pillow==12.2.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
-platformdirs==4.9.6
+platformdirs==4.10.0
     # via pylint
 pluggy==1.6.0
     # via
@@ -299,7 +299,7 @@ pygments==2.20.0
     #   pytest
     #   readme-renderer
     #   rich
-pyjwt[crypto]==2.12.1
+pyjwt[crypto]==2.13.0
     # via
     #   -r requirements/test.txt
     #   drf-jwt
@@ -379,14 +379,14 @@ six==1.17.0
     #   edx-ccx-keys
     #   edx-lint
     #   python-dateutil
-snowballstemmer==3.0.1
+snowballstemmer==3.1.0
     # via pydocstyle
 sqlparse==0.5.5
     # via
     #   -r requirements/test.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.7.0
+stevedore==5.8.0
     # via
     #   -r requirements/test.txt
     #   code-annotations
@@ -403,7 +403,7 @@ tomlkit==0.15.0
     #   pylint
 twine==6.2.0
     # via -r requirements/quality.in
-types-pyyaml==6.0.12.20260510
+types-pyyaml==6.0.12.20260518
     # via
     #   -r requirements/test.txt
     #   django-stubs
