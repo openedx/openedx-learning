@@ -52,6 +52,13 @@ This is a low-level batch event. It does not have any course or library context
 information available. It does not distinguish between Containers, Components,
 or other entity types.
 
+⚠️ Collections do NOT participate in draft-publish nor versioning. If an entity
+is added to a collection and then its draft is soft deleted, no
+``COLLECTION_CHANGED`` event will fire, as the entity is still associated with
+the collection regardless of whether its draft or published versions exist. If
+your app cares about this case, you'll also need to subscribe to the
+``ENTITIES_DRAFT_CHANGED`` event.
+
 💾 This event is only emitted after any transaction has been committed.
 
 ⏳ This **batch** event is emitted **synchronously**. Handlers that do anything

@@ -49,5 +49,4 @@ class ContentConfig(AppConfig):
         """
         self.register_publishable_models()
         # Import signal handlers so Django registers all @receiver callbacks.
-        from .applets.collections import signal_handlers  # pylint: disable=unused-import
         from .applets.publishing import signal_handlers as _publishing_signal_handlers

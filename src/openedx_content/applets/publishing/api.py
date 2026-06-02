@@ -1264,6 +1264,27 @@ def _emit_event_for_change_log(
 
     learning_package_id = change_log.learning_package.id
     learning_package_title = change_log.learning_package.title
+    records: list[DraftChangeLogRecord | PublishLogRecord] = list(
+        change_log.records.order_by("id").select_related("old_version", "new_version").all()
+    )
+
+    # For draft change logs, distinguish "restored" entities (un-soft-delete) from brand-new entities.
+    # Both have old_version_id=None, but a brand-new entity has no DraftChangeLogRecord in any prior
+    # change log, while a restored entity does (its creation, soft-delete, and possibly more).
+    restored_entity_ids: set[int] = set()
+    if isinstance(change_log, DraftChangeLog):
+        candidate_entity_ids = [
+            r.entity_id for r in records if r.old_version_id is None and r.new_version_id is not None
+        ]
+        if candidate_entity_ids:
+            restored_entity_ids = set(
+                DraftChangeLogRecord.objects
+                .filter(entity_id__in=candidate_entity_ids)
+                .exclude(draft_change_log_id=change_log.id)
+                .values_list("entity_id", flat=True)
+                .distinct()
+            )
+
     changes = [
         signals.ChangeLogRecordData(
             entity_id=record.entity_id,
@@ -1272,8 +1293,9 @@ def _emit_event_for_change_log(
             new_version=record.new_version.version_num if record.new_version else None,
             new_version_id=record.new_version_id,
             direct=record.direct if isinstance(record, PublishLogRecord) else None,
+            restored=record.entity_id in restored_entity_ids,
         )
-        for record in change_log.records.order_by("id").select_related("old_version", "new_version").all()
+        for record in records
     ]
 
     change_log_data: signals.DraftChangeLogEventData | signals.PublishLogEventData
