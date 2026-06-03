@@ -2545,6 +2545,7 @@ class CrossEntityValidationTestCase(TransactionTestCase):
         ordering of DraftChangeLog vs. PublishLog records and can leave Drafts
         and Published rows out of sync if the outer context later raises.
         """
+        lp1_id = self.learning_package_1.id
         entity = publishing_api.create_publishable_entity(
             self.learning_package_1.id,
             "entity_for_bulk_publish_check",
@@ -2559,13 +2560,20 @@ class CrossEntityValidationTestCase(TransactionTestCase):
             created_by=None,
         )
 
-        with pytest.raises(ValidationError, match="Cannot publish while in bulk_draft_changes_for()."):
-            with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
-                publishing_api.publish_all_drafts(self.learning_package_1.id)
+        with pytest.raises(
+            ValidationError,
+            match=f"Cannot publish learning package {lp1_id} while in bulk_draft_changes_for()."
+        ):
+            with publishing_api.bulk_draft_changes_for(lp1_id):
+                publishing_api.publish_all_drafts(lp1_id)
 
-        with pytest.raises(ValidationError, match="Cannot publish while in bulk_draft_changes_for()."):
-            with publishing_api.bulk_draft_changes_for(self.learning_package_1.id):
-                publishing_api.publish_from_drafts(
-                    self.learning_package_1.id,
-                    Draft.objects.filter(entity__learning_package_id=self.learning_package_1.id),
-                )
+        with pytest.raises(
+            ValidationError,
+            match=f"Cannot publish learning package {lp1_id} while in bulk_draft_changes_for()."
+        ):
+            with publishing_api.bulk_draft_changes_for(lp1_id):
+                publishing_api.publish_from_drafts(lp1_id, Draft.objects.filter(entity__learning_package_id=lp1_id))
+
+        # But we CAN publish if the bulk_draft_changes_for is a different learning package:
+        with publishing_api.bulk_draft_changes_for(self.learning_package_2.id):
+            publishing_api.publish_all_drafts(lp1_id)
