@@ -18,10 +18,10 @@ jobs:
           python-version: 3.12
 
       - name: Install pip
-        run: pip install -r requirements/pip.txt
+        run: pip install -r requirements/pip.txt build
 
       - name: Build the package (openedx-core)
-        run: python setup.py sdist bdist_wheel
+        run: python -m build
 
       - name: Publish openedx-core to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

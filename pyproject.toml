@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openedx-core"
+description = "Open edX Core: Foundational Packages for a Teaching & Learning Platform"
+authors = [{name = "David Ormsbee", email = "dave@axim.org"}]
+readme = {file = "README.rst", content-type = "text/x-rst"}
+license = "AGPL-3.0-only"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.12"
+keywords = ["Python", "edx"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "attrs",                    # Reduces boilerplate code involving class attributes
+    "celery",                   # Asynchronous task execution library
+    "Django",                   # Web application framework
+    "djangorestframework<4.0",  # REST API
+    "edx-drf-extensions",       # Extensions to the Django REST Framework used by Open edX
+    "openedx-events",           # For sending events to the openedx event bus
+    "rules<4.0",                # Django extension for rules-based authorization checks
+    "tomlkit",                  # Parses and writes TOML configuration files
+    "edx-organizations",        # Implements the "Organization" model that CatalogCourse/CourseRun key to
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/openedx/openedx-core"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "openedx_core.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.isort]
+include_trailing_comma = true
+indent = "    "
+line_length = 120
+multi_line_output = 3
