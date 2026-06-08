@@ -28,7 +28,7 @@ babel==2.18.0
     # via
     #   pydata-sphinx-theme
     #   sphinx
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
     # via pydata-sphinx-theme
 billiard==4.2.4
     # via
@@ -83,7 +83,7 @@ cryptography==48.0.0
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==5.2.14
+django==5.2.15
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -185,7 +185,7 @@ grimp==3.14
     # via
     #   -r requirements/test.txt
     #   import-linter
-idna==3.17
+idna==3.18
     # via
     #   -r requirements/test.txt
     #   requests
@@ -342,7 +342,7 @@ six==1.17.0
     #   -r requirements/test.txt
     #   edx-ccx-keys
     #   python-dateutil
-snowballstemmer==3.1.0
+snowballstemmer==3.1.1
     # via sphinx
 soupsieve==2.8.4
     # via beautifulsoup4
@@ -421,7 +421,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.7.0
+wcwidth==0.8.0
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit

@@ -86,7 +86,7 @@ ddt==1.7.2
     # via -r requirements/test.txt
 dill==0.4.1
     # via pylint
-django==5.2.14
+django==5.2.15
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -184,7 +184,7 @@ grimp==3.14
     #   import-linter
 id==1.6.1
     # via twine
-idna==3.17
+idna==3.18
     # via
     #   -r requirements/test.txt
     #   requests
@@ -379,7 +379,7 @@ six==1.17.0
     #   edx-ccx-keys
     #   edx-lint
     #   python-dateutil
-snowballstemmer==3.1.0
+snowballstemmer==3.1.1
     # via pydocstyle
 sqlparse==0.5.5
     # via
@@ -438,7 +438,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.7.0
+wcwidth==0.8.0
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit

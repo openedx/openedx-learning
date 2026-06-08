@@ -158,7 +158,7 @@ freezegun==1.5.5
     # via -r requirements/test.in
 grimp==3.14
     # via import-linter
-idna==3.17
+idna==3.18
     # via
     #   -r requirements/base.txt
     #   requests
@@ -316,7 +316,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.7.0
+wcwidth==0.8.0
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit
