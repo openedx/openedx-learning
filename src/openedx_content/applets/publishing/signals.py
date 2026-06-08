@@ -68,6 +68,15 @@ class ChangeLogRecordData:
     (if applicable/known)
     """
 
+    restored: bool = False
+    """
+    True iff this is a draft change that goes from ``old_version=None`` to a non-None ``new_version`` for an
+    entity that already existed in some prior state (i.e. an un-soft-delete). False for brand-new entities
+    that have never had a Draft before, and for any change where ``old_version`` is not None.
+
+    Only populated for ``ENTITIES_DRAFT_CHANGED``; always False for ``ENTITIES_PUBLISHED``.
+    """
+
 
 @define
 class DraftChangeLogEventData:

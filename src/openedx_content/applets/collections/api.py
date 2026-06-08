@@ -202,6 +202,11 @@ def add_to_collection(
         )
 
     collection = get_collection(learning_package_id, collection_code)
+    if not collection.enabled:
+        raise ValidationError(
+            "Cannot add entities to a disabled (soft deleted) collection "
+            f"(collection {collection_code} in learning package {learning_package_id})."
+        )
     existing_ids = set(collection.entities.values_list("id", flat=True))
     ids_to_add = entities_qset.values_list("id", flat=True)
     collection.entities.add(*ids_to_add, through_defaults={"created_by_id": created_by})

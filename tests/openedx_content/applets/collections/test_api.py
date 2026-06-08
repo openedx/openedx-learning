@@ -320,13 +320,6 @@ class CollectionEntitiesTestCase(CollectionsTestCase):
                 cls.draft_unit.id,
             ]),
         )
-        cls.disabled_collection = api.add_to_collection(
-            cls.learning_package.id,
-            collection_code=cls.disabled_collection.collection_code,
-            entities_qset=PublishableEntity.objects.filter(id__in=[
-                cls.published_component.id,
-            ]),
-        )
 
 
 class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
@@ -409,6 +402,30 @@ class CollectionAddRemoveEntitiesTestCase(CollectionEntitiesTestCase):
             )
 
         assert not list(self.another_library_collection.entities.all())
+
+    def test_add_to_soft_deleted_collection(self):
+        """
+        We cannot add entities to a soft-deleted (disabled) collection.
+        """
+        api.delete_collection(
+            self.learning_package.id,
+            collection_code=self.collection1.collection_code,
+        )
+
+        with self.assertRaises(ValidationError):
+            api.add_to_collection(
+                self.learning_package.id,
+                self.collection1.collection_code,
+                PublishableEntity.objects.filter(id__in=[
+                    self.draft_component.id,
+                ]),
+                created_by=self.user.id,
+            )
+
+        # The collection's entities are unchanged.
+        assert list(self.collection1.entities.all()) == [
+            self.published_component.publishable_entity,
+        ]
 
     def test_remove_from_collection(self):
         """

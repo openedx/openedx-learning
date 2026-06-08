@@ -5,6 +5,7 @@ Tests for the COLLECTION_CHANGED signal.
 from datetime import datetime, timezone
 
 import pytest
+from django.db import transaction
 
 from openedx_content import api
 from openedx_content.applets.collections.signals import COLLECTION_CHANGED, CollectionChangeData
@@ -385,7 +386,7 @@ def test_set_collections_aborted(lp1: LearningPackage) -> None:
             api.set_collections(entity, Collection.objects.filter(id=col1.id))
 
 
-# COLLECTION_CHANGED — on entity draft deletion
+# COLLECTION_CHANGED — entity draft state changes do NOT emit
 
 
 def _create_entity_with_version(learning_package_id: LearningPackage.ID, entity_ref: str) -> PublishableEntity:
@@ -397,166 +398,118 @@ def _create_entity_with_version(learning_package_id: LearningPackage.ID, entity_
     return entity
 
 
-def test_entity_draft_deleted_in_collection(lp1: LearningPackage, admin_user) -> None:
+def test_entity_draft_state_changes_do_not_emit_collection_event(lp1: LearningPackage) -> None:
     """
-    Test that COLLECTION_CHANGED is emitted with entities_removed
-    when an entity's draft is deleted and that entity is in a collection.
+    COLLECTION_CHANGED reflects explicit mutations of a Collection (its metadata
+    or its membership rows), not changes to the draft state of entities that
+    happen to be members. Soft-deleting, restoring, or creating an entity does
+    NOT emit COLLECTION_CHANGED — even if that entity is in one or more
+    collections — because the ``CollectionPublishableEntity`` rows themselves
+    are unchanged.
+
+    Consumers that need to react to draft-state changes of entities-in-collections
+    should subscribe to ``ENTITIES_DRAFT_CHANGED`` directly.
     """
-    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+    api.create_collection(lp1.id, "col2", title="Collection 2", created_by=None)
     entity = _create_entity_with_version(lp1.id, "entity1")
-    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
-
-    with capture_events(signals=[COLLECTION_CHANGED], expected_count=1) as captured:
-        api.soft_delete_draft(entity.id, deleted_by=admin_user.id)
-
-    event = captured[0]
-    assert event.signal is COLLECTION_CHANGED
-    assert event.kwargs["learning_package"].id == lp1.id
-    assert event.kwargs["changed_by"].user_id == admin_user.id
-    assert event.kwargs["change"] == CollectionChangeData(
-        collection_id=collection.id,
-        collection_code="col1",
-        entities_removed=[entity.id],
-    )
-
-
-def test_entity_draft_deleted_multiple_collections(lp1: LearningPackage) -> None:
-    """
-    Test that COLLECTION_CHANGED is emitted once per collection
-    when a deleted entity belongs to multiple collections.
-    """
-    col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
-    col2 = api.create_collection(lp1.id, "col2", title="Collection 2", created_by=None)
-    entity = _create_entity_with_version(lp1.id, "entity1")
+    v1 = api.get_draft_version(entity)
     api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
     api.add_to_collection(lp1.id, "col2", PublishableEntity.objects.filter(id=entity.id))
 
-    with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
-        api.soft_delete_draft(entity.id)
-
-    events_by_collection = {e.kwargs["change"].collection_id: e for e in captured}
-    assert set(events_by_collection.keys()) == {col1.id, col2.id}
-    assert events_by_collection[col1.id].kwargs["change"] == CollectionChangeData(
-        collection_id=col1.id,
-        collection_code="col1",
-        entities_removed=[entity.id],
-    )
-    assert events_by_collection[col2.id].kwargs["change"] == CollectionChangeData(
-        collection_id=col2.id,
-        collection_code="col2",
-        entities_removed=[entity.id],
-    )
-
-
-def test_entity_draft_deleted_not_in_collection(lp1: LearningPackage) -> None:
-    """
-    Test that no COLLECTION_CHANGED is emitted when the deleted
-    entity is not in any collection.
-    """
-    entity = _create_entity_with_version(lp1.id, "entity1")
-
     with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
+        # Soft-delete: no event, even though `entity` is in two collections.
         api.soft_delete_draft(entity.id)
-
-
-def test_entity_draft_deleted_aborted(lp1: LearningPackage) -> None:
-    """
-    Test that no COLLECTION_CHANGED is emitted when the
-    entity-delete transaction is rolled back.
-    """
-    api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
-    entity = _create_entity_with_version(lp1.id, "entity1")
-    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
-
-    with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
-        with abort_transaction():
-            api.soft_delete_draft(entity.id)
-
-
-# COLLECTION_CHANGED — on entity draft restore (deletion reverted)
-
-
-def test_entity_draft_restored_in_collection(lp1: LearningPackage) -> None:
-    """
-    Test that COLLECTION_CHANGED is emitted with entities_added
-    when a soft-deleted entity's draft is restored while it is in a collection.
-    """
-    collection = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
-    entity = _create_entity_with_version(lp1.id, "entity1")
-    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
-    api.soft_delete_draft(entity.id)
-
-    with capture_events(signals=[COLLECTION_CHANGED], expected_count=1) as captured:
+        # Restore via reverting to the previous version: no event.
+        assert v1 is not None
+        api.set_draft_version(entity.id, v1.id)
+        # Soft-delete and restore via a new version: no event.
+        api.soft_delete_draft(entity.id)
         api.create_publishable_entity_version(
             entity.id, version_num=2, title="entity1 v2", created=now_time, created_by=None
         )
-
-    event = captured[0]
-    assert event.signal is COLLECTION_CHANGED
-    assert event.kwargs["learning_package"].id == lp1.id
-    assert event.kwargs["change"] == CollectionChangeData(
-        collection_id=collection.id,
-        collection_code="col1",
-        entities_added=[entity.id],
-    )
+        # Creating a brand-new entity is unrelated to any collection: no event.
+        _create_entity_with_version(lp1.id, "entity2")
 
 
-def test_entity_draft_restored_multiple_collections(lp1: LearningPackage) -> None:
+# COLLECTION_CHANGED — combined events
+
+
+def test_entity_created_and_assigned_in_bulk_context(lp1: LearningPackage) -> None:
     """
-    Test that COLLECTION_CHANGED is emitted once per collection
-    when a restored entity belongs to multiple collections.
+    Test that the expected events fire when an entity is created and assigned
+    to a collection inside a bulk draft change context: one ``created=True``
+    from ``create_collection`` and one ``entities_added=[entity]`` from
+    ``add_to_collection``. The entity-creation itself does not emit an extra
+    COLLECTION_CHANGED.
     """
-    col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
-    col2 = api.create_collection(lp1.id, "col2", title="Collection 2", created_by=None)
-    entity = _create_entity_with_version(lp1.id, "entity1")
-    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
-    api.add_to_collection(lp1.id, "col2", PublishableEntity.objects.filter(id=entity.id))
-    original_version = api.get_draft_version(entity)
-    assert original_version is not None
-
-    api.soft_delete_draft(entity.id)
-
     with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
-        # Restore the deleted draft to its previous version:
-        api.set_draft_version(entity.id, original_version.id)
+        with api.bulk_draft_changes_for(lp1.id, changed_by=None, changed_at=now_time):
+            col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+            entity = _create_entity_with_version(lp1.id, "entity1")
+            api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
 
-    events_by_collection = {e.kwargs["change"].collection_id: e for e in captured}
-    assert set(events_by_collection.keys()) == {col1.id, col2.id}
-    assert events_by_collection[col1.id].kwargs["change"] == CollectionChangeData(
+    assert captured[0].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        created=True,
+    )
+    assert captured[1].kwargs["change"] == CollectionChangeData(
         collection_id=col1.id,
         collection_code="col1",
         entities_added=[entity.id],
     )
-    assert events_by_collection[col2.id].kwargs["change"] == CollectionChangeData(
-        collection_id=col2.id,
-        collection_code="col2",
+
+
+def test_entity_created_and_assigned_in_transaction(lp1: LearningPackage) -> None:
+    """
+    Same as above, but in a plain ``transaction.atomic()`` context rather than
+    a ``bulk_draft_changes_for`` context.
+    """
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
+        with transaction.atomic():
+            col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+            entity = _create_entity_with_version(lp1.id, "entity1")
+            api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
+
+    assert captured[0].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        created=True,
+    )
+    assert captured[1].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
         entities_added=[entity.id],
     )
 
 
-def test_entity_draft_restored_aborted(lp1: LearningPackage) -> None:
+def test_entity_restored_and_assigned_in_bulk_context(lp1: LearningPackage) -> None:
     """
-    Test that no COLLECTION_CHANGED is emitted when the
-    restore transaction is rolled back.
+    Test that an entity being restored and added to a new collection inside a
+    bulk draft change context produces exactly the expected explicit-mutation
+    events: ``created=True`` for the new collection and
+    ``entities_added=[entity]`` for the add. The restoration itself does not
+    emit a COLLECTION_CHANGED.
     """
-    api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
     entity = _create_entity_with_version(lp1.id, "entity1")
-    api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
-    api.soft_delete_draft(entity.id)
+    v1 = api.get_draft_version(entity)
+    assert v1 is not None
+    api.soft_delete_draft(entity.id, deleted_by=None)
 
-    with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
-        with abort_transaction():
-            api.create_publishable_entity_version(
-                entity.id, version_num=2, title="entity1 v2", created=now_time, created_by=None
-            )
+    with capture_events(signals=[COLLECTION_CHANGED], expected_count=2) as captured:
+        with api.bulk_draft_changes_for(lp1.id, changed_by=None, changed_at=now_time):
+            api.set_draft_version(entity.id, v1.id)
+            col1 = api.create_collection(lp1.id, "col1", title="Collection 1", created_by=None)
+            api.add_to_collection(lp1.id, "col1", PublishableEntity.objects.filter(id=entity.id))
 
-
-def test_entity_created_no_collection_event(lp1: LearningPackage) -> None:
-    """
-    Test that no COLLECTION_CHANGED is emitted when a brand-new
-    entity gets its first version — even though the change log also has old_version=None.
-
-    A freshly created entity is never in any collections yet, so the task is a no-op.
-    """
-    with capture_events(signals=[COLLECTION_CHANGED], expected_count=0):
-        _create_entity_with_version(lp1.id, "entity1")
+    assert captured[0].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        created=True,
+    )
+    assert captured[1].kwargs["change"] == CollectionChangeData(
+        collection_id=col1.id,
+        collection_code="col1",
+        entities_added=[entity.id],
+    )
