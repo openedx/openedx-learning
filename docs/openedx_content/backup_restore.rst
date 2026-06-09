@@ -15,8 +15,9 @@ Overview
 --------
 
 A backup ZIP is a self-contained snapshot of one learning package.  It captures
-every component, collection, container (sections / subsections / units), static
-asset, and version history that existed at export time.
+every component, collection, container (sections / subsections / units), and
+static asset.  For each component and container, only the current draft and
+published versions are exported — the full version history is not preserved.
 
 The archive uses `TOML <https://toml.io>`_ for all metadata files and keeps the
 actual XBlock content as XML (the same ``block.xml`` format Studio has always
@@ -119,9 +120,10 @@ Located at the root of the archive.  Contains two sections:
      - UTC timestamp when the archive was created
    * - ``origin_server``
      - no
-     - Hostname of the CMS instance that produced the archive
+     - Free-form string identifying the origin CMS instance (typically a
+       hostname or URL; stored as-is with no format validation)
 
-``[learning_package]`` — library data (restored to the database):
+``[learning_package]`` — library data (restored to the database, with caveats: ``key`` may be overridden by the caller and ``updated`` is not applied during restore):
 
 .. list-table::
    :header-rows: 1
@@ -144,7 +146,8 @@ Located at the root of the archive.  Contains two sections:
      - UTC timestamp when the library was originally created
    * - ``updated``
      - yes
-     - UTC timestamp of the library's last modification
+     - UTC timestamp of the library's last modification (written to the
+       archive for reference; **not** applied during restore)
 
 Example::
 
@@ -188,9 +191,14 @@ Each XBlock component gets one TOML file.
 
 ``[entity.draft]`` / ``[entity.published]`` — each contains ``version_num``
 pointing at the current draft or published ``[[version]]`` entry respectively.
-If a section is absent the entity has no draft or published version.
+``[entity.draft]`` is absent when the entity has no draft.
+``[entity.published]`` is **always present** — when the entity has no
+published version it is written as an empty table with an explanatory comment
+(see the container example below).
 
-``[[version]]`` — one entry per saved version, in ascending ``version_num`` order:
+``[[version]]`` — at most two entries: the current draft version first, then
+the current published version if it differs from draft.  The full version
+history is not stored.
 
 .. list-table::
    :header-rows: 1
@@ -223,11 +231,11 @@ Example::
 
     [[version]]
     title = "Text"
-    version_num = 4
+    version_num = 5
 
     [[version]]
     title = "Text"
-    version_num = 5
+    version_num = 4
 
 Container entity TOML (``entities/<slug>.toml``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
