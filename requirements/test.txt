@@ -65,7 +65,7 @@ coverage[toml]==7.14.1
     # via
     #   -r requirements/test.in
     #   pytest-cov
-cryptography==48.0.0
+cryptography==49.0.0
     # via
     #   -r requirements/base.txt
     #   pyjwt
@@ -234,7 +234,7 @@ pynacl==1.6.2
     # via
     #   -r requirements/base.txt
     #   edx-django-utils
-pytest==9.0.3
+pytest==9.1.0
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -316,7 +316,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.8.0
+wcwidth==0.8.1
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit
