@@ -1,6 +1,6 @@
 [entity]
 can_stand_alone = true
-key = "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2"
+key = "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2"  # This intentionally does not match the filename
 created = 2025-10-06T16:59:34.160314Z
 
 [entity.draft]

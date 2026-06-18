@@ -4,6 +4,7 @@ including a TOML representation of the learning package and its entities.
 """
 import hashlib
 import time
+import tomllib
 import zipfile
 from collections import defaultdict
 from dataclasses import asdict, dataclass
@@ -1060,7 +1061,17 @@ class LearningPackageUnzipper:
             "collections": [],
         }
 
-        for path in file_paths:
+        # This is going to map static file directory roots to the appropriate
+        # entity refs.
+        comp_paths_to_refs = {}
+
+        # The ordering of the file processing is important because we need to
+        # ensure that TOML files for a given component are processed before the
+        # static files for that component. '.' sorts before '/', so "foo.toml"
+        # will sort before "foo/component_versions/v1/static/figure1.webp" or
+        # any other subdirectory of the "foo" component. Processing the TOML
+        # first allows us to map the directory to a entity ref.
+        for path in sorted(file_paths):
             if path.endswith("/"):
                 # Skip directories
                 continue
@@ -1073,21 +1084,44 @@ class LearningPackageUnzipper:
                 if path.endswith(".toml"):
                     # Component entity TOML files
                     organized["components"].append(path)
+                    component_toml_str = self._read_file_from_zip(path)
+                    component_toml = tomllib.loads(component_toml_str)
+                    entity_ref = component_toml['entity']['key']
+                    comp_path = path.removesuffix(".toml")
+
+                    # This maps the root path of a component, e.g."entities/xblock.v1/html/my_component_a822bb"
+                    # to the actual ref, e.g. "xblock.v1:html:my_component". The last part of the ref  will
+                    # often correlate to the directory name, but does not have to (a hash is sometimes added).
+                    comp_paths_to_refs[comp_path] = entity_ref
+
                 else:
                     # Component static files
                     # Path structure: entities/<namespace>/<type>/<component_id>/component_versions/<version>/static/...
-                    # Example: entities/xblock.v1/html/my_component_123456/component_versions/v1/static/...
-                    component_key = Path(path).parts[1:4]  # e.g., ['xblock.v1', 'html', 'my_component_123456']
+                    # Example: entities/xblock.v1/html/my_component_a822bb/component_versions/v1/static/...
+
+                    # e.g. 'entities/xblock.v1/html/my_component_a822bb'
+                    component_root_path = '/'.join(Path(path).parts[0:4])
+
+                    try:
+                        component_ref = comp_paths_to_refs[component_root_path]
+                    except KeyError:
+                        self.errors.append(
+                            {
+                                "file": path,
+                                "errors": f"Missing component TOML file at {component_root_path}.toml"
+                            }
+                        )
+                        continue
+
                     num_version = Path(path).parts[5] if len(Path(path).parts) > 5 else "v1"  # e.g., 'v1'
-                    if len(component_key) == 3:
-                        component_identifier = ":".join(component_key)
-                        component_identifier += f":{num_version}"
-                        organized["component_static_files"][component_identifier].append(path)
-                    else:
-                        self.errors.append({"file": path, "errors": "Invalid component static file path structure."})
+
+                    component_ref += f":{num_version}"
+                    organized["component_static_files"][component_ref].append(path)
+
             elif path.startswith("collections/") and path.endswith(".toml"):
                 # Collection TOML files
                 organized["collections"].append(path)
+
         return organized
 
     def _get_versions_to_write(
