@@ -14,7 +14,7 @@ version_num = 2
 # ### Versions
 
 [[version]]
-title = "Unit1"
+title = ""
 version_num = 2
 
 [version.container]

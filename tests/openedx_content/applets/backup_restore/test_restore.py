@@ -342,6 +342,29 @@ class RestoreLearningPackageTest(RestoreTestCase):
         expected_error = "Errors encountered during restore:\npackage.toml meta section: {'non_field_errors': [Er"
         assert expected_error in log_content
 
+    def test_restore_with_blank_unit_title(self):
+        """
+        Restoring should succeed when a container version has a blank title.
+
+        Blank titles are legal and common -- content imported from courses
+        (e.g. via the modulestore migrator) frequently has untitled units, and
+        such content can be backed up. Restoring that same archive must work.
+
+        The ``library_backup`` fixture's ``unit1`` deliberately has a blank
+        title to exercise this path.
+        """
+        result = LearningPackageUnzipper(self.zip_file, package_ref="lib-xx:WGU:LIB_C001").load()
+
+        assert result["status"] == "success", f"Restore failed: {result['log_file_error']}"
+        assert result["log_file_error"] is None
+
+        lp = publishing_api.LearningPackage.objects.get(package_ref="lib-xx:WGU:LIB_C001")
+        unit = containers_api.get_containers(learning_package_id=lp.id).get(
+            publishable_entity__entity_ref="unit1-b7eafb"
+        )
+        draft_version = publishing_api.get_draft_version(unit.publishable_entity.id)
+        assert draft_version.title == ""
+
     def test_success_metadata_using_user_context(self):
         """Test that metadata is correctly extracted from learning_package.toml."""
         restore_result = LearningPackageUnzipper(self.zip_file, user=self.user).load()

@@ -63,7 +63,9 @@ class EntityVersionSerializer(serializers.Serializer):  # pylint: disable=abstra
     """
     Serializer for publishable entity versions.
     """
-    title = serializers.CharField(required=True)
+    # We allow_blank because empty unit titles are legal and common.
+    title = serializers.CharField(required=True, allow_blank=True)
+
     created = serializers.DateTimeField(required=True, default_timezone=timezone.utc)
     version_num = serializers.IntegerField(required=True)
 
