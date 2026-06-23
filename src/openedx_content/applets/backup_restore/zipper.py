@@ -283,7 +283,7 @@ class LearningPackageZipper:
             Exception: If the learning package cannot be found or if the zip creation fails.
         """
 
-        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zipf:
             # Add the package.toml file
             package_toml_content: str = toml_learning_package(
                 self.learning_package, self.utc_now, user=self.user, origin_server=self.origin_server
