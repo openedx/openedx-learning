@@ -14,7 +14,7 @@ version_num = 2
 # ### Versions
 
 [[version]]
-title = ""
+title = ""  # Intentionally blank in order to test that empty Unit names work
 version_num = 2
 
 [version.container]
