@@ -24,7 +24,7 @@ cffi==2.0.0
     #   pynacl
 charset-normalizer==3.4.7
     # via requests
-click==8.4.1
+click==8.4.2
     # via
     #   celery
     #   click-didyoumean
@@ -57,7 +57,7 @@ django-crum==0.7.9
     # via edx-django-utils
 django-model-utils==5.0.0
     # via edx-organizations
-django-simple-history==3.11.0
+django-simple-history==3.12.0
     # via edx-organizations
 django-waffle==5.0.0
     # via

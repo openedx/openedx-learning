@@ -37,7 +37,7 @@ charset-normalizer==3.4.7
     # via
     #   -r requirements/base.txt
     #   requests
-click==8.4.1
+click==8.4.2
     # via
     #   -r requirements/base.txt
     #   celery
@@ -61,7 +61,7 @@ click-repl==0.3.0
     #   celery
 code-annotations==3.0.0
     # via -r requirements/test.in
-coverage[toml]==7.14.2
+coverage[toml]==7.14.3
     # via
     #   -r requirements/test.in
     #   pytest-cov
@@ -97,15 +97,15 @@ django-model-utils==5.0.0
     # via
     #   -r requirements/base.txt
     #   edx-organizations
-django-simple-history==3.11.0
+django-simple-history==3.12.0
     # via
     #   -r requirements/base.txt
     #   edx-organizations
-django-stubs==6.0.5
+django-stubs==6.0.6
     # via
     #   -r requirements/test.in
     #   djangorestframework-stubs
-django-stubs-ext==6.0.5
+django-stubs-ext==6.0.6
     # via django-stubs
 django-waffle==5.0.0
     # via
@@ -162,7 +162,7 @@ idna==3.18
     # via
     #   -r requirements/base.txt
     #   requests
-import-linter==2.11
+import-linter==2.12
     # via -r requirements/test.in
 iniconfig==2.3.0
     # via pytest
