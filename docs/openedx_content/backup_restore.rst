@@ -3,7 +3,7 @@
 Backup / Restore Format
 =======================
 
-The ``backup_restore`` applet lets you export a learning package (V2 content
+The ``backup_restore`` applet lets you back up a learning package (V2 content
 library) to a portable ZIP archive and restore it on the same or a different
 Open edX instance.
 
@@ -14,13 +14,21 @@ Open edX instance.
 Overview
 --------
 
+.. note::
+
+   A **Library** (the user-facing V2 content library) has exactly one
+   **Learning Package** where it stores its content, but Learning Packages can
+   also exist independently.  During a restore, the system first creates a
+   standalone Learning Package for inspection; once the operator confirms the
+   content, that Learning Package is associated with a newly created Library.
+
 A backup ZIP is a self-contained snapshot of one learning package.  It captures
-every component, collection, container (sections / subsections / units), and
+every component, collection, container (section / subsection / unit), and
 static asset.  For each component and container, only the current draft and
 published versions are exported — the full version history is not preserved.
 
 The archive uses `TOML <https://toml.io>`_ for all metadata files and keeps the
-actual XBlock content as XML (the same ``block.xml`` format Studio has always
+actual component XBlock content as XML (the same OLX format Studio has always
 used).  This makes backups both machine-readable and human-inspectable.
 
 .. note::
@@ -62,6 +70,15 @@ Python API::
     result = load_learning_package(path="/tmp/my_library.zip")
     if result["status"] == "error":
         print(result["log_file_error"].getvalue())
+
+.. warning::
+
+   Do **not** rely on the ``key`` stored in ``package.toml`` to determine
+   where the content is restored.  Always pass ``package_ref`` explicitly to
+   ``load_learning_package``; trusting the archive's own key is a security
+   risk and can lead to content being restored under an unintended identifier.
+   Similarly, never pass ``user`` from the archive — always supply the
+   authenticated operator making the restore request.
 
 .. note::
 
@@ -240,6 +257,11 @@ Example::
 Container entity TOML (``entities/<slug>.toml``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The ``<slug>`` is derived from the last segment of the container's
+``entity_ref``.  If two containers share the same last segment (e.g. a Unit
+and a Subsection both named "intro"), a short hash is appended to the
+second to avoid filename collisions (e.g. ``intro-48afa3.toml``).
+
 Sections, subsections, and units share the same base structure with an
 additional ``[entity.container.<type>]`` marker (``section``, ``subsection``,
 or ``unit``) and a ``[version.container]`` table that lists child keys.
@@ -309,9 +331,24 @@ Example::
 XBlock content (``component_versions/v<N>/block.xml``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Standard XBlock XML, identical to what Studio stores internally.  Static assets
-(images, PDFs, etc.) referenced with ``/static/<filename>`` in the XML are
-stored alongside the XML under ``component_versions/v<N>/static/``.
+OLX (Open Learning XML) for the component, in the same format Studio uses
+internally.  Static assets (images, PDFs, etc.) referenced with
+``/static/<filename>`` in the XML are stored alongside under
+``component_versions/v<N>/static/``.
+
+.. note::
+
+   Unlike the old modulestore OLX export — where each component's file was
+   named after its ``block_id`` (often a machine-generated UUID) — this format
+   always names the file ``block.xml``.  The component's identifier lives in
+   the parent TOML file, not the filename.
+
+.. note::
+
+   **HTMLBlock limitation:** HTML content is currently serialized inline using
+   a CDATA section rather than stored in a separate ``.html`` file.  This
+   differs from old course OLX exports and is a known limitation of the current
+   XBlock serialization layer.
 
 Example ``block.xml``::
 
