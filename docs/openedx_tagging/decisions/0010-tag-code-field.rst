@@ -35,13 +35,13 @@ independently. This ADR is scoped to the internal, institution-defined code only
   it as an admin-editable Competency ID would conflict with that existing, load-bearing
   contract.
 
-**Placement constraint.** :ref:`openedx-learning-adr-0001` keeps ``openedx_tagging``
-standalone and rejected putting CBE tables inside it for that reason. A CBE-named
-field on ``Tag`` would repeat that mistake, but a single scalar identifier — the same
-shape ``external_id`` already fills — does not. Every taxonomy listing, search, and
-export already reads ``Tag``; putting a per-tag identifier in a separate app would
-force a cross-app join into that common path for what is otherwise a plain string
-column.
+**Placement constraint.** :ref:`openedx-tagging-adr-0002` keeps ``openedx_tagging``
+standalone, and :ref:`openedx-learning-adr-0001` already rejected putting CBE tables
+inside it for that reason. A CBE-named field on ``Tag`` would repeat that mistake,
+but a single scalar identifier — the same shape ``external_id`` already fills — does
+not. Every taxonomy listing, search, and export already reads ``Tag``; putting a
+per-tag identifier in a separate app would force a cross-app join into that common
+path for what is otherwise a plain string column.
 
 Decision
 --------
@@ -121,7 +121,7 @@ CBE-specific field directly on ``Tag``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add a field explicitly named and documented as the "Competency ID" on ``Tag``, as a
-deliberate exception to :ref:`openedx-learning-adr-0001`'s boundary. Rejected: this is
+deliberate exception to :ref:`openedx-tagging-adr-0002`'s boundary. Rejected: this is
 the same schema location as the chosen decision, but naming it as a CBE concept bakes
 domain semantics into a library meant to stay standalone, for no benefit over the
 generic framing.
