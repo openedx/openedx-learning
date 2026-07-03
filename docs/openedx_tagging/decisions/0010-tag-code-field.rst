@@ -85,13 +85,12 @@ Completeness rule for Competency Taxonomies
 
 ``openedx_tagging`` must not need to know what a "Competency Taxonomy" is to enforce
 completeness, per the placement constraint above. The base ``Taxonomy`` class gets a
-property that defaults to "not required"; a taxonomy subclass defined outside
-``openedx_tagging`` overrides it to require a code. This mirrors the existing
-extension pattern already used for system-defined taxonomies, where a subclass living
-in another package customizes behavior without ``openedx_tagging`` importing it. The
-rule is enforced at the point a tag is saved, so every path that creates one — import,
-the existing Taxonomy Editing UI, or the generic API — is covered by one check rather
-than one per caller, and none of them can accidentally create a code-less tag.
+property that defaults to "not required"; ``CompetencyTaxonomy``
+(:ref:`openedx-learning-adr-0002`), a real subclass of ``Taxonomy`` defined outside
+``openedx_tagging``, overrides it to require a code. The rule is enforced at the
+point a tag is saved, so every path that creates one — import, the existing Taxonomy
+Editing UI, or the generic API — is covered by one check rather than one per caller,
+and none of them can accidentally create a code-less tag.
 
 Import/export
 ~~~~~~~~~~~~~~
