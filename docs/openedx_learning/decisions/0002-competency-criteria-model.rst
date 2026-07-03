@@ -224,7 +224,7 @@ Decision
         - A taxonomy adopted from a third-party standard body ("Nursing"), which should not be locally weakened
         - Taxonomy
 
-   MVP note: only taxonomy-scoped and system-default profiles are created, so every ``CompetencyCriterion`` created in this phase is assigned one of those two -- the only authoring screens that exist today (Competency Management, and Libraries once it creates criteria) supply a competency tag but no course or organization. Organization scoping in particular has no defined source yet: no authoring screen, including a future course-level one, has been decided to expose an organization context, so there is nothing to assign an organization-scoped profile from until that is decided. Course- and organization-scoped profiles, and therefore both tables above, are dormant until those scope levels are built; no schema change is needed to enable them then.
+   MVP note: only taxonomy-scoped and system-default profiles are created, so every ``CompetencyCriterion`` created in this phase is assigned one of those two -- the only authoring screens that exist today (Competency Management, and eventually Libraries) supply a competency tag but no course or organization. Organization scoping in particular has no defined source yet: no authoring screen has been decided to expose an organization context, so there is nothing to assign an organization-scoped profile from until that is decided. Course- and organization-scoped profiles, and therefore both tables above, are dormant until those scope levels are built; no schema change is needed to enable them then.
 
 5. Indexes for common lookups
 
