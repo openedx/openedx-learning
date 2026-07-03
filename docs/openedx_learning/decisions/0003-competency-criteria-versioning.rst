@@ -41,6 +41,8 @@ For the initial implementation, versioning and traceability of competency achiev
 
    - If a user edits competency criteria definitions or competency object/tag associations after related learner status exists, Studio must display an explicit warning that student statuses have already been set, and these changes will be applied going forward, so existing learner statuses will not be retroactively updated.
    - Applying these changes requires explicit user confirmation.
+   - A ``CompetencyRuleProfile`` is "in use" if any ``CompetencyCriterion`` assigned to it (``competency_rule_profile_id``) has an associated ``StudentCompetencyCriteriaStatus`` row. Editing an in-use profile's ``rule_type``/``rule_payload`` requires the same warning and confirmation.
+   - The same warning applies when creating a more specific profile causes existing criteria to be reassigned to it, and when an authoring action switches a criterion between a profile assignment and per-criterion overrides (ADR 0002 Decision 4).
 
 5. Learner status models/tables are append-only history and do not use ``django-simple-history``:
 
