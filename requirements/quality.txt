@@ -12,7 +12,7 @@ asgiref==3.11.1
     # via
     #   -r requirements/test.txt
     #   django
-ast-serialize==0.5.0
+ast-serialize==0.6.0
     # via
     #   -r requirements/test.txt
     #   mypy
@@ -73,7 +73,7 @@ code-annotations==3.0.0
     # via
     #   -r requirements/test.txt
     #   edx-lint
-coverage[toml]==7.14.3
+coverage[toml]==7.15.0
     # via
     #   -r requirements/test.txt
     #   pytest-cov
@@ -178,7 +178,7 @@ fastavro==1.12.2
     #   openedx-events
 freezegun==1.5.5
     # via -r requirements/test.txt
-grimp==3.14
+grimp==3.15
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -188,7 +188,7 @@ idna==3.18
     # via
     #   -r requirements/test.txt
     #   requests
-import-linter==2.12
+import-linter==2.13
     # via -r requirements/test.txt
 iniconfig==2.3.0
     # via
@@ -218,7 +218,7 @@ kombu==5.6.2
     # via
     #   -r requirements/test.txt
     #   celery
-librt==0.11.0
+librt==0.12.0
     # via
     #   -r requirements/test.txt
     #   mypy
@@ -266,7 +266,7 @@ pathspec==1.1.1
     # via
     #   -r requirements/test.txt
     #   mypy
-pillow==12.2.0
+pillow==12.3.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
@@ -386,7 +386,7 @@ sqlparse==0.5.5
     #   -r requirements/test.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.8.0
+stevedore==5.9.0
     # via
     #   -r requirements/test.txt
     #   code-annotations
@@ -408,21 +408,20 @@ types-pyyaml==6.0.12.20260518
     #   -r requirements/test.txt
     #   django-stubs
     #   djangorestframework-stubs
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   -r requirements/test.txt
     #   django-stubs
     #   django-stubs-ext
     #   djangorestframework-stubs
     #   edx-opaque-keys
-    #   grimp
     #   import-linter
     #   mypy
 tzdata==2026.2
     # via
     #   -r requirements/test.txt
     #   kombu
-tzlocal==5.4.3
+tzlocal==5.4.4
     # via
     #   -r requirements/test.txt
     #   celery
@@ -438,7 +437,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.8.1
+wcwidth==0.8.2
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit

@@ -101,7 +101,7 @@ openedx-events==11.2.0
     # via -r requirements/base.in
 packaging==26.2
     # via kombu
-pillow==12.2.0
+pillow==12.3.0
     # via edx-organizations
 prompt-toolkit==3.0.52
     # via click-repl
@@ -131,17 +131,17 @@ six==1.17.0
     #   python-dateutil
 sqlparse==0.5.5
     # via django
-stevedore==5.8.0
+stevedore==5.9.0
     # via
     #   edx-django-utils
     #   edx-opaque-keys
 tomlkit==0.15.0
     # via -r requirements/base.in
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via edx-opaque-keys
 tzdata==2026.2
     # via kombu
-tzlocal==5.4.3
+tzlocal==5.4.4
     # via celery
 urllib3==2.7.0
     # via requests
@@ -150,7 +150,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.8.1
+wcwidth==0.8.2
     # via prompt-toolkit
 
 # The following packages are considered to be unsafe in a requirements file:

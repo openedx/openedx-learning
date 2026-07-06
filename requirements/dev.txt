@@ -12,7 +12,7 @@ asgiref==3.11.1
     # via
     #   -r requirements/quality.txt
     #   django
-ast-serialize==0.5.0
+ast-serialize==0.6.0
     # via
     #   -r requirements/quality.txt
     #   mypy
@@ -92,7 +92,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.14.3
+coverage[toml]==7.15.0
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -210,7 +210,7 @@ fastavro==1.12.2
     # via
     #   -r requirements/quality.txt
     #   openedx-events
-filelock==3.29.4
+filelock==3.29.5
     # via
     #   -r requirements/ci.txt
     #   python-discovery
@@ -218,7 +218,7 @@ filelock==3.29.4
     #   virtualenv
 freezegun==1.5.5
     # via -r requirements/quality.txt
-grimp==3.14
+grimp==3.15
     # via
     #   -r requirements/quality.txt
     #   import-linter
@@ -230,7 +230,7 @@ idna==3.18
     # via
     #   -r requirements/quality.txt
     #   requests
-import-linter==2.12
+import-linter==2.13
     # via -r requirements/quality.txt
 iniconfig==2.3.0
     # via
@@ -270,7 +270,7 @@ kombu==5.6.2
     # via
     #   -r requirements/quality.txt
     #   celery
-librt==0.11.0
+librt==0.12.0
     # via
     #   -r requirements/quality.txt
     #   mypy
@@ -335,7 +335,7 @@ pathspec==1.1.1
     # via
     #   -r requirements/quality.txt
     #   mypy
-pillow==12.2.0
+pillow==12.3.0
     # via
     #   -r requirements/quality.txt
     #   edx-organizations
@@ -438,7 +438,7 @@ python-dateutil==2.9.0.post0
     #   -r requirements/quality.txt
     #   celery
     #   freezegun
-python-discovery==1.4.2
+python-discovery==1.4.3
     # via
     #   -r requirements/ci.txt
     #   tox
@@ -500,7 +500,7 @@ sqlparse==0.5.5
     #   -r requirements/quality.txt
     #   django
     #   django-debug-toolbar
-stevedore==5.8.0
+stevedore==5.9.0
     # via
     #   -r requirements/quality.txt
     #   code-annotations
@@ -528,21 +528,20 @@ types-pyyaml==6.0.12.20260518
     #   -r requirements/quality.txt
     #   django-stubs
     #   djangorestframework-stubs
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   -r requirements/quality.txt
     #   django-stubs
     #   django-stubs-ext
     #   djangorestframework-stubs
     #   edx-opaque-keys
-    #   grimp
     #   import-linter
     #   mypy
 tzdata==2026.2
     # via
     #   -r requirements/quality.txt
     #   kombu
-tzlocal==5.4.3
+tzlocal==5.4.4
     # via
     #   -r requirements/quality.txt
     #   celery
@@ -562,7 +561,7 @@ virtualenv==21.5.1
     # via
     #   -r requirements/ci.txt
     #   tox
-wcwidth==0.8.1
+wcwidth==0.8.2
     # via
     #   -r requirements/quality.txt
     #   prompt-toolkit
