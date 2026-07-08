@@ -84,7 +84,7 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
             "enabled",
             "allow_multiple",
             "allow_free_text",
-            "system_defined",
+            "read_only",
             "visible_to_authors",
             "tags_count",
             "can_change_taxonomy",
@@ -92,13 +92,6 @@ class TaxonomySerializer(UserPermissionsSerializerMixin, serializers.ModelSerial
             "can_tag_object",
             "export_id",
         ]
-
-    def to_representation(self, instance):
-        """
-        Cast the taxonomy before serialize
-        """
-        instance = instance.cast()
-        return super().to_representation(instance)
 
     def get_tags_count(self, instance):
         """

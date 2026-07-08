@@ -76,13 +76,27 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         "oel_tagging.change_taxonomy",
         "oel_tagging.delete_taxonomy",
     )
-    def test_system_taxonomy(self, perm):
+    def test_read_only_taxonomy(self, perm):
         """
-        Taxonomy administrators cannot edit system taxonomies
+        Taxonomy administrators can still modify or delete a read-only taxonomy
+        itself (e.g. to toggle its read_only flag); only its tags are protected.
         """
         assert self.superuser.has_perm(perm, self.system_taxonomy)
-        assert not self.staff.has_perm(perm, self.system_taxonomy)
+        assert self.staff.has_perm(perm, self.system_taxonomy)
         assert not self.learner.has_perm(perm, self.system_taxonomy)
+
+    @ddt.data(
+        "oel_tagging.add_tag",
+        "oel_tagging.change_tag",
+        "oel_tagging.delete_tag",
+    )
+    def test_read_only_taxonomy_tags(self, perm):
+        """
+        Even taxonomy administrators cannot modify the tags of a read-only taxonomy.
+        """
+        assert self.superuser.has_perm(perm, self.system_taxonomy_tag)
+        assert not self.staff.has_perm(perm, self.system_taxonomy_tag)
+        assert not self.learner.has_perm(perm, self.system_taxonomy_tag)
 
     @ddt.data(
         True,

@@ -37,7 +37,7 @@ def create_taxonomy(  # pylint: disable=too-many-positional-arguments
     enabled=True,
     allow_multiple=True,
     allow_free_text=False,
-    taxonomy_class: type[Taxonomy] | None = None,
+    read_only=False,
     export_id: str | None = None,
 ) -> Taxonomy:
     """
@@ -52,30 +52,27 @@ def create_taxonomy(  # pylint: disable=too-many-positional-arguments
         enabled=enabled,
         allow_multiple=allow_multiple,
         allow_free_text=allow_free_text,
+        read_only=read_only,
         export_id=export_id,
     )
-    if taxonomy_class:
-        taxonomy.taxonomy_class = taxonomy_class
 
     taxonomy.full_clean()
     taxonomy.save()
-    return taxonomy.cast()
+    return taxonomy
 
 
 def get_taxonomy(taxonomy_id: int) -> Taxonomy | None:
     """
-    Returns a Taxonomy cast to the appropriate subclass which has the given ID.
+    Returns the Taxonomy which has the given ID, or None if not found.
     """
-    taxonomy = Taxonomy.objects.filter(pk=taxonomy_id).first()
-    return taxonomy.cast() if taxonomy else None
+    return Taxonomy.objects.filter(pk=taxonomy_id).first()
 
 
 def get_taxonomy_by_export_id(taxonomy_export_id: str) -> Taxonomy | None:
     """
-    Returns a Taxonomy cast to the appropriate subclass which has the given export ID.
+    Returns the Taxonomy which has the given export ID, or None if not found.
     """
-    taxonomy = Taxonomy.objects.filter(export_id=taxonomy_export_id).first()
-    return taxonomy.cast() if taxonomy else None
+    return Taxonomy.objects.filter(export_id=taxonomy_export_id).first()
 
 
 def get_taxonomies(enabled=True) -> QuerySet[Taxonomy]:
@@ -83,7 +80,6 @@ def get_taxonomies(enabled=True) -> QuerySet[Taxonomy]:
     Returns a queryset containing the enabled taxonomies, sorted by name.
 
     We return a QuerySet here for ease of use with Django Rest Framework and other query-based use cases.
-    So be sure to use `Taxonomy.cast()` to cast these instances to the appropriate subclass before use.
 
     If you want the disabled taxonomies, pass enabled=False.
     If you want all taxonomies (both enabled and disabled), pass enabled=None.
@@ -101,7 +97,7 @@ def get_tags(taxonomy: Taxonomy) -> TagDataQuerySet:
     Note that if the taxonomy is dynamic or free-text, only tags that have
     already been applied to some object will be returned.
     """
-    return taxonomy.cast().get_filtered_tags()
+    return taxonomy.get_filtered_tags()
 
 
 def get_root_tags(taxonomy: Taxonomy) -> TagDataQuerySet:
@@ -110,7 +106,7 @@ def get_root_tags(taxonomy: Taxonomy) -> TagDataQuerySet:
 
     Note that if the taxonomy allows free-text tags, then the returned list will be empty.
     """
-    return taxonomy.cast().get_filtered_tags(depth=1)
+    return taxonomy.get_filtered_tags(depth=1)
 
 
 def search_tags(
@@ -135,7 +131,7 @@ def search_tags(
                 "_value", flat=True
             )
         )
-    qs = taxonomy.cast().get_filtered_tags(
+    qs = taxonomy.get_filtered_tags(
         search_term=search_term,
         excluded_values=excluded_values,
     )
@@ -151,7 +147,7 @@ def get_children_tags(
 
     Note that if the taxonomy allows free-text tags, then the returned list will be empty.
     """
-    return taxonomy.cast().get_filtered_tags(parent_tag_value=parent_tag_value, depth=1)
+    return taxonomy.get_filtered_tags(parent_tag_value=parent_tag_value, depth=1)
 
 
 def resync_object_tags(object_tags: QuerySet | None = None) -> int:
@@ -354,9 +350,7 @@ def tag_object(  # pylint: disable=too-many-positional-arguments
     ObjectTagClass = object_tag_class
     tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
 
-    if taxonomy:
-        taxonomy = taxonomy.cast()  # Make sure we're using the right subclass. This is a no-op if we are already.
-    elif not taxonomy_export_id:
+    if not taxonomy and not taxonomy_export_id:
         raise ValueError("`taxonomy_export_id` can't be None if `taxonomy` is None")
 
     _check_new_tag_count(len(tags), taxonomy, object_id, taxonomy_export_id)
@@ -444,7 +438,6 @@ def add_tag_to_taxonomy(
     Taxonomy, an exception is raised, otherwise the newly created
     Tag is returned
     """
-    taxonomy = taxonomy.cast()
     new_tag = taxonomy.add_tag(tag, parent_tag_value, external_id)
 
     # Resync all related ObjectTags after creating new Tag to
@@ -463,7 +456,6 @@ def update_tag_in_taxonomy(taxonomy: Taxonomy, tag: str, new_value: str):
 
     Currently only supports updating the Tag value.
     """
-    taxonomy = taxonomy.cast()
     updated_tag = taxonomy.update_tag(tag, new_value)
 
     # Resync all related ObjectTags to update to the new Tag value
@@ -483,7 +475,6 @@ def delete_tags_from_taxonomy(
     the `with_subtags` is not set to `True` it will fail, otherwise
     the sub-tags will be deleted as well.
     """
-    taxonomy = taxonomy.cast()
     taxonomy.delete_tags(tags, with_subtags)
 
 
