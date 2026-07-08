@@ -7,6 +7,8 @@ Context
 -------
 Competency Based Education (CBE) requires that the LMS have the ability to track learners' mastery of competencies through the means of competency achievement criteria. For example, in order to demonstrate that I have mastered the Multiplication competency, I need to have earned 75% or higher on Assignment 1 or Assignment 2. The association of the competency, the threshold, the assignments, and the logical OR operator together make up the competency achievement criteria. Course Authors and Platform Administrators need a way to set up these associations in Studio so that their outcomes can be calculated as learners complete their materials. This is an important prerequisite for being able to display competency progress dashboards to learners and staff to make Open edX the platform of choice for those using the CBE model.
 
+In the vast majority of cases, the rule used to evaluate mastery (the threshold, for example "75% or higher") is the same across the entire Open edX instance, so the system-wide default is the common case. The scoping and override mechanisms described below exist to support less common exceptions to that default: a taxonomy-level default is needed when a competency's threshold should differ from the system-wide one; an organization-level default is needed because Open edX already allows a single taxonomy to be associated with multiple organizations, so organizations sharing a taxonomy may still expect different thresholds (for example, a general skill taxonomy used differently by two departments), or a taxonomy should not be locally weakened by any organization at all (for example, one adopted from a third-party). Course- and criterion-level overrides support finer-grained exceptions beyond that.
+
 In order to support these use cases, we need to be able to model these rules (competency achievement criteria) and their association to the tag/competency to be demonstrated and the object (course, subsection, unit, etc) or objects that are used as the means to assess competency mastery. We also need to leave flexibility for a variety of different types as well as groupings to be able to develop a variety of pathways of different combinations of objects that can be used by learners to demonstrate mastery of a competency.
 
 Additionally, we need to be able to track each learner's progress towards competency demonstration as they begin receiving results for their work on objects associated with the competency via competency achievement criteria.
@@ -35,6 +37,7 @@ Decision
    Relationship to other concepts:
 
    - ``CompetencyRuleProfile`` can be scoped to a ``CompetencyTaxonomy``.
+   - The override tiebreak (``taxonomy_overrides_org``, below) is recorded on the taxonomy rather than on the organization-scoped profile: a single taxonomy can compete against many organization-scoped profiles (Decision 4), so the taxonomy is the one place a single answer can be set that automatically applies to all of them, current or future, rather than needing to be repeated on each org-scoped row.
    - ``CompetencyCriteriaGroup`` and ``CompetencyCriterion`` are only valid for competencies from enabled taxonomies.
 
    A taxonomy listed in this table:
@@ -53,8 +56,9 @@ Decision
    - has no competency-specific constraints on associated content objects.
 
    This new database table will have the following columns:
+   
    1. ``taxonomy_ptr_id``: Primary key and one-to-one foreign key to ``oel_tagging_taxonomy.id``.
-   2. ``taxonomy_overrides_org``: Boolean, defaults to ``false``. Used only while computing which single ``CompetencyRuleProfile`` to assign to a ``CompetencyCriterion`` (Decision 4). If, for a criterion's context, both an organization-scoped profile row and a taxonomy-scoped profile row exist as candidates, this field decides which one gets assigned: ``false`` (default) assigns the organization-scoped row; ``true`` assigns this taxonomy's own row instead, so it cannot be overridden by an organization. Once assigned, the criterion stores that one profile's id and this field plays no further part. Not exercised in this phase; see the MVP note in Decision 4.
+   2. ``taxonomy_overrides_org``: Boolean, defaults to ``false``. Used only while computing which single ``CompetencyRuleProfile`` to assign to a ``CompetencyCriterion`` (Decision 4). If, for a criterion's context, both an organization-scoped profile row and a taxonomy-scoped profile row exist as candidates, this field decides which one gets assigned: ``false`` (default) assigns the organization-scoped row; ``true`` assigns this taxonomy's own row instead, so it cannot be overridden by an organization. Once assigned, the criterion stores that one profile's id and this field plays no further part. This field is created now but read by no code path in this phase, since organization-scoped profiles don't exist yet and the conflict it resolves can't occur; see the MVP note in Decision 4.
 
    Lifecycle rules for this parent/child pair:
 
@@ -114,9 +118,9 @@ Decision
 
    Relationship to other concepts:
 
-   - Each row is scoped by at most one of taxonomy, course, or organization (or by none, for the system default). See Decision 4 for how a criterion is assigned a profile when rows in more than one of these scopes could apply to it.
-   - At most one profile row may exist per distinct scope value (unique constraint, Decision 5).
-   - The system default is the single profile row where all three scope fields are null. It is seeded, not created/edited/deleted through the profile API.
+   - Each row is scoped by at most one of taxonomy, course, or organization (or by none, for the system default). A check constraint enforces that at most one of ``organization_id``, ``course_id``, and ``competency_taxonomy_id`` is non-null per row. See Decision 4 for how a criterion is assigned a profile when rows in more than one of these scopes could apply to it.
+   - At most one profile row may exist per distinct scope value. This is enforced by a unique constraint on the generated ``scope_key`` column (Decision 5), not a plain unique constraint on the three raw scope columns; see the ``scope_key`` column definition below for why.
+   - The system default is the single profile row where all three scope fields are null, which gives it ``scope_key = null``. Null values are never unique-checked, so this row's singularity is guaranteed procedurally instead: it is seeded once via migration and never created or deleted through the profile API. Its ``rule_type``/``rule_payload`` can be edited through the profile API like any other profile.
    - Is referenced by ``CompetencyCriterion``, which may override its type/payload.
    - Never hard-deleted; retirement is archive-only (Decision 7).
 
@@ -126,11 +130,14 @@ Decision
    2. ``organization_id``: The ``organization_id`` of the organization that this competency rule profile is scoped to. Null if it is not scoped to a specific organization.
    3. ``course_id``: The ``course_id`` of the course that this competency rule profile is scoped to. Null if it is not scoped to a specific course.
    4. ``competency_taxonomy_id``: The ``CompetencyTaxonomy.taxonomy_ptr_id`` of the competency taxonomy that this competency rule profile is scoped to. Null if it is not scoped to a specific taxonomy.
-   5. ``rule_type``: “View”, “Grade”, “MasteryLevel” (Only “Grade” will be supported for now)
-   6. ``rule_payload``: JSON payload keyed by ``rule_type`` to avoid freeform strings. It is structured JSON (not arbitrary freeform data): each ``rule_type`` defines the allowed payload shape and required keys, and validation enforces this contract. JSON is used instead of fixed columns like ``op``, ``value``, and ``scale`` so that future rule types (for example, ``MasteryLevel`` thresholds or plugin-defined evaluators such as CEL-based rules) can add their own fields without repeated schema migrations or many nullable columns. Examples:
+   5. ``scope_key``: Database-generated column, not set directly, that collapses the three scope columns above into one comparable value: for example ``"org:5"``, ``"course:12"``, or ``"taxonomy:7"``, and null when all three scope columns are null (the system default). This exists because SQL never treats two ``NULL`` values as equal for uniqueness purposes, so a plain unique constraint across the three nullable scope columns would not stop two rows from sharing the same scope (for example two rows both with ``organization_id=5`` and the other two columns null). Collapsing the scope into one generated column that is non-null whenever a row is actually scoped sidesteps that, and does so identically on every database backend this project supports, including MySQL, which does not support the conditional/partial unique indexes that would otherwise be the usual fix.
+   6. ``rule_type``: “View”, “Grade”, “MasteryLevel” (Only “Grade” will be supported for now)
+   7. ``rule_payload``: JSON payload keyed by ``rule_type`` to avoid freeform strings. It is structured JSON (not arbitrary freeform data): each ``rule_type`` defines the allowed payload shape and required keys, and validation enforces this contract. JSON is used instead of fixed columns like ``op``, ``value``, and ``scale`` so that future rule types (for example, ``MasteryLevel`` thresholds or plugin-defined evaluators such as CEL-based rules) can add their own fields without repeated schema migrations or many nullable columns. Examples:
 
       1. ``Grade``: ``{"op": "gte", "value": 0.75, "scale": "percent"}``. Allowed ``op`` values: ``gte``, ``lte``, ``eq``. ``value`` must be a fraction between 0.0 and 1.0 inclusive, matching the platform's existing fractional grade representation, not a 0-100 scale.
-   7. ``archived``: Boolean, defaults to false. Set instead of deleting a profile that is no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriterion`` rows and learner status history stay resolvable.
+   8. ``archived``: Boolean, defaults to false. Set instead of deleting a profile that is no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriterion`` rows and learner status history stay resolvable.
+
+   A check constraint requires that at most one of ``organization_id``, ``course_id``, and ``competency_taxonomy_id`` is non-null on any row, matching the scoping rule above.
 
    Editing a profile may change ``rule_type``/``rule_payload`` only; scope fields are immutable after creation, to avoid silently re-scoping criteria that already resolved to this profile.
 
@@ -236,7 +243,7 @@ Decision
    6. ``StudentCompetencyCriteriaStatus(user_id, competency_criteria_id)``
    7. ``StudentCompetencyCriteriaGroupStatus(user_id, competency_criteria_group_id)``
    8. ``StudentCompetencyStatus(user_id, oel_tagging_tag_id)``
-   9. ``CompetencyRuleProfile(competency_taxonomy_id, course_id, organization_id)`` (unique -- at most one profile per distinct scope combination)
+   9. ``CompetencyRuleProfile(scope_key)`` (unique -- at most one profile per distinct scope value; a plain unique constraint on the three raw nullable scope columns would not enforce this, since SQL never treats two ``NULL`` values as equal and this project's MySQL backend does not support the conditional/partial unique indexes that would otherwise route around that; see the ``scope_key`` column in Decision 3)
    10. ``CompetencyMasteryStatuses(status)`` (unique)
 
 6. Learner progress status concepts (``StudentCompetency*Status`` database tables)
@@ -404,3 +411,14 @@ Rejected Alternatives
       1. Does not fit taxonomies that span multiple organizations: a single taxonomy-wide default would need one duplicate profile per associated organization.
       2. Requires reconciling profiles whenever an organization is added to or removed from a taxonomy.
       3. Organization and taxonomy are not naturally nested (a taxonomy can belong to many organizations and vice versa), so forcing one to always contain the other does not reflect the actual relationship between them.
+
+6. Enforce ``CompetencyRuleProfile`` scope uniqueness with per-scope conditional/partial unique constraints (Django ``UniqueConstraint(condition=Q(...))``) directly on the three nullable scope columns, instead of a generated ``scope_key`` column (Decision 3).
+
+   1. Pros
+
+      1. No new column; the constraint reads directly off the existing scope columns.
+      2. The commonly-recommended Django pattern for "unique except when null" scoping.
+   2. Cons
+
+      1. Silently does not work on this project's tested and production database backend. Django compiles a conditional ``UniqueConstraint`` to a partial index, which MySQL does not support; Django raises only a non-fatal system-check warning (``models.W036``) and skips creating the constraint, leaving the uniqueness rule completely unenforced at the database level.
+      2. The gap would surface only as a data-integrity incident under concurrent writes, not as a test or migration failure, since SQLite (used for quick local test runs) does support partial indexes and would mask the problem in that environment.
