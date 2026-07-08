@@ -4,7 +4,6 @@ Tagging app base data models
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import List, Self, cast
 
@@ -13,15 +12,12 @@ from django.db import models
 from django.db.models import F, Value
 from django.db.models.functions import Concat, Length, Replace, Substr
 from django.utils.functional import cached_property
-from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 
 from openedx_django_lib.fields import MultiCollationTextField, case_insensitive_char_field, case_sensitive_char_field
 
 from ..data import TagDataQuerySet
 from .utils import RESERVED_TAG_CHARS
-
-log = logging.getLogger(__name__)
 
 # Maximum depth of tags that can be created. Internally, the system has no depth limits, but for reasonable performance
 # guarantees we enforce this depth. Note: depth is zero-indexed so "5" means 6 levels of depth are allowed.
@@ -295,14 +291,12 @@ class Taxonomy(models.Model):
         ),
         unique=True,
     )
-    _taxonomy_class = models.CharField(
-        null=True,
-        max_length=255,
+    read_only = models.BooleanField(
+        default=False,
         help_text=_(
-            "Taxonomy subclass used to instantiate this instance; must be a fully-qualified module and class name."
-            " If the module/class cannot be imported, an error is logged and the base Taxonomy class is used instead."
+            "Indicates that the tags in this taxonomy are maintained by the system or an external integration;"
+            " taxonomy admins will not be permitted to add, edit, or delete its tags."
         ),
-        blank=True,
     )
 
     class Meta:
@@ -318,54 +312,7 @@ class Taxonomy(models.Model):
         """
         User-facing string representation of a Taxonomy.
         """
-        try:
-            if self._taxonomy_class:
-                return f"<{self.taxonomy_class.__name__}> ({self.id}) {self.name}"
-        except ImportError:
-            # Log error and continue
-            log.exception(
-                f"Unable to import taxonomy_class for {self.id}: {self._taxonomy_class}"
-            )
         return f"<{self.__class__.__name__}> ({self.id}) {self.name}"
-
-    @property
-    def taxonomy_class(self) -> type[Taxonomy] | None:
-        """
-        Returns the Taxonomy subclass associated with this instance, or None if none supplied.
-
-        May raise ImportError if a custom taxonomy_class cannot be imported.
-        """
-        if self._taxonomy_class:
-            return import_string(self._taxonomy_class)
-        return None
-
-    @taxonomy_class.setter
-    def taxonomy_class(self, taxonomy_class: type[Taxonomy] | None):
-        """
-        Assigns the given taxonomy_class's module path.class to the field.
-
-        Must be a subclass of Taxonomy, or raises a ValueError.
-        """
-        if taxonomy_class:
-            if not issubclass(taxonomy_class, Taxonomy):
-                raise ValueError(
-                    f"Unable to assign taxonomy_class for {self}: {taxonomy_class} must be a subclass of Taxonomy"
-                )
-
-            # ref: https://stackoverflow.com/a/2020083
-            self._taxonomy_class = ".".join(
-                [taxonomy_class.__module__, taxonomy_class.__qualname__]
-            )
-        else:
-            self._taxonomy_class = None
-
-    @property
-    def system_defined(self) -> bool:
-        """
-        Indicates that tags and metadata for this taxonomy are maintained by the system;
-        taxonomy admins will not be permitted to modify them.
-        """
-        return False
 
     def clean(self):
         super().clean()
@@ -374,52 +321,6 @@ class Taxonomy(models.Model):
             raise ValidationError(
                 "The export_id should only contain alphanumeric characters or '_' '-' '.'"
             )
-
-    def cast(self):
-        """
-        Returns the current Taxonomy instance cast into its taxonomy_class.
-
-        If no taxonomy_class is set, or if we're unable to import it, then just returns self.
-        """
-        try:
-            TaxonomyClass = self.taxonomy_class
-            if TaxonomyClass and not isinstance(self, TaxonomyClass):
-                return TaxonomyClass().copy(self)
-        except ImportError:
-            # Log error and continue
-            log.exception(
-                f"Unable to import taxonomy_class for {self}: {self._taxonomy_class}"
-            )
-
-        return self
-
-    def check_casted(self):
-        """
-        Double-check that this taxonomy has been cast() to a subclass if needed.
-        """
-        if self.cast() is not self:
-            raise TypeError("Taxonomy was used incorrectly - without .cast()")
-
-    def copy(self, taxonomy: Taxonomy) -> Taxonomy:
-        """
-        Copy the fields from the given Taxonomy into the current instance.
-        """
-        self.id = taxonomy.id
-        self.name = taxonomy.name
-        self.description = taxonomy.description
-        self.enabled = taxonomy.enabled
-        self.allow_multiple = taxonomy.allow_multiple
-        self.allow_free_text = taxonomy.allow_free_text
-        self.visible_to_authors = taxonomy.visible_to_authors
-        self.export_id = taxonomy.export_id
-        self._taxonomy_class = taxonomy._taxonomy_class  # pylint: disable=protected-access
-
-        # Copy Django's internal prefetch_related cache to reduce queries required on the casted taxonomy.
-        if hasattr(taxonomy, '_prefetched_objects_cache'):
-            # pylint: disable=protected-access,attribute-defined-outside-init
-            self._prefetched_objects_cache: dict = taxonomy._prefetched_objects_cache
-
-        return self
 
     def get_filtered_tags(
         self,
@@ -611,16 +512,14 @@ class Taxonomy(models.Model):
         exists in the Taxonomy, an exception is raised, otherwise the newly
         created Tag is returned
         """
-        self.check_casted()
-
         if self.allow_free_text:
             raise ValueError(
                 "add_tag() doesn't work for free text taxonomies. They don't use Tag instances."
             )
 
-        if self.system_defined:
+        if self.read_only:
             raise ValueError(
-                "add_tag() doesn't work for system defined taxonomies. They cannot be modified."
+                "add_tag() doesn't work for read-only taxonomies. They cannot be modified."
             )
 
         if self.tag_set.filter(value__iexact=tag_value).exists():
@@ -644,16 +543,14 @@ class Taxonomy(models.Model):
         Update an existing Tag in Taxonomy and return it. Currently only
         supports updating the Tag's value.
         """
-        self.check_casted()
-
         if self.allow_free_text:
             raise ValueError(
                 "update_tag() doesn't work for free text taxonomies. They don't use Tag instances."
             )
 
-        if self.system_defined:
+        if self.read_only:
             raise ValueError(
-                "update_tag() doesn't work for system defined taxonomies. They cannot be modified."
+                "update_tag() doesn't work for read-only taxonomies. They cannot be modified."
             )
 
         # Update Tag instance with new value, raises Tag.DoesNotExist if
@@ -669,16 +566,14 @@ class Taxonomy(models.Model):
         the `with_subtags` is not set to `True` it will fail, otherwise
         the sub-tags will be deleted as well.
         """
-        self.check_casted()
-
         if self.allow_free_text:
             raise ValueError(
                 "delete_tags() doesn't work for free text taxonomies. They don't use Tag instances."
             )
 
-        if self.system_defined:
+        if self.read_only:
             raise ValueError(
-                "delete_tags() doesn't work for system defined taxonomies. They cannot be modified."
+                "delete_tags() doesn't work for read-only taxonomies. They cannot be modified."
             )
 
         tags_to_delete = self.tag_set.filter(value__in=tags)
@@ -704,12 +599,10 @@ class Taxonomy(models.Model):
         """
         Check if 'value' is part of this Taxonomy.
         A 'Tag' object may not exist for the value (e.g. if this is a free text
-        taxonomy, then any value is allowed but no Tags are created; if this is
-        a user taxonomy, Tag entries may only get created as needed.), but if
+        taxonomy, then any value is allowed but no Tags are created), but if
         this returns True then the value conceptually exists in this taxonomy
         and can be used to tag objects.
         """
-        self.check_casted()
         if self.allow_free_text:
             return value != "" and isinstance(value, str)
         return self.tag_set.filter(value__iexact=value).exists()
@@ -717,12 +610,9 @@ class Taxonomy(models.Model):
     def tag_for_value(self, value: str, select_related: list[str] | None = None) -> Tag:
         """
         Get the Tag object for the given value.
-        Some Taxonomies may auto-create the Tag at this point, e.g. a User
-        Taxonomy will create User Tags "just in time".
 
         Will raise Tag.DoesNotExist if the value is not valid for this taxonomy.
         """
-        self.check_casted()
         if self.allow_free_text:
             raise ValueError("tag_for_value() doesn't work for free text taxonomies. They don't use Tag instances.")
         if select_related is not None:
@@ -735,7 +625,6 @@ class Taxonomy(models.Model):
         """
         Check if 'external_id' is part of this Taxonomy.
         """
-        self.check_casted()
         if self.allow_free_text:
             return False  # Free text taxonomies don't use 'external_id' on their tags
         return self.tag_set.filter(external_id__iexact=external_id).exists()
@@ -743,12 +632,9 @@ class Taxonomy(models.Model):
     def tag_for_external_id(self, external_id: str) -> Tag:
         """
         Get the Tag object for the given external_id.
-        Some Taxonomies may auto-create the Tag at this point, e.g. a User
-        Taxonomy will create User Tags "just in time".
 
         Will raise Tag.DoesNotExist if the tag is not valid for this taxonomy.
         """
-        self.check_casted()
         if self.allow_free_text:
             raise ValueError("tag_for_external_id() doesn't work for free text taxonomies.")
         return self.tag_set.get(external_id__iexact=external_id)

@@ -21,12 +21,21 @@ class CanAddPermissionMixin(UserPermissionsHelper):  # pylint: disable=abstract-
 
     The value of the field indicates whether request user may create new instances of the current model.
     """
+    view = None
+
     @property
     def _request(self) -> Request:
         """
         Returns the current request.
         """
         return self.request  # type: ignore[attr-defined]
+
+    def paginate_queryset(self, queryset, request, view=None):
+        """
+        Keeps a reference to the view, so `get_can_add` can use it to check object-level permissions.
+        """
+        self.view = view
+        return super().paginate_queryset(queryset, request, view=view)
 
     def get_paginated_response(self, data) -> Response:
         """
@@ -53,14 +62,11 @@ class TaxonomyPagination(CanAddPermissionMixin, DefaultPagination):
         return Taxonomy
 
 
-class TagsPagination(CanAddPermissionMixin, DefaultPagination):
+class TagPermissionsMixin(CanAddPermissionMixin):  # pylint: disable=abstract-method
     """
-    Custom pagination configuration for taxonomies
-    with a large number of tags. Used on the get tags API view.
+    Checks "add_tag" permission using a Tag bound to the current taxonomy, so that taxonomies with
+    read_only=True correctly report can_add_tag=False.
     """
-    page_size = 10
-    max_page_size = 300
-
     @property
     def _model(self) -> Type:
         """
@@ -68,8 +74,21 @@ class TagsPagination(CanAddPermissionMixin, DefaultPagination):
         """
         return Tag
 
+    def get_can_add(self, _instance=None) -> bool | None:
+        taxonomy = self.view.get_taxonomy() if self.view else None
+        return super().get_can_add(Tag(taxonomy=taxonomy) if taxonomy else None)
 
-class DisabledTagsPagination(CanAddPermissionMixin, DefaultPagination):
+
+class TagsPagination(TagPermissionsMixin, DefaultPagination):
+    """
+    Custom pagination configuration for taxonomies
+    with a large number of tags. Used on the get tags API view.
+    """
+    page_size = 10
+    max_page_size = 300
+
+
+class DisabledTagsPagination(TagPermissionsMixin, DefaultPagination):
     """
     Custom pagination configuration for taxonomies
     with a small number of tags. Used on the get tags API view
@@ -80,10 +99,3 @@ class DisabledTagsPagination(CanAddPermissionMixin, DefaultPagination):
     """
     page_size = MAX_FULL_DEPTH_THRESHOLD
     max_page_size = MAX_FULL_DEPTH_THRESHOLD + 1
-
-    @property
-    def _model(self) -> Type:
-        """
-        Returns the model that is being paginated.
-        """
-        return Tag

@@ -470,7 +470,6 @@ class ObjectTagView(
         taxonomy = query_params.validated_data.get("taxonomy", None)
         taxonomy_id = None
         if taxonomy:
-            taxonomy = taxonomy.cast()
             taxonomy_id = taxonomy.id
 
         if object_id.endswith("*") or "," in object_id:

@@ -8,7 +8,7 @@ from django.test.testcases import TestCase
 
 import openedx_tagging.import_export.api as import_export_api
 from openedx_tagging.import_export import ParserFormat
-from openedx_tagging.models import LanguageTaxonomy, Tag, TagImportTask, TagImportTaskState, Taxonomy
+from openedx_tagging.models import Tag, TagImportTask, TagImportTaskState, Taxonomy
 
 from .mixins import TestImportExportMixin
 
@@ -45,11 +45,10 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
             name="Open taxonomy",
             allow_free_text=True
         )
-        self.system_taxonomy = Taxonomy(
-            name="System taxonomy",
+        self.read_only_taxonomy = Taxonomy(
+            name="Read-only taxonomy",
+            read_only=True,
         )
-        self.system_taxonomy.taxonomy_class = LanguageTaxonomy
-        self.system_taxonomy = self.system_taxonomy.cast()
         return super().setUp()
 
     def test_check_status(self) -> None:
@@ -81,10 +80,10 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
                 self.parser_format,
             )
 
-        # Check that import is invalid with system taxonomy
+        # Check that import is invalid with read-only taxonomy
         with self.assertRaises(ValueError):
             import_export_api.import_tags(
-                self.system_taxonomy,
+                self.read_only_taxonomy,
                 self.file,
                 self.parser_format,
             )

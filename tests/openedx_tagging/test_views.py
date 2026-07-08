@@ -20,7 +20,6 @@ from openedx_tagging import api
 from openedx_tagging.import_export import api as import_export_api
 from openedx_tagging.import_export.parsers import ParserFormat
 from openedx_tagging.models import ObjectTag, Tag, Taxonomy
-from openedx_tagging.models.system_defined import SystemDefinedTaxonomy
 from openedx_tagging.rest_api.paginators import TagsPagination
 from openedx_tagging.rules import can_change_object_tag_objectid, can_view_object_tag_objectid
 
@@ -42,8 +41,6 @@ OBJECT_TAGS_RETRIEVE_URL = "/tagging/rest_api/v1/object_tags/{object_id}/"
 OBJECT_TAG_COUNTS_URL = "/tagging/rest_api/v1/object_tag_counts/{object_id_pattern}/"
 OBJECT_TAGS_UPDATE_URL = "/tagging/rest_api/v1/object_tags/{object_id}/"
 
-LANGUAGE_TAXONOMY_ID = -1
-
 
 def check_taxonomy(
     data,
@@ -54,7 +51,7 @@ def check_taxonomy(
     enabled=True,
     allow_multiple=True,
     allow_free_text=False,
-    system_defined=False,
+    read_only=False,
     visible_to_authors=True,
     can_change_taxonomy=None,
     can_delete_taxonomy=None,
@@ -70,7 +67,7 @@ def check_taxonomy(
     assert data["enabled"] == enabled
     assert data["allow_multiple"] == allow_multiple
     assert data["allow_free_text"] == allow_free_text
-    assert data["system_defined"] == system_defined
+    assert data["read_only"] == read_only
     assert data["visible_to_authors"] == visible_to_authors
     assert data["can_change_taxonomy"] == can_change_taxonomy
     assert data["can_delete_taxonomy"] == can_delete_taxonomy
@@ -105,14 +102,14 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     """
 
     @ddt.data(
-        (None, status.HTTP_200_OK, 4),
-        (1, status.HTTP_200_OK, 3),
+        (None, status.HTTP_200_OK, 3),
+        (1, status.HTTP_200_OK, 2),
         (0, status.HTTP_200_OK, 1),
-        (True, status.HTTP_200_OK, 3),
+        (True, status.HTTP_200_OK, 2),
         (False, status.HTTP_200_OK, 1),
-        ("True", status.HTTP_200_OK, 3),
+        ("True", status.HTTP_200_OK, 2),
         ("False", status.HTTP_200_OK, 1),
-        ("1", status.HTTP_200_OK, 3),
+        ("1", status.HTTP_200_OK, 2),
         ("0", status.HTTP_200_OK, 1),
         (2, status.HTTP_400_BAD_REQUEST, None),
         ("invalid", status.HTTP_400_BAD_REQUEST, None),
@@ -133,7 +130,6 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         assert response.status_code == expected_status
 
         # If we were able to list the taxonomies, check that we got the expected number back
-        # We take into account the Language Taxonomy that is created by the system in a migration
         if status.is_success(expected_status):
             assert len(response.data["results"]) == expected_count
 
@@ -165,29 +161,13 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         if status.is_success(expected_status):
             assert response.data["results"] == [
                 {
-                    "id": -1,
-                    "name": "Languages",
-                    "description": "Languages that are enabled on this system.",
-                    "enabled": True,
-                    "allow_multiple": False,
-                    "allow_free_text": False,
-                    "system_defined": True,
-                    "visible_to_authors": True,
-                    "tags_count": 0,
-                    # System taxonomy cannot be modified
-                    "can_change_taxonomy": False,
-                    "can_delete_taxonomy": False,
-                    "can_tag_object": False,
-                    "export_id": "languages-v1",
-                },
-                {
                     "id": taxonomy.id,
                     "name": "Taxonomy enabled 1",
                     "description": "",
                     "enabled": True,
                     "allow_multiple": True,
                     "allow_free_text": False,
-                    "system_defined": False,
+                    "read_only": False,
                     "visible_to_authors": True,
                     "tags_count": tags_count,
                     # Enabled taxonomy can be modified by taxonomy admins
@@ -196,7 +176,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     # can_tag_object is False because we default to not allowing users to tag arbitrary objects.
                     # But specific uses of this code (like content_tagging) will override this perm for their use cases.
                     "can_tag_object": False,
-                    "export_id": "2-taxonomy-enabled-1",
+                    "export_id": "1-taxonomy-enabled-1",
                 },
             ]
             assert response.data.get("can_add_taxonomy") == is_admin
@@ -216,7 +196,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_200_OK
 
-        self.assertEqual(set(t["name"] for t in response.data["results"]), set(("T2", "T3")))
+        self.assertEqual(set(t["name"] for t in response.data["results"]), set(("T3", "T4")))
         parsed_url = urlparse(response.data["next"])
 
         next_page = parse_qs(parsed_url.query).get("page", [""])[0]
@@ -228,11 +208,6 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     )
     @ddt.unpack
     def test_list_taxonomy_empty(self, user_attr, expected_can_add) -> None:
-        # Delete the language taxonomy so we can get an empty list
-        language_taxonomy = api.get_taxonomy(LANGUAGE_TAXONOMY_ID)
-        if language_taxonomy:
-            language_taxonomy.delete()
-
         url = TAXONOMY_LIST_URL
         user = getattr(self, user_attr)
         self.client.force_authenticate(user=user)
@@ -260,12 +235,12 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.user)
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(2):
             response = self.client.get(url)
 
         assert response.status_code == 200
         assert not response.data["can_add_taxonomy"]
-        assert len(response.data["results"]) == 3
+        assert len(response.data["results"]) == 2
         for taxonomy in response.data["results"]:
             assert not taxonomy["can_change_taxonomy"]
             assert not taxonomy["can_delete_taxonomy"]
@@ -281,28 +256,6 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         response = self.client.get(url, query_params, format="json")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
-
-    def test_language_taxonomy(self):
-        """
-        Test the "Language" taxonomy that's included.
-        """
-        self.client.force_authenticate(user=self.user)
-        response = self.client.get(TAXONOMY_LIST_URL)
-        assert response.status_code == status.HTTP_200_OK
-        taxonomy_list = response.data["results"]
-        assert len(taxonomy_list) == 1
-        check_taxonomy(
-            taxonomy_list[0],
-            taxonomy_id=LANGUAGE_TAXONOMY_ID,
-            name="Languages",
-            description="Languages that are enabled on this system.",
-            allow_multiple=False,  # We may change this in the future to allow multiple language tags
-            system_defined=True,
-            can_change_taxonomy=False,
-            can_delete_taxonomy=False,
-            can_tag_object=False,
-            export_id='languages-v1',
-        )
 
     @ddt.data(
         (None, {"enabled": True}, status.HTTP_401_UNAUTHORIZED),
@@ -338,12 +291,14 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
             expected_data["can_tag_object"] = False
             check_taxonomy(response.data, taxonomy_id=taxonomy.pk, **expected_data)  # type: ignore[arg-type]
 
-    def test_detail_system_taxonomy(self):
-        url = TAXONOMY_DETAIL_URL.format(pk=LANGUAGE_TAXONOMY_ID)
+    def test_detail_read_only_taxonomy(self):
+        taxonomy = api.create_taxonomy(name="Read Only", read_only=True)
+        url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
         self.client.force_authenticate(user=self.user)
 
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
+        assert response.data["read_only"] is True
 
     def test_detail_taxonomy_404(self) -> None:
         url = TAXONOMY_DETAIL_URL.format(pk=123123)
@@ -413,7 +368,7 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         check_taxonomy(
             response.data,
             taxonomy_id=response.data["id"],
-            export_id="2-taxonomy-data-3",
+            export_id="1-taxonomy-data-3",
             **create_data,
         )
 
@@ -429,17 +384,17 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
         response = self.client.post(url, create_data, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    @ddt.data({"name": "System defined taxonomy", "system_defined": True})
-    def test_create_taxonomy_system_defined(self, create_data):
+    @ddt.data({"name": "Read only taxonomy", "read_only": True})
+    def test_create_taxonomy_read_only(self, create_data):
         """
-        Cannont create a taxonomy with system_defined=true
+        Taxonomy admins can create a read-only taxonomy through the API.
         """
         url = TAXONOMY_LIST_URL
 
         self.client.force_authenticate(user=self.staff)
         response = self.client.post(url, create_data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
-        assert not response.data["system_defined"]
+        assert response.data["read_only"] is True
 
     @ddt.data(
         (None, status.HTTP_401_UNAUTHORIZED),
@@ -476,28 +431,27 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "can_change_taxonomy": True,
                     "can_delete_taxonomy": True,
                     "can_tag_object": False,
-                    "export_id": "2-test-update-taxonomy",
+                    "export_id": "1-test-update-taxonomy",
                 },
             )
 
-    @ddt.data(
-        (False, status.HTTP_200_OK),
-        (True, status.HTTP_403_FORBIDDEN),
-    )
-    @ddt.unpack
-    def test_update_taxonomy_system_defined(self, system_defined, expected_status):
+    @ddt.data(True, False)
+    def test_update_taxonomy_read_only(self, read_only):
         """
-        Test that we can't update system_defined field
+        Admins can update a taxonomy regardless of its read_only status, and can
+        toggle the read_only flag itself.
         """
         taxonomy = api.create_taxonomy(
-            name="test system taxonomy",
-            taxonomy_class=SystemDefinedTaxonomy if system_defined else None,
+            name="test read only taxonomy",
+            read_only=read_only,
         )
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         self.client.force_authenticate(user=self.staff)
-        response = self.client.put(url, {"name": "new name"}, format="json")
-        assert response.status_code == expected_status
+        response = self.client.put(url, {"name": "new name", "read_only": not read_only}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["name"] == "new name"
+        assert response.data["read_only"] == (not read_only)
 
     def test_update_taxonomy_404(self):
         url = TAXONOMY_DETAIL_URL.format(pk=123123)
@@ -536,28 +490,26 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
                     "can_change_taxonomy": True,
                     "can_delete_taxonomy": True,
                     "can_tag_object": False,
-                    "export_id": '2-test-patch-taxonomy',
+                    "export_id": '1-test-patch-taxonomy',
                 },
             )
 
-    @ddt.data(
-        (False, status.HTTP_200_OK),
-        (True, status.HTTP_403_FORBIDDEN),
-    )
-    @ddt.unpack
-    def test_patch_taxonomy_system_defined(self, system_defined, expected_status):
+    @ddt.data(True, False)
+    def test_patch_taxonomy_read_only(self, read_only):
         """
-        Test that we can't patch system_defined field
+        Admins can patch a taxonomy regardless of its read_only status, including
+        toggling the read_only flag itself.
         """
         taxonomy = api.create_taxonomy(
-            name="test system taxonomy",
-            taxonomy_class=SystemDefinedTaxonomy if system_defined else None,
+            name="test read only taxonomy",
+            read_only=read_only,
         )
         url = TAXONOMY_DETAIL_URL.format(pk=taxonomy.pk)
 
         self.client.force_authenticate(user=self.staff)
-        response = self.client.patch(url, {"name": "New name"}, format="json")
-        assert response.status_code == expected_status
+        response = self.client.patch(url, {"read_only": not read_only}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["read_only"] == (not read_only)
 
     def test_patch_taxonomy_404(self):
         url = TAXONOMY_DETAIL_URL.format(pk=123123)
@@ -743,7 +695,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
         # Apply the object tags that we're about to retrieve:
         api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
-        api.tag_object(object_id=object_id, taxonomy=self.user_taxonomy, tags=[self.user_1.username])
+        api.tag_object(object_id=object_id, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
 
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
@@ -782,17 +734,17 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                             "export_id": "life_on_earth"
                         },
                         {
-                            "name": "User Authors",
-                            "taxonomy_id": 3,
+                            "name": "Read Only Taxonomy",
+                            "taxonomy_id": 4,
                             "can_tag_object": True,
                             "tags": [
                                 {
-                                    "value": "test_user_1",
-                                    "lineage": ["test_user_1"],
+                                    "value": "System Tag 1",
+                                    "lineage": ["System Tag 1"],
                                     "can_delete_objecttag": False,
                                 },
                             ],
-                            "export_id": "user_authors"
+                            "export_id": "read_only_taxonomy"
                         }
                     ],
                 },
@@ -915,7 +867,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
         # Apply the object tags that we're about to retrieve:
         api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
-        api.tag_object(object_id=object_id, taxonomy=self.user_taxonomy, tags=[self.user_1.username])
+        api.tag_object(object_id=object_id, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
 
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
@@ -923,7 +875,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        response = self.client.get(url, {"taxonomy": self.user_taxonomy.pk})
+        response = self.client.get(url, {"taxonomy": self.system_taxonomy.pk})
         assert response.status_code == expected_status
         if status.is_success(expected_status):
             assert response.data == {
@@ -933,17 +885,17 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
                     "taxonomies": [
                         # The "Life on Earth" tags are excluded here...
                         {
-                            "name": "User Authors",
-                            "taxonomy_id": 3,
+                            "name": "Read Only Taxonomy",
+                            "taxonomy_id": 4,
                             "can_tag_object": True,
                             "tags": [
                                 {
-                                    "value": "test_user_1",
-                                    "lineage": ["test_user_1"],
+                                    "value": "System Tag 1",
+                                    "lineage": ["System Tag 1"],
                                     "can_delete_objecttag": False,
                                 },
                             ],
-                            "export_id": "user_authors",
+                            "export_id": "read_only_taxonomy",
                         }
                     ],
                 },
@@ -1012,9 +964,9 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
     @ddt.data(
         # Users and staff can add tags
-        (None, "language_taxonomy", {}, ["Portuguese"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
-        ("user_1", "language_taxonomy", {}, ["Portuguese"], status.HTTP_200_OK, "abc"),
-        ("staff", "language_taxonomy", {}, ["Portuguese"], status.HTTP_200_OK, "abc.xyz"),
+        (None, "system_taxonomy", {}, ["System Tag 1"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        ("user_1", "system_taxonomy", {}, ["System Tag 1"], status.HTTP_200_OK, "abc"),
+        ("staff", "system_taxonomy", {}, ["System Tag 1"], status.HTTP_200_OK, "abc.xyz"),
         # user_1s and staff can clear add tags
         (None, "taxonomy", {}, ["Fungi"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
         ("user_1", "taxonomy", {}, ["Fungi"], status.HTTP_200_OK, "abc.xyz"),
@@ -1038,9 +990,9 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         ("user_1", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN, "abc.xyz"),
         ("staff", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN, "abc"),
         # Can't add invalid/nonexistent tags using a closed taxonomy
-        (None, "language_taxonomy", {}, ["Invalid"], status.HTTP_401_UNAUTHORIZED, "abc"),
-        ("user_1", "language_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
-        ("staff", "language_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc"),
+        (None, "system_taxonomy", {}, ["Invalid"], status.HTTP_401_UNAUTHORIZED, "abc"),
+        ("user_1", "system_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
+        ("staff", "system_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc"),
         ("staff", "taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
     )
     @ddt.unpack
@@ -1401,6 +1353,26 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
         response = self.client.get(self.small_taxonomy_url)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_read_only_taxonomy(self) -> None:
+        """
+        Test the permissions results of a read only taxonomy
+        """
+        ro_taxonomy = api.create_taxonomy(name="Read only taxonomy")
+        api.add_tag_to_taxonomy(ro_taxonomy, "tag1")
+        ro_taxonomy.read_only = True
+        ro_taxonomy.save()
+        url = TAXONOMY_TAGS_URL.format(pk=ro_taxonomy.pk)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert not response.data["can_add_tag"]
+        assert len(response.data["results"]) == 1
+        for tag in response.data["results"]:
+            assert not tag["can_change_tag"]
+            assert not tag["can_delete_tag"]
 
     def test_small_taxonomy_root(self):
         """
@@ -2023,7 +1995,7 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_create_tag_in_system_defined_taxonomy(self):
+    def test_create_tag_in_read_only_taxonomy(self):
         self.client.force_authenticate(user=self.staff)
         new_tag_value = "New Tag"
 
@@ -2031,8 +2003,8 @@ class TestTaxonomyTagsView(TestTaxonomyViewMixin):
             "tag": new_tag_value
         }
 
-        # Setting taxonomy to be system defined
-        self.small_taxonomy.taxonomy_class = SystemDefinedTaxonomy
+        # Setting taxonomy to be read-only
+        self.small_taxonomy.read_only = True
         self.small_taxonomy.save()
 
         response = self.client.post(
@@ -3512,7 +3484,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data == f"Invalid taxonomy ({self.taxonomy.id}): You cannot import a free-form taxonomy."
+        assert response.data == f"Invalid taxonomy ({self.taxonomy.id}): You cannot import to a free-text taxonomy."
 
         # Check if the taxonomy was no tags, since it is free text
         url = TAXONOMY_TAGS_URL.format(pk=self.taxonomy.id)
@@ -3547,7 +3519,7 @@ class TestImportTagsView(ImportTaxonomyMixin, APITestCase):
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        expected_message = f"Invalid taxonomy ({self.taxonomy.id}): You cannot import a free-form taxonomy."
+        expected_message = f"Invalid taxonomy ({self.taxonomy.id}): You cannot import to a free-text taxonomy."
         assert response.data["error"] == expected_message
 
         # Check if the taxonomy was no tags, since it is free text
