@@ -10,4 +10,3 @@ Django app for modeling and authoring course content structures.
 
    decisions/index
    api_reference
-   backup_restore
