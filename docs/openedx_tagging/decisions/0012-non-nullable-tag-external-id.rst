@@ -29,6 +29,9 @@ mechanism that lets multiple tags in the same taxonomy have "no external_id" at 
 Making the field mandatory means every existing NULL row in every current Open edX
 instance needs a real value before the constraint can be added, since this is a
 published library whose migrations run unmodified against arbitrary downstream data.
+``Tag.value`` already carries the same per-taxonomy, case-insensitive uniqueness
+constraint (``unique_together(taxonomy, value)``), so backfilling ``external_id`` from
+``value`` cannot introduce a new collision under the constraint being added here.
 
 Decision
 --------
@@ -41,18 +44,17 @@ migration.
   backfill-then-constrain shape as the ``depth``/``lineage`` migration
   (``0020_tag_depth_and_lineage.py``): populate real values first, then add the
   constraint in the same migration once every row satisfies it.
-- **Backfill algorithm.** Take the first ~7 characters of the tag's ``value`` (matching
-  ``external_id``'s existing case-insensitive collation). If that prefix collides with
-  another tag's ``external_id`` already in the same taxonomy, append a numeric counter
-  to the prefix and keep incrementing it until it's unique. This is deterministic and
-  bounded: it never needs an unbounded retry loop, since appending an incrementing
-  counter to an already-short prefix is guaranteed to terminate within the taxonomy's
-  tag count.
+- **Backfill algorithm.** Set ``external_id`` to the tag's existing ``value``. Since
+  ``(taxonomy, value)`` is already a unique, case-insensitive constraint matching
+  ``external_id``'s own, this is guaranteed unique with no collision handling needed.
+  Implementations may transform the copied value for UI legibility, for example
+  uppercasing it and replacing spaces with underscores, but no particular format is
+  required by this decision.
 - **New tags going forward.** The REST API and import format keep treating
   ``external_id`` as optional for the caller, unchanged from today. When a tag is
-  created without one, the same prefix-plus-collision-fallback algorithm generates one
-  automatically, rather than rejecting the request. No existing integration that omits
-  ``external_id`` today has to change.
+  created without one, the same backfill algorithm generates one automatically, rather
+  than rejecting the request. No existing integration that omits ``external_id`` today
+  has to change.
 - **Institutions can replace an auto-generated value.** If an institution doesn't want
   the auto-generated ``external_id``, they can change it to their own value through
   ADR 0010's rename pathway.
