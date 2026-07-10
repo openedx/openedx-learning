@@ -119,8 +119,8 @@ Decision
    Relationship to other concepts:
 
    - Each row is scoped by at most one of taxonomy, course, or organization (or by none, for the system default). A check constraint enforces that at most one of ``organization_id``, ``course_id``, and ``competency_taxonomy_id`` is non-null per row. See Decision 4 for how a criterion is assigned a profile when rows in more than one of these scopes could apply to it.
-   - At most one profile row may exist per distinct scope value. This is enforced by a unique constraint on the generated ``scope_key`` column (Decision 5), not a plain unique constraint on the three raw scope columns; see the ``scope_key`` column definition below for why.
-   - The system default is the single profile row where all three scope fields are null, which gives it ``scope_key = null``. Null values are never unique-checked, so this row's singularity is guaranteed procedurally instead: it is seeded once via migration and never created or deleted through the profile API. Its ``rule_type``/``rule_payload`` can be edited through the profile API like any other profile.
+   - At most one profile row may exist per distinct scope value. This is enforced by a unique constraint on the generated ``scope_code`` column (Decision 5), not a plain unique constraint on the three raw scope columns; see the ``scope_code`` column definition below for why.
+   - The system default is the single profile row where all three scope fields are null. ``scope_code`` is never null, including for this row (see below), so its singularity is enforced by the same unique constraint as every other profile rather than a separate procedural guarantee; it is seeded once via migration and never created or deleted through the profile API. Its ``rule_type``/``rule_payload`` can be edited through the profile API like any other profile.
    - Is referenced by ``CompetencyCriterion``, which may override its type/payload.
    - Never hard-deleted; retirement is archive-only (Decision 7).
 
@@ -130,7 +130,7 @@ Decision
    2. ``organization_id``: The ``organization_id`` of the organization that this competency rule profile is scoped to. Null if it is not scoped to a specific organization.
    3. ``course_id``: The ``course_id`` of the course that this competency rule profile is scoped to. Null if it is not scoped to a specific course.
    4. ``competency_taxonomy_id``: The ``CompetencyTaxonomy.taxonomy_ptr_id`` of the competency taxonomy that this competency rule profile is scoped to. Null if it is not scoped to a specific taxonomy.
-   5. ``scope_key``: Database-generated column, not set directly, that collapses the three scope columns above into one comparable value: for example ``"org:5"``, ``"course:12"``, or ``"taxonomy:7"``, and null when all three scope columns are null (the system default). This exists because SQL never treats two ``NULL`` values as equal for uniqueness purposes, so a plain unique constraint across the three nullable scope columns would not stop two rows from sharing the same scope (for example two rows both with ``organization_id=5`` and the other two columns null). Collapsing the scope into one generated column that is non-null whenever a row is actually scoped sidesteps that, and does so identically on every database backend this project supports, including MySQL, which does not support the conditional/partial unique indexes that would otherwise be the usual fix.
+   5. ``scope_code``: A database-generated column that is always in the fixed, trivially-parseable format ``"org:X,course:Y,taxonomy:Z"``, with each segment left blank when the corresponding scope column is null: for example ``"org:5,course:,taxonomy:"``, ``"org:,course:12,taxonomy:"``, ``"org:,course:,taxonomy:7"``, or ``"org:,course:,taxonomy:"`` for the system default. ``scope_code`` is therefore never null, including for the system default row. This exists because SQL never treats two ``NULL`` values as equal for uniqueness purposes, so a plain unique constraint across the three nullable scope columns would not stop two rows from sharing the same scope (for example two rows both with ``organization_id=5`` and the other two columns null). Collapsing the scope into one generated, always-non-null column sidesteps that, and does so identically on every database backend this project supports, including MySQL, which does not support the conditional/partial unique indexes that would otherwise be the usual fix. ``scope_code`` embeds internal ID references and exists solely to enforce uniqueness; it is not intended to be exported or exposed outside this system.
    6. ``rule_type``: “View”, “Grade”, “MasteryLevel” (Only “Grade” will be supported for now)
    7. ``rule_payload``: JSON payload keyed by ``rule_type`` to avoid freeform strings. It is structured JSON (not arbitrary freeform data): each ``rule_type`` defines the allowed payload shape and required keys, and validation enforces this contract. JSON is used instead of fixed columns like ``op``, ``value``, and ``scale`` so that future rule types (for example, ``MasteryLevel`` thresholds or plugin-defined evaluators such as CEL-based rules) can add their own fields without repeated schema migrations or many nullable columns. Examples:
 
@@ -243,7 +243,7 @@ Decision
    6. ``StudentCompetencyCriteriaStatus(user_id, competency_criteria_id)``
    7. ``StudentCompetencyCriteriaGroupStatus(user_id, competency_criteria_group_id)``
    8. ``StudentCompetencyStatus(user_id, oel_tagging_tag_id)``
-   9. ``CompetencyRuleProfile(scope_key)`` (unique -- at most one profile per distinct scope value; a plain unique constraint on the three raw nullable scope columns would not enforce this, since SQL never treats two ``NULL`` values as equal and this project's MySQL backend does not support the conditional/partial unique indexes that would otherwise route around that; see the ``scope_key`` column in Decision 3)
+   9. ``CompetencyRuleProfile(scope_code)`` (unique -- at most one profile per distinct scope value; a plain unique constraint on the three raw nullable scope columns would not enforce this, since SQL never treats two ``NULL`` values as equal and this project's MySQL backend does not support the conditional/partial unique indexes that would otherwise route around that; see the ``scope_code`` column in Decision 3)
    10. ``CompetencyMasteryStatuses(status)`` (unique)
 
 6. Learner progress status concepts (``StudentCompetency*Status`` database tables)
@@ -412,7 +412,7 @@ Rejected Alternatives
       2. Requires reconciling profiles whenever an organization is added to or removed from a taxonomy.
       3. Organization and taxonomy are not naturally nested (a taxonomy can belong to many organizations and vice versa), so forcing one to always contain the other does not reflect the actual relationship between them.
 
-6. Enforce ``CompetencyRuleProfile`` scope uniqueness with per-scope conditional/partial unique constraints (Django ``UniqueConstraint(condition=Q(...))``) directly on the three nullable scope columns, instead of a generated ``scope_key`` column (Decision 3).
+6. Enforce ``CompetencyRuleProfile`` scope uniqueness with per-scope conditional/partial unique constraints (Django ``UniqueConstraint(condition=Q(...))``) directly on the three nullable scope columns, instead of a generated ``scope_code`` column (Decision 3).
 
    1. Pros
 
