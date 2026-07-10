@@ -19,10 +19,12 @@ it. Competency criteria (``CompetencyCriteria``, ``CompetencyCriteriaGroup``) ar
 reference are deliberately non-evaluative, unversioned display metadata. Copying a criterion
 therefore also means resolving the taxonomy and tags it points to on the target.
 
-No stable, cross-instance identity exists for a ``Taxonomy`` or ``Tag`` today. ``Taxonomy.export_id``
-and ``Tag.external_id`` are both editable, instance-scoped identifiers designed for import-file
-bookkeeping (see :ref:`openedx-tagging-adr-0006`), not for answering "does the target already have
-this taxonomy."
+No stable, cross-instance identity exists for a ``Tag`` today: ``Tag.external_id`` is an editable,
+instance-scoped identifier designed for import-file bookkeeping (see :ref:`openedx-tagging-adr-0006`).
+``Taxonomy.export_id`` is different: per `modular-learning#183
+<https://github.com/openedx/modular-learning/issues/183>`_, it was always intended to answer "does
+the target already have this taxonomy," which is exactly what this decision needs; it just hasn't
+been documented as such, or exercised for identity-matching purposes, until now.
 
 The three copy mechanisms differ significantly in current maturity:
 
@@ -47,16 +49,18 @@ Decision
 Stable identity
 ~~~~~~~~~~~~~~~~
 
-Add an immutable ``uuid`` field to ``Taxonomy``, generated at creation and preserved through
-export/import. ``export_id`` cannot serve this purpose on its own: it is free text, chosen and
-editable by whoever administers a taxonomy, so nothing guarantees that the same ``export_id`` on
-two different instances refers to the same taxonomy, or that two different taxonomies on two
-instances never happen to share one. A ``uuid`` is generated once, never touched by a person, and
-so cannot collide or drift the way a human-chosen identifier can. ``export_id`` keeps its existing
-role as the human-meaningful identifier; ``uuid`` adds the machine identity it was never designed
-to provide. This follows the existing convention in this codebase of using ``uuid`` for a stable
-external reference (see ``PublishableEntity.uuid``, :ref:`openedx-content-adr-0003`), applied here
-to a model that currently lacks it.
+Use the existing ``Taxonomy.export_id`` field as the cross-instance identity, rather than adding a
+new field. ``export_id`` is already required, unique, and format-validated
+(``^[\w\-.]+$``) at the model level, and the REST API already accepts a caller-supplied value on
+taxonomy creation. Two institutions that each set up the same third-party taxonomy (for example,
+Lightcast Open Skills) can establish that they're the same taxonomy simply by using the same
+``export_id`` (for example, a reverse-DNS-style value like ``io.lightcast.open-skills``), something
+an immutable, randomly-generated identifier could never let them do, since two independent imports
+would always get two different random values with no way to reconcile them afterward.
+
+``export_id``'s existing mutability (it can be edited after creation) is also a feature here rather
+than a gap: it is how the deferred manual-merge case below would actually be performed, by editing
+one instance's ``export_id`` to match the other's.
 
 ``Tag`` does not need a new identifier: ``Tag.external_id`` (already used by the tag import/export
 plan-building logic, see :ref:`openedx-tagging-adr-0006`) is sufficient for within-taxonomy
@@ -67,7 +71,7 @@ Copy semantics
 ~~~~~~~~~~~~~~
 
 Competency criteria are copied **by reference**: the target's criteria are bound to a taxonomy
-sharing the source's ``uuid``, not to an independent duplicate. This is a larger commitment than a
+sharing the source's ``export_id``, not to an independent duplicate. This is a larger commitment than a
 by-value copy, but a by-value copy would leave the target's competency evaluation permanently
 disconnected from the taxonomy it depends on, undermining the goal of this use case.
 
@@ -77,9 +81,9 @@ Resolution on import
 On import, whether the source and target are the same deployment or two different organizations'
 instances, the behavior is uniform:
 
-- If no taxonomy with a matching ``uuid`` exists on the target, auto-create one, seeded from the
+- If no taxonomy with a matching ``export_id`` exists on the target, auto-create one, seeded from the
   tags that traveled with the export.
-- If a taxonomy with a matching ``uuid`` already exists, reconcile it (see below) rather than
+- If a taxonomy with a matching ``export_id`` already exists, reconcile it (see below) rather than
   creating a duplicate.
 
 A single uniform rule was chosen over branching by deployment relationship because the
@@ -120,6 +124,23 @@ same import: whoever is watching sees the existing failure message.
 
 Alternatives Considered
 ------------------------
+
+Add a new immutable ``uuid`` field
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add a new, randomly-generated ``uuid`` field on ``Taxonomy``, instead of reusing ``export_id``.
+
+**Pros:** guaranteed collision-free by construction; no reliance on a human choosing a consistent
+value.
+
+**Cons:** a randomly-generated identifier can never let two independently-created taxonomies on
+two different instances establish that they're the same one, exactly the "manual merge" case
+deferred below, since two independent imports always produce two different random values with no
+way to reconcile them. ``export_id`` already exists for this purpose (`modular-learning#183
+<https://github.com/openedx/modular-learning/issues/183>`_), is already required, unique, and
+format-validated, and its editability is what makes the deferred manual-merge case possible at
+all. Not chosen, since it would have duplicated ``export_id``'s role while being strictly less
+capable for the independently-created-taxonomies case.
 
 Copy by value (independent duplicate)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -166,22 +187,25 @@ Real versioning for taxonomies and tags
 ``Taxonomy``/``Tag`` could gain version history (e.g. via ``django-simple-history``, matching
 ``CompetencyCriteria``), which would let drift between source and target be tracked precisely
 rather than detected only as additive or not. Likely needed eventually, but not required for this
-use case, since the additions-only reconciliation policy already satisfies it without history.
+use case, since the additions-only reconciliation policy already satisfies it without history. See
+`openedx-core#455 <https://github.com/openedx/openedx-core/issues/455>`_ for the tentative plan for
+taxonomy versioning.
 
 Manual merge of independently-created taxonomies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Two institutions may independently author what they each consider the same taxonomy on their own
-instances, without ever having copied content between each other. Since a ``uuid`` establishes
-identity only once two taxonomies have actually shared a copy operation, importing between them
-today would create a second, unrelated taxonomy on the receiving side, not recognize them as the
-same one. Automatic matching cannot safely resolve this: falling back to matching by name or
-content similarity would reintroduce the false-positive risk ``uuid`` was introduced to avoid, two
-instances with genuinely different taxonomies that happen to look similar would be silently
-merged. The eventual resolution is a deliberate, human-initiated action: an administrator manually
-reassigns one instance's taxonomy to adopt the other's ``uuid``, retroactively establishing shared
-identity going forward. Not designed here, since it is a distinct, rare operation, orthogonal to
-the copy-time behavior this decision covers.
+instances, without ever having copied content between each other. If they haven't both deliberately
+set the same ``export_id``, importing between them today would create a second, unrelated taxonomy
+on the receiving side, not recognize them as the same one. Automatic matching cannot safely resolve
+this: falling back to matching by name or content similarity would reintroduce the false-positive
+risk a deliberate, unique identifier was introduced to avoid, two instances with genuinely different
+taxonomies that happen to look similar would be silently merged. The eventual resolution is a
+deliberate, human-initiated action: an administrator manually edits one instance's taxonomy to
+adopt the other's ``export_id``, retroactively establishing shared identity going forward. Not
+designed here, since it is a distinct, rare operation, orthogonal to the copy-time behavior this
+decision covers. Today this requires a direct API call: Studio's Taxonomy Editing UI has no field
+to set or edit ``export_id``.
 
 Changelog
 ---------
