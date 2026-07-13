@@ -42,6 +42,10 @@ Excluded from this decision:
   all today; this decision targets the legacy course model that currently carries course content,
   and a future extension should reuse the identity contract defined here rather than re-deriving it.
 - Versioning ``Taxonomy``/``Tag`` themselves (see Deferred, below).
+- Org-level namespacing for taxonomies. Unlike courses/libraries, taxonomies aren't scoped to an
+  org today; if multiple orgs ever need to independently evolve what they consider "the same"
+  taxonomy, some namespacing convention may be needed. Not addressed here since no such conflict
+  exists yet.
 
 Decision
 --------
