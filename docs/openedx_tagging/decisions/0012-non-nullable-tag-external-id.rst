@@ -31,7 +31,9 @@ instance needs a real value before the constraint can be added, since this is a
 published library whose migrations run unmodified against arbitrary downstream data.
 ``Tag.value`` already carries the same per-taxonomy, case-insensitive uniqueness
 constraint (``unique_together(taxonomy, value)``), so backfilling ``external_id`` from
-``value`` cannot introduce a new collision under the constraint being added here.
+``value`` is collision-free in virtually every case. The one edge case is a tag whose
+``value`` matches a different tag's pre-existing, hand-assigned ``external_id`` in the
+same taxonomy, which the backfill algorithm below handles.
 
 Decision
 --------
@@ -44,12 +46,14 @@ migration.
   backfill-then-constrain shape as the ``depth``/``lineage`` migration
   (``0020_tag_depth_and_lineage.py``): populate real values first, then add the
   constraint in the same migration once every row satisfies it.
-- **Backfill algorithm.** Set ``external_id`` to the tag's existing ``value``. Since
-  ``(taxonomy, value)`` is already a unique, case-insensitive constraint matching
-  ``external_id``'s own, this is guaranteed unique with no collision handling needed.
-  Implementations may transform the copied value for UI legibility, for example
-  uppercasing it and replacing spaces with underscores, but no particular format is
-  required by this decision.
+- **Backfill algorithm.** Set ``external_id`` to the tag's existing ``value``. In the
+  rare case where that collides with a different tag's pre-existing, hand-assigned
+  ``external_id`` in the same taxonomy, the collision must be resolved deterministically
+  without an unbounded retry loop, for example by appending an incrementing numeric
+  counter to the copied value until it's unique. Implementations may also transform the
+  copied value for UI legibility, for example uppercasing it and replacing spaces with
+  underscores, but no particular format or collision-resolution scheme is required by
+  this decision.
 - **New tags going forward.** The REST API and import format keep treating
   ``external_id`` as optional for the caller, unchanged from today. When a tag is
   created without one, the same backfill algorithm generates one automatically, rather
@@ -78,11 +82,12 @@ Rejected Alternatives
 Derive backfilled values from the tag's primary key
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Still needs a collision fallback: a tag could already have a hand-assigned
-``external_id`` that happens to match another tag's ``id``. Also rejected because
-``id`` is meant to stay internal (per the README's model conventions, ``uuid`` is the
-documented identifier for external reference), and because it produces a value with no
-relationship to the tag (e.g. ``482913``), which reads as meaningless to institutions.
+Needs the same kind of collision fallback as the ``value``-derived approach: a tag could
+already have a hand-assigned ``external_id`` that happens to match another tag's ``id``.
+Also rejected because ``id`` is meant to stay internal (per the README's model
+conventions, ``uuid`` is the documented identifier for external reference), and because
+it produces a value with no relationship to the tag (e.g. ``482913``), which reads as
+meaningless to institutions.
 
 Require callers to supply ``external_id`` on tag creation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
