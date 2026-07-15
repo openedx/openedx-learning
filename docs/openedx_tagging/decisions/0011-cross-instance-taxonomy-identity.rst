@@ -11,13 +11,23 @@ Proposed
 Context
 -------
 
-Competency Based Education (CBE) will bring about the use case where, when course content is
-copied by any of the three supported mechanisms, a new course run, course export/import, or
-course/library copy, any competency criteria attached to that content should be copied along with
-it. Competency criteria (``CompetencyCriteria``, ``CompetencyCriteriaGroup``) are versioned via
-``django-simple-history`` per :ref:`openedx-learning-adr-0003`, but the taxonomies and tags they
-reference are deliberately non-evaluative, unversioned display metadata. Copying a criterion
-therefore also means resolving the taxonomy and tags it points to on the target.
+Competency Based Education (CBE) introduces ``CompetencyCriteria``: see
+:ref:`openedx-learning-adr-0002` for the full model, but in brief, a competency criterion asserts
+that a piece of course content demonstrates a specific competency, which it identifies by pointing
+at a Tag in a Taxonomy. Criteria are grouped into a ``CompetencyCriteriaGroup`` tree, also defined
+in ADR 0002, that combines them with AND/OR logic and may be scoped to a specific course run
+(``CourseRun`` in ``openedx_catalog``, identified by the same ``course_key`` that identifies the
+corresponding legacy modulestore course; "course" throughout this decision means that same
+course-run identity, the one ADR 0002's ``course_id`` references).
+
+When course content is copied by any of the three supported mechanisms, a new course run, course
+export/import, or course/library copy, any competency criteria attached to that content should be
+copied along with it. Criteria themselves are versioned via ``django-simple-history`` per
+:ref:`openedx-learning-adr-0003`, but the taxonomy and tags they reference are deliberately not:
+they're non-evaluative display metadata that can change independently without creating a new
+version of the criteria pointing at them. Copying a criterion therefore also means resolving the
+taxonomy and tags it points to on the target, since the copy has to have a corresponding tag for it
+to reference.
 
 No stable, cross-instance identity exists for a ``Tag`` today: ``Tag.external_id`` is an editable,
 instance-scoped identifier designed for import-file bookkeeping (see :ref:`openedx-tagging-adr-0006`).
@@ -30,8 +40,10 @@ The three copy mechanisms differ significantly in current maturity:
 
 - **Course export/import** (legacy XBlock/modulestore course): already works, via a ``tags.csv``
   sibling file resolved by ``export_id`` at import time.
-- **New course run**: always same-instance/same-database. ``copy_tags()`` exists in
-  ``openedx_tagging.api`` but is not wired into the course-rerun flow.
+- **New course run**: always same-instance/same-database, so no taxonomy/tag resolution is ever
+  needed; what's missing is recreating the ``ObjectTag``, ``CompetencyCriteria``, and
+  ``CompetencyCriteriaGroup`` rows for the new run (see Copy semantics, below). ``copy_tags()``
+  exists in ``openedx_tagging.api`` but is not wired into the course-rerun flow yet.
 - **Library copy**: always same-instance today; no cross-instance transport exists in
   ``content_libraries``, and none is planned.
 
@@ -74,13 +86,29 @@ no reconciliation applies to them.
 Copy semantics
 ~~~~~~~~~~~~~~
 
-Competency criteria are copied **by reference**: the target's criteria are bound to a taxonomy
-sharing the source's ``export_id``, not to an independent duplicate. This is a larger commitment than a
-by-value copy, but a by-value copy would leave the target's competency evaluation permanently
-disconnected from the taxonomy it depends on, undermining the goal of this use case.
+Competency criteria are recreated on the target, not moved. For any of the three mechanisms, the
+``ObjectTag``, ``CompetencyCriteria``, and ``CompetencyCriteriaGroup`` rows attached to the copied
+content are duplicated and re-keyed to the new object and course ids, using an old-id-to-new-id
+mapping built during the copy. A recreated ``CompetencyCriteriaGroup`` shares a parent group with
+the original, so the two are combined by ``OR`` by default.
+
+The ``Taxonomy``/``Tag`` rows a recreated ``ObjectTag`` points to are handled differently: they are
+never duplicated, only referenced, and it's this taxonomy/tag relationship the rest of this
+decision means by **by reference**. For a same-instance mechanism (new course run, library copy),
+source and target already share the identical taxonomy row, so no resolution is needed at all. For
+a cross-instance mechanism (course export/import), the reference is resolved to whichever taxonomy
+on the target shares the source's ``export_id``, per Resolution on import, below. This is a larger
+commitment than a by-value taxonomy copy, but a by-value copy would leave the target's competency
+evaluation permanently disconnected from the taxonomy it depends on, undermining the goal of this
+use case.
 
 Resolution on import
 ~~~~~~~~~~~~~~~~~~~~~
+
+This section, and Reconciliation on repeat import, below, apply specifically to course
+export/import: it is the only mechanism where a matching taxonomy might not already exist on the
+target. New course run and library copy need no taxonomy-side resolution at all, per Copy
+semantics, above.
 
 On import, whether the source and target are the same deployment or two different organizations'
 instances, the behavior is uniform:
