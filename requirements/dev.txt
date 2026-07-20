@@ -8,7 +8,7 @@ amqp==5.3.1
     # via
     #   -r requirements/quality.txt
     #   kombu
-asgiref==3.11.1
+asgiref==3.12.1
     # via
     #   -r requirements/quality.txt
     #   django
@@ -29,7 +29,7 @@ billiard==4.2.4
     # via
     #   -r requirements/quality.txt
     #   celery
-build==1.5.1
+build==1.5.0
     # via
     #   -r requirements/pip-tools.txt
     #   pip-tools
@@ -92,7 +92,7 @@ colorama==0.4.6
     # via
     #   -r requirements/ci.txt
     #   tox
-coverage[toml]==7.15.1
+coverage[toml]==7.15.2
     # via
     #   -r requirements/quality.txt
     #   pytest-cov
@@ -147,11 +147,11 @@ django-simple-history==3.12.0
     # via
     #   -r requirements/quality.txt
     #   edx-organizations
-django-stubs==6.0.6
+django-stubs==6.0.7
     # via
     #   -r requirements/quality.txt
     #   djangorestframework-stubs
-django-stubs-ext==6.0.6
+django-stubs-ext==6.0.7
     # via
     #   -r requirements/quality.txt
     #   django-stubs
@@ -210,7 +210,7 @@ fastavro==1.12.2
     # via
     #   -r requirements/quality.txt
     #   openedx-events
-filelock==3.29.7
+filelock==3.31.0
     # via
     #   -r requirements/ci.txt
     #   python-discovery
@@ -248,7 +248,7 @@ jaraco-context==6.1.2
     # via
     #   -r requirements/quality.txt
     #   keyring
-jaraco-functools==4.5.0
+jaraco-functools==4.6.0
     # via
     #   -r requirements/quality.txt
     #   keyring
@@ -303,7 +303,7 @@ more-itertools==11.1.0
     #   -r requirements/quality.txt
     #   jaraco-classes
     #   jaraco-functools
-mypy==2.2.0
+mypy==2.3.0
     # via -r requirements/quality.txt
 mypy-extensions==1.1.0
     # via
@@ -339,9 +339,9 @@ pillow==12.3.0
     # via
     #   -r requirements/quality.txt
     #   edx-organizations
-pip-tools==7.5.3
+pip-tools==7.6.0
     # via -r requirements/pip-tools.txt
-platformdirs==4.10.0
+platformdirs==4.10.1
     # via
     #   -r requirements/ci.txt
     #   -r requirements/quality.txt
@@ -514,12 +514,12 @@ tomli-w==1.2.0
     # via
     #   -r requirements/ci.txt
     #   tox
-tomlkit==0.15.0
+tomlkit==0.15.1
     # via
     #   -r requirements/quality.txt
     #   edx-lint
     #   pylint
-tox==4.56.4
+tox==4.57.0
     # via -r requirements/ci.txt
 twine==6.2.0
     # via -r requirements/quality.txt

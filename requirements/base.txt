@@ -6,7 +6,7 @@
 #
 amqp==5.3.1
     # via kombu
-asgiref==3.11.1
+asgiref==3.12.1
     # via django
 attrs==26.1.0
     # via
@@ -135,7 +135,7 @@ stevedore==5.9.0
     # via
     #   edx-django-utils
     #   edx-opaque-keys
-tomlkit==0.15.0
+tomlkit==0.15.1
     # via -r requirements/base.in
 typing-extensions==4.16.0
     # via edx-opaque-keys
