@@ -1,12 +1,12 @@
 .. _openedx-tagging-adr-0013:
 
-13. Base-model ``taxonomy_type`` field for Competency Taxonomies
-==================================================================
+13. Competency taxonomy detection in openedx-platform
+=======================================================
 
 Status
 ------
 
-Proposed
+Accepted
 
 Context
 -------
@@ -25,108 +25,100 @@ that reverses the intended dependency direction (CBE depends on ``openedx_taggin
 the other way around) and would break for any Open edX install running ``openedx_tagging``
 without CBE installed.
 
-Two approaches were tried on #618 and found unsound; see Rejected Alternatives.
-
-This decision does not reopen `ADR 0002 <../../openedx_learning/decisions/0002-competency-criteria-model.rst>`_'s
-rejection of a flat ``taxonomy_type`` column as an alternative to multi-table inheritance.
-That rejection's deciding reason was that a flat column can't give other CBE tables a
-real, database-enforced foreign key to specifically a competency-enabled taxonomy;
-``CompetencyRuleProfile.competency_taxonomy_id`` relies on that guarantee. That reasoning
-is independent of whether ``CompetencyTaxonomy`` currently defines any columns of its own
-beyond the parent link, and is unaffected by this decision. This decision addresses a
-narrower, later problem ADR 0002 does not cover: a lightweight type label for
-``openedx_tagging``'s own generic REST API.
-
 Decision
 --------
 
-Add a ``taxonomy_type`` field directly to ``Taxonomy``:
+Report a taxonomy's type entirely within **openedx-platform**, using the existing relation
+between ``Taxonomy`` and ``CompetencyTaxonomy`` established in ADR 0002, without adding any
+field, method, or enum value to ``openedx_tagging`` or the CBE app:
 
-- A ``TaxonomyType(models.TextChoices)`` enum with values ``TAGS`` (default) and
-  ``COMPETENCY``, shared between this field and #614's write-side ``ChoiceField`` so the
-  two can never drift apart.
-- Set explicitly by whichever code creates the row. The code that creates a
-  ``CompetencyTaxonomy`` row (#614) also sets ``taxonomy_type=TaxonomyType.COMPETENCY`` on
-  the same ``Taxonomy`` row, in the same transaction that creates both rows (the existing
-  lifecycle rule in ADR 0002 Decision 1). ``openedx_tagging`` never inspects, imports, or
-  names ``CompetencyTaxonomy`` or any relation to it anywhere in its own source; the field's
-  value is opaque to it and owned entirely by the caller.
-- Immutable after creation, mirroring the scope-immutability precedent for
-  ``CompetencyRuleProfile`` in ADR 0002 Decision 3: a taxonomy's type does not change over
-  its lifetime.
-- Existing taxonomies are backfilled to ``TaxonomyType.TAGS`` via an additive migration;
-  none has a ``CompetencyTaxonomy`` row today, since CBE has no production data yet.
-- Exposed read-only on ``TaxonomySerializer`` (#618), returning the field's value directly.
+.. image:: images/CompetencyTypeDetection.png
+   :alt: Studio calls openedx-platform's serializer, which delegates to oel_tagging's pure
+         base Taxonomy serializer for the Taxonomy row, and separately runs a hasattr check
+         against the same already-fetched instance to detect a related CompetencyTaxonomy
+         row, with no new API call and no changes to oel_tagging.
 
-**Known tradeoff.** This creates two facts that must stay in sync: the field's value, and
-whether a ``CompetencyTaxonomy`` row actually exists for that taxonomy. This is accepted
-because it is enforced at a single transactional chokepoint (the creation path for a
-``CompetencyTaxonomy``), not as an ongoing invariant that application code must maintain
-across multiple call sites.
+- openedx-platform's ``TaxonomyOrgSerializer`` (already a subclass of the base
+  ``TaxonomySerializer``) adds a read-only ``taxonomy_type`` field computed via
+  ``hasattr(instance, "competencytaxonomy")``: ``"competency"`` if present, ``"tags"``
+  otherwise.
+- ``TaxonomyOrgView.get_queryset()`` (already overridden in openedx-platform) adds
+  ``select_related("competencytaxonomy")`` so the check costs no extra query per row.
+- ``openedx_tagging``'s ``Taxonomy`` model, its base ``TaxonomySerializer``, and the CBE app
+  stay fully unaware of each other for this purpose: no new field, no new enum value, no
+  import.
+- No creation-time wiring is needed to keep this accurate: ADR 0002 Decision 1 already
+  creates the ``CompetencyTaxonomy`` row in the same transaction as its parent ``Taxonomy``
+  row, so the ``hasattr`` check can never drift out of sync the way a separately-stored
+  field could.
 
-Future considerations
-~~~~~~~~~~~~~~~~~~~~~~
-
-If a third taxonomy flavor is introduced later, it extends this same field and enum with a
-third value; no schema redesign is implied. This field is not a general-purpose
-polymorphism mechanism and does not preclude one being added separately if a future need
-requires it.
+**Known trade-off.** A future third taxonomy type needs another hardcoded branch in
+openedx-platform's shared serializer, the same cost a field-based approach would have
+avoided with a one-line enum addition. Accepted because keeping ``openedx_tagging`` and the
+CBE app free of any competency-specific reference, even an inert stored value, was judged
+more valuable than that extensibility, particularly given the project's move away from
+system-defined taxonomies, which makes a third taxonomy flavor unlikely soon.
 
 Rejected Alternatives
 ----------------------
 
+``taxonomy_type`` enum field on the base ``Taxonomy`` model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A ``TaxonomyType(models.TextChoices)`` field (``TAGS``/``COMPETENCY``) added directly to
+``Taxonomy``, set by whichever code creates a ``CompetencyTaxonomy`` row, in the same
+transaction as ADR 0002 Decision 1's existing lifecycle rule. Although this requires no
+per-request check and was more extensible for a hypothetical third taxonomy flavor, it
+still named a CBE-specific concept, a ``COMPETENCY`` enum value, directly in
+``openedx_tagging``'s own schema and public API. Keeping ``openedx_tagging`` and the CBE
+app fully free of any competency-specific reference, even an inert one, is worth the lost
+extensibility.
+
 Check for a related ``CompetencyTaxonomy`` row directly inside ``openedx_tagging``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The original #618 proposal: ``hasattr(instance, "competencytaxonomy")`` inside
-``openedx_tagging``'s serializer. Rejected because it hardcodes a specific downstream
-applet's multi-table-inheritance relation name into a standalone, generic library, which
-is exactly the reverse-dependency problem this decision exists to avoid.
+Using ``hasattr(instance, "competencytaxonomy")`` inside ``openedx_tagging``'s serializer.
+Needed no migration and, unlike the field-based approach above, could never drift out of
+sync since it read the relation directly instead of a separately-stored value. Rejected
+because it hardcodes a specific downstream applet's multi-table-inheritance relation name
+into a standalone, generic library, which is exactly the reverse-dependency problem this
+decision exists to avoid. It also risks an N+1 query on every taxonomy list request unless
+``openedx_tagging``'s own queryset adds a matching ``select_related``, a cost every
+consumer of that shared serializer would inherit, not just openedx-platform.
+
+Two-call frontend create flow
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Studio calls the plain create-taxonomy endpoint, then makes a second call to a separate,
+CBE-owned endpoint to convert it to a competency taxonomy, with no new REST surface needed.
+Rejected because the frontend must orchestrate both calls itself and handle the case where
+the first succeeds but the second fails, leaving a plain taxonomy behind with no competency
+conversion.
+
+New combined competency REST API
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A single new CBE-owned endpoint that creates both the ``Taxonomy`` and
+``CompetencyTaxonomy`` rows atomically. Rejected because it is a new endpoint to design,
+build, and maintain, and the frontend still needs both this call and the plain
+create-taxonomy call, choosing between them since nothing upstream tells it in advance
+whether a Tags or Competency taxonomy is being created; that branching just relocates the
+type-awareness into the frontend rather than removing it.
 
 An overridable ``Taxonomy.get_type()`` method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The follow-up #618 proposal: a base ``Taxonomy.get_type()`` method returning ``"tags"``,
-overridden by ``CompetencyTaxonomy`` to return ``"competency"``, mirroring the existing
+A base ``Taxonomy.get_type()`` method returning ``"tags"``, overridden by
+``CompetencyTaxonomy`` to return ``"competency"``, mirroring the existing
 ``Taxonomy.system_defined`` / ``SystemDefinedTaxonomy`` base/override shape. Rejected for
 two independent reasons:
 
 - That base/override shape is implemented via ``Taxonomy._taxonomy_class`` and
-  ``Taxonomy.cast()``/``Taxonomy.copy()``, which #634 (Remove Taxonomy Subclasses) removes.
-- Independent of #634: querying taxonomies the normal way (``Taxonomy.objects.all()``)
-  returns plain ``Taxonomy`` instances, so a subclass method override is never reached
-  without an explicit cast step first. The existing ``.cast()``/``.copy()`` implementation
-  would not correctly perform that cast for a true multi-table-inheritance subclass in any
-  case: it copies a hardcoded list of base ``Taxonomy`` field values in Python and never
-  queries the subclass's own table, so it would silently produce a ``CompetencyTaxonomy``
-  instance with unset or wrong subclass-specific fields.
-
-Frontend-only: no backend field
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Studio determines type by combining ``openedx_tagging``'s generic taxonomy list with a
-separate, CBE-owned endpoint client-side. Rejected because it gives no answer to any
-in-process backend consumer of this published library (other apps, plugins, management
-commands), only to whichever frontend chooses to make two calls and join them, and it
-pushes the integration cost of that join onto every future consumer rather than paying it
-once.
-
-A settings-configured resolver function
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-A Django setting pointing at a dotted import path to a resolver function, owned by CBE,
-that ``Taxonomy.get_type()`` calls if configured. This would have kept the type-detection
-logic entirely out of ``openedx_tagging``'s own source. Rejected because it is a new,
-bespoke, ad-hoc hook into ``openedx_tagging``, when this project's established pattern for
-a cross-app extension point, if one is genuinely needed, is ``openedx-events``/
-``openedx-filters`` rather than a one-off settings hook. Reaching for that established
-pattern instead would mean depending on and wiring up a plugin/event framework across
-repos for a field with exactly two known values today -- more machinery than either this
-alternative or the field approach chosen here, not less.
-
-Changelog
----------
-
-2026-07-16:
-
-* Proposed.
+  ``Taxonomy.cast()``/``Taxonomy.copy()``, which are planned to be removed as a pattern.
+- Querying taxonomies the normal way (``Taxonomy.objects.all()``) returns plain ``Taxonomy``
+  instances, so a subclass method override is never reached without an explicit cast step
+  first. The existing ``.cast()``/``.copy()`` implementation would not correctly perform
+  that cast for a true multi-table-inheritance subclass in any case: it copies a hardcoded
+  list of base ``Taxonomy`` field values in Python and never queries the subclass's own
+  table, so it would silently produce a ``CompetencyTaxonomy`` instance with unset or wrong
+  subclass-specific fields.
