@@ -38,18 +38,17 @@ field, method, or enum value to ``openedx_tagging`` or the CBE app:
          against the same already-fetched instance to detect a related CompetencyTaxonomy
          row, with no new API call and no changes to oel_tagging.
 
-- openedx-platform's ``TaxonomyOrgSerializer`` (already a subclass of the base
-  ``TaxonomySerializer``) adds a read-only ``taxonomy_type`` field computed via
-  ``hasattr(instance, "competencytaxonomy")``: ``"competency"`` if present, ``"tags"``
-  otherwise.
-- ``TaxonomyOrgView.get_queryset()`` (already overridden in openedx-platform) adds
-  ``select_related("competencytaxonomy")`` so the check costs no extra query per row.
+- openedx-platform's REST layer adds a read-only ``taxonomy_type`` value to its taxonomy
+  serializer, computed by checking whether a related ``CompetencyTaxonomy`` row exists for
+  that ``Taxonomy``: ``"competency"`` if so, ``"tags"`` otherwise.
+- That same layer's queryset fetches the related ``CompetencyTaxonomy`` row alongside the
+  ``Taxonomy`` list, so the check costs no extra query per row.
 - ``openedx_tagging``'s ``Taxonomy`` model, its base ``TaxonomySerializer``, and the CBE app
   stay fully unaware of each other for this purpose: no new field, no new enum value, no
   import.
 - No creation-time wiring is needed to keep this accurate: ADR 0002 Decision 1 already
   creates the ``CompetencyTaxonomy`` row in the same transaction as its parent ``Taxonomy``
-  row, so the ``hasattr`` check can never drift out of sync the way a separately-stored
+  row, so the existence check can never drift out of sync the way a separately-stored
   field could.
 
 **Known trade-off.** A future third taxonomy type needs another hardcoded branch in
