@@ -62,7 +62,7 @@ Decision
 
    Lifecycle rules for this parent/child pair:
 
-   - Creating a competency taxonomy creates both the parent ``oel_tagging_taxonomy`` row and the ``CompetencyTaxonomy`` row in one transaction, and also sets that ``oel_tagging_taxonomy`` row's ``taxonomy_type`` to ``competency`` in the same transaction (``openedx_tagging`` ADR 0013).
+   - Creating a competency taxonomy creates both the parent ``oel_tagging_taxonomy`` row and the ``CompetencyTaxonomy`` row in one transaction.
    - Deleting either representation is treated as deleting the competency taxonomy and removes both rows, subject to Decision 7 delete protections.
 
 2. ``CompetencyCriteriaGroup`` concept (database table)
@@ -366,12 +366,6 @@ Rejected Alternatives
       4. Makes it harder to keep competency features optional for deployments that only want generic tagging
       5. Increases risk of future refactor/migration work if the competency domain later needs to be split from tagging
 
-   This rejection stands, unaffected by whether ``CompetencyTaxonomy`` currently defines
-   any columns of its own beyond the parent link. ``openedx_tagging`` ADR 0013 separately
-   adds a ``taxonomy_type`` field to ``oel_tagging_taxonomy`` for a narrower, later problem
-   this ADR doesn't cover: a lightweight type label for ``openedx_tagging``'s own generic
-   REST API. See that ADR and the Changelog below.
-
 2. Same as above except combine the ``CompetencyCriteria`` and ``oel_tagging_objecttag`` tables by adding the rule information as columns on the ``oel_tagging_objecttag`` table. This would be a more denormalized approach that would reduce the number of joins needed to retrieve competency achievement criteria information but would add complexity to the ``oel_tagging_objecttag`` table and make it less flexible for other uses.
 
    1. Pros
@@ -428,14 +422,3 @@ Rejected Alternatives
 
       1. Silently does not work on this project's tested and production database backend. Django compiles a conditional ``UniqueConstraint`` to a partial index, which MySQL does not support; Django raises only a non-fatal system-check warning (``models.W036``) and skips creating the constraint, leaving the uniqueness rule completely unenforced at the database level.
       2. The gap would surface only as a data-integrity incident under concurrent writes, not as a test or migration failure, since SQLite (used for quick local test runs) does support partial indexes and would mask the problem in that environment.
-
-Changelog
----------
-
-2026-07-16:
-
-* Added the ``taxonomy_type`` creation-time invariant to Decision 1's lifecycle rules, and
-  a note on Rejected Alternatives item 1 that its rejection stands independent of
-  ``openedx_tagging`` ADR 0013, which separately adds a ``taxonomy_type`` field to
-  ``oel_tagging_taxonomy`` for a narrower problem (a type label for that library's generic
-  REST API, #618) than this ADR's data-model decision.
