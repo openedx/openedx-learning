@@ -11,12 +11,12 @@ Accepted
 Context
 -------
 
-The taxonomy Get endpoints (``TaxonomySerializer``) need to report whether a taxonomy is
-a Competency Taxonomy, so that Studio can badge Competency Taxonomies and gate access to
-the Competency Management page (#618), symmetrically with the Create/Import endpoint's
-``taxonomy_type`` field (#614). ``CompetencyTaxonomy`` is a Django multi-table-inheritance
-subclass of ``Taxonomy`` (``CompetencyTaxonomy(Taxonomy)``), owned by the CBE applet and
-defined in `ADR 0002 <../../openedx_learning/decisions/0002-competency-criteria-model.rst>`_.
+The taxonomy Get endpoints need to report whether a taxonomy is a Competency Taxonomy, so
+that Studio can badge Competency Taxonomies and gate access to the Competency Management
+page, symmetrically with the Create/Import endpoint's ``taxonomy_type`` field.
+``CompetencyTaxonomy`` is a Django multi-table-inheritance subclass of
+``Taxonomy``, owned by the CBE applet and defined in
+`ADR 0002 <../../openedx_learning/decisions/0002-competency-criteria-model.rst>`_.
 
 ``openedx_tagging`` is a generic tagging library with no knowledge of any specific taxonomy
 flavor built on top of it, CBE or otherwise, and must not gain any: a specific downstream
