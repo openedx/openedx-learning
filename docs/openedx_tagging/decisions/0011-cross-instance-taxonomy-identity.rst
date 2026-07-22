@@ -66,22 +66,15 @@ Stable identity
 ~~~~~~~~~~~~~~~~
 
 Use the existing ``Taxonomy.export_id`` field as the cross-instance identity, rather than adding a
-new field. ``export_id`` is already required, unique, and format-validated
-(``^[\w\-.]+$``) at the model level, and the REST API already accepts a caller-supplied value on
-taxonomy creation. Two institutions that each set up the same third-party taxonomy (for example,
+new field. Two institutions that each set up the same third-party taxonomy (for example,
 Lightcast Open Skills) can establish that they're the same taxonomy simply by using the same
-``export_id`` (for example, a reverse-DNS-style value like ``io.lightcast.open-skills``), something
-an immutable, randomly-generated identifier could never let them do, since two independent imports
-would always get two different random values with no way to reconcile them afterward.
+``export_id`` (for example ``io.lightcast.open-skills``).
 
-``export_id``'s existing mutability (it can be edited after creation) is also a feature here rather
-than a gap: it is how the deferred manual-merge case below would actually be performed, by editing
-one instance's ``export_id`` to match the other's.
+``export_id`` remains mutable and supports the manual-merge case below by editing one instance's
+``export_id`` to match the other's.
 
-``Tag`` does not need a new identifier: ``Tag.external_id`` (already used by the tag import/export
-plan-building logic, see :ref:`openedx-tagging-adr-0006`) is sufficient for within-taxonomy
-matching. Free-text taxonomies have no ``Tag`` rows and travel as literal strings unconditionally;
-no reconciliation applies to them.
+The existing ``Tag.external_id`` (already used by the tag import/export plan-building logic, see
+:ref:`openedx-tagging-adr-0006`) is sufficient for within-taxonomy matching.
 
 Copy semantics
 ~~~~~~~~~~~~~~
@@ -95,32 +88,21 @@ the original, so the two are combined by ``OR`` by default.
 The ``Taxonomy``/``Tag`` rows a recreated ``ObjectTag`` points to are handled differently: they are
 never duplicated, only referenced, and it's this taxonomy/tag relationship the rest of this
 decision means by **by reference**. For a same-instance mechanism (new course run, library copy),
-source and target already share the identical taxonomy row, so no resolution is needed at all. For
-a cross-instance mechanism (course export/import), the reference is resolved to whichever taxonomy
-on the target shares the source's ``export_id``, per Resolution on import, below. This is a larger
-commitment than a by-value taxonomy copy, but a by-value copy would leave the target's competency
-evaluation permanently disconnected from the taxonomy it depends on, undermining the goal of this
-use case.
+source and target already share the identical taxonomy row, so no resolution is needed at all.
 
-Resolution on import
-~~~~~~~~~~~~~~~~~~~~~
+Resolution on course import/export
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This section, and Reconciliation on repeat import, below, apply specifically to course
-export/import: it is the only mechanism where a matching taxonomy might not already exist on the
-target. New course run and library copy need no taxonomy-side resolution at all, per Copy
-semantics, above.
+Course import/export is the only mechanism where a matching taxonomy might not already exist on the
+target.
 
-On import, whether the source and target are the same deployment or two different organizations'
+On course import, whether the source and target are the same deployment or two different organizations'
 instances, the behavior is uniform:
 
 - If no taxonomy with a matching ``export_id`` exists on the target, auto-create one, seeded from the
   tags that traveled with the export.
 - If a taxonomy with a matching ``export_id`` already exists, reconcile it (see below) rather than
   creating a duplicate.
-
-A single uniform rule was chosen over branching by deployment relationship because the
-reconciliation policy below already guards against silent corruption in both cases; adding a
-second behavior for the cross-organization case would add complexity without removing risk.
 
 Reconciliation on repeat import
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -133,26 +115,13 @@ create/rename/reparent/delete actions.
 - If every action in the plan is a tag creation, apply it: the target gains the new tags, nothing
   existing is touched.
 - If the plan contains any rename, reparent, or delete action, refuse the import of criteria bound
-  to that taxonomy.
-
-The actor triggering a course copy has no standing to mutate a taxonomy shared with other,
-unrelated content on the target instance. In a manual tag re-import (the existing use of this
-plan-building logic), the file represents the deliberate intent of whoever owns that taxonomy. A
-copied course's snapshot only reflects what the source looked like at export time: a tag missing
-from it doesn't mean the source deleted it, it may be something the target added independently.
-Auto-applying deletes or renames on that basis risks silently corrupting taxonomy state that
-unrelated courses on the target depend on. Additions carry no such risk: they only ever add new
-identities, never touch existing ones.
+  to that taxonomy because the actor triggering the course import may have no standing to mutate
+  a taxonomy shared with other, unrelated content on the target instance.
 
 Failure surfacing
 ~~~~~~~~~~~~~~~~~~
 
-A refusal is modeled as an ordinary import task failure, using the existing
-``UserTaskStatus.fail(message)`` / ``Error`` artifact / ``import_status_handler`` mechanism in
-``contentstore``. The Studio Authoring MFE's import flow already reads this same ``Message`` field
-(``CourseImportContext.tsx``), so this requires no new frontend or backend surface, and no
-distinction needs to be drawn between a Platform Administrator and a Course Author watching the
-same import: whoever is watching sees the existing failure message.
+A refusal is modeled as an ordinary import task failure.
 
 Alternatives Considered
 ------------------------
