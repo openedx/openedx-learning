@@ -9,13 +9,15 @@ Proposed.
 
 Context
 -------
-When a learner is graded on a subsection, the platform must evaluate whether that grade
+When a learner is graded on a subsection (or any other learning instrument associated to a competency
+with a competency criteria, like a course or rubric criterion), the platform must evaluate whether that grade
 demonstrates any attached competencies and record the learner's mastery. Mastery is recorded at
 three levels: the criterion (leaf), the criteria group, and the competency. Per
 :ref:`openedx-learning-adr-0002` and :ref:`openedx-learning-adr-0005`, all three levels are
 *materialized* (stored), not recomputed on read, so that dashboards and other read surfaces stay
 fast. A single grade change therefore writes the changed leaf's status and then re-evaluates and
-re-writes the derived rows from that leaf up to the competency root. Per
+re-writes the derived rows from that leaf up to the competency root. The re-evaluation
+is needed for multiple reasons, including notifications, and badge and certificate issuing. Per
 :ref:`openedx-learning-adr-0005`, each level is stored as an ACTIVE row updated in place, holding
 the current status for a learner and node, plus an append-only HISTORY row per genuine status
 advance.
