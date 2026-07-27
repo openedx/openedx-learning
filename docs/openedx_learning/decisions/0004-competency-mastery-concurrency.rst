@@ -54,7 +54,11 @@ several child rows first, so two overlapping evaluations for one learner could e
 sibling and compute a parent that is too low. To prevent that, recomputing a parent takes a
 row-level lock on the parent row (a ``SELECT ... FOR UPDATE``) before reading its children: two
 updates that touch the same parent for the same learner take turns, and the second reads the first's
-committed children and computes from the complete picture. Locks are taken child-before-parent up
+committed children and computes from the complete picture. This correctness argument assumes
+``READ COMMITTED`` isolation (the Open edX platform default on MySQL; higher isolation levels are not
+supported on the platform): under it the lock's own read and the sibling reads that follow it always
+return the latest committed rows, rather than a snapshot fixed at an earlier read in the same
+transaction, which is what a higher level such as ``REPEATABLE READ`` would do. Locks are taken child-before-parent up
 the path to the root, a consistent order, so concurrent updates cannot deadlock. This is an ordinary
 single-row lock. Every read the recorder makes, here and in the mass-recompute path
 (:ref:`openedx-learning-adr-0005`), runs against the primary database and never a read replica:
@@ -67,26 +71,71 @@ computes subsection grades in an async celery task (`recalculate_subsection_grad
 request thread. After that task writes the subsection grade, it calls a public openedx-core function
 within the same transaction; this function does the monotone merge and the upward roll-up. This should be generalized as needed to other places that trigger a competency status update.
 
-**4. ACTIVE writes and roll-ups commit atomically with the grade, or the whole task rolls back and retries.**
+**4. The ACTIVE writes and roll-ups commit atomically with the subsection grade.** The leaf, group,
+and competency ACTIVE writes from mechanisms 1 and 2 run inside the same transaction that mechanism 3
+opened for the subsection-grade write, so they commit as a single unit with it. If any step fails,
+that transaction rolls back and the task retries, leaving no partial roll-up behind.
 
-**5. The leaf HISTORY append runs outside the transaction, best effort.** Because the leaf HISTORY table
-(``StudentCompetencyCriteriaStatusHistory``) may be routed to a
-separate physical database (:ref:`openedx-learning-adr-0005`), its append runs after that transaction commits, as a best-effort,
-non-blocking write.
+**5. The leaf HISTORY append runs as a separate, idempotent, retrying write dispatched on commit.**
+Because the leaf HISTORY table (``StudentCompetencyCriteriaStatusHistory``) may be routed to a
+separate physical database (:ref:`openedx-learning-adr-0005`), its append cannot share the grade
+transaction: a write to another database alias runs on its own connection and cannot be atomic with
+the primary transaction, so it is a separate write even in the default single-database configuration.
+Because HISTORY is the audit trail (:ref:`openedx-learning-adr-0005`), a silently dropped append is a
+permanent audit gap, so the append is made durable rather than best-effort. Whether an advance
+occurred, and the timestamp of that advance, are determined inside the committing transaction
+(mechanisms 1 and 2) and carried to the append, so a retry records the real advance time and not the
+retry time. The append is dispatched with ``transaction.on_commit`` so it fires only if the grade
+transaction commits, and it runs as its own retrying task, mirroring edx-platform's established
+``on_commit``-to-retrying-task pattern. A unique constraint on the advance (learner, node, and status;
+:ref:`openedx-learning-adr-0002`) makes the insert idempotent, so a retry or a duplicate delivery
+collapses to a no-op rather than a duplicate row. A residual gap remains if the process dies between
+commit and dispatch; a reconciliation pass can detect an ACTIVE row whose latest status has no
+matching HISTORY row and backfill it, though it cannot recover the original advance timestamp.
 
 
 Rejected Alternatives
 ---------------------
 
-1. Prevent concurrent writes with a deployment-wide lock.
+1. Prevent concurrent writes with a coarser lock, either deployment-wide or per-learner.
 
-    Once every write is a monotone merge and each
-    parent recompute is serialized only against concurrent writers of that same node by a brief row lock, correctness holds without needing a larger lock.
+    - Pros:
+        - Correctness comes from a single lock rather than from the monotone-merge argument, so it is
+          simpler to reason about.
+        - A per-learner lock (for example a database advisory lock keyed on a hash of the user id)
+          still lets different learners record in parallel, and gives the same per-learner
+          serialization the chosen design relies on.
+    - Cons:
+        - A single deployment-wide lock serializes recording across every learner, giving up the
+          throughput the design needs under bursty grading.
+        - A per-learner lock still serializes a single learner's independent competencies against each
+          other even when they never contend.
+        - Either lock adds lock-lifecycle machinery (acquisition, release, and handling a holder that
+          dies) across a very large key space.
+        - The chosen design needs no such lock: the monotone merge (mechanism 1) makes each single-row
+          write safe, and the brief per-parent row lock (mechanism 2) serializes only writers that
+          actually contend for the same parent row of the same learner, so different learners, and
+          different competencies of one learner, still record in parallel.
 
-4. Recompute derived levels on read instead of materializing them.
+2. Recompute derived levels on read instead of materializing them.
 
-    Settled in :ref:`openedx-learning-adr-0002`.
+    - Pros:
+        - Eliminates the derived group and competency status rows and the roll-up writes entirely,
+          leaving nothing to keep consistent on write.
+    - Cons:
+        - Moves the full bottom-up tree evaluation onto the hot read path, the opposite of what
+          dashboards and other read surfaces need (a direct indexed lookup).
+        - Settled against in :ref:`openedx-learning-adr-0002`.
 
-8. Send an event to openedx-core and update competency statuses in a separate celery task.
+3. Send an event to openedx-core and update competency statuses in a separate celery task.
 
-    We want to avoid data drift. Wrapping the competency status update in the grade calculation transaction on edx-platform ensures atomicity.
+    - Pros:
+        - Decouples the mastery update from the grade write, so grade recording does not depend on
+          competency code being installed or fast.
+    - Cons:
+        - Without a shared transaction, a failure or a lost event leaves the grade and its mastery rows
+          permanently out of sync (data drift), with no way to roll them back together.
+        - Recording the ACTIVE writes in the same transaction as the grade (mechanism 3) instead makes
+          the grade and its mastery consequences commit or fail as a unit.
+        - The one step that genuinely cannot share the transaction, the leaf HISTORY append, is handled
+          explicitly in mechanism 5.

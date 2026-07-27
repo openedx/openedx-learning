@@ -82,7 +82,10 @@ Foreign keys to `user_id` must have `db_constraint=False` set.
 
 **Enable read-replica offload for heavy reads for the leaf tables.**
 This only applies to the ACTIVE `StudentCompetencyCriteriaStatus` and HISTORY
-`StudentCompetencyCriteriaStatusHistory` tables.
+`StudentCompetencyCriteriaStatusHistory` tables. Offload is scoped to the leaf level because that is
+where row count and read volume concentrate (the ~200x per-course leaf multiplier above); the group
+and top-level status tables are orders of magnitude smaller, so their dashboard reads are cheap point
+lookups that do not need to leave the primary and are not worth the replica-lag complexity.
 Prior art: ``edx_django_utils``'s ``read_replica_or_default()``.
 
 **Advance-only banking, monotonic.** Once a node reaches ``Demonstrated`` its ACTIVE row is retained
@@ -101,30 +104,50 @@ leaf mastery downward.
 Rejected Alternatives
 ---------------------
 
-1. Compute leaves transiently, never store them).
+1. Compute leaves transiently, never store them.
 
-Leaves could compute demonstration based on their rules together with the group-node
-status together. That would eliminate the largest tables. But this does not account
-for competency tree edits, which would result in leaf statuses being incorrect.
+    - Pros:
+        - Eliminates the largest tables (leaf ACTIVE and HISTORY), since leaf demonstration would be
+          computed on demand from the leaf's rule plus group-node status.
+    - Cons:
+        - Does not account for competency tree edits: a later restructuring of the criteria tree would
+          make previously-computed leaf statuses incorrect, because there is no stored, frozen leaf
+          mastery to rely on.
 
 2. Keep everything append-only (no ACTIVE table); current status is the latest row.
 
-Even with HISTORY bounded by monotonicity, a single in-place ACTIVE row is a
-cheaper and simpler dashboard read than resolving the latest advance out of a node's history,
-and it is the row per-learner concurrency in :ref:`openedx-learning-adr-0004` is anchored on.
+    - Pros:
+        - One model per level instead of paired ACTIVE and HISTORY tables.
+    - Cons:
+        - A dashboard read must resolve the latest advance out of a node's history rather than reading
+          one in-place row, which is more expensive and more complex, even with HISTORY bounded by
+          monotonicity.
+        - There is no single current row for the per-learner concurrency in
+          :ref:`openedx-learning-adr-0004` to anchor on.
 
 3. Make a separate physical database mandatory, or partition/shard the leaf tables, up front.
 
-Forcing a separate database or a partitioning scheme on
-everyone buys nothing the router does not, at a real operational cost. Partitioning and
-sharding remain available to revisit if a specific need is proven.
+    - Pros:
+        - Physically isolates or splits the large leaf tables from the start.
+    - Cons:
+        - Forces a separate database or a partitioning scheme on every deployment at real operational
+          cost, while buying nothing the database router (which defaults to the main database) does not
+          already allow.
+        - Premature: partitioning and sharding remain available to revisit later if a specific need is
+          proven.
 
 4. Store child evaluations on the parent group row instead of a leaf ACTIVE table (an enriched
    attained-set).
 
-Structural robustness is valued over the hot-store saving. First-class leaf rows
-keep a leaf's frozen mastery independent of how the criteria tree is later restructured, and
-avoid re-incurring the denormalized-array correctness burden that this decision removed by
-storing leaves. The hot-store reduction is real but does not address the largest table, and the
-single-row group read it optimizes is served acceptably by an indexed range read of a learner's
-leaf rows.
+    - Pros:
+        - Reduces the hot-store footprint by avoiding a separate leaf ACTIVE table.
+    - Cons:
+        - The reduction does not address the largest table (leaf HISTORY), so the main scaling concern
+          remains.
+        - Re-incurs the denormalized-array correctness burden that storing first-class leaf rows
+          removed.
+        - Couples a leaf's frozen mastery to the current shape of the criteria tree, so restructuring
+          the tree can corrupt already-recorded mastery. Structural robustness is valued over the
+          hot-store saving.
+        - The single-row group read it optimizes is already served acceptably by an indexed range read
+          of a learner's leaf rows.

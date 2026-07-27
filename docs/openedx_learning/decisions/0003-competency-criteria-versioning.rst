@@ -54,7 +54,7 @@ For the initial implementation, versioning and traceability of competency achiev
 6. Learner status models/tables as in 5. above each get a separate append-only history table not using ``django-simple-history``:
 
    - For ``StudentCompetencyCriteriaStatusHistory``, ``StudentCompetencyCriteriaGroupStatusHistory``, and ``StudentCompetencyStatusHistory``,
-     each status acvance is stored as a new row with ``created`` as the write timestamp.
+     each status advance is stored as a new row with ``created`` as the write timestamp.
    - Existing learner status rows are not updated in place in the history tables.
    - Statuses only increase monotonically as described by :ref:`openedx-learning-adr-0005`;
      if a change would mean a downward adjustment (for example ``Demonstrated`` to ``PartiallyAttempted``)
@@ -94,3 +94,13 @@ Rejected Alternatives
     - Cons:
         - Requires custom tooling to reconstruct past versions
         - Does not align with existing publishable versioning patterns
+
+Changelog
+---------
+
+2026-07-27:
+
+* Reworked learner status handling to match :ref:`openedx-learning-adr-0005` and
+  :ref:`openedx-learning-adr-0004`: Decision 5 now updates learner status rows in place and
+  monotonically (downward adjustments prohibited), and a new Decision 6 adds separate append-only
+  HISTORY tables. Previously a single append-only model with no in-place ACTIVE row.
