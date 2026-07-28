@@ -78,7 +78,17 @@ database router, mirroring edx-platform's courseware-history router
 main database.
 
 **No database-level foreign keys to `user_id` on ACTIVE or HISTORY table.**
-Foreign keys to `user_id` must have `db_constraint=False` set.
+Foreign keys to ``user_id`` must have ``db_constraint=False`` set, mirroring edx-platform's own
+``StudentModule``. This follows the app-boundary decision in :ref:`openedx-learning-adr-0001`, which keeps
+learner-status models decoupled from the concrete user model. Furthermore,
+a real constraint has an ongoing cost at this table's write volume:
+a hot user row would see extra lock contention under concurrent writes. This
+follows the app-boundary decision in :ref:`openedx-learning-adr-0001`, which keeps
+learner-status models decoupled from the concrete user model.
+
+This is independent of the delete-protection boundary in :ref:`openedx-learning-adr-0002`
+(Decision 7): that boundary keys off ``competency_criteria_id`` and its ancestor tables, not
+``user_id``, so dropping the database-level constraint here does not weaken it.
 
 **Enable read-replica offload for heavy reads for the leaf tables.**
 This only applies to the ACTIVE `StudentCompetencyCriteriaStatus` and HISTORY
