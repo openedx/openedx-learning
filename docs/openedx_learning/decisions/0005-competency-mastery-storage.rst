@@ -53,12 +53,6 @@ ACTIVE is a single in-place current row optimized for the dashboard point lookup
 per-learner concurrency is anchored on (:ref:`openedx-learning-adr-0004`), while HISTORY is
 append-only.
 
-**64-bit primary keys from the start.** The leaf ACTIVE and HISTORY tables use a 64-bit
-``BigAutoField`` primary key, chosen up front, mirroring edx-platform's
-``UnsignedBigIntAutoField`` on ``PersistentSubsectionGrade`` ("primary key will need to be
-large for this table"). Changing a primary-key type on a billion-row table later is
-prohibitively expensive.
-
 **No database-level foreign keys to `user_id` on ACTIVE or HISTORY table.**
 Foreign keys to ``user_id`` must have ``db_constraint=False`` set, mirroring edx-platform's own
 ``StudentModule``. This follows the app-boundary decision in :ref:`openedx-learning-adr-0001`, which keeps
@@ -162,3 +156,12 @@ Rejected Alternatives
           (:ref:`openedx-learning-adr-0004`); introducing replica reads means maintaining that
           distinction in every new read path.
         - Adding it later is cheap, since it is a per-query choice rather than a schema decision.
+
+6. Give the leaf tables a custom unsigned 64-bit primary key (``UnsignedBigIntAutoField``), as
+   edx-platform does on ``PersistentSubsectionGrade``.
+
+    This doubles the positive range of a plain ``BigAutoField``, but that range is already far out of
+    reach for these tables, and an instance approaching it would hit other limits first. A custom
+    field type carries ongoing maintenance cost, and unsigned integers do not exist in PostgreSQL.
+    ``BigAutoField`` is this repo's default (:ref:`openedx-content-adr-0003`), so the leaf tables need
+    no primary-key decision of their own.

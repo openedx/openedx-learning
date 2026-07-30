@@ -284,7 +284,7 @@ Decision
 
    2. Add new database table for ``StudentCompetencyCriteriaStatus`` with these columns:
 
-      1. ``id``: unique 64-bit primary key (``BigAutoField``); see :ref:`openedx-learning-adr-0005`.
+      1. ``id``: unique primary key
       2. ``competency_criteria_id``: Foreign key to ``CompetencyCriterion.id``
       3. ``user_id``: Foreign key with ``db_constraint=False`` pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
@@ -443,6 +443,5 @@ Changelog
   tables, per :ref:`openedx-learning-adr-0005`.
 * Made the leaf HISTORY (``StudentCompetencyCriteriaStatusHistory``) index unique on ``(user_id, competency_criteria_id, status_id)``, the
   idempotency key for the HISTORY append in :ref:`openedx-learning-adr-0004`.
-* Switched the leaf ACTIVE table (``StudentCompetencyCriteriaStatus``) to a 64-bit ``BigAutoField``
-  primary key and set ``db_constraint=False`` on the ``user_id`` foreign keys of the learner status
-  tables, per :ref:`openedx-learning-adr-0005`.
+* Set ``db_constraint=False`` on the ``user_id`` foreign keys of the learner status tables, per
+  :ref:`openedx-learning-adr-0005`.
