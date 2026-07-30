@@ -3,7 +3,6 @@
 8. System-defined automatic tagging
 =====================================
 
-
 Status
 ------
 
