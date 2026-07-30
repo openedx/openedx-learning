@@ -173,7 +173,6 @@ def get_object_tags(
     object_id: str,
     taxonomy_id: int | None = None,
     include_deleted: bool = False,
-    object_tag_class: type[ObjectTag] = ObjectTag
 ) -> QuerySet[ObjectTag]:
     """
     Returns a Queryset of object tags for a given object.
@@ -182,7 +181,7 @@ def get_object_tags(
     """
     filters = {"taxonomy_id": taxonomy_id} if taxonomy_id else {}
     base_qs = (
-        object_tag_class.objects
+        ObjectTag.objects
         .filter(object_id=object_id, **filters)
         .exclude(taxonomy__enabled=False)  # Exclude if the whole taxonomy is disabled
     )
@@ -298,22 +297,20 @@ def _get_current_tags(
     taxonomy: Taxonomy | None,
     tags: list[str],
     object_id: str,
-    object_tag_class: type[ObjectTag] = ObjectTag,
     taxonomy_export_id: str | None = None,
 ) -> list[ObjectTag]:
     """
     Returns the current object tags of the related object_id with taxonomy
     """
-    ObjectTagClass = object_tag_class
     if taxonomy:
         if not taxonomy.allow_multiple and len(tags) > 1:
             raise ValueError(_("Taxonomy ({name}) only allows one tag per object.").format(name=taxonomy.name))
         current_tags = list(
-           ObjectTagClass.objects.filter(taxonomy=taxonomy, object_id=object_id)
+           ObjectTag.objects.filter(taxonomy=taxonomy, object_id=object_id)
         )
     else:
         current_tags = list(
-            ObjectTagClass.objects.filter(_export_id=taxonomy_export_id, object_id=object_id)
+            ObjectTag.objects.filter(_export_id=taxonomy_export_id, object_id=object_id)
         )
     return current_tags
 
@@ -322,7 +319,6 @@ def tag_object(  # pylint: disable=too-many-positional-arguments
     object_id: str,
     taxonomy: Taxonomy | None,
     tags: list[str],
-    object_tag_class: type[ObjectTag] = ObjectTag,
     create_invalid: bool = False,
     taxonomy_export_id: str | None = None,
 ) -> None:
@@ -331,9 +327,6 @@ def tag_object(  # pylint: disable=too-many-positional-arguments
     with the given list of tags.
 
     tags: A list of the values of the tags from this taxonomy to apply.
-
-    object_tag_class: Optional. Use a proxy subclass of ObjectTag for additional
-        validation. (e.g. only allow tagging certain types of objects.)
 
     Raised Tag.DoesNotExist if the proposed tags are invalid for this taxonomy.
     Preserves existing (valid) tags, adds new (valid) tags, and removes omitted
@@ -347,7 +340,6 @@ def tag_object(  # pylint: disable=too-many-positional-arguments
     if not isinstance(tags, list):
         raise ValueError(_("Tags must be a list, not {type}.").format(type=type(tags).__name__))
 
-    ObjectTagClass = object_tag_class
     tags = list(dict.fromkeys(tags))  # Remove duplicates preserving order
 
     if not taxonomy and not taxonomy_export_id:
@@ -358,7 +350,6 @@ def tag_object(  # pylint: disable=too-many-positional-arguments
         taxonomy,
         tags,
         object_id,
-        object_tag_class,
         taxonomy_export_id
     )
 
@@ -370,7 +361,7 @@ def tag_object(  # pylint: disable=too-many-positional-arguments
                 # This tag is already applied.
                 object_tag = current_tags.pop(object_tag_index)
             else:
-                object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, _value=tag_value)
+                object_tag = ObjectTag(taxonomy=taxonomy, object_id=object_id, _value=tag_value)
                 updated_tags.append(object_tag)
     else:
         # Handle closed taxonomies:
@@ -397,18 +388,18 @@ def tag_object(  # pylint: disable=too-many-positional-arguments
                         updated_tags.append(object_tag)
                 else:
                     # We are newly applying this tag:
-                    object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, tag=tag)
+                    object_tag = ObjectTag(taxonomy=taxonomy, object_id=object_id, tag=tag)
                     updated_tags.append(object_tag)
             elif taxonomy:
                 # Tag doesn't exist in the taxonomy and `create_invalid` is True
-                object_tag = ObjectTagClass(taxonomy=taxonomy, object_id=object_id, _value=tag_value)
+                object_tag = ObjectTag(taxonomy=taxonomy, object_id=object_id, _value=tag_value)
                 updated_tags.append(object_tag)
             else:
                 # Taxonomy is None (also tag doesn't exist)
                 if taxonomy_export_id:
                     # This will always be true, since it is verified at the beginning of the function.
                     # This condition is placed by the type checks.
-                    object_tag = ObjectTagClass(
+                    object_tag = ObjectTag(
                         taxonomy=None,
                         object_id=object_id,
                         _value=tag_value,
