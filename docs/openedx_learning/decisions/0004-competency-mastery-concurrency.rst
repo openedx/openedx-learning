@@ -75,6 +75,13 @@ constraint on the advance (learner, node, and status; :ref:`openedx-learning-adr
 append idempotent, so a retried task or a redelivered grade event collapses to a no-op rather than
 writing a duplicate row.
 
+**5. Only an advance is appended to HISTORY.** The monotone merge in mechanism 1 often leaves a status
+where it was, because the newly computed status equals or is lower than the stored one. Those writes
+append nothing: a redelivered grade event, a downward grade correction, and a recompute that confirms
+the current status all leave HISTORY untouched. So the recorder writes at most one HISTORY row per
+learner, node, and step up the lattice, which is what bounds HISTORY to the same order of magnitude as
+ACTIVE rather than to grading volume (:ref:`openedx-learning-adr-0005`).
+
 
 Rejected Alternatives
 ---------------------

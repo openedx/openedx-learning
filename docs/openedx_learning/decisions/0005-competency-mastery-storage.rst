@@ -33,7 +33,7 @@ forward steps ever.
 
 That scale is not, on its own, what makes a relational database struggle. A point lookup against a
 billion-row table backed by the right composite index is a logarithmic-time index seek regardless
-of the table's size; the dashboard reads this feature performs are exactly such point lookups. What
+of the table's size; the dashboard that reads this performs exactly such point lookups. What
 billions of rows makes painful is schema migrations, backups, and any non-indexed or aggregate
 query.
 
@@ -43,15 +43,19 @@ Decision
 **Store statuses / mastery at every level, each split into ACTIVE and HISTORY.** The leaf, group, and
 competency levels each keep one ACTIVE row per learner and node, updated in place, so reading a
 learner's current status is a direct indexed lookup rather than a scan for the most recent of many
-rows. Each level also has a parallel append-only HISTORY table that records one row per genuine
-status advance, for audit and point-in-time reconstruction. Because status only advances, the status
-at any past time is the latest recorded advance at or before that time, so point-in-time is fully
-reconstructable from HISTORY. Because status is monotonic, the number of advances per node is bounded
-by the status lattice (a small constant), so HISTORY grows with learners and nodes, not with time,
-and stays about the same order of size as ACTIVE. Keeping ACTIVE and HISTORY separate still pays:
-ACTIVE is a single in-place current row optimized for the dashboard point lookup and is the row
-per-learner concurrency is anchored on (:ref:`openedx-learning-adr-0004`), while HISTORY is
-append-only.
+rows. Each level also has a parallel append-only HISTORY table, for audit and point-in-time
+reconstruction. Keeping ACTIVE and HISTORY separate pays off: ACTIVE is a single in-place current row
+optimized for the dashboard point lookup and is the row per-learner concurrency is anchored on
+(:ref:`openedx-learning-adr-0004`), while HISTORY is append-only.
+
+**Append a HISTORY row only when a status advances.** A row is written when a node moves up the status
+lattice, and never for a write that recomputes the same status or a lower one. HISTORY therefore
+records status changes, not learner activity: once a node reaches ``Demonstrated``, further
+submissions against it add no rows at all. Because status is monotonic and the lattice is small, the
+advances per learner and node are bounded by a small constant, so HISTORY grows with learners and
+nodes rather than with time or attempt volume, and stays in the same order of magnitude as ACTIVE.
+This is also what keeps point-in-time reconstruction cheap: the status at any past moment is the
+latest recorded advance at or before that moment.
 
 **No database-level foreign keys to `user_id` on ACTIVE or HISTORY table.**
 Foreign keys to ``user_id`` must have ``db_constraint=False`` set, mirroring edx-platform's own
