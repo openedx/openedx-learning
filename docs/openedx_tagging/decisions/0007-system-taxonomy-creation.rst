@@ -3,6 +3,11 @@
 7. System-defined Taxonomy & Tags creation
 ============================================
 
+Status
+------
+
+Obsolete ⚠️. The "system-defined" attribute and built-in taxonomies have been removed.
+
 Context
 --------
 
@@ -65,3 +70,10 @@ Tags hard-coded by fixtures/migrations
 In the future there may be system-defined taxonomies that are not dynamics at
 all, where the list of tags are defined by ``Tag`` instances created by a
 fixture or migration. However, as of now we don't have a use case for that.
+
+Changelog
+---------
+
+2026-07-29:
+
+* Updated "Status": this ADR is obsolete.
