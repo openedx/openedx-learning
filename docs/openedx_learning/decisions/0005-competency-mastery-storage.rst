@@ -57,19 +57,6 @@ nodes rather than with time or attempt volume, and stays in the same order of ma
 This is also what keeps point-in-time reconstruction cheap: the status at any past moment is the
 latest recorded advance at or before that moment.
 
-**No database-level foreign keys to `user_id` on ACTIVE or HISTORY table.**
-Foreign keys to ``user_id`` must have ``db_constraint=False`` set, mirroring edx-platform's own
-``StudentModule``. This follows the app-boundary decision in :ref:`openedx-learning-adr-0001`, which keeps
-learner-status models decoupled from the concrete user model. Furthermore,
-a real constraint has an ongoing cost at this table's write volume:
-a hot user row would see extra lock contention under concurrent writes. This
-follows the app-boundary decision in :ref:`openedx-learning-adr-0001`, which keeps
-learner-status models decoupled from the concrete user model.
-
-This is independent of the delete-protection boundary in :ref:`openedx-learning-adr-0002`
-(Decision 7): that boundary keys off ``competency_criteria_id`` and its ancestor tables, not
-``user_id``, so dropping the database-level constraint here does not weaken it.
-
 **Advance-only banking, monotonic.** Once a node reaches ``Demonstrated`` its ACTIVE row is retained
 ("banked"): the recorder never automatically regresses it, not on a later downward grade correction
 and not on a criteria change. This applies at every level, including the leaf. A genuine downward
@@ -169,3 +156,13 @@ Rejected Alternatives
     field type carries ongoing maintenance cost, and unsigned integers do not exist in PostgreSQL.
     ``BigAutoField`` is this repo's default (:ref:`openedx-content-adr-0003`), so the leaf tables need
     no primary-key decision of their own.
+
+7. Drop the database-level constraint on the learner foreign key (``db_constraint=False``), mirroring
+   edx-platform's ``StudentModule``.
+
+    The argument for it was that a real constraint costs write throughput at this volume, because a hot
+    user row would see extra lock contention. Reports of user-row contention in edx-platform do exist
+    (which is why ``completion`` and ``bookmarks`` dropped their constraints), but they are not
+    understood well enough to design around here. This repo's convention is a real foreign key to
+    ``settings.AUTH_USER_MODEL``, which already keeps the models independent of any concrete user
+    model, so these tables follow it and need no decision of their own.

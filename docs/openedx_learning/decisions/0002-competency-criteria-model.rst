@@ -286,7 +286,7 @@ Decision
 
       1. ``id``: unique primary key
       2. ``competency_criteria_id``: Foreign key to ``CompetencyCriterion.id``
-      3. ``user_id``: Foreign key with ``db_constraint=False`` pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
+      3. ``user_id``: Foreign key to ``settings.AUTH_USER_MODEL`` (presumably the learner's id, although it appears that it is possible for staff to get grades as well)
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
       5. ``created``: The timestamp at which the student's criterion status was set.
 
@@ -294,7 +294,7 @@ Decision
 
       1. ``id``: unique primary key
       2. ``competency_criteria_group_id``: Foreign key to ``CompetencyCriteriaGroup.id``
-      3. ``user_id``: Foreign key with ``db_constraint=False`` pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
+      3. ``user_id``: Foreign key to ``settings.AUTH_USER_MODEL`` (presumably the learner's id, although it appears that it is possible for staff to get grades as well)
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
       5. ``created``: The timestamp at which the student's criteria-group status was set.
 
@@ -302,7 +302,7 @@ Decision
 
       1. ``id``: unique primary key
       2. ``oel_tagging_tag_id``: Foreign key pointing to Tag id
-      3. ``user_id``: Foreign key with ``db_constraint=False`` pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
+      3. ``user_id``: Foreign key to ``settings.AUTH_USER_MODEL`` (presumably the learner's id, although it appears that it is possible for staff to get grades as well)
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``. This table should have a constraint to only allow status values of “Demonstrated” and “PartiallyAttempted” since it represents overall competency demonstration state, not in-progress states.
       5. ``created``: The timestamp at which the student's competency status was set.
 
@@ -443,5 +443,5 @@ Changelog
   tables, per :ref:`openedx-learning-adr-0005`.
 * Made the leaf HISTORY (``StudentCompetencyCriteriaStatusHistory``) index unique on ``(user_id, competency_criteria_id, status_id)``, the
   idempotency key for the HISTORY append in :ref:`openedx-learning-adr-0004`.
-* Set ``db_constraint=False`` on the ``user_id`` foreign keys of the learner status tables, per
-  :ref:`openedx-learning-adr-0005`.
+* Pointed the ``user_id`` foreign keys of the learner status tables at
+  ``settings.AUTH_USER_MODEL`` rather than the concrete ``auth_user`` table.

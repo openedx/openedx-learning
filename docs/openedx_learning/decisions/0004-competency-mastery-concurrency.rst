@@ -60,6 +60,7 @@ supported on the platform): under it the lock's own read and the sibling reads t
 return the latest committed rows, rather than a snapshot fixed at an earlier read in the same
 transaction, which is what a higher level such as ``REPEATABLE READ`` would do. Locks are taken child-before-parent up
 the path to the root, a consistent order, so concurrent updates cannot deadlock. This is an ordinary
+single-row lock.
 
 **3. Entry point: edx-platform subsection grade change.** edx-platform
 computes subsection grades in an async celery task (`recalculate_subsection_grade_v3`) triggered by a score-change signal, not on the
