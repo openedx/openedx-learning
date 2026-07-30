@@ -40,16 +40,6 @@ query.
 Decision
 --------
 
-**Alleviate performance concerns by following established edx-platform practices.**
-edx-platform has already large tables of similar magnitude, such as `StudentModule`,
-and they have proven themselves.
-This means that as long as we follow their structure, we can have confidence that we are
-not introducing any huge new problems.
-They do not use physical partitioning, but work by using 64-bit primary keys,
-enabling optional read-replica offloads, and splitting out a history table that
-uses a dedicated database router. The decisions below are designed to mirror these
-existing patterns.
-
 **Store statuses / mastery at every level, each split into ACTIVE and HISTORY.** The leaf, group, and
 competency levels each keep one ACTIVE row per learner and node, updated in place, so reading a
 learner's current status is a direct indexed lookup rather than a scan for the most recent of many
@@ -69,14 +59,6 @@ append-only.
 large for this table"). Changing a primary-key type on a billion-row table later is
 prohibitively expensive.
 
-**A dedicated database alias and router for the leaf HISTORY table, baked in from the start.**
-This only applies to the `StudentCompetencyCriteriaStatusHistory` table.
-The leaf HISTORY table (``StudentCompetencyCriteriaStatusHistory``), the dominant table in this
-model, is the one learner-status table assigned to a dedicated Django database alias through a
-database router, mirroring edx-platform's courseware-history router
-(``StudentModuleHistoryExtended``), which is likewise a history table. The alias defaults to the
-main database.
-
 **No database-level foreign keys to `user_id` on ACTIVE or HISTORY table.**
 Foreign keys to ``user_id`` must have ``db_constraint=False`` set, mirroring edx-platform's own
 ``StudentModule``. This follows the app-boundary decision in :ref:`openedx-learning-adr-0001`, which keeps
@@ -89,14 +71,6 @@ learner-status models decoupled from the concrete user model.
 This is independent of the delete-protection boundary in :ref:`openedx-learning-adr-0002`
 (Decision 7): that boundary keys off ``competency_criteria_id`` and its ancestor tables, not
 ``user_id``, so dropping the database-level constraint here does not weaken it.
-
-**Enable read-replica offload for heavy reads for the leaf tables.**
-This only applies to the ACTIVE `StudentCompetencyCriteriaStatus` and HISTORY
-`StudentCompetencyCriteriaStatusHistory` tables. Offload is scoped to the leaf level because that is
-where row count and read volume concentrate (the ~200x per-course leaf multiplier above); the group
-and top-level status tables are orders of magnitude smaller, so their dashboard reads are cheap point
-lookups that do not need to leave the primary and are not worth the replica-lag complexity.
-Prior art: ``edx_django_utils``'s ``read_replica_or_default()``.
 
 **Advance-only banking, monotonic.** Once a node reaches ``Demonstrated`` its ACTIVE row is retained
 ("banked"): the recorder never automatically regresses it, not on a later downward grade correction
@@ -135,16 +109,28 @@ Rejected Alternatives
         - There is no single current row for the per-learner concurrency in
           :ref:`openedx-learning-adr-0004` to anchor on.
 
-3. Make a separate physical database mandatory, or partition/shard the leaf tables, up front.
+3. Put the leaf HISTORY table behind its own Django database alias and router, or make a separate
+   physical database mandatory, or partition/shard the leaf tables, up front.
 
     - Pros:
-        - Physically isolates or splits the large leaf tables from the start.
+        - Physically isolates or splits the largest tables from the start. In the router variant the
+          alias would default to the main database, letting a deployment opt into a separate physical
+          database later without a schema change.
+        - Mirrors edx-platform's courseware-history router
+          (``StudentModuleHistoryExtended``), which is likewise a history table.
     - Cons:
-        - Forces a separate database or a partitioning scheme on every deployment at real operational
-          cost, while buying nothing the database router (which defaults to the main database) does not
-          already allow.
-        - Premature: partitioning and sharding remain available to revisit later if a specific need is
-          proven.
+        - A second alias gives up atomicity. Django runs a write to another alias on its own
+          connection, so a learner's ACTIVE and HISTORY rows can no longer commit in one transaction,
+          and the HISTORY append needs its own retrying, self-reconciling write path
+          (:ref:`openedx-learning-adr-0004`) to avoid losing audit rows. That cost is paid by every
+          deployment, including the overwhelming majority that never split the database.
+        - The prior art does not actually support the pattern: edx-platform's courseware-history
+          router was retrofitted to work around a 32-bit primary key running out, not adopted as a
+          scaling design.
+        - Mandating a separate physical database or a partitioning scheme imposes real operational
+          cost on every deployment, with nothing measured to justify it.
+        - Premature, and reversible: an alias, a separate database, partitioning, and sharding all
+          remain available to revisit if a specific need is proven.
 
 4. Store child evaluations on the parent group row instead of a leaf ACTIVE table (an enriched
    attained-set).
@@ -161,3 +147,18 @@ Rejected Alternatives
           hot-store saving.
         - The single-row group read it optimizes is already served acceptably by an indexed range read
           of a learner's leaf rows.
+
+5. Serve heavy reads of the leaf tables from a read replica
+   (``edx_django_utils``'s ``read_replica_or_default()``).
+
+    - Pros:
+        - Keeps dashboard and reporting reads of the two largest tables off the primary, where row
+          count and read volume concentrate.
+    - Cons:
+        - Premature: no measurement shows the primary struggling with these reads. The dashboard reads
+          are point lookups on a composite index, not the large, expensive, widely-called reads that
+          drive ``StudentModule`` load in edx-platform, so CBE read load should be much lower.
+        - Replica lag is a correctness hazard next to the recorder, which must read from the primary
+          (:ref:`openedx-learning-adr-0004`); introducing replica reads means maintaining that
+          distinction in every new read path.
+        - Adding it later is cheap, since it is a per-query choice rather than a schema decision.

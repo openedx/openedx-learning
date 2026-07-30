@@ -60,38 +60,20 @@ supported on the platform): under it the lock's own read and the sibling reads t
 return the latest committed rows, rather than a snapshot fixed at an earlier read in the same
 transaction, which is what a higher level such as ``REPEATABLE READ`` would do. Locks are taken child-before-parent up
 the path to the root, a consistent order, so concurrent updates cannot deadlock. This is an ordinary
-single-row lock. Every read the recorder makes, here and in the mass-recompute path
-(:ref:`openedx-learning-adr-0005`), runs against the primary database and never a read replica:
-these reads feed the roll-up write and take the row locks above, so a replica's lag would compute a
-roll-up from stale siblings. The read-replica offload in :ref:`openedx-learning-adr-0005` is
-reserved for the read-only dashboard and reporting paths.
 
 **3. Entry point: edx-platform subsection grade change.** edx-platform
 computes subsection grades in an async celery task (`recalculate_subsection_grade_v3`) triggered by a score-change signal, not on the
 request thread. After that task writes the subsection grade, it calls a public openedx-core function
 within the same transaction; this function does the monotone merge and the upward roll-up. This should be generalized as needed to other places that trigger a competency status update.
 
-**4. The ACTIVE writes and roll-ups commit atomically with the subsection grade.** The leaf, group,
-and competency ACTIVE writes from mechanisms 1 and 2 run inside the same transaction that mechanism 3
-opened for the subsection-grade write, so they commit as a single unit with it. If any step fails,
-that transaction rolls back and the task retries, leaving no partial roll-up behind.
-
-**5. The leaf HISTORY append runs as a separate, idempotent, retrying write dispatched on commit.**
-Because the leaf HISTORY table (``StudentCompetencyCriteriaStatusHistory``) may be routed to a
-separate physical database (:ref:`openedx-learning-adr-0005`), its append cannot share the grade
-transaction: a write to another database alias runs on its own connection and cannot be atomic with
-the primary transaction, so it is a separate write even in the default single-database configuration.
-Because HISTORY is the audit trail (:ref:`openedx-learning-adr-0005`), a silently dropped append is a
-permanent audit gap, so the append is made durable rather than best-effort. Whether an advance
-occurred, and the timestamp of that advance, are determined inside the committing transaction
-(mechanisms 1 and 2) and carried to the append, so a retry records the real advance time and not the
-retry time. The append is dispatched with ``transaction.on_commit`` so it fires only if the grade
-transaction commits, and it runs as its own retrying task, mirroring edx-platform's established
-``on_commit``-to-retrying-task pattern. A unique constraint on the advance (learner, node, and status;
-:ref:`openedx-learning-adr-0002`) makes the insert idempotent, so a retry or a duplicate delivery
-collapses to a no-op rather than a duplicate row. A residual gap remains if the process dies between
-commit and dispatch; a reconciliation pass can detect an ACTIVE row whose latest status has no
-matching HISTORY row and backfill it, though it cannot recover the original advance timestamp.
+**4. The ACTIVE writes, the HISTORY appends, and the roll-ups all commit atomically with the
+subsection grade.** The leaf, group, and competency ACTIVE writes from mechanisms 1 and 2, and the
+HISTORY row appended for each genuine advance, run inside the same transaction that mechanism 3
+opened for the subsection-grade write, so they commit as a single unit with it. If any step fails, that transaction rolls back and the task retries, leaving
+behind neither a partial roll-up nor an ACTIVE status whose advance went unrecorded. A unique
+constraint on the advance (learner, node, and status; :ref:`openedx-learning-adr-0002`) makes the
+append idempotent, so a retried task or a redelivered grade event collapses to a no-op rather than
+writing a duplicate row.
 
 
 Rejected Alternatives
@@ -137,5 +119,11 @@ Rejected Alternatives
           permanently out of sync (data drift), with no way to roll them back together.
         - Recording the ACTIVE writes in the same transaction as the grade (mechanism 3) instead makes
           the grade and its mastery consequences commit or fail as a unit.
-        - The one step that genuinely cannot share the transaction, the leaf HISTORY append, is handled
-          explicitly in mechanism 5.
+
+4. Append the leaf HISTORY row outside the grade transaction, as a retrying task dispatched with
+   ``transaction.on_commit``.
+
+    This would be mandatory if the HISTORY table were ever
+    routed to a separate database alias, since a write on another connection cannot be atomic
+    with the primary transaction. Since we decided that every status table lives in the main database
+    (:ref:`openedx-learning-adr-0005`), this is unnecessary.
