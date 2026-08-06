@@ -1,6 +1,7 @@
 """
 Paginators uses by the REST API
 """
+
 from typing import Type
 
 from edx_rest_framework_extensions.paginators import DefaultPagination  # type: ignore[import]
@@ -73,6 +74,10 @@ class TagPermissionsMixin(CanAddPermissionMixin):  # pylint: disable=abstract-me
     def get_can_add(self, instance: Tag | Taxonomy = None) -> bool | None:
         if instance is None and self._taxonomy:
             instance = Tag(taxonomy=self._taxonomy)
+        # Check read-only here (as well as via get_can_add()), because the permissions check is skipped for superusers
+        # but even they shouldn't be able to modify tags in read-only taxonomies.
+        if instance and instance.taxonomy and instance.taxonomy.read_only:
+            return False
         return super().get_can_add(instance)
 
 

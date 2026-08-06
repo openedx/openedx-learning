@@ -94,7 +94,7 @@ class TestRulesTagging(TestTagTaxonomyMixin, TestCase):
         """
         Even taxonomy administrators cannot modify the tags of a read-only taxonomy.
         """
-        assert self.superuser.has_perm(perm, self.read_only_taxonomy_tag)
+        assert self.superuser.has_perm(perm, self.read_only_taxonomy_tag)  # Superuser permissions can never be false :/
         assert not self.staff.has_perm(perm, self.read_only_taxonomy_tag)
         assert not self.learner.has_perm(perm, self.read_only_taxonomy_tag)
 
