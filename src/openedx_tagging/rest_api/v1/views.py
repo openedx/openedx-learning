@@ -563,7 +563,7 @@ class ObjectTagView(
         if partial:
             raise MethodNotAllowed("PATCH", detail="PATCH not allowed")
 
-        object_id = kwargs.pop('object_id')
+        object_id: str = kwargs.pop('object_id')
         body = ObjectTagUpdateBodySerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
@@ -575,6 +575,11 @@ class ObjectTagView(
         # Check permissions
         self.ensure_user_has_can_tag_object_permissions(request.user, data, object_id)
 
+        self._apply_updated_tags(data, object_id)
+        return self.retrieve(request, object_id)
+
+    def _apply_updated_tags(self, data: dict, object_id: str):
+        """Apply updated tags; used by update() (POST). Allows subclasses to customize this behavior."""
         # Tag object_id per taxonomy
         for tag_data in data:
             taxonomy = tag_data.get("taxonomy")
@@ -585,8 +590,6 @@ class ObjectTagView(
                 raise ValidationError from e
             except ValueError as e:
                 raise ValidationError from e
-
-        return self.retrieve(request, object_id)
 
     def ensure_user_has_can_tag_object_permissions(self, user, tags_data, object_id):
         """
