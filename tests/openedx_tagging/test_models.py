@@ -45,7 +45,7 @@ class TestTagTaxonomyMixin:
         super().setUp()
         # Core pre-defined taxonomies for testing:
         self.taxonomy = Taxonomy.objects.get(name="Life on Earth")
-        self.system_taxonomy = Taxonomy.objects.get(name="Read Only Taxonomy")
+        self.read_only_taxonomy = Taxonomy.objects.get(name="Read Only Taxonomy")
         self.free_text_taxonomy = api.create_taxonomy(name="Free Text", allow_free_text=True)
         self.import_taxonomy = Taxonomy.objects.get(name="Import Taxonomy Test")
 
@@ -57,7 +57,7 @@ class TestTagTaxonomyMixin:
         self.chordata = get_tag("Chordata")
         self.mammalia = get_tag("Mammalia")
         self.animalia = get_tag("Animalia")
-        self.system_taxonomy_tag = get_tag("System Tag 1")
+        self.read_only_taxonomy_tag = get_tag("System Tag 1")
         self.user_1 = get_user_model()(
             id=1,
             username="test_user_1",
@@ -153,22 +153,22 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
 
     def test_read_only(self):
         assert not self.taxonomy.read_only
-        assert self.system_taxonomy.read_only
+        assert self.read_only_taxonomy.read_only
 
     def test_read_only_taxonomy_tags_immutable(self):
         """
         The tags of a read-only taxonomy cannot be added, edited, or deleted.
         """
         with pytest.raises(ValueError) as add_exc:
-            self.system_taxonomy.add_tag("New Tag")
+            self.read_only_taxonomy.add_tag("New Tag")
         assert "read-only" in str(add_exc.value)
 
         with pytest.raises(ValueError) as update_exc:
-            self.system_taxonomy.update_tag("System Tag 1", "Renamed")
+            self.read_only_taxonomy.update_tag("System Tag 1", "Renamed")
         assert "read-only" in str(update_exc.value)
 
         with pytest.raises(ValueError) as delete_exc:
-            self.system_taxonomy.delete_tags(["System Tag 1"])
+            self.read_only_taxonomy.delete_tags(["System Tag 1"])
         assert "read-only" in str(delete_exc.value)
 
     def test_representations(self):
@@ -176,8 +176,8 @@ class TestTagTaxonomy(TestTagTaxonomyMixin, TestCase):
             str(self.taxonomy) == repr(self.taxonomy) == "<Taxonomy> (1) Life on Earth"
         )
         assert (
-            str(self.system_taxonomy)
-            == repr(self.system_taxonomy)
+            str(self.read_only_taxonomy)
+            == repr(self.read_only_taxonomy)
             == "<Taxonomy> (4) Read Only Taxonomy"
         )
         assert str(self.bacteria) == repr(self.bacteria) == "<Tag> (1) Bacteria"
@@ -701,7 +701,7 @@ class TestObjectTag(TestTagTaxonomyMixin, TestCase):
     def test_clean_tag_in_taxonomy(self):
         # ObjectTags in a closed taxonomy require a tag in that taxonomy
         object_tag = ObjectTag(taxonomy=self.taxonomy, tag=Tag.objects.create(
-            taxonomy=self.system_taxonomy,  # Different taxonomy
+            taxonomy=self.read_only_taxonomy,  # Different taxonomy
             value="PT",
         ))
         with pytest.raises(ValidationError):

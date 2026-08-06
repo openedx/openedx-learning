@@ -88,7 +88,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.free_text_taxonomy,
             tax3,
             self.taxonomy,
-            self.system_taxonomy,
+            self.read_only_taxonomy,
         ]
         assert str(enabled[0]) == f"<Taxonomy> ({tax1.id}) Enabled"
         assert str(enabled[1]) == f"<Taxonomy> ({self.free_text_taxonomy.id}) Free Text"
@@ -109,7 +109,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             self.free_text_taxonomy,
             tax3,
             self.taxonomy,
-            self.system_taxonomy,
+            self.read_only_taxonomy,
         ]
 
     def test_get_tags(self) -> None:
@@ -138,7 +138,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ]
 
     def test_get_tags_system(self) -> None:
-        assert pretty_format_tags(tagging_api.get_tags(self.system_taxonomy), parent=False) == [
+        assert pretty_format_tags(tagging_api.get_tags(self.read_only_taxonomy), parent=False) == [
             "System Tag 1 (children: 0)",
             "System Tag 2 (children: 0)",
             "System Tag 3 (children: 0)",
@@ -154,7 +154,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ]
 
     def test_get_root_tags_system(self):
-        result = tagging_api.get_root_tags(self.system_taxonomy)
+        result = tagging_api.get_root_tags(self.read_only_taxonomy)
         assert pretty_format_tags(result, parent=False) == [
             'System Tag 1 (children: 0)',
             'System Tag 2 (children: 0)',
@@ -205,7 +205,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         """
         Trying to get children of a system tag that has no children yields an empty result:
         """
-        assert not list(tagging_api.get_children_tags(self.system_taxonomy, self.system_taxonomy_tag.value))
+        assert not list(tagging_api.get_children_tags(self.read_only_taxonomy, self.read_only_taxonomy_tag.value))
 
     def test_resync_object_tags(self) -> None:
         self.taxonomy.allow_multiple = True
@@ -547,7 +547,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         ]
 
         for tags in tags_list:
-            tagging_api.tag_object("biology101", self.system_taxonomy, tags)
+            tagging_api.tag_object("biology101", self.read_only_taxonomy, tags)
 
             # Ensure the expected number of tags exist in the database
             object_tags = tagging_api.get_object_tags("biology101")
@@ -557,15 +557,15 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
                 object_tag.full_clean()  # Check full model validation
                 assert object_tag.value == tags[index]
                 assert not object_tag.is_deleted
-                assert object_tag.taxonomy == self.system_taxonomy
-                assert object_tag.export_id == self.system_taxonomy.export_id
+                assert object_tag.taxonomy == self.read_only_taxonomy
+                assert object_tag.export_id == self.read_only_taxonomy.export_id
                 assert object_tag.object_id == "biology101"
 
     def test_tag_object_read_only_taxonomy_invalid(self) -> None:
         with self.assertRaises(tagging_api.TagDoesNotExist):
             tagging_api.tag_object(
                 "biology101",
-                self.system_taxonomy,
+                self.read_only_taxonomy,
                 ["Not a real tag"],
             )
 
@@ -621,7 +621,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         self.taxonomy.save()
         disabled_taxonomy = tagging_api.create_taxonomy("Disabled Taxonomy", allow_free_text=True)
         tagging_api.tag_object(object_id=obj_id, taxonomy=self.taxonomy, tags=["DPANN", "Chordata"])
-        tagging_api.tag_object(object_id=obj_id, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
+        tagging_api.tag_object(object_id=obj_id, taxonomy=self.read_only_taxonomy, tags=["System Tag 1"])
         tagging_api.tag_object(object_id=obj_id, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
         tagging_api.tag_object(object_id=obj_id, taxonomy=disabled_taxonomy, tags=["disabled tag"])
 
@@ -793,7 +793,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         obj2 = "object_id2"
         # Give each object 2 tags:
         tagging_api.tag_object(object_id=obj1, taxonomy=self.taxonomy, tags=["DPANN"])
-        tagging_api.tag_object(object_id=obj1, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.read_only_taxonomy, tags=["System Tag 1"])
         tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
         tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
 
@@ -828,7 +828,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             },
             {
                 "value": "System Tag 1",
-                "taxonomy": self.system_taxonomy,
+                "taxonomy": self.read_only_taxonomy,
             },
         ]
 
@@ -852,7 +852,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
         obj1 = "object_id1"
         obj2 = "object_id2"
 
-        tagging_api.tag_object(object_id=obj1, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.read_only_taxonomy, tags=["System Tag 1"])
 
         tagging_api.tag_object(object_id=obj2, taxonomy=self.taxonomy, tags=["Chordata"])
         tagging_api.tag_object(object_id=obj2, taxonomy=self.free_text_taxonomy, tags=["has a notochord"])
@@ -874,7 +874,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
             },
             {
                 "value": "System Tag 1",
-                "taxonomy": self.system_taxonomy,
+                "taxonomy": self.read_only_taxonomy,
                 "copied": True,
             },
         ]
@@ -956,13 +956,13 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
 
         # Put 2 tags on obj1
         tagging_api.tag_object(object_id=obj1, taxonomy=self.taxonomy, tags=["DPANN"])
-        tagging_api.tag_object(object_id=obj1, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
+        tagging_api.tag_object(object_id=obj1, taxonomy=self.read_only_taxonomy, tags=["System Tag 1"])
 
         # Copy tags from obj1 to obj2
         tagging_api.copy_tags(obj1, obj2)
 
         # Update obj2's tags to include one non-copied tag
-        tagging_api.tag_object(object_id=obj2, taxonomy=self.system_taxonomy, tags=["System Tag 1", "System Tag 2"])
+        tagging_api.tag_object(object_id=obj2, taxonomy=self.read_only_taxonomy, tags=["System Tag 1", "System Tag 2"])
 
         tags = tagging_api.get_object_tags(obj2)
         assert tags.filter(is_copied=False).count() == 1

@@ -695,7 +695,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
         # Apply the object tags that we're about to retrieve:
         api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
-        api.tag_object(object_id=object_id, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
+        api.tag_object(object_id=object_id, taxonomy=self.read_only_taxonomy, tags=["System Tag 1"])
 
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
@@ -867,7 +867,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
         # Apply the object tags that we're about to retrieve:
         api.tag_object(object_id=object_id, taxonomy=self.taxonomy, tags=["Mammalia", "Fungi"])
-        api.tag_object(object_id=object_id, taxonomy=self.system_taxonomy, tags=["System Tag 1"])
+        api.tag_object(object_id=object_id, taxonomy=self.read_only_taxonomy, tags=["System Tag 1"])
 
         url = OBJECT_TAGS_RETRIEVE_URL.format(object_id=object_id)
 
@@ -875,7 +875,7 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
             user = getattr(self, user_attr)
             self.client.force_authenticate(user=user)
 
-        response = self.client.get(url, {"taxonomy": self.system_taxonomy.pk})
+        response = self.client.get(url, {"taxonomy": self.read_only_taxonomy.pk})
         assert response.status_code == expected_status
         if status.is_success(expected_status):
             assert response.data == {
@@ -964,9 +964,9 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
 
     @ddt.data(
         # Users and staff can add tags
-        (None, "system_taxonomy", {}, ["System Tag 1"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
-        ("user_1", "system_taxonomy", {}, ["System Tag 1"], status.HTTP_200_OK, "abc"),
-        ("staff", "system_taxonomy", {}, ["System Tag 1"], status.HTTP_200_OK, "abc.xyz"),
+        (None, "read_only_taxonomy", {}, ["System Tag 1"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
+        ("user_1", "read_only_taxonomy", {}, ["System Tag 1"], status.HTTP_200_OK, "abc"),
+        ("staff", "read_only_taxonomy", {}, ["System Tag 1"], status.HTTP_200_OK, "abc.xyz"),
         # user_1s and staff can clear add tags
         (None, "taxonomy", {}, ["Fungi"], status.HTTP_401_UNAUTHORIZED, "abc.xyz"),
         ("user_1", "taxonomy", {}, ["Fungi"], status.HTTP_200_OK, "abc.xyz"),
@@ -990,9 +990,9 @@ class TestObjectTagViewSet(TestTagTaxonomyMixin, APITestCase):
         ("user_1", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN, "abc.xyz"),
         ("staff", "free_text_taxonomy", {"enabled": False}, ["tag1"], status.HTTP_403_FORBIDDEN, "abc"),
         # Can't add invalid/nonexistent tags using a closed taxonomy
-        (None, "system_taxonomy", {}, ["Invalid"], status.HTTP_401_UNAUTHORIZED, "abc"),
-        ("user_1", "system_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
-        ("staff", "system_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc"),
+        (None, "read_only_taxonomy", {}, ["Invalid"], status.HTTP_401_UNAUTHORIZED, "abc"),
+        ("user_1", "read_only_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
+        ("staff", "read_only_taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc"),
         ("staff", "taxonomy", {}, ["Invalid"], status.HTTP_400_BAD_REQUEST, "abc.xyz"),
     )
     @ddt.unpack
