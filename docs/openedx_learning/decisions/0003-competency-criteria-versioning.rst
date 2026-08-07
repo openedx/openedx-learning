@@ -44,12 +44,21 @@ For the initial implementation, versioning and traceability of competency achiev
    - A ``CompetencyRuleProfile`` is "in use" if any ``CompetencyCriterion`` assigned to it (``competency_rule_profile_id``) has an associated ``StudentCompetencyCriteriaStatus`` row. Editing an in-use profile's ``rule_type``/``rule_payload`` requires the same warning and confirmation.
    - The same warning applies when creating a more specific profile causes existing criteria to be reassigned to it, and when an authoring action switches a criterion between a profile assignment and per-criterion overrides (ADR 0002 Decision 4).
 
-5. Learner status models/tables are append-only history and do not use ``django-simple-history``:
+5. Learner status models/tables are updated in-place:
 
-   - For ``StudentCompetencyCriteriaStatus``, ``StudentCompetencyCriteriaGroupStatus``, and ``StudentCompetencyStatus``, each status change is stored as a new row with ``created`` as the write timestamp.
-   - Existing learner status rows are not updated in place.
-   - Current status is determined by the most recent row for a given learner + target entity (ordered by ``created``, with ``id`` as a tie-breaker).
-   - Older rows represent the learner status history and remain available for audit/tracing.
+   - For ``StudentCompetencyCriteriaStatus``, ``StudentCompetencyCriteriaGroupStatus``, and ``StudentCompetencyStatus``,
+     each status change updates the responsible row.
+   - Statuses only increase monotonically as described by :ref:`openedx-learning-adr-0005`;
+     downward status adjustments (for example ``Demonstrated`` to ``PartiallyAttempted``) are prohibited.
+
+6. Learner status models/tables as in 5. above each get a separate append-only history table not using ``django-simple-history``:
+
+   - For ``StudentCompetencyCriteriaStatusHistory``, ``StudentCompetencyCriteriaGroupStatusHistory``, and ``StudentCompetencyStatusHistory``,
+     each status advance is stored as a new row with ``created`` as the write timestamp.
+   - Existing learner status rows are not updated in place in the history tables.
+   - Statuses only increase monotonically as described by :ref:`openedx-learning-adr-0005`;
+     if a change would mean a downward adjustment (for example ``Demonstrated`` to ``PartiallyAttempted``)
+     or no adjustment, this does not get stored in the history tables.
 
 
 Rejected Alternatives
@@ -85,3 +94,13 @@ Rejected Alternatives
     - Cons:
         - Requires custom tooling to reconstruct past versions
         - Does not align with existing publishable versioning patterns
+
+Changelog
+---------
+
+2026-07-27:
+
+* Reworked learner status handling to match :ref:`openedx-learning-adr-0005` and
+  :ref:`openedx-learning-adr-0004`: Decision 5 now updates learner status rows in place and
+  monotonically (downward adjustments prohibited), and a new Decision 6 adds separate append-only
+  HISTORY tables. Previously a single append-only model with no in-place ACTIVE row.
