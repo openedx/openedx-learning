@@ -21,10 +21,25 @@ is needed for multiple reasons, including notifications, and badge and certifica
 :ref:`openedx-learning-adr-0003`, each level is stored as one row per learner and node, updated in
 place, holding that learner's current status for that node.
 
-**Monotonicity: competency statuses only ever move forward.** Per
+**Monotonicity: the recorder only ever moves a status forward.** Per
 :ref:`openedx-learning-adr-0003`, every node, at every level, advances through a small status
 lattice (``AttemptedNotDemonstrated`` to ``PartiallyAttempted`` to ``Demonstrated``) and is never
-lowered later. This holds for leaf nodes, group nodes, and top-level competency masteries.
+lowered by the recorder. This holds for leaf nodes, group nodes, and top-level competency masteries,
+and against both of the recorder's triggers: neither a downward grade correction nor a change to the
+competency criteria rules lowers a recorded status.
+
+Monotonicity is a property of that automatic path, not an invariant of the stored data. Staff can
+set a learner's status directly, through Django admin or as a deliberate instructor correction, and
+such an edit may move a status backward. A direct edit does cascade: the ancestors above the edited
+node are recomputed up to the competency root, so an instructor correcting a leaf from
+``Demonstrated`` to ``AttemptedNotDemonstrated`` lowers the group and competency rows above it too.
+That cascade cannot use the monotone merge of mechanism 1, which by construction never lowers
+anything, so it overwrites each ancestor with the freshly computed value instead. It does take the
+same parent locks as mechanism 2, so it orders correctly against concurrent recorder writes.
+
+Because the recorder never lowers a status, a direct edit is the only thing that can. A later grade
+change re-merges against whatever the edit left behind: it can raise a status an edit lowered, but
+it can never re-lower one an edit raised.
 
 Two forces shape how recording should happen:
 
@@ -40,7 +55,7 @@ Two forces shape how recording should happen:
 Decision
 --------
 
-**1. Every write is a monotone merge, never a blind overwrite.** A node's status is written as
+**1. Every recorder write is a monotone merge, never a blind overwrite.** A node's status is written as
 ``status := max(stored status, newly computed status)`` (a single ``GREATEST``-style ``UPDATE``,
 atomic at the row for the duration of that one statement, with no application-level lock). Because
 the merge takes the higher of the two values, it is commutative, idempotent, and insensitive to
@@ -71,6 +86,23 @@ leaf, group, and competency status writes from mechanisms 1 and 2 run inside the
 that mechanism 3 opened for the subsection-grade write, so they commit as a single unit with it. If
 any step fails, that transaction rolls back and the task retries, leaving behind no partial
 roll-up.
+
+
+Open Questions
+--------------
+
+1. **Confirm that a direct staff edit cascades to ancestors.** The Context above decides that it
+   does: correcting a learner's leaf status by hand recomputes the group and competency rows above
+   it, downward if that is what the rules produce. The alternative is to leave the ancestors
+   untouched and require a separate reconciliation step. Cascading is what an instructor issuing a
+   correction would expect, but it costs something: the recorder is no longer the only writer that
+   can lower a status, and a stored ancestor status is no longer a pure function of the recorder's
+   own history. This decision should be confirmed before implementation.
+
+2. **Decide whether a cascade may overwrite a hand-set ancestor.** If a staff user has set a group
+   or competency status directly, and a later direct edit below it cascades upward, the recomputed
+   value overwrites the hand-set one. Whether a hand-set ancestor should instead survive the
+   cascade is undecided.
 
 
 Rejected Alternatives

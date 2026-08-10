@@ -48,8 +48,13 @@ For the initial implementation, versioning and traceability of competency achiev
 
    - For ``StudentCompetencyCriteriaStatus``, ``StudentCompetencyCriteriaGroupStatus``, and ``StudentCompetencyStatus``,
      each status change updates the responsible row.
-   - Statuses only increase monotonically, as relied on by :ref:`openedx-learning-adr-0004`;
-     downward status adjustments (for example ``Demonstrated`` to ``PartiallyAttempted``) are prohibited.
+   - Automatic status updates only ever increase a status, as relied on by
+     :ref:`openedx-learning-adr-0004`. A downward adjustment (for example ``Demonstrated`` to
+     ``PartiallyAttempted``) is never applied by a grade change or by a competency criteria rule
+     change.
+   - Direct edits by staff, through Django admin or as a deliberate instructor correction, are
+     exempt: they may set a status to any value, including a lower one, and the ancestors above the
+     edited node are recomputed to match.
    - How learner status history is retained is not decided here.
 
 
@@ -93,5 +98,6 @@ Changelog
 2026-07-27:
 
 * Reworked Decision 5 for :ref:`openedx-learning-adr-0004`: learner status rows are now updated in
-  place and monotonically (downward adjustments prohibited). Previously append-only, with current
-  status resolved as the most recent row. How status history is retained is left undecided.
+  place, and automatic updates only ever increase a status, with direct staff edits exempt.
+  Previously append-only, with current status resolved as the most recent row. How status history is
+  retained is left undecided.
