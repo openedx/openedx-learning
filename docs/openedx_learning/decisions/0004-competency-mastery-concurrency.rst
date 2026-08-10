@@ -57,7 +57,8 @@ Decision
 
 **1. Every recorder write is a monotone merge, never a blind overwrite.** A node's status is written as
 ``status := max(stored status, newly computed status)`` (a single ``GREATEST``-style ``UPDATE``,
-atomic at the row for the duration of that one statement, with no application-level lock). Because
+with no application-level lock; the database holds that row's exclusive lock until the transaction
+commits, which is what mechanism 2's lock ordering relies on). Because
 the merge takes the higher of the two values, it is commutative, idempotent, and insensitive to
 order. This is why out-of-order delivery and re-delivery are harmless without sequence tracking.
 
@@ -69,15 +70,18 @@ sibling and compute a parent that is too low. To prevent that, recomputing a par
 row-level lock on the parent row (a ``SELECT ... FOR UPDATE``) before reading its children: two
 updates that touch the same parent for the same learner take turns, and the second reads the first's
 committed children and computes from the complete picture. This correctness argument assumes
-``READ COMMITTED`` isolation (the Open edX platform default on MySQL; higher isolation levels are not
-supported on the platform): under it the lock's own read and the sibling reads that follow it always
+``READ COMMITTED`` isolation (Django's default for MySQL, which the platform does not override):
+under it the lock's own read and the sibling reads that follow it always
 return the latest committed rows, rather than a snapshot fixed at an earlier read in the same
-transaction, which is what a higher level such as ``REPEATABLE READ`` would do. Locks are taken child-before-parent up
-the path to the root, a consistent order, so concurrent updates cannot deadlock. This is an ordinary
-single-row lock.
+transaction, which is what a higher level such as ``REPEATABLE READ`` would do. Locks are taken
+child-before-parent up the path to the root. Because the criteria tree gives every node exactly one
+parent (:ref:`openedx-learning-adr-0002`), that path is unique, so two updates that touch the same
+ancestor always reach it in the same order and cannot deadlock. Where one grade change advances
+several leaves at once, because a subsection carries several criteria, those leaves are locked in
+primary-key order for the same reason. This is an ordinary single-row lock.
 
 **3. Entry point: edx-platform subsection grade change.** edx-platform
-computes subsection grades in an async celery task (`recalculate_subsection_grade_v3`) triggered by a score-change signal, not on the
+computes subsection grades in an async celery task (``recalculate_subsection_grade_v3``) triggered by a score-change signal, not on the
 request thread. After that task writes the subsection grade, it calls a public openedx-core function
 within the same transaction; this function does the monotone merge and the upward roll-up. This should be generalized as needed to other places that trigger a competency status update.
 
