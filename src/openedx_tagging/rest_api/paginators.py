@@ -54,7 +54,7 @@ class TaxonomyPagination(CanAddPermissionMixin, DefaultPagination):
         return Taxonomy
 
 
-class TagPermissionsMixin(CanAddPermissionMixin):  # pylint: disable=abstract-method
+class TagPermissionsMixin(CanAddPermissionMixin):
     """
     Checks "add_tag" permission using a Tag bound to the current taxonomy, so that taxonomies with
     read_only=True correctly report can_add_tag=False.
@@ -71,7 +71,7 @@ class TagPermissionsMixin(CanAddPermissionMixin):  # pylint: disable=abstract-me
         self._taxonomy = view.get_taxonomy() if view else None
         return super().paginate_queryset(queryset, request, view=view)
 
-    def get_can_add(self, instance: Tag | Taxonomy = None) -> bool | None:
+    def get_can_add(self, instance: Tag | None = None) -> bool | None:
         if instance is None and self._taxonomy:
             instance = Tag(taxonomy=self._taxonomy)
         # Check read-only here (as well as via get_can_add()), because the permissions check is skipped for superusers
