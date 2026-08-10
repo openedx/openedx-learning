@@ -315,7 +315,7 @@ def _get_current_tags(
     return current_tags
 
 
-def tag_object(  # pylint: disable=too-many-positional-arguments
+def tag_object(
     object_id: str,
     taxonomy: Taxonomy | None,
     tags: list[str],
