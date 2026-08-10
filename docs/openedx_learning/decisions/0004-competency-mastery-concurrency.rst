@@ -9,45 +9,44 @@ Proposed.
 
 Context
 -------
-When a learner is graded on a subsection (or any other learning instrument associated to a competency
-with a competency criteria, like a course or rubric criterion), the platform must evaluate whether that grade
-demonstrates any attached competencies and record the learner's mastery. Mastery is recorded at
-three levels: the criterion (leaf), the criteria group, and the competency. Per
-:ref:`openedx-learning-adr-0002`, all three levels are
-*materialized* (stored), not recomputed on read, so that dashboards and other read surfaces stay
-fast. A single grade change therefore writes the changed leaf's status and then re-evaluates and
-re-writes the derived rows from that leaf up to the competency root. The re-evaluation
-is needed for multiple reasons, including notifications, and badge and certificate issuing. Per
-:ref:`openedx-learning-adr-0003`, each level is stored as one row per learner and node, updated in
-place, holding that learner's current status for that node.
+When a learner is graded on a subsection, the platform must work out whether that grade demonstrates
+any attached competencies, and record it. The same goes for any other learning instrument tied to a
+competency by a competency criterion, such as a course or a rubric criterion.
 
-**Monotonicity: the recorder only ever moves a status forward.** Per
-:ref:`openedx-learning-adr-0003`, every node, at every level, advances through a small status
-lattice (``AttemptedNotDemonstrated`` to ``PartiallyAttempted`` to ``Demonstrated``) and is never
-lowered by the recorder. This holds for leaf nodes, group nodes, and top-level competency masteries,
-and against both of the recorder's triggers: neither a downward grade correction nor a change to the
-competency criteria rules lowers a recorded status.
+Mastery is recorded at three levels: the criterion (leaf), the criteria group, and the competency.
+Per :ref:`openedx-learning-adr-0002`, all three are stored rather than recomputed on read, so that
+dashboards and other read surfaces stay fast. Per :ref:`openedx-learning-adr-0003`, each level keeps
+one row per learner and node, updated in place.
 
-Monotonicity is a property of that automatic path, not an invariant of the stored data. Staff can
-set a learner's status directly, through Django admin or as a deliberate instructor correction, and
-such an edit may move a status backward. A direct edit does cascade: the ancestors above the edited
-node are recomputed up to the competency root, so an instructor correcting a leaf from
-``Demonstrated`` to ``AttemptedNotDemonstrated`` lowers the group and competency rows above it too.
-That cascade cannot use the monotone merge of mechanism 1, which by construction never lowers
-anything, so it overwrites each ancestor with the freshly computed value instead. It does take the
-same parent locks as mechanism 2, so it orders correctly against concurrent recorder writes.
+So a single grade change writes the changed leaf's status, then re-evaluates and re-writes every
+derived row from that leaf up to the competency root. The roll-up is not only for reads: it also
+drives notifications, badges, and certificate issuing.
 
-Because the recorder never lowers a status, a direct edit is the only thing that can. A later grade
-change re-merges against whatever the edit left behind: it can raise a status an edit lowered, but
-it can never re-lower one an edit raised.
+**Monotonicity: the recorder only ever moves a status forward.** Every node advances through a small
+status lattice (``AttemptedNotDemonstrated`` to ``PartiallyAttempted`` to ``Demonstrated``), and the
+recorder never lowers it (:ref:`openedx-learning-adr-0003`). That holds at all three levels, and for
+both of the recorder's triggers: neither a downward grade correction nor a change to the competency
+criteria rules lowers a recorded status.
+
+Monotonicity is a property of that automatic path, not of the stored data. Staff can set a learner's
+status directly, through Django admin or as a deliberate instructor correction, and a direct edit
+may lower it. A direct edit also cascades: the ancestors above the edited node are recomputed up to
+the root, so an instructor correcting a leaf from ``Demonstrated`` to ``AttemptedNotDemonstrated``
+lowers the group and competency rows above it too. That cascade cannot use the monotone merge of
+mechanism 1, which never lowers anything, so it overwrites each ancestor with the freshly computed
+value. It does take the same parent locks as mechanism 2, so it stays ordered against concurrent
+recorder writes.
+
+One consequence: a direct edit is the only thing that can lower a status. A later grade change
+merges against whatever the edit left behind, so it can raise a status an edit lowered, but it can
+never re-lower one an edit raised.
 
 Two forces shape how recording should happen:
 
-- **Same-learner correctness.** A grade change writes the changed leaf and then re-derives the
-  group and competency rows above it. Leaf rows are always correct, since each leaf is a pure
-  function of its own grade. The derived rows are the hazard: We want to avoid a case where two evaluations for the same learner
-  that overlap can each read a stale snapshot of the sibling leaf statuses and each write a derived
-  roll-up computed from an incomplete picture (a *write-skew*).
+- **Same-learner correctness.** Leaf rows are never in doubt, since each leaf is a pure function of
+  its own grade. The derived rows are the hazard. Two evaluations for the same learner that overlap
+  can each read a stale snapshot of the sibling leaf statuses, and each write a roll-up computed
+  from an incomplete picture.
 
 - **Throughput.** Grading is bursty and spans a very large number of learners, so the recording
   path must keep up under peak load.
@@ -55,41 +54,44 @@ Two forces shape how recording should happen:
 Decision
 --------
 
-**1. Every recorder write is a monotone merge, never a blind overwrite.** A node's status is written as
-``status := max(stored status, newly computed status)`` (a single ``GREATEST``-style ``UPDATE``,
-with no application-level lock; the database holds that row's exclusive lock until the transaction
-commits, which is what mechanism 2's lock ordering relies on). Because
-the merge takes the higher of the two values, it is commutative, idempotent, and insensitive to
-order. This is why out-of-order delivery and re-delivery are harmless without sequence tracking.
+**1. A recorder write only ever advances the stored value.** Every write is
+``status := max(stored status, newly computed status)``, a single ``GREATEST``-style ``UPDATE`` with
+no application-level lock. Taking the higher of the two values makes the write idempotent and
+insensitive to order, so out-of-order delivery and re-delivery are harmless without sequence
+tracking. The database holds that row's exclusive lock until the transaction commits, which is what
+mechanism 2's lock ordering relies on.
 
-**2. When a child advances, its parent is recomputed in the same transaction, under a brief row lock on that parent.**
-The merge in mechanism 1 makes a single-row write safe, but a *conjunctive*
-parent (for example "demonstrated only when all children are demonstrated") is computed by reading
-several child rows first, so two overlapping evaluations for one learner could each read a stale
-sibling and compute a parent that is too low. To prevent that, recomputing a parent takes a
-row-level lock on the parent row (a ``SELECT ... FOR UPDATE``) before reading its children: two
-updates that touch the same parent for the same learner take turns, and the second reads the first's
-committed children and computes from the complete picture. This correctness argument assumes
-``READ COMMITTED`` isolation (Django's default for MySQL, which the platform does not override):
-under it the lock's own read and the sibling reads that follow it always
-return the latest committed rows, rather than a snapshot fixed at an earlier read in the same
-transaction, which is what a higher level such as ``REPEATABLE READ`` would do. Locks are taken
-child-before-parent up the path to the root. Because the criteria tree gives every node exactly one
-parent (:ref:`openedx-learning-adr-0002`), that path is unique, so two updates that touch the same
-ancestor always reach it in the same order and cannot deadlock. Where one grade change advances
-several leaves at once, because a subsection carries several criteria, those leaves are locked in
-primary-key order for the same reason. This is an ordinary single-row lock.
+**2. When a child advances, its parent is recomputed in the same transaction, under a row lock on
+the parent.** A parent's rule can be conjunctive, for example "demonstrated only when all children
+are demonstrated", so recomputing it means reading all of its children first. If two children of one
+parent advance at the same time, each recomputation could read the other child's old value and write
+a parent status that is too low.
 
-**3. Entry point: edx-platform subsection grade change.** edx-platform
-computes subsection grades in an async celery task (``recalculate_subsection_grade_v3``) triggered by a score-change signal, not on the
-request thread. After that task writes the subsection grade, it calls a public openedx-core function
-within the same transaction; this function does the monotone merge and the upward roll-up. This should be generalized as needed to other places that trigger a competency status update.
+To prevent that, a recomputation locks the parent row (``SELECT ... FOR UPDATE``) before reading the
+children. The two writers take turns, and the second reads the first's committed children.
 
-**4. The status writes and the roll-ups all commit atomically with the subsection grade.** The
-leaf, group, and competency status writes from mechanisms 1 and 2 run inside the same transaction
-that mechanism 3 opened for the subsection-grade write, so they commit as a single unit with it. If
-any step fails, that transaction rolls back and the task retries, leaving behind no partial
-roll-up.
+This relies on ``READ COMMITTED`` isolation, Django's default for MySQL, which the platform does not
+override. Under it, the child reads that follow the lock return the latest committed rows. Under
+``REPEATABLE READ`` they would instead return a snapshot fixed at an earlier read in the same
+transaction, and the second writer would still see the stale child.
+
+Locks are taken child-before-parent, up the path to the root. The criteria tree gives every node
+exactly one parent (:ref:`openedx-learning-adr-0002`), so that path is unique, and two transactions
+touching the same ancestor always reach it in the same order. They cannot deadlock. Where one grade
+change advances several leaves at once, because a subsection carries several criteria, those leaves
+are locked in primary-key order for the same reason.
+
+**3. Entry point: a subsection grade change in edx-platform.** edx-platform computes subsection
+grades in an async celery task (``recalculate_subsection_grade_v3``) triggered by a score-change
+signal, not on the request thread. After that task writes the subsection grade, it calls a public
+openedx-core function in the same transaction, which does the merge and the roll-up. As other kinds
+of competency criteria are defined, completion for example, further entry points will call that same
+function.
+
+**4. The status writes and the roll-ups commit atomically with the subsection grade.** The leaf,
+group, and competency writes from mechanisms 1 and 2 run inside the transaction that mechanism 3
+opened for the subsection-grade write, so they commit as one unit with it. If any step fails, the
+transaction rolls back and the task retries, leaving no partial roll-up behind.
 
 
 Open Questions
@@ -128,7 +130,7 @@ Rejected Alternatives
         - Either lock adds lock-lifecycle machinery (acquisition, release, and handling a holder that
           dies) across a very large key space.
         - The chosen design needs no such lock: the monotone merge (mechanism 1) makes each single-row
-          write safe, and the brief per-parent row lock (mechanism 2) serializes only writers that
+          write safe, and the per-parent row lock (mechanism 2) serializes only writers that
           actually contend for the same parent row of the same learner, so different learners, and
           different competencies of one learner, still record in parallel.
 
