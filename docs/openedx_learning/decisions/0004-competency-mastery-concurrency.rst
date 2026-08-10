@@ -13,17 +13,16 @@ When a learner is graded on a subsection (or any other learning instrument assoc
 with a competency criteria, like a course or rubric criterion), the platform must evaluate whether that grade
 demonstrates any attached competencies and record the learner's mastery. Mastery is recorded at
 three levels: the criterion (leaf), the criteria group, and the competency. Per
-:ref:`openedx-learning-adr-0002` and :ref:`openedx-learning-adr-0005`, all three levels are
+:ref:`openedx-learning-adr-0002`, all three levels are
 *materialized* (stored), not recomputed on read, so that dashboards and other read surfaces stay
 fast. A single grade change therefore writes the changed leaf's status and then re-evaluates and
 re-writes the derived rows from that leaf up to the competency root. The re-evaluation
 is needed for multiple reasons, including notifications, and badge and certificate issuing. Per
-:ref:`openedx-learning-adr-0005`, each level is stored as an ACTIVE row updated in place, holding
-the current status for a learner and node, plus an append-only HISTORY row per genuine status
-advance.
+:ref:`openedx-learning-adr-0003`, each level is stored as one row per learner and node, updated in
+place, holding that learner's current status for that node.
 
 **Monotonicity: competency statuses only ever move forward.** Per
-:ref:`openedx-learning-adr-0005`, every node, at every level, advances through a small status
+:ref:`openedx-learning-adr-0003`, every node, at every level, advances through a small status
 lattice (``AttemptedNotDemonstrated`` to ``PartiallyAttempted`` to ``Demonstrated``) and is never
 lowered later. This holds for leaf nodes, group nodes, and top-level competency masteries.
 
@@ -67,21 +66,11 @@ computes subsection grades in an async celery task (`recalculate_subsection_grad
 request thread. After that task writes the subsection grade, it calls a public openedx-core function
 within the same transaction; this function does the monotone merge and the upward roll-up. This should be generalized as needed to other places that trigger a competency status update.
 
-**4. The ACTIVE writes, the HISTORY appends, and the roll-ups all commit atomically with the
-subsection grade.** The leaf, group, and competency ACTIVE writes from mechanisms 1 and 2, and the
-HISTORY row appended for each genuine advance, run inside the same transaction that mechanism 3
-opened for the subsection-grade write, so they commit as a single unit with it. If any step fails, that transaction rolls back and the task retries, leaving
-behind neither a partial roll-up nor an ACTIVE status whose advance went unrecorded. A unique
-constraint on the advance (learner, node, and status; :ref:`openedx-learning-adr-0002`) makes the
-append idempotent, so a retried task or a redelivered grade event collapses to a no-op rather than
-writing a duplicate row.
-
-**5. Only an advance is appended to HISTORY.** The monotone merge in mechanism 1 often leaves a status
-where it was, because the newly computed status equals or is lower than the stored one. Those writes
-append nothing: a redelivered grade event, a downward grade correction, and a recompute that confirms
-the current status all leave HISTORY untouched. So the recorder writes at most one HISTORY row per
-learner, node, and step up the lattice, which is what bounds HISTORY to the same order of magnitude as
-ACTIVE rather than to grading volume (:ref:`openedx-learning-adr-0005`).
+**4. The status writes and the roll-ups all commit atomically with the subsection grade.** The
+leaf, group, and competency status writes from mechanisms 1 and 2 run inside the same transaction
+that mechanism 3 opened for the subsection-grade write, so they commit as a single unit with it. If
+any step fails, that transaction rolls back and the task retries, leaving behind no partial
+roll-up.
 
 
 Rejected Alternatives
@@ -125,13 +114,5 @@ Rejected Alternatives
     - Cons:
         - Without a shared transaction, a failure or a lost event leaves the grade and its mastery rows
           permanently out of sync (data drift), with no way to roll them back together.
-        - Recording the ACTIVE writes in the same transaction as the grade (mechanism 3) instead makes
+        - Recording the status writes in the same transaction as the grade (mechanism 3) instead makes
           the grade and its mastery consequences commit or fail as a unit.
-
-4. Append the leaf HISTORY row outside the grade transaction, as a retrying task dispatched with
-   ``transaction.on_commit``.
-
-    This would be mandatory if the HISTORY table were ever
-    routed to a separate database alias, since a write on another connection cannot be atomic
-    with the primary transaction. Since we decided that every status table lives in the main database
-    (:ref:`openedx-learning-adr-0005`), this is unnecessary.

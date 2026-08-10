@@ -48,17 +48,9 @@ For the initial implementation, versioning and traceability of competency achiev
 
    - For ``StudentCompetencyCriteriaStatus``, ``StudentCompetencyCriteriaGroupStatus``, and ``StudentCompetencyStatus``,
      each status change updates the responsible row.
-   - Statuses only increase monotonically as described by :ref:`openedx-learning-adr-0005`;
+   - Statuses only increase monotonically, as relied on by :ref:`openedx-learning-adr-0004`;
      downward status adjustments (for example ``Demonstrated`` to ``PartiallyAttempted``) are prohibited.
-
-6. Learner status models/tables as in 5. above each get a separate append-only history table not using ``django-simple-history``:
-
-   - For ``StudentCompetencyCriteriaStatusHistory``, ``StudentCompetencyCriteriaGroupStatusHistory``, and ``StudentCompetencyStatusHistory``,
-     each status advance is stored as a new row with ``created`` as the write timestamp.
-   - Existing learner status rows are not updated in place in the history tables.
-   - Statuses only increase monotonically as described by :ref:`openedx-learning-adr-0005`;
-     if a change would mean a downward adjustment (for example ``Demonstrated`` to ``PartiallyAttempted``)
-     or no adjustment, this does not get stored in the history tables.
+   - How learner status history is retained is not decided here.
 
 
 Rejected Alternatives
@@ -100,7 +92,6 @@ Changelog
 
 2026-07-27:
 
-* Reworked learner status handling to match :ref:`openedx-learning-adr-0005` and
-  :ref:`openedx-learning-adr-0004`: Decision 5 now updates learner status rows in place and
-  monotonically (downward adjustments prohibited), and a new Decision 6 adds separate append-only
-  HISTORY tables. Previously a single append-only model with no in-place ACTIVE row.
+* Reworked Decision 5 for :ref:`openedx-learning-adr-0004`: learner status rows are now updated in
+  place and monotonically (downward adjustments prohibited). Previously append-only, with current
+  status resolved as the most recent row. How status history is retained is left undecided.
