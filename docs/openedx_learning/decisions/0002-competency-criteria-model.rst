@@ -56,7 +56,7 @@ Decision
    - has no competency-specific constraints on associated content objects.
 
    This new database table will have the following columns:
-
+   
    1. ``taxonomy_ptr_id``: Primary key and one-to-one foreign key to ``oel_tagging_taxonomy.id``.
    2. ``taxonomy_overrides_org``: Boolean, defaults to ``false``. Used only while computing which single ``CompetencyRuleProfile`` to assign to a ``CompetencyCriterion`` (Decision 4). If, for a criterion's context, both an organization-scoped profile row and a taxonomy-scoped profile row exist as candidates, this field decides which one gets assigned: ``false`` (default) assigns the organization-scoped row; ``true`` assigns this taxonomy's own row instead, so it cannot be overridden by an organization. Once assigned, the criterion stores that one profile's id and this field plays no further part. This field is created now but read by no code path in this phase, since organization-scoped profiles don't exist yet and the conflict it resolves can't occur; see the MVP note in Decision 4.
 
@@ -240,14 +240,11 @@ Decision
    3. ``oel_tagging_objecttag(object_id)``
    4. ``CompetencyCriteria(oel_tagging_objecttag_id)``
    5. ``CompetencyCriteria(competency_criteria_group_id)``
-   6. ``StudentCompetencyCriteriaStatus(user_id, competency_criteria_id)`` (unique)
-   7. ``StudentCompetencyCriteriaStatusHistory(user_id, competency_criteria_id, status_id)`` (unique -- at most one HISTORY row per learner, leaf, and status level, which also serves as the idempotency key for the append in :ref:`openedx-learning-adr-0004`)
-   8. ``StudentCompetencyCriteriaGroupStatus(user_id, competency_criteria_group_id)`` (unique)
-   9. ``StudentCompetencyCriteriaGroupStatusHistory(user_id, competency_criteria_group_id)``
-   10. ``StudentCompetencyStatus(user_id, oel_tagging_tag_id)`` (unique)
-   11. ``StudentCompetencyStatusHistory(user_id, oel_tagging_tag_id)``
-   12. ``CompetencyRuleProfile(scope_code)`` (unique -- at most one profile per distinct scope value; a plain unique constraint on the three raw nullable scope columns would not enforce this, since SQL never treats two ``NULL`` values as equal and this project's MySQL backend does not support the conditional/partial unique indexes that would otherwise route around that; see the ``scope_code`` column in Decision 3)
-   13. ``CompetencyMasteryStatuses(status)`` (unique)
+   6. ``StudentCompetencyCriteriaStatus(user_id, competency_criteria_id)``
+   7. ``StudentCompetencyCriteriaGroupStatus(user_id, competency_criteria_group_id)``
+   8. ``StudentCompetencyStatus(user_id, oel_tagging_tag_id)``
+   9. ``CompetencyRuleProfile(scope_code)`` (unique -- at most one profile per distinct scope value; a plain unique constraint on the three raw nullable scope columns would not enforce this, since SQL never treats two ``NULL`` values as equal and this project's MySQL backend does not support the conditional/partial unique indexes that would otherwise route around that; see the ``scope_code`` column in Decision 3)
+   10. ``CompetencyMasteryStatuses(status)`` (unique)
 
 6. Learner progress status concepts (``StudentCompetency*Status`` database tables)
 
@@ -259,12 +256,6 @@ Decision
    - ``StudentCompetencyCriteriaGroupStatus`` tracks status at ``CompetencyCriteriaGroup`` node level.
    - ``StudentCompetencyStatus`` tracks top-level competency demonstration state.
    - All learner status rows use a shared lookup table (``CompetencyMasteryStatuses``) so status semantics live in one place and student status tables stay structurally consistent.
-
-   Append-only history tables:
-
-   - ``StudentCompetencyCriteriaStatusHistory``
-   - ``StudentCompetencyCriteriaGroupStatusHistory``
-   - ``StudentCompetencyStatusHistory``
 
    Intended update flow (bottom-up materialization):
 
@@ -286,7 +277,7 @@ Decision
 
       1. ``id``: unique primary key
       2. ``competency_criteria_id``: Foreign key to ``CompetencyCriterion.id``
-      3. ``user_id``: Foreign key to ``settings.AUTH_USER_MODEL`` (presumably the learner's id, although it appears that it is possible for staff to get grades as well)
+      3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
       5. ``created``: The timestamp at which the student's criterion status was set.
 
@@ -294,7 +285,7 @@ Decision
 
       1. ``id``: unique primary key
       2. ``competency_criteria_group_id``: Foreign key to ``CompetencyCriteriaGroup.id``
-      3. ``user_id``: Foreign key to ``settings.AUTH_USER_MODEL`` (presumably the learner's id, although it appears that it is possible for staff to get grades as well)
+      3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
       5. ``created``: The timestamp at which the student's criteria-group status was set.
 
@@ -302,7 +293,7 @@ Decision
 
       1. ``id``: unique primary key
       2. ``oel_tagging_tag_id``: Foreign key pointing to Tag id
-      3. ``user_id``: Foreign key to ``settings.AUTH_USER_MODEL`` (presumably the learner's id, although it appears that it is possible for staff to get grades as well)
+      3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``. This table should have a constraint to only allow status values of “Demonstrated” and “PartiallyAttempted” since it represents overall competency demonstration state, not in-progress states.
       5. ``created``: The timestamp at which the student's competency status was set.
 
@@ -431,17 +422,3 @@ Rejected Alternatives
 
       1. Silently does not work on this project's tested and production database backend. Django compiles a conditional ``UniqueConstraint`` to a partial index, which MySQL does not support; Django raises only a non-fatal system-check warning (``models.W036``) and skips creating the constraint, leaving the uniqueness rule completely unenforced at the database level.
       2. The gap would surface only as a data-integrity incident under concurrent writes, not as a test or migration failure, since SQLite (used for quick local test runs) does support partial indexes and would mask the problem in that environment.
-
-Changelog
----------
-
-2026-07-27:
-
-* Split learner status storage into paired ACTIVE and HISTORY tables: added the append-only
-  ``StudentCompetencyCriteriaStatusHistory``, ``StudentCompetencyCriteriaGroupStatusHistory``,
-  and ``StudentCompetencyStatusHistory`` tables and their indexes alongside the in-place ACTIVE
-  tables, per :ref:`openedx-learning-adr-0005`.
-* Made the leaf HISTORY (``StudentCompetencyCriteriaStatusHistory``) index unique on ``(user_id, competency_criteria_id, status_id)``, the
-  idempotency key for the HISTORY append in :ref:`openedx-learning-adr-0004`.
-* Pointed the ``user_id`` foreign keys of the learner status tables at
-  ``settings.AUTH_USER_MODEL`` rather than the concrete ``auth_user`` table.
