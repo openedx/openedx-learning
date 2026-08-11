@@ -135,7 +135,7 @@ Decision
    7. ``rule_payload``: JSON payload keyed by ``rule_type`` to avoid freeform strings. It is structured JSON (not arbitrary freeform data): each ``rule_type`` defines the allowed payload shape and required keys, and validation enforces this contract. JSON is used instead of fixed columns like ``op``, ``value``, and ``scale`` so that future rule types (for example, ``MasteryLevel`` thresholds or plugin-defined evaluators such as CEL-based rules) can add their own fields without repeated schema migrations or many nullable columns. Examples:
 
       1. ``Grade``: ``{"op": "gte", "value": 0.75, "scale": "percent"}``. Allowed ``op`` values: ``gte``, ``lte``, ``eq``. ``value`` must be a fraction between 0.0 and 1.0 inclusive, matching the platform's existing fractional grade representation, not a 0-100 scale.
-   8. ``archived``: Boolean, defaults to false. Set instead of deleting a profile that is no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriterion`` rows and learner status history stay resolvable.
+   8. ``archived``: Boolean, defaults to false. Set instead of deleting a profile that is no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriterion`` rows and learner status rows stay resolvable.
 
    A check constraint requires that at most one of ``organization_id``, ``course_id``, and ``competency_taxonomy_id`` is non-null on any row, matching the scoping rule above.
 
@@ -268,6 +268,7 @@ Decision
 
       1. ``id``: unique primary key
       2. ``status``: unique status value (seeded values: “Demonstrated”, “AttemptedNotDemonstrated”, and “PartiallyAttempted”)
+      3. ``rank``: unique small integer ordering the statuses from lowest to highest: “AttemptedNotDemonstrated”, “PartiallyAttempted”, “Demonstrated”. ``id`` does not carry that order and must not be used for it. This column is what lets the monotone merge in ADR 0004 Decision 2 compare the stored status against the newly computed one in a single ``UPDATE``, rather than reading the row into Python and writing it back under a lock the design does not otherwise need.
 
       Notes:
 
@@ -279,7 +280,8 @@ Decision
       2. ``competency_criteria_id``: Foreign key to ``CompetencyCriterion.id``
       3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
-      5. ``created``: The timestamp at which the student's criterion status was set.
+      5. ``created``: The timestamp at which this row was first written.
+      6. ``modified``: The timestamp at which the student's criterion status last changed. Rows are updated in place (ADR 0003 Decision 5), so ``created`` alone cannot date the current status. Set when the stored status actually changes, not on every write: under the monotone merge (ADR 0004 Decision 2) a redelivered grade event commonly rewrites the same value, and dating that as a change would make this column mean "last written" instead. Django's ``auto_now`` implements the latter, and does not fire at all for ``queryset.update()`` or ``bulk_update()``.
 
    3. Add a new database table for ``StudentCompetencyCriteriaGroupStatus`` with these columns:
 
@@ -287,7 +289,8 @@ Decision
       2. ``competency_criteria_group_id``: Foreign key to ``CompetencyCriteriaGroup.id``
       3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
-      5. ``created``: The timestamp at which the student's criteria-group status was set.
+      5. ``created``: The timestamp at which this row was first written.
+      6. ``modified``: The timestamp at which the student's criteria-group status last changed.
 
    4. Add a new database table for ``StudentCompetencyStatus`` with these columns:
 
@@ -295,7 +298,8 @@ Decision
       2. ``oel_tagging_tag_id``: Foreign key pointing to Tag id
       3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``. This table should have a constraint to only allow status values of “Demonstrated” and “PartiallyAttempted” since it represents overall competency demonstration state, not in-progress states.
-      5. ``created``: The timestamp at which the student's competency status was set.
+      5. ``created``: The timestamp at which this row was first written.
+      6. ``modified``: The timestamp at which the student's competency status last changed.
 
 7. Delete protection boundaries
 
@@ -430,3 +434,15 @@ Changelog
 
 * Made the learner status indexes unique, so there is one row per learner and node. This is what
   the in-place, monotone status updates in :ref:`openedx-learning-adr-0004` read, lock, and update.
+
+2026-08-11:
+
+* Gave each learner status table a ``modified`` timestamp and narrowed ``created`` to the row's
+  first write. In-place updates mean ``created`` no longer dates the current status, and adding the
+  column after the tables have rows would be a migration on the largest table in the schema
+  (:ref:`openedx-learning-adr-0005`).
+* Corrected the ``CompetencyRuleProfile.archived`` note to say archived profiles keep learner status
+  *rows* resolvable. It said "history", which :ref:`openedx-learning-adr-0005` does not provide.
+* Gave ``CompetencyMasteryStatuses`` a ``rank`` column. Without a stored ordering, the monotone merge
+  in :ref:`openedx-learning-adr-0004`, Decision 2 cannot be a single statement, and ``id`` does not
+  supply one: the seeded values are listed highest-first.

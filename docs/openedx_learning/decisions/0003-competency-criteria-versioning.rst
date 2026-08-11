@@ -13,7 +13,7 @@ Typically, institutions and instructional designers do not change the mastery re
 
 Currently, Open edX always displays the latest edited version of content in the Studio UI and always shows the latest published version of content in the LMS UI, despite having more robust version tracking on the backend (Publishable Entities).
 
-Authoring data (criteria definitions) and runtime learner data (status) have different governance needs. The former is long-lived and typically non-PII, while the latter is user-specific, can be large (learners x criteria/competencies x time), and may require stricter retention and access controls. These differing lifecycles can make deep coupling of authoring and runtime data harder to manage at scale. Performance is also a consideration as computing or resolving versioned criteria for large courses could add overhead in Studio authoring screens or LMS views.
+Authoring data (criteria definitions) and runtime learner data (status) have different governance needs. The former is long-lived and typically non-PII, while the latter is user-specific, can be large (learners x criteria/competencies), and may require stricter retention and access controls. These differing lifecycles can make deep coupling of authoring and runtime data harder to manage at scale. Performance is also a consideration as computing or resolving versioned criteria for large courses could add overhead in Studio authoring screens or LMS views.
 
 Decision
 --------
@@ -55,7 +55,9 @@ For the initial implementation, versioning and traceability of competency achiev
    - Direct edits by staff, through Django admin or as a deliberate instructor correction, are
      exempt: they may set a status to any value, including a lower one, and the ancestors above the
      edited node are recomputed to match.
-   - How learner status history is retained is not decided here.
+   - How learner status history is retained is not decided here. See
+     :ref:`openedx-learning-adr-0005`, "Out of Scope", for what the current status rows can and
+     cannot account for, and for the constraints on whatever decides it.
 
 
 Rejected Alternatives
@@ -101,3 +103,11 @@ Changelog
   place, and automatic updates only ever increase a status, with direct staff edits exempt.
   Previously append-only, with current status resolved as the most recent row. How status history is
   retained is left undecided.
+
+2026-08-11:
+
+* Pointed Decision 5's undecided history question at :ref:`openedx-learning-adr-0005`, which owns
+  the deferral.
+* Dropped the "x time" factor from the Context's sizing of learner status data. It described the
+  append-only model that Decision 5 replaced; there is now one row per learner and node
+  (:ref:`openedx-learning-adr-0005`).
