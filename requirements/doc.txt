@@ -16,7 +16,7 @@ asgiref==3.12.1
     # via
     #   -r requirements/test.txt
     #   django
-ast-serialize==0.6.0
+ast-serialize==0.8.0
     # via
     #   -r requirements/test.txt
     #   mypy
@@ -40,7 +40,7 @@ certifi==2026.7.22
     # via
     #   -r requirements/test.txt
     #   requests
-cffi==2.1.0
+cffi==2.1.1
     # via
     #   -r requirements/test.txt
     #   cryptography
@@ -73,17 +73,17 @@ click-repl==0.3.0
     #   celery
 code-annotations==3.0.0
     # via -r requirements/test.txt
-coverage[toml]==7.15.2
+coverage[toml]==7.15.4
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==49.0.0
+cryptography==50.0.0
     # via
     #   -r requirements/test.txt
     #   pyjwt
 ddt==1.7.2
     # via -r requirements/test.txt
-django==5.2.16
+django==5.2.17
     # via
     #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/test.txt
@@ -105,7 +105,7 @@ django-crum==0.7.9
     # via
     #   -r requirements/test.txt
     #   edx-django-utils
-django-debug-toolbar==7.0.0
+django-debug-toolbar==7.1.0
     # via -r requirements/test.txt
 django-model-utils==5.0.0
     # via
@@ -115,11 +115,11 @@ django-simple-history==3.13.0
     # via
     #   -r requirements/test.txt
     #   edx-organizations
-django-stubs==6.0.7
+django-stubs==6.1.0
     # via
     #   -r requirements/test.txt
     #   djangorestframework-stubs
-django-stubs-ext==6.0.7
+django-stubs-ext==6.1.0
     # via
     #   -r requirements/test.txt
     #   django-stubs
@@ -128,13 +128,13 @@ django-waffle==5.0.0
     #   -r requirements/test.txt
     #   edx-django-utils
     #   edx-drf-extensions
-djangorestframework==3.17.1
+djangorestframework==3.18.0
     # via
     #   -r requirements/test.txt
     #   drf-jwt
     #   edx-drf-extensions
     #   edx-organizations
-djangorestframework-stubs==3.17.0
+djangorestframework-stubs==3.17.1
     # via -r requirements/test.txt
 dnspython==2.8.0
     # via
@@ -173,7 +173,7 @@ edx-opaque-keys[django]==4.0.0
     #   edx-drf-extensions
     #   edx-organizations
     #   openedx-events
-edx-organizations==8.0.0
+edx-organizations==9.0.0
     # via -r requirements/test.txt
 fastavro==1.12.2
     # via
@@ -207,7 +207,7 @@ kombu==5.6.2
     # via
     #   -r requirements/test.txt
     #   celery
-librt==0.13.0
+librt==0.15.0
     # via
     #   -r requirements/test.txt
     #   mypy
@@ -237,7 +237,7 @@ nh3==0.3.6
     # via readme-renderer
 openedx-events==11.2.0
     # via -r requirements/test.txt
-packaging==26.2
+packaging==26.3
     # via
     #   -r requirements/test.txt
     #   kombu
@@ -302,7 +302,7 @@ pytest==9.1.1
     #   pytest-django
 pytest-cov==7.1.0
     # via -r requirements/test.txt
-pytest-django==4.12.0
+pytest-django==4.14.0
     # via -r requirements/test.txt
 python-dateutil==2.9.0.post0
     # via
@@ -346,7 +346,7 @@ six==1.17.0
     #   python-dateutil
 snowballstemmer==3.1.1
     # via sphinx
-soupsieve==2.9.1
+soupsieve==2.9.2
     # via beautifulsoup4
 sphinx==9.1.0
     # via
