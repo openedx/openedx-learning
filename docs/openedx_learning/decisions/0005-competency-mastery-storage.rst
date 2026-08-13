@@ -9,160 +9,166 @@ Proposed.
 
 Context
 -------
-Per :ref:`openedx-learning-adr-0002`, competency achievement criteria form a boolean tree. An
-internal ``CompetencyCriteriaGroup`` node combines child nodes with an ``AND``/``OR``
-``logic_operator``, can be scoped to a course run, and can nest under a parent group. A
-``CompetencyCriterion`` leaf is the tree's terminal node: it points at one tag/object association
-and a rule.
+Competency achievement criteria form a boolean tree (:ref:`openedx-learning-adr-0002`). A
+``CompetencyCriterion`` leaf points at one tag/object association and a rule; a
+``CompetencyCriteriaGroup`` combines its children with an ``AND``/``OR`` operator, up to the
+competency itself. A learner's mastery is tracked against that tree in three tables, one per level:
+``StudentCompetencyCriteriaStatus`` (leaf), ``StudentCompetencyCriteriaGroupStatus`` (group), and
+``StudentCompetencyStatus`` (competency). :ref:`openedx-learning-adr-0002`, Decision 6 defines their
+columns and :ref:`openedx-learning-adr-0003`, Decision 5 says they are updated in place.
 
-The student mastery statuses tied to these tree nodes are stored in:
-- `StudentCompetencyCriteriaStatus` (leaf nodes)
-- `StudentCompetencyCriteriaGroupStatus` (middle nodes)
-- `StudentCompetencyStatus` (top-level)
+Row count concentrates at the leaf. A course may for example carry on the order of 200 leaf criteria, so the
+leaf table holds roughly learners x attempted leaves, which reaches the low billions for an Open edX
+instance with millions of learners. The two tables above it are smaller, by the tree's fan-out.
 
-For each of these, we also need to persist history, because we need an audit trail to understand
-why a learner did or didn't achieve mastery of a particular competency or any of the associated "measurement instruments"
-(gradeable subsections).
-
-Storing every leaf multiplies out at scale. A course can carry on the order of 200 leaf criteria,
-so the leaf level is where the row count concentrates: the leaf table (learners x attempted
-leaves) potentially reaches the low billions for an Open edX instance with millions of learners. The dominant
-multiplier is this per-leaf breadth (roughly 200x per course), not time. Mastery is monotonic (see
-"Advance-only banking" below): a node can only advance through the small status lattice, at most a handful of
-forward steps ever.
+If we store history of status attempts, or if we use append-only tables, we add a multiplier:
+learners x attempted leaves x problem attempts for this leaf and learner. That means that every time
+a problem in a subsection is attempted by a student, a new row is written. That would increase the order
+of magnitude well beyond the potential low billions to easily tens of billions.
 
 That scale is not, on its own, what makes a relational database struggle. A point lookup against a
-billion-row table backed by the right composite index is a logarithmic-time index seek regardless
-of the table's size; the dashboard that reads this performs exactly such point lookups. What
-billions of rows makes painful is schema migrations, backups, and any non-indexed or aggregate
-query.
+billion-row table backed by the right composite index is a logarithmic-time index seek regardless of
+the table's size, and every read this ADR sizes for is such a lookup: the learner-facing dashboard
+asks for one learner's status, and each index in :ref:`openedx-learning-adr-0002`, Decision 5 leads
+with the learner. What billions of rows makes painful is schema migrations, backups, and any
+non-indexed or aggregate query.
+
+On the requirements side, no student competency status history is needed. This allows us to
+define the tables without history or append-only restraints.
 
 Decision
 --------
 
-**Store statuses / mastery at every level, each split into ACTIVE and HISTORY.** The leaf, group, and
-competency levels each keep one ACTIVE row per learner and node, updated in place, so reading a
-learner's current status is a direct indexed lookup rather than a scan for the most recent of many
-rows. Each level also has a parallel append-only HISTORY table, for audit and point-in-time
-reconstruction. Keeping ACTIVE and HISTORY separate pays off: ACTIVE is a single in-place current row
-optimized for the dashboard point lookup and is the row per-learner concurrency is anchored on
-(:ref:`openedx-learning-adr-0004`), while HISTORY is append-only.
+1. **Do not store history for student competency statuses. Don't add a history table.**
+   Because the history that is needed for Competencies is owned by ORAs, there is
+   no need to store history of competency status changes.
+   And storing history on a massive leaf table is difficult because:
+   - The history table grows with each problem attempt without clear bounds.
+   - Similar huge tables in openedx-platform pose a big maintenance burden.
+   - Truncation and deletion poses challenges.
+   - Storage is expensive.
 
-**Append a HISTORY row only when a status advances.** A row is written when a node moves up the status
-lattice, and never for a write that recomputes the same status or a lower one. HISTORY therefore
-records status changes, not learner activity: once a node reaches ``Demonstrated``, further
-submissions against it add no rows at all. Because status is monotonic and the lattice is small, the
-advances per learner and node are bounded by a small constant, so HISTORY grows with learners and
-nodes rather than with time or attempt volume, and stays in the same order of magnitude as ACTIVE.
-This is also what keeps point-in-time reconstruction cheap: the status at any past moment is the
-latest recorded advance at or before that moment.
+2. **Update Rows instead of making them append-only.**
+   Having append-only tables for competency statuses runs into the same problem. They will
+   grow just as massive. Instead, since we don't need to track history,
+   it is sufficient to just update a row when it changes. This scales much better.
 
-**Advance-only banking, monotonic.** Once a node reaches ``Demonstrated`` its ACTIVE row is retained
-("banked"): the recorder never automatically regresses it, not on a later downward grade correction
-and not on a criteria change. This applies at every level, including the leaf. A genuine downward
-grade correction does not advance the status, so it writes no HISTORY row and leaves the banked
-ACTIVE status unchanged; because HISTORY records only advances, it never carries suppressed
-regressions. Reversing a banked status is a separate administrative action, out of scope here.
-This monotonicity is what makes out-of-order and duplicate delivery safe, since a late or replayed
-event can never lower a status, and :ref:`openedx-learning-adr-0004` relies on it.
-
-**Retroactive criteria changes are monotonic for the learner.** A retroactive edit can newly grant
-or preserve mastery, but it never silently revokes it, and it never rewrites a learner's recorded
-leaf mastery downward.
+3. **Build the student competency status tables for scale.**
+   As some of these tables will become massive, we want to avoid making migrations and schema changes necessary later.
+   Thus, we do our best to make sure that the fields and indexes are future-proof, not needing to add fields later on,
+   and select the indexes so that even a table in the billions of rows can be sufficiently performant.
 
 Rejected Alternatives
 ---------------------
 
+0. Add separate history tables that track status attempts.
+
+   This is not required any longer.
+
 1. Compute leaves transiently, never store them.
 
     - Pros:
-        - Eliminates the largest tables (leaf ACTIVE and HISTORY), since leaf demonstration would be
-          computed on demand from the leaf's rule plus group-node status.
+        - Eliminates the largest table, since leaf demonstration would be computed on demand from
+          the leaf's rule and the learner's grade.
     - Cons:
-        - Does not account for competency tree edits: a later restructuring of the criteria tree would
-          make previously-computed leaf statuses incorrect, because there is no stored, frozen leaf
-          mastery to rely on.
+        - A recomputed leaf reflects the rule as it stands now, not the rule that was in force when
+          the learner was graded. That contradicts :ref:`openedx-learning-adr-0003`, Decision 4,
+          which says criteria edits apply going forward and do not retroactively update existing
+          learner statuses, and it can silently lower a status, which its Decision 5 forbids.
 
-2. Keep everything append-only (no ACTIVE table); current status is the latest row.
+2. Keep the tables append-only: never update a row, and resolve current status as the latest row for
+   a learner and node.
 
     - Pros:
-        - One model per level instead of paired ACTIVE and HISTORY tables.
+        - Every write is an insert rather than a read-modify-write, so there is no current row to
+          keep consistent.
     - Cons:
-        - A dashboard read must resolve the latest advance out of a node's history rather than reading
-          one in-place row, which is more expensive and more complex, even with HISTORY bounded by
-          monotonicity.
-        - There is no single current row for the per-learner concurrency in
-          :ref:`openedx-learning-adr-0004` to anchor on.
+        - A read must resolve the latest row for a learner and node rather than reading one in-place
+          row, which is more expensive and more complex.
+        - There is no single current row for :ref:`openedx-learning-adr-0004`, Decision 3 to lock,
+          and nothing for its Decision 2 merge to write into. Both would have to be redesigned.
+        - This was the design before :ref:`openedx-learning-adr-0003`, Decision 5, and reopening it
+          here would settle the deferred history question by accident and only partly, since a status
+          row records neither who changed it nor why.
 
-3. Put the leaf HISTORY table behind its own Django database alias and router, or make a separate
-   physical database mandatory, or partition/shard the leaf tables, up front.
+3. Put the leaf table behind its own Django database alias and router, or make a separate physical
+   database mandatory, or partition or shard it, up front.
 
     - Pros:
-        - Physically isolates or splits the largest tables from the start. In the router variant the
-          alias would default to the main database, letting a deployment opt into a separate physical
-          database later without a schema change.
-        - Mirrors edx-platform's courseware-history router
-          (``StudentModuleHistoryExtended``), which is likewise a history table.
+        - Physically isolates or splits the largest table from the start. In the router variant the
+          alias would default to the main database, letting a deployment opt into a separate
+          physical database later without a schema change.
+        - There is prior art in edx-platform, the courseware-history router
+          (``StudentModuleHistoryExtended``).
     - Cons:
-        - A second alias gives up atomicity. Django runs a write to another alias on its own
-          connection, so a learner's ACTIVE and HISTORY rows can no longer commit in one transaction,
-          and the HISTORY append needs its own retrying, self-reconciling write path
-          (:ref:`openedx-learning-adr-0004`) to avoid losing audit rows. That cost is paid by every
-          deployment, including the overwhelming majority that never split the database.
+        - A second alias gives up atomicity, and here that is disqualifying rather than merely
+          costly. Django runs a write to another alias on its own connection, so the leaf write and
+          the ancestor writes could no longer share one transaction with the grade write, which is
+          what :ref:`openedx-learning-adr-0004`, Decision 1 requires.
         - The prior art does not actually support the pattern: edx-platform's courseware-history
           router was retrofitted to work around a 32-bit primary key running out, not adopted as a
           scaling design.
         - Mandating a separate physical database or a partitioning scheme imposes real operational
           cost on every deployment, with nothing measured to justify it.
-        - Premature, and reversible: an alias, a separate database, partitioning, and sharding all
-          remain available to revisit if a specific need is proven.
+        - Premature, and mostly reversible: an alias, a separate physical database, and
+          application-level sharding all remain available if a specific need is proven. Native MySQL
+          partitioning does not, and that is accepted here: MySQL requires every column of the
+          partitioning expression to appear in every unique key, and Decision 4's surrogate ``id``
+          primary key and Decision 1's unique ``(learner, node)`` key share no column, so partitioning
+          would first mean changing the primary key of the largest table in the schema.
 
-4. Store child evaluations on the parent group row instead of a leaf ACTIVE table (an enriched
+4. Store child evaluations on the parent group row instead of a leaf table (an enriched
    attained-set).
 
     - Pros:
-        - Reduces the hot-store footprint by avoiding a separate leaf ACTIVE table.
+        - Avoids the largest table entirely.
     - Cons:
-        - The reduction does not address the largest table (leaf HISTORY), so the main scaling concern
-          remains.
-        - Re-incurs the denormalized-array correctness burden that storing first-class leaf rows
-          removed.
+        - A leaf write stops being an independent single-row merge and becomes a read-modify-write
+          of a column shared with every sibling, so it has to hold the group lock across the whole
+          write rather than only across the recompute
+          (:ref:`openedx-learning-adr-0004`, Decisions 2 and 3).
+        - Reaches past this ADR: it would also mean amending :ref:`openedx-learning-adr-0002`,
+          Decisions 5 and 7 and :ref:`openedx-learning-adr-0003`, Decision 4, all of which key on a
+          per-leaf status row existing.
+        - A status packed into a per-group array has no unique index and no foreign key behind it,
+          so nothing but application code keeps it consistent with the criteria it describes.
         - Couples a leaf's frozen mastery to the current shape of the criteria tree, so restructuring
-          the tree can corrupt already-recorded mastery. Structural robustness is valued over the
-          hot-store saving.
-        - The single-row group read it optimizes is already served acceptably by an indexed range read
-          of a learner's leaf rows.
+          the tree can corrupt already-recorded mastery (Decision 1).
+        - The single-row group read it optimizes is already served acceptably by an indexed range
+          read of a learner's leaf rows.
 
-5. Serve heavy reads of the leaf tables from a read replica
+5. Serve heavy reads of the leaf table from a read replica
    (``edx_django_utils``'s ``read_replica_or_default()``).
 
     - Pros:
-        - Keeps dashboard and reporting reads of the two largest tables off the primary, where row
-          count and read volume concentrate.
+        - Keeps dashboard and reporting reads of the largest table off the primary, where row count
+          and read volume concentrate.
     - Cons:
-        - Premature: no measurement shows the primary struggling with these reads. The dashboard reads
-          are point lookups on a composite index, not the large, expensive, widely-called reads that
-          drive ``StudentModule`` load in edx-platform, so CBE read load should be much lower.
-        - Replica lag is a correctness hazard next to the recorder, which must read from the primary
-          (:ref:`openedx-learning-adr-0004`); introducing replica reads means maintaining that
-          distinction in every new read path.
+        - Premature: no measurement shows the primary struggling with these reads. The dashboard
+          reads are point lookups on a composite index, not the large, expensive, widely-called
+          reads that drive ``StudentModule`` load in edx-platform, so CBE read load should be much
+          lower.
+        - Replica lag is a correctness hazard next to the recorder, which must read the primary. A
+          replica cannot serve the ``SELECT ... FOR UPDATE`` in :ref:`openedx-learning-adr-0004`,
+          Decision 3 at all. Introducing replica reads means maintaining that distinction in every
+          new read path.
         - Adding it later is cheap, since it is a per-query choice rather than a schema decision.
 
-6. Give the leaf tables a custom unsigned 64-bit primary key (``UnsignedBigIntAutoField``), as
+6. Give the leaf table a custom unsigned 64-bit primary key (``UnsignedBigIntAutoField``), as
    edx-platform does on ``PersistentSubsectionGrade``.
 
     This doubles the positive range of a plain ``BigAutoField``, but that range is already far out of
-    reach for these tables, and an instance approaching it would hit other limits first. A custom
-    field type carries ongoing maintenance cost, and unsigned integers do not exist in PostgreSQL.
-    ``BigAutoField`` is this repo's default (:ref:`openedx-content-adr-0003`), so the leaf tables need
-    no primary-key decision of their own.
+    reach for this table, and an instance approaching it would hit other limits first. A custom field
+    type carries ongoing maintenance cost, and unsigned integers do not exist in PostgreSQL.
+    ``BigAutoField`` is the default for Open edX models, so these tables need no primary-key decision
+    of their own.
 
 7. Drop the database-level constraint on the learner foreign key (``db_constraint=False``), mirroring
    edx-platform's ``StudentModule``.
 
-    The argument for it was that a real constraint costs write throughput at this volume, because a hot
-    user row would see extra lock contention. Reports of user-row contention in edx-platform do exist
-    (which is why ``completion`` and ``bookmarks`` dropped their constraints), but they are not
+    The argument for it was that a real constraint costs write throughput at this volume, because a
+    hot user row would see extra lock contention. Reports of user-row contention in edx-platform do
+    exist (which is why ``completion`` and ``bookmarks`` dropped their constraints), but they are not
     understood well enough to design around here. This repo's convention is a real foreign key to
     ``settings.AUTH_USER_MODEL``, which already keeps the models independent of any concrete user
     model, so these tables follow it and need no decision of their own.
