@@ -3,6 +3,11 @@
 5. Serving Course Team Authored Static Assets
 ==============================================
 
+Status
+------
+
+Accepted in principle. Pending implementation.
+
 Context
 --------
 
