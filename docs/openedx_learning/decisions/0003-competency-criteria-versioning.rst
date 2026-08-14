@@ -13,7 +13,7 @@ Typically, institutions and instructional designers do not change the mastery re
 
 Currently, Open edX always displays the latest edited version of content in the Studio UI and always shows the latest published version of content in the LMS UI, despite having more robust version tracking on the backend (Publishable Entities).
 
-Authoring data (criteria definitions) and runtime learner data (status) have different governance needs. The former is long-lived and typically non-PII, while the latter is user-specific, can be large (learners x criteria/competencies x time), and may require stricter retention and access controls. These differing lifecycles can make deep coupling of authoring and runtime data harder to manage at scale. Performance is also a consideration as computing or resolving versioned criteria for large courses could add overhead in Studio authoring screens or LMS views.
+Authoring data (criteria definitions) and runtime learner data (status) have different governance needs. The former is long-lived and typically non-PII, while the latter is user-specific, can be large (learners x criteria/competencies), and may require stricter retention and access controls. These differing lifecycles can make deep coupling of authoring and runtime data harder to manage at scale. Performance is also a consideration as computing or resolving versioned criteria for large courses could add overhead in Studio authoring screens or LMS views.
 
 Decision
 --------
@@ -44,12 +44,13 @@ For the initial implementation, versioning and traceability of competency achiev
    - A ``CompetencyRuleProfile`` is "in use" if any ``CompetencyCriterion`` assigned to it (``competency_rule_profile_id``) has an associated ``StudentCompetencyCriteriaStatus`` row. Editing an in-use profile's ``rule_type``/``rule_payload`` requires the same warning and confirmation.
    - The same warning applies when creating a more specific profile causes existing criteria to be reassigned to it, and when an authoring action switches a criterion between a profile assignment and per-criterion overrides (ADR 0002 Decision 4).
 
-5. Learner status models/tables are append-only history and do not use ``django-simple-history``:
+5. Do not store history for learner competency status tables, and update rows in place. These tables do not use ``django-simple-history``:
 
-   - For ``StudentCompetencyCriteriaStatus``, ``StudentCompetencyCriteriaGroupStatus``, and ``StudentCompetencyStatus``, each status change is stored as a new row with ``created`` as the write timestamp.
-   - Existing learner status rows are not updated in place.
-   - Current status is determined by the most recent row for a given learner + target entity (ordered by ``created``, with ``id`` as a tie-breaker).
-   - Older rows represent the learner status history and remain available for audit/tracing.
+   - For ``StudentCompetencyCriteriaStatus``, ``StudentCompetencyCriteriaGroupStatus``, and ``StudentCompetencyStatus``, each row is updated in place when a learner's status changes.
+   - There is no history of prior status values beyond the ``modified`` timestamp, and no separate history table.
+   - Current status is the single row for a given learner + target entity.
+
+   Open edX has no concept of gradeable subsection attempts. This means that an attempt is actually defined at the level of an individual problem, so storing one row per attempt can result in tens of billions of rows for a large Open edX instance. That scale creates real operational burden: schema migrations, backups, and truncation and retention policy. Therefore, we did additional market research and found that storing history for learner competency status will not be required by the initial pilot partners for the MVP of the CBE implementation, and it would be safe to add later if needed.
 
 
 Rejected Alternatives
@@ -85,3 +86,43 @@ Rejected Alternatives
     - Cons:
         - Requires custom tooling to reconstruct past versions
         - Does not align with existing publishable versioning patterns
+5. Keep the learner status tables append-only, storing every status change as a new row.
+    - Pros:
+        - Every write is an insert rather than a read-modify-write, so there is no current row to keep consistent.
+        - Preserves a full audit trail of every status change.
+    - Cons:
+        - No MVP requirement calls for this history.
+        - Grows the leaf table by a further multiplier of problem attempts per learner per leaf, reaching tens of billions of rows for a large instance.
+        - A read must resolve the latest row for a learner and node rather than reading one in-place row, which is more expensive and more complex.
+6. Compute leaves transiently, never store them.
+    - Pros:
+        - Eliminates the largest table, since leaf demonstration would be computed on demand from the leaf's rule and the learner's grade.
+    - Cons:
+        - A recomputed leaf reflects the rule as it stands now, not the rule in force when the learner was graded, which contradicts Decision 4 above and can silently lower a status.
+7. Store child evaluations on the parent group row instead of a leaf table.
+    - Pros:
+        - Avoids the largest table entirely.
+    - Cons:
+        - A leaf write becomes a read-modify-write of a column shared with every sibling.
+        - No unique index or foreign key stands behind a status packed into a per-group array, so nothing but application code keeps it consistent with the criteria it describes.
+        - Couples a leaf's frozen mastery to the current shape of the criteria tree, so restructuring the tree can corrupt already-recorded mastery.
+        - Removes the ability to individually track competency status progress by learning object, for example by subsection.
+8. Put the leaf table behind its own database alias and router, a separate physical database, or native partitioning or sharding, from the start.
+    - Pros:
+        - Physically isolates or splits the largest table from the start.
+    - Cons:
+        - A second database alias runs on its own connection, so the leaf write and the ancestor writes could no longer share a single transaction with the grade write, which gives up the atomicity these writes need.
+        - Imposes real operational cost on every deployment with nothing measured to justify it, and remains available later if a specific need is proven.
+9. Serve heavy leaf-table reads from a read replica.
+    - Pros:
+        - Keeps dashboard and reporting reads off the primary.
+    - Cons:
+        - Premature: no measurement shows the primary struggling, and these are point lookups on a composite index, not the wide, expensive reads that drive ``StudentModule`` load in edx-platform.
+        - Adding it later is a per-query choice, not a schema decision.
+10. Give the leaf table a custom unsigned 64-bit primary key.
+     - Cons:
+         - ``BigAutoField``'s range is already far out of reach for this table.
+         - Unsigned integers do not exist in PostgreSQL, and the custom field type carries ongoing maintenance cost for no real benefit at this scale.
+11. Drop the database-level foreign key constraint on the learner column.
+     - Cons:
+         - This repo's convention is a real foreign key to ``settings.AUTH_USER_MODEL``. Reports of contention on the user row exist elsewhere in the ecosystem, but are not understood well enough here to design around.
