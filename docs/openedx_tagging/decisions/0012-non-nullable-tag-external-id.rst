@@ -50,15 +50,14 @@ migration.
   rare case where that collides with a different tag's pre-existing, hand-assigned
   ``external_id`` in the same taxonomy, the collision must be resolved deterministically
   without an unbounded retry loop, for example by appending an incrementing numeric
-  counter to the copied value until it's unique. Implementations may also transform the
-  copied value for UI legibility, for example uppercasing it and replacing spaces with
-  underscores, but no particular format or collision-resolution scheme is required by
-  this decision.
-- **New tags going forward.** The REST API and import format keep treating
-  ``external_id`` as optional for the caller, unchanged from today. When a tag is
-  created without one, the same backfill algorithm generates one automatically, rather
-  than rejecting the request. No existing integration that omits ``external_id`` today
-  has to change.
+  counter to the copied value until it's unique. No particular format or
+  collision-resolution scheme is required by this decision.
+- **New tags going forward.** The REST API keeps treating ``external_id`` as optional
+  for the caller, unchanged from today. When a tag is created via the API without one,
+  the same backfill algorithm generates one automatically, rather than rejecting the
+  request. No existing API integration that omits ``external_id`` today has to change.
+  The import format already requires an identifier for every tag, unchanged by this
+  decision, so auto-generation only applies to the API creation path.
 - **Institutions can replace an auto-generated value.** If an institution doesn't want
   the auto-generated ``external_id``, they can change it to their own value through
   ADR 0010's rename pathway.
@@ -106,3 +105,12 @@ Changelog
 2026-07-10:
 
 * Proposed.
+
+2026-08-17:
+
+* Scoped the import-format optionality claim to the REST API only; the import format
+  already requires an identifier per tag row.
+* Struck the "uppercase and replace spaces with underscores" legibility example from
+  the backfill algorithm: it isn't injective, so it can map two distinct tag values
+  onto the same ``external_id``, undermining the collision-free argument this decision
+  relies on.
