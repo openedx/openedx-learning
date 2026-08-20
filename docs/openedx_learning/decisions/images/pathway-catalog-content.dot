@@ -1,0 +1,21 @@
+digraph pathway_catalog_content {
+    rankdir=LR;
+    fontname="Helvetica";
+    node [shape=box, style=rounded, fontname="Helvetica", fontsize=11];
+    edge [fontname="Helvetica", fontsize=10];
+
+    learner [label="Learner", shape=ellipse];
+    catalog [label="Catalog Pathway\n(not versioned)\nname, Category,\nmarketing, SEO"];
+
+    subgraph cluster_content {
+        label="Pathway content (versioned)";
+        fontsize=11;
+        style=dashed;
+        v1 [label="v1: Items, criteria"];
+        v2 [label="v2: Items, criteria"];
+        v1 -> v2 [style=dotted, label="revision"];
+    }
+
+    learner -> catalog [label="browses / enrolls"];
+    catalog -> v2 [label="current definition"];
+}
