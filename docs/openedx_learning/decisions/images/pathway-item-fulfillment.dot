@@ -1,0 +1,20 @@
+digraph pathway_item_fulfillment {
+    rankdir=LR;
+    fontname="Helvetica";
+    node [shape=box, style=rounded, fontname="Helvetica", fontsize=11];
+    edge [fontname="Helvetica", fontsize=10];
+
+    item [label="Pathway Item"];
+    runA [label="Course Run A1\n(default: enroll here)"];
+    runB [label="Course Run A2\n(older run, still counts)"];
+    runC [label="Course Run B1\n(different catalog course)"];
+    future [label="future fulfillment types:\nsection completion,\ncompetency, admin override", style="rounded,dashed"];
+
+    item -> runA [label="pass any one"];
+    item -> runB;
+    item -> runC;
+    item -> future [style=dashed];
+
+    grading [label="passed/failed read directly\nfrom each course's\ngrading policy", shape=plaintext, fontsize=10, fontcolor=gray30];
+    runB -> grading [style=invis];
+}
