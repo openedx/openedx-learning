@@ -1,21 +1,40 @@
 digraph pathway_catalog_content {
     rankdir=LR;
     fontname="Helvetica";
+    compound=true;
     node [shape=box, style=rounded, fontname="Helvetica", fontsize=11];
     edge [fontname="Helvetica", fontsize=10];
 
-    learner [label="Learner", shape=ellipse];
-    catalog [label="Catalog Pathway\n(not versioned)\nname, Category,\nmarketing, SEO"];
-
-    subgraph cluster_content {
-        label="Pathway content (versioned)";
-        fontsize=11;
+    subgraph cluster_catalog {
+        label="openedx_catalog (not versioned)";
+        fontsize=10;
+        fontcolor="#4d4d4d";
         style=dashed;
-        v1 [label="v1: Items, criteria"];
-        v2 [label="v2: Items, criteria"];
-        v1 -> v2 [style=dotted, label="revision"];
+        color="#b3b3b3";
+        catalog [label="Catalog Pathway\n\nname, category,\ndescription, SEO"];
+        courserun [label="CourseRun"];
     }
 
-    learner -> catalog [label="browses / enrolls"];
-    catalog -> v2 [label="current definition"];
+    subgraph cluster_content {
+        label="openedx_content (versioned)";
+        fontsize=10;
+        fontcolor="#4d4d4d";
+        style=dashed;
+        color="#b3b3b3";
+        v1 [label="content v1\n\nItems, criteria"];
+        v2 [label="content v2\n\nItems, criteria\n(currently published)"];
+        v1 -> v2 [style=dotted, color="#808080", arrowsize=0.7, label="revision"];
+    }
+
+    user [label="User", shape=ellipse];
+    enrollment [label="Enrollment"];
+
+    user -> enrollment [label="learner"];
+    enrollment -> catalog [label="enrolled in"];
+    enrollment -> v2 [label="progress evaluated\nagainst the currently\npublished version", style=dashed, color="#808080", fontcolor="#4d4d4d"];
+
+    v2 -> catalog [label="implements"];
+    v2 -> courserun [label="Items reference"];
+
+    direction [label="dependency direction:\nopenedx_content knows about\nopenedx_catalog, never the reverse", shape=plaintext, fontsize=10, fontcolor="#4d4d4d"];
 }

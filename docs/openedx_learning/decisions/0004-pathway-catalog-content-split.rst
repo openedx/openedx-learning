@@ -33,31 +33,43 @@ Decisions
 1. A Pathway is split into two parts:
 
    - **Catalog Pathway** - the learner-browsable, enrollable thing. It includes the display name, the description
-     shown in the catalog, SEO metadata, and a **Category**: a student-facing label for the kind of Pathway it is
-     (e.g. "Master's Degree", "Annual Training"). If it is specified, learners see the Category instead of the word
-     "Pathway". The Catalog Pathway is **not versioned**.
+     shown in the catalog, SEO metadata, and a **Category**. It is **not versioned**.
 
    - **Pathway content** - the definition of the Pathway: its Items and its completion criteria. The content is
-     **versioned**, so that we can always tell what the definition was at the moment a learner enrolled or earned a
-     credential.
+     **versioned**, so that we can always tell what the definition was at any given moment. A version of the Pathway
+     content *implements* a Catalog Pathway.
 
-2. In authoring contexts (Studio, Django admin, code, docs), the terminology is always "Pathway", with the Category
+2. The **Category** is a student-facing label for the kind of Pathway (e.g. "Master's Degree", "Annual Training").
+   Learners see the Category rather than the word "Pathway". It is always required: rather than falling back to
+   "Pathway" in code, we ship a default database entry with that name, so the behavior is uniform and operators can
+   rename or extend the set without a code change.
+
+3. In authoring contexts (Studio, Django admin, code, docs), the terminology is always "Pathway", with the Category
    shown explicitly. Relabelling is a learner-facing concern of the catalog side only.
 
-3. Learners enroll against the Catalog Pathway. Progress and credential evaluation run against a version of the
-   Pathway content.
+4. **Dependency direction**: ``openedx_content`` knows about ``openedx_catalog``, never the reverse. This has the
+   following consequences:
+
+   - Pathway Items may reference ``CourseRun`` entities directly.
+   - The link from a Catalog Pathway to the Pathway content that implements it lives on the content side.
+   - Anything that has to tie the two sides together belongs in ``openedx_content``, or in something downstream of
+     it, but never in ``openedx_catalog``.
+
+5. **Enrollment** ties a learner to a Catalog Pathway. Progress is evaluated against the currently published
+   content version, not against a version frozen at enrollment time, so that authoring changes reach learners who
+   are already enrolled.
 
 Example content of each model:
 
-============================  ==========================
+============================  ===================================
 Catalog Pathway               Pathway content
-============================  ==========================
+============================  ===================================
 Display name                  Pathway Items
 Category                      Completion criteria
-Description
-SEO metadata
+Description                   References to CourseRuns
+SEO metadata                  Link to the related Catalog Pathway
 Enrollment
-============================  ==========================
+============================  ===================================
 
 .. Run `dot -Tsvg images/pathway-catalog-content.dot > images/pathway-catalog-content.svg` to regenerate the diagram
    after making changes to `images/pathway-catalog-content.dot`.
@@ -70,6 +82,8 @@ Consequences
 ------------
 
 - Catalog edits never create new content versions; definition edits (Items, criteria) always do.
-- Credential and progress records can reference the exact content version in effect at the time, keeping them
-  auditable after the Pathway changes.
+- Because evaluation follows the published version rather than the enrollment-time version, edits to a Pathway apply
+  to learners who are already enrolled, which is what we want, but it means edits need care and re-evaluation.
 - The unversioned Catalog Pathway can be long-lived even if its content definition is changed significantly over time.
+- The dependency direction means a Catalog Pathway cannot, on its own, tell which content implements it. Queries in
+  that direction start from the content side.
