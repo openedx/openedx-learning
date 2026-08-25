@@ -33,13 +33,20 @@ Decisions
    organization, signature image).
 
 4. **Rendering.** An issued certificate is rendered as an HTML page (printable by the learner), analogous to course
-   certificates. W3C Verifiable Credentials / Open Badges will not be supported in the MVP.
+   certificates. No W3C Verifiable Credentials / Open Badges support in Willow.
 
-5. **Issued certificates are records.** An issued certificate stores everything needed to display it later: recipient
-   name, Pathway name, issuer, signatories, the criteria met (the list of courses passed), and the date earned. It
-   remains valid and viewable even if the Pathway is later updated or archived.
+5. **What a certificate is a claim about.** A certificate ties a learner to a specific version of the Pathway
+   content: the versioned side of the split described in :ref:`openedx-learning-adr-0004`, because a certificate
+   asserts that a particular Pathway completion definition was met. The Catalog Pathway is not recorded separately.
+   Instead, it follows from the content version.
 
-6. **Events.** Issuing a certificate emits an event, so that instances can report on credentials (e.g. in Aspects).
+6. **Issued certificates are records.** Alongside that reference, a certificate stores a snapshot of everything
+   needed to display it later: recipient name, Pathway name, issuer, signatories, the criteria met (the list of
+   courses passed), and the date earned. The snapshot is for rendering; the version reference is the authoritative
+   part. A certificate remains valid and viewable even if the Pathway is later updated or archived.
+
+7. **Events.** Issuing a certificate emits an event, so that instances can report on credentials (e.g. in Aspects).
+   It also sends an email to the learner, with a link to view the certificate.
 
 .. Run `dot -Tsvg images/pathway-credentials.dot > images/pathway-credentials.svg` to regenerate the diagram after
    making changes to `images/pathway-credentials.dot`.
