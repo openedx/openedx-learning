@@ -240,9 +240,9 @@ Decision
    3. ``oel_tagging_objecttag(object_id)``
    4. ``CompetencyCriteria(oel_tagging_objecttag_id)``
    5. ``CompetencyCriteria(competency_criteria_group_id)``
-   6. ``StudentCompetencyCriteriaStatus(user_id, competency_criteria_id)``
-   7. ``StudentCompetencyCriteriaGroupStatus(user_id, competency_criteria_group_id)``
-   8. ``StudentCompetencyStatus(user_id, oel_tagging_tag_id)``
+   6. ``StudentCompetencyCriteriaStatus(user_id, competency_criteria_id)`` (unique)
+   7. ``StudentCompetencyCriteriaGroupStatus(user_id, competency_criteria_group_id)`` (unique)
+   8. ``StudentCompetencyStatus(user_id, oel_tagging_tag_id)`` (unique)
    9. ``CompetencyRuleProfile(scope_code)`` (unique -- at most one profile per distinct scope value; a plain unique constraint on the three raw nullable scope columns would not enforce this, since SQL never treats two ``NULL`` values as equal and this project's MySQL backend does not support the conditional/partial unique indexes that would otherwise route around that; see the ``scope_code`` column in Decision 3)
    10. ``CompetencyMasteryStatuses(status)`` (unique)
 
@@ -422,3 +422,11 @@ Rejected Alternatives
 
       1. Silently does not work on this project's tested and production database backend. Django compiles a conditional ``UniqueConstraint`` to a partial index, which MySQL does not support; Django raises only a non-fatal system-check warning (``models.W036``) and skips creating the constraint, leaving the uniqueness rule completely unenforced at the database level.
       2. The gap would surface only as a data-integrity incident under concurrent writes, not as a test or migration failure, since SQLite (used for quick local test runs) does support partial indexes and would mask the problem in that environment.
+
+Changelog
+---------
+
+2026-07-27:
+
+* Made the learner status indexes unique, so there is one row per learner and node. This is what
+  the in-place, monotone status updates in :ref:`openedx-learning-adr-0004` read, lock, and update.
