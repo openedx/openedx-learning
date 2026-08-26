@@ -37,17 +37,18 @@ def can_view_taxonomy(user: UserType, taxonomy: Taxonomy | None = None) -> bool:
     Anyone can view an enabled taxonomy or list all taxonomies,
     but only taxonomy admins can view a disabled taxonomy.
     """
-    return not taxonomy or taxonomy.cast().enabled or is_taxonomy_admin(user)
+    return not taxonomy or taxonomy.enabled or is_taxonomy_admin(user)
 
 
 @rules.predicate
-def can_change_taxonomy(user: UserType, taxonomy: Taxonomy | None = None) -> bool:
+def can_change_taxonomy(user: UserType, taxonomy: Taxonomy | None = None) -> bool:  # pylint: disable=unused-argument
     """
-    Even taxonomy admins cannot change system taxonomies.
+    Taxonomy admins can create, modify, and delete any taxonomy.
+
+    This includes toggling a taxonomy's read_only flag: the flag only prevents
+    editing the taxonomy's *tags* (see can_change_tag), not the taxonomy itself.
     """
-    return is_taxonomy_admin(user) and (
-        not taxonomy or bool(taxonomy and not taxonomy.cast().system_defined)
-    )
+    return is_taxonomy_admin(user)
 
 
 @rules.predicate
@@ -55,7 +56,7 @@ def can_view_tag(user: UserType, tag: Tag | None = None) -> bool:
     """
     User can view tags for any taxonomy they can view.
     """
-    taxonomy = tag.taxonomy.cast() if (tag and tag.taxonomy) else None
+    taxonomy = tag.taxonomy if (tag and tag.taxonomy) else None
     return user.has_perm(
         "oel_tagging.view_taxonomy",
         taxonomy,
@@ -65,9 +66,12 @@ def can_view_tag(user: UserType, tag: Tag | None = None) -> bool:
 @rules.predicate
 def can_change_tag(user: UserType, tag: Tag | None = None) -> bool:
     """
-    Users can change tags for any taxonomy they can modify.
+    Users can change tags for any taxonomy they can modify, except read-only
+    taxonomies, whose tags are maintained by the system and cannot be changed.
     """
-    taxonomy = tag.taxonomy.cast() if (tag and tag.taxonomy) else None
+    taxonomy = tag.taxonomy if (tag and tag.taxonomy) else None
+    if taxonomy and taxonomy.read_only:
+        return False
     return user.has_perm(
         "oel_tagging.change_taxonomy",
         taxonomy,
@@ -85,7 +89,7 @@ def can_view_object_tag_taxonomy(user: UserType, taxonomy: Taxonomy) -> bool:
     if not taxonomy:
         return True
 
-    return taxonomy.cast().enabled and can_view_taxonomy(user, taxonomy)
+    return taxonomy.enabled and can_view_taxonomy(user, taxonomy)
 
 
 @rules.predicate

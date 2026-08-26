@@ -425,3 +425,11 @@ Rejected Alternatives
 
       1. Silently does not work on this project's tested and production database backend. Django compiles a conditional ``UniqueConstraint`` to a partial index, which MySQL does not support; Django raises only a non-fatal system-check warning (``models.W036``) and skips creating the constraint, leaving the uniqueness rule completely unenforced at the database level.
       2. The gap would surface only as a data-integrity incident under concurrent writes, not as a test or migration failure, since SQLite (used for quick local test runs) does support partial indexes and would mask the problem in that environment.
+
+Changelog
+---------
+
+2026-07-27:
+
+* Made the learner status indexes unique, so there is one row per learner and node. This is what
+  the in-place, monotone status updates in :ref:`openedx-learning-adr-0004` read, lock, and update.

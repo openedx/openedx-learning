@@ -290,25 +290,15 @@
     allow_free_text: false
     export_id: life_on_earth
 - model: oel_tagging.taxonomy
-  pk: 3
-  fields:
-    name: User Authors
-    description: Allows tags for any User on the instance.
-    enabled: true
-    allow_multiple: false
-    allow_free_text: false
-    export_id: user_authors
-    _taxonomy_class: openedx_tagging.models.system_defined.UserSystemDefinedTaxonomy
-- model: oel_tagging.taxonomy
   pk: 4
   fields:
-    name: System defined taxonomy
-    description: Generic System defined taxonomy
+    name: Read Only Taxonomy
+    description: Generic read-only taxonomy
     enabled: true
     allow_multiple: true
     allow_free_text: false
-    export_id: system_defined_taxonomy
-    _taxonomy_class: openedx_tagging.models.system_defined.SystemDefinedTaxonomy
+    export_id: read_only_taxonomy
+    read_only: true
 - model: oel_tagging.taxonomy
   pk: 5
   fields:

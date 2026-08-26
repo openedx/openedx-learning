@@ -216,17 +216,16 @@ def _import_validations(taxonomy: Taxonomy):
     """
     Validates if the taxonomy is allowed to import tags
     """
-    taxonomy = taxonomy.cast()
     if taxonomy.allow_free_text:
         raise ValueError(
             _(
-                "Invalid taxonomy ({id}): You cannot import a free-form taxonomy."
+                "Invalid taxonomy ({id}): You cannot import to a free-text taxonomy."
             ).format(id=taxonomy.id)
         )
 
-    if taxonomy.system_defined:
+    if taxonomy.read_only:
         raise ValueError(
             _(
-                "Invalid taxonomy ({id}): You cannot import a system-defined taxonomy."
+                "Invalid taxonomy ({id}): You cannot import to a read-only taxonomy."
             ).format(id=taxonomy.id)
         )

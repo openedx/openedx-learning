@@ -3,6 +3,11 @@
 8. System-defined automatic tagging
 =====================================
 
+Status
+------
+
+Obsolete ⚠️. The "system-defined" attribute and "automatic tagging" feature have been removed.
+
 Context
 --------
 
@@ -51,3 +56,10 @@ auto tagging context. The `hooks documentation`_ suggests the use of `events`_ h
 .. _hooks documentation: https://github.com/openedx/edx-platform/blob/master/docs/guides/hooks/index.rst
 .. _events: https://github.com/openedx/edx-platform/blob/master/docs/guides/hooks/events.rst
 .. _a receiver: https://github.com/openedx/edx-platform/blob/master/docs/guides/hooks/events.rst#receiving-events
+
+Changelog
+---------
+
+2026-07-29:
+
+* Updated "Status": this ADR is obsolete.

@@ -1,0 +1,17 @@
+flowchart TD
+  FE[Studio MFE]
+  subgraph PLAT["openedx-platform (router lives here)"]
+    P1["Serializer: adds taxonomy_type via hasattr, on the same instance"]
+  end
+  subgraph CORE["openedx-core: oel_tagging"]
+    C1["Base Taxonomy query/serializer, stays pure"]
+  end
+  subgraph DB[Database]
+    T[("Taxonomy (unchanged)")]
+    CT[("CompetencyTaxonomy")]
+  end
+
+  FE --> P1
+  P1 -->|delegates for the base object| C1
+  C1 --> T
+  P1 -.->|"hasattr check on that same object, no new API call"| CT

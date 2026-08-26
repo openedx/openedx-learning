@@ -78,14 +78,15 @@ class UserPermissionsHelper:
         assert request and request.user
         return request.user.has_perm(perm_name, instance)
 
-    def get_can_add(self, _instance=None) -> Optional[bool]:
+    def get_can_add(self, instance=None) -> Optional[bool]:
         """
         Returns True if the current user is allowed to add new instances.
 
-        Note: we omit the actual instance from the permissions check; most tagging models prefer this.
+        `instance` is optional: most tagging models don't need one to check "add" permissions, but some
+        (e.g. Tag, whose "add" permission depends on its taxonomy's read_only flag) do.
         """
         perm_name = self._get_permission_name('add')
-        return self._can(perm_name)
+        return self._can(perm_name, instance)
 
     def get_can_view(self, instance) -> Optional[bool]:
         """
