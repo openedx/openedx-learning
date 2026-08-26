@@ -135,7 +135,7 @@ Decision
    7. ``rule_payload``: JSON payload keyed by ``rule_type`` to avoid freeform strings. It is structured JSON (not arbitrary freeform data): each ``rule_type`` defines the allowed payload shape and required keys, and validation enforces this contract. JSON is used instead of fixed columns like ``op``, ``value``, and ``scale`` so that future rule types (for example, ``MasteryLevel`` thresholds or plugin-defined evaluators such as CEL-based rules) can add their own fields without repeated schema migrations or many nullable columns. Examples:
 
       1. ``Grade``: ``{"op": "gte", "value": 0.75, "scale": "percent"}``. Allowed ``op`` values: ``gte``, ``lte``, ``eq``. ``value`` must be a fraction between 0.0 and 1.0 inclusive, matching the platform's existing fractional grade representation, not a 0-100 scale.
-   8. ``archived``: Boolean, defaults to false. Set instead of deleting a profile that is no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriterion`` rows and learner status history stay resolvable.
+   8. ``archived``: Boolean, defaults to false. Set instead of deleting a profile that is no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriterion`` rows and learner status rows stay resolvable.
 
    A check constraint requires that at most one of ``organization_id``, ``course_id``, and ``competency_taxonomy_id`` is non-null on any row, matching the scoping rule above.
 
@@ -240,7 +240,7 @@ Decision
    3. ``oel_tagging_objecttag(object_id)``
    4. ``CompetencyCriteria(oel_tagging_objecttag_id)``
    5. ``CompetencyCriteria(competency_criteria_group_id)``
-   6. ``StudentCompetencyCriteriaStatus(user_id, competency_criteria_id)`` (unique)
+   6. ``StudentCompetencyCriteriaStatus(user_id, competency_criteria_id)`` (unique -- each learner status table holds exactly one row per learner and target entity, updated in place; see ADR 0003 Decision 5)
    7. ``StudentCompetencyCriteriaGroupStatus(user_id, competency_criteria_group_id)`` (unique)
    8. ``StudentCompetencyStatus(user_id, oel_tagging_tag_id)`` (unique)
    9. ``CompetencyRuleProfile(scope_code)`` (unique -- at most one profile per distinct scope value; a plain unique constraint on the three raw nullable scope columns would not enforce this, since SQL never treats two ``NULL`` values as equal and this project's MySQL backend does not support the conditional/partial unique indexes that would otherwise route around that; see the ``scope_code`` column in Decision 3)
@@ -279,7 +279,8 @@ Decision
       2. ``competency_criteria_id``: Foreign key to ``CompetencyCriterion.id``
       3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
-      5. ``created``: The timestamp at which the student's criterion status was set.
+      5. ``created``: The timestamp at which the student's criterion status row was first written.
+      6. ``modified``: The timestamp at which the student's criterion status was last updated.
 
    3. Add a new database table for ``StudentCompetencyCriteriaGroupStatus`` with these columns:
 
@@ -287,7 +288,8 @@ Decision
       2. ``competency_criteria_group_id``: Foreign key to ``CompetencyCriteriaGroup.id``
       3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``
-      5. ``created``: The timestamp at which the student's criteria-group status was set.
+      5. ``created``: The timestamp at which the student's criteria-group status row was first written.
+      6. ``modified``: The timestamp at which the student's criteria-group status was last updated.
 
    4. Add a new database table for ``StudentCompetencyStatus`` with these columns:
 
@@ -295,7 +297,8 @@ Decision
       2. ``oel_tagging_tag_id``: Foreign key pointing to Tag id
       3. ``user_id``: Foreign key pointing to user_id (presumably the learner's id, although it appears that it is possible for staff to get grades as well) in ``auth_user`` table
       4. ``status_id``: Foreign key to ``CompetencyMasteryStatuses.id``. This table should have a constraint to only allow status values of “Demonstrated” and “PartiallyAttempted” since it represents overall competency demonstration state, not in-progress states.
-      5. ``created``: The timestamp at which the student's competency status was set.
+      5. ``created``: The timestamp at which the student's competency status row was first written.
+      6. ``modified``: The timestamp at which the student's competency status was last updated.
 
 7. Delete protection boundaries
 
