@@ -1,4 +1,4 @@
-.. _openedx-learning-adr-0007:
+.. _openedx-learning-adr-0008:
 
 7. Pathway Credentials
 ======================
@@ -36,7 +36,7 @@ Decisions
    certificates. No W3C Verifiable Credentials / Open Badges support in Willow.
 
 5. **What a certificate is a claim about.** A certificate ties a learner to a specific version of the Pathway
-   content: the versioned side of the split described in :ref:`openedx-learning-adr-0004`, because a certificate
+   content: the versioned side of the split described in :ref:`openedx-learning-adr-0005`, because a certificate
    asserts that a particular Pathway completion definition was met. The Catalog Pathway is not recorded separately.
    Instead, it follows from the content version.
 
