@@ -30,7 +30,7 @@ Decision
 
 Report a taxonomy's type entirely within **openedx-platform**, using the existing relation
 between ``Taxonomy`` and ``CompetencyTaxonomy`` established in ADR 0002, without adding any
-field, method, or enum value to ``openedx_tagging`` or the CBE app:
+field, method, or enum value to ``openedx_tagging``:
 
 .. image:: images/CompetencyTypeDetection.png
    :alt: Studio calls openedx-platform's serializer, which delegates to oel_tagging's pure
@@ -41,11 +41,18 @@ field, method, or enum value to ``openedx_tagging`` or the CBE app:
 - openedx-platform's REST layer adds a read-only ``taxonomy_type`` value to its taxonomy
   serializer, computed by checking whether a related ``CompetencyTaxonomy`` row exists for
   that ``Taxonomy``: ``"competency"`` if so, ``"tags"`` otherwise.
+- It performs that check through the CBE app's public API,
+  ``openedx_learning.api.is_competency_taxonomy()``, rather than naming the relation itself.
+  The relation name is a Django-generated default derived from the model's class name, so
+  spelling it in openedx-platform would let a rename upstream break Studio with nothing
+  failing in either repository's tests.
 - That same layer's queryset fetches the related ``CompetencyTaxonomy`` row alongside the
-  ``Taxonomy`` list, so the check costs no extra query per row.
-- ``openedx_tagging``'s ``Taxonomy`` model, its base ``TaxonomySerializer``, and the CBE app
-  stay fully unaware of each other for this purpose: no new field, no new enum value, no
-  import.
+  ``Taxonomy`` list, using the companion ``select_competency_taxonomies()``, so the check
+  costs no extra query per row.
+- ``openedx_tagging``'s ``Taxonomy`` model and its base ``TaxonomySerializer`` gain nothing
+  for this purpose: no new field, no new enum value, no import. That constraint is on
+  ``openedx_tagging`` alone. The CBE app owns this relation, so exposing it through the CBE
+  app's own public API is expected rather than avoided.
 - No creation-time wiring is needed to keep this accurate: ADR 0002 Decision 1 already
   creates the ``CompetencyTaxonomy`` row in the same transaction as its parent ``Taxonomy``
   row, so the existence check can never drift out of sync the way a separately-stored
@@ -53,10 +60,10 @@ field, method, or enum value to ``openedx_tagging`` or the CBE app:
 
 **Known trade-off.** A future third taxonomy type needs another hardcoded branch in
 openedx-platform's shared serializer, the same cost a field-based approach would have
-avoided with a one-line enum addition. Accepted because keeping ``openedx_tagging`` and the
-CBE app free of any competency-specific reference, even an inert stored value, was judged
-more valuable than that extensibility, particularly given the project's move away from
-system-defined taxonomies, which makes a third taxonomy flavor unlikely soon.
+avoided with a one-line enum addition. Accepted because keeping ``openedx_tagging`` free of
+any competency-specific reference, even an inert stored value, was judged more valuable
+than that extensibility, particularly given the project's move away from system-defined
+taxonomies, which makes a third taxonomy flavor unlikely soon.
 
 Rejected Alternatives
 ----------------------
@@ -69,9 +76,8 @@ A ``TaxonomyType(models.TextChoices)`` field (``TAGS``/``COMPETENCY``) added dir
 transaction as ADR 0002 Decision 1's existing lifecycle rule. Although this requires no
 per-request check and was more extensible for a hypothetical third taxonomy flavor, it
 still named a CBE-specific concept, a ``COMPETENCY`` enum value, directly in
-``openedx_tagging``'s own schema and public API. Keeping ``openedx_tagging`` and the CBE
-app fully free of any competency-specific reference, even an inert one, is worth the lost
-extensibility.
+``openedx_tagging``'s own schema and public API. Keeping ``openedx_tagging`` fully free of
+any competency-specific reference, even an inert one, is worth the lost extensibility.
 
 Check for a related ``CompetencyTaxonomy`` row directly inside ``openedx_tagging``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

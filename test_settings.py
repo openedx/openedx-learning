@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "openedx_tagging",
     "openedx_content",
     "openedx_catalog",
+    "openedx_learning",
     *openedx_content_backcompat_apps_to_install(),
     # Apps with models that are only used for testing
     "tests.test_django_app",

@@ -155,11 +155,11 @@ Rejected Alternatives
    with another writer already in flight.
 
     - Pros:
-      - Recovers from the race within the same request, without a separate marker or job.
+        - Recovers from the race within the same request, without a separate marker or job.
     - Cons:
-      - Decision 1 shares a transaction only between the grade and its leaf, and Decision 3 commits each rollup level
-        separately before reading the next. That leaves no single transaction boundary for a read-after-write check to
-        run inside: by the time a re-read would happen, the level below has already committed and could change again
-        before the write completes.
-      - It also only checks for a race at the moment each parent is read. If the worker crashes mid-cascade before reaching the next read,
-        nothing notices the rollup was left unfinished. Decision 5's manual recovery mechanism exists to catch that case.
+        - Decision 1 shares a transaction only between the grade and its leaf, and Decision 3 commits each rollup level
+          separately before reading the next. That leaves no single transaction boundary for a read-after-write check to
+          run inside: by the time a re-read would happen, the level below has already committed and could change again
+          before the write completes.
+        - It also only checks for a race at the moment each parent is read. If the worker crashes mid-cascade before reaching the next read,
+          nothing notices the rollup was left unfinished. Decision 5's manual recovery mechanism exists to catch that case.

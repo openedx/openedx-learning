@@ -39,6 +39,7 @@ INSTALLED_APPS = [
 
     # Our Apps
     "openedx_catalog",
+    "openedx_learning",
     "openedx_tagging",
     "openedx_content",
     *openedx_content_backcompat_apps_to_install(),
