@@ -23,7 +23,8 @@ authored, versioned, and published). Pathways have the same two aspects, and the
   who edits what, not about who can see it.
 - **Different permissions follow from that.** We expect instances to want to let marketing staff update catalog
   copy without granting them the ability to change what learners must complete, and vice versa. Keeping the two
-  apart makes that possible without inventing field-level permissions.
+  apart makes that possible without inventing field-level permissions. However, with the new RBAC system, this
+  may be less of a concern.
 - **Auditability.** Progress and credentials must be judged against the definition that was in effect at the time,
   which requires versioning the definition - but versioning catalog copy would be pure overhead.
 
