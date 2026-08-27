@@ -1,0 +1,36 @@
+digraph pathway_item_evaluation {
+    rankdir=LR;
+    fontname="Helvetica";
+    node [shape=box, style=rounded, fontname="Helvetica", fontsize=11];
+    edge [fontname="Helvetica", fontsize=10];
+
+    subgraph cluster_per_learner {
+        label="acts on one learner";
+        fontsize=10;
+        fontcolor="#4d4d4d";
+        style=dashed;
+        color="#b3b3b3";
+        signal [label="course passing-status\nsignal", shape=ellipse];
+        enroll [label="Pathway enrollment\n(checks what the learner\nhas already passed)", shape=ellipse];
+    }
+
+    subgraph cluster_fan_out {
+        label="fans out over enrolled learners";
+        fontsize=10;
+        fontcolor="#4d4d4d";
+        style=dashed;
+        color="#b3b3b3";
+        publish [label="Pathway Item change\npublished\n(async task)", shape=ellipse];
+    }
+
+    evaluate [label="evaluate Pathway fulfillment\nagainst the learner's record"];
+    credential [label="grant credential\n(never revoked by\na later narrowing)"];
+    nochange [label="no change", shape=plaintext];
+
+    signal -> evaluate;
+    enroll -> evaluate;
+    publish -> evaluate;
+
+    evaluate -> credential [label="fulfilled"];
+    evaluate -> nochange [label="otherwise"];
+}
