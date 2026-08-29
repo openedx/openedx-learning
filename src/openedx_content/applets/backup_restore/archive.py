@@ -20,13 +20,13 @@ def read_fs_for_path(path_str: str) -> AbstractFileSystem:
     implications, and I don't want to open the door on "supported archive
     formats" to include everything under the sun. But it's an intriguing option
     to consider.
-
-    TODO: Can we force read-only mode on these file systems?
     """
     path = Path(path_str)
     if path.is_dir():
+        # read-only mode is not available for DirFileSystem
         return DirFileSystem(path)
     elif path.is_file() and path.suffix.lower() == ".zip":
-        return ZipFileSystem(path)
+        # read-only is the default for ZipFilesystem, but make it explicit
+        return ZipFileSystem(path, mode="r")
 
     raise ValueError(f"Could not load path {path_str}")

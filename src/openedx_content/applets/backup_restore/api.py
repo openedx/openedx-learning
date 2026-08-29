@@ -14,7 +14,9 @@ from ..publishing import api as publishing_api
 from . import archive, loading, payload, validation
 
 
-from .zipper import LearningPackageZipper, generate_staged_package_ref
+from .zipper import (
+    LearningPackageZipper, RestoreResult, generate_staged_package_ref, zipfile, LearningPackageUnzipper
+)
 
 
 @attrs.define(frozen=True)
@@ -28,20 +30,22 @@ def load_learning_package(
     package_ref: str | None = None,
 ) -> dict:
     """
-    Loads a learning package from a zip file at the given path.
+    Loads a learning package from a file system at the given path.
 
-    Restores the learning package and its contents to the database.
-
-    The overall pipeline looks like this:
-
-        Archive location (Path) →
-        FileSystem (fsspec) →
-        UnvalidatedLearningPackageInput →
-        ValidatedLearningPackageInput →
-        LearningPackage
+    The ``path_str`` will usually point to a Zip file archive that holds the
+    backup of the Learning Package data. For testing and debugging purposes, you
+    can also specify ``path_str`` to be the root directory of an unzipped
+    version of the archive data.
 
     Loads a learning package from a zip file at the given path. Restores the
     learning package and its contents to the database.
+
+    The overall pipeline looks like this:
+
+      archive.py: Archive location (Path) → FileSystem (fsspec)
+      payload.py: FileSystem (fsspec) → UnvalidatedLearningPackageInput
+      validation.py: UnvalidatedLearningPackageInput → ValidatedLearningPackageInput
+      loading.py: ValidatedLearningPackageInput → LearningPackage
 
     Returns a dictionary with the status of the operation and any errors
     encountered during that process.
@@ -73,15 +77,16 @@ def load_learning_package(
     return result
 
 
-def pretty_print(obj):
-    from pydantic import TypeAdapter
-    from typing import Any
-    from rich import print_json
-
-    print_json(TypeAdapter(Any).dump_json(obj, indent=2).decode("utf8"))
-
-
 ### This was pre-existing:
+def load_learning_package_old(path: str, package_ref: str | None = None, user: UserType | None = None) -> dict:
+    """
+    Loads a learning package from a zip file at the given path.
+    Restores the learning package and its contents to the database.
+    Returns a dictionary with the status of the operation and any errors encountered.
+    """
+    with zipfile.ZipFile(path, "r") as zipf:
+        return LearningPackageUnzipper(zipf, package_ref, user).load()
+
 
 def create_zip_file(
     lp_key: str,

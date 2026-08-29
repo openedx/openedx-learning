@@ -3,11 +3,8 @@ This module works with the actual files in our backup archive. It is agnostic to
 the archive container format that the files are bundled in, e.g. a local file
 system directory, a zip file archive, or something more exotic down the line.
 
-Some high level considerations for this module:
-
-1. The error checking is for the file format itself, i.e. extracting  values
-   from the TOML files and static assets and assembling them for validation.
-   In some cases, this means we do have to look for particular fields to handle
+The error checking here is for the file format itself, i.e. extracting values
+from the TOML files and static assets and assembling them for validation.
 """
 
 from __future__ import annotations
@@ -100,11 +97,21 @@ class UnsupportedFormatError(ExtractionError):
 class PayloadExtractor:
     """
     Extracts files from a file system and generates unvalidated input.
+
+    TODO: This is not in use yet, but we want to eventually place extraction-
+    related functionality in this class so that it's easier to swap out
+    extraction behavior with other classes later, e.g. if people have different
+    formatting ideas for their archive formats.
     """
 
     def __init__(self, fs: AbstractFileSystem):
         self.fs = fs
 
+        # TODO: This is not complete. The problem we eventually want to solve is
+        # that sometimes people archive the right thing and package.toml is at
+        # the root, but sometimes people make an archive that has one folder in
+        # it, and everything (including the package.toml) is in that folder. So
+        # we want to gracefully accept that format and have our root change.
         if self.fs.exists("package.toml"):
             self.root = ""
         elif len(fs.ls('.')) == 1:
