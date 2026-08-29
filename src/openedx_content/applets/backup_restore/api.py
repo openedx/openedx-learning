@@ -57,14 +57,14 @@ def create_learning_package(
     Both descend from ``BackupRestoreError``.
     """
     fs = archive.read_fs_for_path(path_str)
-    unvalidated_input = payload.extract_unvalidated_learning_package(fs)
+    unvalidated_input = payload.PayloadExtractor(fs).extract()
     validated_input = validation.validate(unvalidated_input)
 
     # Bail out before touching the database. We deliberately don't do a partial
     # restore: a half-loaded Learning Package is harder to reason about than no
     # Learning Package at all.
     if validated_input.errors:
-        raise RestoreFailedError(validated_input.errors)
+        raise RestoreFailedError(validated_input.errors, validated_input.root)
 
     loader = loading.Loader(validated_input)
     archive_lp_input = loader.data.learning_package  # LearningPackageInputData

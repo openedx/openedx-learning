@@ -26,7 +26,13 @@ def folder_to_inmemory_zip(folder_path: str) -> zipfile.ZipFile:
     return zipfile.ZipFile(buffer, "r")
 
 
-def folder_to_zip_path(folder_path: str, dest_dir: str, name: str = "archive.zip") -> str:
+def folder_to_zip_path(
+    folder_path: str,
+    dest_dir: str,
+    name: str = "archive.zip",
+    prefix: str = "",
+    extra_names: tuple = (),
+) -> str:
     """
     Write the contents of a folder out as a real zip file on disk.
 
@@ -38,6 +44,11 @@ def folder_to_zip_path(folder_path: str, dest_dir: str, name: str = "archive.zip
         folder_path (str): Path to the folder to zip.
         dest_dir (str): Directory to write the zip file into.
         name (str): File name to give the zip file.
+        prefix (str): Prepended to every archive member, e.g. ``"MyLib/"``. Use
+            this to build the kind of archive you get from ``zip -r x.zip MyLib``,
+            where everything sits inside a single wrapper folder.
+        extra_names (tuple): Extra (empty) members to add, for simulating the
+            debris real archiving tools leave behind, e.g. ``"__MACOSX/._MyLib"``.
 
     Returns:
         str: The path of the zip file that was written.
@@ -47,5 +58,8 @@ def folder_to_zip_path(folder_path: str, dest_dir: str, name: str = "archive.zip
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
         for file_path in sorted(folder.rglob("*")):
             if file_path.is_file():
-                zipf.write(file_path, arcname=str(file_path.relative_to(folder)))
+                arcname = prefix + str(file_path.relative_to(folder))
+                zipf.write(file_path, arcname=arcname)
+        for extra_name in extra_names:
+            zipf.writestr(extra_name, b"")
     return str(zip_path)

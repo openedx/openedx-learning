@@ -56,7 +56,9 @@ def version(version_num: int, children=None, **overrides) -> dict:
     return raw
 
 
-def unvalidated(entities=None, collections=None, errors=None, path_mapping=None, **overrides):
+def unvalidated(
+    entities=None, collections=None, errors=None, path_mapping=None, root=None, **overrides
+):
     """Build an UnvalidatedLearningPackageInput without going through files."""
     raw_data = {
         "meta": {"format_version": 1},
@@ -70,6 +72,7 @@ def unvalidated(entities=None, collections=None, errors=None, path_mapping=None,
         errors=errors or [],
         fs=DirFileSystem(FIXTURES_ROOT),
         entity_path_mapping=path_mapping or {},
+        root=root,
     )
 
 
@@ -353,3 +356,36 @@ class SourceMappingFallbackTest(TestCase):
     def test_schema_error_without_a_location(self):
         error = SchemaError("something went wrong", path="package.toml")
         assert str(error) == "package.toml: something went wrong"
+
+
+class ArchiveRootPassthroughTest(TestCase):
+    """
+    The detected archive root travels with the validated input.
+
+    It has no effect on validation -- every path is already relative to it -- but
+    the error report says which folder we picked, since that isn't obvious from
+    the paths alone.
+    """
+
+    def test_root_is_carried_through(self):
+        assert validation.validate(unvalidated(root="MyLib")).root == "MyLib"
+
+    def test_no_root_by_default(self):
+        assert validation.validate(unvalidated()).root is None
+
+    def test_as_text_names_the_root_when_there_is_one(self):
+        error = RestoreFailedError(
+            [MissingFileError("Root Package", path="package.toml")],
+            archive_root="MyLib",
+        )
+
+        assert error.as_text() == (
+            "Errors encountered during restore:\n"
+            "Archive root: MyLib/\n"
+            "package.toml: Root Package file not found at expected path\n"
+        )
+
+    def test_as_text_omits_the_root_when_there_isn_t_one(self):
+        error = RestoreFailedError([MissingFileError("Root Package", path="package.toml")])
+
+        assert "Archive root" not in error.as_text()

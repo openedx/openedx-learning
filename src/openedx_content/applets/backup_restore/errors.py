@@ -188,8 +188,16 @@ class RestoreFailedError(BackupRestoreError):
     one run at a time.
     """
 
-    def __init__(self, errors: list[BackupRestoreError]):
+    def __init__(
+        self,
+        errors: list[BackupRestoreError],
+        archive_root: str | None = None,
+    ):
         self.errors = list(errors)
+        # The folder inside the archive we treated as the root, when the archive
+        # wrapped its contents in one. Every path below is relative to it, so
+        # saying so once up front saves a lot of confusion.
+        self.archive_root = archive_root
         super().__init__(f"Restore failed with {len(self.errors)} error(s).")
 
     def __str__(self):
@@ -202,5 +210,8 @@ class RestoreFailedError(BackupRestoreError):
         The format matches what the pre-pydantic implementation wrote out, so
         that existing consumers of the restore log keep working.
         """
-        lines = [str(err) for err in self.errors]
-        return "Errors encountered during restore:\n" + "\n".join(lines) + "\n"
+        lines = ["Errors encountered during restore:"]
+        if self.archive_root:
+            lines.append(f"Archive root: {self.archive_root}/")
+        lines.extend(str(err) for err in self.errors)
+        return "\n".join(lines) + "\n"

@@ -53,6 +53,10 @@ class ValidatedLearningPackageInput:
 
     errors: list[BackupRestoreError]
 
+    # The folder inside the archive that was treated as its root, if any. Purely
+    # informational -- every path in ``errors`` is already relative to it.
+    root: str | None = None
+
 
 def validate(
     unvalidated_lp: UnvalidatedLearningPackageInput,
@@ -76,6 +80,7 @@ def validate(
         data=data,
         fs=unvalidated_lp.fs,
         errors=errors,
+        root=unvalidated_lp.root,
     )
 
 

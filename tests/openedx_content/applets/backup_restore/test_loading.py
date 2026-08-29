@@ -16,6 +16,7 @@ produced by the backup side, and several of its quirks are deliberate:
 * Its entities cover every draft/published combination we care about.
 """
 import os
+import shutil
 import tempfile
 from datetime import datetime, timezone
 from io import StringIO
@@ -577,3 +578,139 @@ class RestoreFailedErrorStrTest(TestCase):
         error = RestoreFailedError([MissingFileError("Root Package", path="package.toml")])
         assert str(error) == error.as_text()
         assert "Root Package file not found" in str(error)
+
+
+class RestoreWrapperArchiveTest(RestoreTestCase):
+    """
+    Archives that wrap their contents in a single folder.
+
+    ``zip -r MyLib.zip MyLib`` compresses the folder rather than its contents,
+    which is a perfectly reasonable thing to hand us. Such an archive must
+    restore identically to a flat one.
+    """
+
+    def as_wrapper_dir(self, folder: str, wrapper: str = "MyLib") -> str:
+        """Copy a fixture folder one level down inside a fresh temp directory."""
+        tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp_dir.cleanup)
+        shutil.copytree(folder, os.path.join(tmp_dir.name, wrapper))
+        return tmp_dir.name
+
+    def comparable(self, result):
+        """Everything about a restore except what differs by construction."""
+        data = dict(vars(result.lp_restored_data))
+        del data["id"]
+        del data["package_ref"]
+        return data
+
+    def test_wrapper_zip_matches_flat_archive(self):
+        tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp_dir.cleanup)
+        wrapped_zip = folder_to_zip_path(
+            self.fixtures_folder, tmp_dir.name, prefix="MyLib/"
+        )
+
+        flat = api.create_learning_package(
+            self.fixtures_folder, user=self.user, package_ref="lib:flat:one"
+        )
+        wrapped = api.create_learning_package(
+            wrapped_zip, user=self.user, package_ref="lib:wrapped:zip"
+        )
+
+        assert self.comparable(wrapped) == self.comparable(flat)
+        assert vars(wrapped.backup_metadata) == vars(flat.backup_metadata)
+
+    def test_wrapper_directory_matches_flat_archive(self):
+        flat = api.create_learning_package(
+            self.fixtures_folder, user=self.user, package_ref="lib:flat:two"
+        )
+        wrapped = api.create_learning_package(
+            self.as_wrapper_dir(self.fixtures_folder),
+            user=self.user,
+            package_ref="lib:wrapped:dir",
+        )
+
+        assert self.comparable(wrapped) == self.comparable(flat)
+
+    def test_macos_style_zip(self):
+        """A zip made with Finder's "Compress" carries __MACOSX and .DS_Store."""
+        tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp_dir.cleanup)
+        mac_zip = folder_to_zip_path(
+            self.fixtures_folder,
+            tmp_dir.name,
+            prefix="MyLib/",
+            extra_names=("__MACOSX/._MyLib", ".DS_Store"),
+        )
+
+        result = api.create_learning_package(
+            mac_zip, user=self.user, package_ref="lib:wrapped:mac"
+        )
+
+        assert result.status == "success"
+        assert result.lp_restored_data.num_components == 7
+
+    def test_static_assets_survive_a_wrapper(self):
+        """
+        Static files still resolve when the archive is wrapped.
+
+        The ``fs:`` pointers written during extraction are relative to the
+        re-rooted filesystem, so this is what catches the case where the wrong
+        filesystem gets handed downstream -- it would break images for wrapper
+        archives only.
+        """
+        tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp_dir.cleanup)
+        wrapped_zip = folder_to_zip_path(
+            self.fixtures_folder, tmp_dir.name, prefix="MyLib/"
+        )
+
+        result = api.create_learning_package(
+            wrapped_zip, user=self.user, package_ref="lib:wrapped:static"
+        )
+
+        component = components_api.get_components(result.lp_restored_data.id).get(
+            publishable_entity__entity_ref=(
+                "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37"
+            )
+        )
+        draft = publishing_api.get_draft_version(component.publishable_entity.id)
+        by_path = {
+            cvm.path: cvm.media
+            for cvm in draft.componentversion.componentversionmedia_set.all()
+        }
+        assert set(by_path) == {"block.xml", "static/me.png"}
+        assert by_path["static/me.png"].has_file
+        assert by_path["static/me.png"].read_file().read()
+
+    def test_ambiguous_archive_is_refused(self):
+        """
+        Several candidate folders means we don't guess.
+
+        ``fixtures/broken/`` holds a handful of directories that each contain a
+        package.toml, so there is no single obvious root.
+        """
+        packages_before = publishing_api.LearningPackage.objects.count()
+
+        with self.assertRaises(RestoreFailedError) as ctx:
+            api.create_learning_package(
+                os.path.join(FIXTURES_DIR, "broken"), user=self.user
+            )
+
+        assert publishing_api.LearningPackage.objects.count() == packages_before
+        assert any(
+            isinstance(err, MissingFileError) for err in ctx.exception.errors
+        )
+
+    def test_detected_root_is_reported_in_the_error_text(self):
+        """
+        When we do re-root, say so -- every path we report is relative to it.
+        """
+        wrapper_dir = self.as_wrapper_dir(broken_fixture("missing_lp_key"))
+
+        with self.assertRaises(RestoreFailedError) as ctx:
+            api.create_learning_package(wrapper_dir, user=self.user)
+
+        text = ctx.exception.as_text()
+        assert "Archive root: MyLib/" in text
+        assert "package.toml: learning_package.key" in text

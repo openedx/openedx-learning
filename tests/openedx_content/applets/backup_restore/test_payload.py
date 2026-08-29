@@ -6,20 +6,24 @@ Please be very cautious about whether you are breaking backwards compatibility.
 This module tests our ability to extract data from the backup archive TOML files
 and resources, and assemble them into a combined document that represents the
 entire LearningPackage, and is encapsulated in UnvalidatedLearningPackageInput.
-Most of these test functions that examine individual files. The functions in
-payload.py were designed to mostly accept an AbstractFileSystem and path as
-arguments, so it should be possible to do simple test calls on TOML files and
-dirs without having to mock anything.
+Most of these test methods that examine individual files. PayloadExtractor
+takes the filesystem once, at construction, and its methods take a path, so it
+should be possible to do simple test calls on TOML files and dirs without having
+to mock anything.
 
 These tests are strictly for the payload module, and therefore don't need Django
 to run.
 """
 
+import io
+import tempfile
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest import TestCase
 
 from fsspec.implementations.dirfs import DirFileSystem
+from fsspec.implementations.zip import ZipFileSystem
 
 from openedx_content.applets.backup_restore import payload
 
@@ -34,38 +38,40 @@ class ExtractRootPackageFileTest(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.fs = DirFileSystem(TEST_DATA_ROOT / "root_packages")
+        cls.extractor = payload.PayloadExtractor(cls.fs)
 
     @classmethod
     def tearDownClass(cls):
         del cls.fs
+        del cls.extractor
         super().tearDownClass()
 
     def test_file_not_found(self):
         with self.assertRaises(payload.MissingFileError) as ctx:
-            payload.extract_root_package_data(self.fs, "does_not_exist.toml")
+            self.extractor.extract_root_package_data("does_not_exist.toml")
         assert ctx.exception.path == "does_not_exist.toml"
 
     def test_broken_toml(self):
         with self.assertRaises(payload.InvalidTOMLError) as ctx:
-            payload.extract_root_package_data(self.fs, "broken.toml")
+            self.extractor.extract_root_package_data("broken.toml")
         assert ctx.exception.path == "broken.toml"
 
     def test_fields_not_in_table(self):
         with self.assertRaises(payload.FieldsNotInTable) as ctx:
-            payload.extract_root_package_data(self.fs, "fields_not_in_table.toml")
+            self.extractor.extract_root_package_data("fields_not_in_table.toml")
         assert ctx.exception.path == "fields_not_in_table.toml"
         assert ctx.exception.fields == ["created_by", "format_version"]
 
     def test_missing_meta_table(self):
         with self.assertRaises(payload.TableNotFoundError) as ctx:
-            payload.extract_root_package_data(self.fs, "missing_meta.toml")
+            self.extractor.extract_root_package_data("missing_meta.toml")
         assert ctx.exception.path == "missing_meta.toml"
         assert ctx.exception.table == "meta"
         assert "[meta]" in str(ctx.exception)
 
     def test_missing_learning_package_table(self):
         with self.assertRaises(payload.TableNotFoundError) as ctx:
-            payload.extract_root_package_data(self.fs, "missing_learning_package.toml")
+            self.extractor.extract_root_package_data("missing_learning_package.toml")
         assert ctx.exception.path == "missing_learning_package.toml"
         assert ctx.exception.table == "learning_package"
         assert "[learning_package]" in str(ctx.exception)
@@ -73,37 +79,27 @@ class ExtractRootPackageFileTest(TestCase):
     def test_unsupported_format_version(self):
         # We don't support format_version=2
         with self.assertRaises(payload.UnsupportedFormatError):
-            payload.extract_root_package_data(
-                self.fs, "unsupported_format_version_2.toml"
-            )
+            self.extractor.extract_root_package_data("unsupported_format_version_2.toml")
         # We don't support format_version as anthing other than number
         with self.assertRaises(payload.UnsupportedFormatError):
-            payload.extract_root_package_data(
-                self.fs, "unsupported_format_version_b.toml"
-            )
+            self.extractor.extract_root_package_data("unsupported_format_version_b.toml")
 
         # ...and a boolean is not a number, even though Python's bool is a
         # subclass of int and would otherwise read as version 1.
         with self.assertRaises(payload.UnsupportedFormatError):
-            payload.extract_root_package_data(
-                self.fs, "unsupported_format_version_true.toml"
-            )
+            self.extractor.extract_root_package_data("unsupported_format_version_true.toml")
 
         # We will allow format_version 1.x though, in case we want to extend our
         # format in a fully backwards compatible way.
-        root_data = payload.extract_root_package_data(
-            self.fs, "unsupported_format_version_1_1.toml"
-        )
+        root_data = self.extractor.extract_root_package_data("unsupported_format_version_1_1.toml")
         assert root_data["meta"]["format_version"] == 1.1
 
     def test_ignore_unknown_tables(self):
         """Allow for forwards compatibility."""
-        assert "unknown" in payload.extract_root_package_data(
-            self.fs, "unknown_table.toml"
-        )
+        assert "unknown" in self.extractor.extract_root_package_data("unknown_table.toml")
 
     def test_minimal(self):
-        data = payload.extract_root_package_data(self.fs, "minimal.toml")
+        data = self.extractor.extract_root_package_data("minimal.toml")
         assert data == {
             "meta": {
                 "format_version": 1,
@@ -112,7 +108,7 @@ class ExtractRootPackageFileTest(TestCase):
         }
 
     def test_normal(self):
-        data = payload.extract_root_package_data(self.fs, "normal_ulmo_v1.toml")
+        data = self.extractor.extract_root_package_data("normal_ulmo_v1.toml")
         assert data == {
             "meta": {
                 "format_version": 1,
@@ -144,27 +140,29 @@ class ExtractEntityDataTest(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.fs = DirFileSystem(TEST_DATA_ROOT / "entities")
+        cls.extractor = payload.PayloadExtractor(cls.fs)
 
     @classmethod
     def tearDownClass(cls):
         del cls.fs
+        del cls.extractor
         super().tearDownClass()
 
     def test_broken_toml(self):
         with self.assertRaises(payload.InvalidTOMLError) as ctx:
-            payload.extract_entity_data(self.fs, "broken.toml")
+            self.extractor.extract_entity_data("broken.toml")
         assert ctx.exception.path == "broken.toml"
 
     def test_missing_entity_table(self):
         with self.assertRaises(payload.TableNotFoundError) as ctx:
-            payload.extract_entity_data(self.fs, "missing_entity_table.toml")
+            self.extractor.extract_entity_data("missing_entity_table.toml")
         assert ctx.exception.path == "missing_entity_table.toml"
         assert ctx.exception.table == "entity"
         assert "[entity]" in str(ctx.exception)
 
     def test_missing_entity_key(self):
         with self.assertRaises(payload.FieldMissing) as ctx:
-            payload.extract_entity_data(self.fs, "missing_entity_key.toml")
+            self.extractor.extract_entity_data("missing_entity_key.toml")
         assert ctx.exception.missing_field == "key"
         assert ctx.exception.table == "entity"
 
@@ -182,7 +180,7 @@ class ExtractEntityDataTest(TestCase):
         extract_entity_data().
         """
         paths = ["dupe_1.toml", "dupe_2.toml"]
-        data, _path_mapping, errors = payload.extract_entities_data(self.fs, paths)
+        data, _path_mapping, errors = self.extractor.extract_entities_data(paths)
         assert "dupe-key" in data  # The first one should have succeeded...
         assert len(data) == 1  # but the duplicate never made it in.
         assert len(errors) == 1  # There should be only one error.
@@ -199,7 +197,7 @@ class ExtractEntityDataTest(TestCase):
         can add attributes without older code choking on them. Unknown tables at
         the top level are not part of the entity, so they don't come along.
         """
-        _ref, data = payload.extract_entity_data(self.fs, "unknown_table.toml")
+        _ref, data = self.extractor.extract_entity_data("unknown_table.toml")
         assert data["future_thing"] == {"some_setting": "hello"}
         assert "future_top_level" not in data
 
@@ -210,13 +208,13 @@ class ExtractEntityDataTest(TestCase):
         Whether that's actually loadable is the validation step's problem, not
         ours -- our job is only to faithfully report what's in the file.
         """
-        ref, data = payload.extract_entity_data(self.fs, "missing_versions.toml")
+        ref, data = self.extractor.extract_entity_data("missing_versions.toml")
         assert ref == "no-versions-c0ffee"
         assert data["versions"] == []
         assert data["container"] == {"unit": {}}
 
     def test_normal_component(self):
-        ref, data = payload.extract_entity_data(self.fs, "normal_component.toml")
+        ref, data = self.extractor.extract_entity_data("normal_component.toml")
         assert ref == "xblock.v1:html:9f221fc4-42f1-4d07-ada4-653409bc5fff"
         assert data["can_stand_alone"] is True
         assert data["created"] == datetime(
@@ -245,7 +243,7 @@ class ExtractEntityDataTest(TestCase):
         )
 
     def test_normal_container(self):
-        ref, data = payload.extract_entity_data(self.fs, "normal_container.toml")
+        ref, data = self.extractor.extract_entity_data("normal_container.toml")
         assert ref == "section-9-ac4b9f"
         assert data == {
             'can_stand_alone': True,
@@ -290,32 +288,34 @@ class ExtractCollectionDataTest(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.fs = DirFileSystem(TEST_DATA_ROOT / "collections")
+        cls.extractor = payload.PayloadExtractor(cls.fs)
 
     @classmethod
     def tearDownClass(cls):
         del cls.fs
+        del cls.extractor
         super().tearDownClass()
 
     def test_broken_toml(self):
         with self.assertRaises(payload.InvalidTOMLError) as ctx:
-            payload.extract_collection_data(self.fs, "broken.toml")
+            self.extractor.extract_collection_data("broken.toml")
         assert ctx.exception.path == "broken.toml"
 
     def test_fields_not_in_table(self):
         with self.assertRaises(payload.FieldsNotInTable) as ctx:
-            payload.extract_collection_data(self.fs, "fields_not_in_table.toml")
+            self.extractor.extract_collection_data("fields_not_in_table.toml")
         assert ctx.exception.path == "fields_not_in_table.toml"
         assert ctx.exception.fields == ["key", "title"]
 
     def test_missing_collection_table(self):
         with self.assertRaises(payload.TableNotFoundError) as ctx:
-            payload.extract_collection_data(self.fs, "missing_collection_table.toml")
+            self.extractor.extract_collection_data("missing_collection_table.toml")
         assert ctx.exception.path == "missing_collection_table.toml"
         assert ctx.exception.table == "collection"
         assert "[collection]" in str(ctx.exception)
 
     def test_normal(self):
-        data = payload.extract_collection_data(self.fs, "normal.toml")
+        data = self.extractor.extract_collection_data("normal.toml")
         assert data == {
             "title": "Difficult Problems",
             "key": "difficult-problems",
@@ -339,8 +339,8 @@ class ExtractCollectionDataTest(TestCase):
         a list. Nothing is lost at this layer, so we extract both and let
         CompletePackageInputData.check_for_duplicate_keys reject them.
         """
-        dupe_1 = payload.extract_collection_data(self.fs, "dupe_1.toml")
-        dupe_2 = payload.extract_collection_data(self.fs, "dupe_2.toml")
+        dupe_1 = self.extractor.extract_collection_data("dupe_1.toml")
+        dupe_2 = self.extractor.extract_collection_data("dupe_2.toml")
         assert dupe_1["key"] == dupe_2["key"] == "dupe-collection-key"
         assert dupe_1["src_path"] != dupe_2["src_path"]
 
@@ -356,7 +356,7 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
 
     def test_normal(self):
         fs = DirFileSystem(FIXTURES_ROOT / "library_backup")
-        unvalidated = payload.extract_unvalidated_learning_package(fs)
+        unvalidated = payload.PayloadExtractor(fs).extract()
 
         assert unvalidated.errors == []
         assert unvalidated.raw_data["learning_package"]["key"] == "lib:WGU:LIB_C001"
@@ -373,7 +373,7 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
         collisions.
         """
         fs = DirFileSystem(FIXTURES_ROOT / "library_backup")
-        unvalidated = payload.extract_unvalidated_learning_package(fs)
+        unvalidated = payload.PayloadExtractor(fs).extract()
 
         assert (
             unvalidated.entity_path_mapping["section1-8ca126"]
@@ -385,7 +385,7 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
 
     def test_missing_root_package_is_collected_not_raised(self):
         fs = DirFileSystem(TEST_DATA_ROOT / "empty_archive")
-        unvalidated = payload.extract_unvalidated_learning_package(fs)
+        unvalidated = payload.PayloadExtractor(fs).extract()
 
         assert len(unvalidated.errors) == 1
         error = unvalidated.errors[0]
@@ -398,7 +398,7 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
 
     def test_duplicate_entities_are_collected(self):
         fs = DirFileSystem(TEST_DATA_ROOT / "duplicate_entities")
-        unvalidated = payload.extract_unvalidated_learning_package(fs)
+        unvalidated = payload.PayloadExtractor(fs).extract()
 
         duplicate_errors = [
             err for err in unvalidated.errors
@@ -415,14 +415,14 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
         TOML files under component_versions/ are static assets, not entities.
         """
         fs = DirFileSystem(FIXTURES_ROOT / "library_backup")
-        paths = payload.get_entity_file_paths(fs)
+        paths = payload.PayloadExtractor(fs).get_entity_file_paths()
 
         assert paths == sorted(paths)  # deterministic ordering
         assert all("/component_versions/" not in path for path in paths)
 
     def test_collection_errors_are_collected(self):
         fs = DirFileSystem(TEST_DATA_ROOT / "broken_collection")
-        unvalidated = payload.extract_unvalidated_learning_package(fs)
+        unvalidated = payload.PayloadExtractor(fs).extract()
 
         assert len(unvalidated.errors) == 1
         error = unvalidated.errors[0]
@@ -431,3 +431,179 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
 
         # The rest of the archive still came through.
         assert unvalidated.raw_data["learning_package"]["key"] == "lib:Axim:FunLib"
+
+
+def dir_fs_with(tmp_path, layout: dict) -> DirFileSystem:
+    """
+    Build a throwaway directory tree and return a filesystem over it.
+
+    ``layout`` maps relative paths to file contents.
+    """
+    for rel_path, contents in layout.items():
+        target = Path(tmp_path) / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(contents)
+    return DirFileSystem(tmp_path)
+
+
+def zip_fs_with(names) -> ZipFileSystem:
+    """Build an in-memory zip containing ``names``, and return a filesystem over it."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zipf:
+        for name in names:
+            zipf.writestr(name, "[meta]\nformat_version = 1\n")
+    buffer.seek(0)
+    return ZipFileSystem(fo=buffer, mode="r")
+
+
+class FindArchiveRootTest(TestCase):
+    """
+    Tests for accepting archives that wrap their contents in a single folder.
+
+    People routinely build an archive with ``zip -r MyLib.zip MyLib`` rather than
+    compressing the folder's *contents*, and the result is perfectly sensible to
+    them. We accept it rather than reporting a missing package.toml.
+
+    Both a zip and a plain directory are covered, because fsspec's ``ls("")``
+    behaves differently on each.
+    """
+
+    PACKAGE = "[meta]\nformat_version = 1\n"
+
+    def setUp(self):
+        super().setUp()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp_path = self._tmp.name
+
+    def test_package_at_top_level_zip(self):
+        fs = zip_fs_with(["package.toml", "entities/unit1.toml"])
+        assert payload.find_archive_root(fs) is None
+
+    def test_package_at_top_level_dir(self):
+        fs = dir_fs_with(self.tmp_path, {"package.toml": self.PACKAGE})
+        assert payload.find_archive_root(fs) is None
+
+    def test_single_wrapper_folder_zip(self):
+        fs = zip_fs_with(["MyLib/package.toml", "MyLib/entities/unit1.toml"])
+        assert payload.find_archive_root(fs) == "MyLib"
+
+    def test_single_wrapper_folder_dir(self):
+        fs = dir_fs_with(self.tmp_path, {"MyLib/package.toml": self.PACKAGE})
+        assert payload.find_archive_root(fs) == "MyLib"
+
+    def test_macos_style_zip(self):
+        """
+        macOS's "Compress" adds __MACOSX and often .DS_Store beside the folder.
+
+        This is the single most common way a non-technical user produces a zip,
+        so a rule that just counted top-level entries would fail on most of them.
+        """
+        fs = zip_fs_with([
+            "MyLib/package.toml",
+            "MyLib/entities/unit1.toml",
+            "__MACOSX/._MyLib",
+            ".DS_Store",
+        ])
+        assert payload.find_archive_root(fs) == "MyLib"
+
+    def test_wrapper_folder_beside_a_stray_file(self):
+        fs = zip_fs_with(["MyLib/package.toml", "README.txt"])
+        assert payload.find_archive_root(fs) == "MyLib"
+
+    def test_folder_without_a_package_toml_is_not_a_root(self):
+        """
+        Requiring package.toml inside the candidate is what makes this safe.
+
+        Without that check, any archive whose top level happened to hold a single
+        directory would be re-rooted into it.
+        """
+        fs = zip_fs_with(["MyLib/entities/unit1.toml"])
+        assert payload.find_archive_root(fs) is None
+
+    def test_two_candidate_folders_are_ambiguous(self):
+        fs = zip_fs_with(["LibA/package.toml", "LibB/package.toml"])
+        assert payload.find_archive_root(fs) is None
+
+    def test_nested_two_levels_is_not_followed(self):
+        """We only look one level down; deeper nesting isn't worth guessing at."""
+        fs = zip_fs_with(["Outer/MyLib/package.toml"])
+        assert payload.find_archive_root(fs) is None
+
+    def test_empty_archive(self):
+        fs = dir_fs_with(self.tmp_path, {})
+        assert payload.find_archive_root(fs) is None
+
+    def test_entities_fixture_is_not_re_rooted(self):
+        """
+        Regression guard for the fixture that nearly broke this.
+
+        ``payload_test_data/entities/`` holds exactly one subdirectory,
+        ``normal_component/``. A rule based on "a single top-level folder" would
+        silently re-root into it and break every entity test in this module.
+        """
+        fs = DirFileSystem(TEST_DATA_ROOT / "entities")
+        assert payload.find_archive_root(fs) is None
+        assert payload.PayloadExtractor(fs).root is None
+
+
+class ExtractThroughWrapperTest(TestCase):
+    """
+    Extracting a wrapper-style archive gives the same result as a flat one.
+
+    Everything the extractor reports is relative to the detected root, so the
+    only observable difference should be ``root`` itself.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        flat_fs = DirFileSystem(FIXTURES_ROOT / "library_backup")
+        cls.flat = payload.PayloadExtractor(flat_fs).extract()
+
+        # The same fixture, but nested one level down inside "MyLib/".
+        wrapped_fs = DirFileSystem(FIXTURES_ROOT)
+        cls.wrapped_extractor = payload.PayloadExtractor(wrapped_fs)
+
+    def test_flat_archive_has_no_root(self):
+        assert self.flat.root is None
+
+    def test_wrapper_root_is_detected(self):
+        """
+        ``fixtures/`` holds library_backup (with a package.toml) and broken/
+        (without one), so library_backup is the only candidate.
+        """
+        assert self.wrapped_extractor.root == "library_backup"
+
+    def test_raw_data_matches_the_flat_archive(self):
+        wrapped = self.wrapped_extractor.extract()
+
+        assert wrapped.errors == []
+        assert wrapped.raw_data == self.flat.raw_data
+
+    def test_paths_are_relative_to_the_detected_root(self):
+        wrapped = self.wrapped_extractor.extract()
+
+        assert wrapped.entity_path_mapping == self.flat.entity_path_mapping
+        assert (
+            wrapped.entity_path_mapping["section1-8ca126"]
+            == "entities/section1-extra-8ca126.toml"
+        )
+
+    def test_static_asset_pointers_resolve_against_the_returned_fs(self):
+        """
+        The ``fs:`` pointers are relative to the *re-rooted* filesystem.
+
+        This is the subtle one: if extract() returned the original filesystem
+        instead of the re-rooted one, these pointers would not resolve, and
+        static assets would silently go missing for wrapper archives only.
+        """
+        wrapped = self.wrapped_extractor.extract()
+        entity = wrapped.raw_data["entities"][
+            "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37"
+        ]
+        version = next(v for v in entity["versions"] if v["version_num"] == 5)
+        pointer = version["component"]["media"]["static/me.png"]
+
+        assert pointer.startswith("fs:")
+        assert wrapped.fs.read_bytes(pointer.removeprefix("fs:"))
