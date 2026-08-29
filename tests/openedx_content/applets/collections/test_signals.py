@@ -19,7 +19,7 @@ now_time = datetime.now(tz=timezone.utc)
 @pytest.fixture(name="lp1")
 def _lp1() -> LearningPackage:
     """A learning package for use across collection signal tests."""
-    return api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    return api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
 
 def _create_entity(learning_package_id: LearningPackage.ID, entity_ref: str) -> PublishableEntity:

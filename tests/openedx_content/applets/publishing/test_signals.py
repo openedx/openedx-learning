@@ -44,7 +44,7 @@ def test_learning_package_created() -> None:
     is created.
     """
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_CREATED], expected_count=1) as captured:
-        learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+        learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
     event = captured[0]
     assert event.signal is api.signals.LEARNING_PACKAGE_CREATED
@@ -57,7 +57,7 @@ def test_learning_package_created_not_emitted_on_update() -> None:
     Test that updating an existing ``LearningPackage`` does NOT emit
     LEARNING_PACKAGE_CREATED. The event is only for new rows.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_CREATED], expected_count=0):
         api.update_learning_package(learning_package.id, title="Updated Title")
@@ -70,7 +70,7 @@ def test_learning_package_created_aborted() -> None:
     """
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_CREATED], expected_count=0):
         with abort_transaction():
-            api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+            api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
 
 # LEARNING_PACKAGE_UPDATED
@@ -82,7 +82,7 @@ def test_learning_package_updated() -> None:
     ``update_learning_package`` actually changes a field, and that the payload
     reflects the post-update title.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Original Title")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Original Title")
 
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_UPDATED], expected_count=1) as captured:
         api.update_learning_package(learning_package.id, title="New Title 📦")
@@ -99,7 +99,7 @@ def test_learning_package_updated_noop() -> None:
     ``update_learning_package`` is called with no field changes (the early
     return in the API means the row is never saved).
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_UPDATED], expected_count=0):
         api.update_learning_package(learning_package.id)
@@ -110,7 +110,7 @@ def test_learning_package_updated_aborted() -> None:
     Test that LEARNING_PACKAGE_UPDATED is NOT emitted when the transaction
     that would have updated the ``LearningPackage`` is rolled back.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Original Title")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Original Title")
 
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_UPDATED], expected_count=0):
         with abort_transaction():
@@ -129,7 +129,7 @@ def test_learning_package_deleted() -> None:
     Test that LEARNING_PACKAGE_DELETED is emitted when a ``LearningPackage``
     is deleted.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     lp_id = learning_package.id
 
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_DELETED], expected_count=1) as captured:
@@ -146,8 +146,8 @@ def test_learning_package_deleted_via_queryset() -> None:
     Test that LEARNING_PACKAGE_DELETED fires once per row when multiple
     ``LearningPackage`` instances are deleted via a ``QuerySet.delete()``.
     """
-    lp1 = api.load_learning_package_from_path(package_ref="lp1", title="LP 1")
-    lp2 = api.load_learning_package_from_path(package_ref="lp2", title="LP 2")
+    lp1 = api.create_learning_package(package_ref="lp1", title="LP 1")
+    lp2 = api.create_learning_package(package_ref="lp2", title="LP 2")
 
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_DELETED], expected_count=2) as captured:
         LearningPackage.objects.filter(id__in=[lp1.id, lp2.id]).delete()
@@ -161,7 +161,7 @@ def test_learning_package_deleted_aborted() -> None:
     Test that LEARNING_PACKAGE_DELETED is NOT emitted when the transaction
     that would have deleted the ``LearningPackage`` is rolled back.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     lp_id = learning_package.id
 
     with capture_events(signals=[api.signals.LEARNING_PACKAGE_DELETED], expected_count=0):
@@ -182,7 +182,7 @@ def test_single_entity_changed() -> None:
     """
     Test that ENTITIES_DRAFT_CHANGED is emitted when we change a publishable entity.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
     # Note: creating an entity does not emit any events until we create a version of that entity.
     with capture_events(expected_count=0):
@@ -220,7 +220,7 @@ def test_single_entity_changed_abort() -> None:
     Test that no events are emitted when we roll back a transaction that would have
     changed a publishable entity.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
 
     entity = api.create_publishable_entity(learning_package.id, entity_ref="entity1", created=now_time, created_by=None)
 
@@ -235,7 +235,7 @@ def test_multiple_entites_changed(admin_user) -> None:
     """
     Test that ENTITIES_DRAFT_CHANGED is emitted when we change several publishable entities in a single edit.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     created_args = {"created": now_time, "created_by": admin_user.id}
 
     # Entity 1 will have no initial version:
@@ -284,7 +284,7 @@ def test_multiple_entites_change_aborted() -> None:
     Test that ENTITIES_DRAFT_CHANGED is NOT emitted when we roll back
     a transaction that would have modified multiple entities in a bulk change.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     created_args: dict[str, Any] = {"created": now_time, "created_by": None}
 
     # Entity 1 will have no initial version:
@@ -314,7 +314,7 @@ def test_changes_with_side_effects() -> None:
     Test that the ENTITIES_DRAFT_CHANGED event handles dependencies
     and side effects.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     created_args: dict[str, Any] = {"created": now_time, "created_by": None}
 
     # Create entities with dependencies
@@ -349,7 +349,7 @@ def test_publish_events(admin_user) -> None:
     Test that ENTITIES_PUBLISHED is emitted when we publish
     changes to entities in a learning package.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     created_args = {"created": now_time, "created_by": admin_user.id}
 
     # Entity 1 will have no initial version:
@@ -421,7 +421,7 @@ def test_publish_events_aborted(admin_user) -> None:
     Test that ENTITIES_PUBLISHED is NOT emitted when we roll
     back a transaction that would have published some entities.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     created_args = {"created": now_time, "created_by": admin_user.id}
 
     # Create an entity with some initial version:
@@ -447,7 +447,7 @@ def test_publish_with_dependencies() -> None:
     Test that the ENTITIES_PUBLISHED event handles dependencies
     and side effects.
     """
-    learning_package = api.load_learning_package_from_path(package_ref="lp1", title="Test LP 📦")
+    learning_package = api.create_learning_package(package_ref="lp1", title="Test LP 📦")
     created_args: dict[str, Any] = {"created": now_time, "created_by": None}
 
     # Create entities with dependencies

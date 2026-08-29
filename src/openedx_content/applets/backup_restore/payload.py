@@ -29,12 +29,6 @@ from .errors import (
 
 ROOT_PACKAGE_PATH = "package.toml"
 
-# Debris that archiving tools leave at the top level. These shouldn't count when
-# we're working out whether an archive wraps its contents in a single folder.
-# macOS's "Compress" in particular always adds __MACOSX, and often .DS_Store.
-IGNORED_TOP_LEVEL_NAMES = frozenset({"__MACOSX"})
-
-
 @attrs.define(frozen=True)
 class UnvalidatedLearningPackageInput:
     """
@@ -54,7 +48,8 @@ class UnvalidatedLearningPackageInput:
     # The folder inside the archive that we treated as the root, or None if the
     # archive's contents were at the top level. Every path in ``raw_data``,
     # ``entity_path_mapping`` and ``errors`` is relative to this, so it's only
-    # useful for telling a human what we decided.
+    # useful for telling a human what we decided. Note that ``fs`` itself is
+    # already relative to this root.
     root: str | None = None
 
 
@@ -82,17 +77,11 @@ def find_archive_root(
     if fs.exists(root_package_path):
         return None
 
-    candidates = []
-    # Note: this must be ls("") rather than ls("."), which returns [] on a
-    # ZipFileSystem -- i.e. exactly the case we're here to handle.
-    for entry in fs.ls("", detail=False):
-        name = entry.rsplit("/", 1)[-1]
-        if name in IGNORED_TOP_LEVEL_NAMES or name.startswith("."):
-            continue
-        if not fs.isdir(entry):
-            continue
-        if fs.exists(f"{entry}/{root_package_path}"):
-            candidates.append(entry)
+    candidates = [
+        entry
+        for entry in fs.ls("/", detail=False)
+        if fs.isdir(entry) and fs.exists(f"{entry}/{root_package_path}")
+    ]
 
     # More than one candidate is ambiguous, and guessing would be worse than
     # saying we couldn't find the file.
