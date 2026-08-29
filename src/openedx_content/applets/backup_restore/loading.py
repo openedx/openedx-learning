@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from functools import cache, partial
 
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
+from django.db.transaction import atomic
 
 from ..components import api as components_api
 from ..containers import api as containers_api
@@ -74,39 +75,40 @@ class Loader:
         incremental imports where we have to test the same input being imported
         into multiple Learning Packages with existing state.
         """
-        bulk_change_context_for_time = partial(
-            publishing_api.bulk_draft_changes_for,
-            target.learning_package.id,
-            changed_by=target.user.id,
-        )
+        with atomic(savepoint=False):
+            bulk_change_context_for_time = partial(
+                publishing_api.bulk_draft_changes_for,
+                target.learning_package.id,
+                changed_by=target.user.id,
+            )
 
-        # DraftChangeLog 1: Add all the PublishableEntities and their versions,
-        # and set their versions to prepare for for publishing.
-        with bulk_change_context_for_time(changed_at=target.loaded_at):
-            loaded_components = self.load_components_into(target)
-            loaded_entities = self.load_containers_into(target, loaded_components)
-            self.set_draft_versions(target, for_publishing=True)
+            # DraftChangeLog 1: Add all the PublishableEntities and their versions,
+            # and set their versions to prepare for for publishing.
+            with bulk_change_context_for_time(changed_at=target.loaded_at):
+                loaded_components = self.load_components_into(target)
+                loaded_entities = self.load_containers_into(target, loaded_components)
+                self.set_draft_versions(target, for_publishing=True)
 
-        publishing_api.publish_all_drafts(
-            target.learning_package.id,
-            published_at=target.loaded_at,
-            published_by=target.user.id,
-            message="Restore from backup.",
-        )
+            publishing_api.publish_all_drafts(
+                target.learning_package.id,
+                published_at=target.loaded_at,
+                published_by=target.user.id,
+                message="Restore from backup.",
+            )
 
-        # DraftChangeLog 2: Set all PublishableEntities to their proper draft.
-        # At this point, all versions have been loaded, and the correct versions
-        # have been published, but the current draft version might be wrong.
-        #
-        # The history display will want draft changes to be slightly after the
-        # published log entry.
-        changed_at = target.loaded_at + timedelta(seconds=1)
-        with bulk_change_context_for_time(changed_at=changed_at):
-            self.set_draft_versions(target, for_publishing=False)
+            # DraftChangeLog 2: Set all PublishableEntities to their proper draft.
+            # At this point, all versions have been loaded, and the correct versions
+            # have been published, but the current draft version might be wrong.
+            #
+            # The history display will want draft changes to be slightly after the
+            # published log entry.
+            changed_at = target.loaded_at + timedelta(seconds=1)
+            with bulk_change_context_for_time(changed_at=changed_at):
+                self.set_draft_versions(target, for_publishing=False)
 
-        # Collections are added at the end, in case publishing of contents would
-        # cause more thrashing w.r.t. search indexing.
-        self.load_collections_into(target, loaded_entities)
+            # Collections are added at the end, in case publishing of contents would
+            # cause more thrashing w.r.t. search indexing.
+            self.load_collections_into(target, loaded_entities)
 
         return self.build_restore_result(target)
 

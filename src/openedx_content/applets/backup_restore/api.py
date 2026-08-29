@@ -1,13 +1,8 @@
 """
 Backup Restore API
 
-Archive → Filesystem → Learning Package Doc + Resources → Input Models → LearningPackage
-
-Extract -> Validate -> Load
-
-
-(FS + root) -> UnvalidatedLearningPackage -> ValidatedLearningPackageInput
-
+This module is responsible for creating a backup archive of a Learning Package,
+as well as creating a new Learning Package based on a backup archive file.
 """
 from datetime import datetime, timezone
 
@@ -38,17 +33,18 @@ def load_learning_package(
     Restores the learning package and its contents to the database.
 
     The overall pipeline looks like this:
+
         Archive location (Path) →
         FileSystem (fsspec) →
         UnvalidatedLearningPackageInput →
         ValidatedLearningPackageInput →
         LearningPackage
 
-    TODO: Returns a dictionary with the status of the operation and any errors encountered.
+    Loads a learning package from a zip file at the given path. Restores the
+    learning package and its contents to the database.
 
-    Loads a learning package from a zip file at the given path.
-    Restores the learning package and its contents to the database.
-    Returns a dictionary with the status of the operation and any errors encountered.
+    Returns a dictionary with the status of the operation and any errors
+    encountered during that process.
     """
     fs = archive.read_fs_for_path(path_str)
     unvalidated_input = payload.extract_unvalidated_learning_package(fs)
