@@ -76,7 +76,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
     """Restoring a well-formed archive."""
 
     def test_restore_with_explicit_package_ref(self):
-        result = api.load_learning_package(
+        result = api.create_learning_package(
             self.fixtures_folder, user=self.user, package_ref="lib-xx:WGU:LIB_C001"
         )
 
@@ -102,7 +102,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
         assert lp is not None, "Learning package was not restored."
 
     def test_learning_package_fields_come_from_the_archive(self):
-        result = api.load_learning_package(
+        result = api.create_learning_package(
             self.fixtures_folder, user=self.user, package_ref="lib-xx:WGU:LIB_C001"
         )
 
@@ -113,7 +113,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
 
     def test_restore_with_staged_package_ref(self):
         """Without an explicit ref we generate one namespaced to the user."""
-        result = api.load_learning_package(self.fixtures_folder, user=self.user)
+        result = api.create_learning_package(self.fixtures_folder, user=self.user)
 
         assert result.status == "success"
         restored_ref = result.lp_restored_data.package_ref
@@ -126,7 +126,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
         assert lp is not None, "Learning package with staged ref was not restored."
 
     def test_backup_metadata(self):
-        result = api.load_learning_package(self.fixtures_folder, user=self.user)
+        result = api.create_learning_package(self.fixtures_folder, user=self.user)
 
         assert result.status == "success"
         assert result.backup_metadata.format_version == 1
@@ -144,10 +144,10 @@ class RestoreLearningPackageTest(RestoreTestCase):
         Reading directly from a directory is new -- the old implementation only
         accepted zip files -- so it's worth pinning that the two agree.
         """
-        from_dir = api.load_learning_package(
+        from_dir = api.create_learning_package(
             self.fixtures_folder, user=self.user, package_ref="lib:from:dir"
         )
-        from_zip = api.load_learning_package(
+        from_zip = api.create_learning_package(
             self.as_zip(self.fixtures_folder), user=self.user, package_ref="lib:from:zip"
         )
 
@@ -172,7 +172,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
         The ``library_backup`` fixture's ``unit1`` deliberately has a blank
         title to exercise this path.
         """
-        result = api.load_learning_package(
+        result = api.create_learning_package(
             self.fixtures_folder, user=self.user, package_ref="lib-xx:WGU:LIB_C001"
         )
 
@@ -192,7 +192,7 @@ class RestoreLearningPackageTest(RestoreTestCase):
         so the two routinely differ. Two fixture files are named to make sure we
         don't accidentally start trusting the filename.
         """
-        result = api.load_learning_package(
+        result = api.create_learning_package(
             self.fixtures_folder, user=self.user, package_ref="lib-xx:WGU:LIB_C001"
         )
         lp_id = result.lp_restored_data.id
@@ -212,7 +212,7 @@ class RestoreContentTest(RestoreTestCase):
 
     def setUp(self):
         super().setUp()
-        result = api.load_learning_package(
+        result = api.create_learning_package(
             self.fixtures_folder, user=self.user, package_ref="lib-xx:WGU:LIB_C001"
         )
         self.lp = publishing_api.LearningPackage.objects.get(
@@ -367,7 +367,7 @@ class RestoreErrorTest(RestoreTestCase):
         packages_before = publishing_api.LearningPackage.objects.count()
 
         with self.assertRaises(RestoreFailedError) as ctx:
-            api.load_learning_package(broken_fixture(fixture_name), user=self.user)
+            api.create_learning_package(broken_fixture(fixture_name), user=self.user)
 
         assert publishing_api.LearningPackage.objects.count() == packages_before, (
             "A failed restore must not leave anything behind."
@@ -411,11 +411,11 @@ class RestoreErrorTest(RestoreTestCase):
 
     def test_unreadable_archive(self):
         with self.assertRaises(ArchiveNotReadableError):
-            api.load_learning_package("/no/such/path.zip", user=self.user)
+            api.create_learning_package("/no/such/path.zip", user=self.user)
 
     def test_error_text_lists_every_problem(self):
         with self.assertRaises(RestoreFailedError) as ctx:
-            api.load_learning_package(broken_fixture("missing_lp_key"), user=self.user)
+            api.create_learning_package(broken_fixture("missing_lp_key"), user=self.user)
 
         text = ctx.exception.as_text()
         assert text.startswith("Errors encountered during restore:\n")
@@ -431,7 +431,7 @@ class LoadLearningPackageAsDictTest(RestoreTestCase):
     """
 
     def test_success_shape(self):
-        result = api.load_learning_package_as_dict(
+        result = api.load_learning_package(
             self.fixtures_folder, user=self.user, package_ref="lib-xx:WGU:LIB_C001"
         )
 
@@ -451,7 +451,7 @@ class LoadLearningPackageAsDictTest(RestoreTestCase):
         }
 
     def test_error_shape(self):
-        result = api.load_learning_package_as_dict(
+        result = api.load_learning_package(
             broken_fixture("missing_lp_key"), user=self.user
         )
 
@@ -462,7 +462,7 @@ class LoadLearningPackageAsDictTest(RestoreTestCase):
         assert "package.toml" in result["log_file_error"].getvalue()
 
     def test_unreadable_archive_is_also_reported_as_a_dict(self):
-        result = api.load_learning_package_as_dict("/no/such/path.zip", user=self.user)
+        result = api.load_learning_package("/no/such/path.zip", user=self.user)
 
         assert result["status"] == "error"
         assert "/no/such/path.zip" in result["log_file_error"].getvalue()

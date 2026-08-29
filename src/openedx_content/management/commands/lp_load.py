@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 
-from openedx_content.applets.backup_restore.api import load_learning_package
+from openedx_content.applets.backup_restore.api import create_learning_package
 from openedx_content.applets.backup_restore.errors import BackupRestoreError, RestoreFailedError
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class Command(BaseCommand):
 
         start_time = time.time()
         try:
-            result = load_learning_package(path, user=user, package_ref=package_ref)
+            result = create_learning_package(path, user=user, package_ref=package_ref)
         except RestoreFailedError as exc:
             # The archive is bad. Show every problem we found, not just the first.
             raise CommandError(exc.as_text()) from exc

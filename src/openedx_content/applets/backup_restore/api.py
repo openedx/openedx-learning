@@ -19,12 +19,12 @@ from .zipper import LearningPackageZipper
 
 __all__ = [
     "create_zip_file",
+    "create_learning_package",
     "load_learning_package",
-    "load_learning_package_as_dict",
 ]
 
 
-def load_learning_package(
+def create_learning_package(
     path_str: str,
     user: UserType,
     package_ref: str | None = None,
@@ -45,14 +45,14 @@ def load_learning_package(
       loading.py: ValidatedLearningPackageInput → LearningPackage
 
     If ``package_ref`` is not supplied, we generate a staged one namespaced to
-    ``user``. We can't just use the ref from the archive, because the archive can
-    claim any ref it likes and the user may not be allowed to create it.
+    ``user``. We can't just use the ref from the archive, because the archive
+    can claim any ref it likes and the user may not be allowed to create it.
 
     Errors that can be raised:
 
     * ``ArchiveNotReadableError`` if we can't open ``path_str`` at all.
-    * ``RestoreFailedError`` if the archive's contents don't validate. Nothing is
-      written to the database in that case.
+    * ``RestoreFailedError`` if the archive's contents don't validate. Nothing
+      is written to the database in that case.
 
     Both descend from ``BackupRestoreError``.
     """
@@ -67,17 +67,17 @@ def load_learning_package(
         raise RestoreFailedError(validated_input.errors)
 
     loader = loading.Loader(validated_input)
-    archive_lp = loader.data.learning_package
+    archive_lp_input = loader.data.learning_package  # LearningPackageInputData
     if package_ref is None:
-        package_ref = generate_staged_package_ref(archive_lp.key, user)
+        package_ref = generate_staged_package_ref(archive_lp_input.key, user)
 
     now = datetime.now(tz=timezone.utc)
     with atomic(savepoint=False):
         learning_package = publishing_api.create_learning_package(
             package_ref,
-            archive_lp.title,
-            description=archive_lp.description or "",
-            created=archive_lp.created or now,
+            archive_lp_input.title,
+            description=archive_lp_input.description or "",
+            created=archive_lp_input.created or now,
         )
         load_target = loading.Loader.Target(learning_package, user, now)
         result = loader.load_into(load_target)
@@ -85,13 +85,13 @@ def load_learning_package(
     return result
 
 
-def load_learning_package_as_dict(
+def load_learning_package(
     path_str: str,
     user: UserType,
     package_ref: str | None = None,
 ) -> dict:
     """
-    ``load_learning_package``, in the dict shape the frontend currently expects.
+    ``create_learning_package``, in the dict shape that 1.0 clients expect.
 
     Returns a dict with the status of the operation and any errors encountered
     during that process, rather than raising.
@@ -101,7 +101,7 @@ def load_learning_package_as_dict(
     ``BackupRestoreError``, so that this can eventually go away.
     """
     try:
-        result = load_learning_package(path_str, user, package_ref)
+        result = create_learning_package(path_str, user, package_ref)
     except RestoreFailedError as err:
         return asdict(
             RestoreResult(status="error", log_file_error=StringIO(err.as_text()))
