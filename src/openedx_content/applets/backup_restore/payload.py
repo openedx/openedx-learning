@@ -144,9 +144,9 @@ class PayloadExtractor:
         self.source_fs = fs
         self.root = find_archive_root(fs, self.root_package_path)
 
-        # Re-rooting with a DirFileSystem means nothing below this line has to
-        # know whether the archive wrapped its contents in a folder: every path
-        # we read or report is relative to self.fs either way.
+        # Re-rooting with a DirFileSystem means that nothing below this line has
+        # to know whether the archive wrapped its contents in a folder: every
+        # path we read or report is relative to self.fs either way.
         self.fs = DirFileSystem(path=self.root, fs=fs) if self.root else fs
 
     def extract(self) -> UnvalidatedLearningPackageInput:
@@ -174,8 +174,8 @@ class PayloadExtractor:
 
         # Collections. Note that duplicate Collection keys are *not* checked
         # here: unlike entities, collections are assembled into a list, so a
-        # duplicate loses no data at this layer. It's caught during validation by
-        # CompletePackageInputData.check_for_duplicate_keys, which can give a
+        # duplicate loses no data at this layer. It's caught during validation
+        # by CompletePackageInputData.check_for_duplicate_keys, which can give a
         # better message because it has both files' data by then.
         collections = []
         for collection_file_path in self.get_collection_file_paths():

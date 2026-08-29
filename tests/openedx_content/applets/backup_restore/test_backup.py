@@ -50,7 +50,7 @@ class LpDumpCommandTestCase(TestCase):
         )
 
         # Create a Learning Package for the test
-        cls.learning_package = api.create_learning_package(
+        cls.learning_package = api.load_learning_package_from_path(
             package_ref="ComponentTestCase-test-key",
             title="Components Test Case Learning Package",
             description="This is a test learning package for components.",

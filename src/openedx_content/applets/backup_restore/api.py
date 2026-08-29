@@ -19,12 +19,12 @@ from .zipper import LearningPackageZipper
 
 __all__ = [
     "create_zip_file",
-    "create_learning_package",
+    "load_learning_package_from_path",
     "load_learning_package",
 ]
 
 
-def create_learning_package(
+def load_learning_package_from_path(
     path_str: str,
     user: UserType,
     package_ref: str | None = None,
@@ -101,7 +101,7 @@ def load_learning_package(
     ``BackupRestoreError``, so that this can eventually go away.
     """
     try:
-        result = create_learning_package(path_str, user, package_ref)
+        result = load_learning_package_from_path(path_str, user, package_ref)
     except RestoreFailedError as err:
         return asdict(
             RestoreResult(status="error", log_file_error=StringIO(err.as_text()))
