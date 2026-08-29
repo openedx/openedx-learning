@@ -1,0 +1,26 @@
+# Neither [entity.future_thing] nor [future_top_level] is something this version
+# of the code knows about. The nested one is kept, so that a newer export can add
+# entity attributes without older code choking on them (and so we can warn about
+# probable typos). The top-level one is outside the entity, so it isn't part of
+# the entity data we assemble.
+[entity]
+can_stand_alone = true
+key = "unknown-table-abc123"
+created = 2026-04-08T15:22:12.780012Z
+
+[entity.draft]
+version_num = 1
+
+[entity.published]
+
+[entity.future_thing]
+some_setting = "hello"
+
+[future_top_level]
+irrelevant = true
+
+# ### Versions
+
+[[version]]
+title = "Some Entity"
+version_num = 1

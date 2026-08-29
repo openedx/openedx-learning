@@ -1,0 +1,7 @@
+# The mandatory [meta] table is missing entirely.
+[learning_package]
+title = "Library test"
+key = "lib:WGU:LIB_C001"
+description = ""
+created = 2025-08-19T04:25:10.988166Z
+updated = 2025-08-19T04:25:10.988166Z

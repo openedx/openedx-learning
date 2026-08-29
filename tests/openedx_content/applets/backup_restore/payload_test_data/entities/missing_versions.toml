@@ -1,0 +1,13 @@
+# An entity with no [[version]] tables at all. Extraction should still succeed
+# and give us an empty "versions" list -- it's the validation step's job to
+# decide whether that's acceptable.
+[entity]
+can_stand_alone = true
+key = "no-versions-c0ffee"
+created = 2026-04-08T15:22:12.780012Z
+
+[entity.draft]
+
+[entity.published]
+
+[entity.container.unit]

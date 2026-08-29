@@ -4,31 +4,31 @@ Backup Restore API
 This module is responsible for creating a backup archive of a Learning Package,
 as well as creating a new Learning Package based on a backup archive file.
 """
+from dataclasses import asdict
 from datetime import datetime, timezone
+from io import StringIO
 
-import attrs
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.db.transaction import atomic
 
 from ..publishing import api as publishing_api
 from . import archive, loading, payload, validation
+from .errors import BackupRestoreError, RestoreFailedError
+from .results import RestoreResult, generate_staged_package_ref
+from .zipper import LearningPackageZipper
 
-
-from .zipper import (
-    LearningPackageZipper, RestoreResult, generate_staged_package_ref, zipfile, LearningPackageUnzipper
-)
-
-
-@attrs.define(frozen=True)
-class ImportResult:
-    entities_created: int  # Should this be a list of entity refs instead?
+__all__ = [
+    "create_zip_file",
+    "load_learning_package",
+    "load_learning_package_as_dict",
+]
 
 
 def load_learning_package(
     path_str: str,
     user: UserType,
     package_ref: str | None = None,
-) -> dict:
+) -> RestoreResult:
     """
     Loads a learning package from a file system at the given path.
 
@@ -37,9 +37,6 @@ def load_learning_package(
     can also specify ``path_str`` to be the root directory of an unzipped
     version of the archive data.
 
-    Loads a learning package from a zip file at the given path. Restores the
-    learning package and its contents to the database.
-
     The overall pipeline looks like this:
 
       archive.py: Archive location (Path) → FileSystem (fsspec)
@@ -47,29 +44,40 @@ def load_learning_package(
       validation.py: UnvalidatedLearningPackageInput → ValidatedLearningPackageInput
       loading.py: ValidatedLearningPackageInput → LearningPackage
 
-    Returns a dictionary with the status of the operation and any errors
-    encountered during that process.
+    If ``package_ref`` is not supplied, we generate a staged one namespaced to
+    ``user``. We can't just use the ref from the archive, because the archive can
+    claim any ref it likes and the user may not be allowed to create it.
+
+    Errors that can be raised:
+
+    * ``ArchiveNotReadableError`` if we can't open ``path_str`` at all.
+    * ``RestoreFailedError`` if the archive's contents don't validate. Nothing is
+      written to the database in that case.
+
+    Both descend from ``BackupRestoreError``.
     """
     fs = archive.read_fs_for_path(path_str)
     unvalidated_input = payload.extract_unvalidated_learning_package(fs)
-
-    # TODO: need to be able to exit early here if errors make the rest of this
-    # pointless. The Loader class currently knows how to make output that we can
-    # send up to platform, but maybe that knowledge should be in this module
-    # instead?
-    # if unvalidated_input.errors:
     validated_input = validation.validate(unvalidated_input)
 
-    if package_ref is None:
-        package_ref = generate_staged_package_ref(
-            validated_input.data.learning_package.key, user,
-        )
+    # Bail out before touching the database. We deliberately don't do a partial
+    # restore: a half-loaded Learning Package is harder to reason about than no
+    # Learning Package at all.
+    if validated_input.errors:
+        raise RestoreFailedError(validated_input.errors)
 
     loader = loading.Loader(validated_input)
+    archive_lp = loader.data.learning_package
+    if package_ref is None:
+        package_ref = generate_staged_package_ref(archive_lp.key, user)
+
     now = datetime.now(tz=timezone.utc)
     with atomic(savepoint=False):
         learning_package = publishing_api.create_learning_package(
-            package_ref, "Temp Title", created=now
+            package_ref,
+            archive_lp.title,
+            description=archive_lp.description or "",
+            created=archive_lp.created or now,
         )
         load_target = loading.Loader.Target(learning_package, user, now)
         result = loader.load_into(load_target)
@@ -77,15 +85,33 @@ def load_learning_package(
     return result
 
 
-### This was pre-existing:
-def load_learning_package_old(path: str, package_ref: str | None = None, user: UserType | None = None) -> dict:
+def load_learning_package_as_dict(
+    path_str: str,
+    user: UserType,
+    package_ref: str | None = None,
+) -> dict:
     """
-    Loads a learning package from a zip file at the given path.
-    Restores the learning package and its contents to the database.
-    Returns a dictionary with the status of the operation and any errors encountered.
+    ``load_learning_package``, in the dict shape the frontend currently expects.
+
+    Returns a dict with the status of the operation and any errors encountered
+    during that process, rather than raising.
+
+    TODO: This exists so that callers written against the pre-pydantic restore
+    keep working. New callers should use ``load_learning_package`` and catch
+    ``BackupRestoreError``, so that this can eventually go away.
     """
-    with zipfile.ZipFile(path, "r") as zipf:
-        return LearningPackageUnzipper(zipf, package_ref, user).load()
+    try:
+        result = load_learning_package(path_str, user, package_ref)
+    except RestoreFailedError as err:
+        return asdict(
+            RestoreResult(status="error", log_file_error=StringIO(err.as_text()))
+        )
+    except BackupRestoreError as err:
+        return asdict(
+            RestoreResult(status="error", log_file_error=StringIO(f"{err}\n"))
+        )
+
+    return asdict(result)
 
 
 def create_zip_file(

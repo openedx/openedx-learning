@@ -8,26 +8,27 @@ fields. The OutputData classes are meant for internal use when generating
 exports, and will be stricter.
 """
 from __future__ import annotations
+
 from pathlib import Path
+from typing import Annotated, Literal
 
 from pydantic import (
     AwareDatetime,
     BaseModel,
     ConfigDict,
-    Field,
     EmailStr,
+    Field,
     StrictStr,
     StringConstraints,
-    field_validator
+    field_validator,
 )
-from typing import Annotated, Literal
 
 # Refs are arbitrary identifiers that we do almost no validation of, and are
 # mainly there to assure uniqueness within some namespace.
 REF_CONSTRAINTS = StringConstraints(
     strict=True,
     strip_whitespace=True,
-),
+)
 
 # This is for things like the collection_code, library_code, etc.
 CODE_CONSTRAINTS = StringConstraints(
@@ -39,7 +40,7 @@ CODE_CONSTRAINTS = StringConstraints(
     # and strip_whitespace=True means that we're sure that we won't allow any
     # trailing newlines.
     pattern=r"^[a-zA-Z0-9_.-]+$",
-),
+)
 
 
 class InputData(BaseModel):
@@ -83,7 +84,7 @@ class CompletePackageInputData(InputData):
         entries (and other broken entries), while still otherwise allowing the
         restore to proceed. But for now, any error kills the restore process.
         """
-        collection_keys_to_paths = {}
+        collection_keys_to_paths: dict[str, CollectionInput] = {}
         for collection in collections:
             if collection.key in collection_keys_to_paths:
                 originally_defined_collection = collection_keys_to_paths[collection.key]
@@ -92,8 +93,7 @@ class CompletePackageInputData(InputData):
                     f'{collection.src_path} (original in '
                     f'{originally_defined_collection.src_path})'
                 )
-            else:
-                collection_keys_to_paths[collection.key] = collection
+            collection_keys_to_paths[collection.key] = collection
 
         return collections
 
@@ -115,10 +115,27 @@ class MetaInputData(InputData):
     affect input validation rules.
     """
     format_version: Literal[1]  # Only supported version at the moment
-    created_by: StrictStr | None = Field(min_length=1)
-    created_by_email: EmailStr | None
-    created_at: AwareDatetime | None
-    origin_server: StrictStr | None
+    created_by: StrictStr | None = Field(default=None, min_length=1)
+    created_by_email: EmailStr | None = None
+    created_at: AwareDatetime | None = None
+    origin_server: StrictStr | None = None
+
+    @field_validator("created_by", "created_by_email", "origin_server", mode="before")
+    @classmethod
+    def blank_means_absent(cls, value):
+        """
+        Treat a blank string in [meta] as "not supplied".
+
+        The backup side writes these fields unconditionally, so an archive made
+        by a user with no email address on file carries
+        ``created_by_email = ""``. Since none of this metadata is required (or
+        even trustworthy), refusing to restore such an archive would be far
+        worse than not knowing who made it.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
 
 class LearningPackageInputData(InputData):
     """
@@ -142,8 +159,8 @@ class LearningPackageInputData(InputData):
         ),
     ]
     description: StrictStr | None = Field(default="", max_length=10_000)
-    created: AwareDatetime | None
-    updated: AwareDatetime | None
+    created: AwareDatetime | None = None
+    updated: AwareDatetime | None = None
 
 
 class DraftInputData(InputData):
@@ -155,6 +172,8 @@ class PublishedInputData(InputData):
 
 
 class EntityInputData(InputData):
+    """A PublishableEntity: either a Component or a Container."""
+
     can_stand_alone: bool = True
 
     # key: str
@@ -178,13 +197,22 @@ class EntityInputData(InputData):
 
 
 class SectionInputData(InputData):
-    section: dict = {}
+    """Marks an entity as a Section."""
+
+    # Note: this field is intentionally required, with no default. These three
+    # container models are all `extra="allow"`, so if the discriminating field
+    # were optional, every one of them would happily validate every dict and the
+    # union in EntityInputData.container would always resolve to whichever model
+    # is listed first.
+    section: dict
+
 
 class SubsectionInputData(InputData):
-    subsection: dict = {}
+    subsection: dict  # Required. See the note on SectionInputData.
+
 
 class UnitInputData(InputData):
-    unit: dict = {}
+    unit: dict  # Required. See the note on SectionInputData.
 
 
 class VersionInput(InputData):
@@ -202,14 +230,9 @@ class ContainerVersionInput(InputData):
     children: list[Annotated[str, REF_CONSTRAINTS]]
 
 
-class VersionsInput(InputData):
-    versions: dict[
-        Annotated[int, Field(gt=0)],
-        VersionInput,
-    ]
-
-
 class CollectionInput(InputData):
+    """A named grouping of PublishableEntities within a Learning Package."""
+
     title: StrictStr = Field(min_length=1)
     key: Annotated[
         str,
@@ -225,24 +248,24 @@ class CollectionInput(InputData):
         ),
     ]
     description: StrictStr | None = Field(default="", max_length=10_000)
-    created: AwareDatetime | None
 
     # It looks like we weren't actually serializing the modified date.
-    created: AwareDatetime | None
+    created: AwareDatetime | None = None
+
+    # The PublishableEntities that belong to this Collection. Entity refs that
+    # aren't in the archive are ignored at load time rather than being an error,
+    # since a Collection with a dangling member is still perfectly usable.
+    entities: list[Annotated[str, REF_CONSTRAINTS]] = []
 
     # This is the source file where this Collection was defined. This is only
     # for being able to create useful error messages. We should never be reading
     # from this file directly because the exact format of this file should be
     # free to change as needed. That's the responsibilty of the payload.py
     # module.
-    src_path: Path | None
+    src_path: Path | None = None
 
 
-##### We're not actually using anything below this line yet.
-
-
-
-
+# --- Output models. Not in use yet; the backup side still writes TOML directly. ---
 
 
 class PackageConfigOutputData(BaseModel):
@@ -251,14 +274,6 @@ class PackageConfigOutputData(BaseModel):
     """
     meta: MetaOutputData
     learning_package: LearningPackageOutputData
-
-
-class PackageConfigInputData(BaseModel):
-    """
-    Reads the package.toml file when we're reading from a backup archive.
-    """
-    meta: MetaInputData
-    learning_package: LearningPackageInputData
 
 
 class MetaOutputData(BaseModel):
@@ -279,9 +294,6 @@ class MetaOutputData(BaseModel):
     origin_server: StrictStr
 
 
-
-
-
 class LearningPackageOutputData(BaseModel):
     """
     High level data for a Learning Package.
@@ -298,5 +310,3 @@ class LearningPackageOutputData(BaseModel):
     description: StrictStr
     created: AwareDatetime
     updated: AwareDatetime
-
-

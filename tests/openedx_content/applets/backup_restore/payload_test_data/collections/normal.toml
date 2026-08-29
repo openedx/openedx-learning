@@ -1,0 +1,9 @@
+[collection]
+title = "Difficult Problems"
+key = "difficult-problems"
+description = "The tricky ones. 🐢"
+created = 2026-03-11T19:20:20.394360Z
+entities = [
+    "xblock.v1:problem:e1f4b0a2-0000-4000-8000-000000000001",
+    "xblock.v1:problem:e1f4b0a2-0000-4000-8000-000000000002",
+]

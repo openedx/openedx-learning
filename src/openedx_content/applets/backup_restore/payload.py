@@ -8,90 +8,42 @@ from the TOML files and static assets and assembling them for validation.
 """
 
 from __future__ import annotations
-from numbers import Number
+
 import os.path  # fsspec doesn't work well with Path objects.
 import tomllib
 
 import attrs
 from fsspec import AbstractFileSystem
 
+from .errors import (
+    DuplicateFoundError,
+    ExtractionError,
+    FieldMissing,
+    FieldsNotInTable,
+    InvalidTOMLError,
+    MissingFileError,
+    TableNotFoundError,
+    UnsupportedFormatError,
+)
+
 ROOT_PACKAGE_PATH = "package.toml"
 
 
 @attrs.define(frozen=True)
 class UnvalidatedLearningPackageInput:
+    """
+    Everything we could pull out of an archive, before validation.
+
+    ``raw_data`` is the assembled document we hand to pydantic.
+    ``errors`` holds anything that stopped us assembling part of it.
+    """
+
     raw_data: dict
     errors: list[ExtractionError]
     fs: AbstractFileSystem
 
     # Mapping of entity refs to the paths where we found them.
     entity_path_mapping: dict[str, str]
-
-
-class ExtractionError(Exception):
-    """
-    Any error during the extraction process.
-
-    At the moment, any error is fatal. The point of the different errors is to
-    provide useful debug logging and to let us write tests that look for
-    specific errors.
-    """
-
-    def __init__(self, message, path=None):
-        super().__init__(message)
-        self.message = message
-        self.path = path
-
-    def __str__(self):
-        return f"{self.path}: {self.message}"
-
-
-class InvalidTOMLError(ExtractionError):
-    def __init__(self, file_description, details, path):
-        message = f"Cannot decode TOML for {file_description}: {details}"
-        super().__init__(message, path=path)
-
-
-class TableNotFoundError(ExtractionError):
-    def __init__(self, file_description, table, path):
-        self.table = table
-        message = f"Table [{table}] not found in {file_description}."
-        super().__init__(message, path=path)
-
-
-class FieldsNotInTable(ExtractionError):
-    def __init__(self, file_description, fields, path):
-        self.fields = sorted(fields)
-        message = f"{file_description} has fields not in a table: {', '.join(fields)}"
-        super().__init__(message, path=path)
-
-
-class FieldMissing(ExtractionError):
-    def __init__(self, file_description, table, missing_field, path):
-        self.table = table
-        self.missing_field = missing_field
-        message = (
-            f'{file_description} is missing required field "{missing_field}" '
-            f"from table [{table}]"
-        )
-        super().__init__(message, path=path)
-
-
-class FileNotFoundError(ExtractionError):
-    def __init__(self, file_description, path):
-        message = f"{file_description} file not found at expected path"
-        super().__init__(message, path=path)
-
-
-class DuplicateFoundError(ExtractionError):
-    def __init__(self, description, original_path, path):
-        self.original_path = original_path
-        message = f"{description} already defined in {original_path}"
-        super().__init__(message, path=path)
-
-
-class UnsupportedFormatError(ExtractionError):
-    pass
 
 
 class PayloadExtractor:
@@ -116,7 +68,6 @@ class PayloadExtractor:
             self.root = ""
         elif len(fs.ls('.')) == 1:
             pass
-
 
 
 def extract_unvalidated_learning_package(
@@ -154,8 +105,8 @@ def extract_unvalidated_learning_package(
     """
     # The general philosophy here is to always march on and get as much as
     # possible, even if we know the upload is doomed.
-    unvalidated = {}
-    errors = []
+    unvalidated: dict = {}
+    errors: list[ExtractionError] = []
 
     # Root Package Metadata
     try:
@@ -239,7 +190,7 @@ def extract_root_package_data(fs: AbstractFileSystem, path: str) -> dict:
 
     # Check: Root Package file exists at all.
     if not fs.exists(path):
-        raise FileNotFoundError(file_description, path=path)
+        raise MissingFileError(file_description, path=path)
 
     # Check: Is it a valid TOML file?
     with fs.open(path, "rb") as package_toml_file:
@@ -264,7 +215,10 @@ def extract_root_package_data(fs: AbstractFileSystem, path: str) -> dict:
     # that is backwards compatible, i.e. it will reject 2 and higher, but accept
     # 1.1, 1.2, etc.
     format_version = root_package_dict["meta"].get("format_version")
-    if not isinstance(format_version, Number) or format_version >= 2:
+    is_number = isinstance(format_version, (int, float)) and not isinstance(
+        format_version, bool
+    )
+    if not is_number or format_version >= 2:
         raise UnsupportedFormatError(
             f"Format version {format_version} is unsupported (only 1 is supported).",
             path=path,
@@ -298,9 +252,16 @@ def get_entity_file_paths(fs: AbstractFileSystem) -> list[str]:
 
 
 def extract_entities_data(fs: AbstractFileSystem, paths: list[str]):
-    entities_data = {}
-    entity_path_mapping = {}
-    errors = []
+    """
+    Extract every entity file, collecting errors instead of raising them.
+
+    Returns a ``(entities_data, entity_path_mapping, errors)`` tuple. The
+    path mapping lets later stages report errors against the file an entity
+    came from, which is not derivable from the entity ref.
+    """
+    entities_data: dict[str, dict] = {}
+    entity_path_mapping: dict[str, str] = {}
+    errors: list[ExtractionError] = []
     for entity_file_path in paths:
         try:
             entity_ref, entity_data = extract_entity_data(
@@ -469,13 +430,21 @@ def extract_entity_data(
 
 
 def extract_collection_data(fs: AbstractFileSystem, path: str) -> dict:
+    """
+    Extract the contents of a single Collection TOML file.
+
+    We record the source path on the way out, so that a later duplicate-key
+    error can name both of the files involved.
+    """
     file_description = "Collection"
 
     with fs.open(path, "rb") as collection_toml_file:
         try:
             collection_root_dict = tomllib.load(collection_toml_file)
         except tomllib.TOMLDecodeError as dec_err:
-            raise InvalidTOMLError(file_description, details=str(dec_err), path=path)
+            raise InvalidTOMLError(
+                file_description, details=str(dec_err), path=path
+            ) from dec_err
 
     _check_all_fields_in_tables(collection_root_dict, file_description, path)
     if "collection" not in collection_root_dict:
@@ -508,11 +477,3 @@ def _check_all_fields_in_tables(data: dict, file_description, path):
         raise FieldsNotInTable(
             file_description, fields=fields_outside_of_tables, path=path
         )
-
-
-def pretty_print(obj):
-    from pydantic import TypeAdapter
-    from typing import Any
-    from rich import print_json
-
-    print_json(TypeAdapter(Any).dump_json(obj, indent=2).decode("utf8"))

@@ -4,9 +4,12 @@ we are supporting Zip files and simple directories (useful for testing).
 """
 from pathlib import Path
 
+from fsspec import AbstractFileSystem
 from fsspec.implementations.dirfs import DirFileSystem
 from fsspec.implementations.zip import ZipFileSystem
-from fsspec import AbstractFileSystem
+
+from .errors import ArchiveNotReadableError
+
 
 def read_fs_for_path(path_str: str) -> AbstractFileSystem:
     """
@@ -29,4 +32,6 @@ def read_fs_for_path(path_str: str) -> AbstractFileSystem:
         # read-only is the default for ZipFilesystem, but make it explicit
         return ZipFileSystem(path, mode="r")
 
-    raise ValueError(f"Could not load path {path_str}")
+    raise ArchiveNotReadableError(
+        "Expected a directory or a .zip file", path=path_str
+    )

@@ -4,31 +4,27 @@ into the database.
 """
 import mimetypes
 import os.path
-
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import cache, partial
 
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
 from django.db.transaction import atomic
 
+from ..collections import api as collections_api
 from ..components import api as components_api
 from ..containers import api as containers_api
-from ..collections import api as collections_api
 from ..media import api as media_api
+from ..media.models import Media
 from ..publishing import api as publishing_api
 from ..publishing.models import LearningPackage
 from ..sections.models import Section
 from ..subsections.models import Subsection
 from ..units.models import Unit
-
-from .schema import (
-    SectionInputData,
-    SubsectionInputData,
-    UnitInputData,
-)
+from .errors import UnknownContainerTypeError
+from .results import BackupMetadata, RestoreLearningPackageData, RestoreResult, unpack_package_ref
+from .schema import EntityInputData, SectionInputData, SubsectionInputData, UnitInputData
 from .validation import ValidatedLearningPackageInput
-from .zipper import RestoreResult, RestoreLearningPackageData, BackupMetadata
 
 
 class Loader:
@@ -46,13 +42,18 @@ class Loader:
         loaded_at: datetime
 
     def __init__(self, validated_input: ValidatedLearningPackageInput):
+        if validated_input.data is None:
+            raise ValueError(
+                "Cannot load a LearningPackage from input that failed validation."
+            )
         self.validated_input = validated_input
-        self.component_inputs = {}
-        self.section_inputs = {}
-        self.subsection_inputs = {}
-        self.unit_inputs = {}
+        self.data = validated_input.data
+        self.component_inputs: dict[str, EntityInputData] = {}
+        self.section_inputs: dict[str, EntityInputData] = {}
+        self.subsection_inputs: dict[str, EntityInputData] = {}
+        self.unit_inputs: dict[str, EntityInputData] = {}
 
-        entities = validated_input.data.entities
+        entities = self.data.entities
 
         # Split our entities into separate dicts for convenience.
         for entity_ref, entity_input in sorted(entities.items()):
@@ -66,8 +67,13 @@ class Loader:
                 case None:
                     # For the moment, if it's not a Container, it's a Component
                     self.component_inputs[entity_ref] = entity_input
+                case _:
+                    # validation.py should have rejected this already.
+                    raise UnknownContainerTypeError(
+                        f'Cannot load entity "{entity_ref}": unrecognized container type',
+                    )
 
-    def load_into(self, target: Target):
+    def load_into(self, target: Target) -> RestoreResult:
         """
         This method intentionally takes a target (LearningPackage, User,
         Datetime) instead of putting that information into Loader object state.
@@ -112,17 +118,17 @@ class Loader:
 
         return self.build_restore_result(target)
 
-    def build_restore_result(self, target: Target):
+    def build_restore_result(self, target: Target) -> RestoreResult:
         """
-        This is for compatibility with what we're already sending to the frontend.
+        Summarize what we just loaded.
 
-        TODO: We should return something more structured for our API and let the
-        calling api.py handle the translation into what the REST API expects.
+        TODO: The shape of RestoreResult is inherited from what we already send
+        to the frontend. We should return something more structured here and let
+        api.py handle the translation into what the REST API expects.
         """
-        validated_data = self.validated_input.data
+        validated_data = self.data
 
-        # Fix this with better parsing later.
-        _lib, org, slug = validated_data.learning_package.key.split(":")
+        org_code, package_code = unpack_package_ref(validated_data.learning_package.key)
 
         loaded_entities = publishing_api.get_publishable_entities(target.learning_package.id)
 
@@ -131,10 +137,10 @@ class Loader:
             log_file_error=None,
             lp_restored_data=RestoreLearningPackageData(
                 id=target.learning_package.id,
-                key=target.learning_package.key,
-                archive_lp_key=validated_data.learning_package.key,
-                archive_org_key=org,
-                archive_slug=slug,
+                package_ref=target.learning_package.package_ref,
+                archive_package_ref=validated_data.learning_package.key,
+                archive_org_code=org_code,
+                archive_package_code=package_code,
                 title=target.learning_package.title,
                 num_containers=loaded_entities.filter(container__isnull=False).count(),
                 num_sections=loaded_entities.filter(container__section__isnull=False).count(),
@@ -146,15 +152,20 @@ class Loader:
             backup_metadata=BackupMetadata(
                 format_version=validated_data.meta.format_version,
                 created_by=validated_data.meta.created_by,
-                created_by_email=validated_data.meta.created_by,
+                created_by_email=validated_data.meta.created_by_email,
                 created_at=validated_data.meta.created_at,
                 original_server=validated_data.meta.origin_server,
             ),
         )
-        return asdict(result)
+        return result
 
     def load_components_into(self, target: Target):
-        """ """
+        """
+        Create every Component and its versions, and return them by ref.
+
+        The returned mapping is what containers use to resolve their
+        children, so this has to run before any container is loaded.
+        """
 
         @cache  # inner fn, so won't persist across calls to load_components_into
         def _get_component_type(namespace: str, name: str):
@@ -171,7 +182,7 @@ class Loader:
             component = components_api.create_component(
                 target.learning_package.id,
                 component_type=component_type,
-                local_key=component_code,
+                component_code=component_code,
                 created=target.loaded_at,
                 created_by=target.user.id,
             )
@@ -180,8 +191,11 @@ class Loader:
                 entity_input.versions, key=lambda v: v.version_num
             )
             for version_input in sorted_version_inputs:
-                media_to_replace = {}
-                for path, text_val in version_input.component.media.items():
+                media_to_replace: dict[str, Media.ID | Media | bytes | None] = {}
+                version_media = (
+                    version_input.component.media if version_input.component else {}
+                )
+                for path, text_val in version_media.items():
                     filename = os.path.basename(path)
                     if filename == "block.xml":
                         media_type = _get_media_type(
@@ -196,7 +210,7 @@ class Loader:
                     if path.startswith('static/'):
                         # This is where we could add base64 encoded versions
                         # right now, we just use fs:/path/to/file
-                        _resource_type, filepath = text_val.split(":")
+                        _resource_type, filepath = text_val.split(":", 1)
                         new_media = media_api.get_or_create_file_media(
                             target.learning_package.id,
                             media_type.id,
@@ -216,7 +230,7 @@ class Loader:
                 # TODO: Modify create_next_component_version to take a Component
                 # as an option, to save the needless fetches.
                 components_api.create_next_component_version(
-                    component.pk,
+                    component.id,
                     title=version_input.title,
                     media_to_replace=media_to_replace,
                     created=target.loaded_at,
@@ -228,6 +242,12 @@ class Loader:
         return mapping
 
     def load_containers_into(self, target: Target, component_mapping: dict):
+        """
+        Create every Container and its versions, and return them by ref.
+
+        Containers are built bottom-up (Units, then Subsections, then
+        Sections), because each level references the one below it.
+        """
 
         # Ordering matters, since we want to build the references bottom-up.
         container_types_to_inputs = {
@@ -256,7 +276,11 @@ class Loader:
                         title=version_input.title,
                         entities=[
                             mapping[child_ref]
-                            for child_ref in version_input.container.children
+                            for child_ref in (
+                                version_input.container.children
+                                if version_input.container
+                                else []
+                            )
                         ],
                         created=target.loaded_at,
                         created_by=target.user.id,
@@ -268,36 +292,50 @@ class Loader:
         return mapping
 
     def load_collections_into(self, target: Target, loaded_entities):
-        for collection_input in self.validated_input.data.collections:
+        """
+        Create Collections and add their members.
+
+        Members that aren't in the archive are skipped rather than treated
+        as an error -- a Collection with a missing entry is still usable.
+        """
+        for collection_input in self.data.collections:
             collections_api.create_collection(
                 target.learning_package.id,
-                key=collection_input.key,
+                collection_code=collection_input.key,
                 title=collection_input.title,
                 created_by=target.user.id,
-                description=collection_input.description,
+                description=collection_input.description or "",
             )
             loaded_entity_refs = [
                 ref for ref in collection_input.entities if ref in loaded_entities
             ]
             entities = publishing_api.get_publishable_entities(
                 target.learning_package.id
-            ).filter(key__in=loaded_entity_refs)
+            ).filter(entity_ref__in=loaded_entity_refs)
 
             collections_api.add_to_collection(
                 target.learning_package.id,
-                key=collection_input.key,
+                collection_code=collection_input.key,
                 entities_qset=entities,
             )
 
     def set_draft_versions(self, target: Target, for_publishing: bool):
-        entity_inputs = self.validated_input.data.entities
+        """
+        Point every entity's draft at the version the archive asks for.
+
+        This runs twice. The first pass (``for_publishing=True``) sets each
+        draft to the version that should end up published, so that
+        ``publish_all_drafts`` publishes the right thing. The second pass
+        sets the drafts to their real values.
+        """
+        entity_inputs = self.data.entities
 
         saved_entities = publishing_api.get_publishable_entities(
             target.learning_package.id
         )
         for saved_entity in saved_entities:
             saved_draft_version = publishing_api.get_draft_version(saved_entity)
-            input_entity = entity_inputs[saved_entity.key]
+            input_entity = entity_inputs[saved_entity.entity_ref]
 
             if for_publishing:
                 input_version_num = input_entity.published.version_num

@@ -3,7 +3,6 @@ TOML serialization for learning packages and publishable entities.
 """
 
 from datetime import datetime
-from typing import Any, Dict
 
 import tomlkit
 from django.contrib.auth.models import User as UserType  # pylint: disable=imported-auth-user
@@ -233,27 +232,3 @@ def toml_collection(collection: Collection, entity_refs: list[str]) -> str:
     doc.add("collection", collection_table)
 
     return tomlkit.dumps(doc)
-
-
-def parse_learning_package_toml(content: str) -> dict:
-    """
-    Parse the learning package TOML content and return a dict of its fields.
-    """
-    lp_data: Dict[str, Any] = tomlkit.parse(content)
-    return lp_data
-
-
-def parse_publishable_entity_toml(content: str) -> dict:
-    """
-    Parse the publishable entity TOML file and return a dict of its fields.
-    """
-    pe_data: Dict[str, Any] = tomlkit.parse(content)
-    return pe_data
-
-
-def parse_collection_toml(content: str) -> dict:
-    """
-    Parse the collection TOML content and return a dict of its fields.
-    """
-    collection_data: Dict[str, Any] = tomlkit.parse(content)
-    return collection_data

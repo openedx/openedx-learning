@@ -24,3 +24,28 @@ def folder_to_inmemory_zip(folder_path: str) -> zipfile.ZipFile:
                 zipf.write(file_path, arcname=str(arcname))
     buffer.seek(0)
     return zipfile.ZipFile(buffer, "r")
+
+
+def folder_to_zip_path(folder_path: str, dest_dir: str, name: str = "archive.zip") -> str:
+    """
+    Write the contents of a folder out as a real zip file on disk.
+
+    Unlike ``folder_to_inmemory_zip``, this returns a *path*, which is what the
+    restore pipeline takes (it opens the archive itself, so that it can support
+    both zip files and plain directories).
+
+    Args:
+        folder_path (str): Path to the folder to zip.
+        dest_dir (str): Directory to write the zip file into.
+        name (str): File name to give the zip file.
+
+    Returns:
+        str: The path of the zip file that was written.
+    """
+    folder = Path(folder_path)
+    zip_path = Path(dest_dir) / name
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        for file_path in sorted(folder.rglob("*")):
+            if file_path.is_file():
+                zipf.write(file_path, arcname=str(file_path.relative_to(folder)))
+    return str(zip_path)
