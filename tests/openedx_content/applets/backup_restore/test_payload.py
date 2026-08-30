@@ -6,10 +6,10 @@ Please be very cautious about whether you are breaking backwards compatibility.
 This module tests our ability to extract data from the backup archive TOML files
 and resources, and assemble them into a combined document that represents the
 entire LearningPackage, and is encapsulated in UnvalidatedLearningPackageInput.
-Most of these test methods that examine individual files. PayloadExtractor
-takes the filesystem once, at construction, and its methods take a path, so it
-should be possible to do simple test calls on TOML files and dirs without having
-to mock anything.
+Most of these test methods examine individual files. PayloadExtractor takes the
+filesystem once, at construction, and its methods take a path, so it should be
+possible to do simple test calls on TOML files and dirs without having to mock
+anything.
 
 These tests are strictly for the payload module, and therefore don't need Django
 to run.
@@ -233,14 +233,11 @@ class ExtractEntityDataTest(TestCase):
         assert versions_by_num[2]["component"]["media"] == {
             "block.xml": "<html><p>Version 2 text.</p></html>\n",
         }
-        # ...while static assets are encoded as "fs:" pointers back into the
+        # ...while static assets are encoded as pointers back into the
         # archive, so that we don't hold binary files in memory.
         v3_media = versions_by_num[3]["component"]["media"]
         assert v3_media["block.xml"] == "<html><p>Version 3 text.</p></html>\n"
-        assert v3_media["static/figure.png"].startswith("fs:")
-        assert v3_media["static/figure.png"].endswith(
-            "normal_component/component_versions/v3/static/figure.png"
-        )
+        assert v3_media["static/figure.png"] == "normal_component/component_versions/v3/static/figure.png"
 
     def test_normal_container(self):
         ref, data = self.extractor.extract_entity_data("normal_container.toml")
@@ -478,19 +475,19 @@ class FindArchiveRootTest(TestCase):
 
     def test_package_at_top_level_zip(self):
         fs = zip_fs_with(["package.toml", "entities/unit1.toml"])
-        assert payload.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) is None
 
     def test_package_at_top_level_dir(self):
         fs = dir_fs_with(self.tmp_path, {"package.toml": self.PACKAGE})
-        assert payload.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) is None
 
     def test_single_wrapper_folder_zip(self):
         fs = zip_fs_with(["MyLib/package.toml", "MyLib/entities/unit1.toml"])
-        assert payload.find_archive_root(fs) == "MyLib"
+        assert payload.PayloadExtractor.find_archive_root(fs) == "MyLib"
 
     def test_single_wrapper_folder_dir(self):
         fs = dir_fs_with(self.tmp_path, {"MyLib/package.toml": self.PACKAGE})
-        assert payload.find_archive_root(fs) == "MyLib"
+        assert payload.PayloadExtractor.find_archive_root(fs) == "MyLib"
 
     def test_macos_style_zip(self):
         """
@@ -505,11 +502,11 @@ class FindArchiveRootTest(TestCase):
             "__MACOSX/._MyLib",
             ".DS_Store",
         ])
-        assert payload.find_archive_root(fs) == "MyLib"
+        assert payload.PayloadExtractor.find_archive_root(fs) == "MyLib"
 
     def test_wrapper_folder_beside_a_stray_file(self):
         fs = zip_fs_with(["MyLib/package.toml", "README.txt"])
-        assert payload.find_archive_root(fs) == "MyLib"
+        assert payload.PayloadExtractor.find_archive_root(fs) == "MyLib"
 
     def test_folder_without_a_package_toml_is_not_a_root(self):
         """
@@ -519,20 +516,20 @@ class FindArchiveRootTest(TestCase):
         directory would be re-rooted into it.
         """
         fs = zip_fs_with(["MyLib/entities/unit1.toml"])
-        assert payload.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) is None
 
     def test_two_candidate_folders_are_ambiguous(self):
         fs = zip_fs_with(["LibA/package.toml", "LibB/package.toml"])
-        assert payload.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) is None
 
     def test_nested_two_levels_is_not_followed(self):
         """We only look one level down; deeper nesting isn't worth guessing at."""
         fs = zip_fs_with(["Outer/MyLib/package.toml"])
-        assert payload.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) is None
 
     def test_empty_archive(self):
         fs = dir_fs_with(self.tmp_path, {})
-        assert payload.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) is None
 
     def test_entities_fixture_is_not_re_rooted(self):
         """
@@ -543,7 +540,7 @@ class FindArchiveRootTest(TestCase):
         silently re-root into it and break every entity test in this module.
         """
         fs = DirFileSystem(TEST_DATA_ROOT / "entities")
-        assert payload.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) is None
         assert payload.PayloadExtractor(fs).root is None
 
 
@@ -592,7 +589,7 @@ class ExtractThroughWrapperTest(TestCase):
 
     def test_static_asset_pointers_resolve_against_the_returned_fs(self):
         """
-        The ``fs:`` pointers are relative to the *re-rooted* filesystem.
+        The file pointers are relative to the *re-rooted* filesystem.
 
         This is the subtle one: if extract() returned the original filesystem
         instead of the re-rooted one, these pointers would not resolve, and
@@ -605,5 +602,4 @@ class ExtractThroughWrapperTest(TestCase):
         version = next(v for v in entity["versions"] if v["version_num"] == 5)
         pointer = version["component"]["media"]["static/me.png"]
 
-        assert pointer.startswith("fs:")
-        assert wrapped.fs.read_bytes(pointer.removeprefix("fs:"))
+        assert wrapped.fs.read_bytes(pointer)

@@ -27,8 +27,6 @@ from .errors import (
     UnsupportedFormatError,
 )
 
-ROOT_PACKAGE_PATH = "package.toml"
-
 @attrs.define(frozen=True)
 class UnvalidatedLearningPackageInput:
     """
@@ -53,44 +51,6 @@ class UnvalidatedLearningPackageInput:
     root: str | None = None
 
 
-def find_archive_root(
-    fs: AbstractFileSystem,
-    root_package_path: str = ROOT_PACKAGE_PATH,
-) -> str | None:
-    """
-    Find the folder to treat as the archive root, or None to use ``fs`` as-is.
-
-    People often build an archive by compressing a folder rather than that
-    folder's contents, e.g. ``zip -r MyLib.zip MyLib/``. The result has a single
-    top-level directory with everything (including package.toml) inside it. That
-    is a reasonable thing to hand us, so we accept it.
-
-    We only look one level down, and we require that the candidate directory
-    actually contains a ``root_package_path``. That second condition matters more
-    than it looks: without it, *any* archive whose top level happens to hold a
-    single directory would be re-rooted into it.
-
-    This function never raises. An archive with no package.toml anywhere returns
-    None, and the missing file is reported later as an extraction error, which is
-    where that error belongs.
-    """
-    if fs.exists(root_package_path):
-        return None
-
-    candidates = [
-        entry
-        for entry in fs.ls("/", detail=False)
-        if fs.isdir(entry) and fs.exists(f"{entry}/{root_package_path}")
-    ]
-
-    # More than one candidate is ambiguous, and guessing would be worse than
-    # saying we couldn't find the file.
-    if len(candidates) == 1:
-        return candidates[0]
-
-    return None
-
-
 class PayloadExtractor:
     """
     Extracts files from a file system and generates unvalidated input.
@@ -107,9 +67,11 @@ class PayloadExtractor:
     different set of conventions. For instance, the MIT Disciplinary Experts in
     Learning Technology and Applications team prefers to author in a way that
     encodes large parts of the hierarchy (Section -> Subsection -> Unit) in a
-    single file, with pointers to certain Components in different files. Such a
-    team would subclass this and override the handful of methods that know about
-    where files live and how they're shaped.
+    single file, with pointers to certain Components in different files. We are
+    not making this fully pluggable yet, but by keeping the payload extraction
+    separated from the archive container type (archive.py) on one side, and the
+    schema validation rules (validation.py) on the other side, we have the
+    flexbility to make the payload handling pluggable later on.
 
     Errors can happen at this layer, but they are errors related to the
     consistency of the archive payload format itself. So errors that need to be
@@ -124,19 +86,62 @@ class PayloadExtractor:
     that are errors here are the things that prevent us from creating a
     UnvalidatedLearningPackageInput at all.
     """
+    ROOT_PACKAGE_PATH = "package.toml"
 
-    # Declared as a class attribute so that a subclass using a different layout
-    # can point it somewhere else.
-    root_package_path = ROOT_PACKAGE_PATH
+    def __init__(self, source_fs: AbstractFileSystem):
+        """
+        Initialize PayloadExtractor and auto-detect the root.
 
-    def __init__(self, fs: AbstractFileSystem):
-        self.source_fs = fs
-        self.root = find_archive_root(fs, self.root_package_path)
+        We expect the top level directory to have a ``package.toml`` file, an
+        ``entities`` directory, and a ``collections`` directory. A common error
+        when creating an archive is to zip up the parent directory instead. This
+        gives us a root that looks like::
 
-        # Re-rooting with a DirFileSystem means that nothing below this line has
-        # to know whether the archive wrapped its contents in a folder: every
-        # path we read or report is relative to self.fs either way.
-        self.fs = DirFileSystem(path=self.root, fs=fs) if self.root else fs
+          some-folder-name/package.toml
+          some-folder-name/entities
+          some-folder-name/collections
+
+        This is simple to check for and handle, so we just accept this kind of
+        input by wrapping the original source filesystem with a
+        ``DirFileSystem`` initialized with whatever the root path should be.
+        """
+        self.root = self.find_archive_root(source_fs)
+        self.fs = DirFileSystem(path=self.root, fs=source_fs) if self.root else source_fs
+
+    @classmethod
+    def find_archive_root(cls, source_fs: AbstractFileSystem) -> str | None:
+        """
+        Find the folder to treat as the archive root, or None to use ``source_fs`` as-is.
+
+        People often build an archive by compressing a folder rather than that
+        folder's contents, e.g. ``zip -r MyLib.zip MyLib/``. The result has a single
+        top-level directory with everything (including package.toml) inside it. That
+        is a reasonable thing to hand us, so we accept it.
+
+        We only look one level down, and we require that the candidate directory
+        actually contains a ``ROOT_PACKAGE_PATH``. That second condition matters more
+        than it looks: without it, *any* archive whose top level happens to hold a
+        single directory would be re-rooted into it.
+
+        This function never raises. An archive with no package.toml anywhere returns
+        None, and the missing file is reported later as an extraction error, which is
+        where that error belongs.
+        """
+        if source_fs.exists(cls.ROOT_PACKAGE_PATH):
+            return None
+
+        candidates = [
+            entry
+            for entry in source_fs.ls("/", detail=False)
+            if source_fs.isdir(entry) and source_fs.exists(f"{entry}/{cls.ROOT_PACKAGE_PATH}")
+        ]
+
+        # More than one candidate is ambiguous, and guessing would be worse than
+        # saying we couldn't find the file.
+        if len(candidates) == 1:
+            return candidates[0]
+
+        return None
 
     def extract(self) -> UnvalidatedLearningPackageInput:
         """
@@ -177,8 +182,6 @@ class PayloadExtractor:
         return UnvalidatedLearningPackageInput(
             raw_data=unvalidated,
             errors=errors,
-            # This must be the re-rooted filesystem, because the "fs:" static
-            # asset pointers we write below are relative to it.
             fs=self.fs,
             entity_path_mapping=entity_path_mapping,
             root=self.root,
@@ -188,9 +191,9 @@ class PayloadExtractor:
         """
         Extract the "meta" and "learning_package" from the TOML file at path.
 
-        This is a straightforward extraction because we don't have to transform the
-        actual fields in the data. We expect to see a TOML file that looks something
-        like this:
+        This is a straightforward extraction because we don't have to transform
+        the actual fields in the data. We expect to see a TOML file that looks
+        something like this:
 
             [meta]
             format_version = 1
@@ -225,14 +228,18 @@ class PayloadExtractor:
                 }
             }
 
-        We need to return a Python dict that we get from parsing this. Most of this
-        method is error handling. The error checking at this layer is minimal, and
-        is mostly focused on making sure that the file exists, is parseable, and has
-        the two tables we expect it to have.
+        We need to return a Python dict that we get from parsing this. Most of
+        this method is error handling. The error checking at this layer is
+        minimal, and is mostly focused on making sure that the file exists, is
+        parseable, and has the two tables we expect it to have.
+
+        Note that in any real world usage, we're just reading the default
+        ``ROOT_PACKAGE_PATH``. Passing the ``path`` explicitly just makes it
+        easier to have test package files with descriptive names for debugging.
         """
         file_description = "Root Package"
         if path is None:
-            path = self.root_package_path
+            path = self.ROOT_PACKAGE_PATH
 
         # Check: Root Package file exists at all.
         if not self.fs.exists(path):
@@ -271,16 +278,16 @@ class PayloadExtractor:
         """
         Find all the PublishableEntity TOML file paths in our archive.
 
-        We expect our entity TOML files to be in the entities directory, but we have
-        two categories right now:
+        We expect our entity TOML files to be in the entities directory, but we
+        have two categories right now:
 
         * Component TOML: entities/xblock.v1/{component_type}/{component_code}
         * Container TOML: entities/{entity_ref}
 
         This method looks for TOML files in entities/ or any of its subdirs. We
-        only exclude matches inside the component_version data, to make sure that we
-        don't accidentally match media files in the unlikely event where people have
-        TOML files as static assets.
+        only exclude matches inside the component_version data, to make sure
+        that we don't accidentally match media files in the unlikely event where
+        people have TOML files as static assets.
         """
         paths = [
             path
@@ -336,9 +343,9 @@ class PayloadExtractor:
         """
         This extracts raw entity data from an Entity TOML file.
 
-        PublishableEntities can be both Components (XBlock problems, videos, etc.),
-        as well as Containers like Units, Subsections, and Sections. Some sample
-        TOML:
+        PublishableEntities can be both Components (XBlock problems, videos,
+        etc.), as well as Containers like Units, Subsections, and Sections. Some
+        sample TOML:
 
             [entity]
             can_stand_alone = true
@@ -410,10 +417,11 @@ class PayloadExtractor:
         Note some key differences:
 
         1. The "entity" table elements have been popped out to the top level.
-        2. The "version" list has been renamed to "versions" to feel more natural.
-        3. The "key" field (a.k.a. entity_ref) has been popped out to pass back as
-           part of the tuple. This will become a key/value pair in an "entities"
-           dict that will hold all publishable entity input data.
+        2. The "version" list has been renamed to "versions" to feel more
+           natural.
+        3. The "key" field (a.k.a. entity_ref) has been popped out to pass back
+           as part of the tuple. This will become a key/value pair in an
+           "entities" dict that will hold all publishable entity input data.
         """
         file_description = "Entity"
 
@@ -491,7 +499,7 @@ class PayloadExtractor:
         for static_file_path in self.fs.glob(f"{comp_ver_dir}/static/**"):
             if self.fs.isfile(static_file_path):
                 rel_path = os.path.relpath(static_file_path, comp_ver_dir)
-                media[rel_path] = f"fs:{static_file_path}"
+                media[rel_path] = static_file_path
 
         version["component"] = {"media": media}
 

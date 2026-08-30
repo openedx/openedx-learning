@@ -206,11 +206,12 @@ class Loader:
                         media_type_str = media_type_str or "application/octet-stream"
                         media_type = _get_media_type(media_type_str)
 
-                    # TODO: Adopt data-urls for this.
                     if path.startswith('static/'):
+                        # TODO: data-url support
                         # This is where we could add base64 encoded versions
-                        # right now, we just use fs:/path/to/file
-                        _resource_type, filepath = text_val.split(":", 1)
+                        # when we introduce data-url support. But for now, just
+                        # just assume these are file paths, e.g. path/to/file
+                        filepath = text_val
                         new_media = media_api.get_or_create_file_media(
                             target.learning_package.id,
                             media_type.id,

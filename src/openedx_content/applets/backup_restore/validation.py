@@ -32,7 +32,7 @@ from .errors import (
     UnknownContainerTypeError,
     UnresolvedChildError,
 )
-from .payload import ROOT_PACKAGE_PATH, UnvalidatedLearningPackageInput
+from .payload import PayloadExtractor, UnvalidatedLearningPackageInput
 from .schema import CompletePackageInputData
 
 
@@ -123,7 +123,8 @@ def _source_for_loc(
                 "location": tuple(rest),
             }
         case ("meta" | "learning_package", *_):
-            return {"path": ROOT_PACKAGE_PATH, "location": tuple(loc)}
+            # TODO: This is a problematic abstraction leak
+            return {"path": PayloadExtractor.ROOT_PACKAGE_PATH, "location": tuple(loc)}
 
     return {"path": None, "location": tuple(loc)}
 

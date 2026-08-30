@@ -654,7 +654,7 @@ class RestoreWrapperArchiveTest(RestoreTestCase):
         """
         Static files still resolve when the archive is wrapped.
 
-        The ``fs:`` pointers written during extraction are relative to the
+        The file pointers written during extraction are relative to the
         re-rooted filesystem, so this is what catches the case where the wrong
         filesystem gets handed downstream -- it would break images for wrapper
         archives only.
