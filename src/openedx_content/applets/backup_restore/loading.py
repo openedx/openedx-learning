@@ -53,10 +53,14 @@ class Loader:
         self.subsection_inputs: dict[str, EntityInputData] = {}
         self.unit_inputs: dict[str, EntityInputData] = {}
 
-        entities = self.data.entities
+        # Sorted so that creation order stays deterministic regardless of the
+        # order the archive's files happened to be read in.
+        entity_inputs = sorted(self.data.entities, key=lambda entity: entity.key)
+        self.entity_inputs_by_ref = {entity.key: entity for entity in entity_inputs}
 
         # Split our entities into separate dicts for convenience.
-        for entity_ref, entity_input in sorted(entities.items()):
+        for entity_input in entity_inputs:
+            entity_ref = entity_input.key
             match entity_input.container:
                 case SectionInputData():
                     self.section_inputs[entity_ref] = entity_input
@@ -329,14 +333,12 @@ class Loader:
         ``publish_all_drafts`` publishes the right thing. The second pass
         sets the drafts to their real values.
         """
-        entity_inputs = self.data.entities
-
         saved_entities = publishing_api.get_publishable_entities(
             target.learning_package.id
         )
         for saved_entity in saved_entities:
             saved_draft_version = publishing_api.get_draft_version(saved_entity)
-            input_entity = entity_inputs[saved_entity.entity_ref]
+            input_entity = self.entity_inputs_by_ref[saved_entity.entity_ref]
 
             if for_publishing:
                 input_version_num = input_entity.published.version_num

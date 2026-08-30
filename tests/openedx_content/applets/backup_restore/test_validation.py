@@ -39,14 +39,27 @@ FIXTURES_ROOT = Path(__file__).parent / "fixtures"
 CREATED = datetime(2026, 4, 8, 15, 22, 12, 780012, tzinfo=timezone.utc)
 
 
-def component(**overrides) -> dict:
-    """Raw data for a Component entity (i.e. one with no container)."""
-    return {"can_stand_alone": True, "created": CREATED, "versions": [], **overrides}
+def component(key: str, **overrides) -> dict:
+    """
+    Raw data for a Component entity (i.e. one with no container).
+
+    Each entity carries its own key and source file, the same way collections
+    do, which is what lets validation report duplicates and attribute errors to
+    a file.
+    """
+    return {
+        "key": key,
+        "src_path": f"entities/{key}.toml",
+        "can_stand_alone": True,
+        "created": CREATED,
+        "versions": [],
+        **overrides,
+    }
 
 
-def container(kind: str, **overrides) -> dict:
+def container(key: str, kind: str, **overrides) -> dict:
     """Raw data for a Container entity of the given kind."""
-    return component(container={kind: {}}, **overrides)
+    return component(key, container={kind: {}}, **overrides)
 
 
 def version(version_num: int, children=None, **overrides) -> dict:
@@ -56,14 +69,12 @@ def version(version_num: int, children=None, **overrides) -> dict:
     return raw
 
 
-def unvalidated(
-    entities=None, collections=None, errors=None, path_mapping=None, root=None, **overrides
-):
+def unvalidated(entities=None, collections=None, errors=None, root=None, **overrides):
     """Build an UnvalidatedLearningPackageInput without going through files."""
     raw_data = {
         "meta": {"format_version": 1},
         "learning_package": {"key": "lib:Axim:FunLib"},
-        "entities": entities if entities is not None else {},
+        "entities": entities if entities is not None else [],
         "collections": collections if collections is not None else [],
         **overrides,
     }
@@ -71,7 +82,6 @@ def unvalidated(
         raw_data=raw_data,
         errors=errors or [],
         fs=DirFileSystem(FIXTURES_ROOT),
-        entity_path_mapping=path_mapping or {},
         root=root,
     )
 
@@ -93,12 +103,12 @@ class ValidateSuccessTest(TestCase):
         assert result.fs is source.fs
 
     def test_well_formed_container_tree(self):
-        result = validation.validate(unvalidated(entities={
-            "section-1": container("section", versions=[version(1, ["subsection-1"])]),
-            "subsection-1": container("subsection", versions=[version(1, ["unit-1"])]),
-            "unit-1": container("unit", versions=[version(1, ["xblock.v1:html:abc"])]),
-            "xblock.v1:html:abc": component(versions=[version(1)]),
-        }))
+        result = validation.validate(unvalidated(entities=[
+            container("section-1", "section", versions=[version(1, ["subsection-1"])]),
+            container("subsection-1", "subsection", versions=[version(1, ["unit-1"])]),
+            container("unit-1", "unit", versions=[version(1, ["xblock.v1:html:abc"])]),
+            component("xblock.v1:html:abc", versions=[version(1)]),
+        ]))
 
         assert result.errors == []
 
@@ -155,21 +165,24 @@ class SchemaErrorSourceMappingTest(TestCase):
 
     def test_entity_errors_point_at_the_entity_file(self):
         result = validation.validate(unvalidated(
-            entities={"unit-1": container("unit", versions=[{"version_num": 1}])},
-            path_mapping={"unit-1": "entities/unit1-b7eafb.toml"},
+            entities=[container("unit1-b7eafb", "unit", versions=[{"version_num": 1}])],
         ))
 
         error = result.errors[0]
         assert error.path == "entities/unit1-b7eafb.toml"
-        # The entity ref is dropped, since the file only describes one entity.
+        # The list index is dropped, since the file only describes one entity.
         assert error.location == ("versions", 0, "title")
 
     def test_entity_errors_fall_back_when_path_is_unknown(self):
+        """An entity with no recorded source file still gets its error reported."""
         result = validation.validate(unvalidated(
-            entities={"unit-1": container("unit", versions=[{"version_num": 1}])},
+            entities=[
+                container("unit-1", "unit", versions=[{"version_num": 1}], src_path=None)
+            ],
         ))
 
-        assert result.errors[0].path == "entities/unit-1"
+        assert result.errors[0].path is None
+        assert result.errors[0].location == ("versions", 0, "title")
 
     def test_collection_errors_point_at_the_collection_file(self):
         result = validation.validate(unvalidated(
@@ -182,8 +195,7 @@ class SchemaErrorSourceMappingTest(TestCase):
 
     def test_error_message_includes_location(self):
         result = validation.validate(unvalidated(
-            entities={"unit-1": container("unit", versions=[{"version_num": 1}])},
-            path_mapping={"unit-1": "entities/unit1.toml"},
+            entities=[container("unit1", "unit", versions=[{"version_num": 1}])],
         ))
 
         assert "entities/unit1.toml: versions.0.title" in str(result.errors[0])
@@ -197,8 +209,7 @@ class ConsistencyCheckTest(TestCase):
 
     def test_unresolved_child(self):
         result = validation.validate(unvalidated(
-            entities={"unit-1": container("unit", versions=[version(1, ["nope"])])},
-            path_mapping={"unit-1": "entities/unit1.toml"},
+            entities=[container("unit1", "unit", versions=[version(1, ["nope"])])],
         ))
 
         assert len(result.errors) == 1
@@ -208,20 +219,20 @@ class ConsistencyCheckTest(TestCase):
         assert "nope" in error.message
 
     def test_draft_pointing_at_a_missing_version(self):
-        result = validation.validate(unvalidated(entities={
-            "unit-1": container("unit", draft={"version_num": 7}, versions=[version(1)]),
-        }))
+        result = validation.validate(unvalidated(entities=[
+            container("unit-1", "unit", draft={"version_num": 7}, versions=[version(1)]),
+        ]))
 
         assert len(result.errors) == 1
         assert isinstance(result.errors[0], MissingVersionError)
         assert "[entity.draft]" in result.errors[0].message
 
     def test_published_pointing_at_a_missing_version(self):
-        result = validation.validate(unvalidated(entities={
-            "unit-1": container(
-                "unit", published={"version_num": 7}, versions=[version(1)]
+        result = validation.validate(unvalidated(entities=[
+            container(
+                "unit-1", "unit", published={"version_num": 7}, versions=[version(1)]
             ),
-        }))
+        ]))
 
         assert len(result.errors) == 1
         assert isinstance(result.errors[0], MissingVersionError)
@@ -229,15 +240,15 @@ class ConsistencyCheckTest(TestCase):
 
     def test_draft_and_published_may_be_absent(self):
         """An entity that was created and then reset to published has neither."""
-        result = validation.validate(unvalidated(entities={
-            "unit-1": container("unit", versions=[version(1)]),
-        }))
+        result = validation.validate(unvalidated(entities=[
+            container("unit-1", "unit", versions=[version(1)]),
+        ]))
         assert result.errors == []
 
     def test_duplicate_version_num(self):
-        result = validation.validate(unvalidated(entities={
-            "unit-1": container("unit", versions=[version(2), version(2)]),
-        }))
+        result = validation.validate(unvalidated(entities=[
+            container("unit-1", "unit", versions=[version(2), version(2)]),
+        ]))
 
         duplicate_errors = [
             err for err in result.errors if isinstance(err, DuplicateVersionError)
@@ -250,24 +261,23 @@ class ConsistencyCheckTest(TestCase):
         Component refs are "{namespace}:{type}:{code}" -- the loader splits on
         the colons to work out what kind of block to build.
         """
-        result = validation.validate(unvalidated(entities={
-            "not-a-component-ref": component(versions=[version(1)]),
-        }))
+        result = validation.validate(unvalidated(entities=[
+            component("not-a-component-ref", versions=[version(1)]),
+        ]))
 
         assert len(result.errors) == 1
         assert isinstance(result.errors[0], MalformedRefError)
 
     def test_container_refs_are_not_required_to_have_colons(self):
         """Only Components derive meaning from the shape of their ref."""
-        result = validation.validate(unvalidated(entities={
-            "unit1-b7eafb": container("unit", versions=[version(1)]),
-        }))
+        result = validation.validate(unvalidated(entities=[
+            container("unit1-b7eafb", "unit", versions=[version(1)]),
+        ]))
         assert result.errors == []
 
     def test_unknown_container_type(self):
         result = validation.validate(unvalidated(
-            entities={"thing-1": component(container={"chapter": {}})},
-            path_mapping={"thing-1": "entities/thing1.toml"},
+            entities=[component("thing1", container={"chapter": {}})],
         ))
 
         assert len(result.errors) == 1
@@ -284,19 +294,19 @@ class ConsistencyCheckTest(TestCase):
         """
         result = validation.validate(unvalidated(
             meta={},
-            entities={"unit-1": container("unit", versions=[version(1, ["nope"])])},
+            entities=[container("unit-1", "unit", versions=[version(1, ["nope"])])],
         ))
 
         assert result.data is None
         assert all(isinstance(err, SchemaError) for err in result.errors)
 
     def test_all_problems_are_reported_together(self):
-        result = validation.validate(unvalidated(entities={
-            "unit-1": container(
-                "unit", draft={"version_num": 9}, versions=[version(1, ["nope"])]
+        result = validation.validate(unvalidated(entities=[
+            container(
+                "unit-1", "unit", draft={"version_num": 9}, versions=[version(1, ["nope"])]
             ),
-            "bad-component-ref": component(versions=[version(1)]),
-        }))
+            component("bad-component-ref", versions=[version(1)]),
+        ]))
 
         error_types = {type(err) for err in result.errors}
         assert error_types == {
@@ -338,13 +348,13 @@ class SourceMappingFallbackTest(TestCase):
     """
 
     def test_unrecognized_location_has_no_path(self):
-        result = validation.validate(unvalidated(entities="not-a-dict"))
+        result = validation.validate(unvalidated(entities="not-a-list"))
 
         assert result.data is None
         error = result.errors[0]
         assert error.path is None
         assert error.location == ("entities",)
-        assert str(error).startswith("None: entities:")
+        assert str(error).startswith("entities:")
 
     def test_collection_without_a_src_path(self):
         result = validation.validate(unvalidated(
@@ -389,3 +399,74 @@ class ArchiveRootPassthroughTest(TestCase):
         error = RestoreFailedError([MissingFileError("Root Package", path="package.toml")])
 
         assert "Archive root" not in error.as_text()
+
+
+class DuplicateEntityTest(TestCase):
+    """
+    Two files defining the same entity key.
+
+    This is checked here rather than during extraction for the same reason
+    duplicate Collections are: entities are kept in a list, so both definitions
+    survive extraction intact and validation can name both files.
+    """
+
+    def test_duplicate_entity_keys_are_rejected(self):
+        result = validation.validate(unvalidated(entities=[
+            component("xblock.v1:html:abc", src_path="entities/first.toml"),
+            component("xblock.v1:html:abc", src_path="entities/second.toml"),
+        ]))
+
+        assert result.data is None
+        assert len(result.errors) == 1
+        error = result.errors[0]
+        assert isinstance(error, SchemaError)
+        # The message has to name both files to be actionable.
+        assert "entities/first.toml" in error.message
+        assert "entities/second.toml" in error.message
+        assert "xblock.v1:html:abc" in error.message
+
+    def test_distinct_entity_keys_are_fine(self):
+        result = validation.validate(unvalidated(entities=[
+            component("xblock.v1:html:abc"),
+            component("xblock.v1:html:def"),
+        ]))
+
+        assert result.errors == []
+
+    def test_missing_entity_key(self):
+        """
+        An entity file with no key at all.
+
+        Extraction used to reject this, because the key became a dict key and it
+        had nowhere to put an entity without one. Now it's a required field like
+        any other.
+        """
+        result = validation.validate(unvalidated(
+            entities=[{"created": CREATED, "src_path": "entities/no_key.toml"}],
+        ))
+
+        assert result.data is None
+        error = result.errors[0]
+        assert isinstance(error, SchemaError)
+        assert error.path == "entities/no_key.toml"
+        assert error.location == ("key",)
+
+
+class ErrorTextTest(TestCase):
+    """How individual errors render into the restore log."""
+
+    def test_an_error_with_no_path_omits_it(self):
+        """
+        Not everything is attributable to a single file.
+
+        A duplicate key is reported against the whole section, so there is no
+        one path to name -- and "None: ..." in a log file helps nobody.
+        """
+        error = UnknownContainerTypeError("Entity declares an unsupported container")
+
+        assert str(error) == "Entity declares an unsupported container"
+
+    def test_an_error_with_a_path_names_it(self):
+        error = UnknownContainerTypeError("nope", path="entities/thing.toml")
+
+        assert str(error) == "entities/thing.toml: nope"

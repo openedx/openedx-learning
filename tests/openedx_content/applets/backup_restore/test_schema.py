@@ -33,7 +33,7 @@ def minimal_package(**overrides) -> dict:
     return {
         "meta": {"format_version": 1},
         "learning_package": {"key": "lib:Axim:FunLib"},
-        "entities": {},
+        "entities": [],
         "collections": [],
         **overrides,
     }
@@ -51,7 +51,7 @@ class ContainerDiscriminationTest(TestCase):
     """
 
     def _container_for(self, raw):
-        entity = EntityInputData.model_validate({"created": CREATED, "container": raw})
+        entity = EntityInputData.model_validate({"key": "some-entity", "created": CREATED, "container": raw})
         return entity.container
 
     def test_section(self):
@@ -78,7 +78,7 @@ class ContainerDiscriminationTest(TestCase):
         assert self._container_for(None) is None
 
     def test_absent_container_defaults_to_none(self):
-        entity = EntityInputData.model_validate({"created": CREATED})
+        entity = EntityInputData.model_validate({"key": "some-entity", "created": CREATED})
         assert entity.container is None
 
 
@@ -179,7 +179,7 @@ class VersionInputTest(TestCase):
     def _entity_with_version(self, **version_overrides):
         version = {"version_num": 1, "title": "Some Title", **version_overrides}
         return EntityInputData.model_validate(
-            {"created": CREATED, "versions": [version]}
+            {"key": "some-entity", "created": CREATED, "versions": [version]}
         )
 
     def test_blank_title_is_allowed(self):
@@ -196,7 +196,7 @@ class VersionInputTest(TestCase):
             self._entity_with_version(version_num=0)
 
     def test_draft_and_published_default_to_none(self):
-        entity = EntityInputData.model_validate({"created": CREATED})
+        entity = EntityInputData.model_validate({"key": "some-entity", "created": CREATED})
         assert entity.draft.version_num is None
         assert entity.published.version_num is None
 
@@ -206,7 +206,7 @@ class VersionInputTest(TestCase):
         [entity.published] table rather than omitting it.
         """
         entity = EntityInputData.model_validate(
-            {"created": CREATED, "published": {}, "draft": {"version_num": 2}}
+            {"key": "some-entity", "created": CREATED, "published": {}, "draft": {"version_num": 2}}
         )
         assert entity.published.version_num is None
         assert entity.draft.version_num == 2
@@ -219,7 +219,7 @@ class CompletePackageInputDataTest(TestCase):
         data = CompletePackageInputData.model_validate(minimal_package())
 
         assert data.learning_package.key == "lib:Axim:FunLib"
-        assert data.entities == {}
+        assert data.entities == []
         assert data.collections == []
 
     def test_duplicate_collection_keys_are_rejected(self):
@@ -338,3 +338,50 @@ class BlankMetadataTest(TestCase):
             MetaInputData.model_validate(
                 {"format_version": 1, "created_by_email": "not-an-email"}
             )
+
+
+class DuplicateEntityKeyTest(TestCase):
+    """
+    Entities are validated for duplicate keys the same way collections are.
+
+    Both are declared as lists rather than dicts keyed by their key field,
+    precisely so that a redefinition survives extraction and can be reported
+    here instead of silently overwriting its predecessor.
+    """
+
+    def entity(self, key, src_path):
+        return {"key": key, "src_path": src_path, "created": CREATED}
+
+    def test_duplicate_entity_keys_are_rejected(self):
+        raw = minimal_package(entities=[
+            self.entity("unit1-b7eafb", "entities/first.toml"),
+            self.entity("unit1-b7eafb", "entities/second.toml"),
+        ])
+        with self.assertRaises(ValidationError) as ctx:
+            CompletePackageInputData.model_validate(raw)
+
+        message = str(ctx.exception)
+        assert "unit1-b7eafb" in message
+        assert "entities/first.toml" in message
+        assert "entities/second.toml" in message
+
+    def test_distinct_entity_keys_are_fine(self):
+        raw = minimal_package(entities=[
+            self.entity("unit1-b7eafb", "entities/first.toml"),
+            self.entity("unit2-c9dfa1", "entities/second.toml"),
+        ])
+        data = CompletePackageInputData.model_validate(raw)
+        assert [e.key for e in data.entities] == ["unit1-b7eafb", "unit2-c9dfa1"]
+
+    def test_key_is_required(self):
+        raw = minimal_package(entities=[{"created": CREATED}])
+        with self.assertRaises(ValidationError) as ctx:
+            CompletePackageInputData.model_validate(raw)
+
+        assert ("entities", 0, "key") in [err["loc"] for err in ctx.exception.errors()]
+
+    def test_src_path_is_optional(self):
+        """It's only ever used to build error messages."""
+        raw = minimal_package(entities=[{"key": "unit1-b7eafb", "created": CREATED}])
+        data = CompletePackageInputData.model_validate(raw)
+        assert data.entities[0].src_path is None

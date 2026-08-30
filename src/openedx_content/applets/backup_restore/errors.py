@@ -40,7 +40,12 @@ class BackupRestoreError(Exception):
         self.path = path
 
     def __str__(self):
-        return f"{self.path}: {self.message}"
+        # Not every error is attributable to a file -- a duplicate key, for
+        # instance, is reported against the whole section rather than one path.
+        # Printing "None: ..." in a log file helps nobody.
+        if self.path:
+            return f"{self.path}: {self.message}"
+        return self.message
 
 
 class ArchiveNotReadableError(BackupRestoreError):
@@ -80,19 +85,6 @@ class FieldsNotInTable(ExtractionError):
         super().__init__(message, path=path)
 
 
-class FieldMissing(ExtractionError):
-    """A table is missing a field we need in order to go on."""
-
-    def __init__(self, file_description, table, missing_field, path):
-        self.table = table
-        self.missing_field = missing_field
-        message = (
-            f'{file_description} is missing required field "{missing_field}" '
-            f"from table [{table}]"
-        )
-        super().__init__(message, path=path)
-
-
 class MissingFileError(ExtractionError):
     """
     A file we require is not in the archive.
@@ -104,13 +96,6 @@ class MissingFileError(ExtractionError):
 
     def __init__(self, file_description, path):
         message = f"{file_description} file not found at expected path"
-        super().__init__(message, path=path)
-
-
-class DuplicateFoundError(ExtractionError):
-    def __init__(self, description, original_path, path):
-        self.original_path = original_path
-        message = f"{description} already defined in {original_path}"
         super().__init__(message, path=path)
 
 
@@ -141,10 +126,13 @@ class SchemaError(BackupRestoreError):
         super().__init__(message, path=path)
 
     def __str__(self):
+        parts = []
+        if self.path:
+            parts.append(str(self.path))
         if self.location:
-            location_str = ".".join(str(part) for part in self.location)
-            return f"{self.path}: {location_str}: {self.message}"
-        return super().__str__()
+            parts.append(".".join(str(part) for part in self.location))
+        parts.append(self.message)
+        return ": ".join(parts)
 
 
 class ConsistencyError(BackupRestoreError):

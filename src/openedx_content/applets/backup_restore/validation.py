@@ -74,7 +74,7 @@ def validate(
         errors.extend(_schema_errors_for(val_err, unvalidated_lp))
 
     if data is not None:
-        errors.extend(_consistency_errors_for(data, unvalidated_lp))
+        errors.extend(_consistency_errors_for(data))
 
     return ValidatedLearningPackageInput(
         data=data,
@@ -108,18 +108,14 @@ def _source_for_loc(
     Map a pydantic ``loc`` back to the archive file it came from.
 
     Pydantic reports errors against the combined document we assemble in
-    ``payload.py``, e.g. ``("entities", "unit1-b7eafb", "versions", 0, "title")``.
-    Nobody editing an archive has ever seen that document, so we split the ``loc``
-    into the file it came from and the location within that file.
+    ``payload.py``, e.g. ``("entities", 3, "versions", 0, "title")``. Nobody
+    editing an archive has ever seen that document, so we split the ``loc`` into
+    the file it came from and the location within that file.
     """
     match loc:
-        case ("entities", str() as entity_ref, *rest):
-            path = unvalidated_lp.entity_path_mapping.get(entity_ref)
-            # Fall back to naming the entity if we somehow have no path for it.
-            return {"path": path or f"entities/{entity_ref}", "location": tuple(rest)}
-        case ("collections", int() as index, *rest):
+        case ("entities" | "collections" as section, int() as index, *rest):
             return {
-                "path": _collection_path_at(index, unvalidated_lp),
+                "path": _src_path_at(section, index, unvalidated_lp),
                 "location": tuple(rest),
             }
         case ("meta" | "learning_package", *_):
@@ -129,27 +125,27 @@ def _source_for_loc(
     return {"path": None, "location": tuple(loc)}
 
 
-def _collection_path_at(
+def _src_path_at(
+    section: str,
     index: int,
     unvalidated_lp: UnvalidatedLearningPackageInput,
 ) -> str | None:
     """
-    Look up the source file of the collection at ``index`` in the raw data.
+    Look up the source file of the item at ``index`` of ``section``.
 
     We can't read this off the validated model, because we only need it when
     validation has already failed.
     """
-    raw_collections = unvalidated_lp.raw_data.get("collections", [])
-    if 0 <= index < len(raw_collections):
-        raw_collection = raw_collections[index]
-        if isinstance(raw_collection, dict):
-            return raw_collection.get("src_path")
+    raw_items = unvalidated_lp.raw_data.get(section, [])
+    if 0 <= index < len(raw_items):
+        raw_item = raw_items[index]
+        if isinstance(raw_item, dict):
+            return raw_item.get("src_path")
     return None
 
 
 def _consistency_errors_for(
     data: CompletePackageInputData,
-    unvalidated_lp: UnvalidatedLearningPackageInput,
 ) -> list[BackupRestoreError]:
     """
     Check the cross-references that pydantic can't express.
@@ -159,13 +155,11 @@ def _consistency_errors_for(
     the part of the archive that's actually wrong.
     """
     errors: list[BackupRestoreError] = []
-    known_refs = set(data.entities)
+    known_refs = {entity.key for entity in data.entities}
 
-    def path_for(entity_ref: str) -> str | None:
-        return unvalidated_lp.entity_path_mapping.get(entity_ref)
-
-    for entity_ref, entity in sorted(data.entities.items()):
-        path = path_for(entity_ref)
+    for entity in sorted(data.entities, key=lambda e: e.key):
+        entity_ref = entity.key
+        path = entity.src_path
 
         # Check: is this a container type we actually know how to build?
         if isinstance(entity.container, dict):

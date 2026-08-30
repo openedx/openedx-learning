@@ -9,7 +9,6 @@ exports, and will be stricter.
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import (
@@ -43,6 +42,26 @@ CODE_CONSTRAINTS = StringConstraints(
 )
 
 
+def _reject_duplicate_keys(items, label: str) -> None:
+    """
+    Raise a ValueError if two items in ``items`` share a ``key``.
+
+    Both Entities and Collections need this, and the message wants to name the
+    file that redefined the key as well as the one that got there first, which is
+    what each item's ``src_path`` is for.
+    """
+    keys_to_items: dict[str, object] = {}
+    for item in items:
+        if item.key in keys_to_items:
+            original = keys_to_items[item.key]
+            raise ValueError(
+                f'{label} "{item.key}" redefined in '
+                f'{item.src_path} (original in '
+                f'{original.src_path})'      # type: ignore[attr-defined]
+            )
+        keys_to_items[item.key] = item
+
+
 class InputData(BaseModel):
     """
     Base class for all inputs, here to set config defaults.
@@ -69,14 +88,27 @@ class CompletePackageInputData(InputData):
     meta: MetaInputData
     learning_package: LearningPackageInputData
 
-    # Mapping of entity refs to EntityInputData
-    entities: dict[Annotated[str, REF_CONSTRAINTS], EntityInputData]
+    # These are lists rather than dicts keyed by their "key" field, and that is
+    # deliberate: a dict can only hold one entry per key, so a duplicated key
+    # would silently overwrite its predecessor during extraction and there would
+    # be nothing left for us to complain about here. Keeping them as lists is
+    # what lets the duplicate checks below exist at all.
+    entities: list[EntityInputData]
 
     collections: list[CollectionInput]
 
+    @field_validator('entities', mode='after')
+    @classmethod
+    def check_for_duplicate_entity_keys(cls, entities: list[EntityInputData]):
+        """
+        Raise a ValueError if the same Entity is defined in two places.
+        """
+        _reject_duplicate_keys(entities, "Entity")
+        return entities
+
     @field_validator('collections', mode='after')
     @classmethod
-    def check_for_duplicate_keys(cls, collections: list[CollectionInput]):
+    def check_for_duplicate_collection_keys(cls, collections: list[CollectionInput]):
         """
         Raise a ValueError if we encounter a duplicate collection entry.
 
@@ -84,17 +116,7 @@ class CompletePackageInputData(InputData):
         entries (and other broken entries), while still otherwise allowing the
         restore to proceed. But for now, any error kills the restore process.
         """
-        collection_keys_to_paths: dict[str, CollectionInput] = {}
-        for collection in collections:
-            if collection.key in collection_keys_to_paths:
-                originally_defined_collection = collection_keys_to_paths[collection.key]
-                raise ValueError(
-                    f'Collection "{collection.key}" redefined in '
-                    f'{collection.src_path} (original in '
-                    f'{originally_defined_collection.src_path})'
-                )
-            collection_keys_to_paths[collection.key] = collection
-
+        _reject_duplicate_keys(collections, "Collection")
         return collections
 
 
@@ -174,9 +196,10 @@ class PublishedInputData(InputData):
 class EntityInputData(InputData):
     """A PublishableEntity: either a Component or a Container."""
 
+    key: Annotated[str, REF_CONSTRAINTS]
+
     can_stand_alone: bool = True
 
-    # key: str
     created: AwareDatetime
 
     # Weird edge case: If you create something, never publish it, and then do a
@@ -194,6 +217,10 @@ class EntityInputData(InputData):
     #
     # TODO: Test unknown container type.
     container: UnitInputData | SubsectionInputData | SectionInputData | dict | None = None
+
+    # The source file this Entity was defined in. See the note on
+    # CollectionInput.src_path -- this is for error messages only.
+    src_path: str | None = None
 
 
 class SectionInputData(InputData):
@@ -262,7 +289,7 @@ class CollectionInput(InputData):
     # from this file directly because the exact format of this file should be
     # free to change as needed. That's the responsibilty of the payload.py
     # module.
-    src_path: Path | None = None
+    src_path: str | None = None
 
 
 # --- Output models. Not in use yet; the backup side still writes TOML directly. ---

@@ -161,33 +161,46 @@ class ExtractEntityDataTest(TestCase):
         assert "[entity]" in str(ctx.exception)
 
     def test_missing_entity_key(self):
-        with self.assertRaises(payload.FieldMissing) as ctx:
-            self.extractor.extract_entity_data("missing_entity_key.toml")
-        assert ctx.exception.missing_field == "key"
-        assert ctx.exception.table == "entity"
+        """
+        An entity with no key extracts fine; rejecting it is validation's job.
+
+        See test_validation.DuplicateEntityTest.test_missing_entity_key.
+        """
+        data = self.extractor.extract_entity_data("missing_entity_key.toml")
+        assert "key" not in data
+        assert data["src_path"] == "missing_entity_key.toml"
 
     def test_dupes(self):
         """
-        Test for duplicate entities.
+        Two files declaring the same entity key both survive extraction.
 
-        If we didn't explicitly check for this, a second file defining the same
-        entity one entity would just overwrite
-        the other, which would confuse people who might be assembling an archive
-        file for restoring.
-
-        This test is different from the others because extract_entities_data
-        doesn't raise exceptions, it collects them from its calls to
-        extract_entity_data().
+        This is the property that lets validation reject the duplicate and name
+        both files. If we collapsed entities into a dict keyed by their ref, the
+        second definition would overwrite the first and there would be nothing
+        left to report.
         """
         paths = ["dupe_1.toml", "dupe_2.toml"]
-        data, _path_mapping, errors = self.extractor.extract_entities_data(paths)
-        assert "dupe-key" in data  # The first one should have succeeded...
-        assert len(data) == 1  # but the duplicate never made it in.
-        assert len(errors) == 1  # There should be only one error.
+        data, errors = self.extractor.extract_entities_data(paths)
 
-        error = errors[0]
-        assert error.original_path == "dupe_1.toml"  # path of the original
-        assert error.path == "dupe_2.toml"  # path where error was marked
+        assert not errors
+        assert [entity["key"] for entity in data] == ["dupe-key", "dupe-key"]
+        # Each one knows where it came from, which is what makes the eventual
+        # error message actionable.
+        assert [entity["src_path"] for entity in data] == paths
+
+    def test_broken_files_are_collected_not_raised(self):
+        """
+        extract_entities_data gathers per-file errors instead of raising.
+
+        One unreadable entity shouldn't stop us reporting on the rest of them.
+        """
+        data, errors = self.extractor.extract_entities_data(
+            ["broken.toml", "normal_container.toml"]
+        )
+
+        assert [type(err) for err in errors] == [payload.InvalidTOMLError]
+        assert errors[0].path == "broken.toml"
+        assert [entity["key"] for entity in data] == ["section-9-ac4b9f"]
 
     def test_ignore_unknown_tables(self):
         """
@@ -197,7 +210,7 @@ class ExtractEntityDataTest(TestCase):
         can add attributes without older code choking on them. Unknown tables at
         the top level are not part of the entity, so they don't come along.
         """
-        _ref, data = self.extractor.extract_entity_data("unknown_table.toml")
+        data = self.extractor.extract_entity_data("unknown_table.toml")
         assert data["future_thing"] == {"some_setting": "hello"}
         assert "future_top_level" not in data
 
@@ -208,14 +221,15 @@ class ExtractEntityDataTest(TestCase):
         Whether that's actually loadable is the validation step's problem, not
         ours -- our job is only to faithfully report what's in the file.
         """
-        ref, data = self.extractor.extract_entity_data("missing_versions.toml")
-        assert ref == "no-versions-c0ffee"
+        data = self.extractor.extract_entity_data("missing_versions.toml")
+        assert data["key"] == "no-versions-c0ffee"
         assert data["versions"] == []
         assert data["container"] == {"unit": {}}
 
     def test_normal_component(self):
-        ref, data = self.extractor.extract_entity_data("normal_component.toml")
-        assert ref == "xblock.v1:html:9f221fc4-42f1-4d07-ada4-653409bc5fff"
+        data = self.extractor.extract_entity_data("normal_component.toml")
+        assert data["key"] == "xblock.v1:html:9f221fc4-42f1-4d07-ada4-653409bc5fff"
+        assert data["src_path"] == "normal_component.toml"
         assert data["can_stand_alone"] is True
         assert data["created"] == datetime(
             2026, 4, 8, 15, 22, 12, 780012, tzinfo=timezone.utc
@@ -240,9 +254,10 @@ class ExtractEntityDataTest(TestCase):
         assert v3_media["static/figure.png"] == "normal_component/component_versions/v3/static/figure.png"
 
     def test_normal_container(self):
-        ref, data = self.extractor.extract_entity_data("normal_container.toml")
-        assert ref == "section-9-ac4b9f"
+        data = self.extractor.extract_entity_data("normal_container.toml")
         assert data == {
+            'key': 'section-9-ac4b9f',
+            'src_path': 'normal_container.toml',
             'can_stand_alone': True,
             'created': datetime(2026, 4, 8, 15, 22, 12, 780012, tzinfo=timezone.utc),
             'draft': {
@@ -361,9 +376,9 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
         assert len(unvalidated.raw_data["entities"]) == 10
         assert len(unvalidated.raw_data["collections"]) == 1
 
-    def test_entity_path_mapping_uses_declared_key(self):
+    def test_each_entity_records_its_own_source_file(self):
         """
-        The mapping is keyed by the entity's declared key, not its filename.
+        src_path is the file, key is what's declared inside it.
 
         Two fixture files deliberately have names that don't match the key
         inside them, because the export side hashes filenames to avoid
@@ -372,11 +387,14 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
         fs = DirFileSystem(FIXTURES_ROOT / "library_backup")
         unvalidated = payload.PayloadExtractor(fs).extract()
 
+        paths_by_key = {
+            entity["key"]: entity["src_path"]
+            for entity in unvalidated.raw_data["entities"]
+        }
         assert (
-            unvalidated.entity_path_mapping["section1-8ca126"]
-            == "entities/section1-extra-8ca126.toml"
+            paths_by_key["section1-8ca126"] == "entities/section1-extra-8ca126.toml"
         )
-        assert unvalidated.entity_path_mapping[
+        assert paths_by_key[
             "xblock.v1:html:c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2"
         ].endswith("c22b9f97-f1e9-4e8f-87f0-d5a3c26083e2-extra.toml")
 
@@ -390,22 +408,26 @@ class ExtractUnvalidatedLearningPackageTest(TestCase):
         assert error.path == "package.toml"
 
         # We still return a usable object, just an empty one.
-        assert unvalidated.raw_data["entities"] == {}
+        assert unvalidated.raw_data["entities"] == []
         assert unvalidated.raw_data["collections"] == []
 
-    def test_duplicate_entities_are_collected(self):
+    def test_duplicate_entities_both_survive_extraction(self):
+        """
+        Extraction doesn't reject duplicates -- it preserves them for validation.
+        """
         fs = DirFileSystem(TEST_DATA_ROOT / "duplicate_entities")
         unvalidated = payload.PayloadExtractor(fs).extract()
 
-        duplicate_errors = [
-            err for err in unvalidated.errors
-            if isinstance(err, payload.DuplicateFoundError)
+        # This fixture is only the two entity files, so the absent package.toml
+        # is expected. What matters is that the duplicate isn't an error here.
+        assert [type(err) for err in unvalidated.errors] == [payload.MissingFileError]
+
+        entities = unvalidated.raw_data["entities"]
+        assert [entity["key"] for entity in entities] == ["dupe-key", "dupe-key"]
+        assert [entity["src_path"] for entity in entities] == [
+            "entities/dupe_1.toml",
+            "entities/dupe_2.toml",
         ]
-        assert len(duplicate_errors) == 1
-        # The first file to declare the key wins; the second is the error.
-        assert duplicate_errors[0].original_path == "entities/dupe_1.toml"
-        assert duplicate_errors[0].path == "entities/dupe_2.toml"
-        assert "dupe-key" in unvalidated.raw_data["entities"]
 
     def test_static_assets_are_not_mistaken_for_entities(self):
         """
@@ -581,11 +603,11 @@ class ExtractThroughWrapperTest(TestCase):
     def test_paths_are_relative_to_the_detected_root(self):
         wrapped = self.wrapped_extractor.extract()
 
-        assert wrapped.entity_path_mapping == self.flat.entity_path_mapping
-        assert (
-            wrapped.entity_path_mapping["section1-8ca126"]
-            == "entities/section1-extra-8ca126.toml"
-        )
+        paths_by_key = {
+            entity["key"]: entity["src_path"]
+            for entity in wrapped.raw_data["entities"]
+        }
+        assert paths_by_key["section1-8ca126"] == "entities/section1-extra-8ca126.toml"
 
     def test_static_asset_pointers_resolve_against_the_returned_fs(self):
         """
@@ -596,9 +618,10 @@ class ExtractThroughWrapperTest(TestCase):
         static assets would silently go missing for wrapper archives only.
         """
         wrapped = self.wrapped_extractor.extract()
-        entity = wrapped.raw_data["entities"][
-            "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37"
-        ]
+        entity = next(
+            e for e in wrapped.raw_data["entities"]
+            if e["key"] == "xblock.v1:html:e32d5479-9492-41f6-9222-550a7346bc37"
+        )
         version = next(v for v in entity["versions"] if v["version_num"] == 5)
         pointer = version["component"]["media"]["static/me.png"]
 

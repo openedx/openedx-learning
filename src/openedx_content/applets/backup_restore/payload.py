@@ -17,15 +17,14 @@ from fsspec import AbstractFileSystem
 from fsspec.implementations.dirfs import DirFileSystem
 
 from .errors import (
-    DuplicateFoundError,
     ExtractionError,
-    FieldMissing,
     FieldsNotInTable,
     InvalidTOMLError,
     MissingFileError,
     TableNotFoundError,
     UnsupportedFormatError,
 )
+
 
 @attrs.define(frozen=True)
 class UnvalidatedLearningPackageInput:
@@ -40,14 +39,10 @@ class UnvalidatedLearningPackageInput:
     errors: list[ExtractionError]
     fs: AbstractFileSystem
 
-    # Mapping of entity refs to the paths where we found them.
-    entity_path_mapping: dict[str, str]
-
     # The folder inside the archive that we treated as the root, or None if the
-    # archive's contents were at the top level. Every path in ``raw_data``,
-    # ``entity_path_mapping`` and ``errors`` is relative to this, so it's only
-    # useful for telling a human what we decided. Note that ``fs`` itself is
-    # already relative to this root.
+    # archive's contents were at the top level. Every path in ``raw_data`` and
+    # ``errors`` is relative to this, so it's only useful for telling a human
+    # what we decided. Note that ``fs`` itself is already relative to this root.
     root: str | None = None
 
 
@@ -160,7 +155,7 @@ class PayloadExtractor:
             errors.append(err)
 
         # PublishableEntities & versions (components, units, sections, subsections)
-        entities_data, entity_path_mapping, entities_errors = self.extract_entities_data(
+        entities_data, entities_errors = self.extract_entities_data(
             self.get_entity_file_paths()
         )
         unvalidated["entities"] = entities_data
@@ -183,7 +178,6 @@ class PayloadExtractor:
             raw_data=unvalidated,
             errors=errors,
             fs=self.fs,
-            entity_path_mapping=entity_path_mapping,
             root=self.root,
         )
 
@@ -307,39 +301,26 @@ class PayloadExtractor:
         """
         Extract every entity file, collecting errors instead of raising them.
 
-        Returns a ``(entities_data, entity_path_mapping, errors)`` tuple. The
-        path mapping lets later stages report errors against the file an entity
-        came from, which is not derivable from the entity ref.
+        Returns an ``(entities_data, errors)`` tuple, where entities_data is a
+        list in the same order as ``paths``.
 
-        Duplicate detection lives here rather than in ``extract_entity_data``
-        because it's a property of the *set* of files, not of any one file.
+        Note that we don't check for duplicate entity keys here. Each entity
+        records the file it came from, and they're kept in a list rather than
+        being collapsed into a dict, so a redefinition survives this stage
+        intact for validation to reject. That's the same division of labour we
+        use for Collections.
         """
-        entities_data: dict[str, dict] = {}
-        entity_path_mapping: dict[str, str] = {}
+        entities_data: list[dict] = []
         errors: list[ExtractionError] = []
         for entity_file_path in paths:
             try:
-                entity_ref, entity_data = self.extract_entity_data(entity_file_path)
-
-                # Check: Is it a duplicate of an Entity that has already been
-                # defined elsewhere in this archive? Without this, the second
-                # definition would silently overwrite the first, which would be
-                # baffling to someone assembling an archive by hand.
-                if entity_ref in entity_path_mapping:
-                    raise DuplicateFoundError(
-                        f"Entity key {entity_ref}",
-                        entity_path_mapping[entity_ref],
-                        entity_file_path,
-                    )
-
-                entities_data[entity_ref] = entity_data
-                entity_path_mapping[entity_ref] = entity_file_path
+                entities_data.append(self.extract_entity_data(entity_file_path))
             except ExtractionError as err:
                 errors.append(err)
 
-        return entities_data, entity_path_mapping, errors
+        return entities_data, errors
 
-    def extract_entity_data(self, path: str) -> tuple[str, dict]:
+    def extract_entity_data(self, path: str) -> dict:
         """
         This extracts raw entity data from an Entity TOML file.
 
@@ -419,9 +400,8 @@ class PayloadExtractor:
         1. The "entity" table elements have been popped out to the top level.
         2. The "version" list has been renamed to "versions" to feel more
            natural.
-        3. The "key" field (a.k.a. entity_ref) has been popped out to pass back
-           as part of the tuple. This will become a key/value pair in an
-           "entities" dict that will hold all publishable entity input data.
+        3. A "src_path" has been added, recording the file this came from, so
+           that validation can name it in an error message.
         """
         file_description = "Entity"
 
@@ -437,12 +417,11 @@ class PayloadExtractor:
         if "entity" not in entity_root_dict:
             raise TableNotFoundError(file_description, "entity", path=path)
 
-        # Check: Does it define an Entity key (i.e. entity_ref)? We need to check
-        # this now because the dict we have to assemble will use these as keys.
+        # Note that we don't check for a missing "key" here. It's a required
+        # field on EntityInputData, so validation reports it, in the same way it
+        # does for a Collection with no key.
         entity = entity_root_dict["entity"]
-        entity_ref = entity.pop("key", None)
-        if not entity_ref:
-            raise FieldMissing(file_description, "entity", "key", path)
+        entity["src_path"] = path
 
         # Note case difference: we're renaming "version" in the TOML to "versions"
         # in the data dict we're assembling.
@@ -450,7 +429,7 @@ class PayloadExtractor:
         for version in entity["versions"]:
             self._add_component_version_media(version, path)
 
-        return entity_ref, entity
+        return entity
 
     def extract_collection_data(self, path: str) -> dict:
         """

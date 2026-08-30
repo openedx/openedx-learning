@@ -28,7 +28,6 @@ from django.test import TestCase
 from openedx_content.applets.backup_restore import api
 from openedx_content.applets.backup_restore.errors import (
     ArchiveNotReadableError,
-    DuplicateFoundError,
     MissingFileError,
     RestoreFailedError,
     SchemaError,
@@ -398,9 +397,17 @@ class RestoreErrorTest(RestoreTestCase):
         assert "2" in error.message
 
     def test_duplicate_entities(self):
-        error = self.assert_refuses("duplicate_entities", DuplicateFoundError)
-        assert error.path == "entities/second.toml"
-        assert error.original_path == "entities/first.toml"
+        """
+        Two files declaring the same entity. Reported by validation, alongside
+        duplicate collections, rather than during extraction.
+        """
+        error = self.assert_refuses("duplicate_entities", SchemaError)
+
+        # A duplicate is reported against the section rather than one file, so
+        # the message names both, the same way a duplicate Collection does.
+        assert "entities/first.toml" in error.message
+        assert "entities/second.toml" in error.message
+        assert "unit1-b7eafb" in error.message
 
     def test_unknown_container_type(self):
         error = self.assert_refuses("unknown_container", UnknownContainerTypeError)
@@ -561,11 +568,11 @@ class LoaderGuardTest(TestCase):
 
     def test_refuses_an_unrecognized_container_type(self):
         data = CompletePackageInputData.model_construct(
-            entities={
-                "chapter-1": EntityInputData.model_construct(
-                    container={"chapter": {}}, versions=[]
+            entities=[
+                EntityInputData.model_construct(
+                    key="chapter-1", container={"chapter": {}}, versions=[]
                 )
-            }
+            ]
         )
         with self.assertRaises(UnknownContainerTypeError):
             Loader(self._validated(data))
