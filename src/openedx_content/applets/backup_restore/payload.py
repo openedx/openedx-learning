@@ -114,18 +114,18 @@ class PayloadExtractor:
         Find the folder to treat as the archive root, or None to use ``source_fs`` as-is.
 
         People often build an archive by compressing a folder rather than that
-        folder's contents, e.g. ``zip -r MyLib.zip MyLib/``. The result has a single
-        top-level directory with everything (including package.toml) inside it. That
-        is a reasonable thing to hand us, so we accept it.
+        folder's contents, e.g. ``zip -r MyLib.zip MyLib/``. The result has a
+        single top-level directory with everything (including package.toml)
+        inside it. That is a reasonable thing to hand us, so we accept it.
 
         We only look one level down, and we require that the candidate directory
-        actually contains a ``ROOT_PACKAGE_PATH``. That second condition matters more
-        than it looks: without it, *any* archive whose top level happens to hold a
-        single directory would be re-rooted into it.
+        actually contains a ``ROOT_PACKAGE_PATH``. That second condition matters
+        more than it looks: without it, *any* archive whose top level happens to
+        hold a single directory would be re-rooted into it.
 
-        This function never raises. An archive with no package.toml anywhere returns
-        None, and the missing file is reported later as an extraction error, which is
-        where that error belongs.
+        This function never raises. An archive with no package.toml anywhere
+        returns None, and the missing file is reported later as an extraction
+        error, which is where that error belongs.
         """
         if source_fs.exists(cls.ROOT_PACKAGE_PATH):
             return None
