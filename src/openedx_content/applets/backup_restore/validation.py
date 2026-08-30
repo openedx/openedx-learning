@@ -20,7 +20,7 @@ There are three sources of errors here:
 from __future__ import annotations
 
 import attrs
-from fsspec import AbstractFileSystem
+from fsspec.implementations.dirfs import DirFileSystem
 from pydantic import ValidationError
 
 from .errors import (
@@ -49,13 +49,11 @@ class ValidatedLearningPackageInput:
 
     data: CompletePackageInputData | None
 
-    fs: AbstractFileSystem
+    # The re-rooted filesystem from extraction. ``fs.path`` is the folder inside
+    # the archive that was treated as its root, or "" if there wasn't one.
+    fs: DirFileSystem
 
     errors: list[BackupRestoreError]
-
-    # The folder inside the archive that was treated as its root, if any. Purely
-    # informational -- every path in ``errors`` is already relative to it.
-    root: str | None = None
 
 
 def validate(
@@ -80,7 +78,6 @@ def validate(
         data=data,
         fs=unvalidated_lp.fs,
         errors=errors,
-        root=unvalidated_lp.root,
     )
 
 

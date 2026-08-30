@@ -497,11 +497,11 @@ class FindArchiveRootTest(TestCase):
 
     def test_package_at_top_level_zip(self):
         fs = zip_fs_with(["package.toml", "entities/unit1.toml"])
-        assert payload.PayloadExtractor.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) == ""
 
     def test_package_at_top_level_dir(self):
         fs = dir_fs_with(self.tmp_path, {"package.toml": self.PACKAGE})
-        assert payload.PayloadExtractor.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) == ""
 
     def test_single_wrapper_folder_zip(self):
         fs = zip_fs_with(["MyLib/package.toml", "MyLib/entities/unit1.toml"])
@@ -538,20 +538,20 @@ class FindArchiveRootTest(TestCase):
         directory would be re-rooted into it.
         """
         fs = zip_fs_with(["MyLib/entities/unit1.toml"])
-        assert payload.PayloadExtractor.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) == ""
 
     def test_two_candidate_folders_are_ambiguous(self):
         fs = zip_fs_with(["LibA/package.toml", "LibB/package.toml"])
-        assert payload.PayloadExtractor.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) == ""
 
     def test_nested_two_levels_is_not_followed(self):
         """We only look one level down; deeper nesting isn't worth guessing at."""
         fs = zip_fs_with(["Outer/MyLib/package.toml"])
-        assert payload.PayloadExtractor.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) == ""
 
     def test_empty_archive(self):
         fs = dir_fs_with(self.tmp_path, {})
-        assert payload.PayloadExtractor.find_archive_root(fs) is None
+        assert payload.PayloadExtractor.find_archive_root(fs) == ""
 
     def test_entities_fixture_is_not_re_rooted(self):
         """
@@ -562,8 +562,61 @@ class FindArchiveRootTest(TestCase):
         silently re-root into it and break every entity test in this module.
         """
         fs = DirFileSystem(TEST_DATA_ROOT / "entities")
-        assert payload.PayloadExtractor.find_archive_root(fs) is None
-        assert payload.PayloadExtractor(fs).root is None
+        assert payload.PayloadExtractor.find_archive_root(fs) == ""
+        assert payload.PayloadExtractor(fs).fs.path == ""
+
+
+class AlwaysRerootedTest(TestCase):
+    """
+    PayloadExtractor always wraps its source filesystem, wrapper or not.
+
+    This is what lets ``fs.path`` be the single answer to "what did we treat as
+    the root?", which is why nothing stores that separately any more. Skipping
+    the wrap when no wrapper folder is found would pass every other test in this
+    module and quietly leave ``fs.path`` meaning two different things: "" for a
+    zip, but an absolute local path for a directory.
+    """
+
+    PACKAGE = "[meta]\nformat_version = 1\n"
+
+    def setUp(self):
+        super().setUp()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp_path = self._tmp.name
+
+    def test_flat_zip_is_still_wrapped(self):
+        extractor = payload.PayloadExtractor(zip_fs_with(["package.toml"]))
+
+        assert isinstance(extractor.fs, DirFileSystem)
+        assert extractor.fs.path == ""
+
+    def test_flat_directory_is_still_wrapped(self):
+        source_fs = dir_fs_with(self.tmp_path, {"package.toml": self.PACKAGE})
+        extractor = payload.PayloadExtractor(source_fs)
+
+        assert isinstance(extractor.fs, DirFileSystem)
+        # Not the absolute local path that source_fs is rooted at.
+        assert extractor.fs.path == ""
+        assert source_fs.path != ""
+
+    def test_wrapped_archive_records_the_folder(self):
+        extractor = payload.PayloadExtractor(zip_fs_with(["MyLib/package.toml"]))
+
+        assert isinstance(extractor.fs, DirFileSystem)
+        assert extractor.fs.path == "MyLib"
+
+    def test_the_wrapper_is_a_pass_through_when_there_is_no_root(self):
+        """An identity wrap must not disturb any path operation."""
+        source_fs = dir_fs_with(self.tmp_path, {
+            "package.toml": self.PACKAGE,
+            "entities/unit1.toml": "[entity]\nkey = \"unit1\"\n",
+        })
+        extractor = payload.PayloadExtractor(source_fs)
+
+        assert extractor.fs.exists("package.toml")
+        assert extractor.fs.glob("entities/*.toml") == ["entities/unit1.toml"]
+        assert extractor.fs.read_text("package.toml") == self.PACKAGE
 
 
 class ExtractThroughWrapperTest(TestCase):
@@ -585,14 +638,14 @@ class ExtractThroughWrapperTest(TestCase):
         cls.wrapped_extractor = payload.PayloadExtractor(wrapped_fs)
 
     def test_flat_archive_has_no_root(self):
-        assert self.flat.root is None
+        assert self.flat.fs.path == ""
 
     def test_wrapper_root_is_detected(self):
         """
         ``fixtures/`` holds library_backup (with a package.toml) and broken/
         (without one), so library_backup is the only candidate.
         """
-        assert self.wrapped_extractor.root == "library_backup"
+        assert self.wrapped_extractor.fs.path == "library_backup"
 
     def test_raw_data_matches_the_flat_archive(self):
         wrapped = self.wrapped_extractor.extract()

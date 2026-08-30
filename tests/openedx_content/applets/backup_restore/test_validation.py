@@ -81,8 +81,9 @@ def unvalidated(entities=None, collections=None, errors=None, root=None, **overr
     return UnvalidatedLearningPackageInput(
         raw_data=raw_data,
         errors=errors or [],
-        fs=DirFileSystem(FIXTURES_ROOT),
-        root=root,
+        # Built the way PayloadExtractor builds it: always a DirFileSystem, whose
+        # .path is the wrapper folder inside the archive (or "" if there is none).
+        fs=DirFileSystem(path=root or "/", fs=DirFileSystem(FIXTURES_ROOT)),
     )
 
 
@@ -378,10 +379,16 @@ class ArchiveRootPassthroughTest(TestCase):
     """
 
     def test_root_is_carried_through(self):
-        assert validation.validate(unvalidated(root="MyLib")).root == "MyLib"
+        """
+        The root travels on the filesystem itself, not as a separate field.
+
+        DirFileSystem already records what it was rooted at, so there is nothing
+        for validation to copy across.
+        """
+        assert validation.validate(unvalidated(root="MyLib")).fs.path == "MyLib"
 
     def test_no_root_by_default(self):
-        assert validation.validate(unvalidated()).root is None
+        assert validation.validate(unvalidated()).fs.path == ""
 
     def test_as_text_names_the_root_when_there_is_one(self):
         error = RestoreFailedError(

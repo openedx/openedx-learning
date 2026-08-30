@@ -64,7 +64,7 @@ def load_learning_package_from_path(
     # restore: a half-loaded Learning Package is harder to reason about than no
     # Learning Package at all.
     if validated_input.errors:
-        raise RestoreFailedError(validated_input.errors, validated_input.root)
+        raise RestoreFailedError(validated_input.errors, validated_input.fs.path)
 
     loader = loading.Loader(validated_input)
     archive_lp_input = loader.data.learning_package  # LearningPackageInputData

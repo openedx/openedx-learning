@@ -37,13 +37,13 @@ class UnvalidatedLearningPackageInput:
 
     raw_data: dict
     errors: list[ExtractionError]
-    fs: AbstractFileSystem
 
-    # The folder inside the archive that we treated as the root, or None if the
-    # archive's contents were at the top level. Every path in ``raw_data`` and
-    # ``errors`` is relative to this, so it's only useful for telling a human
-    # what we decided. Note that ``fs`` itself is already relative to this root.
-    root: str | None = None
+    # Always the re-rooted filesystem, never the one we were handed. ``fs.path``
+    # is the folder inside the archive that we treated as the root, or "" if the
+    # contents were already at the top level -- so anyone who wants to tell a
+    # human what we decided can read it from here. Every path in ``raw_data`` and
+    # ``errors`` is relative to it.
+    fs: DirFileSystem
 
 
 class PayloadExtractor:
@@ -99,14 +99,26 @@ class PayloadExtractor:
         This is simple to check for and handle, so we just accept this kind of
         input by wrapping the original source filesystem with a
         ``DirFileSystem`` initialized with whatever the root path should be.
+
+        We wrap unconditionally, even when the archive is laid out correctly, so
+        that ``self.fs.path`` is a consistent answer to "what did we treat as the
+        root?" -- and so that we don't have to store that answer separately.
         """
-        self.root = self.find_archive_root(source_fs)
-        self.fs = DirFileSystem(path=self.root, fs=source_fs) if self.root else source_fs
+        # "/" rather than "" because DirFileSystem's __init__ does
+        # `path = path or fo`, which turns an empty string into None. Both
+        # DirFileSystem and ZipFileSystem normalize "/" to "", which makes the
+        # wrapper a pass-through.
+        self.fs = DirFileSystem(
+            path=self.find_archive_root(source_fs) or "/", fs=source_fs
+        )
 
     @classmethod
-    def find_archive_root(cls, source_fs: AbstractFileSystem) -> str | None:
+    def find_archive_root(cls, source_fs: AbstractFileSystem) -> str:
         """
-        Find the folder to treat as the archive root, or None to use ``source_fs`` as-is.
+        Find the folder to treat as the archive root.
+
+        Returns an empty string if the archive's contents are already at the top
+        level, i.e. there's no wrapper folder to descend into.
 
         People often build an archive by compressing a folder rather than that
         folder's contents, e.g. ``zip -r MyLib.zip MyLib/``. The result has a
@@ -119,11 +131,11 @@ class PayloadExtractor:
         hold a single directory would be re-rooted into it.
 
         This function never raises. An archive with no package.toml anywhere
-        returns None, and the missing file is reported later as an extraction
+        returns "", and the missing file is reported later as an extraction
         error, which is where that error belongs.
         """
         if source_fs.exists(cls.ROOT_PACKAGE_PATH):
-            return None
+            return ""
 
         candidates = [
             entry
@@ -136,7 +148,7 @@ class PayloadExtractor:
         if len(candidates) == 1:
             return candidates[0]
 
-        return None
+        return ""
 
     def extract(self) -> UnvalidatedLearningPackageInput:
         """
@@ -178,7 +190,6 @@ class PayloadExtractor:
             raw_data=unvalidated,
             errors=errors,
             fs=self.fs,
-            root=self.root,
         )
 
     def extract_root_package_data(self, path: str | None = None) -> dict:
