@@ -49,7 +49,7 @@ charset-normalizer==3.5.1
     # via
     #   -r requirements/test.txt
     #   requests
-click==8.4.2
+click==8.5.0
     # via
     #   -r requirements/test.txt
     #   celery
@@ -73,11 +73,11 @@ click-repl==0.3.0
     #   celery
 code-annotations==3.0.0
     # via -r requirements/test.txt
-coverage[toml]==7.15.4
+coverage[toml]==7.16.0
     # via
     #   -r requirements/test.txt
     #   pytest-cov
-cryptography==50.0.0
+cryptography==50.0.1
     # via
     #   -r requirements/test.txt
     #   pyjwt
@@ -134,7 +134,7 @@ djangorestframework==3.18.0
     #   drf-jwt
     #   edx-drf-extensions
     #   edx-organizations
-djangorestframework-stubs==3.18.0
+djangorestframework-stubs==3.18.1
     # via -r requirements/test.txt
 dnspython==2.8.0
     # via
@@ -157,7 +157,7 @@ edx-ccx-keys==2.0.2
     # via
     #   -r requirements/test.txt
     #   openedx-events
-edx-django-utils==8.0.1
+edx-django-utils==8.0.2
     # via
     #   -r requirements/test.txt
     #   edx-drf-extensions
@@ -181,7 +181,7 @@ fastavro==1.12.2
     #   openedx-events
 freezegun==1.5.5
     # via -r requirements/test.txt
-grimp==3.15
+grimp==3.16
     # via
     #   -r requirements/test.txt
     #   import-linter
@@ -189,9 +189,9 @@ idna==3.19
     # via
     #   -r requirements/test.txt
     #   requests
-imagesize==2.0.0
+imagesize==2.0.1
     # via sphinx
-import-linter==2.13
+import-linter==2.14
     # via -r requirements/test.txt
 iniconfig==2.3.0
     # via
@@ -317,7 +317,7 @@ pyyaml==6.0.3
     # via
     #   -r requirements/test.txt
     #   code-annotations
-readme-renderer==45.0
+readme-renderer==46.0
     # via -r requirements/doc.in
 requests==2.34.2
     # via
@@ -421,7 +421,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.8.2
+wcwidth==0.8.3
     # via
     #   -r requirements/test.txt
     #   prompt-toolkit

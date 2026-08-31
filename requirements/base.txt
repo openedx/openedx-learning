@@ -24,7 +24,7 @@ cffi==2.1.1
     #   pynacl
 charset-normalizer==3.5.1
     # via requests
-click==8.4.2
+click==8.5.0
     # via
     #   celery
     #   click-didyoumean
@@ -37,7 +37,7 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==50.0.0
+cryptography==50.0.1
     # via pyjwt
 django==5.2.17
     # via
@@ -75,7 +75,7 @@ drf-jwt==1.19.2
     # via edx-drf-extensions
 edx-ccx-keys==2.0.2
     # via openedx-events
-edx-django-utils==8.0.1
+edx-django-utils==8.0.2
     # via
     #   edx-drf-extensions
     #   openedx-events
@@ -150,7 +150,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.8.2
+wcwidth==0.8.3
     # via prompt-toolkit
 
 # The following packages are considered to be unsafe in a requirements file:
