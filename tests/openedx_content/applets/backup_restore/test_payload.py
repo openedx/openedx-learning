@@ -497,11 +497,11 @@ class FindArchiveRootTest(TestCase):
 
     def test_package_at_top_level_zip(self):
         fs = zip_fs_with(["package.toml", "entities/unit1.toml"])
-        assert payload.PayloadExtractor.find_archive_root(fs) == ""
+        assert payload.PayloadExtractor.find_archive_root(fs) == "/"
 
     def test_package_at_top_level_dir(self):
         fs = dir_fs_with(self.tmp_path, {"package.toml": self.PACKAGE})
-        assert payload.PayloadExtractor.find_archive_root(fs) == ""
+        assert payload.PayloadExtractor.find_archive_root(fs) == "/"
 
     def test_single_wrapper_folder_zip(self):
         fs = zip_fs_with(["MyLib/package.toml", "MyLib/entities/unit1.toml"])
@@ -538,20 +538,20 @@ class FindArchiveRootTest(TestCase):
         directory would be re-rooted into it.
         """
         fs = zip_fs_with(["MyLib/entities/unit1.toml"])
-        assert payload.PayloadExtractor.find_archive_root(fs) == ""
+        assert payload.PayloadExtractor.find_archive_root(fs) == "/"
 
     def test_two_candidate_folders_are_ambiguous(self):
         fs = zip_fs_with(["LibA/package.toml", "LibB/package.toml"])
-        assert payload.PayloadExtractor.find_archive_root(fs) == ""
+        assert payload.PayloadExtractor.find_archive_root(fs) == "/"
 
     def test_nested_two_levels_is_not_followed(self):
         """We only look one level down; deeper nesting isn't worth guessing at."""
         fs = zip_fs_with(["Outer/MyLib/package.toml"])
-        assert payload.PayloadExtractor.find_archive_root(fs) == ""
+        assert payload.PayloadExtractor.find_archive_root(fs) == "/"
 
     def test_empty_archive(self):
         fs = dir_fs_with(self.tmp_path, {})
-        assert payload.PayloadExtractor.find_archive_root(fs) == ""
+        assert payload.PayloadExtractor.find_archive_root(fs) == "/"
 
     def test_entities_fixture_is_not_re_rooted(self):
         """
@@ -562,7 +562,7 @@ class FindArchiveRootTest(TestCase):
         silently re-root into it and break every entity test in this module.
         """
         fs = DirFileSystem(TEST_DATA_ROOT / "entities")
-        assert payload.PayloadExtractor.find_archive_root(fs) == ""
+        assert payload.PayloadExtractor.find_archive_root(fs) == "/"
         assert payload.PayloadExtractor(fs).fs.path == ""
 
 
