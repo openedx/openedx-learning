@@ -1,4 +1,4 @@
-.. _openedx-learning-adr-0004:
+.. _openedx-learning-adr-0004-pathway-catalog-content-split:
 
 4. Pathways: Split Between Catalog and Content
 ==============================================
