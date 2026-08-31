@@ -1,0 +1,9 @@
+# This is the absolute minimum necessary to pass the payload extraction step.
+# It doesn't matter that required fields are missing --> that's handled in
+# validation. Payload extraction just requires that the tables we expect exist.
+#
+# Ordering is also irrelevant for this file.
+[learning_package]
+
+[meta]
+format_version = 1

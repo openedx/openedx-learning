@@ -1,0 +1,17 @@
+# Redeclares the same entity key as first.toml, which would silently overwrite
+# it if we didn't check.
+[entity]
+can_stand_alone = true
+key = "unit1-b7eafb"
+created = 2025-09-04T22:51:59.271334Z
+
+[entity.draft]
+version_num = 1
+
+[entity.published]
+
+[entity.container.unit]
+
+[[version]]
+title = "Unit 1 Again"
+version_num = 1

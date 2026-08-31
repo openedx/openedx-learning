@@ -1,0 +1,7 @@
+# We're going to accept format_version 1.1 as a hedge against backwards
+# compatible additions to this format (we may never use this).
+[meta]
+format_version = 1.1
+
+[learning_package]
+title = "Fun Library"

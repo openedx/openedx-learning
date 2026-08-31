@@ -1,0 +1,16 @@
+# "chapter" is not a container type this version of the code can build.
+[entity]
+can_stand_alone = true
+key = "chapter1-abc123"
+created = 2025-09-04T22:51:59.271334Z
+
+[entity.draft]
+version_num = 1
+
+[entity.published]
+
+[entity.container.chapter]
+
+[[version]]
+title = "Chapter 1"
+version_num = 1

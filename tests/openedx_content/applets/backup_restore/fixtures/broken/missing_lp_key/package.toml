@@ -1,0 +1,12 @@
+# The [learning_package] table is missing its mandatory "key" field.
+[meta]
+format_version = 1
+created_by = "lp_user"
+created_at = 2025-10-05T18:23:45.180535Z
+origin_server = "cms.test"
+
+[learning_package]
+title = "Library test"
+description = ""
+created = 2025-08-19T04:25:10.988166Z
+updated = 2025-08-19T04:25:10.988166Z

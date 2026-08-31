@@ -1,0 +1,8 @@
+# `true` is not a version number. This matters because Python's bool is a
+# subclass of int, so a naive numeric check would read this as version 1.
+[meta]
+format_version = true
+
+[learning_package]
+title = "Fun Library"
+key = "lib:Axim:FunLib"

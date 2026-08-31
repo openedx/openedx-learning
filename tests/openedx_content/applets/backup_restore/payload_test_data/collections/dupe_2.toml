@@ -1,0 +1,8 @@
+# Same key as dupe_1.toml, which is not allowed -- Collection keys must be
+# unique within a Learning Package.
+[collection]
+title = "Difficult Problems"
+key = "dupe-collection-key"
+description = ""
+created = 2026-03-12T19:20:20.394360Z
+entities = []

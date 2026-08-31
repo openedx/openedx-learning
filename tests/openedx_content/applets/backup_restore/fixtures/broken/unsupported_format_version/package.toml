@@ -1,0 +1,11 @@
+# We only know how to read format_version 1.x.
+[meta]
+format_version = 2
+created_by = "lp_user"
+created_at = 2025-10-05T18:23:45.180535Z
+
+[learning_package]
+title = "Library test"
+key = "lib:WGU:LIB_C001"
+created = 2025-08-19T04:25:10.988166Z
+updated = 2025-08-19T04:25:10.988166Z

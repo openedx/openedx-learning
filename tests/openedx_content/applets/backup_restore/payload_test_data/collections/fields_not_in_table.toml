@@ -1,0 +1,8 @@
+# The problem here is that title and key are not in a table, and we don't allow
+# that.
+title = "Difficult Problems"
+key = "difficult-problems"
+
+[collection]
+description = ""
+created = 2026-03-11T19:20:20.394360Z

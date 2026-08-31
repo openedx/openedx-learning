@@ -1,0 +1,2 @@
+# Intentionally empty: this directory exists so that fsspec has something
+# to point at for the "archive with nothing in it" test case.
