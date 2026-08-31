@@ -31,18 +31,18 @@ class UnvalidatedLearningPackageInput:
     """
     Everything we could pull out of an archive, before validation.
 
-    ``raw_data`` is the assembled document we hand to pydantic.
+    ``raw_data`` is the assembled document we hand to pydantic validation (into
+      the ``CompletePackageInputData`` model).
     ``errors`` holds anything that stopped us assembling part of it.
     """
-
     raw_data: dict
     errors: list[ExtractionError]
 
     # Always the re-rooted filesystem, never the one we were handed. ``fs.path``
     # is the folder inside the archive that we treated as the root, or "" if the
     # contents were already at the top level -- so anyone who wants to tell a
-    # human what we decided can read it from here. Every path in ``raw_data`` and
-    # ``errors`` is relative to it.
+    # human what we decided can read it from here. Every path in ``raw_data``
+    # and ``errors`` is relative to this root.
     fs: DirFileSystem
 
 
@@ -101,15 +101,17 @@ class PayloadExtractor:
         ``DirFileSystem`` initialized with whatever the root path should be.
 
         We wrap unconditionally, even when the archive is laid out correctly, so
-        that ``self.fs.path`` is a consistent answer to "what did we treat as the
-        root?" -- and so that we don't have to store that answer separately.
+        that ``self.fs.path`` is a consistent answer to "what did we treat as
+        the root?" -- and so that we don't have to store that answer separately.
+        This still works even if ``source_fs`` is another ``DirFileSystem``.
         """
-        # "/" rather than "" because DirFileSystem's __init__ does
-        # `path = path or fo`, which turns an empty string into None. Both
-        # DirFileSystem and ZipFileSystem normalize "/" to "", which makes the
-        # wrapper a pass-through.
+        # Note: We can't pass path="" because of how DirFileSystem is
+        # implemented (it will become ``None``, and that will raise errors).
+        # Instead, we pass path="/" when things are where they should be at the
+        # top level. Confusingly, DirFileSystem will normalize this to "", so
+        # if you later query for it, expect self.fs.path == "" for this case.
         self.fs = DirFileSystem(
-            path=self.find_archive_root(source_fs) or "/", fs=source_fs
+            path=self.find_archive_root(source_fs), fs=source_fs
         )
 
     @classmethod
@@ -117,8 +119,8 @@ class PayloadExtractor:
         """
         Find the folder to treat as the archive root.
 
-        Returns an empty string if the archive's contents are already at the top
-        level, i.e. there's no wrapper folder to descend into.
+        Returns "/" if the archive's contents are already at the top level, i.e.
+        there's no wrapper folder to descend into.
 
         People often build an archive by compressing a folder rather than that
         folder's contents, e.g. ``zip -r MyLib.zip MyLib/``. The result has a
@@ -126,16 +128,16 @@ class PayloadExtractor:
         inside it. That is a reasonable thing to hand us, so we accept it.
 
         We only look one level down, and we require that the candidate directory
-        actually contains a ``ROOT_PACKAGE_PATH``. That second condition matters
-        more than it looks: without it, *any* archive whose top level happens to
-        hold a single directory would be re-rooted into it.
+        actually contains a ``ROOT_PACKAGE_PATH``.
 
         This function never raises. An archive with no package.toml anywhere
-        returns "", and the missing file is reported later as an extraction
-        error, which is where that error belongs.
+        returns "/", and the missing file is reported later as an extraction
+        error, which is where that error belongs. Note that both DirFileSystem
+        and ZipFileSystem normalize "/" to "", which makes the wrapper a
+        pass-through.
         """
         if source_fs.exists(cls.ROOT_PACKAGE_PATH):
-            return ""
+            return "/"
 
         candidates = [
             entry
@@ -148,14 +150,23 @@ class PayloadExtractor:
         if len(candidates) == 1:
             return candidates[0]
 
-        return ""
+        # If we get here, the archive is broken, but we return the top-level
+        # anyway and let other error-handling code flag that package.toml is
+        # missing.
+        return "/"
 
     def extract(self) -> UnvalidatedLearningPackageInput:
         """
         Read the whole archive, gathering errors rather than raising them.
+
+        The general philosophy here is to always march on and get as much as
+        possible, even if we know the upload is doomed. It's better to see all
+        the errors for an archive at once, than to see only one error and have
+        to go through the upload cycle to see the next issue.
         """
-        # The general philosophy here is to always march on and get as much as
-        # possible, even if we know the upload is doomed.
+        # The ``unvalidated`` dict will eventually be used to load a
+        # ``CompletePackageInputData``, so it needs to match its fields:
+        # ``meta``, ``learning_package``, ``entities``, and ``collections``.
         unvalidated: dict = {}
         errors: list[ExtractionError] = []
 
@@ -263,10 +274,10 @@ class PayloadExtractor:
                 file_description, table="learning_package", path=path
             )
 
-        # Check: We only support format_version 1, and don't know what to do with
-        # anything higher. This leaves us some wiggle-room to declare a 1.x version
-        # that is backwards compatible, i.e. it will reject 2 and higher, but accept
-        # 1.1, 1.2, etc.
+        # Check: We only support format_version 1, and don't know what to do
+        # with anything higher. This leaves us some wiggle-room to declare a 1.x
+        # version that is backwards compatible, i.e. it will reject 2 and
+        # higher, but accept 1.1, 1.2, etc.
         format_version = root_package_dict["meta"].get("format_version")
         is_number = isinstance(format_version, (int, float)) and not isinstance(
             format_version, bool
@@ -422,9 +433,10 @@ class PayloadExtractor:
         self._check_all_fields_in_tables(entity_root_dict, file_description, path)
 
         # Check: Does it define a top level "[entity]" table? Note that this can
-        # pass if they define a sub-table like "[entity.draft]", since the existence
-        # of "[entity]" is implicit in that case. If we get that far, rely on
-        # catching it at the validation step (i.e. after payload extraction).
+        # pass if they define a sub-table like "[entity.draft]", since the
+        # existence of "[entity]" is implicit in that case. If we get that far,
+        # rely on catching it at the validation step (i.e. after payload
+        # extraction).
         if "entity" not in entity_root_dict:
             raise TableNotFoundError(file_description, "entity", path=path)
 
@@ -434,8 +446,8 @@ class PayloadExtractor:
         entity = entity_root_dict["entity"]
         entity["src_path"] = path
 
-        # Note case difference: we're renaming "version" in the TOML to "versions"
-        # in the data dict we're assembling.
+        # Note case difference: we're renaming "version" in the TOML to
+        # "versions" in the data dict we're assembling.
         entity["versions"] = entity_root_dict.pop("version", [])
         for version in entity["versions"]:
             self._add_component_version_media(version, path)
@@ -485,7 +497,7 @@ class PayloadExtractor:
             if self.fs.isfile(media_path)
         }
         # Any static files are encoded as pointers.
-        # TODO: Convert this to data-urls later
+        # TODO: Add support for data-urls
         for static_file_path in self.fs.glob(f"{comp_ver_dir}/static/**"):
             if self.fs.isfile(static_file_path):
                 rel_path = os.path.relpath(static_file_path, comp_ver_dir)
