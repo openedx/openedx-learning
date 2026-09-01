@@ -1,6 +1,6 @@
-.. _openedx-learning-adr-0004-pathway-catalog-content-split:
+.. _openedx-learning-adr-0007:
 
-4. Pathways: Split Between Catalog and Content
+7. Pathways: Split Between Catalog and Content
 ==============================================
 
 Status
