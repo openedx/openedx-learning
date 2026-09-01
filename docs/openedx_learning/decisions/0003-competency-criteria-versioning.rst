@@ -35,14 +35,16 @@ For the initial implementation, versioning and traceability of competency achiev
 
    - Before any related learner status exists, edits and deletes are allowed.
    - After any related learner status exists, disassociation/deletion is archive-only (soft delete), not hard delete.
-   - Archived rows remain queryable so learner status records can continue to be traced back to their source association.
+   - Ordinary reads (tag lists, object-tag-for-an-object lookups used by authoring UIs, and similar) exclude archived rows, so an archived association behaves as gone from those paths.
+   - The read path that resolves a learner status row back to the ``ObjectTag`` it references is exempt from that exclusion: archived rows remain queryable on that path, so learner status records can continue to be traced back to their source association.
 
 4. Authoring guardrails must warn on potentially impactful edits:
 
-   - If a user edits competency criteria definitions or competency object/tag associations after related learner status exists, Studio must display an explicit warning that student statuses have already been set, and these changes will be applied going forward, so existing learner statuses will not be retroactively updated.
+   - If a user edits competency criteria definitions, Studio must display an explicit warning that the change will be applied going forward and will not retroactively affect any existing learner status.
    - Applying these changes requires explicit user confirmation.
-   - A ``CompetencyRuleProfile`` is "in use" if any ``CompetencyCriterion`` assigned to it (``competency_rule_profile_id``) has an associated ``StudentCompetencyCriteriaStatus`` row. Editing an in-use profile's ``rule_type``/``rule_payload`` requires the same warning and confirmation.
-   - The same warning applies when creating a more specific profile causes existing criteria to be reassigned to it, and when an authoring action switches a criterion between a profile assignment and per-criterion overrides (ADR 0002 Decision 4).
+   - If/when ``rule_type``/``rule_payload`` become editable through a REST API or application-layer/service code, a ``CompetencyRuleProfile`` would be "in use" if any ``CompetencyCriterion`` assigned to it (``competency_rule_profile_id``) has an associated ``StudentCompetencyCriteriaStatus`` row, and editing an in-use profile's ``rule_type``/``rule_payload`` would require the same warning and confirmation.
+   - If/when a more specific profile can exist, the same warning applies when creating one causes existing criteria to be reassigned to it.
+   - The same warning also applies when an authoring action switches a criterion between a profile assignment and per-criterion overrides (ADR 0002 Decision 4).
 
 5. Do not store history for learner competency status tables, and update rows in place. These tables do not use ``django-simple-history``:
 
