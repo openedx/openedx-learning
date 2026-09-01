@@ -131,8 +131,7 @@ Rejected Alternatives
     - Cons:
         - It moves a full bottom-up tree evaluation onto every read, the opposite of what dashboards
           need.
-        - Already settled against in :ref:`openedx-learning-adr-0002`. Unresolved item 1 is the
-          narrower version still open.
+        - Already settled against in :ref:`openedx-learning-adr-0002`.
 
 6. Send an event to openedx-core and do all the work in a separate celery task.
 

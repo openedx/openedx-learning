@@ -75,7 +75,7 @@ Decision
 
    - A group belongs to one competency (``oel_tagging_tag_id``) and optional course scope (``course_id``).
    - A group can have child groups.
-   - ``logic_operator`` (``AND``/``OR``) defines how children are combined.
+   - ``logic_operator`` (``AND``, ``OR``, or null) defines how children are combined; null occurs only for a group with a single child, where combining logic is moot, and the application layer treats null the same as ``OR`` (the default when there's nothing to disambiguate).
    - ``ordering`` defines deterministic sibling evaluation sequence during group recomputation and enables short-circuit evaluation.
 
    This new database table will have the following columns:
@@ -87,6 +87,7 @@ Decision
    5. ``name``: string
    6. ``ordering``: Indicates evaluation sequence number for this criteria group. This defines deterministic evaluation order for siblings during read-time evaluation and event-driven recomputation, and enables short-circuit evaluation.
    7. ``logic_operator``: Either “AND” or “OR” or null. This determines how children are combined at a group node ("AND" or "OR").
+   8. ``archived``: Boolean, defaults to false. Set instead of deleting a group once a student status exists for it. Archived groups are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriteria`` rows and learner status rows stay resolvable.
 
    Example: A root group uses "OR" with two child groups.
 
@@ -120,7 +121,7 @@ Decision
 
    - Each row is scoped by at most one of taxonomy, course, or organization (or by none, for the system default). A check constraint enforces that at most one of ``organization_id``, ``course_id``, and ``competency_taxonomy_id`` is non-null per row. See Decision 4 for how a criterion is assigned a profile when rows in more than one of these scopes could apply to it.
    - At most one profile row may exist per distinct scope value. This is enforced by a unique constraint on the generated ``scope_code`` column (Decision 5), not a plain unique constraint on the three raw scope columns; see the ``scope_code`` column definition below for why.
-   - The system default is the single profile row where all three scope fields are null. ``scope_code`` is never null, including for this row (see below), so its singularity is enforced by the same unique constraint as every other profile rather than a separate procedural guarantee; it is seeded once via migration and never created or deleted through the profile API. Its ``rule_type``/``rule_payload`` can be edited through the profile API like any other profile.
+   - The system default is the single profile row where all three scope fields are null. ``scope_code`` is never null, including for this row (see below), so its singularity is enforced by the same unique constraint as every other profile rather than a separate procedural guarantee; it is seeded once via migration and never created or deleted through the profile API. If/when a REST API or application-layer/service code exists for editing a profile's ``rule_type``/``rule_payload``, the system default row would be editable through it like any other profile. Until then, only an operator can edit it directly (for example via Django admin or SQL).
    - Is referenced by ``CompetencyCriterion``, which may override its type/payload.
    - Never hard-deleted; retirement is archive-only (Decision 7).
 
@@ -141,7 +142,7 @@ Decision
 
    Editing a profile may change ``rule_type``/``rule_payload`` only; scope fields are immutable after creation, to avoid silently re-scoping criteria that already resolved to this profile.
 
-   MVP note: only taxonomy-scoped and system-default profiles are created; every profile row created in this phase has ``course_id`` and ``organization_id`` null. Enabling course- or organization-scoped profiles later needs no schema change here -- the columns, the uniqueness constraint, and the re-assignment behavior (Decision 4) already support them.
+   MVP note: only the system-default profile exists in this phase; taxonomy-, course-, and organization-scoped profiles are all out of scope for this MVP, so every profile row in this phase has ``competency_taxonomy_id``, ``course_id``, and ``organization_id`` null. If/when taxonomy-, course-, or organization-scoped competency rule profiles are built, no schema change is needed here to support them -- the columns, the uniqueness constraint, and the re-assignment behavior (Decision 4) already do.
 
 4. ``CompetencyCriterion`` concept (``CompetencyCriteria`` database table)
 
@@ -164,6 +165,8 @@ Decision
 
       1. ``Grade``: ``{"op": "gte", "value": 0.75, "scale": "percent"}``. Allowed ``op`` values: ``gte``, ``lte``, ``eq``. ``value`` must be a fraction between 0.0 and 1.0 inclusive, matching the platform's existing fractional grade representation, not a 0-100 scale.
 
+   7. ``archived``: Boolean, defaults to false. Set instead of deleting a criterion once a student status exists for it. Archived criteria are hidden from authoring and new associations but remain queryable, so existing learner status rows stay resolvable.
+
    Exactly one of the following holds for a given criterion, never both, never neither:
 
    (a) ``competency_rule_profile_id`` is set and both override fields are null, or
@@ -172,7 +175,7 @@ Decision
    ``competency_rule_profile_id`` is not assigned once and left alone. The same assignment computation -- using whatever scope the relevant authoring screen operates in, resolved per the table below -- is re-run at each of these points, and each one writes a new value:
 
    1. Creation: the authoring screen that creates the criterion assigns it using the scope that screen itself operates in (for example, adding Competency Criteria to the Course Outline page would have it supply its own course id; the Competency Management page will supply its own taxonomy id). This is independent of ``CompetencyCriteriaGroup.course_id``, which scopes evaluation windowing (Decision 2), not rule assignment; the two may coincidentally match but neither determines the other.
-   2. A more specific profile is created later that would now apply to an existing criterion: that criterion is reassigned to it. Treated as an edit for the in-use warning (ADR 0003 Decision 4).
+   2. If/when a more specific profile can exist, one created later that would now apply to an existing criterion causes that criterion to be reassigned to it, treated as an edit for the in-use warning (ADR 0003 Decision 4).
    3. A user sets a per-criterion override (for example, editing a ``CompetencyCriteriaGroup``'s default rule, which cascades to every ``CompetencyCriterion`` under that group): ``competency_rule_profile_id`` is set to null and the override fields are set instead.
    4. A user's override is changed to match what the computation in (1)/(2) would already produce for this criterion: the criterion is reassigned back to that profile and the override fields are cleared, rather than keeping a redundant override in place.
 
@@ -231,7 +234,7 @@ Decision
         - A taxonomy adopted from a third-party standard body ("Nursing"), which should not be locally weakened
         - Taxonomy
 
-   MVP note: only taxonomy-scoped and system-default profiles are created, so every ``CompetencyCriterion`` created in this phase is assigned one of those two -- the only authoring screens that exist today (Competency Management, and eventually Libraries) supply a competency tag but no course or organization. Organization scoping in particular has no defined source yet: no authoring screen has been decided to expose an organization context, so there is nothing to assign an organization-scoped profile from until that is decided. Course- and organization-scoped profiles, and therefore both tables above, are dormant until those scope levels are built; no schema change is needed to enable them then.
+   MVP note: only the system-default profile exists in this phase, so every ``CompetencyCriterion`` created in this phase is assigned it -- the only authoring screens that exist today (Competency Management, and eventually Libraries) supply a competency tag but no taxonomy, course, or organization context to resolve a more specific profile from. Organization scoping in particular has no defined source yet: no authoring screen has been decided to expose an organization context, so there is nothing to assign an organization-scoped profile from until that is decided. If/when taxonomy-, course-, and organization-scoped competency rule profiles exist, resolution follows the tables above; no schema change is needed to enable them then.
 
 5. Indexes for common lookups
 
@@ -302,11 +305,10 @@ Decision
 
 7. Delete protection boundaries
 
-   - If no learner status rows exist for a competency definition, hard delete is allowed and cascades through competency metadata tables.
-   - Once any related learner status exists in ``StudentCompetencyStatus``, ``StudentCompetencyCriteriaGroupStatus``, or ``StudentCompetencyCriteriaStatus``, deletion of associated competency definition rows is blocked.
-   - This delete protection applies to ``oel_tagging_taxonomy``, ``CompetencyTaxonomy``, ``oel_tagging_tag``, ``oel_tagging_objecttag``, ``CompetencyCriteriaGroup``, and ``CompetencyCriteria``.
-   - Once any related learner status exists, retiring definitions may be archive-only (hidden from authoring and new associations), not hard delete.
-   - Exception: ``CompetencyRuleProfile`` is never hard-deleted, even before any learner status exists, because it is shared across many ``CompetencyCriterion`` rows and reused going forward rather than tied to one. Retirement is always archive-only, via its ``archived`` column (Decision 3).
+   - If no related row exists in ``StudentCompetencyCriteriaStatus`` (the leaf-level learner status table, Decision 6) for a competency definition, delete behaves as it does today: a hard delete that cascades through competency metadata tables.
+   - Once a related row exists in ``StudentCompetencyCriteriaStatus``, deletion of the associated competency definition row still succeeds, but as an archive (soft delete) instead of a hard delete: the row is hidden from authoring and new associations but remains queryable, so existing learner status rows stay resolvable. This archive-vs-hard-delete rule applies to ``oel_tagging_tag``, ``oel_tagging_taxonomy``, ``CompetencyTaxonomy``, ``oel_tagging_objecttag``, ``CompetencyCriteriaGroup``, and ``CompetencyCriteria``; see :ref:`openedx-learning-adr-0003` Decision 3 for ``oel_tagging_objecttag``'s own archive rule and traceability exception.
+   - ``StudentCompetencyCriteriaStatus`` is what determines whether a record is protected. ``StudentCompetencyCriteriaGroupStatus`` and ``StudentCompetencyStatus`` are roll-up tables derived from it (Decision 6) and are not independently checked for this purpose: :ref:`openedx-learning-adr-0004` writes the leaf table synchronously with the grade but rolls the two roll-up tables up later via an asynchronous task, which can lag behind the leaf or, per that ADR's Decision 5, need manual recovery. Checking only the roll-up tables could therefore miss real learner progress that has not rolled up yet.
+   - Exception: ``CompetencyRuleProfile`` is never hard-deletable at all, regardless of whether learner status exists. Retirement is always archive-only, via a normal update to its ``archived`` column (Decision 3).
 
 .. image:: images/CompetencyCriteriaModel.png
    :alt: Competency Criteria Model
@@ -433,3 +435,13 @@ Changelog
 
 * Made the learner status indexes unique, so there is one row per learner and node. This is what
   the in-place, monotone status updates in :ref:`openedx-learning-adr-0004` read, lock, and update.
+
+2026-09-01:
+
+* Amended Decisions 2, 3, 4, and 7 for issue #655: added archive-vs-hard-delete guardrails on
+  records referenced by learner status (``CompetencyCriteriaGroup``, ``CompetencyCriteria``,
+  ``Tag``, and ``Taxonomy``/``CompetencyTaxonomy``), and narrowed ``CompetencyRuleProfile`` scope
+  to the single system-default row for this MVP. This entry supersedes the 2026-07-27 entry's
+  characterization of :ref:`openedx-learning-adr-0004`'s locking behavior: the accepted ADR 0004
+  has only its staff-correction path take a lock, not every update. That entry is left as
+  originally written rather than edited in place.
