@@ -4,6 +4,24 @@ Models for CompetencyAchievementCriteria: CompetencyCriteriaGroup, CompetencyRul
 See :ref:`openedx-learning-adr-0002` for the design this module implements, and
 :ref:`openedx-learning-adr-0003` for why these three models (and not CompetencyTaxonomy) carry
 ``django-simple-history`` tracking.
+
+Every foreign key declared in this module uses ``on_delete=models.PROTECT``. This is the current
+fail-closed default, not a settled decision: which delete behavior each of these foreign keys
+should actually carry is an open question escalated against the approved design in #655, and no
+ticket currently owns revisiting it. (#799 used to hold this question; it is now closed as
+superseded.)
+
+Two of these foreign keys cross a real boundary and are the most likely to change:
+``CompetencyCriteriaGroup.tag`` and ``CompetencyCriterion.object_tag``, both pointing into
+``openedx_tagging``. #655's approved design deliberately keeps ``openedx_tagging`` ignorant that
+CBE exists, so its archive-versus-delete branch reads only its own ``deletion_locked`` flag and
+never calls into CBE to check for referencing criteria. #655 also says that deleting a tag no
+learner holds mastery against should be a plain hard delete. ``PROTECT`` breaks that promise: it
+turns the hard delete into a ``ProtectedError`` whenever an author's criteria tree references the
+tag, which is the ordinary state at authoring time, before any learner has been graded. Whether
+these two foreign keys stay ``PROTECT`` (with the tagging-side delete paths learning to clear
+referencing rows first) or become ``CASCADE`` is not decided; that decision belongs to #655, not
+to this module.
 """
 from __future__ import annotations
 
@@ -109,7 +127,6 @@ class CompetencyCriteriaGroup(models.Model):
         "self",
         null=True,
         blank=True,
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="child_groups",
         help_text=_("The parent CompetencyCriteriaGroup. Null means this group is a tree root."),
@@ -117,7 +134,6 @@ class CompetencyCriteriaGroup(models.Model):
     tag = models.ForeignKey(
         Tag,
         db_column="oel_tagging_tag_id",
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="competency_criteria_groups",
         help_text=_("The competency (tag) that this criteria tree evaluates mastery of."),
@@ -126,7 +142,6 @@ class CompetencyCriteriaGroup(models.Model):
         CourseRun,
         null=True,
         blank=True,
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="competency_criteria_groups",
         help_text=_("The course run that scopes this criteria tree for evaluation windowing, if any."),
@@ -202,7 +217,6 @@ class CompetencyRuleProfile(models.Model):
         Organization,
         null=True,
         blank=True,
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="competency_rule_profiles",
         help_text=_("The organization this profile is scoped to, if any."),
@@ -211,7 +225,6 @@ class CompetencyRuleProfile(models.Model):
         CourseRun,
         null=True,
         blank=True,
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="competency_rule_profiles",
         help_text=_("The course run this profile is scoped to, if any."),
@@ -220,7 +233,6 @@ class CompetencyRuleProfile(models.Model):
         CompetencyTaxonomy,
         null=True,
         blank=True,
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="rule_profiles",
         help_text=_("The competency taxonomy this profile is scoped to, if any."),
@@ -364,7 +376,6 @@ class CompetencyCriterion(models.Model):
     group = models.ForeignKey(
         CompetencyCriteriaGroup,
         db_column="competency_criteria_group_id",
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="criteria",
         help_text=_("The CompetencyCriteriaGroup this leaf criterion belongs to."),
@@ -372,7 +383,6 @@ class CompetencyCriterion(models.Model):
     object_tag = models.ForeignKey(
         ObjectTag,
         db_column="oel_tagging_objecttag_id",
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="competency_criteria",
         help_text=_("The tag/object association that this criterion evaluates."),
@@ -382,7 +392,6 @@ class CompetencyCriterion(models.Model):
         null=True,
         blank=True,
         db_column="competency_rule_profile_id",
-        # TODO(#799): provisional fail-closed value; #799 sets the real per-FK behavior
         on_delete=models.PROTECT,
         related_name="criteria",
         help_text=_("The profile this criterion uses by default. Null only when overrides are set instead."),
