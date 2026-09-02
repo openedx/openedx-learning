@@ -5,23 +5,35 @@ See :ref:`openedx-learning-adr-0002` for the design this module implements, and
 :ref:`openedx-learning-adr-0003` for why these three models (and not CompetencyTaxonomy) carry
 ``django-simple-history`` tracking.
 
-Every foreign key declared in this module uses ``on_delete=models.PROTECT``. This is the current
-fail-closed default, not a settled decision: which delete behavior each of these foreign keys
-should actually carry is an open question escalated against the approved design in #655, and no
-ticket currently owns revisiting it. (#799 used to hold this question; it is now closed as
-superseded.)
+Four of the nine foreign keys here are ``on_delete=models.CASCADE``: ``CompetencyCriteriaGroup.parent``,
+``CompetencyCriteriaGroup.tag``, ``CompetencyCriterion.group``, and ``CompetencyCriterion.object_tag``.
+The other five stay ``models.PROTECT``: ``CompetencyCriterion.rule_profile``,
+``CompetencyCriteriaGroup.course``, ``CompetencyRuleProfile.course``,
+``CompetencyRuleProfile.organization``, and ``CompetencyRuleProfile.competency_taxonomy``.
 
-Two of these foreign keys cross a real boundary and are the most likely to change:
-``CompetencyCriteriaGroup.tag`` and ``CompetencyCriterion.object_tag``, both pointing into
-``openedx_tagging``. #655's approved design deliberately keeps ``openedx_tagging`` ignorant that
-CBE exists, so its archive-versus-delete branch reads only its own ``deletion_locked`` flag and
-never calls into CBE to check for referencing criteria. #655 also says that deleting a tag no
-learner holds mastery against should be a plain hard delete. ``PROTECT`` breaks that promise: it
-turns the hard delete into a ``ProtectedError`` whenever an author's criteria tree references the
-tag, which is the ordinary state at authoring time, before any learner has been graded. Whether
-these two foreign keys stay ``PROTECT`` (with the tagging-side delete paths learning to clear
-referencing rows first) or become ``CASCADE`` is not decided; that decision belongs to #655, not
-to this module.
+The four are CASCADE because deleting a Tag nobody holds mastery against must succeed, and #655
+forbids ``openedx_tagging`` from knowing CBE exists, so the tagging side cannot clear the
+criteria tree first; CASCADE lets the tag's delete take the tree with it. ``parent`` and ``group``
+also need CASCADE because Django's collector looks up referencing rows in the database rather
+than in the set it has already decided to delete, so even a parent and child reached in the same
+batch would trip ``PROTECT`` and abort the walk partway down.
+
+This is not a relaxation of ADR-0002 Decision 7: these four CASCADE links are what carries the
+collector down to the ``PROTECT`` that enforces it, on #642's three ``Student*Status`` foreign
+keys one and two levels below the tag, reached only by walking CASCADE edges. Turning any link in
+that chain to ``SET_NULL`` would let a tag delete succeed while learner statuses for it still exist.
+
+``on_delete`` governs the row a foreign key points AT, never the row holding it, and fires on
+every row the collector reaches, not only the row passed to ``delete()``. So ``rule_profile``
+staying PROTECT does not block a cascading tag delete; it only stops a CompetencyRuleProfile from
+being deleted while a criterion references it, Decision 7's archive-only rule at the ORM layer.
+
+The other four: both ``course`` fields match ``openedx_catalog``'s own convention
+(``CourseRun.catalog_course`` and ``CatalogCourse.org`` are PROTECT too), and ``SET_NULL`` would
+make a course-level group read as a root group, breaking #675's root-group rejection.
+``organization`` is PROTECT because ``edx-organizations`` deactivates orgs rather than deleting
+them (``remove_organization()``). ``competency_taxonomy`` is PROTECT because a profile's scope is
+immutable, so ``SET_NULL`` is forbidden and CASCADE would only move the failure one hop.
 """
 from __future__ import annotations
 
@@ -127,14 +139,14 @@ class CompetencyCriteriaGroup(models.Model):
         "self",
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="child_groups",
         help_text=_("The parent CompetencyCriteriaGroup. Null means this group is a tree root."),
     )
     tag = models.ForeignKey(
         Tag,
         db_column="oel_tagging_tag_id",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="competency_criteria_groups",
         help_text=_("The competency (tag) that this criteria tree evaluates mastery of."),
     )
@@ -376,14 +388,14 @@ class CompetencyCriterion(models.Model):
     group = models.ForeignKey(
         CompetencyCriteriaGroup,
         db_column="competency_criteria_group_id",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="criteria",
         help_text=_("The CompetencyCriteriaGroup this leaf criterion belongs to."),
     )
     object_tag = models.ForeignKey(
         ObjectTag,
         db_column="oel_tagging_objecttag_id",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="competency_criteria",
         help_text=_("The tag/object association that this criterion evaluates."),
     )

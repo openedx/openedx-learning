@@ -37,8 +37,8 @@ class Migration(migrations.Migration):
                 ('ordering', models.PositiveIntegerField(default=0, help_text='Deterministic sibling evaluation sequence. Used to short-circuit evaluation and to order child scans during event-driven recomputation.')),
                 ('logic_operator', models.CharField(blank=True, choices=[('AND', 'And'), ('OR', 'Or')], help_text="How this group's children combine. Null until the group has children to combine.", max_length=3, null=True)),
                 ('course', models.ForeignKey(blank=True, help_text='The course run that scopes this criteria tree for evaluation windowing, if any.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='competency_criteria_groups', to='openedx_catalog.courserun')),
-                ('parent', models.ForeignKey(blank=True, help_text='The parent CompetencyCriteriaGroup. Null means this group is a tree root.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='child_groups', to='openedx_learning.competencycriteriagroup')),
-                ('tag', models.ForeignKey(db_column='oel_tagging_tag_id', help_text='The competency (tag) that this criteria tree evaluates mastery of.', on_delete=django.db.models.deletion.PROTECT, related_name='competency_criteria_groups', to='oel_tagging.tag')),
+                ('parent', models.ForeignKey(blank=True, help_text='The parent CompetencyCriteriaGroup. Null means this group is a tree root.', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='child_groups', to='openedx_learning.competencycriteriagroup')),
+                ('tag', models.ForeignKey(db_column='oel_tagging_tag_id', help_text='The competency (tag) that this criteria tree evaluates mastery of.', on_delete=django.db.models.deletion.CASCADE, related_name='competency_criteria_groups', to='oel_tagging.tag')),
             ],
         ),
         migrations.CreateModel(
@@ -62,8 +62,8 @@ class Migration(migrations.Migration):
                 ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
                 ('rule_type_override', models.CharField(blank=True, choices=[('View', 'View'), ('Grade', 'Grade'), ('MasteryLevel', 'Mastery Level')], max_length=32, null=True)),
                 ('rule_payload_override', models.JSONField(blank=True, null=True)),
-                ('group', models.ForeignKey(db_column='competency_criteria_group_id', help_text='The CompetencyCriteriaGroup this leaf criterion belongs to.', on_delete=django.db.models.deletion.PROTECT, related_name='criteria', to='openedx_learning.competencycriteriagroup')),
-                ('object_tag', models.ForeignKey(db_column='oel_tagging_objecttag_id', help_text='The tag/object association that this criterion evaluates.', on_delete=django.db.models.deletion.PROTECT, related_name='competency_criteria', to='oel_tagging.objecttag')),
+                ('group', models.ForeignKey(db_column='competency_criteria_group_id', help_text='The CompetencyCriteriaGroup this leaf criterion belongs to.', on_delete=django.db.models.deletion.CASCADE, related_name='criteria', to='openedx_learning.competencycriteriagroup')),
+                ('object_tag', models.ForeignKey(db_column='oel_tagging_objecttag_id', help_text='The tag/object association that this criterion evaluates.', on_delete=django.db.models.deletion.CASCADE, related_name='competency_criteria', to='oel_tagging.objecttag')),
                 ('rule_profile', models.ForeignKey(blank=True, db_column='competency_rule_profile_id', help_text='The profile this criterion uses by default. Null only when overrides are set instead.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='criteria', to='openedx_learning.competencyruleprofile')),
             ],
             options={
