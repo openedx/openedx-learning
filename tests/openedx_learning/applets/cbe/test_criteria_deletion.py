@@ -1,11 +1,11 @@
 """
 Delete-behavior tests for CompetencyCriteriaGroup, CompetencyRuleProfile, and CompetencyCriterion.
 
-Every foreign key these three models declare is currently `on_delete=models.PROTECT`; see the
-module docstring in `openedx_learning.applets.cbe.models.criteria` for why that is the current
-fail-closed value rather than a settled one, and what is still open about it on #655.
+Four of these nine foreign keys are `on_delete=models.CASCADE` and five are `models.PROTECT`; see
+the module docstring in `openedx_learning.applets.cbe.models.criteria` for which is which and why.
 """
 import pytest
+from django.apps import apps
 from django.db.models import ProtectedError
 from organizations.api import ensure_organization
 from organizations.models import Organization
@@ -85,38 +85,49 @@ def _default_rule_profile() -> CompetencyRuleProfile:
 
 
 # ==============================================================================================
-# One test per foreign key, all nine currently PROTECT. Each asserts on the raised
-# ProtectedError's `protected_objects`, not just its type: several protected relationships can
-# fire on one delete (see test_rule_profile_organization_protect and
-# test_rule_profile_competency_taxonomy_protect below for two real traps of that kind), so a bare
+# One test per foreign key. The five that stayed PROTECT assert ProtectedError and inspect
+# `protected_objects` to confirm which relationship actually fired: several protected
+# relationships can fire on one delete (see test_rule_profile_organization_protect below for a
+# real trap of that kind, where CatalogCourse.org is also PROTECT), so a bare
 # `pytest.raises(ProtectedError)` would not actually prove which foreign key did the protecting.
+# The four that became CASCADE assert the delete succeeds and that the referencing row is
+# actually gone from the database afterward, not merely that no exception was raised, and assert
+# the referencing row existed beforehand, so the "gone" assertion can't pass because a fixture
+# never created it in the first place.
 # ==============================================================================================
 
 
-def test_group_parent_protect(tag: Tag) -> None:
+def test_group_parent_cascade(tag: Tag) -> None:
     """
-    Deleting a CompetencyCriteriaGroup that another group's `parent` points at raises
-    ProtectedError. Django's PROTECT raises even though the referencing child group is not part
-    of this delete call; nothing about `parent` being a self-referential, tree-shaped
-    relationship exempts it from that.
+    Deleting a CompetencyCriteriaGroup cascades to any child group referencing it via `parent`:
+    the delete succeeds and the child row is gone too.
     """
     root = CompetencyCriteriaGroup.objects.create(tag=tag)
     child = CompetencyCriteriaGroup.objects.create(tag=tag, parent=root)
+    assert CompetencyCriteriaGroup.objects.filter(pk=child.pk).exists()
 
-    with pytest.raises(ProtectedError) as exc_info:
-        root.delete()
+    root.delete()
 
-    protected = exc_info.value.protected_objects
-    assert any(isinstance(obj, CompetencyCriteriaGroup) and obj.pk == child.pk for obj in protected)
+    assert not CompetencyCriteriaGroup.objects.filter(pk=root.pk).exists()
+    assert not CompetencyCriteriaGroup.objects.filter(pk=child.pk).exists()
 
 
-def test_group_tag_protect(tag: Tag, group: CompetencyCriteriaGroup) -> None:
-    """Deleting a Tag that a CompetencyCriteriaGroup references via `tag` raises ProtectedError."""
-    with pytest.raises(ProtectedError) as exc_info:
-        tag.delete()
+def test_group_tag_cascade(tag: Tag, group: CompetencyCriteriaGroup) -> None:
+    """
+    Deleting a Tag cascades to any CompetencyCriteriaGroup referencing it via `tag`: the delete
+    succeeds and the group row is gone. Also confirms django-simple-history records the cascaded
+    removal as its own historical row (history_type='-'), not silently: an author or auditor
+    reviewing history for a group that vanished this way still finds why it did.
+    """
+    assert CompetencyCriteriaGroup.objects.filter(pk=group.pk).exists()
+    group_pk = group.pk
 
-    protected = exc_info.value.protected_objects
-    assert any(isinstance(obj, CompetencyCriteriaGroup) and obj.pk == group.pk for obj in protected)
+    tag.delete()
+
+    assert not CompetencyCriteriaGroup.objects.filter(pk=group_pk).exists()
+
+    historical_group = apps.get_model("openedx_learning", "HistoricalCompetencyCriteriaGroup")
+    assert historical_group.objects.filter(id=group_pk, history_type="-").exists()
 
 
 def test_group_course_protect(tag: Tag, course_run: CourseRun) -> None:
@@ -170,11 +181,11 @@ def test_rule_profile_competency_taxonomy_protect(competency_taxonomy: Competenc
     Deleting a CompetencyTaxonomy that a CompetencyRuleProfile references via
     `competency_taxonomy` raises ProtectedError naming the profile.
 
-    Deliberately does not use the `tag` or `group` fixtures: a Tag under this taxonomy would be
-    collected by Tag.taxonomy's CASCADE, and a CompetencyCriteriaGroup referencing that tag would
-    then hit its own `tag` PROTECT (see test_taxonomy_delete_blocked_by_group_tag_protection
-    below), which would raise ProtectedError without this test having exercised
-    CompetencyRuleProfile.competency_taxonomy at all.
+    Deliberately does not use the `tag` or `group` fixtures: they are not needed to isolate this
+    relationship. Tag.taxonomy and CompetencyCriteriaGroup.tag are both CASCADE now, so a tag and
+    group under this taxonomy would just be silently left untouched by the aborted delete (the
+    whole operation rolls back once any PROTECT fires) rather than competing for the raised
+    error's `protected_objects`; keeping this test to only what it needs stays the clearer read.
     """
     profile = CompetencyRuleProfile.objects.create(
         competency_taxonomy=competency_taxonomy, rule_type=RuleType.GRADE, rule_payload=_GRADE_PAYLOAD
@@ -187,37 +198,41 @@ def test_rule_profile_competency_taxonomy_protect(competency_taxonomy: Competenc
     assert any(isinstance(obj, CompetencyRuleProfile) and obj.pk == profile.pk for obj in protected)
 
 
-def test_criterion_group_protect(
+def test_criterion_group_cascade(
     group: CompetencyCriteriaGroup, object_tag: ObjectTag, default_rule_profile: CompetencyRuleProfile
 ) -> None:
     """
-    Deleting a CompetencyCriteriaGroup that a CompetencyCriterion references via `group` raises
-    ProtectedError, even though the criterion is not itself part of this delete call.
+    Deleting a CompetencyCriteriaGroup cascades to any CompetencyCriterion referencing it via
+    `group`: the delete succeeds and the criterion row is gone too.
     """
     criterion = CompetencyCriterion.objects.create(
         group=group, object_tag=object_tag, rule_profile=default_rule_profile
     )
+    assert CompetencyCriterion.objects.filter(pk=criterion.pk).exists()
 
-    with pytest.raises(ProtectedError) as exc_info:
-        group.delete()
+    group.delete()
 
-    protected = exc_info.value.protected_objects
-    assert any(isinstance(obj, CompetencyCriterion) and obj.pk == criterion.pk for obj in protected)
+    assert not CompetencyCriteriaGroup.objects.filter(pk=group.pk).exists()
+    assert not CompetencyCriterion.objects.filter(pk=criterion.pk).exists()
 
 
-def test_criterion_object_tag_protect(
+def test_criterion_object_tag_cascade(
     group: CompetencyCriteriaGroup, object_tag: ObjectTag, default_rule_profile: CompetencyRuleProfile
 ) -> None:
-    """Deleting an ObjectTag that a CompetencyCriterion references via `object_tag` raises ProtectedError."""
+    """
+    Deleting an ObjectTag cascades to any CompetencyCriterion referencing it via `object_tag`: the
+    delete succeeds and the criterion row is gone too. Doubles as the "OURS" half of #641's
+    Deletions criterion for oel_tagging_objecttag, since ObjectTag has only this one hop down to
+    CompetencyCriterion.
+    """
     criterion = CompetencyCriterion.objects.create(
         group=group, object_tag=object_tag, rule_profile=default_rule_profile
     )
+    assert CompetencyCriterion.objects.filter(pk=criterion.pk).exists()
 
-    with pytest.raises(ProtectedError) as exc_info:
-        object_tag.delete()
+    object_tag.delete()
 
-    protected = exc_info.value.protected_objects
-    assert any(isinstance(obj, CompetencyCriterion) and obj.pk == criterion.pk for obj in protected)
+    assert not CompetencyCriterion.objects.filter(pk=criterion.pk).exists()
 
 
 def test_criterion_rule_profile_protect(
@@ -238,24 +253,101 @@ def test_criterion_rule_profile_protect(
     assert any(isinstance(obj, CompetencyCriterion) and obj.pk == criterion.pk for obj in protected)
 
 
-def test_taxonomy_delete_blocked_by_group_tag_protection(
-    competency_taxonomy: CompetencyTaxonomy, group: CompetencyCriteriaGroup
+# ==============================================================================================
+# Transitive deletion tests required by #641's Deletions criteria: deleting an oel_tagging.Tag,
+# a CompetencyCriteriaGroup at depth, an oel_tagging.ObjectTag, or an oel_tagging.Taxonomy, when
+# no learner status exists beneath the target, must succeed and take the whole referencing
+# criteria tree with it.
+#
+# Each of these criteria also has a "raises ProtectedError when a learner status row exists
+# beneath it" half. That half is NOT covered here: it needs #642's Student*Status tables, which
+# do not exist on this branch, and #642's own criterion says those tests belong in the slice that
+# follows #641, once those tables exist. This file does not stub, mock, or fake a status model to
+# test them; their absence here is deliberate, not an oversight.
+# ==============================================================================================
+
+
+def test_tag_delete_with_no_status_cascades_whole_criteria_tree(
+    tag: Tag, group: CompetencyCriteriaGroup, object_tag: ObjectTag, default_rule_profile: CompetencyRuleProfile
 ) -> None:
     """
-    #655's approved design promises that deleting a CompetencyTaxonomy whose tag no learner holds
-    mastery against succeeds as a plain hard delete: Tag.taxonomy is CASCADE, so the tag is
-    collected along with the taxonomy. `PROTECT` on CompetencyCriteriaGroup.tag currently breaks
-    that promise instead: the delete collects `tag` via CASCADE, then `group`'s reference to that
-    tag hits PROTECT and the whole delete is refused, even though no learner has been graded
-    against it (there is no learner-status table yet at all).
-
-    This conflict is open on #655 (see the module docstring in
-    openedx_learning.applets.cbe.models.criteria) and unresolved as of this writing. Whichever
-    way it resolves, this test is the one that has to change: if CompetencyCriteriaGroup.tag
-    moves to CASCADE, this becomes an assertion that the delete succeeds instead of raising.
+    Deleting an oel_tagging.Tag with no learner status beneath it succeeds and cascades away
+    every CompetencyCriteriaGroup and CompetencyCriterion that references it, transitively:
+    Tag -> CompetencyCriteriaGroup.tag (CASCADE) -> CompetencyCriterion.group (CASCADE).
     """
-    with pytest.raises(ProtectedError) as exc_info:
-        competency_taxonomy.delete()
+    criterion = CompetencyCriterion.objects.create(
+        group=group, object_tag=object_tag, rule_profile=default_rule_profile
+    )
+    assert CompetencyCriteriaGroup.objects.filter(pk=group.pk).exists()
+    assert CompetencyCriterion.objects.filter(pk=criterion.pk).exists()
 
-    protected = exc_info.value.protected_objects
-    assert any(isinstance(obj, CompetencyCriteriaGroup) and obj.pk == group.pk for obj in protected)
+    tag.delete()
+
+    assert not CompetencyCriteriaGroup.objects.filter(pk=group.pk).exists()
+    assert not CompetencyCriterion.objects.filter(pk=criterion.pk).exists()
+
+
+def test_group_delete_at_depth_cascades_descendants_and_their_criteria(
+    tag: Tag, object_tag: ObjectTag, default_rule_profile: CompetencyRuleProfile
+) -> None:
+    """
+    Deleting a CompetencyCriteriaGroup that is not a root removes it, every descendant group, and
+    every CompetencyCriterion under any of them, while leaving the rest of the tree (here, the
+    root) alone.
+
+    Builds a genuinely nested tree, root -> child -> grandchild, with criteria at two different
+    levels (on `child` and on `grandchild`), so "at depth" and "every descendant" both mean
+    something: a shallower tree could pass this by accident.
+    """
+    root = CompetencyCriteriaGroup.objects.create(tag=tag)
+    child = CompetencyCriteriaGroup.objects.create(tag=tag, parent=root)
+    grandchild = CompetencyCriteriaGroup.objects.create(tag=tag, parent=child)
+    child_criterion = CompetencyCriterion.objects.create(
+        group=child, object_tag=object_tag, rule_profile=default_rule_profile
+    )
+    grandchild_criterion = CompetencyCriterion.objects.create(
+        group=grandchild, object_tag=object_tag, rule_profile=default_rule_profile
+    )
+    assert CompetencyCriteriaGroup.objects.filter(pk=root.pk).exists()
+    assert CompetencyCriteriaGroup.objects.filter(pk=child.pk).exists()
+    assert CompetencyCriteriaGroup.objects.filter(pk=grandchild.pk).exists()
+    assert CompetencyCriterion.objects.filter(pk=child_criterion.pk).exists()
+    assert CompetencyCriterion.objects.filter(pk=grandchild_criterion.pk).exists()
+
+    child.delete()
+
+    assert CompetencyCriteriaGroup.objects.filter(pk=root.pk).exists()
+    assert not CompetencyCriteriaGroup.objects.filter(pk=child.pk).exists()
+    assert not CompetencyCriteriaGroup.objects.filter(pk=grandchild.pk).exists()
+    assert not CompetencyCriterion.objects.filter(pk=child_criterion.pk).exists()
+    assert not CompetencyCriterion.objects.filter(pk=grandchild_criterion.pk).exists()
+
+
+def test_taxonomy_delete_cascades_every_tag_and_its_criteria(
+    competency_taxonomy: CompetencyTaxonomy,
+    tag: Tag,
+    group: CompetencyCriteriaGroup,
+    object_tag: ObjectTag,
+    default_rule_profile: CompetencyRuleProfile,
+) -> None:
+    """
+    Deleting an oel_tagging.Taxonomy collects every Tag beneath it (Tag.taxonomy is CASCADE), so
+    the tag-deletion cases above hold transitively through a taxonomy delete too. This asserts the
+    succeeding case (no learner status beneath the tag), which is what #641's Deletions criterion
+    for taxonomy-level deletion requires "at minimum".
+
+    Chain exercised: CompetencyTaxonomy -> Tag (CASCADE) -> CompetencyCriteriaGroup.tag (CASCADE)
+    -> CompetencyCriterion.group (CASCADE).
+    """
+    criterion = CompetencyCriterion.objects.create(
+        group=group, object_tag=object_tag, rule_profile=default_rule_profile
+    )
+    assert Tag.objects.filter(pk=tag.pk).exists()
+    assert CompetencyCriteriaGroup.objects.filter(pk=group.pk).exists()
+    assert CompetencyCriterion.objects.filter(pk=criterion.pk).exists()
+
+    competency_taxonomy.delete()
+
+    assert not Tag.objects.filter(pk=tag.pk).exists()
+    assert not CompetencyCriteriaGroup.objects.filter(pk=group.pk).exists()
+    assert not CompetencyCriterion.objects.filter(pk=criterion.pk).exists()
