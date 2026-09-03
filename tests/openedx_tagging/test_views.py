@@ -404,11 +404,8 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     @ddt.unpack
     def test_create_taxonomy_type_tags_or_omitted(self, taxonomy_type, expected_status):
         """
-        Posting any accepted taxonomy_type (or omitting it) to the raw create endpoint
-        (this raw TaxonomyView) creates a plain Taxonomy: this endpoint must
-        never import openedx_learning, so it has no way to act on "competency" beyond
-        accepting it as a valid choice and discarding it -- creating a CompetencyTaxonomy
-        row for it is a downstream consumer's job.
+        Posting any accepted taxonomy_type (or omitting it) succeeds and creates a
+        Taxonomy row.
         """
         url = TAXONOMY_LIST_URL
         create_data = {"name": "Taxonomy Type Test", "export_id": "taxonomy-type-test"}
@@ -3286,11 +3283,8 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
     @ddt.unpack
     def test_import_taxonomy_type_tags_or_omitted(self, taxonomy_type, expected_status) -> None:
         """
-        Posting any accepted taxonomy_type (or omitting it) to the raw create/import
-        endpoint (this raw TaxonomyView) creates a plain Taxonomy: this
-        endpoint must never import openedx_learning, so it has no way to act on
-        "competency" beyond accepting it as a valid choice and discarding it -- creating
-        a CompetencyTaxonomy row for it is a downstream consumer's job.
+        Posting any accepted taxonomy_type (or omitting it) succeeds and creates a
+        Taxonomy row.
         """
         url = TAXONOMY_CREATE_IMPORT_URL
         new_tags = [{"id": "tag_1", "value": "Tag 1"}]

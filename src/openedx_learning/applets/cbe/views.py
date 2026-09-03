@@ -3,6 +3,9 @@ REST API views for Competency-Based Education (CBE).
 """
 from __future__ import annotations
 
+from django.core import exceptions
+from rest_framework.exceptions import ValidationError
+
 from openedx_tagging.api import TaxonomyType
 from openedx_tagging.models import Taxonomy
 from openedx_tagging.rest_api.v1.views import TaxonomyView
@@ -21,7 +24,10 @@ class CompetencyTaxonomyView(TaxonomyView):
         """
         taxonomy_type = serializer.validated_data.pop("taxonomy_type", TaxonomyType.TAGS.value)
         if taxonomy_type == TaxonomyType.COMPETENCY.value:
-            serializer.instance = create_competency_taxonomy(**serializer.validated_data)
+            try:
+                serializer.instance = create_competency_taxonomy(**serializer.validated_data)
+            except exceptions.ValidationError as e:
+                raise ValidationError() from e
         else:
             super().perform_create(serializer)
 

@@ -52,6 +52,9 @@ def create_taxonomy(  # pylint: disable=too-many-positional-arguments
 ) -> Taxonomy:
     """
     Creates, saves, and returns a new Taxonomy with the given attributes.
+
+    If `export_id` is not given, one is auto-generated from the current
+    Taxonomy count and a slug of `name`.
     """
     if not export_id:
         export_id = f"{Taxonomy.objects.count() + 1}-{slugify(name, allow_unicode=True)}"
