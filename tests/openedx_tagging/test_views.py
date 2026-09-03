@@ -404,8 +404,12 @@ class TestTaxonomyViewSet(TestTaxonomyViewMixin):
     @ddt.unpack
     def test_create_taxonomy_type_tags_or_omitted(self, taxonomy_type, expected_status):
         """
-        Posting any accepted taxonomy_type (or omitting it) succeeds and creates a
-        Taxonomy row.
+        Posting any accepted taxonomy_type (or omitting it) to this raw TaxonomyView
+        succeeds and creates a Taxonomy row.
+
+        Doesn't check whether a CompetencyTaxonomy row also gets created for
+        "competency". See tests/openedx_learning/applets/cbe/test_views.py for
+        that assertion.
         """
         url = TAXONOMY_LIST_URL
         create_data = {"name": "Taxonomy Type Test", "export_id": "taxonomy-type-test"}
@@ -3283,8 +3287,12 @@ class TestCreateImportView(ImportTaxonomyMixin, APITestCase):
     @ddt.unpack
     def test_import_taxonomy_type_tags_or_omitted(self, taxonomy_type, expected_status) -> None:
         """
-        Posting any accepted taxonomy_type (or omitting it) succeeds and creates a
-        Taxonomy row.
+        Posting any accepted taxonomy_type (or omitting it) to this raw create/import
+        endpoint succeeds and creates a Taxonomy row.
+
+        Doesn't check whether a CompetencyTaxonomy row also gets created for
+        "competency".
+        See tests/openedx_learning/applets/cbe/test_views.py for that assertion.
         """
         url = TAXONOMY_CREATE_IMPORT_URL
         new_tags = [{"id": "tag_1", "value": "Tag 1"}]
