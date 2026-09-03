@@ -11,6 +11,13 @@ from .criteria import (
     RuleType,
     validate_rule_payload,
 )
+from .learner_status import (
+    CompetencyMasteryStatus,
+    MasteryStatus,
+    StudentCompetencyCriteriaGroupStatus,
+    StudentCompetencyCriteriaStatus,
+    StudentCompetencyStatus,
+)
 
 __all__ = [
     "CompetencyTaxonomy",
@@ -20,4 +27,9 @@ __all__ = [
     "LogicOperator",
     "RuleType",
     "validate_rule_payload",
+    "MasteryStatus",
+    "CompetencyMasteryStatus",
+    "StudentCompetencyCriteriaStatus",
+    "StudentCompetencyCriteriaGroupStatus",
+    "StudentCompetencyStatus",
 ]
