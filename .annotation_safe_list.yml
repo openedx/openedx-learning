@@ -39,8 +39,6 @@ openedx_content.Container:
   ".. no_pii:": "This model has no PII"
 openedx_content.ContainerVersion:
   ".. no_pii:": "This model has no PII"
-openedx_content.Draft:
-  ".. no_pii:": "This model has no PII"
 openedx_content.EntityList:
   ".. no_pii:": "This model has no PII"
 openedx_content.EntityListRow:
@@ -52,8 +50,6 @@ openedx_content.PublishLog:
 openedx_content.PublishLogRecord:
   ".. no_pii:": "This model has no PII"
 openedx_content.PublishableEntity:
-  ".. no_pii:": "This model has no PII"
-openedx_content.PublishableEntityVersion:
   ".. no_pii:": "This model has no PII"
 openedx_content.Published:
   ".. no_pii:": "This model has no PII"
