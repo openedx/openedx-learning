@@ -13,6 +13,7 @@ are stored in this app.
 from __future__ import annotations
 
 from collections import defaultdict
+from enum import Enum
 from typing import Any, Counter, cast
 
 from django.db import models, transaction
@@ -29,6 +30,15 @@ TagDoesNotExist = Tag.DoesNotExist
 
 # Maximum number of tags allowed on any one object
 OBJECT_MAX_TAGS = 100
+
+
+class TaxonomyType(Enum):
+    """
+    Valid values for a taxonomy's type on create.
+    """
+
+    TAGS = "tags"
+    COMPETENCY = "competency"
 
 
 def create_taxonomy(  # pylint: disable=too-many-positional-arguments
