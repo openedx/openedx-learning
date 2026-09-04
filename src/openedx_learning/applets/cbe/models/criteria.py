@@ -24,10 +24,11 @@ be blocked only when learner data is connected to it, and that check belongs in 
 application layer, the same way #655 settled it for every other record type. ``PROTECT`` would
 push that decision into the database, which cannot tell the two cases apart.
 
-This is not a relaxation of ADR-0002 Decision 7: these four CASCADE links are what carries the
-collector down to the ``PROTECT`` that enforces it, on #642's three ``Student*Status`` foreign
-keys one and two levels below the tag, reached only by walking CASCADE edges. Turning any link in
-that chain to ``SET_NULL`` would let a tag delete succeed while learner statuses for it still exist.
+This is not a relaxation of ADR-0002 Decision 7: the four tree links above (``parent``, ``tag``,
+``group``, ``object_tag``) are what carries the collector down to the ``PROTECT`` that enforces
+it, on #642's three ``Student*Status`` foreign keys one and two levels below the tag, reached only
+by walking CASCADE edges. Turning any link in that chain to ``SET_NULL`` would let a tag delete
+succeed while learner statuses for it still exist.
 
 ``on_delete`` governs the row a foreign key points AT, never the row holding it, and fires on
 every row the collector reaches, not only the row passed to ``delete()``. So ``rule_profile``
@@ -44,6 +45,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from attrs import Attribute, define, field, fields
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q, Value
@@ -83,6 +85,58 @@ class LogicOperator(models.TextChoices):
     OR = "OR", _("Or")
 
 
+def _validate_op(_instance: object, _attribute: Attribute, value: object) -> None:
+    """Reject an 'op' outside the Grade rule's allowed comparison operators."""
+    if value not in {"gte", "lte", "eq"}:
+        raise ValueError(_("The 'op' in a 'Grade' rule_payload must be one of: gte, lte, eq."))
+
+
+def _validate_grade_value(_instance: object, _attribute: Attribute, value: object) -> None:
+    """Reject a Grade rule's 'value' unless it's a non-boolean number in [0.0, 1.0]."""
+    # isinstance(True, int) is True in Python, so a bool would otherwise pass the numeric check below.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(_("The 'value' in a 'Grade' rule_payload must be a number, not a boolean."))
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(
+            _(
+                "The 'value' in a 'Grade' rule_payload must be a fraction between 0.0 and 1.0 inclusive "
+                "(e.g. 0.8 for a passing grade of 80%%), not %(value)r."
+            )
+            % {"value": value}
+        )
+
+
+def _validate_scale(_instance: object, _attribute: Attribute, value: object) -> None:
+    """Reject a Grade rule's 'scale' unless it's exactly 'percent'."""
+    if value != "percent":
+        raise ValueError(_("The 'scale' in a 'Grade' rule_payload must be 'percent'."))
+
+
+@define(frozen=True, kw_only=True)
+class GradeRule:
+    """
+    The rule_payload shape for RuleType.GRADE, per ADR-0002 Decision 3.
+
+    Constructing one *is* the validation: kw_only means an unknown key raises TypeError
+    ("unexpected keyword argument") and a missing key raises TypeError ("missing ... required
+    keyword-only argument") from Python's own call handling, and a present-but-bad value raises
+    ValueError or TypeError from the field validators below. Frozen because this describes a
+    fixed spec and is never mutated after construction.
+    """
+
+    op: str = field(validator=_validate_op)
+    value: float = field(validator=_validate_grade_value)
+    scale: str = field(validator=_validate_scale)
+
+
+# One spec class per RuleType with a defined rule_payload shape. Add a class and an entry here to
+# support a new rule type. RuleType.VIEW and RuleType.MASTERY_LEVEL have no entry, so they keep
+# being rejected by validate_rule_payload as not supported yet.
+_RULE_PAYLOAD_SPECS: dict[str, type] = {
+    RuleType.GRADE: GradeRule,
+}
+
+
 def validate_rule_payload(rule_type: str, payload: Any) -> None:
     """
     Validate ``payload`` against the shape ADR-0002 Decision 3 defines for ``rule_type``.
@@ -92,38 +146,46 @@ def validate_rule_payload(rule_type: str, payload: Any) -> None:
     payload contract exists for them yet. Raises ``django.core.exceptions.ValidationError`` on
     any mismatch; never returns a value.
     """
-    if rule_type != RuleType.GRADE:
+    spec_class = _RULE_PAYLOAD_SPECS.get(rule_type)
+    if spec_class is None:
         raise ValidationError(
             _("Rule type '%(rule_type)s' is not supported yet; only 'Grade' has a defined rule_payload shape.")
             % {"rule_type": rule_type}
         )
+    # Checked separately, before construction: `spec_class(**payload)` on a non-dict payload
+    # (e.g. a list) raises "argument after ** must be a mapping", which is a confusing message to
+    # surface to an author.
     if not isinstance(payload, dict):
         raise ValidationError(_("A 'Grade' rule_payload must be a JSON object."))
 
-    allowed_keys = {"op", "value", "scale"}
-    if set(payload.keys()) != allowed_keys:
+    # Also checked separately, before construction, rather than left to Python's own kw_only
+    # TypeError: that TypeError's text is "GradeRule.__init__() missing/got an unexpected keyword
+    # argument ...", a Python traceback fragment that leaks an internal class name to whoever
+    # edits this payload (a course author, via the admin). Deriving the expected keys from the
+    # spec class itself keeps that class the single source of truth for the key set, while owning
+    # the message in our own domain language instead of Python's.
+    expected_keys = {attr.name for attr in fields(spec_class)}
+    missing_keys = sorted(expected_keys - payload.keys())
+    unexpected_keys = sorted(payload.keys() - expected_keys)
+    if missing_keys or unexpected_keys:
+        problems = []
+        if missing_keys:
+            problems.append(_("missing %(keys)s") % {"keys": ", ".join(missing_keys)})
+        if unexpected_keys:
+            problems.append(_("unexpected %(keys)s") % {"keys": ", ".join(unexpected_keys)})
         raise ValidationError(
-            _("A 'Grade' rule_payload must have exactly these keys, no more and no fewer: op, value, scale.")
+            _("A 'Grade' rule_payload has the wrong keys: %(problems)s.")
+            % {"problems": "; ".join(str(problem) for problem in problems)}
         )
 
-    if payload.get("op") not in {"gte", "lte", "eq"}:
-        raise ValidationError(_("The 'op' in a 'Grade' rule_payload must be one of: gte, lte, eq."))
-
-    value = payload.get("value")
-    # isinstance(True, int) is True in Python, so a bool would otherwise pass the numeric check below.
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValidationError(_("The 'value' in a 'Grade' rule_payload must be a number, not a boolean."))
-    if not 0.0 <= value <= 1.0:
-        raise ValidationError(
-            _(
-                "The 'value' in a 'Grade' rule_payload must be a fraction between 0.0 and 1.0 inclusive "
-                "(e.g. 0.8 for a passing grade of 80%%), not %(value)r."
-            )
-            % {"value": value}
-        )
-
-    if payload.get("scale") != "percent":
-        raise ValidationError(_("The 'scale' in a 'Grade' rule_payload must be 'percent'."))
+    # Past the key check above, this can only fail on a value a field validator rejects.
+    try:
+        spec_class(**payload)
+    except (TypeError, ValueError) as exc:
+        # Surface the underlying message (our custom validators' text) rather than replacing it
+        # with something generic: that message is what full_clean() or save() surfaces to an
+        # admin or API caller.
+        raise ValidationError(str(exc)) from exc
 
 
 class CompetencyCriteriaGroup(models.Model):
@@ -218,6 +280,12 @@ class CompetencyRuleProfile(models.Model):
     back to reading the persisted scope directly rather than skipping the check. It does not
     cover a bulk ``QuerySet.update()``, since that path never loads or constructs a model
     instance at all.
+
+    ``rule_payload``'s shape (see :func:`validate_rule_payload`) is likewise validated from both
+    ``clean()`` and ``save()``, so ``objects.create()`` and a plain ``instance.save()`` are
+    covered without a caller needing to remember ``full_clean()``. A bulk ``QuerySet.update()``,
+    ``bulk_create()``, and a DRF serializer that writes straight to the database are NOT covered:
+    none of them build or save a model instance, so neither ``clean()`` nor ``save()`` ever runs.
 
     .. no_pii:
     """
@@ -367,8 +435,9 @@ class CompetencyRuleProfile(models.Model):
         validate_rule_payload(self.rule_type, self.rule_payload)
 
     def save(self, *args, **kwargs):
-        """Persist this profile, after re-checking scope immutability."""
+        """Persist this profile, after re-checking scope immutability and the rule_payload shape."""
         self._check_scope_immutable()
+        validate_rule_payload(self.rule_type, self.rule_payload)
         super().save(*args, **kwargs)
         self.loaded_scope = (self.organization_id, self.course_id, self.competency_taxonomy_id)
 
@@ -385,6 +454,13 @@ class CompetencyCriterion(models.Model):
     every other case it holds the id of the profile that was resolved at the relevant write event
     and is never re-resolved dynamically. Do not add a property, manager method, or other helper
     that recomputes it; that would contradict the ADR.
+
+    When ``rule_type_override`` is set, its ``rule_payload_override``'s shape (see
+    :func:`validate_rule_payload`) is validated from both ``clean()`` and ``save()``, so
+    ``objects.create()`` and a plain ``instance.save()`` are covered without a caller needing to
+    remember ``full_clean()``. A bulk ``QuerySet.update()``, ``bulk_create()``, and a DRF
+    serializer that writes straight to the database are NOT covered: none of them build or save a
+    model instance, so neither ``clean()`` nor ``save()`` ever runs.
 
     .. no_pii:
     """
@@ -459,3 +535,9 @@ class CompetencyCriterion(models.Model):
         super().clean()
         if self.rule_type_override is not None:
             validate_rule_payload(self.rule_type_override, self.rule_payload_override)
+
+    def save(self, *args, **kwargs):
+        """Persist this criterion, after re-checking the override rule_payload's shape, if set."""
+        if self.rule_type_override is not None:
+            validate_rule_payload(self.rule_type_override, self.rule_payload_override)
+        super().save(*args, **kwargs)

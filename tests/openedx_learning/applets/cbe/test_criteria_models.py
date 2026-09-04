@@ -220,6 +220,12 @@ def test_criterion_profile_xor_override_constraint(
     """
     A CompetencyCriterion must have either a rule_profile with no overrides, or both override
     fields set with no rule_profile, never both and never neither. See ADR-0002 Decision 4.
+
+    Covers the three invalid states that reach the database's check constraint: both set, neither
+    set, and only rule_payload_override set. The fourth invalid state, only rule_type_override
+    set, is caught earlier by save()'s own validation instead and raises ValidationError before
+    the database is ever touched; see test_criterion_save_validates_override_payload_before_constraint
+    below for that case, and why it raises a different exception type than these three.
     """
     CompetencyCriterion.objects.create(group=group, object_tag=object_tag, rule_profile=default_rule_profile)
     CompetencyCriterion.objects.create(
@@ -233,13 +239,31 @@ def test_criterion_profile_xor_override_constraint(
             "rule_payload_override": _GRADE_PAYLOAD,
         },
         {},  # neither set
-        {"rule_type_override": RuleType.GRADE},  # only the type override set
         {"rule_payload_override": _GRADE_PAYLOAD},  # only the payload override set
     ]
     for kwargs in invalid_kwargs_list:
         with pytest.raises(IntegrityError):
             with transaction.atomic():
                 CompetencyCriterion.objects.create(group=group, object_tag=object_tag, **kwargs)
+
+
+def test_criterion_save_validates_override_payload_before_constraint(
+    group: CompetencyCriteriaGroup, object_tag: ObjectTag
+) -> None:
+    """
+    Setting only rule_type_override, leaving rule_payload_override null, is caught by save()'s
+    own validation before it ever reaches the database: save() validates rule_payload_override's
+    shape whenever rule_type_override is set, and None is not a valid shape for any rule type, so
+    this raises ValidationError. The database's check constraint would also reject this same row,
+    for the same underlying reason (an override with no real payload), but save() never lets it
+    get there. This is why two similar-looking invalid override states raise different exception
+    types: this one is caught by save()'s validate_rule_payload call, while the other three (see
+    test_criterion_profile_xor_override_constraint above) reach the database's check constraint,
+    because the payload save() inspects for them is either valid or, when rule_type_override
+    itself is null, not inspected at all.
+    """
+    with pytest.raises(ValidationError):
+        CompetencyCriterion.objects.create(group=group, object_tag=object_tag, rule_type_override=RuleType.GRADE)
 
 
 @pytest.mark.parametrize("rule_type, payload", _INVALID_GRADE_PAYLOADS)
@@ -253,6 +277,53 @@ def test_rule_profile_full_clean_rejects_invalid_payload(rule_type: str, payload
     profile = CompetencyRuleProfile(rule_type=rule_type, rule_payload=payload)
     with pytest.raises(ValidationError):
         profile.full_clean()
+
+
+def test_rule_profile_full_clean_value_message_names_the_fraction_convention(organization: Organization) -> None:
+    """
+    full_clean()'s error for a rule_payload 'value' given on a 0-100 scale (e.g. 80) names the
+    0.0-1.0 fraction convention, not attrs' generic default message for a failed validator (which
+    would say nothing about fractions or percentages) and not a Python traceback fragment.
+    Guards against exactly the message-quality regression a naive attrs implementation of
+    validate_rule_payload could introduce silently, since every other invalid-payload test here
+    only asserts the exception type.
+    """
+    profile = CompetencyRuleProfile(
+        organization=organization, rule_type=RuleType.GRADE, rule_payload={"op": "gte", "value": 80, "scale": "percent"}
+    )
+    with pytest.raises(ValidationError) as exc_info:
+        profile.full_clean()
+
+    message = " ".join(exc_info.value.messages)
+    assert "fraction between 0.0 and 1.0" in message
+    # Must not leak the attrs spec class's name or any Python call-mechanics fragment: a course
+    # author editing this payload in the admin should never see "GradeRule.__init__()".
+    assert "__init__" not in message
+    assert "GradeRule" not in message
+
+
+def test_rule_profile_full_clean_extra_key_message_names_the_key(organization: Organization) -> None:
+    """
+    full_clean()'s error for an unrecognized rule_payload key names that key in our own domain
+    language (e.g. "unexpected extra"), not attrs' generic default message for a failed validator
+    and not Python's own kw_only TypeError text ("GradeRule.__init__() got an unexpected keyword
+    argument 'extra'"), which leaks the internal spec class's name to a course author editing
+    this payload in the admin. Guards against exactly that regression, which a test asserting
+    only that the key name appears in the message would not catch, since the leaky Python message
+    also contains the key name.
+    """
+    profile = CompetencyRuleProfile(
+        organization=organization,
+        rule_type=RuleType.GRADE,
+        rule_payload={**_GRADE_PAYLOAD, "extra": 1},
+    )
+    with pytest.raises(ValidationError) as exc_info:
+        profile.full_clean()
+
+    message = " ".join(exc_info.value.messages)
+    assert "extra" in message
+    assert "__init__" not in message
+    assert "GradeRule" not in message
 
 
 @pytest.mark.parametrize("rule_type, payload", _INVALID_GRADE_PAYLOADS)
