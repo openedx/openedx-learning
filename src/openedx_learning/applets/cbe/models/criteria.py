@@ -5,18 +5,24 @@ See :ref:`openedx-learning-adr-0002` for the design this module implements, and
 :ref:`openedx-learning-adr-0003` for why these three models (and not CompetencyTaxonomy) carry
 ``django-simple-history`` tracking.
 
-Four of the nine foreign keys here are ``on_delete=models.CASCADE``: ``CompetencyCriteriaGroup.parent``,
-``CompetencyCriteriaGroup.tag``, ``CompetencyCriterion.group``, and ``CompetencyCriterion.object_tag``.
-The other five stay ``models.PROTECT``: ``CompetencyCriterion.rule_profile``,
-``CompetencyCriteriaGroup.course``, ``CompetencyRuleProfile.course``,
-``CompetencyRuleProfile.organization``, and ``CompetencyRuleProfile.competency_taxonomy``.
+Five of the nine foreign keys here are ``on_delete=models.CASCADE``: ``CompetencyCriteriaGroup.parent``,
+``CompetencyCriteriaGroup.tag``, ``CompetencyCriterion.group``, ``CompetencyCriterion.object_tag``, and
+``CompetencyRuleProfile.competency_taxonomy``. The other four stay ``models.PROTECT``:
+``CompetencyCriterion.rule_profile``, ``CompetencyCriteriaGroup.course``,
+``CompetencyRuleProfile.course``, and ``CompetencyRuleProfile.organization``.
 
-The four are CASCADE because deleting a Tag nobody holds mastery against must succeed, and #655
-forbids ``openedx_tagging`` from knowing CBE exists, so the tagging side cannot clear the
+The first four are CASCADE because deleting a Tag nobody holds mastery against must succeed, and
+#655 forbids ``openedx_tagging`` from knowing CBE exists, so the tagging side cannot clear the
 criteria tree first; CASCADE lets the tag's delete take the tree with it. ``parent`` and ``group``
 also need CASCADE because Django's collector looks up referencing rows in the database rather
 than in the set it has already decided to delete, so even a parent and child reached in the same
 batch would trip ``PROTECT`` and abort the walk partway down.
+
+``competency_taxonomy`` is CASCADE for a different reason: a rule profile must never be the
+reason a taxonomy delete fails. Once taxonomy-scoped profiles exist, deleting a taxonomy has to
+be blocked only when learner data is connected to it, and that check belongs in Python at the
+application layer, the same way #655 settled it for every other record type. ``PROTECT`` would
+push that decision into the database, which cannot tell the two cases apart.
 
 This is not a relaxation of ADR-0002 Decision 7: these four CASCADE links are what carries the
 collector down to the ``PROTECT`` that enforces it, on #642's three ``Student*Status`` foreign
@@ -28,12 +34,11 @@ every row the collector reaches, not only the row passed to ``delete()``. So ``r
 staying PROTECT does not block a cascading tag delete; it only stops a CompetencyRuleProfile from
 being deleted while a criterion references it, Decision 7's archive-only rule at the ORM layer.
 
-The other four: both ``course`` fields match ``openedx_catalog``'s own convention
+The other three: both ``course`` fields match ``openedx_catalog``'s own convention
 (``CourseRun.catalog_course`` and ``CatalogCourse.org`` are PROTECT too), and ``SET_NULL`` would
 make a course-level group read as a root group, breaking #675's root-group rejection.
 ``organization`` is PROTECT because ``edx-organizations`` deactivates orgs rather than deleting
-them (``remove_organization()``). ``competency_taxonomy`` is PROTECT because a profile's scope is
-immutable, so ``SET_NULL`` is forbidden and CASCADE would only move the failure one hop.
+them (``remove_organization()``).
 """
 from __future__ import annotations
 
@@ -245,7 +250,7 @@ class CompetencyRuleProfile(models.Model):
         CompetencyTaxonomy,
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="rule_profiles",
         help_text=_("The competency taxonomy this profile is scoped to, if any."),
     )
@@ -414,7 +419,13 @@ class CompetencyCriterion(models.Model):
     history = HistoricalRecords()
 
     class Meta:
-        db_table = "openedx_learning_competencycriteria"
+        # No db_table override, so the table is Django's default,
+        # openedx_learning_competencycriterion. ADR-0002 Decision 4's heading reads
+        # "CompetencyCriterion concept (CompetencyCriteria database table)", which names the
+        # domain concept the way every other heading in that ADR does rather than instructing a
+        # rename. No model anywhere in src/ overrides db_table, so every table in this library
+        # is <app_label>_<model>.
+        #
         # Django's default pluralization of "CompetencyCriterion" is the ungrammatical
         # "competency criterions"; set both explicitly, matching ADR-0002 Decision 4's
         # terminology (one leaf is a criterion, the collection is CompetencyCriteria) and

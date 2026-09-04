@@ -1,7 +1,7 @@
 """
 Delete-behavior tests for CompetencyCriteriaGroup, CompetencyRuleProfile, and CompetencyCriterion.
 
-Four of these nine foreign keys are `on_delete=models.CASCADE` and five are `models.PROTECT`; see
+Five of these nine foreign keys are `on_delete=models.CASCADE` and four are `models.PROTECT`; see
 the module docstring in `openedx_learning.applets.cbe.models.criteria` for which is which and why.
 """
 import pytest
@@ -85,15 +85,15 @@ def _default_rule_profile() -> CompetencyRuleProfile:
 
 
 # ==============================================================================================
-# One test per foreign key. The five that stayed PROTECT assert ProtectedError and inspect
+# One test per foreign key. The four that stayed PROTECT assert ProtectedError and inspect
 # `protected_objects` to confirm which relationship actually fired: several protected
 # relationships can fire on one delete (see test_rule_profile_organization_protect below for a
 # real trap of that kind, where CatalogCourse.org is also PROTECT), so a bare
 # `pytest.raises(ProtectedError)` would not actually prove which foreign key did the protecting.
-# The four that became CASCADE assert the delete succeeds and that the referencing row is
-# actually gone from the database afterward, not merely that no exception was raised, and assert
-# the referencing row existed beforehand, so the "gone" assertion can't pass because a fixture
-# never created it in the first place.
+# The five that are CASCADE assert the delete succeeds and that the referencing row is actually
+# gone from the database afterward, not merely that no exception was raised, and assert the
+# referencing row existed beforehand, so the "gone" assertion can't pass because a fixture never
+# created it in the first place.
 # ==============================================================================================
 
 
@@ -176,26 +176,21 @@ def test_rule_profile_course_protect(course_run: CourseRun) -> None:
     assert any(isinstance(obj, CompetencyRuleProfile) and obj.pk == profile.pk for obj in protected)
 
 
-def test_rule_profile_competency_taxonomy_protect(competency_taxonomy: CompetencyTaxonomy) -> None:
+def test_rule_profile_competency_taxonomy_cascade(competency_taxonomy: CompetencyTaxonomy) -> None:
     """
-    Deleting a CompetencyTaxonomy that a CompetencyRuleProfile references via
-    `competency_taxonomy` raises ProtectedError naming the profile.
-
-    Deliberately does not use the `tag` or `group` fixtures: they are not needed to isolate this
-    relationship. Tag.taxonomy and CompetencyCriteriaGroup.tag are both CASCADE now, so a tag and
-    group under this taxonomy would just be silently left untouched by the aborted delete (the
-    whole operation rolls back once any PROTECT fires) rather than competing for the raised
-    error's `protected_objects`; keeping this test to only what it needs stays the clearer read.
+    Deleting a CompetencyTaxonomy cascades to any CompetencyRuleProfile referencing it via
+    `competency_taxonomy`: the delete succeeds and the profile row is gone too. Nothing changes
+    behaviorally in this MVP, since only the all-null system-default profile exists, so there is
+    no taxonomy-scoped profile for this CASCADE to ever actually remove yet.
     """
     profile = CompetencyRuleProfile.objects.create(
         competency_taxonomy=competency_taxonomy, rule_type=RuleType.GRADE, rule_payload=_GRADE_PAYLOAD
     )
+    assert CompetencyRuleProfile.objects.filter(pk=profile.pk).exists()
 
-    with pytest.raises(ProtectedError) as exc_info:
-        competency_taxonomy.delete()
+    competency_taxonomy.delete()
 
-    protected = exc_info.value.protected_objects
-    assert any(isinstance(obj, CompetencyRuleProfile) and obj.pk == profile.pk for obj in protected)
+    assert not CompetencyRuleProfile.objects.filter(pk=profile.pk).exists()
 
 
 def test_criterion_group_cascade(

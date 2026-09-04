@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
                 ('rule_payload', models.JSONField(help_text='Structured payload keyed by rule_type; see validate_rule_payload for the shape it must match.')),
                 ('archived', models.BooleanField(default=False, help_text="Set instead of deleting a profile that's no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing criteria stay resolvable.")),
                 ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
-                ('competency_taxonomy', models.ForeignKey(blank=True, help_text='The competency taxonomy this profile is scoped to, if any.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='rule_profiles', to='openedx_learning.competencytaxonomy')),
+                ('competency_taxonomy', models.ForeignKey(blank=True, help_text='The competency taxonomy this profile is scoped to, if any.', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='rule_profiles', to='openedx_learning.competencytaxonomy')),
                 ('course', models.ForeignKey(blank=True, help_text='The course run this profile is scoped to, if any.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='competency_rule_profiles', to='openedx_catalog.courserun')),
                 ('organization', models.ForeignKey(blank=True, help_text='The organization this profile is scoped to, if any.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='competency_rule_profiles', to='organizations.organization')),
             ],
@@ -67,7 +67,6 @@ class Migration(migrations.Migration):
                 ('rule_profile', models.ForeignKey(blank=True, db_column='competency_rule_profile_id', help_text='The profile this criterion uses by default. Null only when overrides are set instead.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='criteria', to='openedx_learning.competencyruleprofile')),
             ],
             options={
-                'db_table': 'openedx_learning_competencycriteria',
                 'verbose_name': 'Competency Criterion',
                 'verbose_name_plural': 'Competency Criteria',
             },
