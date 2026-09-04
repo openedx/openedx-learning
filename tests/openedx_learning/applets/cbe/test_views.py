@@ -122,9 +122,6 @@ def test_base_taxonomy_view_competency_type_creates_no_competency_row() -> None:
     """
     Posting taxonomy_type="competency" through the base TaxonomyView creates a
     plain Taxonomy and no CompetencyTaxonomy row.
-
-    tests/openedx_tagging/test_views.py can't check this directly: it would have
-    to import CompetencyTaxonomy, breaking the layering rule it's demonstrating.
     """
     request = APIRequestFactory().post(
         "/fake-taxonomies/",
