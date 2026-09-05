@@ -3,8 +3,6 @@
 import uuid
 
 import django.db.models.deletion
-import django.db.models.functions.comparison
-import django.db.models.functions.text
 import simple_history.models
 from django.conf import settings
 from django.db import migrations, models
@@ -26,17 +24,17 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='competencytaxonomy',
             name='taxonomy_overrides_org',
-            field=models.BooleanField(default=False, help_text="Resolves a tie when assigning a CompetencyRuleProfile to a CompetencyCriterion (ADR-0002 Decision 4): if both an organization-scoped profile and a taxonomy-scoped profile from this taxonomy apply to the same criterion, False (the default) assigns the organization-scoped profile, and True assigns this taxonomy's own profile instead, so it cannot be locally weakened by an organization. Nothing reads this field yet: organization-scoped CompetencyRuleProfile rows do not exist in this phase, so the tie it resolves cannot arise until they do."),
+            field=models.BooleanField(default=False, help_text="Resolves a tie when assigning a CompetencyRuleProfile to a CompetencyCriterion (ADR-0002 Decision 4): if both an organization-scoped profile and a taxonomy-scoped profile from this taxonomy apply to the same criterion, False (the default) assigns the organization-scoped profile, and True assigns this taxonomy's own profile instead, so it cannot be locally weakened by an organization."),
         ),
         migrations.CreateModel(
             name='CompetencyCriteriaGroup',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
-                ('name', openedx_django_lib.fields.MultiCollationCharField(blank=True, db_collations={'mysql': 'utf8mb4_unicode_ci', 'sqlite': 'NOCASE'}, default='', max_length=255)),
+                ('name', openedx_django_lib.fields.MultiCollationCharField(blank=True, db_collations={'mysql': 'utf8mb4_unicode_ci', 'sqlite': 'NOCASE'}, default='', help_text='A human-readable label for this group, if any.', max_length=255)),
                 ('ordering', models.PositiveIntegerField(default=0, help_text='Deterministic sibling evaluation sequence. Used to short-circuit evaluation and to order child scans during event-driven recomputation.')),
-                ('logic_operator', models.CharField(blank=True, choices=[('AND', 'And'), ('OR', 'Or')], help_text="How this group's children combine. Null until the group has children to combine.", max_length=3, null=True)),
-                ('course', models.ForeignKey(blank=True, help_text='The course run that scopes this criteria tree for evaluation windowing, if any.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='competency_criteria_groups', to='openedx_catalog.courserun')),
+                ('logic_operator', models.CharField(blank=True, choices=[('AND', 'And'), ('OR', 'Or')], help_text="How this group's children combine. Null only for a group with a single child, where combining logic is moot; the application layer treats null the same as OR.", max_length=3, null=True)),
+                ('course', models.ForeignKey(blank=True, help_text='The course run that scopes this criteria tree for evaluation windowing, if any.', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='competency_criteria_groups', to='openedx_catalog.courserun')),
                 ('parent', models.ForeignKey(blank=True, help_text='The parent CompetencyCriteriaGroup. Null means this group is a tree root.', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='child_groups', to='openedx_learning.competencycriteriagroup')),
                 ('tag', models.ForeignKey(db_column='oel_tagging_tag_id', help_text='The competency (tag) that this criteria tree evaluates mastery of.', on_delete=django.db.models.deletion.CASCADE, related_name='competency_criteria_groups', to='oel_tagging.tag')),
             ],
@@ -45,13 +43,13 @@ class Migration(migrations.Migration):
             name='CompetencyRuleProfile',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('scope_code', models.GeneratedField(db_persist=True, expression=django.db.models.functions.text.Concat(models.Value('org:'), django.db.models.functions.comparison.Coalesce(django.db.models.functions.comparison.Cast(models.F('organization_id'), output_field=models.CharField(max_length=20)), models.Value('')), models.Value(',course:'), django.db.models.functions.comparison.Coalesce(django.db.models.functions.comparison.Cast(models.F('course_id'), output_field=models.CharField(max_length=20)), models.Value('')), models.Value(',taxonomy:'), django.db.models.functions.comparison.Coalesce(django.db.models.functions.comparison.Cast(models.F('competency_taxonomy_id'), output_field=models.CharField(max_length=20)), models.Value(''))), output_field=models.CharField(max_length=255))),
-                ('rule_type', models.CharField(choices=[('View', 'View'), ('Grade', 'Grade'), ('MasteryLevel', 'Mastery Level')], max_length=32)),
+                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
+                ('scope_code', models.CharField(editable=False, help_text='Derived from organization/course/competency_taxonomy; null while archived, otherwise "org:X,course:Y,taxonomy:Z" with each segment blank when that scope column is null. Recomputed in save(); never set directly.', max_length=255, null=True)),
+                ('rule_type', models.CharField(choices=[('Grade', 'Grade')], max_length=32)),
                 ('rule_payload', models.JSONField(help_text='Structured payload keyed by rule_type; see validate_rule_payload for the shape it must match.')),
                 ('archived', models.BooleanField(default=False, help_text="Set instead of deleting a profile that's no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing criteria stay resolvable.")),
-                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
                 ('competency_taxonomy', models.ForeignKey(blank=True, help_text='The competency taxonomy this profile is scoped to, if any.', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='rule_profiles', to='openedx_learning.competencytaxonomy')),
-                ('course', models.ForeignKey(blank=True, help_text='The course run this profile is scoped to, if any.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='competency_rule_profiles', to='openedx_catalog.courserun')),
+                ('course', models.ForeignKey(blank=True, help_text='The course run this profile is scoped to, if any.', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='competency_rule_profiles', to='openedx_catalog.courserun')),
                 ('organization', models.ForeignKey(blank=True, help_text='The organization this profile is scoped to, if any.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='competency_rule_profiles', to='organizations.organization')),
             ],
         ),
@@ -60,7 +58,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
-                ('rule_type_override', models.CharField(blank=True, choices=[('View', 'View'), ('Grade', 'Grade'), ('MasteryLevel', 'Mastery Level')], max_length=32, null=True)),
+                ('rule_type_override', models.CharField(blank=True, choices=[('Grade', 'Grade')], max_length=32, null=True)),
                 ('rule_payload_override', models.JSONField(blank=True, null=True)),
                 ('group', models.ForeignKey(db_column='competency_criteria_group_id', help_text='The CompetencyCriteriaGroup this leaf criterion belongs to.', on_delete=django.db.models.deletion.CASCADE, related_name='criteria', to='openedx_learning.competencycriteriagroup')),
                 ('object_tag', models.ForeignKey(db_column='oel_tagging_objecttag_id', help_text='The tag/object association that this criterion evaluates.', on_delete=django.db.models.deletion.CASCADE, related_name='competency_criteria', to='oel_tagging.objecttag')),
@@ -76,9 +74,9 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
                 ('uuid', models.UUIDField(db_index=True, default=uuid.uuid4, editable=False, verbose_name='UUID')),
-                ('name', openedx_django_lib.fields.MultiCollationCharField(blank=True, db_collations={'mysql': 'utf8mb4_unicode_ci', 'sqlite': 'NOCASE'}, default='', max_length=255)),
+                ('name', openedx_django_lib.fields.MultiCollationCharField(blank=True, db_collations={'mysql': 'utf8mb4_unicode_ci', 'sqlite': 'NOCASE'}, default='', help_text='A human-readable label for this group, if any.', max_length=255)),
                 ('ordering', models.PositiveIntegerField(default=0, help_text='Deterministic sibling evaluation sequence. Used to short-circuit evaluation and to order child scans during event-driven recomputation.')),
-                ('logic_operator', models.CharField(blank=True, choices=[('AND', 'And'), ('OR', 'Or')], help_text="How this group's children combine. Null until the group has children to combine.", max_length=3, null=True)),
+                ('logic_operator', models.CharField(blank=True, choices=[('AND', 'And'), ('OR', 'Or')], help_text="How this group's children combine. Null only for a group with a single child, where combining logic is moot; the application layer treats null the same as OR.", max_length=3, null=True)),
                 ('history_id', models.AutoField(primary_key=True, serialize=False)),
                 ('history_date', models.DateTimeField(db_index=True)),
                 ('history_change_reason', models.CharField(max_length=100, null=True)),
@@ -101,7 +99,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
                 ('uuid', models.UUIDField(db_index=True, default=uuid.uuid4, editable=False, verbose_name='UUID')),
-                ('rule_type_override', models.CharField(blank=True, choices=[('View', 'View'), ('Grade', 'Grade'), ('MasteryLevel', 'Mastery Level')], max_length=32, null=True)),
+                ('rule_type_override', models.CharField(blank=True, choices=[('Grade', 'Grade')], max_length=32, null=True)),
                 ('rule_payload_override', models.JSONField(blank=True, null=True)),
                 ('history_id', models.AutoField(primary_key=True, serialize=False)),
                 ('history_date', models.DateTimeField(db_index=True)),
@@ -124,7 +122,7 @@ class Migration(migrations.Migration):
             name='HistoricalCompetencyRuleProfile',
             fields=[
                 ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
-                ('rule_type', models.CharField(choices=[('View', 'View'), ('Grade', 'Grade'), ('MasteryLevel', 'Mastery Level')], max_length=32)),
+                ('rule_type', models.CharField(choices=[('Grade', 'Grade')], max_length=32)),
                 ('rule_payload', models.JSONField(help_text='Structured payload keyed by rule_type; see validate_rule_payload for the shape it must match.')),
                 ('archived', models.BooleanField(default=False, help_text="Set instead of deleting a profile that's no longer wanted. Archived profiles are hidden from authoring and new associations but remain queryable, so existing criteria stay resolvable.")),
                 ('uuid', models.UUIDField(db_index=True, default=uuid.uuid4, editable=False, verbose_name='UUID')),
@@ -156,6 +154,10 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='competencyruleprofile',
             constraint=models.CheckConstraint(condition=models.Q(models.Q(('course__isnull', True), ('organization__isnull', True)), models.Q(('competency_taxonomy__isnull', True), ('organization__isnull', True)), models.Q(('competency_taxonomy__isnull', True), ('course__isnull', True)), _connector='OR'), name='oel_cbe_ruleprofile_scope_check', violation_error_message='A CompetencyRuleProfile may be scoped to at most one of organization, course, and competency_taxonomy.'),
+        ),
+        migrations.AddConstraint(
+            model_name='competencyruleprofile',
+            constraint=models.CheckConstraint(condition=models.Q(models.Q(('archived', True), ('scope_code__isnull', True)), models.Q(('archived', False), ('scope_code__isnull', False)), _connector='OR'), name='oel_cbe_ruleprofile_archived_scope_code_check', violation_error_message='An archived CompetencyRuleProfile must have a null scope_code; a live one must not.'),
         ),
         migrations.AddConstraint(
             model_name='competencycriterion',

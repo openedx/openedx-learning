@@ -3,14 +3,7 @@ Models for Competency-Based Education (CBE).
 """
 
 from .competency_taxonomy import CompetencyTaxonomy
-from .criteria import (
-    CompetencyCriteriaGroup,
-    CompetencyCriterion,
-    CompetencyRuleProfile,
-    LogicOperator,
-    RuleType,
-    validate_rule_payload,
-)
+from .criteria import CompetencyCriteriaGroup, CompetencyCriterion, CompetencyRuleProfile, LogicOperator, RuleType
 
 __all__ = [
     "CompetencyTaxonomy",
@@ -19,5 +12,4 @@ __all__ = [
     "CompetencyRuleProfile",
     "LogicOperator",
     "RuleType",
-    "validate_rule_payload",
 ]

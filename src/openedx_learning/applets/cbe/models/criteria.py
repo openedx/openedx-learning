@@ -5,51 +5,46 @@ See :ref:`openedx-learning-adr-0002` for the design this module implements, and
 :ref:`openedx-learning-adr-0003` for why these three models (and not CompetencyTaxonomy) carry
 ``django-simple-history`` tracking.
 
-Five of the nine foreign keys here are ``on_delete=models.CASCADE``: ``CompetencyCriteriaGroup.parent``,
-``CompetencyCriteriaGroup.tag``, ``CompetencyCriterion.group``, ``CompetencyCriterion.object_tag``, and
-``CompetencyRuleProfile.competency_taxonomy``. The other four stay ``models.PROTECT``:
-``CompetencyCriterion.rule_profile``, ``CompetencyCriteriaGroup.course``,
-``CompetencyRuleProfile.course``, and ``CompetencyRuleProfile.organization``.
+Seven of the nine foreign keys here are ``on_delete=models.CASCADE``: both ``CompetencyCriteriaGroup``
+tree links (``parent``, ``tag``), its ``course`` scope, both ``CompetencyCriterion`` links (``group``,
+``object_tag``), and ``CompetencyRuleProfile``'s ``course`` and ``competency_taxonomy`` scope links.
+The other two stay ``models.PROTECT``: ``CompetencyCriterion.rule_profile`` and
+``CompetencyRuleProfile.organization``.
 
-The first four are CASCADE because deleting a Tag nobody holds mastery against must succeed, and
-#655 forbids ``openedx_tagging`` from knowing CBE exists, so the tagging side cannot clear the
-criteria tree first; CASCADE lets the tag's delete take the tree with it. ``parent`` and ``group``
-also need CASCADE because Django's collector looks up referencing rows in the database rather
-than in the set it has already decided to delete, so even a parent and child reached in the same
-batch would trip ``PROTECT`` and abort the walk partway down.
+CASCADE expresses containment: a row on the CASCADE side is meaningless once its referent is gone,
+so its own delete has no separate policy to enforce. The tree links (``parent``, ``tag``, ``group``,
+``object_tag``) also have to be CASCADE for a mechanical reason: Django's collector looks up
+referencing rows in the database rather than in the set it has already decided to delete, so even a
+parent and child reached in the same batch would trip PROTECT and abort the walk partway down. Those
+same CASCADE edges are what carries the collector down to the PROTECT that actually enforces
+ADR-0002 Decision 7 for learner data: #642's three ``Student*Status`` foreign keys, one and two
+levels below the tag, are reached only by walking these edges, never relaxed by them.
 
-``competency_taxonomy`` is CASCADE for a different reason: a rule profile must never be the
-reason a taxonomy delete fails. Once taxonomy-scoped profiles exist, deleting a taxonomy has to
-be blocked only when learner data is connected to it, and that check belongs in Python at the
-application layer, the same way #655 settled it for every other record type. ``PROTECT`` would
-push that decision into the database, which cannot tell the two cases apart.
+``CompetencyRuleProfile.course`` and ``.competency_taxonomy`` are CASCADE for an ADR-level reason,
+not a mechanical one: Decision 7 (as amended) says a taxonomy or course is only ever hard-deleted
+once nothing beneath it needs protecting, so a profile scoped to it is safe to remove at the same
+time rather than blocking that delete. ``.organization`` stays PROTECT because an ``Organization``
+is not a competency-definition record covered by that reasoning, and ``edx-organizations``
+deactivates orgs rather than deleting them.
 
-This is not a relaxation of ADR-0002 Decision 7: the four tree links above (``parent``, ``tag``,
-``group``, ``object_tag``) are what carries the collector down to the ``PROTECT`` that enforces
-it, on #642's three ``Student*Status`` foreign keys one and two levels below the tag, reached only
-by walking CASCADE edges. Turning any link in that chain to ``SET_NULL`` would let a tag delete
-succeed while learner statuses for it still exist.
+``rule_profile`` staying PROTECT is Decision 7's actual backstop for a profile itself: a
+CompetencyRuleProfile is never hard-deleted by a *direct* delete (retirement is archive-only), and
+this is what makes that hold at the ORM layer, by blocking any attempt to delete one out from under
+a criterion still assigned to it.
 
-``on_delete`` governs the row a foreign key points AT, never the row holding it, and fires on
-every row the collector reaches, not only the row passed to ``delete()``. So ``rule_profile``
-staying PROTECT does not block a cascading tag delete; it only stops a CompetencyRuleProfile from
-being deleted while a criterion references it, Decision 7's archive-only rule at the ORM layer.
-
-The other three: both ``course`` fields match ``openedx_catalog``'s own convention
-(``CourseRun.catalog_course`` and ``CatalogCourse.org`` are PROTECT too), and ``SET_NULL`` would
-make a course-level group read as a root group, breaking #675's root-group rejection.
-``organization`` is PROTECT because ``edx-organizations`` deactivates orgs rather than deleting
-them (``remove_organization()``).
+One non-obvious consequence of the collector's database-not-pending-set lookup described above:
+deleting a CompetencyTaxonomy whose taxonomy-scoped profile is itself assigned to a
+CompetencyCriterion raises ProtectedError naming that criterion, even though the criterion would
+also be cascade-deleted in the same operation through the tag chain. See
+test_criteria_deletion.py's "residual tension" section for what this needs before it can be fixed
+(a fifth ADR-0002 Decision 4 reassignment event), and why it cannot be reached with this phase's
+data.
 """
 from __future__ import annotations
 
-from typing import Any
-
-from attrs import Attribute, define, field, fields
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import F, Q, Value
-from django.db.models.functions import Cast, Coalesce, Concat
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from organizations.models import Organization
 from simple_history.models import HistoricalRecords
@@ -58,6 +53,7 @@ from openedx_catalog.models import CourseRun
 from openedx_django_lib.fields import case_insensitive_char_field, immutable_uuid_field
 from openedx_tagging.models import ObjectTag, Tag
 
+from ..rule_payloads import _RULE_PAYLOAD_SPECS, RuleType, validate_rule_payload
 from .competency_taxonomy import CompetencyTaxonomy
 
 __all__ = [
@@ -69,13 +65,10 @@ __all__ = [
     "validate_rule_payload",
 ]
 
-
-class RuleType(models.TextChoices):
-    """The evaluation rule types a CompetencyRuleProfile or CompetencyCriterion override can use."""
-
-    VIEW = "View", _("View")
-    GRADE = "Grade", _("Grade")
-    MASTERY_LEVEL = "MasteryLevel", _("Mastery Level")
+# The declared choices for both rule_type fields below, derived from the payload-spec registry
+# (see rule_payloads.py) rather than hand-listed, so a rule type can never be offered as a choice
+# without also having a payload spec that makes it actually saveable.
+_RULE_TYPE_CHOICES = [(rule_type, RuleType(rule_type).label) for rule_type in _RULE_PAYLOAD_SPECS]
 
 
 class LogicOperator(models.TextChoices):
@@ -85,118 +78,17 @@ class LogicOperator(models.TextChoices):
     OR = "OR", _("Or")
 
 
-def _validate_op(_instance: object, _attribute: Attribute, value: object) -> None:
-    """Reject an 'op' outside the Grade rule's allowed comparison operators."""
-    if value not in {"gte", "lte", "eq"}:
-        raise ValueError(_("The 'op' in a 'Grade' rule_payload must be one of: gte, lte, eq."))
-
-
-def _validate_grade_value(_instance: object, _attribute: Attribute, value: object) -> None:
-    """Reject a Grade rule's 'value' unless it's a non-boolean number in [0.0, 1.0]."""
-    # isinstance(True, int) is True in Python, so a bool would otherwise pass the numeric check below.
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError(_("The 'value' in a 'Grade' rule_payload must be a number, not a boolean."))
-    if not 0.0 <= value <= 1.0:
-        raise ValueError(
-            _(
-                "The 'value' in a 'Grade' rule_payload must be a fraction between 0.0 and 1.0 inclusive "
-                "(e.g. 0.8 for a passing grade of 80%%), not %(value)r."
-            )
-            % {"value": value}
-        )
-
-
-def _validate_scale(_instance: object, _attribute: Attribute, value: object) -> None:
-    """Reject a Grade rule's 'scale' unless it's exactly 'percent'."""
-    if value != "percent":
-        raise ValueError(_("The 'scale' in a 'Grade' rule_payload must be 'percent'."))
-
-
-@define(frozen=True, kw_only=True)
-class GradeRule:
-    """
-    The rule_payload shape for RuleType.GRADE, per ADR-0002 Decision 3.
-
-    Constructing one *is* the validation: kw_only means an unknown key raises TypeError
-    ("unexpected keyword argument") and a missing key raises TypeError ("missing ... required
-    keyword-only argument") from Python's own call handling, and a present-but-bad value raises
-    ValueError or TypeError from the field validators below. Frozen because this describes a
-    fixed spec and is never mutated after construction.
-    """
-
-    op: str = field(validator=_validate_op)
-    value: float = field(validator=_validate_grade_value)
-    scale: str = field(validator=_validate_scale)
-
-
-# One spec class per RuleType with a defined rule_payload shape. Add a class and an entry here to
-# support a new rule type. RuleType.VIEW and RuleType.MASTERY_LEVEL have no entry, so they keep
-# being rejected by validate_rule_payload as not supported yet.
-_RULE_PAYLOAD_SPECS: dict[str, type] = {
-    RuleType.GRADE: GradeRule,
-}
-
-
-def validate_rule_payload(rule_type: str, payload: Any) -> None:
-    """
-    Validate ``payload`` against the shape ADR-0002 Decision 3 defines for ``rule_type``.
-
-    Only ``RuleType.GRADE`` has a defined payload shape in this phase. ``RuleType.VIEW`` and
-    ``RuleType.MASTERY_LEVEL`` are valid choices elsewhere but are rejected here, since no
-    payload contract exists for them yet. Raises ``django.core.exceptions.ValidationError`` on
-    any mismatch; never returns a value.
-    """
-    spec_class = _RULE_PAYLOAD_SPECS.get(rule_type)
-    if spec_class is None:
-        raise ValidationError(
-            _("Rule type '%(rule_type)s' is not supported yet; only 'Grade' has a defined rule_payload shape.")
-            % {"rule_type": rule_type}
-        )
-    # Checked separately, before construction: `spec_class(**payload)` on a non-dict payload
-    # (e.g. a list) raises "argument after ** must be a mapping", which is a confusing message to
-    # surface to an author.
-    if not isinstance(payload, dict):
-        raise ValidationError(_("A 'Grade' rule_payload must be a JSON object."))
-
-    # Also checked separately, before construction, rather than left to Python's own kw_only
-    # TypeError: that TypeError's text is "GradeRule.__init__() missing/got an unexpected keyword
-    # argument ...", a Python traceback fragment that leaks an internal class name to whoever
-    # edits this payload (a course author, via the admin). Deriving the expected keys from the
-    # spec class itself keeps that class the single source of truth for the key set, while owning
-    # the message in our own domain language instead of Python's.
-    expected_keys = {attr.name for attr in fields(spec_class)}
-    missing_keys = sorted(expected_keys - payload.keys())
-    unexpected_keys = sorted(payload.keys() - expected_keys)
-    if missing_keys or unexpected_keys:
-        problems = []
-        if missing_keys:
-            problems.append(_("missing %(keys)s") % {"keys": ", ".join(missing_keys)})
-        if unexpected_keys:
-            problems.append(_("unexpected %(keys)s") % {"keys": ", ".join(unexpected_keys)})
-        raise ValidationError(
-            _("A 'Grade' rule_payload has the wrong keys: %(problems)s.")
-            % {"problems": "; ".join(str(problem) for problem in problems)}
-        )
-
-    # Past the key check above, this can only fail on a value a field validator rejects.
-    try:
-        spec_class(**payload)
-    except (TypeError, ValueError) as exc:
-        # Surface the underlying message (our custom validators' text) rather than replacing it
-        # with something generic: that message is what full_clean() or save() surfaces to an
-        # admin or API caller.
-        raise ValidationError(str(exc)) from exc
-
-
 class CompetencyCriteriaGroup(models.Model):
     """
     An internal AND/OR node in a CompetencyAchievementCriteria expression tree.
 
     A single CompetencyAchievementCriteria is one root CompetencyCriteriaGroup plus all of its
     descendant groups and leaf :class:`CompetencyCriterion` rows. ``logic_operator`` says how
-    this group's children combine; ``ordering`` gives their deterministic evaluation sequence,
-    which read-time evaluation and event-driven recomputation both rely on for short-circuiting.
-    See ADR-0002 Decision 2.
+    this group's own children combine. ``ordering`` gives this group's own position among its
+    siblings under their shared parent, which read-time evaluation and event-driven recomputation
+    rely on for deterministic, short-circuiting evaluation order. A group's children can be a mix
+    of child groups and leaf criteria, and only CompetencyCriteriaGroup carries an ``ordering``
+    field, so that mix has no total order; #641 accepts this deliberately. See ADR-0002 Decision 2.
 
     .. no_pii:
     """
@@ -221,11 +113,13 @@ class CompetencyCriteriaGroup(models.Model):
         CourseRun,
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="competency_criteria_groups",
         help_text=_("The course run that scopes this criteria tree for evaluation windowing, if any."),
     )
-    name = case_insensitive_char_field(max_length=255, blank=True, default="")
+    name = case_insensitive_char_field(
+        max_length=255, blank=True, default="", help_text=_("A human-readable label for this group, if any.")
+    )
     ordering = models.PositiveIntegerField(
         default=0,
         help_text=_(
@@ -238,7 +132,10 @@ class CompetencyCriteriaGroup(models.Model):
         choices=LogicOperator,
         null=True,
         blank=True,
-        help_text=_("How this group's children combine. Null until the group has children to combine."),
+        help_text=_(
+            "How this group's children combine. Null only for a group with a single child, where combining "
+            "logic is moot; the application layer treats null the same as OR."
+        ),
     )
 
     history = HistoricalRecords()
@@ -273,31 +170,22 @@ class CompetencyRuleProfile(models.Model):
 
     Editing a profile may change ``rule_type``/``rule_payload`` only: the scope fields
     (``organization``, ``course``, ``competency_taxonomy``) are immutable after creation, so that
-    criteria already resolved to this profile's scope are never silently re-governed. This is
-    enforced in ``clean()`` and ``save()`` by comparing against the scope this row had when
-    loaded. That comparison covers every ``instance.save()``, including one loaded with
-    ``.only()``/``.defer()`` that skipped some scope columns, in which case the comparison falls
-    back to reading the persisted scope directly rather than skipping the check. It does not
-    cover a bulk ``QuerySet.update()``, since that path never loads or constructs a model
-    instance at all.
+    criteria already resolved to this profile's scope are never silently re-governed. ``clean()``
+    enforces this by comparing the current scope columns against what is actually persisted for
+    this row, so the check holds regardless of whether this instance was loaded with a partial
+    ``.only()``/``.defer()`` that skipped some scope columns. It does not cover a bulk
+    ``QuerySet.update()``, since that path never loads or constructs a model instance at all.
 
-    ``rule_payload``'s shape (see :func:`validate_rule_payload`) is likewise validated from both
-    ``clean()`` and ``save()``, so ``objects.create()`` and a plain ``instance.save()`` are
-    covered without a caller needing to remember ``full_clean()``. A bulk ``QuerySet.update()``,
-    ``bulk_create()``, and a DRF serializer that writes straight to the database are NOT covered:
-    none of them build or save a model instance, so neither ``clean()`` nor ``save()`` ever runs.
+    ``rule_payload``'s shape (see :func:`~openedx_learning.applets.cbe.rule_payloads.validate_rule_payload`)
+    is likewise validated from ``clean()``, reached from both ``objects.create()`` and a plain
+    ``instance.save()`` via ``full_clean()``. A bulk ``QuerySet.update()``, ``bulk_create()``, and a
+    DRF serializer that writes straight to the database are NOT covered: none of them build or save
+    a model instance, so ``clean()`` never runs.
 
     .. no_pii:
     """
 
-    # Set at from_db() time to the scope this row had when it was loaded from the database, so
-    # clean()/save() can detect an attempt to change it. None for a newly-constructed instance,
-    # meaning there's nothing yet to compare against. Deliberately not underscore-prefixed:
-    # from_db() is a classmethod, so it sets this through a local `instance` variable rather than
-    # `self`, which pylint's protected-access check can't tell apart from reaching into another
-    # object's internals.
-    loaded_scope: tuple[int | None, int | None, int | None] | None = None
-
+    uuid = immutable_uuid_field()
     organization = models.ForeignKey(
         Organization,
         null=True,
@@ -310,7 +198,7 @@ class CompetencyRuleProfile(models.Model):
         CourseRun,
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="competency_rule_profiles",
         help_text=_("The course run this profile is scoped to, if any."),
     )
@@ -322,24 +210,31 @@ class CompetencyRuleProfile(models.Model):
         related_name="rule_profiles",
         help_text=_("The competency taxonomy this profile is scoped to, if any."),
     )
-    # Always non-null, including for the system-default row (all three scope columns null), so a
-    # plain UniqueConstraint on this one column enforces "at most one profile row per distinct
-    # scope" identically on every backend. SQL never treats two NULLs as equal, so a unique
-    # constraint directly on the three nullable scope columns would let e.g. two rows that both
-    # set only organization_id=5 both exist. See ADR-0002 Decision 3.
-    scope_code = models.GeneratedField(
-        expression=Concat(
-            Value("org:"),
-            Coalesce(Cast(F("organization_id"), output_field=models.CharField(max_length=20)), Value("")),
-            Value(",course:"),
-            Coalesce(Cast(F("course_id"), output_field=models.CharField(max_length=20)), Value("")),
-            Value(",taxonomy:"),
-            Coalesce(Cast(F("competency_taxonomy_id"), output_field=models.CharField(max_length=20)), Value("")),
+    # A plain column, written explicitly in save() below, NOT a database GeneratedField: null
+    # while archived, and the "org:X,course:Y,taxonomy:Z" string (see save()) while live. This is
+    # what lets the UniqueConstraint below stay a plain, unconditional one on every backend this
+    # project supports, including MySQL, which does not support the conditional/partial unique
+    # indexes that a naive "unique unless archived" rule would otherwise need (see ADR-0002
+    # Rejected Alternative 6): SQL never treats two NULLs as equal, so any number of archived rows
+    # may share a scope while exactly one live row holds it. A plain column also can't be rewritten
+    # by Django's collector, unlike a GeneratedField: deleting a scope owner (a CompetencyTaxonomy
+    # or CourseRun) whose foreign key here is nullable and CASCADE nulls that one column on this
+    # row before deleting it, on any backend that can't defer constraint checks (MySQL); a
+    # GeneratedField would recompute from that nulled value and could collide with another row
+    # already occupying the resulting blank scope, raising IntegrityError instead of completing
+    # the cascade. A plain column is untouched by that nulling, so this row keeps its true
+    # scope_code, unseen by anyone, until the row itself is deleted.
+    scope_code = models.CharField(
+        max_length=255,
+        null=True,
+        editable=False,
+        help_text=_(
+            "Derived from organization/course/competency_taxonomy; null while archived, otherwise "
+            "\"org:X,course:Y,taxonomy:Z\" with each segment blank when that scope column is null. "
+            "Recomputed in save(); never set directly."
         ),
-        output_field=models.CharField(max_length=255),
-        db_persist=True,
     )
-    rule_type = models.CharField(max_length=32, choices=RuleType)
+    rule_type = models.CharField(max_length=32, choices=_RULE_TYPE_CHOICES)
     rule_payload = models.JSONField(
         help_text=_("Structured payload keyed by rule_type; see validate_rule_payload for the shape it must match.")
     )
@@ -350,20 +245,23 @@ class CompetencyRuleProfile(models.Model):
             "authoring and new associations but remain queryable, so existing criteria stay resolvable."
         ),
     )
-    uuid = immutable_uuid_field()
 
+    # scope_code is excluded from history: it is a derived, non-editable bookkeeping column (see
+    # above), not an author-facing fact worth its own historical row -- the columns it derives
+    # from (organization, course, competency_taxonomy, archived) are already tracked, and are what
+    # an audit trail actually needs.
     history = HistoricalRecords(excluded_fields=["scope_code"])
 
     class Meta:
         constraints = [
-            # Do NOT add `condition=` here. A conditional UniqueConstraint compiles to a partial
-            # index, which MySQL (this project's tested and production database) does not support:
-            # Django only raises a non-fatal system-check warning (models.W036) and silently skips
-            # creating the constraint, leaving uniqueness completely unenforced there, while SQLite
-            # (used for quick local test runs) does support partial indexes and would mask the gap
-            # in that environment. See ADR-0002 Rejected Alternative 6. The generated `scope_code`
-            # column above exists specifically so a plain, unconditional UniqueConstraint works
-            # identically on every backend.
+            # A plain, unconditional UniqueConstraint, deliberately: scope_code is a plain,
+            # always-non-null-while-live column (see its definition above), not a conditional
+            # index over the raw nullable scope columns. MySQL (this project's tested and
+            # production database) does not support conditional/partial unique indexes -- Django
+            # only raises a non-fatal system-check warning (models.W036) and silently skips
+            # creating such a constraint there, while SQLite (used for quick local test runs)
+            # does support them and would mask the gap in that environment. See ADR-0002 Rejected
+            # Alternative 6.
             models.UniqueConstraint(fields=["scope_code"], name="oel_cbe_ruleprofile_scope_code_uniq"),
             models.CheckConstraint(
                 # Expressed as "at least two of the three scope columns are null", i.e. at most one
@@ -379,48 +277,41 @@ class CompetencyRuleProfile(models.Model):
                     "competency_taxonomy."
                 ),
             ),
+            models.CheckConstraint(
+                # Keeps scope_code's invariant honest against QuerySet.update(), which bypasses
+                # save(): the database refuses the row rather than letting this get out of sync
+                # behind save()'s back.
+                condition=(
+                    Q(archived=True, scope_code__isnull=True) | Q(archived=False, scope_code__isnull=False)
+                ),
+                name="oel_cbe_ruleprofile_archived_scope_code_check",
+                violation_error_message=_(
+                    "An archived CompetencyRuleProfile must have a null scope_code; a live one must not."
+                ),
+            ),
         ]
 
-    @classmethod
-    def from_db(cls, db, field_names, values):
-        """Capture the scope this row had when loaded, so clean()/save() can detect an edit to it."""
-        instance = super().from_db(db, field_names, values)
-        # field_names holds attnames (e.g. "organization_id"), not field names. Only capture when
-        # all three are present and unloaded (not deferred), so this never triggers extra queries.
-        scope_attnames = {"organization_id", "course_id", "competency_taxonomy_id"}
-        if scope_attnames.issubset(field_names):
-            instance.loaded_scope = (
-                instance.organization_id,
-                instance.course_id,
-                instance.competency_taxonomy_id,
-            )
-        return instance
-
     def _check_scope_immutable(self) -> None:
-        """Raise ValidationError if the scope columns no longer match what was loaded from the database."""
-        loaded_scope = self.loaded_scope
-        if loaded_scope is None:
-            if self.pk is None:
-                # A new, unsaved instance: there's no persisted scope yet to compare against.
-                return
-            # from_db() didn't capture the scope, because this instance came from a deferred/
-            # only() load that skipped one or more scope columns. Read the persisted scope back
-            # from the database directly, rather than silently skipping the check: a deferred
-            # load must not be a way to bypass immutability. This costs one extra query, but only
-            # on this rare path, which is already paying for extra field-loading queries anyway.
-            # Guarded against the row having since been deleted, in which case there's nothing
-            # left to compare against either.
-            row = (
-                CompetencyRuleProfile.objects
-                .filter(pk=self.pk)
-                .values_list("organization_id", "course_id", "competency_taxonomy_id")
-                .first()
-            )
-            if row is None:
-                return
-            loaded_scope = row
+        """Raise ValidationError if the scope columns no longer match what is persisted for this row."""
+        if self.pk is None:
+            # A new, unsaved instance: there's no persisted scope yet to compare against.
+            return
+        # Always queries the database directly, rather than comparing against a value cached at
+        # load time: that avoids a deferred/only() load, or a refresh_from_db() call, silently
+        # bypassing this check. Explicitly targets self._state.db, the alias this instance
+        # actually belongs to, so an instance loaded from a non-default database is not silently
+        # compared against the wrong one. Guarded against the row having since been deleted, in
+        # which case there's nothing left to compare against either.
+        persisted_scope = (
+            CompetencyRuleProfile.objects.using(self._state.db)
+            .filter(pk=self.pk)
+            .values_list("organization_id", "course_id", "competency_taxonomy_id")
+            .first()
+        )
+        if persisted_scope is None:
+            return
         current_scope = (self.organization_id, self.course_id, self.competency_taxonomy_id)
-        if current_scope != loaded_scope:
+        if current_scope != persisted_scope:
             raise ValidationError(
                 _(
                     "A CompetencyRuleProfile's scope (organization, course, competency_taxonomy) cannot be "
@@ -435,11 +326,22 @@ class CompetencyRuleProfile(models.Model):
         validate_rule_payload(self.rule_type, self.rule_payload)
 
     def save(self, *args, **kwargs):
-        """Persist this profile, after re-checking scope immutability and the rule_payload shape."""
-        self._check_scope_immutable()
-        validate_rule_payload(self.rule_type, self.rule_payload)
+        """Recompute scope_code, then persist this profile after full_clean() re-validates it."""
+        self.scope_code = None if self.archived else (
+            f"org:{'' if self.organization_id is None else self.organization_id},"
+            f"course:{'' if self.course_id is None else self.course_id},"
+            f"taxonomy:{'' if self.competency_taxonomy_id is None else self.competency_taxonomy_id}"
+        )
+        # validate_unique and validate_constraints are left to the database: the unique and check
+        # constraints above enforce them identically and without the extra queries full_clean()
+        # would otherwise run to pre-check them in Python. Matches CourseRun.save() at
+        # src/openedx_catalog/models/course_run.py. Neither the non-editable scope_code nor the
+        # nullable override-style fields on this model cause full_clean() to reject an otherwise
+        # valid row: Django's own Field.validate() skips every check for a field with
+        # editable=False, and a blank=True field with an empty value is skipped by clean_fields()
+        # before validation runs at all.
+        self.full_clean(validate_unique=False, validate_constraints=False)
         super().save(*args, **kwargs)
-        self.loaded_scope = (self.organization_id, self.course_id, self.competency_taxonomy_id)
 
 
 class CompetencyCriterion(models.Model):
@@ -456,11 +358,11 @@ class CompetencyCriterion(models.Model):
     that recomputes it; that would contradict the ADR.
 
     When ``rule_type_override`` is set, its ``rule_payload_override``'s shape (see
-    :func:`validate_rule_payload`) is validated from both ``clean()`` and ``save()``, so
-    ``objects.create()`` and a plain ``instance.save()`` are covered without a caller needing to
-    remember ``full_clean()``. A bulk ``QuerySet.update()``, ``bulk_create()``, and a DRF
-    serializer that writes straight to the database are NOT covered: none of them build or save a
-    model instance, so neither ``clean()`` nor ``save()`` ever runs.
+    :func:`~openedx_learning.applets.cbe.rule_payloads.validate_rule_payload`) is validated from
+    ``clean()``, reached from both ``objects.create()`` and a plain ``instance.save()`` via
+    ``full_clean()``. A bulk ``QuerySet.update()``, ``bulk_create()``, and a DRF serializer that
+    writes straight to the database are NOT covered: none of them build or save a model instance,
+    so ``clean()`` never runs.
 
     .. no_pii:
     """
@@ -489,7 +391,7 @@ class CompetencyCriterion(models.Model):
         related_name="criteria",
         help_text=_("The profile this criterion uses by default. Null only when overrides are set instead."),
     )
-    rule_type_override = models.CharField(max_length=32, choices=RuleType, null=True, blank=True)
+    rule_type_override = models.CharField(max_length=32, choices=_RULE_TYPE_CHOICES, null=True, blank=True)
     rule_payload_override = models.JSONField(null=True, blank=True)
 
     history = HistoricalRecords()
@@ -537,7 +439,8 @@ class CompetencyCriterion(models.Model):
             validate_rule_payload(self.rule_type_override, self.rule_payload_override)
 
     def save(self, *args, **kwargs):
-        """Persist this criterion, after re-checking the override rule_payload's shape, if set."""
-        if self.rule_type_override is not None:
-            validate_rule_payload(self.rule_type_override, self.rule_payload_override)
+        """Persist this criterion, after full_clean() re-validates the override payload, if set."""
+        # See CompetencyRuleProfile.save() above for why validate_unique/validate_constraints are
+        # skipped here too, and why the nullable override fields don't trip full_clean() when unset.
+        self.full_clean(validate_unique=False, validate_constraints=False)
         super().save(*args, **kwargs)

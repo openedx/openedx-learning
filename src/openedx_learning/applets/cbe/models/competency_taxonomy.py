@@ -45,9 +45,7 @@ class CompetencyTaxonomy(Taxonomy):
             "Decision 4): if both an organization-scoped profile and a taxonomy-scoped profile from this "
             "taxonomy apply to the same criterion, False (the default) assigns the organization-scoped "
             "profile, and True assigns this taxonomy's own profile instead, so it cannot be locally "
-            "weakened by an organization. Nothing reads this field yet: organization-scoped "
-            "CompetencyRuleProfile rows do not exist in this phase, so the tie it resolves cannot arise "
-            "until they do."
+            "weakened by an organization."
         ),
     )
 
