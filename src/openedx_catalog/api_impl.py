@@ -29,6 +29,7 @@ __all__ = [
     "get_default_pathway_category",
     "get_pathway_category",
     "get_catalog_pathway",
+    "get_catalog_pathways",
     "create_catalog_pathway",
     "update_catalog_pathway",
     "delete_catalog_pathway",
@@ -319,6 +320,31 @@ def get_catalog_pathway(
         _, org_code, pathway_code = key_str.split(":", 2)
     # We might as well select_related org because we're joining to check the org__short_name field anyways.
     return CatalogPathway.objects.select_related("org").get(org__short_name=org_code, pathway_code=pathway_code)
+
+
+def get_catalog_pathways(
+    *,
+    org_code: str | None = None,
+    category_code: str | None = None,
+) -> QuerySet[CatalogPathway]:
+    """
+    List catalog pathways, most recently created first, optionally narrowed down to an org and/or a category.
+
+    Both filters match exactly; an unknown org or category simply matches nothing. The result is a `QuerySet`, so that
+    callers can narrow, search and paginate it further; each pathway's org and category come with it.
+
+    ⚠️ Does not check permissions or visibility rules. That suits authoring and administration, but a listing shown to
+    learners will need the visibility logic described in the `openedx_catalog.api` docstring, which doesn't exist yet.
+
+    As with `get_catalog_pathway`, this can't tell you which pathways have content implementing them yet; ask
+    `openedx_learning.api` instead.
+    """
+    pathways = CatalogPathway.objects.select_related("org", "category")
+    if org_code is not None:
+        pathways = pathways.filter(org__short_name=org_code)
+    if category_code is not None:
+        pathways = pathways.filter(category__category_code=category_code)
+    return pathways
 
 
 def create_catalog_pathway(

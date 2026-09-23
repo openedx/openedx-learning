@@ -40,10 +40,10 @@ class CatalogPathway(models.Model):
     `openedx_learning.applets.pathways` and *is* versioned, so that progress and credentials can be judged against the
     definition that was in effect at the time.
 
-    The link between the two halves lives on the content side (`PathwayVersion.catalog_pathway`), never here: this app
-    stays unaware of content, so that changes in how content is represented never reach it (see the openedx_catalog ADR
-    0001, decision 2). A `CatalogPathway` therefore cannot, on its own, tell you which content implements it; queries in
-    that direction start from the content side.
+    The link between the two halves lives on the content side (`Pathway.catalog_pathway`, one-to-one), never here: this
+    app stays unaware of content, so that changes in how content is represented never reach it (see the openedx_catalog
+    ADR 0001, decision 2). A `CatalogPathway` therefore cannot, on its own, tell you which content implements it;
+    queries in that direction start from the content side.
 
     A `CatalogPathway` may exist before any content implements it, in the same way that a `CatalogCourse` may exist as a
     marketing placeholder for a course that has no content yet.

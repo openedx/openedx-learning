@@ -82,6 +82,44 @@ def test_get_catalog_pathway(data_science) -> None:
         catalog_api.get_catalog_pathway(org_code="Org1", pathway_code="Nope")
 
 
+@pytest.fixture(name="three_pathways")
+def _three_pathways(org1) -> tuple[CatalogPathway, CatalogPathway, CatalogPathway]:
+    """Create three catalog pathways across two orgs and two categories, a day apart, oldest first."""
+    ensure_organization("Org2")
+    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    with freeze_time(datetime(2026, 1, 1, tzinfo=timezone.utc)):
+        data_science = catalog_api.create_catalog_pathway(org_code="Org1", pathway_code="DataScience")
+    with freeze_time(datetime(2026, 1, 2, tzinfo=timezone.utc)):
+        comp_sci = catalog_api.create_catalog_pathway(org_code="Org1", pathway_code="CompSci", category=masters)
+    with freeze_time(datetime(2026, 1, 3, tzinfo=timezone.utc)):
+        history = catalog_api.create_catalog_pathway(org_code="Org2", pathway_code="History", category=masters)
+    return data_science, comp_sci, history
+
+
+def test_get_catalog_pathways(three_pathways) -> None:
+    """All catalog pathways, most recently created first."""
+    data_science, comp_sci, history = three_pathways
+    assert list(catalog_api.get_catalog_pathways()) == [history, comp_sci, data_science]
+
+
+def test_get_catalog_pathways_by_org_and_category(three_pathways) -> None:
+    """The filters combine, and an unknown org or category matches nothing rather than failing."""
+    data_science, comp_sci, history = three_pathways
+    assert list(catalog_api.get_catalog_pathways(org_code="Org1")) == [comp_sci, data_science]
+    assert list(catalog_api.get_catalog_pathways(category_code="masters-degree")) == [history, comp_sci]
+    assert list(catalog_api.get_catalog_pathways(org_code="Org1", category_code="masters-degree")) == [comp_sci]
+    assert list(catalog_api.get_catalog_pathways(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)) == [data_science]
+    assert not catalog_api.get_catalog_pathways(org_code="NoSuchOrg").exists()
+    assert not catalog_api.get_catalog_pathways(category_code="no-such-category").exists()
+
+
+def test_get_catalog_pathways_loads_org_and_category(three_pathways, django_assert_num_queries) -> None:
+    """Showing each pathway's org and category, as a listing would, doesn't cost a query per pathway."""
+    with django_assert_num_queries(1):
+        labels = [(p.org_code, p.category.name) for p in catalog_api.get_catalog_pathways()]
+    assert len(labels) == 3
+
+
 def test_update_catalog_pathway_by_id_and_category(data_science) -> None:
     """The pathway may be given by ID, and the category can be changed like any other catalog field."""
     masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
