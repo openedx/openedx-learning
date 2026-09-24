@@ -281,9 +281,20 @@ def get_pathway_category(category_code: str) -> PathwayCategory:
     """
     Get a `PathwayCategory` by its stable code.
 
+    Its translations come with it, so ``category.localized_name`` costs no further queries, however often it's read.
+
     ⚠️ Does not check permissions.
     """
-    return PathwayCategory.objects.get(category_code=category_code)
+    return PathwayCategory.objects.prefetch_related("translations").get(category_code=category_code)
+
+
+def _catalog_pathways() -> QuerySet[CatalogPathway]:
+    """
+    Catalog pathways along with everything needed to show them: org, category, and the category's translations.
+
+    With the translations prefetched, ``pathway.category.localized_name`` costs no further queries.
+    """
+    return CatalogPathway.objects.select_related("org", "category").prefetch_related("category__translations")
 
 
 @overload
@@ -303,6 +314,9 @@ def get_catalog_pathway(
     """
     Get a catalog pathway.
 
+    Its org and category come with it, and so do the category's translations, so ``pathway.category.localized_name``
+    costs no further queries.
+
     ⚠️ Does not check permissions or visibility rules.
 
     The `CatalogPathway` may not have any content implementing it yet. Because `openedx_catalog` never knows about the
@@ -312,14 +326,13 @@ def get_catalog_pathway(
     if pk:
         assert not org_code
         assert not key_str
-        return CatalogPathway.objects.get(pk=pk)
+        return _catalog_pathways().get(pk=pk)
     if key_str:
         assert key_str.startswith("catalog-pathway:")
         assert not org_code
         assert not pathway_code
         _, org_code, pathway_code = key_str.split(":", 2)
-    # We might as well select_related org because we're joining to check the org__short_name field anyways.
-    return CatalogPathway.objects.select_related("org").get(org__short_name=org_code, pathway_code=pathway_code)
+    return _catalog_pathways().get(org__short_name=org_code, pathway_code=pathway_code)
 
 
 def get_catalog_pathways(
@@ -331,7 +344,8 @@ def get_catalog_pathways(
     List catalog pathways, most recently created first, optionally narrowed down to an org and/or a category.
 
     Both filters match exactly; an unknown org or category simply matches nothing. The result is a `QuerySet`, so that
-    callers can narrow, search and paginate it further; each pathway's org and category come with it.
+    callers can narrow, search and paginate it further. Each pathway's org and category come with it, and so do the
+    category's translations, so ``pathway.category.localized_name`` costs no further queries.
 
     ⚠️ Does not check permissions or visibility rules. That suits authoring and administration, but a listing shown to
     learners will need the visibility logic described in the `openedx_catalog.api` docstring, which doesn't exist yet.
@@ -339,7 +353,7 @@ def get_catalog_pathways(
     As with `get_catalog_pathway`, this can't tell you which pathways have content implementing them yet; ask
     `openedx_learning.api` instead.
     """
-    pathways = CatalogPathway.objects.select_related("org", "category")
+    pathways = _catalog_pathways()
     if org_code is not None:
         pathways = pathways.filter(org__short_name=org_code)
     if category_code is not None:
@@ -479,11 +493,17 @@ def get_pathway_enrollments(user_id: int, *, include_inactive: bool = False) -> 
     """
     Get a learner's pathway enrollments, most recent first.
 
-    Only active enrollments are returned unless ``include_inactive`` is set.
+    Only active enrollments are returned unless ``include_inactive`` is set. Each enrollment's catalog pathway comes
+    with it, along with the pathway's org, category and the category's translations, so a dashboard can show
+    ``enrollment.catalog_pathway.category.localized_name`` without further queries.
 
     ⚠️ Does not check permissions or visibility rules.
     """
-    enrollments = PathwayEnrollment.objects.filter(user_id=user_id).select_related("catalog_pathway")
+    enrollments = (
+        PathwayEnrollment.objects.filter(user_id=user_id)
+        .select_related("catalog_pathway__org", "catalog_pathway__category")
+        .prefetch_related("catalog_pathway__category__translations")
+    )
     if not include_inactive:
         enrollments = enrollments.filter(is_active=True)
     return enrollments

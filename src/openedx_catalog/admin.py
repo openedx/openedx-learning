@@ -13,7 +13,14 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from .models import CatalogCourse, CatalogPathway, CourseRun, PathwayCategory, PathwayEnrollment
+from .models import (
+    CatalogCourse,
+    CatalogPathway,
+    CourseRun,
+    PathwayCategory,
+    PathwayCategoryTranslation,
+    PathwayEnrollment,
+)
 
 if TYPE_CHECKING:
 
@@ -115,6 +122,18 @@ class CourseRunAdmin(admin.ModelAdmin):
 admin.site.register(CourseRun, CourseRunAdmin)
 
 
+class PathwayCategoryTranslationInline(admin.TabularInline):
+    """
+    The category's name in languages other than the instance's default.
+
+    Learners whose language has no translation here see the category's own name.
+    """
+
+    model = PathwayCategoryTranslation
+    fields = ["language_code", "name"]
+    extra = 0
+
+
 class PathwayCategoryAdmin(admin.ModelAdmin):
     """
     The PathwayCategory model admin.
@@ -124,7 +143,8 @@ class PathwayCategoryAdmin(admin.ModelAdmin):
     """
 
     list_display = ["name", "category_code", "pathways_summary"]
-    search_fields = ["name", "category_code"]
+    search_fields = ["name", "category_code", "translations__name"]
+    inlines = [PathwayCategoryTranslationInline]
 
     def get_readonly_fields(self, request, obj: PathwayCategory | None = None) -> tuple[str, ...]:
         if obj:  # editing an existing object; the code is what other systems key off

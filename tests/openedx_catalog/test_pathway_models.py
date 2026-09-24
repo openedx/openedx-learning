@@ -13,11 +13,12 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.db.utils import IntegrityError
+from django.utils import translation
 from freezegun import freeze_time
 from organizations.api import ensure_organization  # type: ignore[import]
 from organizations.models import Organization  # type: ignore[import]
 
-from openedx_catalog.models import CatalogPathway, PathwayCategory, PathwayEnrollment
+from openedx_catalog.models import CatalogPathway, PathwayCategory, PathwayCategoryTranslation, PathwayEnrollment
 from openedx_catalog.models.pathway_category import DEFAULT_PATHWAY_CATEGORY_CODE, DEFAULT_PATHWAY_CATEGORY_NAME
 
 User = get_user_model()
@@ -104,6 +105,87 @@ def test_category_string_representation() -> None:
     """The string representation of a category is its name."""
     category = PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
     assert str(category) == DEFAULT_PATHWAY_CATEGORY_NAME
+
+
+# PathwayCategoryTranslation
+
+
+@pytest.fixture(name="category")
+def _category() -> PathwayCategory:
+    """The default category, which operators may translate like any other"""
+    return PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
+
+
+def test_one_translation_per_language(category) -> None:
+    """Otherwise which name a learner sees would be arbitrary."""
+    PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", name="Parcours")
+    with pytest.raises(IntegrityError), transaction.atomic():
+        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", name="Programme")
+
+
+@pytest.mark.parametrize("language_code", ["fr_CA", "FR", "fr-CA", "french", "f", ""])
+def test_translation_language_code_format(category, language_code) -> None:
+    """Codes are stored in Django's format, as in CatalogCourse.language, so they compare equal to get_language()."""
+    with pytest.raises(IntegrityError), transaction.atomic():
+        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code=language_code, name="X")
+
+
+def test_translation_language_code_normalized_in_admin(category) -> None:
+    """The admin runs clean(), which turns common spellings into Django's format before the constraint checks them."""
+    row = PathwayCategoryTranslation(pathway_category=category, language_code=" pt_BR ", name="Trilha")
+    row.full_clean()
+    assert row.language_code == "pt-br"
+
+
+def test_translation_name_cannot_be_blank(category) -> None:
+    with pytest.raises(IntegrityError), transaction.atomic():
+        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", name="")
+
+
+def test_translations_are_deleted_with_their_category() -> None:
+    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", name="Master")
+    masters.delete()
+    assert not PathwayCategoryTranslation.objects.exists()
+
+
+def test_translation_string_representation(category) -> None:
+    row = PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", name="Parcours")
+    assert str(row) == "Parcours (fr)"
+
+
+@pytest.fixture(name="masters")
+def _masters() -> PathwayCategory:
+    """A category translated into French, and Portuguese as spoken in Portugal"""
+    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", name="Master")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="pt-pt", name="Mestrado")
+    return masters
+
+
+@pytest.mark.parametrize(
+    "language_code,expected",
+    [
+        ("fr", "Master"),  # exact match
+        ("fr-ca", "Master"),  # falls back to the base language
+        ("fr_CA", "Master"),  # spelled in another common format
+        ("pt-pt", "Mestrado"),  # exact match with a locale
+        ("pt", "Master's Degree"),  # a locale-specific translation doesn't stand in for its base language
+        ("de", "Master's Degree"),  # no translation: the category's own name
+    ],
+)
+def test_get_localized_name(masters, language_code, expected) -> None:
+    assert masters.get_localized_name(language_code) == expected
+
+
+def test_localized_name_follows_the_active_language(masters) -> None:
+    with translation.override("fr"):
+        assert masters.localized_name == "Master"
+    with translation.override("fr-ca"):
+        assert masters.localized_name == "Master"
+    with translation.override(None):
+        assert masters.localized_name == "Master's Degree"
+
 
 # CatalogPathway
 

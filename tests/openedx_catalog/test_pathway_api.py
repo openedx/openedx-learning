@@ -7,11 +7,12 @@ from datetime import datetime, timezone
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import translation
 from freezegun import freeze_time
 from organizations.api import ensure_organization  # type: ignore[import]
 
 from openedx_catalog import api as catalog_api
-from openedx_catalog.models import CatalogPathway, PathwayCategory
+from openedx_catalog.models import CatalogPathway, PathwayCategory, PathwayCategoryTranslation
 from openedx_catalog.models.pathway_category import DEFAULT_PATHWAY_CATEGORY_CODE
 
 User = get_user_model()
@@ -52,6 +53,19 @@ def test_get_pathway_category() -> None:
     assert catalog_api.get_pathway_category("masters-degree") == masters
     with pytest.raises(PathwayCategory.DoesNotExist):
         catalog_api.get_pathway_category("Master's Degree")
+
+
+def test_get_pathway_category_includes_localized_name(django_assert_num_queries) -> None:
+    """
+    The translations come with the category. Without them, every read of ``localized_name`` would query again, since
+    an unprefetched ``translations.all()`` isn't cached.
+    """
+    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", name="Master")
+
+    with translation.override("fr"), django_assert_num_queries(2):
+        category = catalog_api.get_pathway_category("masters-degree")
+        assert [category.localized_name, category.localized_name] == ["Master", "Master"]
 
 
 def test_create_with_default_category(org1) -> None:
@@ -113,11 +127,37 @@ def test_get_catalog_pathways_by_org_and_category(three_pathways) -> None:
     assert not catalog_api.get_catalog_pathways(category_code="no-such-category").exists()
 
 
-def test_get_catalog_pathways_loads_org_and_category(three_pathways, django_assert_num_queries) -> None:
-    """Showing each pathway's org and category, as a listing would, doesn't cost a query per pathway."""
-    with django_assert_num_queries(1):
-        labels = [(p.org_code, p.category.name) for p in catalog_api.get_catalog_pathways()]
-    assert len(labels) == 3
+def _translate_masters() -> None:
+    """Give the "masters-degree" category a French name."""
+    masters = PathwayCategory.objects.get(category_code="masters-degree")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", name="Master")
+
+
+def test_get_catalog_pathways_includes_localized_category_names(three_pathways, django_assert_num_queries) -> None:
+    """
+    A listing can show each pathway's org and localized category name without a query per pathway: one query for the
+    pathways, and one for all their categories' translations.
+    """
+    _translate_masters()
+    with translation.override("fr"), django_assert_num_queries(2):
+        labels = [(p.org_code, p.category.localized_name) for p in catalog_api.get_catalog_pathways()]
+    assert labels == [("Org2", "Master"), ("Org1", "Master"), ("Org1", "Pathway")]
+
+
+def test_get_catalog_pathway_includes_localized_category_name(three_pathways, django_assert_num_queries) -> None:
+    """Whichever way the pathway is looked up."""
+    _translate_masters()
+    _data_science, comp_sci, _history = three_pathways
+    lookups = [
+        {"pk": comp_sci.id},
+        {"key_str": comp_sci.key_str},
+        {"org_code": "Org1", "pathway_code": "CompSci"},
+    ]
+    with translation.override("fr"):
+        for lookup in lookups:
+            with django_assert_num_queries(2):
+                pathway = catalog_api.get_catalog_pathway(**lookup)
+                assert (pathway.org_code, pathway.category.localized_name) == ("Org1", "Master")
 
 
 def test_update_catalog_pathway_by_id_and_category(data_science) -> None:
@@ -161,6 +201,22 @@ def test_enrollment_round_trip(data_science, learner) -> None:
 
     catalog_api.unenroll_from_pathway(learner.id, data_science)
     assert not catalog_api.is_enrolled_in_pathway(learner.id, data_science)
+
+
+def test_get_pathway_enrollments_includes_localized_category_names(
+    three_pathways, learner, django_assert_num_queries
+) -> None:
+    """A learner's dashboard can show each enrolled pathway's org and localized category without a query per row."""
+    _translate_masters()
+    for pathway in three_pathways:
+        catalog_api.enroll_in_pathway(learner.id, pathway)
+
+    with translation.override("fr"), django_assert_num_queries(2):
+        labels = [
+            (e.catalog_pathway.org_code, e.catalog_pathway.category.localized_name)
+            for e in catalog_api.get_pathway_enrollments(learner.id)
+        ]
+    assert sorted(labels) == [("Org1", "Master"), ("Org1", "Pathway"), ("Org2", "Master")]
 
 
 def test_enrolling_twice_is_idempotent(data_science, learner) -> None:

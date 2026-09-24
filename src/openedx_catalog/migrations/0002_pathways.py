@@ -1,5 +1,5 @@
 """
-Create the catalog half of a Pathway: PathwayCategory, CatalogPathway, and PathwayEnrollment.
+Create the catalog half of a Pathway: PathwayCategory (and its translations), CatalogPathway, and PathwayEnrollment.
 
 Every CatalogPathway must have a category. Rather than falling back to the word "Pathway" in code, we ship a database
 row with that name, so that the behavior is uniform and operators can rename it or add categories of their own without a
@@ -111,6 +111,65 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             create_default_pathway_category,
             reverse_code=delete_default_pathway_category,
+        ),
+        migrations.CreateModel(
+            name="PathwayCategoryTranslation",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        editable=False,
+                        help_text="The internal database ID for this translation. Should not be exposed to users nor in APIs.",
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="Primary Key",
+                    ),
+                ),
+                (
+                    "language_code",
+                    openedx_django_lib.fields.MultiCollationCharField(
+                        db_collations={"mysql": "utf8mb4_bin", "sqlite": "BINARY"},
+                        help_text='The language of this name, as in the LANGUAGES setting: a lowercase ISO 639-1 code, optionally followed by a hyphen and a country/locale code, e.g. "fr", "pt-br", "zh-cn".',
+                        max_length=64,
+                    ),
+                ),
+                (
+                    "name",
+                    openedx_django_lib.fields.MultiCollationCharField(
+                        db_collations={"mysql": "utf8mb4_unicode_ci", "sqlite": "NOCASE"},
+                        help_text="The learner-facing name of the category in this language.",
+                        max_length=255,
+                    ),
+                ),
+                (
+                    "pathway_category",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="translations",
+                        to="openedx_catalog.pathwaycategory",
+                    ),
+                ),
+            ],
+            options={
+                "verbose_name": "Pathway Category Translation",
+                "verbose_name_plural": "Pathway Category Translations",
+                "ordering": ("language_code",),
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=("pathway_category", "language_code"),
+                        name="oex_catalog_pathwaycategorytranslation_uniq_lang",
+                    ),
+                    models.CheckConstraint(
+                        condition=django.db.models.lookups.Regex(models.F("language_code"), "^[a-z][a-z](\\-[a-z0-9]+)*$"),
+                        name="oex_catalog_pathwaycategorytranslation_lang_regex",
+                        violation_error_message='The language code must be lowercase, e.g. "fr". If a country/locale code is provided, it must be separated by a hyphen, e.g. "pt-br", "zh-cn".',
+                    ),
+                    models.CheckConstraint(
+                        condition=models.Q(("name__length__gt", 0)),
+                        name="oex_catalog_pathwaycategorytranslation_name_not_blank",
+                    ),
+                ],
+            },
         ),
         migrations.CreateModel(
             name="CatalogPathway",
