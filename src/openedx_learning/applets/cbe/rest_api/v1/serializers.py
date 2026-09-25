@@ -8,7 +8,7 @@ from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import UsageKey
 from rest_framework import serializers
 
-from ...models import CompetencyCriterion, CompetencyRuleProfile, LogicOperator
+from ...models import CompetencyCriteriaGroup, CompetencyCriterion, CompetencyRuleProfile, LogicOperator
 
 
 class CompetencyRuleProfileSerializer(serializers.ModelSerializer):
@@ -99,3 +99,44 @@ class CompetencyCriterionSerializer(serializers.ModelSerializer):
         except InvalidKeyError as exc:
             raise serializers.ValidationError(_("object_id is not a valid usage key.")) from exc
         return value
+
+
+class CompetencyCriteriaGroupSerializer(serializers.ModelSerializer):
+    """
+    Read-only representation of a CompetencyCriteriaGroup, for the criteria-tree read endpoint.
+
+    course_key is a CharField with a dotted source, not a SlugRelatedField: CourseRun.course_key
+    is an opaque-keys CourseKeyField, and SlugRelatedField.to_representation would return the raw
+    CourseLocator object, which the JSON renderer can't serialize. CharField.to_representation
+    calls str() on it instead, and DRF's dotted-source traversal already returns None cleanly
+    when `course` itself is null, so no extra null-handling is needed.
+    """
+
+    course_key = serializers.CharField(source="course.course_key", read_only=True, allow_null=True)
+
+    class Meta:
+        model = CompetencyCriteriaGroup
+        fields = ["id", "parent_id", "tag_id", "course_key", "name", "ordering", "logic_operator", "archived"]
+
+
+class CompetencyCriterionReadSerializer(serializers.ModelSerializer):
+    """
+    Read-only representation of a CompetencyCriterion, for the criteria-tree read endpoint.
+
+    A separate serializer from CompetencyCriterionSerializer (#665's create-request serializer),
+    not an added field on it: that serializer's own `object_id` is write_only, used as the
+    create endpoint's *input* (the subsection to tag). Giving it a dotted source to also serve
+    as this endpoint's *output* would silently break the create endpoint, because a dotted
+    source on a writable field changes where to_internal_value() places the value in
+    validated_data (nested under validated_data["object_tag"]["object_id"] instead of
+    validated_data["object_id"]), which CompetencyCriterionCreateView.create() depends on.
+    """
+
+    object_id = serializers.CharField(source="object_tag.object_id", read_only=True)
+
+    class Meta:
+        model = CompetencyCriterion
+        fields = [
+            "id", "group_id", "object_tag_id", "object_id",
+            "rule_profile_id", "rule_type_override", "rule_payload_override",
+        ]

@@ -4,6 +4,7 @@ Public API for Competency-Based Education (CBE).
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Sequence
@@ -38,6 +39,7 @@ __all__ = [
     "associate_competency_criterion",
     "create_competency_criterion",
     "create_competency_taxonomy",
+    "get_competency_criteria_tree",
     "get_competency_rule_profiles",
     "is_competency_taxonomy",
     "record_graded_object_statuses",
@@ -128,6 +130,27 @@ def resolve_competency_tag(tag_id: int) -> Tag:
     if tag.taxonomy is None or not is_competency_taxonomy(tag.taxonomy):
         raise Tag.DoesNotExist("Tag is not on a CompetencyTaxonomy.")
     return tag
+
+
+@dataclass
+class CompetencyCriteriaTree:
+    """The full non-archived CompetencyCriteriaGroup tree and CompetencyCriterion leaves for one competency."""
+
+    groups: list[CompetencyCriteriaGroup]
+    criteria: list[CompetencyCriterion]
+
+
+def get_competency_criteria_tree(tag_id: int) -> CompetencyCriteriaTree:
+    """
+    Return every non-archived CompetencyCriteriaGroup and CompetencyCriterion for competency `tag_id`.
+    """
+    groups = list(
+        CompetencyCriteriaGroup.objects.filter(tag_id=tag_id, archived=False).select_related("course")
+    )
+    criteria = list(
+        CompetencyCriterion.objects.filter(group__in=groups, archived=False).select_related("object_tag")
+    )
+    return CompetencyCriteriaTree(groups=groups, criteria=criteria)
 
 
 def _create_leaf_group(
