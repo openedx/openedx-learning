@@ -130,7 +130,7 @@ class CompetencyCriteriaTreeView(generics.GenericAPIView):
     permission_classes = [CompetencyReadPermission]
 
     def get(self, request, tag_id):
-        """Resolve the competency tag, check read access, then return its criteria tree."""
+        """Return the competency's criteria tree; 404 if ``tag_id`` is not a competency tag."""
         try:
             tag = resolve_competency_tag(tag_id)
         except Tag.DoesNotExist as exc:
