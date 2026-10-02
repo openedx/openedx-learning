@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
+from .api import get_default_pathway_category
 from .models import (
     CatalogCourse,
     CatalogPathway,
@@ -124,16 +125,17 @@ admin.site.register(CourseRun, CourseRunAdmin)
 
 class PathwayCategoryTranslationInline(admin.TabularInline):
     """
-    The category's name in languages other than the instance's default.
+    The category's title in languages other than the instance's default.
 
-    Learners whose language has no translation here see the category's own name.
+    Learners whose language has no translation here see the category's own title.
     """
 
     model = PathwayCategoryTranslation
-    fields = ["language_code", "name"]
+    fields = ["language_code", "title"]
     extra = 0
 
 
+@admin.register(PathwayCategory)
 class PathwayCategoryAdmin(admin.ModelAdmin):
     """
     The PathwayCategory model admin.
@@ -142,8 +144,8 @@ class PathwayCategoryAdmin(admin.ModelAdmin):
     "Pathway".
     """
 
-    list_display = ["name", "category_code", "pathways_summary"]
-    search_fields = ["name", "category_code", "translations__name"]
+    list_display = ["title", "category_code", "pathways_summary"]
+    search_fields = ["title", "category_code", "translations__title"]
     inlines = [PathwayCategoryTranslationInline]
 
     def get_readonly_fields(self, request, obj: PathwayCategory | None = None) -> tuple[str, ...]:
@@ -154,7 +156,8 @@ class PathwayCategoryAdmin(admin.ModelAdmin):
     def get_queryset(self, request) -> QuerySet[PathwayCategoryWithPathwayCount]:
         """Add the 'pathway_count' to the list_display queryset"""
         qs = super().get_queryset(request)
-        qs = qs.annotate(pathway_count=Count("pathways"))
+        # distinct, because searching joins in the translations, which would otherwise multiply the count.
+        qs = qs.annotate(pathway_count=Count("pathways", distinct=True))
         return qs
 
     @admin.display(description=_("Pathways"), ordering="pathway_count")
@@ -166,9 +169,7 @@ class PathwayCategoryAdmin(admin.ModelAdmin):
         return format_html('<a href="{}">{}</a>', url, obj.pathway_count)
 
 
-admin.site.register(PathwayCategory, PathwayCategoryAdmin)
-
-
+@admin.register(CatalogPathway)
 class CatalogPathwayAdmin(admin.ModelAdmin):
     """
     The CatalogPathway model admin.
@@ -186,6 +187,17 @@ class CatalogPathwayAdmin(admin.ModelAdmin):
             return ("org", "pathway_code")
         return tuple()
 
+    def get_changeform_initial_data(self, request) -> dict[str, str | list[str]]:
+        """Preselect the default category on the add form, if the operator hasn't deleted it."""
+        initial = super().get_changeform_initial_data(request)
+        if "category" not in initial:
+            try:
+                # Initial data is typed like query parameters, as strings; the form compares the pk as a string anyway.
+                initial["category"] = str(get_default_pathway_category().pk)
+            except PathwayCategory.DoesNotExist:
+                pass
+        return initial
+
     @admin.display(description="Organization", ordering="org__short_name")
     def org_display(self, obj: CatalogPathway) -> str:
         """Display the organization, only showing the short_name if different from full name"""
@@ -199,9 +211,7 @@ class CatalogPathwayAdmin(admin.ModelAdmin):
         return obj.created.date()
 
 
-admin.site.register(CatalogPathway, CatalogPathwayAdmin)
-
-
+@admin.register(PathwayEnrollment)
 class PathwayEnrollmentAdmin(admin.ModelAdmin):
     """
     The PathwayEnrollment model admin.
@@ -216,6 +226,3 @@ class PathwayEnrollmentAdmin(admin.ModelAdmin):
     def created_date(self, obj: PathwayEnrollment) -> datetime.date:
         """Display the enrollment date without the timestamp"""
         return obj.created.date()
-
-
-admin.site.register(PathwayEnrollment, PathwayEnrollmentAdmin)

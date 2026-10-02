@@ -12,7 +12,7 @@ from django.utils.translation import get_language
 from django.utils.translation import gettext_lazy as _
 
 from openedx_django_lib.fields import (
-    TypedBigAutoField,
+    TypedAutoField,
     case_insensitive_char_field,
     case_sensitive_char_field,
     code_field,
@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 models.CharField.register_lookup(Length)
 
 DEFAULT_PATHWAY_CATEGORY_CODE = "pathway"
-DEFAULT_PATHWAY_CATEGORY_NAME = "Pathway"
+DEFAULT_PATHWAY_CATEGORY_TITLE = "Pathway"
 
 
 class PathwayCategory(models.Model):
@@ -36,12 +36,12 @@ class PathwayCategory(models.Model):
     contexts - Studio, Django admin, code, docs - the terminology stays "Pathway", with the category shown explicitly;
     relabelling is a learner-facing concern of the catalog side only.
 
-    The ``category_code`` is the stable identifier that code and imports may key off. The ``name`` is what learners see,
-    and operators are free to change it - including on the default category shipped by the initial migration.
+    The ``category_code`` is the stable identifier that code and imports may key off. The ``title`` is what learners
+    see, and operators are free to change it - including on the default category shipped by the initial migration.
 
-    ``name`` is in the instance's default language. Operators can add names in other languages as
-    :class:`PathwayCategoryTranslation` rows, and :attr:`localized_name` is what to show a learner: the name in the
-    active language, falling back to ``name``.
+    ``title`` is in the instance's default language. Operators can add titles in other languages as
+    :class:`PathwayCategoryTranslation` rows, and :attr:`localized_title` is what to show a learner: the title in the
+    active language, falling back to ``title``.
 
     .. no_pii:
     """
@@ -49,7 +49,8 @@ class PathwayCategory(models.Model):
     PathwayCategoryID = NewType("PathwayCategoryID", int)
     type ID = PathwayCategoryID
 
-    class IDField(TypedBigAutoField[ID]):  # Boilerplate for fully-typed ID field.
+    # A 32-bit key is plenty: an instance has a handful of categories, not millions.
+    class IDField(TypedAutoField[ID]):  # Boilerplate for fully-typed ID field.
         pass
 
     id = IDField(
@@ -62,28 +63,28 @@ class PathwayCategory(models.Model):
         unicode=False,
         help_text=_('A stable slug identifying this category, e.g. "masters-degree". Not shown to learners.'),
     )
-    name = case_insensitive_char_field(
+    title = case_insensitive_char_field(
         max_length=255,
         blank=False,
-        help_text=_('The learner-facing name of this category, e.g. "Master\'s Degree". Operators may change this.'),
+        help_text=_('The learner-facing title of this category, e.g. "Master\'s Degree". Operators may change this.'),
     )
 
     @property
-    def localized_name(self) -> str:
+    def localized_title(self) -> str:
         """
-        The learner-facing name in the active language, e.g. the language of the current request.
+        The learner-facing title in the active language, e.g. the language of the current request.
 
-        See `get_localized_name` for how the name is picked.
+        See `get_localized_title` for how the title is picked.
         """
-        return self.get_localized_name()
+        return self.get_localized_title()
 
-    def get_localized_name(self, language_code: str | None = None) -> str:
+    def get_localized_title(self, language_code: str | None = None) -> str:
         """
-        Get the learner-facing name in ``language_code``, by default the active language.
+        Get the learner-facing title in ``language_code``, by default the active language.
 
         Looks for a translation in exactly that language ("pt-br"), then in its base language ("pt"), and falls back to
-        ``name``, which is in the instance's default language; so does having no active language at all. Language codes
-        are compared in Django's format (lowercase, hyphenated), so "pt_BR" works too.
+        ``title``, which is in the instance's default language; so does having no active language at all. Language
+        codes are compared in Django's format (lowercase, hyphenated), so "pt_BR" works too.
 
         This reads ``translations.all()``, which costs a query unless the translations were prefetched. The
         ``openedx_catalog.api`` functions that return catalog pathways prefetch them.
@@ -91,37 +92,37 @@ class PathwayCategory(models.Model):
         if language_code is None:
             language_code = get_language()
         if not language_code:
-            return str(self.name)
+            return self.title
 
         language_code = language_code.lower().replace("_", "-")
-        names = {row.language_code: row.name for row in self.translations.all()}
+        titles = {row.language_code: row.title for row in self.translations.all()}
         base_language_code = language_code.split("-", 1)[0]
-        return names.get(language_code) or names.get(base_language_code) or str(self.name)
+        return titles.get(language_code) or titles.get(base_language_code) or self.title
 
     def __str__(self) -> str:
-        return str(self.name)
+        return self.title
 
     class Meta:
         verbose_name = _("Pathway Category")
         verbose_name_plural = _("Pathway Categories")
-        ordering = ("name",)
+        ordering = ("title",)
         constraints = [
             # The category_code must be case-insensitively unique:
             models.UniqueConstraint(Lower("category_code"), name="oex_catalog_pathwaycategory_code_uniq_ci"),
             code_field_check("category_code", name="oex_catalog_pathwaycategory_code_regex", unicode=False),
             # Enforce at the DB level that this required field is not blank:
             models.CheckConstraint(
-                condition=models.Q(name__length__gt=0), name="oex_catalog_pathwaycategory_name_not_blank"
+                condition=models.Q(title__length__gt=0), name="oex_catalog_pathwaycategory_title_not_blank"
             ),
         ]
 
 
 class PathwayCategoryTranslation(models.Model):
     """
-    The learner-facing name of a :class:`PathwayCategory` in one language other than the instance's default.
+    The learner-facing title of a :class:`PathwayCategory` in one language other than the instance's default.
 
     Managed in the Django admin, like the categories themselves. A category needs no translations at all: learners
-    whose language has none see its ``name``.
+    whose language has none see its ``title``.
 
     .. no_pii:
     """
@@ -129,7 +130,8 @@ class PathwayCategoryTranslation(models.Model):
     PathwayCategoryTranslationID = NewType("PathwayCategoryTranslationID", int)
     type ID = PathwayCategoryTranslationID
 
-    class IDField(TypedBigAutoField[ID]):  # Boilerplate for fully-typed ID field.
+    # A 32-bit key is plenty: a few categories times the languages an instance supports.
+    class IDField(TypedAutoField[ID]):  # Boilerplate for fully-typed ID field.
         pass
 
     id = IDField(
@@ -147,14 +149,14 @@ class PathwayCategoryTranslation(models.Model):
         max_length=64,
         blank=False,
         help_text=_(
-            "The language of this name, as in the LANGUAGES setting: a lowercase ISO 639-1 code, optionally followed "
+            "The language of this title, as in the LANGUAGES setting: a lowercase ISO 639-1 code, optionally followed "
             'by a hyphen and a country/locale code, e.g. "fr", "pt-br", "zh-cn".'
         ),
     )
-    name = case_insensitive_char_field(
+    title = case_insensitive_char_field(
         max_length=255,
         blank=False,
-        help_text=_("The learner-facing name of the category in this language."),
+        help_text=_("The learner-facing title of the category in this language."),
     )
 
     def clean(self) -> None:
@@ -162,14 +164,14 @@ class PathwayCategoryTranslation(models.Model):
         self.language_code = self.language_code.strip().lower().replace("_", "-")
 
     def __str__(self) -> str:
-        return f"{self.name} ({self.language_code})"
+        return f"{self.title} ({self.language_code})"
 
     class Meta:
         verbose_name = _("Pathway Category Translation")
         verbose_name_plural = _("Pathway Category Translations")
         ordering = ("language_code",)
         constraints = [
-            # One name per language; otherwise which one a learner sees would be arbitrary.
+            # One title per language; otherwise which one a learner sees would be arbitrary.
             models.UniqueConstraint(
                 fields=["pathway_category", "language_code"],
                 name="oex_catalog_pathwaycategorytranslation_uniq_lang",
@@ -184,32 +186,7 @@ class PathwayCategoryTranslation(models.Model):
                 ),
             ),
             models.CheckConstraint(
-                condition=models.Q(name__length__gt=0),
-                name="oex_catalog_pathwaycategorytranslation_name_not_blank",
+                condition=models.Q(title__length__gt=0),
+                name="oex_catalog_pathwaycategorytranslation_title_not_blank",
             ),
         ]
-
-
-def get_default_pathway_category() -> PathwayCategory:
-    """
-    Get the default `PathwayCategory`, creating it if it doesn't exist.
-
-    Every `CatalogPathway` must have a category. Rather than falling back to the word "Pathway" in code, we ship a
-    database row with that name, so that operators can rename it or add categories of their own without a code change.
-    See the openedx_learning ADR 0007.
-    """
-    category, _created = PathwayCategory.objects.get_or_create(
-        category_code=DEFAULT_PATHWAY_CATEGORY_CODE,
-        defaults={"name": DEFAULT_PATHWAY_CATEGORY_NAME},
-    )
-    return category
-
-
-def get_default_pathway_category_id() -> PathwayCategory.ID:
-    """
-    Get the ID of the default `PathwayCategory`, creating it if it doesn't exist.
-
-    Note: this function is used as a field default and is therefore referenced from migrations, so update those
-    migrations if moving it or changing its signature.
-    """
-    return get_default_pathway_category().id

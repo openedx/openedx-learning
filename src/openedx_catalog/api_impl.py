@@ -5,7 +5,6 @@ Implementation of the `openedx_catalog` API.
 import logging
 from typing import overload
 
-from django.db import transaction
 from django.db.models import QuerySet
 from django.utils import timezone
 from opaque_keys.edx.keys import CourseKey
@@ -13,7 +12,7 @@ from organizations.api import ensure_organization  # type: ignore[import]
 from organizations.api import exceptions as org_exceptions
 
 from .models import CatalogCourse, CatalogPathway, CourseRun, PathwayCategory, PathwayEnrollment
-from .models.pathway_category import get_default_pathway_category
+from .models.pathway_category import DEFAULT_PATHWAY_CATEGORY_CODE
 
 log = logging.getLogger(__name__)
 
@@ -273,15 +272,31 @@ def delete_course_run(course_key: CourseKey) -> None:
 # half; creating and versioning the *definition* of a Pathway is done through `openedx_learning.api`.
 
 
-# `get_default_pathway_category` is part of this API too, and is re-exported via `__all__`. It's defined next to the
-# model because the `CatalogPathway.category` field default needs it as well.
+def get_default_pathway_category() -> PathwayCategory:
+    """
+    Get the default `PathwayCategory`: the one `create_catalog_pathway` uses when it isn't given a category.
+
+    Rather than falling back to the word "Pathway" in code, the initial migration ships a database row with that title,
+    so that operators can rename it or add categories of their own without a code change (see the openedx_learning
+    ADR 0007). Renaming it keeps it the default, because only its ``title`` changes; its ``category_code`` can't.
+
+    Nothing ever creates this category except that migration. If an operator has deleted it, this raises
+    `PathwayCategory.DoesNotExist`, and catalog pathways have to be given a category explicitly.
+    """
+    try:
+        return PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
+    except PathwayCategory.DoesNotExist as exc:
+        raise PathwayCategory.DoesNotExist(
+            f'The default pathway category ("{DEFAULT_PATHWAY_CATEGORY_CODE}") has been deleted, so catalog pathways '
+            "must be given a category explicitly."
+        ) from exc
 
 
 def get_pathway_category(category_code: str) -> PathwayCategory:
     """
     Get a `PathwayCategory` by its stable code.
 
-    Its translations come with it, so ``category.localized_name`` costs no further queries, however often it's read.
+    Its translations come with it, so ``category.localized_title`` costs no further queries, however often it's read.
 
     ⚠️ Does not check permissions.
     """
@@ -292,7 +307,7 @@ def _catalog_pathways() -> QuerySet[CatalogPathway]:
     """
     Catalog pathways along with everything needed to show them: org, category, and the category's translations.
 
-    With the translations prefetched, ``pathway.category.localized_name`` costs no further queries.
+    With the translations prefetched, ``pathway.category.localized_title`` costs no further queries.
     """
     return CatalogPathway.objects.select_related("org", "category").prefetch_related("category__translations")
 
@@ -314,7 +329,7 @@ def get_catalog_pathway(
     """
     Get a catalog pathway.
 
-    Its org and category come with it, and so do the category's translations, so ``pathway.category.localized_name``
+    Its org and category come with it, and so do the category's translations, so ``pathway.category.localized_title``
     costs no further queries.
 
     ⚠️ Does not check permissions or visibility rules.
@@ -345,7 +360,7 @@ def get_catalog_pathways(
 
     Both filters match exactly; an unknown org or category simply matches nothing. The result is a `QuerySet`, so that
     callers can narrow, search and paginate it further. Each pathway's org and category come with it, and so do the
-    category's translations, so ``pathway.category.localized_name`` costs no further queries.
+    category's translations, so ``pathway.category.localized_title`` costs no further queries.
 
     ⚠️ Does not check permissions or visibility rules. That suits authoring and administration, but a listing shown to
     learners will need the visibility logic described in the `openedx_catalog.api` docstring, which doesn't exist yet.
@@ -372,21 +387,17 @@ def create_catalog_pathway(
     """
     Create a `CatalogPathway`.
 
-    The `Organization` identified by `org_code` must already exist. Pass `category=None` to use the default category.
+    The `Organization` identified by `org_code` must already exist. Pass `category=None` to use the default category,
+    which raises `PathwayCategory.DoesNotExist` if an operator has deleted it (see `get_default_pathway_category`).
 
     This creates only the catalog half of a Pathway. Use `openedx_learning.api` to create the versioned content that
     implements it.
 
     ⚠️ Does not check permissions.
     """
-    pathway = CatalogPathway(
-        pathway_code=pathway_code,
-        title=title,
-        description=description,
-        # Only pass the category if given, so that the field default (which queries for the shipped category) runs
-        # only when it's actually needed.
-        **({"category": category} if category is not None else {}),
-    )
+    if category is None:
+        category = get_default_pathway_category()
+    pathway = CatalogPathway(pathway_code=pathway_code, title=title, category=category, description=description)
     pathway.org_code = org_code  # Resolves the Organization by short_name; raises Organization.DoesNotExist.
     pathway.save()
     return pathway
@@ -427,10 +438,12 @@ def update_catalog_pathway(
 
 def delete_catalog_pathway(catalog_pathway: CatalogPathway | CatalogPathway.ID) -> None:
     """
-    Delete a `CatalogPathway`, along with its enrollments.
+    Delete a `CatalogPathway`.
 
-    This will fail with a `ProtectedError` if any Pathway content still implements it, because that link is a `PROTECT`
-    foreign key on the content side.
+    This fails with a `ProtectedError` while anyone is or ever was enrolled in it, including learners who have since
+    unenrolled, so that deleting the wrong pathway can't wipe out enrollment history; delete those enrollments first if
+    that's really intended. It also fails while any Pathway content still implements it, because that link is a
+    `PROTECT` foreign key on the content side.
 
     ⚠️ Does not check permissions.
     """
@@ -451,17 +464,16 @@ def enroll_in_pathway(user_id: int, catalog_pathway: CatalogPathway | CatalogPat
     Enrollment does not pin a content version: progress is always evaluated against whatever is published at the time,
     so that authoring changes reach learners who are already enrolled.
 
+    Raises `CatalogPathway.DoesNotExist` if given the ID of a pathway that doesn't exist.
+
     ⚠️ Does not check permissions.
     """
-    pathway_id = catalog_pathway.id if isinstance(catalog_pathway, CatalogPathway) else catalog_pathway
-    with transaction.atomic():
-        # Lock the row so a concurrent unenroll can't slip in between reading `is_active` and writing it back.
-        enrollment, created = PathwayEnrollment.objects.select_for_update().get_or_create(
-            user_id=user_id, catalog_pathway_id=pathway_id
-        )
-        if not created and not enrollment.is_active:
-            enrollment.is_active = True
-            enrollment.save(update_fields=["is_active", "modified"])
+    if not isinstance(catalog_pathway, CatalogPathway):
+        catalog_pathway = CatalogPathway.objects.get(pk=catalog_pathway)
+    enrollment, created = PathwayEnrollment.objects.get_or_create(user_id=user_id, catalog_pathway=catalog_pathway)
+    if not created and not enrollment.is_active:
+        enrollment.is_active = True
+        enrollment.save(update_fields=["is_active", "modified"])
     return enrollment
 
 
@@ -495,7 +507,7 @@ def get_pathway_enrollments(user_id: int, *, include_inactive: bool = False) -> 
 
     Only active enrollments are returned unless ``include_inactive`` is set. Each enrollment's catalog pathway comes
     with it, along with the pathway's org, category and the category's translations, so a dashboard can show
-    ``enrollment.catalog_pathway.category.localized_name`` without further queries.
+    ``enrollment.catalog_pathway.category.localized_title`` without further queries.
 
     ⚠️ Does not check permissions or visibility rules.
     """

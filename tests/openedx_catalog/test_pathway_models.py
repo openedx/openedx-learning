@@ -19,7 +19,7 @@ from organizations.api import ensure_organization  # type: ignore[import]
 from organizations.models import Organization  # type: ignore[import]
 
 from openedx_catalog.models import CatalogPathway, PathwayCategory, PathwayCategoryTranslation, PathwayEnrollment
-from openedx_catalog.models.pathway_category import DEFAULT_PATHWAY_CATEGORY_CODE, DEFAULT_PATHWAY_CATEGORY_NAME
+from openedx_catalog.models.pathway_category import DEFAULT_PATHWAY_CATEGORY_CODE, DEFAULT_PATHWAY_CATEGORY_TITLE
 
 User = get_user_model()
 
@@ -38,10 +38,16 @@ def _org2() -> None:
     ensure_organization("Org2")
 
 
+@pytest.fixture(name="category")
+def _category() -> PathwayCategory:
+    """The category shipped by the initial migration, which operators may rename and translate like any other"""
+    return PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
+
+
 @pytest.fixture(name="data_science")
-def _data_science(org1) -> CatalogPathway:
+def _data_science(org1, category) -> CatalogPathway:
     """Create a CatalogPathway for use in these tests"""
-    return CatalogPathway.objects.create(org_code="Org1", pathway_code="DataScience")
+    return CatalogPathway.objects.create(org_code="Org1", pathway_code="DataScience", category=category)
 
 
 @pytest.fixture(name="learner")
@@ -59,40 +65,29 @@ def test_default_category_is_shipped() -> None:
     change (ADR 0007, decision 2).
     """
     category = PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
-    assert category.name == DEFAULT_PATHWAY_CATEGORY_NAME
+    assert category.title == DEFAULT_PATHWAY_CATEGORY_TITLE
 
 
-def test_category_is_always_provided(org1) -> None:
-    """A CatalogPathway created without a category gets the default one."""
-    pathway = CatalogPathway.objects.create(org_code="Org1", pathway_code="NoCategory")
-    assert pathway.category.category_code == DEFAULT_PATHWAY_CATEGORY_CODE
-
-
-def test_default_category_can_be_renamed(org1) -> None:
+def test_category_is_required(org1) -> None:
     """
-    Renaming the default changes what learners see, and nothing else. The code stays put, so existing pathways keep
-    pointing at the same row.
+    The model has no default category. Picking the shipped one when the caller doesn't choose is up to the API
+    (`create_catalog_pathway`) and the admin add form, so a direct save without one fails.
     """
-    category = PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
-    category.name = "Program"
-    category.save()
-
-    pathway = CatalogPathway.objects.create(org_code="Org1", pathway_code="Renamed")
-    assert pathway.category.name == "Program"
-    assert pathway.category.category_code == DEFAULT_PATHWAY_CATEGORY_CODE
+    with pytest.raises(IntegrityError), transaction.atomic():
+        CatalogPathway.objects.create(org_code="Org1", pathway_code="NoCategory")
 
 
 def test_category_code_unique_ci() -> None:
     """Category codes are case-insensitively unique."""
-    PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
     with pytest.raises(IntegrityError), transaction.atomic():
-        PathwayCategory.objects.create(category_code="Masters-Degree", name="Duplicate")
+        PathwayCategory.objects.create(category_code="Masters-Degree", title="Duplicate")
 
 
-def test_category_name_cannot_be_blank() -> None:
-    """The learner-facing name is required at the database level."""
+def test_category_title_cannot_be_blank() -> None:
+    """The learner-facing title is required at the database level."""
     with pytest.raises(IntegrityError), transaction.atomic():
-        PathwayCategory.objects.create(category_code="blank-name", name="")
+        PathwayCategory.objects.create(category_code="blank-title", title="")
 
 
 def test_category_in_use_cannot_be_deleted(data_science) -> None:
@@ -102,64 +97,58 @@ def test_category_in_use_cannot_be_deleted(data_science) -> None:
 
 
 def test_category_string_representation() -> None:
-    """The string representation of a category is its name."""
+    """The string representation of a category is its title."""
     category = PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
-    assert str(category) == DEFAULT_PATHWAY_CATEGORY_NAME
+    assert str(category) == DEFAULT_PATHWAY_CATEGORY_TITLE
 
 
 # PathwayCategoryTranslation
 
 
-@pytest.fixture(name="category")
-def _category() -> PathwayCategory:
-    """The default category, which operators may translate like any other"""
-    return PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
-
-
 def test_one_translation_per_language(category) -> None:
     """Otherwise which name a learner sees would be arbitrary."""
-    PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", name="Parcours")
+    PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", title="Parcours")
     with pytest.raises(IntegrityError), transaction.atomic():
-        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", name="Programme")
+        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", title="Programme")
 
 
 @pytest.mark.parametrize("language_code", ["fr_CA", "FR", "fr-CA", "french", "f", ""])
 def test_translation_language_code_format(category, language_code) -> None:
     """Codes are stored in Django's format, as in CatalogCourse.language, so they compare equal to get_language()."""
     with pytest.raises(IntegrityError), transaction.atomic():
-        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code=language_code, name="X")
+        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code=language_code, title="X")
 
 
 def test_translation_language_code_normalized_in_admin(category) -> None:
     """The admin runs clean(), which turns common spellings into Django's format before the constraint checks them."""
-    row = PathwayCategoryTranslation(pathway_category=category, language_code=" pt_BR ", name="Trilha")
+    row = PathwayCategoryTranslation(pathway_category=category, language_code=" pt_BR ", title="Trilha")
     row.full_clean()
     assert row.language_code == "pt-br"
 
 
-def test_translation_name_cannot_be_blank(category) -> None:
+def test_translation_title_cannot_be_blank(category) -> None:
     with pytest.raises(IntegrityError), transaction.atomic():
-        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", name="")
+        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", title="")
 
 
 def test_translations_are_deleted_with_their_category() -> None:
-    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
-    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", name="Master")
+    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", title="Master")
     masters.delete()
     assert not PathwayCategoryTranslation.objects.exists()
 
 
 def test_translation_string_representation(category) -> None:
-    row = PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", name="Parcours")
+    row = PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", title="Parcours")
     assert str(row) == "Parcours (fr)"
 
 
 @pytest.fixture(name="masters")
 def _masters() -> PathwayCategory:
     """A category translated into French, and Portuguese as spoken in Portugal"""
-    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
-    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", name="Master")
-    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="pt-pt", name="Mestrado")
+    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", title="Master")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="pt-pt", title="Mestrado")
     return masters
 
 
@@ -174,17 +163,17 @@ def _masters() -> PathwayCategory:
         ("de", "Master's Degree"),  # no translation: the category's own name
     ],
 )
-def test_get_localized_name(masters, language_code, expected) -> None:
-    assert masters.get_localized_name(language_code) == expected
+def test_get_localized_title(masters, language_code, expected) -> None:
+    assert masters.get_localized_title(language_code) == expected
 
 
-def test_localized_name_follows_the_active_language(masters) -> None:
+def test_localized_title_follows_the_active_language(masters) -> None:
     with translation.override("fr"):
-        assert masters.localized_name == "Master"
+        assert masters.localized_title == "Master"
     with translation.override("fr-ca"):
-        assert masters.localized_name == "Master"
+        assert masters.localized_title == "Master"
     with translation.override(None):
-        assert masters.localized_name == "Master's Degree"
+        assert masters.localized_title == "Master's Degree"
 
 
 # CatalogPathway
@@ -196,13 +185,13 @@ def test_invalid_org() -> None:
         CatalogPathway.objects.create(org_code="NewOrg", pathway_code="Whatever")
 
 
-def test_pathway_code_unique_per_org_ci(org1, org2) -> None:
+def test_pathway_code_unique_per_org_ci(org1, org2, category) -> None:
     """The pathway_code is case-insensitively unique per org, but not across orgs."""
-    CatalogPathway.objects.create(org_code="Org1", pathway_code="DataScience")
+    CatalogPathway.objects.create(org_code="Org1", pathway_code="DataScience", category=category)
     with pytest.raises(IntegrityError), transaction.atomic():
-        CatalogPathway.objects.create(org_code="Org1", pathway_code="datascience")
+        CatalogPathway.objects.create(org_code="Org1", pathway_code="datascience", category=category)
     # A different org may use the same code:
-    CatalogPathway.objects.create(org_code="Org2", pathway_code="DataScience")
+    CatalogPathway.objects.create(org_code="Org2", pathway_code="DataScience", category=category)
 
 
 def test_title_defaults_to_pathway_code(data_science) -> None:
@@ -228,14 +217,14 @@ def test_catalog_edits_are_free(data_science) -> None:
     assert reloaded.description == "Learn data science."
 
 
-def test_modified_tracks_catalog_edits(org1) -> None:
+def test_modified_tracks_catalog_edits(org1, category) -> None:
     """
     `modified` moves when the catalog fields change and `created` does not.
     """
     created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     edited_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
     with freeze_time(created_at):
-        pathway = CatalogPathway.objects.create(org_code="Org1", pathway_code="Timestamps")
+        pathway = CatalogPathway.objects.create(org_code="Org1", pathway_code="Timestamps", category=category)
     assert pathway.created == created_at
     assert pathway.modified == created_at
 
@@ -280,6 +269,17 @@ def test_enrollment_is_active_by_default(data_science, learner) -> None:
     """A fresh enrollment is active; deactivating it is how unenrolling is recorded."""
     enrollment = PathwayEnrollment.objects.create(user=learner, catalog_pathway=data_science)
     assert enrollment.is_active
+
+
+def test_a_pathway_with_enrollments_cannot_be_deleted(data_science, learner) -> None:
+    """PROTECT, so that deleting the wrong pathway can't silently wipe out its enrollment history."""
+    enrollment = PathwayEnrollment.objects.create(user=learner, catalog_pathway=data_science, is_active=False)
+    with pytest.raises(ProtectedError), transaction.atomic():
+        data_science.delete()
+
+    enrollment.delete()  # Deliberately removing the history first is fine.
+    data_science.delete()
+    assert not CatalogPathway.objects.filter(pk=data_science.pk).exists()
 
 
 def test_enrollment_string_representation(data_science, learner) -> None:

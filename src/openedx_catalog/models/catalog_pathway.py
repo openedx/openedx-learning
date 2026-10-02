@@ -20,7 +20,7 @@ from openedx_django_lib.fields import (
 )
 from openedx_django_lib.validators import validate_utc_datetime
 
-from .pathway_category import PathwayCategory, get_default_pathway_category_id
+from .pathway_category import PathwayCategory
 
 log = logging.getLogger(__name__)
 
@@ -98,13 +98,14 @@ class CatalogPathway(models.Model):
             "Leave blank to use the pathway code as the title."
         ),
     )
+    # Always required. Picking the shipped default when the caller doesn't choose is a policy of the API
+    # (`openedx_catalog.api.create_catalog_pathway`) and of the admin add form, not of the model.
     category = models.ForeignKey(
         PathwayCategory,
         on_delete=models.PROTECT,
         null=False,
-        default=get_default_pathway_category_id,
         related_name="pathways",
-        help_text=_("The learner-facing kind of pathway this is. Always required; defaults to a category we ship."),
+        help_text=_("The learner-facing kind of pathway this is."),
     )
     description = MultiCollationTextField(
         blank=True,

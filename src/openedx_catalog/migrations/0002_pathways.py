@@ -17,14 +17,13 @@ import django.db.models.lookups
 from django.conf import settings
 from django.db import migrations, models
 
-import openedx_catalog.models.pathway_category
 import openedx_django_lib.fields
 import openedx_django_lib.validators
 
 # These values are duplicated from openedx_catalog.models.pathway_category rather than imported, because a migration
 # should represent a point-in-time transformation and must not change if those constants later do.
 DEFAULT_CATEGORY_CODE = "pathway"
-DEFAULT_CATEGORY_NAME = "Pathway"
+DEFAULT_CATEGORY_TITLE = "Pathway"
 
 
 def create_default_pathway_category(apps, schema_editor):
@@ -32,7 +31,7 @@ def create_default_pathway_category(apps, schema_editor):
     PathwayCategory = apps.get_model("openedx_catalog", "PathwayCategory")
     PathwayCategory.objects.get_or_create(
         category_code=DEFAULT_CATEGORY_CODE,
-        defaults={"name": DEFAULT_CATEGORY_NAME},
+        defaults={"title": DEFAULT_CATEGORY_TITLE},
     )
 
 
@@ -56,7 +55,7 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.BigAutoField(
+                    models.AutoField(
                         editable=False,
                         help_text="The internal database ID for this pathway category. Should not be exposed to users nor in APIs.",
                         primary_key=True,
@@ -80,10 +79,10 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "name",
+                    "title",
                     openedx_django_lib.fields.MultiCollationCharField(
                         db_collations={"mysql": "utf8mb4_unicode_ci", "sqlite": "NOCASE"},
-                        help_text='The learner-facing name of this category, e.g. "Master\'s Degree". Operators may change this.',
+                        help_text='The learner-facing title of this category, e.g. "Master\'s Degree". Operators may change this.',
                         max_length=255,
                     ),
                 ),
@@ -91,7 +90,7 @@ class Migration(migrations.Migration):
             options={
                 "verbose_name": "Pathway Category",
                 "verbose_name_plural": "Pathway Categories",
-                "ordering": ("name",),
+                "ordering": ("title",),
                 "constraints": [
                     models.UniqueConstraint(
                         django.db.models.functions.text.Lower("category_code"),
@@ -103,7 +102,7 @@ class Migration(migrations.Migration):
                         violation_error_message='Enter a valid "code name" consisting of latin letters (A-Z, a-z), numbers, underscores, hyphens, or periods.',
                     ),
                     models.CheckConstraint(
-                        condition=models.Q(("name__length__gt", 0)), name="oex_catalog_pathwaycategory_name_not_blank"
+                        condition=models.Q(("title__length__gt", 0)), name="oex_catalog_pathwaycategory_title_not_blank"
                     ),
                 ],
             },
@@ -117,7 +116,7 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.BigAutoField(
+                    models.AutoField(
                         editable=False,
                         help_text="The internal database ID for this translation. Should not be exposed to users nor in APIs.",
                         primary_key=True,
@@ -129,15 +128,15 @@ class Migration(migrations.Migration):
                     "language_code",
                     openedx_django_lib.fields.MultiCollationCharField(
                         db_collations={"mysql": "utf8mb4_bin", "sqlite": "BINARY"},
-                        help_text='The language of this name, as in the LANGUAGES setting: a lowercase ISO 639-1 code, optionally followed by a hyphen and a country/locale code, e.g. "fr", "pt-br", "zh-cn".',
+                        help_text='The language of this title, as in the LANGUAGES setting: a lowercase ISO 639-1 code, optionally followed by a hyphen and a country/locale code, e.g. "fr", "pt-br", "zh-cn".',
                         max_length=64,
                     ),
                 ),
                 (
-                    "name",
+                    "title",
                     openedx_django_lib.fields.MultiCollationCharField(
                         db_collations={"mysql": "utf8mb4_unicode_ci", "sqlite": "NOCASE"},
-                        help_text="The learner-facing name of the category in this language.",
+                        help_text="The learner-facing title of the category in this language.",
                         max_length=255,
                     ),
                 ),
@@ -165,8 +164,8 @@ class Migration(migrations.Migration):
                         violation_error_message='The language code must be lowercase, e.g. "fr". If a country/locale code is provided, it must be separated by a hyphen, e.g. "pt-br", "zh-cn".',
                     ),
                     models.CheckConstraint(
-                        condition=models.Q(("name__length__gt", 0)),
-                        name="oex_catalog_pathwaycategorytranslation_name_not_blank",
+                        condition=models.Q(("title__length__gt", 0)),
+                        name="oex_catalog_pathwaycategorytranslation_title_not_blank",
                     ),
                 ],
             },
@@ -243,8 +242,7 @@ class Migration(migrations.Migration):
                 (
                     "category",
                     models.ForeignKey(
-                        default=openedx_catalog.models.pathway_category.get_default_pathway_category_id,
-                        help_text="The learner-facing kind of pathway this is. Always required; defaults to a category we ship.",
+                        help_text="The learner-facing kind of pathway this is.",
                         on_delete=django.db.models.deletion.PROTECT,
                         related_name="pathways",
                         to="openedx_catalog.pathwaycategory",
@@ -290,7 +288,7 @@ class Migration(migrations.Migration):
                 (
                     "catalog_pathway",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
+                        on_delete=django.db.models.deletion.PROTECT,
                         related_name="enrollments",
                         to="openedx_catalog.catalogpathway",
                     ),

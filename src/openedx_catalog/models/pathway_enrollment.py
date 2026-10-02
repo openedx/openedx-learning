@@ -50,9 +50,11 @@ class PathwayEnrollment(models.Model):
         null=False,
         related_name="pathway_enrollments",
     )
+    # PROTECT, so that deleting the wrong catalog pathway can't silently wipe out everyone's enrollment history; the
+    # enrollments have to be deleted deliberately first.
     catalog_pathway = models.ForeignKey(
         CatalogPathway,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         null=False,
         related_name="enrollments",
     )

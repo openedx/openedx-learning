@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.db.models import ProtectedError
 from django.utils import translation
 from freezegun import freeze_time
 from organizations.api import ensure_organization  # type: ignore[import]
@@ -49,23 +51,23 @@ def test_get_default_pathway_category() -> None:
 
 def test_get_pathway_category() -> None:
     """Categories are looked up by their stable code, not by the learner-facing name."""
-    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
     assert catalog_api.get_pathway_category("masters-degree") == masters
     with pytest.raises(PathwayCategory.DoesNotExist):
         catalog_api.get_pathway_category("Master's Degree")
 
 
-def test_get_pathway_category_includes_localized_name(django_assert_num_queries) -> None:
+def test_get_pathway_category_includes_localized_title(django_assert_num_queries) -> None:
     """
-    The translations come with the category. Without them, every read of ``localized_name`` would query again, since
+    The translations come with the category. Without them, every read of ``localized_title`` would query again, since
     an unprefetched ``translations.all()`` isn't cached.
     """
-    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
-    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", name="Master")
+    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", title="Master")
 
     with translation.override("fr"), django_assert_num_queries(2):
         category = catalog_api.get_pathway_category("masters-degree")
-        assert [category.localized_name, category.localized_name] == ["Master", "Master"]
+        assert [category.localized_title, category.localized_title] == ["Master", "Master"]
 
 
 def test_create_with_default_category(org1) -> None:
@@ -75,9 +77,40 @@ def test_create_with_default_category(org1) -> None:
     assert pathway.title == "CompSci"
 
 
+def test_renamed_default_category_stays_the_default(org1) -> None:
+    """
+    Renaming the default changes what learners see, and nothing else. The code stays put, so it stays the default and
+    nothing recreates a "Pathway" category.
+    """
+    default = catalog_api.get_default_pathway_category()
+    default.title = "Program"
+    default.save()
+
+    pathway = catalog_api.create_catalog_pathway(org_code="Org1", pathway_code="Renamed")
+    assert pathway.category == default
+    assert pathway.category.title == "Program"
+    assert PathwayCategory.objects.count() == 1
+
+
+def test_deleted_default_category_is_not_recreated(org1) -> None:
+    """
+    Operators may delete the shipped category, e.g. after setting up their own. It stays deleted, and pathways then
+    need a category picked explicitly.
+    """
+    catalog_api.get_default_pathway_category().delete()
+    programs = PathwayCategory.objects.create(category_code="programs", title="Program")
+
+    with pytest.raises(PathwayCategory.DoesNotExist):
+        catalog_api.create_catalog_pathway(org_code="Org1", pathway_code="NoCategory")
+    assert not PathwayCategory.objects.filter(category_code=DEFAULT_PATHWAY_CATEGORY_CODE).exists()
+
+    pathway = catalog_api.create_catalog_pathway(org_code="Org1", pathway_code="WithCategory", category=programs)
+    assert pathway.category == programs
+
+
 def test_create_with_explicit_category(org1) -> None:
     """Operators can add categories of their own; the default is only a default."""
-    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
     pathway = catalog_api.create_catalog_pathway(
         org_code="Org1",
         pathway_code="CompSci",
@@ -100,7 +133,7 @@ def test_get_catalog_pathway(data_science) -> None:
 def _three_pathways(org1) -> tuple[CatalogPathway, CatalogPathway, CatalogPathway]:
     """Create three catalog pathways across two orgs and two categories, a day apart, oldest first."""
     ensure_organization("Org2")
-    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
     with freeze_time(datetime(2026, 1, 1, tzinfo=timezone.utc)):
         data_science = catalog_api.create_catalog_pathway(org_code="Org1", pathway_code="DataScience")
     with freeze_time(datetime(2026, 1, 2, tzinfo=timezone.utc)):
@@ -130,21 +163,21 @@ def test_get_catalog_pathways_by_org_and_category(three_pathways) -> None:
 def _translate_masters() -> None:
     """Give the "masters-degree" category a French name."""
     masters = PathwayCategory.objects.get(category_code="masters-degree")
-    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", name="Master")
+    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", title="Master")
 
 
-def test_get_catalog_pathways_includes_localized_category_names(three_pathways, django_assert_num_queries) -> None:
+def test_get_catalog_pathways_includes_localized_category_titles(three_pathways, django_assert_num_queries) -> None:
     """
-    A listing can show each pathway's org and localized category name without a query per pathway: one query for the
+    A listing can show each pathway's org and localized category title without a query per pathway: one query for the
     pathways, and one for all their categories' translations.
     """
     _translate_masters()
     with translation.override("fr"), django_assert_num_queries(2):
-        labels = [(p.org_code, p.category.localized_name) for p in catalog_api.get_catalog_pathways()]
+        labels = [(p.org_code, p.category.localized_title) for p in catalog_api.get_catalog_pathways()]
     assert labels == [("Org2", "Master"), ("Org1", "Master"), ("Org1", "Pathway")]
 
 
-def test_get_catalog_pathway_includes_localized_category_name(three_pathways, django_assert_num_queries) -> None:
+def test_get_catalog_pathway_includes_localized_category_title(three_pathways, django_assert_num_queries) -> None:
     """Whichever way the pathway is looked up."""
     _translate_masters()
     _data_science, comp_sci, _history = three_pathways
@@ -157,12 +190,12 @@ def test_get_catalog_pathway_includes_localized_category_name(three_pathways, dj
         for lookup in lookups:
             with django_assert_num_queries(2):
                 pathway = catalog_api.get_catalog_pathway(**lookup)
-                assert (pathway.org_code, pathway.category.localized_name) == ("Org1", "Master")
+                assert (pathway.org_code, pathway.category.localized_title) == ("Org1", "Master")
 
 
 def test_update_catalog_pathway_by_id_and_category(data_science) -> None:
     """The pathway may be given by ID, and the category can be changed like any other catalog field."""
-    masters = PathwayCategory.objects.create(category_code="masters-degree", name="Master's Degree")
+    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
     catalog_api.update_catalog_pathway(data_science.id, category=masters)
     assert catalog_api.get_catalog_pathway(pk=data_science.id).category == masters
 
@@ -203,17 +236,17 @@ def test_enrollment_round_trip(data_science, learner) -> None:
     assert not catalog_api.is_enrolled_in_pathway(learner.id, data_science)
 
 
-def test_get_pathway_enrollments_includes_localized_category_names(
+def test_get_pathway_enrollments_includes_localized_category_titles(
     three_pathways, learner, django_assert_num_queries
 ) -> None:
-    """A learner's dashboard can show each enrolled pathway's org and localized category without a query per row."""
+    """A learner's dashboard can show each pathway's org and localized category title without a query per row."""
     _translate_masters()
     for pathway in three_pathways:
         catalog_api.enroll_in_pathway(learner.id, pathway)
 
     with translation.override("fr"), django_assert_num_queries(2):
         labels = [
-            (e.catalog_pathway.org_code, e.catalog_pathway.category.localized_name)
+            (e.catalog_pathway.org_code, e.catalog_pathway.category.localized_title)
             for e in catalog_api.get_pathway_enrollments(learner.id)
         ]
     assert sorted(labels) == [("Org1", "Master"), ("Org1", "Pathway"), ("Org2", "Master")]
@@ -288,7 +321,17 @@ def test_unenrolling_twice_does_not_bump_modified(data_science, learner) -> None
     assert row.modified == datetime(2026, 2, 1, tzinfo=timezone.utc)
 
 
-def test_deleting_pathway_removes_enrollments(data_science, learner) -> None:
+def test_deleting_a_pathway_keeps_enrollment_history(data_science, learner) -> None:
+    """A pathway anyone was ever enrolled in can't be deleted, even after they've all unenrolled."""
     catalog_api.enroll_in_pathway(learner.id, data_science)
-    catalog_api.delete_catalog_pathway(data_science)
-    assert catalog_api.get_pathway_enrollments(learner.id).count() == 0
+    catalog_api.unenroll_from_pathway(learner.id, data_science)
+
+    with pytest.raises(ProtectedError), transaction.atomic():
+        catalog_api.delete_catalog_pathway(data_science)
+    assert catalog_api.get_pathway_enrollments(learner.id, include_inactive=True).count() == 1
+
+
+def test_enrolling_in_a_missing_pathway(org1, learner) -> None:
+    """A bad ID raises DoesNotExist, like the rest of the API, rather than an IntegrityError on some backends."""
+    with pytest.raises(CatalogPathway.DoesNotExist):
+        catalog_api.enroll_in_pathway(learner.id, CatalogPathway.CatalogPathwayID(999_999))
