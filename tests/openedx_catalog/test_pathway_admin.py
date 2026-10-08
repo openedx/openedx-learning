@@ -7,10 +7,9 @@ Tests of the Django admin for the catalog half of Pathways.
 
 import pytest
 from django.contrib import admin
-from organizations.api import ensure_organization  # type: ignore[import]
 
 from openedx_catalog.admin import CatalogPathwayAdmin, PathwayCategoryAdmin
-from openedx_catalog.models import CatalogPathway, PathwayCategory, PathwayCategoryTranslation
+from openedx_catalog.models import CatalogPathway, PathwayCategory
 from openedx_catalog.models.pathway_category import DEFAULT_PATHWAY_CATEGORY_CODE
 
 pytestmark = pytest.mark.django_db
@@ -22,24 +21,13 @@ def _default_category() -> PathwayCategory:
     return PathwayCategory.objects.get(category_code=DEFAULT_PATHWAY_CATEGORY_CODE)
 
 
-def test_pathway_count_is_not_inflated_by_searching_translations(default_category, rf, admin_user) -> None:
-    """
-    Searching joins in the translations, so a category with two pathways and two matching translations must still
-    count two pathways, not four.
-    """
-    ensure_organization("Org1")
-    CatalogPathway.objects.create(org_code="Org1", pathway_code="First", category=default_category)
-    CatalogPathway.objects.create(org_code="Org1", pathway_code="Second", category=default_category)
-    PathwayCategoryTranslation.objects.create(pathway_category=default_category, language_code="fr", title="Pathway FR")
-    PathwayCategoryTranslation.objects.create(pathway_category=default_category, language_code="de", title="Pathway DE")
-
+def test_category_list_shows_the_plural_learners_see(default_category) -> None:
+    """The derived plural when none is set, so operators can spot titles that need an explicit one."""
     model_admin = PathwayCategoryAdmin(PathwayCategory, admin.site)
-    request = rf.get("/", {"q": "Pathway"})
-    request.user = admin_user
-    queryset = model_admin.get_queryset(request)
-    results, _may_have_duplicates = model_admin.get_search_results(request, queryset, "Pathway")
+    assert model_admin.title_plural_display(default_category) == "Pathways"
 
-    assert {category.pathway_count for category in results.distinct()} == {2}
+    default_category.title_plural = "Pathways of Study"
+    assert model_admin.title_plural_display(default_category) == "Pathways of Study"
 
 
 def test_add_form_preselects_the_default_category(default_category, rf, admin_user) -> None:

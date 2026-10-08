@@ -7,17 +7,9 @@ from typing import NewType
 
 from django.db import models
 from django.db.models.functions import Length, Lower
-from django.db.models.lookups import Regex
-from django.utils.translation import get_language
 from django.utils.translation import gettext_lazy as _
 
-from openedx_django_lib.fields import (
-    TypedAutoField,
-    case_insensitive_char_field,
-    case_sensitive_char_field,
-    code_field,
-    code_field_check,
-)
+from openedx_django_lib.fields import TypedAutoField, case_insensitive_char_field, code_field, code_field_check
 
 log = logging.getLogger(__name__)
 
@@ -39,9 +31,7 @@ class PathwayCategory(models.Model):
     The ``category_code`` is the stable identifier that code and imports may key off. The ``title`` is what learners
     see, and operators are free to change it - including on the default category shipped by the initial migration.
 
-    ``title`` is in the instance's default language. Operators can add titles in other languages as
-    :class:`PathwayCategoryTranslation` rows, and :attr:`localized_title` is what to show a learner: the title in the
-    active language, falling back to ``title``.
+    Where learners see several pathways of a category together ("3 Master's Degrees"), use `get_title_plural`.
 
     .. no_pii:
     """
@@ -68,36 +58,21 @@ class PathwayCategory(models.Model):
         blank=False,
         help_text=_('The learner-facing title of this category, e.g. "Master\'s Degree". Operators may change this.'),
     )
+    title_plural = case_insensitive_char_field(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_(
+            'The plural of the title. Leave blank to use the title with an "s" appended, which suits most titles; '
+            'set it for titles that don\'t pluralize that way, e.g. "Classes" for "Class".'
+        ),
+    )
 
-    @property
-    def localized_title(self) -> str:
+    def get_title_plural(self) -> str:
         """
-        The learner-facing title in the active language, e.g. the language of the current request.
-
-        See `get_localized_title` for how the title is picked.
+        Get the plural of the title: ``title_plural`` if set, and otherwise ``title`` with an "s" appended.
         """
-        return self.get_localized_title()
-
-    def get_localized_title(self, language_code: str | None = None) -> str:
-        """
-        Get the learner-facing title in ``language_code``, by default the active language.
-
-        Looks for a translation in exactly that language ("pt-br"), then in its base language ("pt"), and falls back to
-        ``title``, which is in the instance's default language; so does having no active language at all. Language
-        codes are compared in Django's format (lowercase, hyphenated), so "pt_BR" works too.
-
-        This reads ``translations.all()``, which costs a query unless the translations were prefetched. The
-        ``openedx_catalog.api`` functions that return catalog pathways prefetch them.
-        """
-        if language_code is None:
-            language_code = get_language()
-        if not language_code:
-            return self.title
-
-        language_code = language_code.lower().replace("_", "-")
-        titles = {row.language_code: row.title for row in self.translations.all()}
-        base_language_code = language_code.split("-", 1)[0]
-        return titles.get(language_code) or titles.get(base_language_code) or self.title
+        return self.title_plural or f"{self.title}s"
 
     def __str__(self) -> str:
         return self.title
@@ -113,80 +88,5 @@ class PathwayCategory(models.Model):
             # Enforce at the DB level that this required field is not blank:
             models.CheckConstraint(
                 condition=models.Q(title__length__gt=0), name="oex_catalog_pathwaycategory_title_not_blank"
-            ),
-        ]
-
-
-class PathwayCategoryTranslation(models.Model):
-    """
-    The learner-facing title of a :class:`PathwayCategory` in one language other than the instance's default.
-
-    Managed in the Django admin, like the categories themselves. A category needs no translations at all: learners
-    whose language has none see its ``title``.
-
-    .. no_pii:
-    """
-
-    PathwayCategoryTranslationID = NewType("PathwayCategoryTranslationID", int)
-    type ID = PathwayCategoryTranslationID
-
-    # A 32-bit key is plenty: a few categories times the languages an instance supports.
-    class IDField(TypedAutoField[ID]):  # Boilerplate for fully-typed ID field.
-        pass
-
-    id = IDField(
-        primary_key=True,
-        verbose_name=_("Primary Key"),
-        help_text=_("The internal database ID for this translation. Should not be exposed to users nor in APIs."),
-        editable=False,
-    )
-    pathway_category = models.ForeignKey(
-        PathwayCategory,
-        on_delete=models.CASCADE,
-        related_name="translations",
-    )
-    language_code = case_sensitive_char_field(  # Case sensitive, but the constraints force it to be lowercase.
-        max_length=64,
-        blank=False,
-        help_text=_(
-            "The language of this title, as in the LANGUAGES setting: a lowercase ISO 639-1 code, optionally followed "
-            'by a hyphen and a country/locale code, e.g. "fr", "pt-br", "zh-cn".'
-        ),
-    )
-    title = case_insensitive_char_field(
-        max_length=255,
-        blank=False,
-        help_text=_("The learner-facing title of the category in this language."),
-    )
-
-    def clean(self) -> None:
-        """Normalize the language code when edited via Django admin, e.g. "pt_BR" to "pt-br"."""
-        self.language_code = self.language_code.strip().lower().replace("_", "-")
-
-    def __str__(self) -> str:
-        return f"{self.title} ({self.language_code})"
-
-    class Meta:
-        verbose_name = _("Pathway Category Translation")
-        verbose_name_plural = _("Pathway Category Translations")
-        ordering = ("language_code",)
-        constraints = [
-            # One title per language; otherwise which one a learner sees would be arbitrary.
-            models.UniqueConstraint(
-                fields=["pathway_category", "language_code"],
-                name="oex_catalog_pathwaycategorytranslation_uniq_lang",
-            ),
-            # Same format as CatalogCourse.language, so that codes compare equal to Django's (e.g. get_language()).
-            models.CheckConstraint(
-                condition=Regex(models.F("language_code"), r"^[a-z][a-z](\-[a-z0-9]+)*$"),
-                name="oex_catalog_pathwaycategorytranslation_lang_regex",
-                violation_error_message=_(
-                    'The language code must be lowercase, e.g. "fr". If a country/locale code is provided, '
-                    'it must be separated by a hyphen, e.g. "pt-br", "zh-cn".'
-                ),
-            ),
-            models.CheckConstraint(
-                condition=models.Q(title__length__gt=0),
-                name="oex_catalog_pathwaycategorytranslation_title_not_blank",
             ),
         ]

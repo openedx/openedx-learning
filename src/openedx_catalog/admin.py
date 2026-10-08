@@ -14,14 +14,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from .api import get_default_pathway_category
-from .models import (
-    CatalogCourse,
-    CatalogPathway,
-    CourseRun,
-    PathwayCategory,
-    PathwayCategoryTranslation,
-    PathwayEnrollment,
-)
+from .models import CatalogCourse, CatalogPathway, CourseRun, PathwayCategory, PathwayEnrollment
 
 if TYPE_CHECKING:
 
@@ -123,18 +116,6 @@ class CourseRunAdmin(admin.ModelAdmin):
 admin.site.register(CourseRun, CourseRunAdmin)
 
 
-class PathwayCategoryTranslationInline(admin.TabularInline):
-    """
-    The category's title in languages other than the instance's default.
-
-    Learners whose language has no translation here see the category's own title.
-    """
-
-    model = PathwayCategoryTranslation
-    fields = ["language_code", "title"]
-    extra = 0
-
-
 @admin.register(PathwayCategory)
 class PathwayCategoryAdmin(admin.ModelAdmin):
     """
@@ -144,9 +125,8 @@ class PathwayCategoryAdmin(admin.ModelAdmin):
     "Pathway".
     """
 
-    list_display = ["title", "category_code", "pathways_summary"]
-    search_fields = ["title", "category_code", "translations__title"]
-    inlines = [PathwayCategoryTranslationInline]
+    list_display = ["title", "title_plural_display", "category_code", "pathways_summary"]
+    search_fields = ["title", "title_plural", "category_code"]
 
     def get_readonly_fields(self, request, obj: PathwayCategory | None = None) -> tuple[str, ...]:
         if obj:  # editing an existing object; the code is what other systems key off
@@ -156,9 +136,13 @@ class PathwayCategoryAdmin(admin.ModelAdmin):
     def get_queryset(self, request) -> QuerySet[PathwayCategoryWithPathwayCount]:
         """Add the 'pathway_count' to the list_display queryset"""
         qs = super().get_queryset(request)
-        # distinct, because searching joins in the translations, which would otherwise multiply the count.
-        qs = qs.annotate(pathway_count=Count("pathways", distinct=True))
+        qs = qs.annotate(pathway_count=Count("pathways"))
         return qs
+
+    @admin.display(description=_("Plural"))
+    def title_plural_display(self, obj: PathwayCategory) -> str:
+        """Show the plural learners see, whether set explicitly or derived from the title."""
+        return obj.get_title_plural()
 
     @admin.display(description=_("Pathways"), ordering="pathway_count")
     def pathways_summary(self, obj: PathwayCategoryWithPathwayCount) -> str:

@@ -13,12 +13,11 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.db.utils import IntegrityError
-from django.utils import translation
 from freezegun import freeze_time
 from organizations.api import ensure_organization  # type: ignore[import]
 from organizations.models import Organization  # type: ignore[import]
 
-from openedx_catalog.models import CatalogPathway, PathwayCategory, PathwayCategoryTranslation, PathwayEnrollment
+from openedx_catalog.models import CatalogPathway, PathwayCategory, PathwayEnrollment
 from openedx_catalog.models.pathway_category import DEFAULT_PATHWAY_CATEGORY_CODE, DEFAULT_PATHWAY_CATEGORY_TITLE
 
 User = get_user_model()
@@ -102,78 +101,26 @@ def test_category_string_representation() -> None:
     assert str(category) == DEFAULT_PATHWAY_CATEGORY_TITLE
 
 
-# PathwayCategoryTranslation
+def test_title_plural_defaults_to_title_with_an_s(category) -> None:
+    """Most titles pluralize by appending "s", so title_plural is optional."""
+    assert category.title_plural == ""
+    assert category.get_title_plural() == "Pathways"
 
 
-def test_one_translation_per_language(category) -> None:
-    """Otherwise which name a learner sees would be arbitrary."""
-    PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", title="Parcours")
-    with pytest.raises(IntegrityError), transaction.atomic():
-        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", title="Programme")
+def test_title_plural_when_appending_an_s_is_wrong() -> None:
+    category = PathwayCategory.objects.create(
+        category_code="class",
+        title="Class",
+        title_plural="Classes",
+    )
+    assert category.get_title_plural() == "Classes"
 
 
-@pytest.mark.parametrize("language_code", ["fr_CA", "FR", "fr-CA", "french", "f", ""])
-def test_translation_language_code_format(category, language_code) -> None:
-    """Codes are stored in Django's format, as in CatalogCourse.language, so they compare equal to get_language()."""
-    with pytest.raises(IntegrityError), transaction.atomic():
-        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code=language_code, title="X")
-
-
-def test_translation_language_code_normalized_in_admin(category) -> None:
-    """The admin runs clean(), which turns common spellings into Django's format before the constraint checks them."""
-    row = PathwayCategoryTranslation(pathway_category=category, language_code=" pt_BR ", title="Trilha")
-    row.full_clean()
-    assert row.language_code == "pt-br"
-
-
-def test_translation_title_cannot_be_blank(category) -> None:
-    with pytest.raises(IntegrityError), transaction.atomic():
-        PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", title="")
-
-
-def test_translations_are_deleted_with_their_category() -> None:
-    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
-    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", title="Master")
-    masters.delete()
-    assert not PathwayCategoryTranslation.objects.exists()
-
-
-def test_translation_string_representation(category) -> None:
-    row = PathwayCategoryTranslation.objects.create(pathway_category=category, language_code="fr", title="Parcours")
-    assert str(row) == "Parcours (fr)"
-
-
-@pytest.fixture(name="masters")
-def _masters() -> PathwayCategory:
-    """A category translated into French, and Portuguese as spoken in Portugal"""
-    masters = PathwayCategory.objects.create(category_code="masters-degree", title="Master's Degree")
-    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="fr", title="Master")
-    PathwayCategoryTranslation.objects.create(pathway_category=masters, language_code="pt-pt", title="Mestrado")
-    return masters
-
-
-@pytest.mark.parametrize(
-    "language_code,expected",
-    [
-        ("fr", "Master"),  # exact match
-        ("fr-ca", "Master"),  # falls back to the base language
-        ("fr_CA", "Master"),  # spelled in another common format
-        ("pt-pt", "Mestrado"),  # exact match with a locale
-        ("pt", "Master's Degree"),  # a locale-specific translation doesn't stand in for its base language
-        ("de", "Master's Degree"),  # no translation: the category's own name
-    ],
-)
-def test_get_localized_title(masters, language_code, expected) -> None:
-    assert masters.get_localized_title(language_code) == expected
-
-
-def test_localized_title_follows_the_active_language(masters) -> None:
-    with translation.override("fr"):
-        assert masters.localized_title == "Master"
-    with translation.override("fr-ca"):
-        assert masters.localized_title == "Master"
-    with translation.override(None):
-        assert masters.localized_title == "Master's Degree"
+def test_title_plural_follows_a_renamed_title(category) -> None:
+    """Without an explicit plural, renaming the title renames the plural too."""
+    category.title = "Program"
+    category.save()
+    assert category.get_title_plural() == "Programs"
 
 
 # CatalogPathway

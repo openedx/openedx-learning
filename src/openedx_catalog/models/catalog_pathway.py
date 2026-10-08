@@ -98,8 +98,6 @@ class CatalogPathway(models.Model):
             "Leave blank to use the pathway code as the title."
         ),
     )
-    # Always required. Picking the shipped default when the caller doesn't choose is a policy of the API
-    # (`openedx_catalog.api.create_catalog_pathway`) and of the admin add form, not of the model.
     category = models.ForeignKey(
         PathwayCategory,
         on_delete=models.PROTECT,

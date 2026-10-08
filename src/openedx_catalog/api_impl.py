@@ -296,20 +296,16 @@ def get_pathway_category(category_code: str) -> PathwayCategory:
     """
     Get a `PathwayCategory` by its stable code.
 
-    Its translations come with it, so ``category.localized_title`` costs no further queries, however often it's read.
-
     ⚠️ Does not check permissions.
     """
-    return PathwayCategory.objects.prefetch_related("translations").get(category_code=category_code)
+    return PathwayCategory.objects.get(category_code=category_code)
 
 
 def _catalog_pathways() -> QuerySet[CatalogPathway]:
     """
-    Catalog pathways along with everything needed to show them: org, category, and the category's translations.
-
-    With the translations prefetched, ``pathway.category.localized_title`` costs no further queries.
+    Catalog pathways along with what's needed to show them: their org and category.
     """
-    return CatalogPathway.objects.select_related("org", "category").prefetch_related("category__translations")
+    return CatalogPathway.objects.select_related("org", "category")
 
 
 @overload
@@ -329,8 +325,7 @@ def get_catalog_pathway(
     """
     Get a catalog pathway.
 
-    Its org and category come with it, and so do the category's translations, so ``pathway.category.localized_title``
-    costs no further queries.
+    Its org and category come with it, so showing them costs no further queries.
 
     ⚠️ Does not check permissions or visibility rules.
 
@@ -359,8 +354,8 @@ def get_catalog_pathways(
     List catalog pathways, most recently created first, optionally narrowed down to an org and/or a category.
 
     Both filters match exactly; an unknown org or category simply matches nothing. The result is a `QuerySet`, so that
-    callers can narrow, search and paginate it further. Each pathway's org and category come with it, and so do the
-    category's translations, so ``pathway.category.localized_title`` costs no further queries.
+    callers can narrow, search and paginate it further. Each pathway's org and category come with it, so showing them
+    costs no further queries.
 
     ⚠️ Does not check permissions or visibility rules. That suits authoring and administration, but a listing shown to
     learners will need the visibility logic described in the `openedx_catalog.api` docstring, which doesn't exist yet.
@@ -506,15 +501,12 @@ def get_pathway_enrollments(user_id: int, *, include_inactive: bool = False) -> 
     Get a learner's pathway enrollments, most recent first.
 
     Only active enrollments are returned unless ``include_inactive`` is set. Each enrollment's catalog pathway comes
-    with it, along with the pathway's org, category and the category's translations, so a dashboard can show
-    ``enrollment.catalog_pathway.category.localized_title`` without further queries.
+    with it, along with the pathway's org and category, so a dashboard can show them without further queries.
 
     ⚠️ Does not check permissions or visibility rules.
     """
-    enrollments = (
-        PathwayEnrollment.objects.filter(user_id=user_id)
-        .select_related("catalog_pathway__org", "catalog_pathway__category")
-        .prefetch_related("catalog_pathway__category__translations")
+    enrollments = PathwayEnrollment.objects.filter(user_id=user_id).select_related(
+        "catalog_pathway__org", "catalog_pathway__category"
     )
     if not include_inactive:
         enrollments = enrollments.filter(is_active=True)
