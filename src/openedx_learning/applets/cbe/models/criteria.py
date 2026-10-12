@@ -96,6 +96,14 @@ class CompetencyCriteriaGroup(models.Model):
             "logic is moot; the application layer treats null the same as OR."
         ),
     )
+    archived = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Set instead of deleting this group once learner status exists for it or anything beneath "
+            "it. Hides the group from authoring and new associations while keeping it queryable, so its "
+            "criteria and existing learner status rows stay resolvable."
+        ),
+    )
 
     history = HistoricalRecords()
 
@@ -306,6 +314,14 @@ class CompetencyCriterion(models.Model):
     rule_payload_override = models.JSONField(
         null=True, blank=True,
         help_text=_("Overrides rule_profile's rule_payload for this criterion. Set only when rule_profile is null."),
+    )
+    archived = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Set instead of deleting this criterion once learner status exists for it. Hides the "
+            "criterion from authoring and new associations while keeping it queryable, so existing "
+            "learner status rows stay resolvable."
+        ),
     )
 
     history = HistoricalRecords()
