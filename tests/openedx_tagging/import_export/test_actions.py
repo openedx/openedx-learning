@@ -132,7 +132,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
                 (
                     "Action error in 'import_action' (#100): "
                     "Unknown parent tag (tag_100). "
-                    "You need to add parent before the child in your file."
+                    "Add a row for the parent to your file."
                 )
             )
 

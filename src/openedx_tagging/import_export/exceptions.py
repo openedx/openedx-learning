@@ -162,3 +162,47 @@ class InvalidCSVField(TagParserError):
     def __init__(self, tag: dict | None, field: str, row: int, **kargs):
         super().__init__(tag, **kargs)
         self.message = _("Invalid '{field}' field on the row {row}").format(field=field, row=row)
+
+
+class ParentIdRenamedAwayError(TagImportError):
+    """
+    Exception raised when a row's parent_id is its current parent's pre-import
+    id, and the same import renames that parent to a different id.
+
+    The id is stale or, after a swap, ambiguous (it may also name the tag that
+    takes it over), so the importer asks for the parent's new id instead.
+    """
+
+    def __init__(self, row: int, parent_id: str, new_id: str, **kargs):
+        super().__init__(**kargs)
+        self.message = _(
+            "Row {row}'s parent_id ({parent_id}) names an id this file renames away. "
+            "Use '{new_id}' as the parent_id."
+        ).format(row=row, parent_id=parent_id, new_id=new_id)
+
+
+class ParentCycleError(TagImportError):
+    """
+    Exception raised when the parent_id of a row makes the tag its own
+    ancestor once the import is applied.
+    """
+
+    def __init__(self, row: int, parent_id: str, **kargs):
+        super().__init__(**kargs)
+        self.message = _(
+            "Row {row}'s parent_id ({parent_id}) creates a parent cycle."
+        ).format(row=row, parent_id=parent_id)
+
+
+class InvalidParentHierarchyError(TagImportError):
+    """
+    Exception raised when applying the import, even with its parent moves ordered
+    safely, would build a tag tree that is too deep or otherwise invalid.
+    """
+
+    def __init__(self, max_levels: int, **kargs):
+        super().__init__(**kargs)
+        self.message = _(
+            "This import would leave tags deeper than {max_levels} levels, or build an invalid "
+            "parent hierarchy, so it cannot be applied."
+        ).format(max_levels=max_levels)

@@ -146,7 +146,7 @@ class ImportAction:
                     action=self,
                     message=_(
                         "Unknown parent tag ({parent_id}). "
-                        "You need to add parent before the child in your file."
+                        "Add a row for the parent to your file."
                     ).format(parent_id=self.tag.parent_id),
                 )
         return None
@@ -343,12 +343,30 @@ class UpdateParentTag(ImportAction):
         """
         This action applies whenever there is a change on the parent.
 
+        A row whose parent_id equals the current parent's external_id is "no
+        change" and skips `_validate_parent`. TagImportPlan validates the
+        invalid cases of such rows itself: a parent renamed away, and parent
+        cycles. The exception is a parent that this import deletes while a
+        rename reclaims its id: the row applies, to move the child under the
+        renamed tag.
+
         See ImportAction._resolve_update_target for when this doesn't apply
         regardless of the parent change (a rename_external_id row).
         """
         taxonomy_tag = cls._resolve_update_target(taxonomy, tag)
         if taxonomy_tag is None:
             return False
+        parent = taxonomy_tag.parent
+        # The parent is deleted by this import and a rename reclaims its id, so
+        # the child must move under the renamed tag instead of being promoted.
+        if (
+            parent is not None
+            and parent.external_id == tag.parent_id
+            and indexed_actions
+            and any(a.tag.id.casefold() == parent.external_id.casefold() for a in indexed_actions["delete"])
+            and any(a.tag.id.casefold() == parent.external_id.casefold() for a in indexed_actions["rename_external_id"])
+        ):
+            return True
         return (
             taxonomy_tag.parent is not None
             and taxonomy_tag.parent.external_id != tag.parent_id
