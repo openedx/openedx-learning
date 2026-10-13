@@ -41,11 +41,11 @@ For example, for an HTML component that wants to use the Asset ``moon-orbit.svg`
 
     <img src="/static/moon-orbit.svg">
 
-However, the existing "URL rewriting" code for detecting ``/static/x`` references only detects them if they are quoted in either single quotes or double quotes. This does not detect other situations like ``&quot;/static/triangle.png&quot;`` which occurs in the Drag and Drop XBlock's OLX, nor plain text references where ``/static/x`` is on its own line.
+However, the existing "URL rewriting" code for detecting ``/static/x`` references only detects them if they are quoted in either single quotes or double quotes. This does not detect other situations like ``&quot;/static/triangle.png&quot;`` which occurs in the Drag and Drop XBlock's OLX, JSON-escaped references like ``\/static\/triangle.png`` inside JSON stored in an OLX field, nor plain text references where ``/static/x`` is on its own line.
 
-To improve this, the updated ``/static/`` detection should detect any occurrence of ``/static/...`` that is not preceded by a word character or hyphen.
+To improve this, the updated ``/static/`` detection should detect any occurrence of ``/static/...`` that is not preceded by a word character, hyphen, or period.
 
-TODO: specify where an unquoted reference ends. Legacy paths can contain spaces, parentheses and other punctuation, so ``/static/image 001.png`` is ambiguous unless it is quoted.
+TODO: Legacy paths can contain spaces, parentheses and other punctuation, so some paths like ``/static/image 001.png`` that are ambiguous unless quoted may still only be detected if quoted/escaped. Investigate this during implementation.
 
 2. References prefer component assets over shared assets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -61,7 +61,7 @@ When editing an XBlock/Component such as a Text (HTML) component, course authors
 
 This means the existing side-effect machinery works unchanged: editing a draft Asset marks every component that uses it as having unpublished changes, and the publish log records the change against those components as well. It also answers "where is this asset used?" with a query instead of by parsing content.
 
-⚠️ However, note that on its own, this cannot detect relative references among Assets. For example, if an Asset ``example.html`` references ``<img src="image.png">``, then there is a dependency between ``example.html`` and ``image.png`` that is not represented by a :class:`PublishableEntityVersionDependency`. We can attempt to reduce the occurrence of this by scanning HTML files for references as well, but that is not going to be particularly reliable.
+⚠️ However, note that on its own, this cannot detect relative references among Assets. For example, if an Asset ``example.html`` references ``<img src="image.png">``, then there is a dependency between ``example.html`` and ``image.png`` that is not represented by a :class:`PublishableEntityVersionDependency`. We can attempt to reduce the occurrence of this by scanning HTML files for references as well, but that is not going to be particularly reliable and could also generate circular dependencies, which the ``set_version_dependencies`` API says should be avoided.
 
 4. Unresolved references create placeholder Assets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -79,10 +79,10 @@ Additional rules:
 - Placeholders that no longer have any dependents (e.g. typos that were later fixed) can be hard-deleted, since they never had any content. The ``on_delete=RESTRICT`` on ``referenced_entity`` ensures a placeholder that is still referenced cannot be deleted by mistake.
 - When a component referencing a placeholder is copied to another Learning Package (decision 5), a placeholder is created in the destination too.
 
-5. Shared assets become attached assets when linked to another Learning Package
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5. Shared assets can become attached assets when linked to another Learning Package
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When an XBlock Component with references to shared assets is pasted/copied from one Learning Package to another, e.g. from a library to a course, or from a library to another library, the shared assets that it references may be converted to attached asset files.
+When an XBlock Component with references to shared assets is pasted/copied from one Learning Package to another, e.g. from a library to a course, or from a library to another library, the shared assets that it references may be converted to attached asset files, if necessary to avoid conflicts.
 
 A new principle that we want to uphold is that **OLX should not change** when a Component is copied from one Learning Package to another. So if the Component in question has some HTML like ``<img src="/static/example5.png" alt="Example" />``, then we want to ensure that ``example5.png`` can refer to the correct shared asset copied from the original Learning Package, and not conflict with a potentially unrelated shared asset in the destination Learning Package that uses the same ``example5.png`` filename. By avoiding any need to rewrite the OLX, we can reduce storage space, consolidate ``Media`` rows, and facilitate simpler comparison of content.
 
@@ -91,14 +91,14 @@ When copying a Component with references to shared assets to a new Learning Pack
 - First, if the destination Learning Package already has an Asset that is a downstream copy of the same upstream Asset (see decision 7), that existing copy is reused.
 - Likewise, if the destination Learning Package already has an Asset with identical filename and file hash, it is reused and no Assets need to be copied.
 - In both of the above cases, only the main Component needs to be copied, but we still have to create a :class:`PublishableEntityVersionDependency` object to track the relationship.
-- Otherwise, the Asset is copied into the course, with appropriate dependency tracking set up unless the course has a conflicting Asset with the same filename but different content; in that case, the asset file is converted to become an asset file attached to the Component in question. No changes to the OLX are required. (Note: if the asset is ``private`` or ``locked``, it may be necessary to show an error instead, as converting it to be attached to the component could erase its permissions.)
+- Otherwise, the Asset is copied into the course, with appropriate dependency tracking set up unless the course has a conflicting Asset with the same filename but different content; in that case, the asset file is converted to become an asset file attached to the Component in question. No changes to the OLX are required. (Note: if the asset is ``private`` or ``locked``, it may be necessary to show an error instead, as converting it to be attached to the component could erase its permissions. This unfortunately means that we cannot handle ``python_lib.zip`` conflicts via this mechanism.)
 
 6. Editors should de-reference full URLs on save
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In the course of editing courseware, authors may use their browser's "Copy Image URL" to copy the URL of an image and paste it elsewhere, resulting in a full, rewritten URL like ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/xblock.v1:problem@multi_choice_8/v4/static/images/fig1.png`` ending up in the OLX. If any such URLs are detected, they should be automatically rewritten to the ``/static/`` format.
+In the course of editing courseware, authors may use their browser's "Copy Image URL" to copy the URL of an image and paste it elsewhere, resulting in a full, rewritten URL like ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/xblock.v1:problem@multi_choice_8/v4/static/images/fig1.png`` ending up in the OLX. If any such URLs are detected, they should be automatically rewritten to the ``/static/`` format (subject to some sanity checks to ensure it will still reference the correct asset).
 
-Note: Only rewrite full URLs that point into the same learning package. Rewriting a URL that points at another course's asset would create a link across packages, which we want to avoid.
+Note: Only rewrite full URLs that point to a shared asset in the same learning package, and don't conflict with any of the component's own asset files.
 
 7. Versioning follows the library content model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -137,12 +137,13 @@ Consequences
 - Asset usage ("which components use this file?") becomes a simple query over ``PublishableEntityVersionDependency``, rather than a best-effort parse of all course content.
 - The course "Files" page can show a list of "broken references" / "missing files" by querying for placeholder Assets (decision 4) that still have dependents, along with the components that reference each one. Deleted Assets that are still referenced can be included in the same list.
 - For content using ``/static/...`` references: reruns, clipboard copy/paste, library import and library sync never need to rewrite references in component content.
-- A course's learning package always contains every asset it uses, so it can be exported, backed up and restored in isolation.
+- A course's learning package always contains every (properly-referenced) asset it uses, so it can be exported, backed up and restored in isolation.
 - Every component version snapshots its links, adding a small number of rows per component version for components that use shared assets.
 - The existing two URL formats (``/static/`` or ``[https://host]/asset-v1:``) have to be supported by the rendering pipeline indefinitely.
 - Library Assets used in many courses are copied into each course. This costs rows, not bytes, because blobs are deduplicated per org.
 - Some relative references among Assets (e.g. an HTML file with a dynamic reference to a JS file, like ``import(`./${filename}.js`)``) will not be identified and tracked via ``PublishableEntityVersionDependency``.
 - Publishing one component publishes the shared assets it uses, which changes what learners see in every other component that uses it. That's consistent with how unit children behave, but may be surprising.
+- Deleting a shared asset needs to be handled carefully. Publishing a component publishes its dependencies' unpublished changes, and a soft-delete counts as one. So if an author deletes a still-referenced Asset and then publishes any component that uses it, the deletion goes live and breaks every other published component that uses it. To avoid this, we should warn users when they delete an asset that is still referenced. (Or, don't publish dependency deletions as a side effect.)
 
 Rejected Alternatives
 ---------------------

@@ -6,7 +6,7 @@
 Status
 ------
 
-Draft. Depends on :ref:`openedx-content-adr-0012` and :ref:`openedx-content-adr-0005`. How content references Assets is decided in :ref:`openedx-content-adr-0014`.
+Draft. Depends on :ref:`openedx-content-adr-0012` and :ref:`openedx-content-adr-0005`. How content references Assets is decided in :ref:`openedx-content-adr-0014`. :ref:`openedx-content-adr-0015` builds on this ADR to support attaching assets to XBlocks that are still in modulestore.
 
 Context
 -------
@@ -39,7 +39,9 @@ Because Assets cannot hold more than one file, when several course files have so
 
 Each Asset holds only a single file, e.g. ``solar-system.svg``, and within a given learning package (i.e. within a given course or library), each Asset's filename must be unique. (This is in contrast to asset files attached to XBlock Components, which allow multiple asset files per Component.) The filename is stored directly as a column on the ``Asset`` model, not on ``AssetVersion`` nor the ``Media`` row that any given ``AssetVersion`` points to.
 
-Filenames should be case-sensitive, such that ``fig1.png`` and ``Fig1.png`` are both allowed. For backwards compatibility, the filename is also allowed to contain ``/``, such as ``images/image1.png``. By convention, an Asset's ``entity_ref`` is ``openedx.v1:asset:{filename}``, but nothing should rely on that; look Assets up by ``filename`` using its explicit column.
+Filenames should be case-sensitive, such that ``fig1.png`` and ``Fig1.png`` are both allowed. Since MySQL's default collation is case-insensitive, the ``filename`` column must explicitly use a case-sensitive collation (e.g. using ``case_sensitive_char_field``, as ``ref_field`` does), including for its uniqueness constraint. For backwards compatibility, the filename is also allowed to contain ``/``, such as ``images/image1.png``. By convention, an Asset's ``entity_ref`` is ``openedx.v1:asset:{filename}``, but nothing (including asset URLs) should rely on that; look Assets up by ``filename`` using its explicit column.
+
+If a file is uploaded with the same filename as an Asset that has been (soft) deleted, the deleted Asset is un-deleted: the upload becomes a new draft version of the existing Asset, rather than creating a new Asset. Its version history, flags and any existing references to it are retained.
 
 3. Assets support relative links
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -48,14 +50,42 @@ Within a single Learning Package, Assets can use relative references to each oth
 
 This is largely for backwards compatibility, and the main use case (HTML interactives) is better served by attaching all the related files to a single HTML Component.
 
-In order to achieve this, **the asset serving URL scheme from decision 0005** must be updated, so that when serving any component's file assets from a path like ``.../{component_key}/{version}/{filepath}``, if the ``{filepath}`` part does not resolve within the referenced component version, it will fall back to any Asset in the learning package that has that file name. For example, an HTML Asset accessed via the URL ``.../openedx.v1:asset:page.html/published/page.html`` may reference an image belonging to another Asset which would normally have the URL ``.../openedx.v1:asset:image.png/published/image.png`` but in this case may be accessed as ``.../openedx.v1:asset:page.html/published/image.png``. This must be implemented carefully to respect permissions such as the ``locked`` and ``private`` flags described below.
+To achieve this, Assets are served under their own URL form, defined in :ref:`openedx-content-adr-0005` ("URLs"), in which the filename is the final part of the path and all Assets of a learning package share one directory per version::
+
+    .../{context}/assets/{version}/{filename}
+
+For example, an HTML Asset served at ``.../assets/published/page.html`` that references ``image.png`` causes the browser to request ``.../assets/published/image.png``, which is the ``image.png`` Asset's own URL. Filenames containing ``/`` work the same way: ``images/diagram.html`` referencing ``../logo.png`` resolves to ``.../assets/published/logo.png``. No server-side fallback is needed for references between Assets. The URL does not contain the Asset's ``entity_ref``.
+
+A ``v{num}`` version segment refers to that version of the requested Asset only. Since version numbers of different Assets are unrelated, a relative reference from a historical version (which would resolve to ``v{num}`` of some other Asset) is not meaningful. Historical versions are therefore always served with ``Content-Disposition: attachment``. They can be downloaded (e.g. from a version history UI) but are never rendered as documents. In other words, relative references are unpinned, consistent with :ref:`openedx-content-adr-0014` (decision 7).
+
+Component → Asset fallback
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A relative reference from a file attached to a Component (e.g. an HTML interactive attached to an HTML Component) may also name a shared Asset. So when serving a Component's file from ``.../{component_key}/{version}/{filepath}``, if ``{filepath}`` does not resolve within the referenced component version, the server falls back to the Asset whose filename is ``{filepath}`` with the ``static/`` prefix removed. For example, if ``.../xblock.v1:html@intro/published/static/image.png`` is not attached to the component, it falls back to the Asset ``image.png``.
+
+The fallback only applies to public files, i.e. those under the ``static/`` prefix. It never applies to non-public paths such as ``block.xml``.
+
+When the fallback applies, the server does not serve the file directly. Instead it responds with a redirect to the resolved Asset's own URL (e.g. ``.../assets/published/image.png``). This ensures that permissions, such as the ``locked`` and ``private`` flags described below, are always checked against the Asset actually being served, and not against the Component whose URL was used to reach it. It also means each file is only served (and cached) under one URL.
+
+The version in the redirect is chosen as follows:
+
+* A ``draft`` request redirects to the ``draft`` version of the resolved Asset, and a ``published`` request redirects to the ``published`` version.
+* A ``v{num}`` request does not redirect to ``v{num}`` of the resolved Asset, since version numbers are unrelated. Instead, the calling application chooses which version to use: Studio uses ``draft``. The LMS only serves ``published`` versions, so it refuses ``v{num}`` requests (see :ref:`openedx-content-adr-0005`, "Permissions"). Viewing a historical version of a Component will therefore show the current versions of any shared Assets it references.
+
+Redirects to ``draft`` versions must not be cached; redirects to ``published`` versions may be cached briefly.
 
 4. Course Files are Assets within the run's learning package
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For courses authored in the future, we want to encourage most static assets to be directly attached to the Component where they are used. But shared assets (referenced by multiple components), including every Course Files asset migrated from legacy MongoDB storage, will live in the run's learning package as Assets.
 
-When migrating assets from MongoDB/contentstore to ``openedx_content``, each asset in a course's "Files" will become one Asset in the LearningPackage.
+When migrating assets from MongoDB/contentstore to ``openedx_content``, each asset in a course's "Files" will become one Asset in the LearningPackage, with the following exceptions and special cases:
+
+* **Thumbnails** generated by contentstore are dropped and not migrated. Thumbnails will be handled separately, as described in an upcoming ADR.
+* **Video transcripts** stored in contentstore (e.g. ``subs_*.srt.sjson``) become Assets like any other file. Video blocks reference transcripts by name rather than via ``/static/`` URLs, and during this migration they are still in modulestore with no :class:`Component`, so no dependency tracking is set up for transcript Assets at this stage. Dependencies between video components and their transcript Assets can be added when course content itself is migrated to ``openedx_content``.
+* **python_lib.zip** automatically gets ``private=True`` (decision 8), so that it remains inaccessible to learners as it is today.
+
+Each course's Files are migrated in a single step, which also creates the run's learning package and ``CourseContent`` row (:ref:`openedx-content-adr-0012`, decision 3). A course is never in a mixed state: before the migration, all of its Files are in contentstore, and afterwards, contentstore is no longer consulted for that course.
 
 5. Human readable titles
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -75,8 +105,6 @@ Assets are not children of the course container or any of its descendants. Putti
 The ``locked`` flag exists in contentstore for course files and when True, it means that only enrolled users can access the given file. To provide this functionality, we will have a ``locked`` column on the new :class:`Asset` table, defaulting to False.
 
 Locking is not part of versioning, because often authors will wish to lock down all versions of an asset, not just lock the current version while still allowing access to previous versions.
-
-TODO: it is unclear how we can ensure that a model like ``AssetMetadata`` will be correctly copied whenever the associated ``Asset`` gets copied, such as during re-runs and import/export. For both "locked" and "private" (see next decision), this represents a potential security lapse, if the copied asset drops its restrictions.
 
 Open question: do we care about setting ``locked`` in a library context? Not directly, since learners cannot usually access libraries, but authors may wish to specify that e.g. a certain PDF should always be locked in any course where it is used.
 
@@ -115,7 +143,9 @@ Consequences
 
 However, a library XBlock Component that in turn uses a library Asset still has to bring that Asset into the course.
 
-**Many more rows per course.** Each course file goes from one Mongo document to about seven rows: ``PublishableEntity``, ``Asset``, ``AssetVersion``, ``Draft``, ``Published``, ``Media``, and a publish log entry. For a course with 2,000 assets that's about 14,000 rows. Per :ref:`openedx-content-adr-0012`, most of those rows would need to be copied each time the course is rerun.
+**Many more rows per course.** Each course file goes from one Mongo document to about nine rows: ``PublishableEntity``, ``Asset``, ``PublishableEntityVersion``, ``AssetVersion``, ``Draft``, ``Published``, ``Media``, a ``DraftChangeLogRecord`` and a ``PublishLogRecord`` (plus the ``DraftChangeLog`` and ``PublishLog`` themselves, which can be shared by all files uploaded or migrated together). For a course with 2,000 assets that's about 18,000 rows. Per :ref:`openedx-content-adr-0012`, most of those rows would need to be copied each time the course is rerun.
+
+**Legacy asset key URLs must be mapped to Assets.** Once a course's Files are migrated, contentstore is no longer consulted for that course, but its content (and external sites) will still contain asset key URLs like ``/asset-v1:{course}+type@asset+block@{name}`` (see :ref:`openedx-content-adr-0014`). We must implement a handler (e.g. in the contentserver middleware) that resolves such URLs for migrated courses to the Asset with the corresponding filename in the run's learning package, and serves or redirects to it. The mapping must account for how contentstore encodes paths in asset keys, so that files that were in subfolders still resolve.
 
 **Tiny text-based course files can be stored within MySQL.** Just as OLX for XBlocks can be stored within MySQL rows in the ``text`` column instead of on object storage like S3, small uploads (under 50,000 characters) like .svg or .js files *could* be stored entirely within MySQL if we wanted to do so (although in general we probably don't).
 
@@ -163,7 +193,7 @@ For each of these, there is usually a better option:
 A separate component type for multiple files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We could have a separate "Asset Set" Component which holds multiple files, but it's unclear if there's any use case for this that would justify the complexity, both in terms of implementation and end user experience.
+We could have a separate "Asset Set" entity or component type that holds multiple files as a group, but it's unclear if there's any use case for this that would justify the complexity, both in terms of implementation and end user experience. As described above, related files can already be grouped by attaching them to a single Component, or by putting the related Assets into a ``Collection``.
 
 Other names for Assets
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -171,7 +201,7 @@ Other names for Assets
 - **Asset Component** was used in earlier drafts of this ADR, when shared assets were modelled as a special type of :class:`Component`.
 - **Upload** was used in earlier drafts of this ADR, to match the "Uploads" part of the old "Files & Uploads" page. Reviewers found it unclear, and that page is now just called "Files".
 - **File** was used in a later draft, to match the Studio "Files" page. It was dropped because "File component" and "file" are too easily confused, since every Component can have files attached to it.
-- **Folder** would be more accurate for multi-file cases, but implies using Assets as an organizational tool, whereas we want to encourage authors to think of each Asset as a singular thing (an Image, a PDF, an HTML interactive, a Video), regardless of how many files it technically consists of.
+- **Folder** was considered when Assets could hold multiple files, but it implies using Assets as an organizational tool. Each Asset holds exactly one file and represents a singular thing (an image, a PDF, a document); grouping is done with Collections or by attaching files to a Component.
 
 "locked" flag alternatives
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

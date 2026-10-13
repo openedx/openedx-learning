@@ -46,7 +46,9 @@ Note that this is a property of a version, not of the Component, which is what l
 4. Shadow Components are created on demand
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A Shadow Component is created the first time an author attaches an asset file to the modulestore XBlock, or when the XBlock is created with attached assets (e.g. pasted from the clipboard, or synced from a library component that has attached assets). XBlocks with no attached assets never get one. Creating a Shadow Component also creates the course run's learning package and ``CourseContent`` row (:ref:`openedx-content-adr-0012`, decision 3) if they don't exist yet.
+A Shadow Component is created the first time an author attaches an asset file to the modulestore XBlock, or when the XBlock is created with attached assets (e.g. pasted from the clipboard, or synced from a library component that has attached assets). XBlocks with no attached assets never get one.
+
+Shadow Components are only allowed in courses whose Files have already been migrated out of contentstore. In courses that have not been migrated yet, authors cannot attach assets to components, and copying or syncing library components with attached assets keeps today's behaviour of merging those files into the course's Files.
 
 The Shadow Component's ``title`` may be set from the XBlock's ``display_name`` when created, as a convenience for admin and debugging tools, but it is not kept in sync and nothing should rely on it.
 
@@ -57,9 +59,11 @@ Studio code that changes modulestore must keep the Shadow Components consistent 
 
 - **Edit:** Adding, replacing or removing an attached asset creates a new draft version of the Shadow Component. Editing the XBlock's fields does not.
 - **Publish:** When an XBlock is published in modulestore (usually by publishing its unit), the draft of its Shadow Component, if any, is published too. Asset URLs from the Studio preview resolve to the ``draft`` version and from the LMS resolve to the ``published`` version, as for any other Component.
+- **Discard Changes:** Reverting an XBlock must revert the shadow component to the published version as well.
 - **Delete:** Deleting the XBlock soft-deletes its Shadow Component.
-- **Duplicate, copy/paste, library sync:** The new XBlock gets a new Shadow Component with copies of the source's attached assets (the bytes are deduplicated per :ref:`openedx-content-adr-0012`, decision 5).
+- **Duplicate, copy/paste, library sync:** The new XBlock gets a new Shadow Component with copies of the source's attached assets (the bytes are deduplicated per :ref:`openedx-content-adr-0012`, decision 6).
 - **Rerun:** Shadow Components are copied into the new run's learning package along with its shared assets.
+- **Import/Export**: needs to handle shadow components. This will require rewriting references in the OLX, and locating each component's attached assets in a subfolder of the ``static/`` folder in the course tarball, for backwards compatibility.
 
 Version numbers of a Shadow Component only count changes to its attached assets, and have no relationship to modulestore versions.
 
@@ -73,22 +77,21 @@ No OLX needs to be rewritten during migration: a ``/static/filename.ext`` refere
 7. ``/static/`` references from modulestore XBlocks check the Shadow Component first
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When rewriting ``/static/`` URLs for a modulestore XBlock in a course that has a learning package, the rewriting code resolves each reference to the first match among:
+When rewriting ``/static/`` URLs for a modulestore XBlock in a course whose Files have been migrated, the rewriting code resolves each reference to the first match among:
 
 1. files attached to the XBlock's Shadow Component, if it has one;
-2. shared assets in the run's learning package (:ref:`openedx-content-adr-0013`);
-3. legacy contentstore, for courses whose Files have not been migrated yet.
+2. shared assets in the run's learning package (:ref:`openedx-content-adr-0013`).
 
-This is the same order defined in :ref:`openedx-content-adr-0014` (decision 2), extended with the legacy fallback.
+This is the same order defined in :ref:`openedx-content-adr-0014` (decision 2). Contentstore is never consulted for these courses. Courses whose Files have not been migrated have no Shadow Components, and they continue to resolve ``/static/`` references against contentstore only.
 
 Consequences
 ------------
 
 **Authors can attach assets to course components before the content migration is done**, and the content migration later becomes a smaller job, because those assets are already in place under their final keys.
 
-**Library components with attached assets can be used in modulestore courses without merging their assets into the course's Files.** This removes much of the complexity in today's library-to-course copy and sync code, which has to rename and merge each component's files into the course-wide namespace.
+**Library components with attached assets can be used in modulestore courses without merging their assets into the course's Files**, once the course's Files have been migrated. This removes much of the complexity in today's library-to-course copy and sync code, which has to rename and merge each component's files into the course-wide namespace.
 
-**We can implement dependency tracking for all XBlocks, even those currently in modulestore.** We can detect ``/static/...`` references in regular modulestore XBlocks, and then record which shared Assets are in use using :class:`PublishableEntityVersionDependency`, exactly the same way as we can for XBlocks/Components that are fully stored in ``openedx_content``. Whether and when we should do this is left to decide at implementation time.
+**We could implement dependency tracking for all XBlocks, even those currently in modulestore.** We can detect ``/static/...`` references in regular modulestore XBlocks, and then record which shared Assets are in use using :class:`PublishableEntityVersionDependency`, exactly the same way as we can for XBlocks/Components that are fully stored in ``openedx_content``. Whether and when we should do this is left to decide at implementation time; this would require changing decision 4 above, that "XBlocks with no attached assets never get" a shadow component.
 
 **There are temporarily two sources of truth for a single XBlock**: modulestore for its fields, and ``openedx_content`` for its attached assets. Every Studio code path that creates, copies, publishes or deletes blocks needs to update both, and a missed code path will leave orphaned Shadow Components or XBlocks with missing assets. Orphaned Shadow Components are harmless apart from storage, and could be found and cleaned up by a periodic task that compares them to modulestore.
 
@@ -124,7 +127,7 @@ Using a dedicated component type would make Shadow Components trivial to filter 
 An explicit ``is_shadow`` flag
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A boolean on :class:`Component` (or a side table like ``AssetMetadata``) would make Shadow Components easier to query than checking for ``block.xml``. It was rejected to avoid adding a column to a heavily used table for a temporary transition state, and because the flag could disagree with the actual content of the latest version. If querying for the absence of ``block.xml`` turns out to be too slow, a side table can be added later.
+A boolean on :class:`Component` would make Shadow Components easier to query than checking for ``block.xml``. It was rejected to avoid adding a column to a heavily used table for a temporary transition state, and because the flag could disagree with the actual content of the latest version. If querying for the absence of ``block.xml`` turns out to be too slow, a side table can be added later.
 
 Open Questions
 --------------

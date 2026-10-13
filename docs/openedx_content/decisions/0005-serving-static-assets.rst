@@ -31,9 +31,9 @@ The underlying data models live in the ``openedx_content`` app. The most relevan
 
 Key takeaways about how this data is stored:
 
-Currently, all assets are associated and versioned with Components, where a Component is typically an XBlock. So you don't ask for "version 5 of /static/fig1.webp"; you ask for "the /static/fig1.webp associated with version 5 of this Component".
+Assets attached to Components (where a Component is typically an XBlock) are associated and versioned with that Component. So you don't ask for "version 5 of /static/fig1.webp"; you ask for "the /static/fig1.webp associated with version 5 of this Component".
 
-:ref:`openedx-content-adr-0013` proposes a special type of component that only holds assets (an "Asset component"), and no XBlock, so that a course's existing files and uploads can be referenced by multiple XBlocks or used independently (e.g. a PDF download).
+:ref:`openedx-content-adr-0013` adds shared "Assets": a separate kind of publishable entity, not a Component, that holds exactly one file, so that a course's existing Files can be referenced by multiple XBlocks or used independently (e.g. a PDF download). Each Asset is versioned on its own and identified by its filename.
 
 The actual raw asset data is stored in django-storages using its hash value as the file name. This makes it cheap to make many references to the same asset data under different names and versions, but it means that we cannot simply give direct links to the raw file data to the browser (see the next section for details).
 
@@ -99,15 +99,23 @@ URLs
 
 Assets are served from the LMS and Studio hosts themselves. There is no separate asset host.
 
-The format will be: ``https://{lms_or_studio_host}/...{context}.../{component_key}/{version}/{filepath}``
+There are two URL forms, one for files attached to a Component and one for shared Assets (:ref:`openedx-content-adr-0013`).
+
+Files attached to a Component: ``https://{lms_or_studio_host}/...{context}.../{component_key}/{version}/{filepath}``
 
 A more concrete example: ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/xblock.v1:problem@multi_choice_8/v4/static/images/fig1.png``
+
+Shared Assets: ``https://{lms_or_studio_host}/...{context}.../assets/{version}/{filename}``
+
+A more concrete example: ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/assets/published/images/fig1.png``
+
+The literal ``assets`` segment cannot collide with a component key, since component keys always contain ``:``. Everything after the version segment is the Asset's filename, which may itself contain ``/``. Because every shared Asset of a learning package is served from the same directory for a given version, relative references between Assets resolve as ordinary relative URLs. A relative reference from a Component's file to a shared Asset is handled by a fallback redirect, described in :ref:`openedx-content-adr-0013` (decision 3).
 
 The ``version`` can be:
 
 * ``draft`` indicating the latest draft version (viewed by authors in Studio).
 * ``published`` indicating the latest published version (viewed by students in the LMS)
-* ``v{num}`` meaning a specific version–e.g. ``v20`` for version 20.
+* ``v{num}`` meaning a specific version–e.g. ``v20`` for version 20. For shared Assets, this is the version of the requested Asset only, and the response is always sent as an attachment (see :ref:`openedx-content-adr-0013`, decision 3).
 
 Response Headers
 ~~~~~~~~~~~~~~~~
@@ -121,7 +129,7 @@ Every asset response, whether it succeeds or fails, carries:
 
 This is the same policy the upstream contentserver now applies, so a course whose ``/static/`` files migrate from contentstore to ``openedx_content`` (per :ref:`openedx-content-adr-0013`) sees no change in behaviour.
 
-``Content-Type`` is chosen by the serving code from the allowlist described in the security requirements, using the stored media type and file extension as inputs. Types outside the allowlist are served as ``application/octet-stream`` with ``Content-Disposition: attachment; filename="..."``, using the asset's path within the component for the filename.
+``Content-Type`` is chosen by the serving code from the allowlist described in the security requirements, using the stored media type and file extension as inputs. Types outside the allowlist are served as ``application/octet-stream`` with ``Content-Disposition: attachment; filename="..."``, using the last segment of the file's path (its path within the component, or the shared Asset's filename) for the filename.
 
 **"Insecure Legacy Assets"**: The relaxed form ``sandbox allow-scripts allow-forms allow-popups`` would keep the opaque origin while letting scripts run, which would preserve the legacy pattern of iframing an uploaded HTML5 interactive from an HTML block. It is not adopted here. Its safety depends on the site's cookies being ``SameSite=Lax`` or stricter, but `the platform defaults to SameSite=None <https://github.com/openedx/openedx-platform/blob/aa5ec07c61a90ca4ef0ae05eebddc653e5d4e033/lms/envs/production.py#L140>`_. Any per-asset relaxation is left to a future decision, and would be a platform-level flag in the spirit of ``course_assets.allow_unsafe_asset_rendering``, passed into the ``openedx_content`` serving API rather than decided by it.
 
@@ -137,12 +145,14 @@ Until a deployment has the proxy configured, a Django-streamed fallback (as the 
 Django View Implementations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``openedx_content`` provides an API that, given a component version and asset path, returns an ``HttpResponse`` with the ``X-Accel-Redirect`` header and all of the required metadata headers (content type, sandbox, nosniff, disposition, ETag, caching, and the ``X-Open-edX-*`` informational headers). It never enforces permissions nor returns ``401`` or ``403``; it does not know who is asking (see next decision).
+``openedx_content`` provides an API that, given a component version and asset path (or a shared Asset version), returns an ``HttpResponse`` with the ``X-Accel-Redirect`` header and all of the required metadata headers (content type, sandbox, nosniff, disposition, ETag, caching, and the ``X-Open-edX-*`` informational headers). It never enforces permissions nor returns ``401`` or ``403``; it does not know who is asking (see next decision).
 
 Permissions
 ~~~~~~~~~~~
 
-The ``openedx_content`` API contains the logic for looking up and serving assets, but it is the responsibility of an app in Studio or the LMS to wrap it with permissions checking logic using ``openedx-authz``. This logic may vary from app to app. For instance, Studio would likely implement a simple permissions checking model that only examines the learning context and restricts access to course staff. LMS might eventually use a much more sophisticated model that looks at the individual Component that an asset belongs to, and which prohibits access to any version other than the current published version.
+The ``openedx_content`` API contains the logic for looking up and serving assets, but it is the responsibility of an app in Studio or the LMS to wrap it with permissions checking logic using ``openedx-authz``. This logic may vary from app to app. For instance, Studio would likely implement a simple permissions checking model that only examines the learning context and restricts access to course staff. LMS might eventually use a much more sophisticated model that looks at the individual Component that an asset belongs to.
+
+Regardless of how permissions are checked, the LMS only serves ``published`` versions of assets, and refuses ``draft`` and ``v{num}`` requests. A possible exception is a future "preview mode", in which course staff could view draft content in the LMS; if implemented, it would be restricted to users with authoring permissions on the course. Viewing drafts and historical versions is otherwise a Studio concern.
 
 Authentication
 ~~~~~~~~~~~~~~
@@ -184,7 +194,7 @@ The threat is real, as `this advisory <https://github.com/openedx/openedx-platfo
 * It required every operator to purchase and manage a second domain and certificate, which Tutor does not support out of the box. Sites that did not do so would have had no protection at all.
 * Because cookies do not cross domains, the design needed a token-based cross-domain authorization flow: a check-login ``<script>`` in the ``<head>`` of every page that shows non-public assets, a cache-backed one-time token, a second session on the asset domain, and unsolved masquerading. All of that machinery, and the per-asset login redirection variant that was rejected alongside it, disappears once assets are same-origin.
 * Cross-origin assets also required CORS for fonts, ES modules, canvas reads and ``fetch()``.
-* It was not sufficient on its own. The asset domain had its own session, so an unsandboxed uploaded HTML file navigated to on that domain could still read and exfiltrate every other draft or locked asset the victim could access there. The ``sandbox`` CSP header was needed anyway, and once present its neutralizes the same-origin attack too.
+* It was not sufficient on its own. The asset domain had its own session, so an unsandboxed uploaded HTML file navigated to on that domain could still read and exfiltrate every other draft or locked asset the victim could access there. The ``sandbox`` CSP header was needed anyway, and once present it neutralizes the same-origin attack too.
 
 The one residual benefit of an isolated domain is that a per-course "allow unsafe rendering" escape hatch would expose only the asset domain's session rather than the whole platform. That was judged not worth the operational cost. Operators who want that isolation can still front the ``/assets/`` path with a different hostname at the proxy layer, but this ADR does not design for it and the authentication flow that a *different site* would need is not provided.
 
