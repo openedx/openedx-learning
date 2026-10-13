@@ -67,7 +67,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_get_taxonomy(self) -> None:
         tax1 = tagging_api.get_taxonomy(1)
         assert tax1 == self.taxonomy
-        no_tax = tagging_api.get_taxonomy(200)
+        no_tax = tagging_api.get_taxonomy(2**31 - 1)
         assert no_tax is None
 
     def test_get_taxonomy_by_export_id(self) -> None:

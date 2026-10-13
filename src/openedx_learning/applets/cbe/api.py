@@ -9,11 +9,13 @@ from openedx_tagging.api import create_taxonomy
 from openedx_tagging.models import Taxonomy
 
 from .models import CompetencyRuleProfile, CompetencyTaxonomy
+from .rollup import roll_up_competency_statuses
 
 __all__ = [
     "create_competency_taxonomy",
     "get_competency_rule_profiles",
     "is_competency_taxonomy",
+    "roll_up_competency_statuses",
     "select_competency_taxonomies",
 ]
 
