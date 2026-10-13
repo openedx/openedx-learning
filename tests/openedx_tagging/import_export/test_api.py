@@ -4,6 +4,7 @@ Test for import/export API
 import csv
 import itertools
 import json
+from collections.abc import Sequence
 from contextlib import contextmanager
 from io import BytesIO, StringIO
 
@@ -1480,10 +1481,12 @@ class TestImportAcceptanceScenarios(TestCase):
     """
 
     formats = (ParserFormat.JSON, ParserFormat.CSV)
+    taxonomy: Taxonomy
 
-    def setUp(self) -> None:
-        super().setUp()
-        self.taxonomy = Taxonomy.objects.create(name="Competencies")
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.taxonomy = Taxonomy.objects.create(name="Competencies")
 
     def _render(self, rows: list[dict], parser_format: ParserFormat) -> BytesIO:
         """
@@ -1974,7 +1977,7 @@ class TestImportAcceptanceScenarios(TestCase):
         rows: list[dict],
         expected_parents: dict[str, str | None],
         pks: dict[str, int],
-        orders: list[tuple[int, ...]],
+        orders: Sequence[tuple[int, ...]],
         parser_formats: tuple[ParserFormat, ...],
         *,
         static_rows: tuple[dict, ...] = (),

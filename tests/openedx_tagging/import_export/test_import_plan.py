@@ -2,7 +2,6 @@
 Test for import_plan functions
 """
 import itertools
-import uuid
 from unittest import mock
 
 import ddt  # type: ignore[import]
@@ -23,6 +22,13 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
     """
     Test for import plan functions
     """
+
+    structure_taxonomy: Taxonomy
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.structure_taxonomy = Taxonomy.objects.create(name="Structure taxonomy")
 
     def setUp(self) -> None:
         super().setUp()
@@ -999,21 +1005,21 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             self.import_plan.generate_actions(tags=new_cycle, replace=False)
             self.assertTrue(any('creates a parent cycle.' in str(e) for e in self.import_plan.errors))
 
-    def _plan_for_new_taxonomy(self, name: str, structure: list[tuple[str, str | None]]) -> TagImportPlan:
+    def _plan_for_new_taxonomy(self, structure: list[tuple[str, str | None]]) -> TagImportPlan:
         """
-        Create a taxonomy with the given (external_id, parent external_id) tags, in
-        parent-first order, and return a plan for it. Each tag's value is "Tag <id>".
+        Create the given (external_id, parent external_id) tags, in parent-first order, in an
+        empty taxonomy shared by the class, and return a plan for it. Each tag's value is
+        "Tag <id>". A test calls this once, and its tags are rolled back with the test.
         """
-        taxonomy = Taxonomy.objects.create(name=name, export_id=uuid.uuid4().hex)
         tags: dict[str, Tag] = {}
         for external_id, parent_id in structure:
             tags[external_id] = Tag.objects.create(
-                taxonomy=taxonomy,
+                taxonomy=self.structure_taxonomy,
                 value=f'Tag {external_id}',
                 external_id=external_id,
                 parent=tags[parent_id] if parent_id else None,
             )
-        return TagImportPlan(taxonomy)
+        return TagImportPlan(self.structure_taxonomy)
 
     def _row(self, tag_id: str, parent_id: str | None = None) -> TagItem:
         """
@@ -1037,7 +1043,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         t5 is kept under t1, which is deleted along with its parent t0. Deleting t0
         would cascade to t1 and t5, so t5 is promoted to a root before any delete.
         """
-        plan = self._plan_for_new_taxonomy('chain', [('t0', None), ('t1', 't0'), ('t5', 't1')])
+        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0'), ('t5', 't1')])
         plan.generate_actions(tags=[self._row('t5')], replace=True)
         self.assertEqual(plan.errors, [])
         self._assert_promotions_precede_deletes(plan)
@@ -1048,7 +1054,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         promoted before any delete.
         """
         structure = [('t0', None), ('t1', 't0'), ('t2', 't1'), ('t3', 't2'), ('t4', 't3')]
-        plan = self._plan_for_new_taxonomy('deep', structure)
+        plan = self._plan_for_new_taxonomy(structure)
         plan.generate_actions(tags=[self._row('t2'), self._row('t4')], replace=True)
         self.assertEqual(plan.errors, [])
         self._assert_promotions_precede_deletes(plan)
@@ -1061,7 +1067,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         """
         A kept child of a deleted root is promoted to a root before the delete.
         """
-        plan = self._plan_for_new_taxonomy('root', [('t0', None), ('t1', 't0')])
+        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0')])
         plan.generate_actions(tags=[self._row('t1')], replace=True)
         self.assertEqual(plan.errors, [])
         self.assertEqual([action.name for action in plan.actions[:2]], ['update_parent', 'delete'])
@@ -1083,7 +1089,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         rows = [
             self._row('t0', 'g0'), self._row('t1', 'g0'), self._row('t2'), self._row('g0', 't2'),
         ]
-        plan = self._plan_for_new_taxonomy('inversion', [('t0', None), ('t1', 't0'), ('t2', 't0')])
+        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0'), ('t2', 't0')])
         for order in itertools.permutations(range(4)):
             with self.subTest(order=order):
                 plan.generate_actions(tags=[rows[i] for i in order], replace=False)
@@ -1098,7 +1104,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         moves under it, in either row order.
         """
         rows = [self._row('t0', 't1'), self._row('t1')]
-        plan = self._plan_for_new_taxonomy('swap', [('t0', None), ('t1', 't0')])
+        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0')])
         for order in itertools.permutations(range(2)):
             with self.subTest(order=order):
                 plan.generate_actions(tags=[rows[i] for i in order], replace=False)
@@ -1113,7 +1119,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         moves under has left its subtree, in all six row orders.
         """
         rows = [self._row('t2'), self._row('t1', 't2'), self._row('t0', 't1')]
-        plan = self._plan_for_new_taxonomy('reversal', [('t0', None), ('t1', 't0'), ('t2', 't1')])
+        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0'), ('t2', 't1')])
         for order in itertools.permutations(range(3)):
             with self.subTest(order=order):
                 plan.generate_actions(tags=[rows[i] for i in order], replace=False)
@@ -1129,7 +1135,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         """
         A file whose parent moves are already in a valid order keeps its row order in the plan.
         """
-        plan = self._plan_for_new_taxonomy('valid', [('t0', None), ('t1', 't0'), ('t2', 't0')])
+        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0'), ('t2', 't0')])
         rows = [self._row('t2'), self._row('g0', 't2'), self._row('t0', 'g0'), self._row('t1', 'g0')]
         plan.generate_actions(tags=rows, replace=False)
         self.assertEqual(plan.errors, [])
@@ -1170,7 +1176,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         and the hazardous one (new tags first) detaches t5 before any create.
         """
         rows = [self._row('g1', 'g0'), self._row('g0', 't5'), self._row('t5')]
-        plan = self._plan_for_new_taxonomy('hazard', self._deep_chain_structure())
+        plan = self._plan_for_new_taxonomy(self._deep_chain_structure())
         for order in itertools.permutations(range(3)):
             with self.subTest(order=order):
                 plan.generate_actions(tags=[rows[i] for i in order], replace=False)
@@ -1183,7 +1189,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         """
         An import whose steps are all valid keeps its plan: no update-to-root is added.
         """
-        plan = self._plan_for_new_taxonomy('ordinary', self._deep_chain_structure()[:3])
+        plan = self._plan_for_new_taxonomy(self._deep_chain_structure()[:3])
         plan.generate_actions(
             tags=[self._row('t0'), self._row('t1', 't0'), self._row('t2', 't1'), self._row('n0', 't2')],
             replace=False,
@@ -1202,7 +1208,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             self._row('g1', 'g0'), self._row('g0', 't5'), self._row('t5'),
             TagItem(id='r3', value='Tag t3', previous_id='t3', parent_id='t2'),
         ]
-        plan = self._plan_for_new_taxonomy('renamed', self._deep_chain_structure())
+        plan = self._plan_for_new_taxonomy(self._deep_chain_structure())
         for order in itertools.permutations(range(4)):
             with self.subTest(order=order):
                 plan.generate_actions(tags=[rows[i] for i in order], replace=False)
@@ -1218,7 +1224,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         """
         structure = [('c0', None), ('c1', 'c0'), ('c2', 'c1'), ('c3', 'c2'), ('s0', None), ('s1', 's0'), ('s2', 's1')]
         rows = [self._row('s0', 'c3'), self._row('c3'), self._row('s1', 's0'), self._row('s2', 's1')]
-        plan = self._plan_for_new_taxonomy('subtree', structure)
+        plan = self._plan_for_new_taxonomy(structure)
         for order in itertools.permutations(range(len(rows))):
             with self.subTest(order=order):
                 plan.generate_actions(tags=[rows[i] for i in order], replace=False)
@@ -1230,7 +1236,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         Three new tags are chained under t5, which moves to the root: all 24 row orders plan clean.
         """
         rows = [self._row('t5'), self._row('g0', 't5'), self._row('g1', 'g0'), self._row('g2', 'g1')]
-        plan = self._plan_for_new_taxonomy('three', self._deep_chain_structure())
+        plan = self._plan_for_new_taxonomy(self._deep_chain_structure())
         for order in itertools.permutations(range(4)):
             with self.subTest(order=order):
                 plan.generate_actions(tags=[rows[i] for i in order], replace=False)
@@ -1269,7 +1275,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         When the dry run keeps failing, the plan is rebuilt detach-first once, checked once more,
         and reported as invalid instead of being rebuilt again.
         """
-        plan = self._plan_for_new_taxonomy('once', self._deep_chain_structure())
+        plan = self._plan_for_new_taxonomy(self._deep_chain_structure())
         rows = [self._row('g0', 't5'), self._row('t5')]
         with mock.patch.object(TagImportPlan, '_parent_changes_are_valid', return_value=False) as dry_run:
             plan.generate_actions(tags=rows, replace=False)
@@ -1284,7 +1290,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         order, so the plan has the invalid hierarchy error instead of an applicable plan.
         """
         structure = [('a', None), ('b', 'a'), ('c', 'b'), ('d', 'c'), ('e', 'd'), ('f', 'e')]
-        plan = self._plan_for_new_taxonomy('too deep', structure)
+        plan = self._plan_for_new_taxonomy(structure)
         rows = [self._row(tag_id, parent) for tag_id, parent in structure] + [self._row('g', 'f')]
         plan.generate_actions(tags=rows, replace=True)
         self.assertEqual(len(plan.errors), 1)
@@ -1296,7 +1302,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         so the plan has the invalid hierarchy error.
         """
         structure = [('a', None), ('b', 'a'), ('c', 'b'), ('d', 'c'), ('w', None), ('x', 'w'), ('y', 'x'), ('z', 'y')]
-        plan = self._plan_for_new_taxonomy('moved too deep', structure)
+        plan = self._plan_for_new_taxonomy(structure)
         rows = [self._row(tag_id, 'd' if tag_id == 'w' else parent) for tag_id, parent in structure]
         plan.generate_actions(tags=rows, replace=True)
         self.assertEqual(len(plan.errors), 1)
