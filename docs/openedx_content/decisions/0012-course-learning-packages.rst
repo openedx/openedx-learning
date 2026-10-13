@@ -97,7 +97,7 @@ When a learning package is created for a course run, its ``LearningPackage.packa
 5. Usage keys are mapped by an API, not derived from codes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Usage keys are **not** to be derived directly from learning-package-local identifiers such as ``entity_ref``, ``component_code`` or ``container_code``, even when, under the conventions above, a straightforward derivation would give the right answer. Instead, there will be an API function along the lines of::
+Callers of these APIs are **not** to derive usage keys directly from learning-package-local identifiers such as ``entity_ref``, ``component_code`` or ``container_code``, even when, under the conventions above, a straightforward derivation would give the right answer. Instead, there will be an API function along the lines of::
 
     get_entity_usage_key(learning_context, publishable_entity) -> UsageKey
 
