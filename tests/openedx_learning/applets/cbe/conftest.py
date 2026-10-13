@@ -1,10 +1,11 @@
-"""Shared fixtures for the CBE criteria test modules."""
+"""Shared fixtures for the CBE test modules: schema, deletion, tree-integration, status, and REST tests."""
 from datetime import datetime, timezone
 
 import pytest
 from django.contrib.auth import get_user_model
 from organizations.api import ensure_organization
 from organizations.models import Organization
+from rest_framework.test import APIClient
 
 from openedx_catalog.models import CatalogCourse, CourseRun
 from openedx_learning.models import CompetencyCriteriaGroup, CompetencyRuleProfile, CompetencyTaxonomy
@@ -70,6 +71,12 @@ def _default_rule_profile() -> CompetencyRuleProfile:
     )
 
 
+@pytest.fixture(name="staff_user")
+def _staff_user():
+    """A user permitted to administer taxonomies, and so every competency rule profile."""
+    return get_user_model().objects.create(username="staff", email="staff@example.com", is_staff=True)
+
+
 @pytest.fixture(name="user")
 def _user():
     """Create a single learner for use in these tests."""
@@ -80,3 +87,17 @@ def _user():
 def _now() -> datetime:
     """A single UTC timestamp shared by writes in a test."""
     return datetime.now(timezone.utc)
+
+
+@pytest.fixture(name="api_client")
+def _api_client() -> APIClient:
+    """A REST client for a caller the system cannot identify."""
+    return APIClient()
+
+
+@pytest.fixture(name="staff_client")
+def _staff_client(staff_user) -> APIClient:
+    """A REST client acting as `staff_user`."""
+    client = APIClient()
+    client.force_authenticate(user=staff_user)
+    return client
