@@ -76,10 +76,10 @@ The cost is that reruns duplicate rows. This is accepted; see "Consequences".
 
 Content shared deliberately between runs of a catalog course is expressed the same way as content shared between any two learning contexts: by copying it, optionally with an upstream link back to its source.
 
-3. CourseContent holds the relationship
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3. openedx_content holds the relationship
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A django model in ``openedx_content``, called ``CourseContent``, will hold the mapping between ``CourseRun`` and ``LearningPackage``. The ``CourseRun`` field will be unique, such that each run is associated with zero or one ``LearningPackage``, never multiple.
+A django model in ``openedx_content``, called ``CourseContent`` (or perhaps ``CourseRunLearningPackage``), will hold the mapping between ``CourseRun`` and ``LearningPackage``. The ``course_run`` field will be unique, such that each run is associated with zero or one ``LearningPackage``, never multiple.
 
 The ``LearningPackage`` field will **not** be unique: the data model permits multiple ``CourseContent`` rows, and therefore multiple course runs, to point at the same ``LearningPackage``. This ADR does not define what such sharing would mean for publishing, permissions or usage keys, and the course rerun workflow will not produce it. It exists so that nothing (including the schema) quietly comes to depend on the relationship being 1:1. A unit test will create two ``CourseContent`` rows referencing one ``LearningPackage``, to keep that possibility from being constrained away accidentally.
 
@@ -90,7 +90,7 @@ Code that needs a course run's learning package must look it up through ``Course
 4. The package_ref of a course learning package is built using the course key
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When a learning package is created for a course run, its ``LearningPackage.package_ref`` should be set to a human readable string that includes the run's course key, e.g. ``MATH 100 (course-v1:MITx+Math100+2026Fall)``. Because ``package_ref`` must be globally unique, it makes sense to encode the course key to ensure uniqueness. But we don't want code to assume that the ``package_ref`` is 1:1 with the course key, so the course's title or some random hash should be included as well. Details are left to the implementation or future ADRs.
+When a learning package is created for a course run, its ``LearningPackage.package_ref`` should be set to a human readable string that includes the run's course key, e.g. ``MATH 100 (course-v1:MITx+Math100+2026Fall)`` or ``course_MITx_Math100_2026Fall``. Because ``package_ref`` must be globally unique, it makes sense to encode the course key to ensure uniqueness. But we don't want code to assume that the ``package_ref`` is 1:1 with the course key, so the course's title or some random hash should be included, or it should be a slugified version of the course key. Details are left to the implementation or future ADRs.
 
 **No code may derive a course key from a** ``package_ref`` **or look up a course's learning package by** ``package_ref``; it must go through ``CourseContent`` (decision 3).
 
