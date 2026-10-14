@@ -100,7 +100,7 @@ Renaming cannot fix references that are not detected by decision 1, such as rela
 6. Editors should de-reference full URLs on save
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In the course of editing courseware, authors may use their browser's "Copy Image URL" to copy the URL of an image and paste it elsewhere, resulting in a full, rewritten URL like ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/xblock.v1:problem@multi_choice_8/v4/static/images/fig1.png`` ending up in the OLX. If any such URLs are detected, they should be automatically rewritten to the ``/static/`` format (subject to some sanity checks to ensure it will still reference the correct asset).
+In the course of editing courseware, authors may use their browser's "Copy Image URL" to copy the URL of an image and paste it elsewhere, resulting in a full, rewritten URL like ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/assets/draft/images/fig1.png`` ending up in the OLX. If any such URLs are detected, they should be automatically rewritten to the ``/static/`` format (subject to some sanity checks to ensure it will still reference the correct asset).
 
 Note: Only rewrite full URLs that point to a shared asset in the same learning package, and don't conflict with any of the component's own asset files.
 
@@ -111,10 +111,10 @@ There are two independent layers of versioning, and they work the same way as fo
 
 **Within a learning package, references are unpinned.** A ``PublishableEntityVersionDependency`` names an Asset, not a version of it, just as a unit's unpinned children are components rather than component versions. The version used is determined by where the content is rendered:
 
-- In Studio (authoring), the component's draft is rendered, and ``/static/`` references resolve to the **draft** version of each linked Asset.
-- In the LMS, the component's published version is rendered, and ``/static/`` references resolve to the **published** version of each linked Asset.
+- In Studio (authoring), the component's draft is rendered, and ``/static/`` references resolve to the **draft** version of each referenced Asset.
+- In the LMS, the component's published version is rendered, and ``/static/`` references resolve to the **published** version of each referenced Asset.
 
-Editing an Asset's draft therefore immediately changes what authors see in every component that uses it, and marks those components as having unpublished changes (via the dependency from decision 3). Learners see nothing until the Asset is published. Publishing a component also publishes the draft versions of the Assets it links to, the same way publishing a unit publishes its unpinned children, so a published component never references an unpublished Asset.
+Editing an Asset's draft therefore immediately changes what authors see in every component that uses it, and marks those components as having unpublished changes (via the dependency from decision 3). Learners see nothing until the Asset is published. Publishing a component also publishes the draft versions of the Assets it references, the same way publishing a unit publishes its unpinned children, so a published component never references an unpublished Asset.
 
 **Between a library and a course, updates are pulled explicitly.** A course copy of a library Asset is a downstream of the library Asset, and it tracks the upstream the same way downstream course blocks do:
 
@@ -142,7 +142,7 @@ Consequences
 - The course "Files" page can show a list of "broken references" / "missing files" by querying for placeholder Assets (decision 4) that still have dependents, along with the components that reference each one. Deleted Assets that are still referenced can be included in the same list.
 - For content using ``/static/...`` references: reruns never need to rewrite references in component content, and clipboard copy/paste, library import and library sync only need to do so when a shared Asset's filename conflicts with an unrelated Asset in the destination (decision 5).
 - A course's learning package always contains every (properly-referenced) asset it uses, so it can be exported, backed up and restored in isolation.
-- Every component version snapshots its links, adding a small number of rows per component version for components that use shared assets.
+- Every component version snapshots its dependencies, adding a small number of rows per component version for components that use shared assets.
 - The existing two URL formats (``/static/`` or ``[https://host]/asset-v1:``) have to be supported by the rendering pipeline indefinitely.
 - Library Assets used in many courses are copied into each course. This costs rows, not bytes, because blobs are deduplicated per org.
 - Some relative references among Assets (e.g. an HTML file with a dynamic reference to a JS file, like ``import(`./${filename}.js`)``) will not be identified and tracked via ``PublishableEntityVersionDependency``.

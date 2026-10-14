@@ -59,11 +59,11 @@ Studio code that changes modulestore must keep the Shadow Components consistent 
 
 - **Edit:** Adding, replacing or removing an attached asset creates a new draft version of the Shadow Component. Editing the XBlock's fields does not.
 - **Publish:** When an XBlock is published in modulestore (usually by publishing its unit), the draft of its Shadow Component, if any, is published too. Asset URLs from the Studio preview resolve to the ``draft`` version and from the LMS resolve to the ``published`` version, as for any other Component.
-- **Discard Changes:** Reverting an XBlock must revert the shadow component to the published version as well.
+- **Discard Changes:** Reverting an XBlock must revert the Shadow Component to the published version as well.
 - **Delete:** Deleting the XBlock soft-deletes its Shadow Component.
 - **Duplicate, copy/paste, library sync:** The new XBlock gets a new Shadow Component with copies of the source's attached assets (the bytes are deduplicated per :ref:`openedx-content-adr-0012`, decision 6).
 - **Rerun:** Shadow Components are copied into the new run's learning package along with its shared assets.
-- **Import/Export**: needs to handle shadow components. This will require rewriting references in the OLX, and locating each component's attached assets in a subfolder of the ``static/`` folder in the course tarball, for backwards compatibility.
+- **Import/Export:** Needs to handle Shadow Components. This will require rewriting references in the OLX, and locating each component's attached assets in a subfolder of the ``static/`` folder in the course tarball, for backwards compatibility.
 
 Version numbers of a Shadow Component only count changes to its attached assets, and have no relationship to modulestore versions.
 
@@ -91,7 +91,7 @@ Consequences
 
 **Library components with attached assets can be used in modulestore courses without merging their assets into the course's Files**, once the course's Files have been migrated. This removes much of the complexity in today's library-to-course copy and sync code, which has to rename and merge each component's files into the course-wide namespace.
 
-**We could implement dependency tracking for all XBlocks, even those currently in modulestore.** We can detect ``/static/...`` references in regular modulestore XBlocks, and then record which shared Assets are in use using :class:`PublishableEntityVersionDependency`, exactly the same way as we can for XBlocks/Components that are fully stored in ``openedx_content``. Whether and when we should do this is left to decide at implementation time; this would require changing decision 4 above, that "XBlocks with no attached assets never get" a shadow component.
+**We could implement dependency tracking for all XBlocks, even those currently in modulestore.** We can detect ``/static/...`` references in regular modulestore XBlocks, and then record which shared Assets are in use using :class:`PublishableEntityVersionDependency`, exactly the same way as we can for XBlocks/Components that are fully stored in ``openedx_content``. Whether and when we should do this is left to decide at implementation time; this would require changing decision 4 above, that "XBlocks with no attached assets never get" a Shadow Component.
 
 **There are temporarily two sources of truth for a single XBlock**: modulestore for its fields, and ``openedx_content`` for its attached assets. Every Studio code path that creates, copies, publishes or deletes blocks needs to update both, and a missed code path will leave orphaned Shadow Components or XBlocks with missing assets. Orphaned Shadow Components are harmless apart from storage, and could be found and cleaned up by a periodic task that compares them to modulestore.
 

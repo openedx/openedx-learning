@@ -48,7 +48,7 @@ If a file is uploaded with the same filename as an Asset that has been (soft) de
 
 Within a single Learning Package, Assets can use relative references to each other. For example, an HTML file stored as an Asset can reference ``image.jpg`` (or ``./image.jpg``) which would be rendered if the HTML file was viewed in the browser and the image in question was another Asset in the same Learning Package.
 
-This is largely for backwards compatibility. Existing courses have ``.html`` files in their Files that load ``.js``, ``.css`` and image files from the same course by relative URL, and are framed or linked from course content. Plain (unscripted) HTML and SVG documents work under the ``sandbox`` policy of :ref:`openedx-content-adr-0005`; legacy HTML that relies on running scripts additionally needs the ``allow_scripts`` flag (decision 10). For new content, HTML interactives are better implemented as an HTML Component with the related files attached to it.
+This is largely for backwards compatibility. Existing courses have ``.html`` files in their Files that load ``.js``, ``.css`` and image files from the same course by relative URL, and are framed or linked from course content. Plain (unscripted) HTML and SVG documents work under the ``sandbox`` policy of :ref:`openedx-content-adr-0005`; HTML that relies on running scripts additionally needs the ``allow_scripts`` flag (decision 10). For new content, HTML interactives are better implemented as an HTML Component with the related files attached to it: the interactive's markup lives in the component's own HTML, which loads the attached ``.js``, ``.css`` and image files as subresources. (An attached ``.html`` file framed from the component would be sandboxed and could not run scripts.)
 
 To achieve this, Assets are served under their own URL form, defined in :ref:`openedx-content-adr-0005` ("URLs"), in which the filename is the final part of the path and all Assets of a learning package share one directory per version::
 
@@ -166,7 +166,7 @@ However, a library XBlock Component that in turn uses a library Asset still has 
 
 **Tiny text-based course files can be stored within MySQL.** Just as OLX for XBlocks can be stored within MySQL rows in the ``text`` column instead of on object storage like S3, small uploads (under 50,000 characters) like .svg or .js files *could* be stored entirely within MySQL if we wanted to do so (although in general we probably don't).
 
-How the "Files" UI will work, how Assets will be referenced from Components or other Assets, and how the migration from contentstore will work will be specified in follow-up ADRs.
+How Assets are referenced from Components is specified in :ref:`openedx-content-adr-0014`. How the "Files" UI will work, and the details of the migration from contentstore, will be specified in follow-up ADRs.
 
 Rejected Alternatives
 ---------------------
@@ -207,10 +207,10 @@ For each of these, there is usually a better option:
 * Document conversions are the same thing: it's often better for the author to upload and manage only a single authoritative document and have the system generate the derived version automatically. If the author needs full control of each version, they can just use two separate Assets.
 * Videos are rarely if ever stored in Course Files anyways, and are best hosted on video-specific services like YouTube or edX.org's video platform.
 
-A separate component type for multiple files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+A separate entity type for multiple files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We could have a separate "Asset Set" entity or component type that holds multiple files as a group, but it's unclear if there's any use case for this that would justify the complexity, both in terms of implementation and end user experience. As described above, related files can already be grouped by attaching them to a single Component, or by putting the related Assets into a ``Collection``.
+We could have a separate "Asset Set" entity type that holds multiple files as a group, but it's unclear if there's any use case for this that would justify the complexity, both in terms of implementation and end user experience. As described above, related files can already be grouped by attaching them to a single Component, or by putting the related Assets into a ``Collection``.
 
 Other names for Assets
 ~~~~~~~~~~~~~~~~~~~~~~
