@@ -13,6 +13,7 @@ from django.test.testcases import TestCase
 
 import openedx_tagging.import_export.api as import_export_api
 from openedx_tagging.import_export import ParserFormat
+from openedx_tagging.import_export.import_plan import TagItem
 from openedx_tagging.models import ObjectTag, Tag, TagImportTask, TagImportTaskState, Taxonomy
 
 from .mixins import TestImportExportMixin
@@ -1080,9 +1081,13 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_import_existing_child_names_renamed_away_parent_rejected(self) -> None:
         """
-        An existing child (tag_2 under tag_1) that keeps parent_id="tag_1"
-        while the file renames tag_1 to tag_50 is rejected in either row
-        order, and neither the taxonomy nor its export changes.
+        An existing child that keeps its parent's pre-import id is rejected when the file
+        renames that parent, in either row order, and neither the taxonomy nor its export
+        changes.
+
+        Before      File rows
+        tag_1       tag_50 (previous_id tag_1)
+            tag_2   tag_2 (parent_id tag_1)
         """
         rename = {"id": "tag_50", "value": "Tag 1", "previous_id": "tag_1"}
         child = {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_1"}
@@ -1101,10 +1106,15 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_import_child_and_renamed_parent_row_claiming_freed_id(self) -> None:
         """
-        tag_3 is renamed to tag_1, an id the same replace=True import frees by
-        omitting its holder. A child row naming tag_1 succeeds in either row
-        order: the renamed tag keeps its pk, the old holder is gone, and the
-        child is nested under the renamed tag.
+        With replace=True the file omits tag_1, which frees the id tag_1, and renames tag_3
+        onto it. A child row naming tag_1 succeeds in either row order: the renamed tag keeps
+        its pk, the old tag_1 is gone, and the child is under the renamed tag.
+
+        Before      After
+        tag_1       tag_1 (was tag_3)
+            tag_2       tag_4
+        tag_3
+            tag_4
         """
         pk_1 = self.taxonomy.tag_set.get(external_id="tag_1").pk
         pk_3 = self.taxonomy.tag_set.get(external_id="tag_3").pk
@@ -1123,8 +1133,14 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_import_swap_with_children_in_any_row_order(self) -> None:
         """
-        The swap with children on end-state ids gives the same result in
-        every one of the 24 row orders.
+        Swapping the ids of two parents whose children name the end-state ids gives the same
+        result in every row order. Each child stays on the same physical parent.
+
+        Before      After
+        tag_1       tag_3 (was tag_1)
+            tag_2       tag_2
+        tag_3       tag_1 (was tag_3)
+            tag_4       tag_4
         """
         pk_1 = self.taxonomy.tag_set.get(external_id="tag_1").pk
         pk_2 = self.taxonomy.tag_set.get(external_id="tag_2").pk
@@ -1136,6 +1152,8 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
             {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_3"},
             {"id": "tag_4", "value": "Tag 4", "parent_id": "tag_1"},
         ]
+        # Every one of the 24 row orders, because the swap and the children's references
+        # resolve differently depending on which rows come first.
         for order in itertools.permutations(range(4)):
             with self.subTest(order=order), transaction.atomic():
                 result, log = self._import_rows([rows[i] for i in order], replace=True)
@@ -1158,9 +1176,15 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_import_swap_children_stale_ids_rejected_in_any_row_order(self) -> None:
         """
-        Children naming the stale pre-import ids are rejected in every one of
-        the 24 row orders, each error reports the row's file position, and
-        the taxonomy is unchanged.
+        Children that name the stale pre-import ids of swapped parents are rejected in every
+        row order. Each error names the child's row number and its parent's new id, and the
+        taxonomy is unchanged.
+
+        Before      File rows
+        tag_1       tag_1 (previous_id tag_3)
+            tag_2   tag_3 (previous_id tag_1)
+        tag_3       tag_2 (parent_id tag_1)
+            tag_4   tag_4 (parent_id tag_3)
         """
         rows = [
             {"id": "tag_1", "value": "Tag 3", "previous_id": "tag_3"},
@@ -1170,6 +1194,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         ]
         before = self._snapshot()
         new_ids = {"tag_2": ("tag_1", "tag_3"), "tag_4": ("tag_3", "tag_1")}
+        # Every one of the 24 row orders, because each error must name the row's own number.
         for order in itertools.permutations(range(4)):
             with self.subTest(order=order):
                 file_rows = [rows[i] for i in order]
@@ -1183,23 +1208,27 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
                         assert f"Use '{new_id}' as the parent_id." in log
                 assert self._snapshot() == before
 
-    def test_import_child_of_invalid_definer_row_rejected_in_any_order(self) -> None:
+    def test_import_child_of_invalid_parent_row_rejected_in_any_order(self) -> None:
         """
-        A child whose parent_id names a rename row with an unmatched
-        previous_id, or a new-tag row with a duplicate value, is rejected
-        cleanly in either row order and leaves the taxonomy unchanged.
+        A new child whose parent_id names a row that is itself rejected (a rename with an
+        unmatched previous_id, or a new tag with a duplicate value) is rejected cleanly in
+        either row order and leaves the taxonomy unchanged.
+
+        File rows (two cases)
+        new_parent (previous_id tag_99)  or  new_parent (value "Tag 1", held by tag_1)
+        new_child (parent_id new_parent)
         """
         cases = {
             "unmatched previous_id": (
-                {"id": "tag_90", "value": "Tag 90", "previous_id": "tag_99"},
+                {"id": "new_parent", "value": "New parent", "previous_id": "tag_99"},
                 "Unknown previous_id (tag_99). No tag with that external_id exists in this taxonomy.",
             ),
-            "duplicate value": ({"id": "tag_90", "value": "Tag 1"}, None),
+            "duplicate value": ({"id": "new_parent", "value": "Tag 1"}, None),
         }
-        child = {"id": "tag_91", "value": "Tag 91", "parent_id": "tag_90"}
+        child = {"id": "new_child", "value": "New child", "parent_id": "new_parent"}
         before = self._snapshot()
-        for name, (definer, cause) in cases.items():
-            for rows in ([definer, child], [child, definer]):
+        for name, (parent, cause) in cases.items():
+            for rows in ([parent, child], [child, parent]):
                 with self.subTest(case=name, first=rows[0]["id"]):
                     result, log = self._import_rows(rows)
                     assert not result
@@ -1211,44 +1240,54 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_import_cyclic_parent_ids_rejected(self) -> None:
         """
-        Two new tags naming each other as parent are rejected with an unknown
-        parent error, with and without replace, and nothing is created.
+        Two new tags naming each other as parent are rejected, with and without replace,
+        and nothing is created. The cycle is reported once, as an unknown parent, because
+        neither id exists before the import.
+
+        File rows
+        new_a (parent_id new_b)
+        new_b (parent_id new_a)
         """
         rows = [
-            {"id": "tag_90", "value": "Tag 90", "parent_id": "tag_91"},
-            {"id": "tag_91", "value": "Tag 91", "parent_id": "tag_90"},
+            {"id": "new_a", "value": "New A", "parent_id": "new_b"},
+            {"id": "new_b", "value": "New B", "parent_id": "new_a"},
         ]
         before = self._snapshot()
         for replace in (False, True):
             with self.subTest(replace=replace):
                 result, log = self._import_rows(rows, replace=replace)
                 assert not result
-                assert "Unknown parent tag" in log
+                assert log.count("Unknown parent tag") == 1
+                assert "creates a parent cycle" not in log
                 assert "Traceback" not in log
                 assert self._snapshot() == before
 
     def test_import_child_of_new_row_with_value_freed_by_replace(self) -> None:
         """
-        With replace=True, a new row reusing the value of an existing tag the
-        file omits is accepted in every row order, because the replace-delete
-        frees the value, and its child is nested under it. If the file keeps
-        the existing tag, the same value is a real duplicate and is rejected.
+        With replace=True, a new tag may reuse the value of an existing tag that the file
+        omits, because the delete of the omitted tag frees the value. Its child is nested
+        under it in every row order. If the file keeps the existing tag, the same value is a
+        real duplicate and the import is rejected.
+
+        Before      After (file omits tag_1)
+        tag_1       new_parent (value "Tag 1")
+            tag_2       new_child
         """
-        definer = {"id": "tag_90", "value": "Tag 1"}
-        child = {"id": "tag_91", "value": "Tag 91", "parent_id": "tag_90"}
+        new_parent = {"id": "new_parent", "value": "Tag 1"}
+        new_child = {"id": "new_child", "value": "New child", "parent_id": "new_parent"}
         kept = {"id": "tag_1", "value": "Tag 1"}
         before = self._snapshot()
         for order in itertools.permutations(range(2)):
             with self.subTest(case="omitted", order=order), transaction.atomic():
-                result, log = self._import_rows([[definer, child][i] for i in order], replace=True)
+                result, log = self._import_rows([[new_parent, new_child][i] for i in order], replace=True)
                 assert "Traceback" not in log
                 assert result
-                parent = self.taxonomy.tag_set.get(external_id="tag_90")
-                assert self.taxonomy.tag_set.get(external_id="tag_91").parent_id == parent.pk
+                parent = self.taxonomy.tag_set.get(external_id="new_parent")
+                assert self.taxonomy.tag_set.get(external_id="new_child").parent_id == parent.pk
                 transaction.set_rollback(True)
         for order in itertools.permutations(range(3)):
             with self.subTest(case="kept", order=order):
-                result, log = self._import_rows([[definer, child, kept][i] for i in order], replace=True)
+                result, log = self._import_rows([[new_parent, new_child, kept][i] for i in order], replace=True)
                 assert not result
                 assert "Traceback" not in log
                 assert "Output errors" in log
@@ -1256,20 +1295,24 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_import_longer_and_mixed_parent_cycles_rejected_in_any_row_order(self) -> None:
         """
-        A three-tag cycle of new tags, and a cycle through a rename row (the
-        rename row's parent_id names a new tag whose parent_id names the
-        rename row's new id), are rejected cleanly in every row order and
-        leave the taxonomy unchanged.
+        A cycle of three new tags, and a cycle through a rename row, are rejected in every
+        row order and leave the taxonomy unchanged. Each cycle is reported once, as an
+        unknown parent, because none of its ids exists before the import.
+
+        File rows (two cases)
+        new_a (parent_id new_b)                 tag_50 (previous_id tag_1, parent_id new_tag)
+        new_b (parent_id new_c)                 new_tag (parent_id tag_50)
+        new_c (parent_id new_a)
         """
         cases = {
             "three new tags": [
-                {"id": "tag_90", "value": "Tag 90", "parent_id": "tag_91"},
-                {"id": "tag_91", "value": "Tag 91", "parent_id": "tag_92"},
-                {"id": "tag_92", "value": "Tag 92", "parent_id": "tag_90"},
+                {"id": "new_a", "value": "New A", "parent_id": "new_b"},
+                {"id": "new_b", "value": "New B", "parent_id": "new_c"},
+                {"id": "new_c", "value": "New C", "parent_id": "new_a"},
             ],
             "rename row and new tag": [
-                {"id": "tag_50", "value": "Tag 1", "previous_id": "tag_1", "parent_id": "tag_90"},
-                {"id": "tag_90", "value": "Tag 90", "parent_id": "tag_50"},
+                {"id": "tag_50", "value": "Tag 1", "previous_id": "tag_1", "parent_id": "new_tag"},
+                {"id": "new_tag", "value": "New tag", "parent_id": "tag_50"},
             ],
         }
         before = self._snapshot()
@@ -1279,84 +1322,73 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
                     result, log = self._import_rows([rows[i] for i in order])
                     assert not result
                     assert "Traceback" not in log
-                    assert "Output errors" in log
+                    assert log.count("Unknown parent tag") == 1
+                    assert "creates a parent cycle" not in log
                     assert self._snapshot() == before
 
     def test_import_parent_cycles_through_existing_tags_rejected(self) -> None:
         """
-        A cycle that includes an existing tag is rejected once, in either row
-        order, and leaves the taxonomy unchanged: an existing and a new tag as
-        each other's parent, a rename row and an existing tag, a self-parent, and a cycle through tag_2, which
-        is a child of tag_1 and not in the file.
+        A cycle that includes an existing tag is rejected in every row order and leaves the
+        taxonomy unchanged. The error is reported once, on the cycle's first row in the file.
+
+        Before      Cases (file rows)
+        tag_1       existing and new tag:          tag_2 (parent_id new_tag), new_tag (parent_id tag_2)
+            tag_2   self parent:                   tag_2 (parent_id tag_2)
+                    rename row and existing tag:   tag_50 (previous_id tag_1, parent_id tag_2),
+                                                   tag_2 (parent_id tag_50)
+                    through a tag not in the file: tag_1 (parent_id tag_2)
         """
         cases = {
-            "existing and new tag": (
-                [
-                    {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_90"},
-                    {"id": "tag_90", "value": "Tag 90", "parent_id": "tag_2"},
-                ],
-                "creates a parent cycle.",
-            ),
-            "self parent": (
-                [{"id": "tag_2", "value": "Tag 2", "parent_id": "tag_2"}],
-                "Row 1's parent_id (tag_2) creates a parent cycle.",
-            ),
-            "rename row and existing tag": (
-                [
-                    {"id": "tag_50", "value": "Tag 1", "previous_id": "tag_1", "parent_id": "tag_2"},
-                    {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_50"},
-                ],
-                "creates a parent cycle.",
-            ),
-            "through a tag not in the file": (
-                [{"id": "tag_1", "value": "Tag 1", "parent_id": "tag_2"}],
-                "Row 1's parent_id (tag_2) creates a parent cycle.",
-            ),
+            "existing and new tag": [
+                {"id": "tag_2", "value": "Tag 2", "parent_id": "new_tag"},
+                {"id": "new_tag", "value": "New tag", "parent_id": "tag_2"},
+            ],
+            "self parent": [{"id": "tag_2", "value": "Tag 2", "parent_id": "tag_2"}],
+            "rename row and existing tag": [
+                {"id": "tag_50", "value": "Tag 1", "previous_id": "tag_1", "parent_id": "tag_2"},
+                {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_50"},
+            ],
+            "through a tag not in the file": [{"id": "tag_1", "value": "Tag 1", "parent_id": "tag_2"}],
         }
         before = self._snapshot()
-        for name, (rows, message) in cases.items():
+        for name, rows in cases.items():
             for order in itertools.permutations(range(len(rows))):
                 with self.subTest(case=name, order=order):
-                    result, log = self._import_rows([rows[i] for i in order])
+                    file_rows = [rows[i] for i in order]
+                    result, log = self._import_rows(file_rows)
                     assert not result
                     assert "Traceback" not in log
-                    assert log.count(message) == 1
+                    assert log.count("creates a parent cycle.") == 1
+                    assert f"Row 1's parent_id ({file_rows[0]['parent_id']}) creates a parent cycle." in log
                     assert self._snapshot() == before
 
     def test_import_existing_tag_moved_under_later_new_parent(self) -> None:
         """
-        An existing tag moved under a new parent defined later in the file is
+        An existing tag moved under a new parent whose row comes later in the file is
         accepted, and the tag ends up under the new parent.
+
+        Before      After
+        tag_1       tag_1
+            tag_2   new_parent
+                        tag_2
         """
         result, log = self._import_rows([
-            {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_90"},
-            {"id": "tag_90", "value": "Tag 90"},
+            {"id": "tag_2", "value": "Tag 2", "parent_id": "new_parent"},
+            {"id": "new_parent", "value": "New parent"},
         ])
         assert result
         assert "Traceback" not in log
-        parent = self.taxonomy.tag_set.get(external_id="tag_90")
+        parent = self.taxonomy.tag_set.get(external_id="new_parent")
         assert self.taxonomy.tag_set.get(external_id="tag_2").parent_id == parent.pk
-
-    def test_import_swap_rename_child_stale_parent_id_rejected_once(self) -> None:
-        """
-        In a tag_1 <-> tag_3 swap, a rename row (tag_2 -> tag_20) naming the
-        stale parent id tag_1 is rejected, and the error appears exactly once.
-        """
-        before = self._snapshot()
-        result, log = self._import_rows([
-            {"id": "tag_3", "value": "Tag 1", "previous_id": "tag_1"},
-            {"id": "tag_1", "value": "Tag 3", "previous_id": "tag_3"},
-            {"id": "tag_20", "value": "Tag 2", "previous_id": "tag_2", "parent_id": "tag_1"},
-        ])
-        assert not result
-        assert "Traceback" not in log
-        assert log.count("Row 3's parent_id (tag_1) names an id this file renames away.") == 1
-        assert self._snapshot() == before
 
     def test_import_rename_child_stale_parent_id_without_swap_reported_once(self) -> None:
         """
-        Without a swap, a rename row (tag_2 -> tag_20) naming the stale parent
-        id tag_1 gets only the rename action's error, once.
+        Without a swap, a renamed child that names its parent's stale id gets only the rename
+        action's error, once.
+
+        Before      File rows
+        tag_1       tag_50 (previous_id tag_1)
+            tag_2   tag_20 (previous_id tag_2, parent_id tag_1)
         """
         before = self._snapshot()
         result, log = self._import_rows([
@@ -1371,65 +1403,84 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
 
     def test_import_case_only_parent_rename_keeps_child_parent(self) -> None:
         """
-        Renaming a parent only by case succeeds, and a child that keeps the
-        old casing in parent_id stays under the same parent.
+        Renaming a parent only by case succeeds in either row order, and a child that names
+        the parent in any case stays under the same parent.
+
+        Before      After
+        tag_1       TAG_1
+            tag_2       tag_2 (parent_id tag_1, TAG_1 or Tag_1)
         """
         pk_1 = self.taxonomy.tag_set.get(external_id="tag_1").pk
         pk_2 = self.taxonomy.tag_set.get(external_id="tag_2").pk
-        result, log = self._import_rows([
-            {"id": "TAG_1", "value": "Tag 1", "previous_id": "tag_1"},
-            {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_1"},
-        ])
-        assert result
-        assert "Traceback" not in log
-        assert Tag.objects.get(pk=pk_1).external_id == "TAG_1"
-        assert Tag.objects.get(pk=pk_2).parent_id == pk_1
+        rename = {"id": "TAG_1", "value": "Tag 1", "previous_id": "tag_1"}
+        for parent_id in ("tag_1", "TAG_1", "Tag_1"):
+            child = {"id": "tag_2", "value": "Tag 2", "parent_id": parent_id}
+            for rows in ([rename, child], [child, rename]):
+                with self.subTest(parent_id=parent_id, first=rows[0]["id"]), transaction.atomic():
+                    result, log = self._import_rows(rows)
+                    assert result
+                    assert "Traceback" not in log
+                    assert Tag.objects.get(pk=pk_1).external_id == "TAG_1"
+                    assert Tag.objects.get(pk=pk_2).parent_id == pk_1
+                    transaction.set_rollback(True)
 
     def test_import_new_child_before_new_parent_row(self) -> None:
         """
-        A new child row listed before its new parent row succeeds, the child
-        is nested under the new parent, and the export shows its parent_id.
+        A new child row listed before its new parent row succeeds, the child is nested under
+        the new parent, and the export shows its parent_id.
+
+        File rows                           After
+        new_child (parent_id new_parent)    new_parent
+        new_parent                              new_child
         """
         result, log = self._import_rows([
-            {"id": "tag_91", "value": "Tag 91", "parent_id": "tag_90"},
-            {"id": "tag_90", "value": "Tag 90"},
+            {"id": "new_child", "value": "New child", "parent_id": "new_parent"},
+            {"id": "new_parent", "value": "New parent"},
         ])
         assert result
         assert "Traceback" not in log
-        parent = self.taxonomy.tag_set.get(external_id="tag_90")
-        assert self.taxonomy.tag_set.get(external_id="tag_91").parent_id == parent.pk
+        parent = self.taxonomy.tag_set.get(external_id="new_parent")
+        assert self.taxonomy.tag_set.get(external_id="new_child").parent_id == parent.pk
 
         output = import_export_api.export_tags(self.taxonomy, self.parser_format)
         exported_by_id = {tag["id"]: tag for tag in json.loads(output).get("tags")}
-        assert exported_by_id["tag_91"]["parent_id"] == "tag_90"
+        assert exported_by_id["new_child"]["parent_id"] == "new_parent"
 
     def test_import_child_first_references_plain_rename_new_id(self) -> None:
         """
-        A new child row listed before the plain rename (tag_1 -> tag_50) of
-        its parent, and naming the new id, succeeds and is nested under the
-        renamed tag.
+        A new child listed before the row that renames its parent, and naming the parent's
+        new id, succeeds and is nested under the renamed tag.
+
+        Before      After
+        tag_1       tag_50 (was tag_1)
+            tag_2       tag_2
+                        new_child
         """
         pk_1 = self.taxonomy.tag_set.get(external_id="tag_1").pk
         result, log = self._import_rows([
-            {"id": "tag_60", "value": "Tag 60", "parent_id": "tag_50"},
+            {"id": "new_child", "value": "New child", "parent_id": "tag_50"},
             {"id": "tag_50", "value": "Tag 1", "previous_id": "tag_1"},
         ])
         assert result
         assert "Traceback" not in log
         assert Tag.objects.get(pk=pk_1).external_id == "tag_50"
-        assert self.taxonomy.tag_set.get(external_id="tag_60").parent_id == pk_1
+        assert self.taxonomy.tag_set.get(external_id="new_child").parent_id == pk_1
 
     def test_import_plain_and_rename_children_of_renamed_parent_in_reverse_order(self) -> None:
         """
-        A plain child and a rename-row child both naming the renamed parent's
-        new id, listed before the parent's rename row, succeed and end up
-        under the renamed parent.
+        A new child and a renamed child, both naming the renamed parent's new id and listed
+        before the parent's rename row, succeed and end up under the renamed parent.
+
+        Before      After
+        tag_1       tag_50 (was tag_1)
+            tag_2       tag_20 (was tag_2)
+                        new_child
         """
         pk_1 = self.taxonomy.tag_set.get(external_id="tag_1").pk
         pk_2 = self.taxonomy.tag_set.get(external_id="tag_2").pk
         result, log = self._import_rows([
             {"id": "tag_20", "value": "Tag 2", "previous_id": "tag_2", "parent_id": "tag_50"},
-            {"id": "tag_60", "value": "Tag 60", "parent_id": "tag_50"},
+            {"id": "new_child", "value": "New child", "parent_id": "tag_50"},
             {"id": "tag_50", "value": "Tag 1", "previous_id": "tag_1"},
         ])
         assert result
@@ -1437,7 +1488,7 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         assert Tag.objects.get(pk=pk_1).external_id == "tag_50"
         assert Tag.objects.get(pk=pk_2).external_id == "tag_20"
         assert Tag.objects.get(pk=pk_2).parent_id == pk_1
-        assert self.taxonomy.tag_set.get(external_id="tag_60").parent_id == pk_1
+        assert self.taxonomy.tag_set.get(external_id="new_child").parent_id == pk_1
 
     def test_import_same_value_without_external_id(self) -> None:
         new_taxonomy = Taxonomy(name="New taxonomy")
@@ -1461,23 +1512,29 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         assert result
 
 
-def _row(tag_id: str, value: str, parent_id: str | None = None, previous_id: str | None = None) -> dict:
-    """
-    Build an import row, leaving out the optional fields that are not set.
-    """
-    row = {"id": tag_id, "value": value}
-    if parent_id:
-        row["parent_id"] = parent_id
-    if previous_id:
-        row["previous_id"] = previous_id
-    return row
-
-
 class TestImportAcceptanceScenarios(TestCase):
     """
-    The acceptance scenarios of the external_id rename import (#673, #858), run the way the
-    Studio import wizard does: a full replace import of a CSV or JSON file, checked through
-    the import log and the exported file.
+    The acceptance scenarios of #673 and #858, run the way the Studio import wizard runs an
+    import: a full replace import of a CSV or JSON file, checked through the import log and
+    the exported file.
+
+    Rows are written as ``TagItem`` objects, whose fields are the file's columns. Some #673
+    scenarios are covered by tests in ``TestImportExportApi`` and are not repeated here:
+
+    - "re-import is idempotent (previous_id equals the new id)":
+      ``test_import_rename_external_id_previous_id_equals_id_is_noop``.
+    - "previous_id is present but matches no existing tag (likely typo)":
+      ``test_import_rename_external_id_unmatched_previous_id_rejected``.
+    - "a rename claims an id the same import frees by removing its holder":
+      ``test_import_rename_external_id_reuses_id_freed_by_replace_delete``, and
+      ``test_import_child_and_renamed_parent_row_claiming_freed_id`` for both row orders.
+    - "a child row referencing its parent's pre-import external_id is rejected":
+      ``test_import_existing_child_names_renamed_away_parent_rejected``.
+    - "a parent and its child are both renamed in one import":
+      ``test_import_rename_parent_and_child_both_renamed``.
+
+    The #858 swap criteria are covered by ``test_import_swap_with_children_in_any_row_order``
+    and ``test_import_swap_children_stale_ids_rejected_in_any_row_order``.
     """
 
     formats = (ParserFormat.JSON, ParserFormat.CSV)
@@ -1488,19 +1545,32 @@ class TestImportAcceptanceScenarios(TestCase):
         super().setUpTestData()
         cls.taxonomy = Taxonomy.objects.create(name="Competencies")
 
-    def _render(self, rows: list[dict], parser_format: ParserFormat) -> BytesIO:
+    def _render(self, rows: list[TagItem], parser_format: ParserFormat) -> BytesIO:
         """
-        Render `rows` as an import file of the given format.
+        Render ``rows`` as an import file of the given format, leaving out unset fields.
         """
+        file_rows = [
+            {
+                key: value
+                for key, value in (
+                    ("id", row.id),
+                    ("value", row.value),
+                    ("parent_id", row.parent_id),
+                    ("previous_id", row.previous_id),
+                )
+                if value
+            }
+            for row in rows
+        ]
         if parser_format == ParserFormat.JSON:
-            return BytesIO(json.dumps({"tags": rows}).encode())
+            return BytesIO(json.dumps({"tags": file_rows}).encode())
         buffer = StringIO()
         writer = csv.DictWriter(buffer, fieldnames=["id", "value", "parent_id", "previous_id"])
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(file_rows)
         return BytesIO(buffer.getvalue().encode())
 
-    def _import(self, rows: list[dict], parser_format: ParserFormat, plan_only: bool = False):
+    def _import(self, rows: list[TagItem], parser_format: ParserFormat, plan_only: bool = False):
         """
         Run a full replace import and return (result, log, plan).
         """
@@ -1516,7 +1586,7 @@ class TestImportAcceptanceScenarios(TestCase):
         assert "Traceback" not in log
         return result, log, plan
 
-    def _seed(self, rows: list[dict]) -> dict[str, int]:
+    def _seed(self, rows: list[TagItem]) -> dict[str, int]:
         """
         Create the starting tags and return their pks by external_id.
         """
@@ -1587,31 +1657,51 @@ class TestImportAcceptanceScenarios(TestCase):
             yield
             transaction.set_rollback(True)
 
-    def _assert_rejected(self, rows: list[dict], parser_format: ParserFormat, *messages: str) -> str:
+    def _assert_rejected(
+        self,
+        rows: list[TagItem],
+        parser_format: ParserFormat,
+        *,
+        messages: Sequence[str],
+        error_count: int | None = None,
+    ) -> str:
         """
-        Check the import is rejected, its log has each message, and nothing changed.
+        Check the import is rejected, its log has each of ``messages``, and nothing changed.
+
+        With ``error_count``, also check the plan has exactly that many errors.
         """
         snapshot = set(self.taxonomy.tag_set.values_list("pk", "external_id", "value", "parent_id"))
         before = self._export(parser_format)
-        result, log, _plan = self._import(rows, parser_format)
+        result, log, plan = self._import(rows, parser_format)
         assert not result
         for message in messages:
             assert message in log
+        if error_count is not None:
+            assert plan is not None
+            assert len(plan.errors) == error_count
         assert set(self.taxonomy.tag_set.values_list("pk", "external_id", "value", "parent_id")) == snapshot
         assert self._export(parser_format) == before
         return log
 
     def test_rename_shows_in_export_without_duplicate_or_previous_id(self) -> None:
         """
-        S1, S2, S15: a rename shows in the export once, as the new id, with no row for the old
-        id and no previous_id field, and the tag keeps its pk and its content associations.
+        #673 scenarios "rename an external_id, verified via CSV export", "rename an
+        external_id, verified via JSON export" and "renaming an external_id preserves the
+        competency's content associations": the export shows the tag once, with its new id,
+        no row for the old id and no previous_id field, and the tag keeps its pk and its
+        content associations.
+
+        Before      After
+        COMP-A      COMP-B (same tag)
         """
-        pks = self._seed([_row("COMP-A", "Alpha")])
+        pks = self._seed([TagItem(id="COMP-A", value="Alpha")])
         object_tags = self._associate(pks, "COMP-A")
         for parser_format in self.formats:
             with self.subTest(parser_format=parser_format), self._rolled_back():
                 count = len(self._exported_rows(parser_format))
-                result, _log, _plan = self._import([_row("COMP-B", "Alpha", previous_id="COMP-A")], parser_format)
+                result, _log, _plan = self._import(
+                    [TagItem(id="COMP-B", value="Alpha", previous_id="COMP-A")], parser_format,
+                )
                 assert result
                 assert [row["id"] for row in self._exported_rows(parser_format)] == ["COMP-B"]
                 assert len(self._exported_rows(parser_format)) == count
@@ -1619,104 +1709,63 @@ class TestImportAcceptanceScenarios(TestCase):
                 assert Tag.objects.get(pk=pks["COMP-A"]).external_id == "COMP-B"
                 self._assert_associations_kept(object_tags)
 
-    def test_reimport_with_previous_id_equal_to_id_is_idempotent(self) -> None:
-        """
-        S3: a row whose previous_id equals its id succeeds and the export does not change.
-        """
-        self._seed([_row("COMP-B", "Beta")])
-        for parser_format in self.formats:
-            with self.subTest(parser_format=parser_format), self._rolled_back():
-                before = self._export(parser_format)
-                result, _log, _plan = self._import([_row("COMP-B", "Beta", previous_id="COMP-B")], parser_format)
-                assert result
-                assert self._export(parser_format) == before
-
     def test_new_id_without_previous_id_is_created(self) -> None:
         """
-        S4: a row with a new id and no previous_id creates a tag that shows in the export.
+        #673 scenario "no previous_id, new id (create behavior preserved)": a row with a new
+        id and no previous_id creates a tag that shows in the export.
+
+        Before      After
+        COMP-A      COMP-A
+                    COMP-Z
         """
-        self._seed([_row("COMP-A", "Alpha")])
+        self._seed([TagItem(id="COMP-A", value="Alpha")])
         for parser_format in self.formats:
             with self.subTest(parser_format=parser_format), self._rolled_back():
                 result, _log, _plan = self._import(
-                    [_row("COMP-A", "Alpha"), _row("COMP-Z", "Zulu")], parser_format,
+                    [TagItem(id="COMP-A", value="Alpha"), TagItem(id="COMP-Z", value="Zulu")], parser_format,
                 )
                 assert result
                 assert self._exported_ids(parser_format) == {"Alpha": "COMP-A", "Zulu": "COMP-Z"}
 
-    def test_unmatched_previous_id_rejected(self) -> None:
-        """
-        S5: an unmatched previous_id is rejected with the id in the log, nothing is introduced,
-        and when several rows have one, every id is in the same log.
-        """
-        self._seed([_row("COMP-A", "Alpha"), _row("COMP-C", "Gamma")])
-        for parser_format in self.formats:
-            with self.subTest(parser_format=parser_format):
-                self._assert_rejected(
-                    [_row("COMP-B", "Alpha", previous_id="COMP-GHOST"), _row("COMP-C", "Gamma")],
-                    parser_format,
-                    "COMP-GHOST",
-                )
-                self._assert_rejected(
-                    [
-                        _row("COMP-B", "Alpha", previous_id="COMP-GHOST-1"),
-                        _row("COMP-D", "Gamma", previous_id="COMP-GHOST-2"),
-                    ],
-                    parser_format,
-                    "COMP-GHOST-1",
-                    "COMP-GHOST-2",
-                )
-
     def test_rename_onto_id_of_kept_tag_rejected(self) -> None:
         """
-        S6, S8: a rename onto an id whose holder the same file keeps is rejected, in either row
-        order, whether the holder is kept as a plain row or as a row with previous_id equal to id.
+        #673 scenarios "new id collides with a different tag's external_id in the same
+        taxonomy" and "a rename onto an id whose holder the same import keeps is rejected":
+        the rename is rejected in either row order, whether the file keeps the holder as a
+        plain row or as a row whose previous_id equals its id.
+
+        Before      File rows
+        COMP-Z      COMP-Z (previous_id COMP-A)
+        COMP-A      COMP-Z (the holder, kept)
         """
-        self._seed([_row("COMP-Z", "Xray"), _row("COMP-A", "Yank")])
-        rename = _row("COMP-Z", "Yank", previous_id="COMP-A")
+        self._seed([TagItem(id="COMP-Z", value="Xray"), TagItem(id="COMP-A", value="Yank")])
+        rename = TagItem(id="COMP-Z", value="Yank", previous_id="COMP-A")
         keeps = {
-            "plain": _row("COMP-Z", "Xray"),
-            "previous_id equal to id": _row("COMP-Z", "Xray", previous_id="COMP-Z"),
+            "plain": TagItem(id="COMP-Z", value="Xray"),
+            "previous_id equal to id": TagItem(id="COMP-Z", value="Xray", previous_id="COMP-Z"),
         }
         for parser_format in self.formats:
             for name, keep in keeps.items():
                 for rows in ([rename, keep], [keep, rename]):
-                    with self.subTest(parser_format=parser_format, keep=name, first=rows[0]["value"]):
-                        self._assert_rejected(rows, parser_format, "COMP-Z")
-
-    def test_rename_onto_id_freed_by_omitting_holder(self) -> None:
-        """
-        S7: a rename onto an id the same file frees by omitting its holder succeeds in every row
-        order: the holder is gone, the renamed tag keeps its pk and associations, and the export
-        shows it.
-        """
-        pks = self._seed([
-            _row("COMP-Z", "Xray"), _row("COMP-A", "Yank"), _row("COMP-W", "Whisky"), _row("COMP-V", "Victor"),
-        ])
-        object_tags = self._associate(pks, "COMP-A")
-        rows = [
-            _row("COMP-Z", "Yank", previous_id="COMP-A"), _row("COMP-W", "Whisky"), _row("COMP-V", "Victor"),
-        ]
-        for parser_format in self.formats:
-            for order in itertools.permutations(range(3)):
-                with self.subTest(parser_format=parser_format, order=order), self._rolled_back():
-                    result, _log, _plan = self._import([rows[i] for i in order], parser_format)
-                    assert result
-                    assert not Tag.objects.filter(pk=pks["COMP-Z"]).exists()
-                    assert Tag.objects.get(pk=pks["COMP-A"]).external_id == "COMP-Z"
-                    self._assert_associations_kept(object_tags)
-                    assert self._exported_ids(parser_format) == {
-                        "Yank": "COMP-Z", "Whisky": "COMP-W", "Victor": "COMP-V",
-                    }
+                    with self.subTest(parser_format=parser_format, keep=name, first=rows[0].value):
+                        self._assert_rejected(rows, parser_format, messages=["COMP-Z"])
 
     def test_swap_keeps_tags_and_associations(self) -> None:
         """
-        S9: a swap succeeds in either row order, creates and deletes nothing, keeps both tags'
-        pks and associations, and the export shows the swapped ids.
+        #673 scenario "two competencies swap external_ids in one import": the swap succeeds
+        in either row order, creates and deletes nothing, keeps both tags' pks and content
+        associations, and the export shows the swapped ids.
+
+        Before      After
+        COMP-A      COMP-B (was COMP-A)
+        COMP-B      COMP-A (was COMP-B)
         """
-        pks = self._seed([_row("COMP-A", "Alpha"), _row("COMP-B", "Beta")])
+        pks = self._seed([TagItem(id="COMP-A", value="Alpha"), TagItem(id="COMP-B", value="Beta")])
         object_tags = self._associate(pks, "COMP-A", "COMP-B")
-        rows = [_row("COMP-B", "Alpha", previous_id="COMP-A"), _row("COMP-A", "Beta", previous_id="COMP-B")]
+        rows = [
+            TagItem(id="COMP-B", value="Alpha", previous_id="COMP-A"),
+            TagItem(id="COMP-A", value="Beta", previous_id="COMP-B"),
+        ]
         for parser_format in self.formats:
             for order in itertools.permutations(range(2)):
                 with self.subTest(parser_format=parser_format, order=order), self._rolled_back():
@@ -1730,14 +1779,23 @@ class TestImportAcceptanceScenarios(TestCase):
 
     def test_three_way_rotation_in_any_row_order(self) -> None:
         """
-        S10: a three-way rotation succeeds in all six row orders, and each tag holds the id its
-        own row specified.
+        #673 scenario "three competencies rotate external_ids in one import": the rotation
+        succeeds in all six row orders, and each tag holds the id its own row specified.
+
+        Before      After
+        COMP-A      COMP-B (was COMP-A)
+        COMP-B      COMP-C (was COMP-B)
+        COMP-C      COMP-A (was COMP-C)
         """
-        pks = self._seed([_row("COMP-A", "Alpha"), _row("COMP-B", "Beta"), _row("COMP-C", "Gamma")])
+        pks = self._seed([
+            TagItem(id="COMP-A", value="Alpha"),
+            TagItem(id="COMP-B", value="Beta"),
+            TagItem(id="COMP-C", value="Gamma"),
+        ])
         rows = [
-            _row("COMP-B", "Alpha", previous_id="COMP-A"),
-            _row("COMP-C", "Beta", previous_id="COMP-B"),
-            _row("COMP-A", "Gamma", previous_id="COMP-C"),
+            TagItem(id="COMP-B", value="Alpha", previous_id="COMP-A"),
+            TagItem(id="COMP-C", value="Beta", previous_id="COMP-B"),
+            TagItem(id="COMP-A", value="Gamma", previous_id="COMP-C"),
         ]
         for parser_format in self.formats:
             for order in itertools.permutations(range(3)):
@@ -1753,27 +1811,45 @@ class TestImportAcceptanceScenarios(TestCase):
 
     def test_rename_chain_colliding_with_kept_tag_rejected_whole(self) -> None:
         """
-        S11: a rename chain that ends on an id the file keeps is rejected whole in all six row
-        orders, with the id in the log and all three tags unchanged.
+        #673 scenario "a rename chain that collides with a competency the file keeps is
+        rejected whole": the import is rejected in all six row orders, with the id in the log
+        and all three tags unchanged.
+
+        Before      File rows
+        COMP-A      COMP-B (previous_id COMP-A)
+        COMP-B      COMP-C (previous_id COMP-B)
+        COMP-C      COMP-C (kept)
         """
-        self._seed([_row("COMP-A", "Alpha"), _row("COMP-B", "Beta"), _row("COMP-C", "Gamma")])
+        self._seed([
+            TagItem(id="COMP-A", value="Alpha"),
+            TagItem(id="COMP-B", value="Beta"),
+            TagItem(id="COMP-C", value="Gamma"),
+        ])
         rows = [
-            _row("COMP-B", "Alpha", previous_id="COMP-A"),
-            _row("COMP-C", "Beta", previous_id="COMP-B"),
-            _row("COMP-C", "Gamma"),
+            TagItem(id="COMP-B", value="Alpha", previous_id="COMP-A"),
+            TagItem(id="COMP-C", value="Beta", previous_id="COMP-B"),
+            TagItem(id="COMP-C", value="Gamma"),
         ]
         for parser_format in self.formats:
             for order in itertools.permutations(range(3)):
                 with self.subTest(parser_format=parser_format, order=order):
-                    self._assert_rejected([rows[i] for i in order], parser_format, "COMP-C")
+                    self._assert_rejected([rows[i] for i in order], parser_format, messages=["COMP-C"])
 
     def test_child_names_new_id_of_renamed_parent(self) -> None:
         """
-        S12: a child row naming its renamed parent's new id succeeds in either row order, the
-        child stays under the same parent tag, and the export shows it nested under the new id.
+        #673 scenario "a child row references its renamed parent's new external_id": the
+        import succeeds in either row order, the child stays under the same parent tag, and
+        the export shows it nested under the new id.
+
+        Before          After
+        COMP-P          COMP-P2 (was COMP-P)
+            COMP-K          COMP-K
         """
-        pks = self._seed([_row("COMP-P", "Parent"), _row("COMP-K", "Kid", parent_id="COMP-P")])
-        rows = [_row("COMP-P2", "Parent", previous_id="COMP-P"), _row("COMP-K", "Kid", parent_id="COMP-P2")]
+        pks = self._seed([TagItem(id="COMP-P", value="Parent"), TagItem(id="COMP-K", value="Kid", parent_id="COMP-P")])
+        rows = [
+            TagItem(id="COMP-P2", value="Parent", previous_id="COMP-P"),
+            TagItem(id="COMP-K", value="Kid", parent_id="COMP-P2"),
+        ]
         for parser_format in self.formats:
             for order in itertools.permutations(range(2)):
                 with self.subTest(parser_format=parser_format, order=order), self._rolled_back():
@@ -1783,56 +1859,28 @@ class TestImportAcceptanceScenarios(TestCase):
                     assert self._exported_ids(parser_format)["Parent"] == "COMP-P2"
                     assert self._exported_parents(parser_format)["Kid"] == "COMP-P2"
 
-    def test_child_names_pre_import_id_of_renamed_parent_rejected(self) -> None:
-        """
-        S13, A: an existing child naming its parent's pre-import id is rejected in either row
-        order, with its row position and the new id in the log, and nothing changes.
-        """
-        self._seed([_row("COMP-P", "Parent"), _row("COMP-K", "Kid", parent_id="COMP-P")])
-        rows = [_row("COMP-P2", "Parent", previous_id="COMP-P"), _row("COMP-K", "Kid", parent_id="COMP-P")]
-        for parser_format in self.formats:
-            for order in itertools.permutations(range(2)):
-                with self.subTest(parser_format=parser_format, order=order):
-                    file_rows = [rows[i] for i in order]
-                    child_row = file_rows.index(rows[1]) + 1
-                    self._assert_rejected(
-                        file_rows,
-                        parser_format,
-                        f"Row {child_row}'s parent_id (COMP-P) names an id this file renames away.",
-                        "Use 'COMP-P2' as the parent_id.",
-                    )
-
-    def test_parent_and_child_both_renamed(self) -> None:
-        """
-        S14: renaming a parent and its child together succeeds in either row order, and the
-        export shows both new ids with the child nested under the parent.
-        """
-        pks = self._seed([_row("COMP-P", "Parent"), _row("COMP-K", "Kid", parent_id="COMP-P")])
-        rows = [
-            _row("COMP-P2", "Parent", previous_id="COMP-P"),
-            _row("COMP-K2", "Kid", parent_id="COMP-P2", previous_id="COMP-K"),
-        ]
-        for parser_format in self.formats:
-            for order in itertools.permutations(range(2)):
-                with self.subTest(parser_format=parser_format, order=order), self._rolled_back():
-                    result, _log, _plan = self._import([rows[i] for i in order], parser_format)
-                    assert result
-                    assert Tag.objects.get(pk=pks["COMP-K"]).parent_id == pks["COMP-P"]
-                    assert self._exported_ids(parser_format) == {"Parent": "COMP-P2", "Kid": "COMP-K2"}
-                    assert self._exported_parents(parser_format) == {"Parent": None, "Kid": "COMP-P2"}
-
     def test_export_has_no_previous_id_and_round_trips_without_changes(self) -> None:
         """
-        S16: the export only has id, value and parent_id, and importing it back unchanged plans
-        no change.
+        #673 scenario "export does not carry previous_id (round-trip safety), CSV and JSON":
+        the export only has id, value and parent_id, and importing it back unchanged plans no
+        change.
+
+        Before and after
+        COMP-P
+            COMP-K
+        COMP-A
         """
-        self._seed([_row("COMP-P", "Parent"), _row("COMP-K", "Kid", parent_id="COMP-P"), _row("COMP-A", "Alpha")])
+        self._seed([
+            TagItem(id="COMP-P", value="Parent"),
+            TagItem(id="COMP-K", value="Kid", parent_id="COMP-P"),
+            TagItem(id="COMP-A", value="Alpha"),
+        ])
         for parser_format in self.formats:
             with self.subTest(parser_format=parser_format):
                 exported = self._exported_rows(parser_format)
                 assert len(exported) == 3
                 result, _log, plan = self._import(
-                    [{key: value for key, value in row.items() if value} for row in exported],
+                    [TagItem(id=row["id"], value=row["value"], parent_id=row["parent_id"]) for row in exported],
                     parser_format,
                     plan_only=True,
                 )
@@ -1840,101 +1888,110 @@ class TestImportAcceptanceScenarios(TestCase):
                 assert plan is not None
                 assert {action.name for action in plan.actions} == {"without_changes"}
 
-    def test_swap_with_children_in_representative_orders(self) -> None:
-        """
-        B, C: in a swap where each parent has a child, children naming the end-state ids succeed
-        and stay on their physical parents, and children naming the stale ids are rejected with
-        their row positions, in several row orders and both formats.
-        """
-        pks = self._seed([
-            _row("COMP-A", "Alpha"), _row("COMP-AK", "Alpha kid", parent_id="COMP-A"),
-            _row("COMP-B", "Beta"), _row("COMP-BK", "Beta kid", parent_id="COMP-B"),
-        ])
-        swap = [_row("COMP-B", "Alpha", previous_id="COMP-A"), _row("COMP-A", "Beta", previous_id="COMP-B")]
-        accepted = swap + [
-            _row("COMP-AK", "Alpha kid", parent_id="COMP-B"), _row("COMP-BK", "Beta kid", parent_id="COMP-A"),
-        ]
-        stale = swap + [
-            _row("COMP-AK", "Alpha kid", parent_id="COMP-A"), _row("COMP-BK", "Beta kid", parent_id="COMP-B"),
-        ]
-        orders = [(0, 1, 2, 3), (2, 3, 0, 1), (2, 0, 3, 1), (3, 2, 1, 0)]
-        for parser_format in self.formats:
-            for order in orders:
-                with self.subTest(parser_format=parser_format, order=order), self._rolled_back():
-                    result, _log, _plan = self._import([accepted[i] for i in order], parser_format)
-                    assert result
-                    assert Tag.objects.get(pk=pks["COMP-AK"]).parent_id == pks["COMP-A"]
-                    assert Tag.objects.get(pk=pks["COMP-BK"]).parent_id == pks["COMP-B"]
-                    assert self._exported_parents(parser_format) == {
-                        "Alpha": None, "Beta": None, "Alpha kid": "COMP-B", "Beta kid": "COMP-A",
-                    }
-                with self.subTest(parser_format=parser_format, order=order, stale=True):
-                    file_rows = [stale[i] for i in order]
-                    self._assert_rejected(
-                        file_rows,
-                        parser_format,
-                        f"Row {file_rows.index(stale[2]) + 1}'s parent_id (COMP-A) names an id this file renames away.",
-                        f"Row {file_rows.index(stale[3]) + 1}'s parent_id (COMP-B) names an id this file renames away.",
-                    )
-
     def test_every_rejected_row_is_in_the_one_log(self) -> None:
         """
-        Several rejected rows of different kinds each have their message in the same log, since
-        the wizard shows the log as one block.
+        Several rejected rows of different kinds each have their message in the same log,
+        because the wizard shows the log as one block (#673). The row numbers count data
+        rows, so they are the same in JSON and CSV.
+
+        Before          File rows
+        COMP-P          1: COMP-P2 (previous_id COMP-P)
+            COMP-K1     2: COMP-K1 (parent_id COMP-P, stale)
+            COMP-K2     3: COMP-K2 (parent_id COMP-P, stale)
+        COMP-A          4: COMP-B (previous_id COMP-GHOST, unmatched)
         """
         self._seed([
-            _row("COMP-P", "Parent"),
-            _row("COMP-K1", "Kid 1", parent_id="COMP-P"),
-            _row("COMP-K2", "Kid 2", parent_id="COMP-P"),
-            _row("COMP-A", "Alpha"),
+            TagItem(id="COMP-P", value="Parent"),
+            TagItem(id="COMP-K1", value="Kid 1", parent_id="COMP-P"),
+            TagItem(id="COMP-K2", value="Kid 2", parent_id="COMP-P"),
+            TagItem(id="COMP-A", value="Alpha"),
         ])
         rows = [
-            _row("COMP-P2", "Parent", previous_id="COMP-P"),
-            _row("COMP-K1", "Kid 1", parent_id="COMP-P"),
-            _row("COMP-K2", "Kid 2", parent_id="COMP-P"),
-            _row("COMP-B", "Alpha", previous_id="COMP-GHOST"),
+            TagItem(id="COMP-P2", value="Parent", previous_id="COMP-P"),
+            TagItem(id="COMP-K1", value="Kid 1", parent_id="COMP-P"),
+            TagItem(id="COMP-K2", value="Kid 2", parent_id="COMP-P"),
+            TagItem(id="COMP-B", value="Alpha", previous_id="COMP-GHOST"),
         ]
         for parser_format in self.formats:
             with self.subTest(parser_format=parser_format):
                 self._assert_rejected(
                     rows,
                     parser_format,
-                    "Row 2's parent_id (COMP-P) names an id this file renames away.",
-                    "Row 3's parent_id (COMP-P) names an id this file renames away.",
-                    "COMP-GHOST",
+                    messages=[
+                        "Row 2's parent_id (COMP-P) names an id this file renames away.",
+                        "Row 3's parent_id (COMP-P) names an id this file renames away.",
+                        "COMP-GHOST",
+                    ],
                 )
 
     def test_rename_onto_freed_id_forming_parent_cycle_rejected(self) -> None:
         """
-        A rename onto an id the same import frees can close a parent cycle through the
-        renamed tag: a self-parent, and two renames naming each other as parent. Both are
-        rejected at the plan step with exactly one cycle error, in either row order.
+        A rename onto an id that the same import frees can close a parent cycle through the
+        renamed tag. Both cases below are rejected at the Plan step with exactly one error,
+        the cycle error on the cycle's first row, in either row order.
+
+        Self parent:
+        Before      File rows
+        COMP-X      COMP-X (previous_id COMP-Y, parent_id COMP-X)
+        COMP-Y
+
+        Two renames naming each other as parent:
+        Before      File rows
+        COMP-A      COMP-A (previous_id COMP-C, parent_id COMP-B)
+        COMP-B      COMP-B (previous_id COMP-D, parent_id COMP-A)
+        COMP-C
+        COMP-D
         """
-        self._seed([_row(tag_id, f"Value {tag_id}") for tag_id in ("COMP-X", "COMP-Y")])
-        self_parent = [_row("COMP-X", "Value COMP-Y", parent_id="COMP-X", previous_id="COMP-Y")]
+        self._seed([TagItem(id="COMP-X", value="Xray"), TagItem(id="COMP-Y", value="Yank")])
+        self_parent = [TagItem(id="COMP-X", value="Yank", parent_id="COMP-X", previous_id="COMP-Y")]
         for parser_format in self.formats:
             with self.subTest(parser_format=parser_format, case="self parent"):
-                log = self._assert_rejected(self_parent, parser_format, "creates a parent cycle.")
-                assert log.count("creates a parent cycle.") == 1
-        self._seed([_row(tag_id, f"Value {tag_id}") for tag_id in ("COMP-A", "COMP-B", "COMP-C", "COMP-D")])
+                self._assert_rejected(
+                    self_parent,
+                    parser_format,
+                    messages=["Row 1's parent_id (COMP-X) creates a parent cycle."],
+                    error_count=1,
+                )
+        self._seed([
+            TagItem(id="COMP-A", value="Alpha"), TagItem(id="COMP-B", value="Beta"),
+            TagItem(id="COMP-C", value="Gamma"), TagItem(id="COMP-D", value="Delta"),
+        ])
         rows = [
-            _row("COMP-A", "Value COMP-C", parent_id="COMP-B", previous_id="COMP-C"),
-            _row("COMP-B", "Value COMP-D", parent_id="COMP-A", previous_id="COMP-D"),
+            TagItem(id="COMP-A", value="Gamma", parent_id="COMP-B", previous_id="COMP-C"),
+            TagItem(id="COMP-B", value="Delta", parent_id="COMP-A", previous_id="COMP-D"),
         ]
         for parser_format in self.formats:
             for order in itertools.permutations(range(2)):
                 with self.subTest(parser_format=parser_format, order=order, case="two renames"):
-                    log = self._assert_rejected([rows[i] for i in order], parser_format, "creates a parent cycle.")
-                    assert log.count("creates a parent cycle.") == 1
+                    file_rows = [rows[i] for i in order]
+                    self._assert_rejected(
+                        file_rows,
+                        parser_format,
+                        messages=[f"Row 1's parent_id ({file_rows[0].parent_id}) creates a parent cycle."],
+                        error_count=1,
+                    )
 
     def test_child_of_deleted_holder_moves_under_tag_renamed_onto_its_id(self) -> None:
         """
-        A child of a tag that the import deletes, while another tag is renamed onto the
-        deleted tag's id, ends up under the renamed tag, not as a root, in either row order.
+        The file omits COMP-X, so COMP-X is deleted, and renames COMP-Y onto the id COMP-X.
+        The child of the deleted tag names COMP-X, so it ends up under the renamed tag, not
+        as a root, in either row order.
+
+        Before          After
+        COMP-X          COMP-X (was COMP-Y)
+            COMP-C          COMP-C
+        COMP-Y
         """
-        pks = self._seed([_row("COMP-X", "Xray"), _row("COMP-Y", "Yank"), _row("COMP-C", "Child", parent_id="COMP-X")])
+        pks = self._seed([
+            TagItem(id="COMP-X", value="Xray"),
+            TagItem(id="COMP-Y", value="Yank"),
+            TagItem(id="COMP-C", value="Child", parent_id="COMP-X"),
+        ])
         object_tags = self._associate(pks, "COMP-C")
-        rows = [_row("COMP-X", "Yank", previous_id="COMP-Y"), _row("COMP-C", "Child", parent_id="COMP-X")]
+        rows = [
+            TagItem(id="COMP-X", value="Yank", previous_id="COMP-Y"),
+            TagItem(id="COMP-C", value="Child", parent_id="COMP-X"),
+        ]
         for parser_format in self.formats:
             for order in itertools.permutations(range(2)):
                 with self.subTest(parser_format=parser_format, order=order), self._rolled_back():
@@ -1948,46 +2005,70 @@ class TestImportAcceptanceScenarios(TestCase):
 
     def test_kept_tags_under_deleted_ancestors_become_roots(self) -> None:
         """
-        A kept tag whose parent is deleted by the import becomes a root, also when that
-        parent sits under a deleted ancestor, which would otherwise cascade to the kept tag.
+        A kept tag whose parent the import deletes becomes a root, also when that parent sits
+        under a deleted ancestor, whose delete would otherwise cascade to the kept tag.
+
+        Before (three cases)                                After
+        deleted_root > deleted_child > kept_tag             kept_tag
+        deleted_1 > deleted_2 > kept_upper > deleted_3      kept_upper
+            > kept_lower                                    kept_lower
+        deleted_root > kept_child                           kept_child
         """
         cases = {
             "grandchild of a deleted chain": (
-                [("t0", None), ("t1", "t0"), ("t5", "t1")], ["t5"],
+                [
+                    TagItem(id="deleted_root", value="Deleted root"),
+                    TagItem(id="deleted_child", value="Deleted child", parent_id="deleted_root"),
+                    TagItem(id="kept_tag", value="Kept tag", parent_id="deleted_child"),
+                ],
+                ["kept_tag"],
             ),
             "kept tags at two depths": (
-                [("t0", None), ("t1", "t0"), ("t2", "t1"), ("t3", "t2"), ("t4", "t3")], ["t2", "t4"],
+                [
+                    TagItem(id="deleted_1", value="Deleted 1"),
+                    TagItem(id="deleted_2", value="Deleted 2", parent_id="deleted_1"),
+                    TagItem(id="kept_upper", value="Kept upper", parent_id="deleted_2"),
+                    TagItem(id="deleted_3", value="Deleted 3", parent_id="kept_upper"),
+                    TagItem(id="kept_lower", value="Kept lower", parent_id="deleted_3"),
+                ],
+                ["kept_upper", "kept_lower"],
             ),
-            "child of a deleted root": ([("t0", None), ("t1", "t0")], ["t1"]),
+            "child of a deleted root": (
+                [
+                    TagItem(id="deleted_root", value="Deleted root"),
+                    TagItem(id="kept_child", value="Kept child", parent_id="deleted_root"),
+                ],
+                ["kept_child"],
+            ),
         }
-        for name, (structure, kept) in cases.items():
+        for name, (before, kept_ids) in cases.items():
+            # The file lists only the kept tags, without a parent.
+            kept = [TagItem(id=tag.id, value=tag.value) for tag in before if tag.id in kept_ids]
             for parser_format in self.formats:
                 with self.subTest(case=name, parser_format=parser_format), self._rolled_back():
-                    pks = self._seed([_row(tag_id, f"Value {tag_id}", parent) for tag_id, parent in structure])
-                    result, _log, _plan = self._import(
-                        [_row(tag_id, f"Value {tag_id}") for tag_id in kept], parser_format,
-                    )
+                    pks = self._seed(before)
+                    result, _log, _plan = self._import(kept, parser_format)
                     assert result
-                    assert set(self.taxonomy.tag_set.values_list("pk", flat=True)) == {pks[t] for t in kept}
+                    assert set(self.taxonomy.tag_set.values_list("pk", flat=True)) == {pks[t.id] for t in kept}
                     assert all(tag.parent_id is None for tag in self.taxonomy.tag_set.all())
-                    assert self._exported_parents(parser_format) == {f"Value {t}": None for t in kept}
+                    assert self._exported_parents(parser_format) == {t.value: None for t in kept}
 
     def _assert_tree_after_import(
         self,
-        rows: list[dict],
+        *,
+        rows: list[TagItem],
         expected_parents: dict[str, str | None],
         pks: dict[str, int],
         orders: Sequence[tuple[int, ...]],
         parser_formats: tuple[ParserFormat, ...],
-        *,
-        static_rows: tuple[dict, ...] = (),
+        static_rows: tuple[TagItem, ...] = (),
     ) -> None:
         """
-        Import `rows` in each row order and format, followed by `static_rows` (the other tags
-        the replace import has to keep), and check that every tag in
-        `expected_parents` (external_id to parent external_id) ends up under that parent in the
-        database and the export, and that the tags in `pks` keep their pk. Each import is
-        rolled back.
+        Import ``rows`` in each of ``orders`` and each of ``parser_formats``, followed by
+        ``static_rows`` (the other tags that the replace import has to keep). Check that every
+        tag in ``expected_parents`` (external_id to parent external_id) ends up under that
+        parent in the database and the export, and that each tag in ``pks`` (external_id
+        after the import to pk) keeps its pk. Each import is rolled back.
         """
         for parser_format in parser_formats:
             for order in orders:
@@ -2006,163 +2087,351 @@ class TestImportAcceptanceScenarios(TestCase):
 
     def test_ancestry_inversion_in_any_row_order(self) -> None:
         """
-        A child of t0 becomes t0's ancestor (a new tag g0 is put between them), which only
-        works if it moves out of t0's subtree first. It succeeds in all 24 row orders in JSON and
-        in four of them in CSV, and ends with the expected tree.
+        A child of old_root becomes old_root's ancestor, with a new tag between them. That
+        only works if new_root leaves old_root's subtree before old_root moves under it.
+
+        Before              After
+        old_root            new_root
+            sibling             new_middle
+            new_root                old_root
+                                    sibling
         """
-        pks = self._seed([_row("t0", "Zero"), _row("t1", "One", "t0"), _row("t2", "Two", "t0")])
-        rows = [_row("t0", "Zero", "g0"), _row("t1", "One", "g0"), _row("t2", "Two"), _row("g0", "New", "t2")]
-        expected = {"t0": "g0", "t1": "g0", "t2": None, "g0": "t2"}
+        pks = self._seed([
+            TagItem(id="old_root", value="Old root"),
+            TagItem(id="sibling", value="Sibling", parent_id="old_root"),
+            TagItem(id="new_root", value="New root", parent_id="old_root"),
+        ])
+        rows = [
+            TagItem(id="old_root", value="Old root", parent_id="new_middle"),
+            TagItem(id="sibling", value="Sibling", parent_id="new_middle"),
+            TagItem(id="new_root", value="New root"),
+            TagItem(id="new_middle", value="New middle", parent_id="new_root"),
+        ]
+        expected = {"old_root": "new_middle", "sibling": "new_middle", "new_root": None, "new_middle": "new_root"}
         orders = list(itertools.permutations(range(4)))
-        self._assert_tree_after_import(rows, expected, pks, orders, (ParserFormat.JSON,))
-        self._assert_tree_after_import(rows, expected, pks, orders[::6], (ParserFormat.CSV,))
+        # All 24 row orders in JSON. The CSV parser yields the same rows in the same order, so
+        # 4 orders in CSV are enough and keep the test fast.
+        self._assert_tree_after_import(
+            rows=rows, expected_parents=expected, pks=pks, orders=orders, parser_formats=(ParserFormat.JSON,),
+        )
+        self._assert_tree_after_import(
+            rows=rows, expected_parents=expected, pks=pks, orders=orders[::6], parser_formats=(ParserFormat.CSV,),
+        )
 
     def test_parent_and_child_swap_places(self) -> None:
         """
-        A parent and its child swap places in either row order.
+        A parent and its child swap places, in either row order.
+
+        Before              After
+        old_parent          old_child
+            old_child           old_parent
         """
-        pks = self._seed([_row("t0", "Zero"), _row("t1", "One", "t0")])
-        rows = [_row("t0", "Zero", "t1"), _row("t1", "One")]
-        orders = list(itertools.permutations(range(2)))
-        self._assert_tree_after_import(rows, {"t0": "t1", "t1": None}, pks, orders, self.formats)
+        pks = self._seed([
+            TagItem(id="old_parent", value="Old parent"),
+            TagItem(id="old_child", value="Old child", parent_id="old_parent"),
+        ])
+        rows = [
+            TagItem(id="old_parent", value="Old parent", parent_id="old_child"),
+            TagItem(id="old_child", value="Old child"),
+        ]
+        self._assert_tree_after_import(
+            rows=rows,
+            expected_parents={"old_parent": "old_child", "old_child": None},
+            pks=pks,
+            orders=list(itertools.permutations(range(2))),
+            parser_formats=self.formats,
+        )
 
     def test_three_level_chain_reversed(self) -> None:
         """
-        A chain t0 > t1 > t2 is reversed to t2 > t1 > t0 in all six row orders.
+        A three-level chain is turned upside down, in all six row orders.
+
+        Before              After
+        top                 bottom
+            middle              middle
+                bottom              top
         """
-        pks = self._seed([_row("t0", "Zero"), _row("t1", "One", "t0"), _row("t2", "Two", "t1")])
-        rows = [_row("t2", "Two"), _row("t1", "One", "t2"), _row("t0", "Zero", "t1")]
-        expected = {"t2": None, "t1": "t2", "t0": "t1"}
-        orders = list(itertools.permutations(range(3)))
-        self._assert_tree_after_import(rows, expected, pks, orders, self.formats)
+        pks = self._seed([
+            TagItem(id="top", value="Top"),
+            TagItem(id="middle", value="Middle", parent_id="top"),
+            TagItem(id="bottom", value="Bottom", parent_id="middle"),
+        ])
+        rows = [
+            TagItem(id="bottom", value="Bottom"),
+            TagItem(id="middle", value="Middle", parent_id="bottom"),
+            TagItem(id="top", value="Top", parent_id="middle"),
+        ]
+        self._assert_tree_after_import(
+            rows=rows,
+            expected_parents={"bottom": None, "middle": "bottom", "top": "middle"},
+            pks=pks,
+            orders=list(itertools.permutations(range(3))),
+            parser_formats=self.formats,
+        )
 
     def test_tag_moved_under_its_former_grandchild(self) -> None:
         """
-        A root t0 is moved under t2, its former grandchild, which is left a child of t1
-        (now a root), in all six row orders.
-        """
-        pks = self._seed([_row("t0", "Zero"), _row("t1", "One", "t0"), _row("t2", "Two", "t1")])
-        rows = [_row("t0", "Zero", "t2"), _row("t1", "One"), _row("t2", "Two", "t1")]
-        expected = {"t0": "t2", "t1": None, "t2": "t1"}
-        orders = list(itertools.permutations(range(3)))
-        self._assert_tree_after_import(rows, expected, pks, orders, self.formats)
+        A root is moved under its former grandchild, which stays under middle, now a root,
+        in all six row orders.
 
-    def _seed_deep_chain(self) -> dict[str, int]:
+        Before              After
+        top                 middle
+            middle              bottom
+                bottom              top
         """
-        Create the chain t0 > t1 > t2 > t3 > t5 and return the pks by external_id.
-        """
-        return self._seed([
-            _row("t0", "Zero"), _row("t1", "One", "t0"), _row("t2", "Two", "t1"),
-            _row("t3", "Three", "t2"), _row("t5", "Five", "t3"),
+        pks = self._seed([
+            TagItem(id="top", value="Top"),
+            TagItem(id="middle", value="Middle", parent_id="top"),
+            TagItem(id="bottom", value="Bottom", parent_id="middle"),
         ])
+        rows = [
+            TagItem(id="top", value="Top", parent_id="bottom"),
+            TagItem(id="middle", value="Middle"),
+            TagItem(id="bottom", value="Bottom", parent_id="middle"),
+        ]
+        self._assert_tree_after_import(
+            rows=rows,
+            expected_parents={"top": "bottom", "middle": None, "bottom": "middle"},
+            pks=pks,
+            orders=list(itertools.permutations(range(3))),
+            parser_formats=self.formats,
+        )
+
+    # The chain level_1 > level_2 > level_3 > level_4 > deep_tag: deep_tag is at the fifth
+    # level, so a child of deep_tag is at the sixth level, the deepest the taxonomy allows.
+    deep_chain = (
+        TagItem(id="level_1", value="Level 1"),
+        TagItem(id="level_2", value="Level 2", parent_id="level_1"),
+        TagItem(id="level_3", value="Level 3", parent_id="level_2"),
+        TagItem(id="level_4", value="Level 4", parent_id="level_3"),
+    )
+    deep_tag = TagItem(id="deep_tag", value="Deep tag", parent_id="level_4")
 
     def test_deep_tag_moved_to_root_with_new_children_in_any_row_order(self) -> None:
         """
-        t5 is the deepest tag of a chain and moves to the root while new tags g0 and g1 are put
-        under it. Creating them first would exceed the maximum depth, so the import detaches t5
-        first. It succeeds in all six row orders in JSON and in three of them in CSV.
+        The deepest tag of a chain moves to the root while new tags are put under it.
+        Creating new_grandchild before deep_tag moves would put it at a seventh level, so the
+        import moves deep_tag to the root first.
+
+        Before                          After
+        level_1 > ... > level_4         level_1 > ... > level_4
+            deep_tag                    deep_tag
+                                            new_child
+                                                new_grandchild
         """
-        pks = self._seed_deep_chain()
-        rows = [_row("g1", "New 1", "g0"), _row("g0", "New 0", "t5"), _row("t5", "Five")]
-        chain = (_row("t0", "Zero"), _row("t1", "One", "t0"), _row("t2", "Two", "t1"), _row("t3", "Three", "t2"))
-        expected = {"t0": None, "t1": "t0", "t2": "t1", "t3": "t2", "t5": None, "g0": "t5", "g1": "g0"}
+        pks = self._seed([*self.deep_chain, self.deep_tag])
+        rows = [
+            TagItem(id="new_grandchild", value="New grandchild", parent_id="new_child"),
+            TagItem(id="new_child", value="New child", parent_id="deep_tag"),
+            TagItem(id="deep_tag", value="Deep tag"),
+        ]
+        expected = {
+            "level_1": None, "level_2": "level_1", "level_3": "level_2", "level_4": "level_3",
+            "deep_tag": None, "new_child": "deep_tag", "new_grandchild": "new_child",
+        }
         orders = list(itertools.permutations(range(3)))
-        self._assert_tree_after_import(rows, expected, pks, orders, (ParserFormat.JSON,), static_rows=chain)
-        self._assert_tree_after_import(rows, expected, pks, orders[::2], (ParserFormat.CSV,), static_rows=chain)
+        # All 6 row orders in JSON. The CSV parser yields the same rows in the same order, so
+        # 3 orders in CSV are enough and keep the test fast.
+        self._assert_tree_after_import(
+            rows=rows, expected_parents=expected, pks=pks, orders=orders,
+            parser_formats=(ParserFormat.JSON,), static_rows=self.deep_chain,
+        )
+        self._assert_tree_after_import(
+            rows=rows, expected_parents=expected, pks=pks, orders=orders[::2],
+            parser_formats=(ParserFormat.CSV,), static_rows=self.deep_chain,
+        )
 
     def test_deep_tag_under_renamed_parent_moved_to_root_in_any_row_order(self) -> None:
         """
-        The same move when t5's old parent t3 is renamed in the same import: all 24 row orders
-        in JSON succeed and t5 keeps its pk.
+        The same move as above while deep_tag's old parent is renamed in the same import.
+        deep_tag keeps its pk.
+
+        Before                          After
+        level_1 > level_2 > level_3     level_1 > level_2 > level_3
+            level_4                         renamed_level_4 (was level_4)
+                deep_tag                deep_tag
+                                            new_child
+                                                new_grandchild
         """
-        pks = self._seed_deep_chain()
+        pks = self._seed([*self.deep_chain, self.deep_tag])
         rows = [
-            _row("g1", "New 1", "g0"), _row("g0", "New 0", "t5"), _row("t5", "Five"),
-            _row("r3", "Three", "t2", "t3"),
+            TagItem(id="new_grandchild", value="New grandchild", parent_id="new_child"),
+            TagItem(id="new_child", value="New child", parent_id="deep_tag"),
+            TagItem(id="deep_tag", value="Deep tag"),
+            TagItem(id="renamed_level_4", value="Level 4", parent_id="level_3", previous_id="level_4"),
         ]
-        expected = {"t0": None, "t1": "t0", "t2": "t1", "r3": "t2", "t5": None, "g0": "t5", "g1": "g0"}
-        orders = list(itertools.permutations(range(4)))
-        kept_pks = {tag_id: pk for tag_id, pk in pks.items() if tag_id != "t3"} | {"r3": pks["t3"]}
-        static = (_row("t0", "Zero"), _row("t1", "One", "t0"), _row("t2", "Two", "t1"))
-        self._assert_tree_after_import(rows, expected, kept_pks, orders, (ParserFormat.JSON,), static_rows=static)
+        expected = {
+            "level_1": None, "level_2": "level_1", "level_3": "level_2", "renamed_level_4": "level_3",
+            "deep_tag": None, "new_child": "deep_tag", "new_grandchild": "new_child",
+        }
+        kept_pks = {tag_id: pk for tag_id, pk in pks.items() if tag_id != "level_4"} | {
+            "renamed_level_4": pks["level_4"],
+        }
+        # All 24 row orders, in JSON only: the test above already runs this kind of move
+        # through the CSV parser.
+        self._assert_tree_after_import(
+            rows=rows, expected_parents=expected, pks=kept_pks, orders=list(itertools.permutations(range(4))),
+            parser_formats=(ParserFormat.JSON,), static_rows=self.deep_chain[:3],
+        )
 
     def test_subtree_moved_under_deep_tag_before_it_is_shallowed(self) -> None:
         """
-        A three-level subtree s0 > s1 > s2 moves under c3, which itself moves to the root, in
-        every row order and both formats.
+        A three-level subtree moves under moved_up, which itself moves to the root. Attaching
+        subtree_root while moved_up is still at the fourth level would put
+        subtree_grandchild at a seventh level.
+
+        Before                          After
+        chain_1 > chain_2 > chain_3     chain_1 > chain_2 > chain_3
+            moved_up                    moved_up
+        subtree_root                        subtree_root
+            subtree_child                       subtree_child
+                subtree_grandchild                  subtree_grandchild
         """
+        chain = (
+            TagItem(id="chain_1", value="Chain 1"),
+            TagItem(id="chain_2", value="Chain 2", parent_id="chain_1"),
+            TagItem(id="chain_3", value="Chain 3", parent_id="chain_2"),
+        )
         pks = self._seed([
-            _row("c0", "C0"), _row("c1", "C1", "c0"), _row("c2", "C2", "c1"), _row("c3", "C3", "c2"),
-            _row("s0", "S0"), _row("s1", "S1", "s0"), _row("s2", "S2", "s1"),
+            *chain,
+            TagItem(id="moved_up", value="Moved up", parent_id="chain_3"),
+            TagItem(id="subtree_root", value="Subtree root"),
+            TagItem(id="subtree_child", value="Subtree child", parent_id="subtree_root"),
+            TagItem(id="subtree_grandchild", value="Subtree grandchild", parent_id="subtree_child"),
         ])
-        rows = [_row("s0", "S0", "c3"), _row("c3", "C3"), _row("s1", "S1", "s0"), _row("s2", "S2", "s1")]
-        expected = {"c0": None, "c1": "c0", "c2": "c1", "c3": None, "s0": "c3", "s1": "s0", "s2": "s1"}
+        rows = [
+            TagItem(id="subtree_root", value="Subtree root", parent_id="moved_up"),
+            TagItem(id="moved_up", value="Moved up"),
+            TagItem(id="subtree_child", value="Subtree child", parent_id="subtree_root"),
+            TagItem(id="subtree_grandchild", value="Subtree grandchild", parent_id="subtree_child"),
+        ]
+        expected = {
+            "chain_1": None, "chain_2": "chain_1", "chain_3": "chain_2", "moved_up": None,
+            "subtree_root": "moved_up", "subtree_child": "subtree_root", "subtree_grandchild": "subtree_child",
+        }
         orders = list(itertools.permutations(range(4)))
-        static = (_row("c0", "C0"), _row("c1", "C1", "c0"), _row("c2", "C2", "c1"))
-        self._assert_tree_after_import(rows, expected, pks, orders, (ParserFormat.JSON,), static_rows=static)
-        self._assert_tree_after_import(rows, expected, pks, orders[::6], (ParserFormat.CSV,), static_rows=static)
+        # All 24 row orders in JSON. The CSV parser yields the same rows in the same order, so
+        # 4 orders in CSV are enough and keep the test fast.
+        self._assert_tree_after_import(
+            rows=rows, expected_parents=expected, pks=pks, orders=orders,
+            parser_formats=(ParserFormat.JSON,), static_rows=chain,
+        )
+        self._assert_tree_after_import(
+            rows=rows, expected_parents=expected, pks=pks, orders=orders[::6],
+            parser_formats=(ParserFormat.CSV,), static_rows=chain,
+        )
 
     def test_three_new_levels_under_moved_deep_tag(self) -> None:
         """
-        Three new tags chained under t5, which moves to the root, succeed in all 24 row orders.
+        Three new tags are chained under deep_tag, which moves to the root.
+
+        Before                          After
+        level_1 > ... > level_4         level_1 > ... > level_4
+            deep_tag                    deep_tag
+                                            new_child
+                                                new_grandchild
+                                                    new_great_grandchild
         """
-        pks = self._seed_deep_chain()
+        pks = self._seed([*self.deep_chain, self.deep_tag])
         rows = [
-            _row("t5", "Five"), _row("g0", "New 0", "t5"), _row("g1", "New 1", "g0"), _row("g2", "New 2", "g1"),
+            TagItem(id="deep_tag", value="Deep tag"),
+            TagItem(id="new_child", value="New child", parent_id="deep_tag"),
+            TagItem(id="new_grandchild", value="New grandchild", parent_id="new_child"),
+            TagItem(id="new_great_grandchild", value="New great-grandchild", parent_id="new_grandchild"),
         ]
         expected = {
-            "t0": None, "t1": "t0", "t2": "t1", "t3": "t2", "t5": None, "g0": "t5", "g1": "g0", "g2": "g1",
+            "level_1": None, "level_2": "level_1", "level_3": "level_2", "level_4": "level_3", "deep_tag": None,
+            "new_child": "deep_tag", "new_grandchild": "new_child", "new_great_grandchild": "new_grandchild",
         }
-        orders = list(itertools.permutations(range(4)))
-        chain = (_row("t0", "Zero"), _row("t1", "One", "t0"), _row("t2", "Two", "t1"), _row("t3", "Three", "t2"))
-        self._assert_tree_after_import(rows, expected, pks, orders, (ParserFormat.JSON,), static_rows=chain)
+        # All 24 row orders, in JSON only: the moves of a deep tag above already run through
+        # the CSV parser.
+        self._assert_tree_after_import(
+            rows=rows, expected_parents=expected, pks=pks, orders=list(itertools.permutations(range(4))),
+            parser_formats=(ParserFormat.JSON,), static_rows=self.deep_chain,
+        )
 
     def test_import_that_leaves_tags_too_deep_is_rejected(self) -> None:
         """
-        An import that would put a tag at the seventh level, by adding a child to the deepest
-        tag of a six-level chain or by moving a chain under another, cannot be applied in any
-        order, so it is rejected at the plan step and nothing changes.
+        An import that would put a tag at the seventh level cannot be applied in any order,
+        so it is rejected at the Plan step with that one error, and nothing changes.
+
+        Child of the deepest tag:
+        Before                          File rows
+        level_1 > ... > level_6         the same six tags, and new_leaf (parent_id level_6)
+
+        Chain moved under another:
+        Before                          File rows
+        deep_1 > ... > deep_4           the same eight tags, with moved_1 (parent_id deep_4)
+        moved_1 > ... > moved_4
         """
-        chain = [("a", None), ("b", "a"), ("c", "b"), ("d", "c"), ("e", "d"), ("f", "e")]
-        two_chains = [("a", None), ("b", "a"), ("c", "b"), ("d", "c"), ("w", None), ("x", "w"), ("y", "x"), ("z", "y")]
+        def chain(prefix: str, length: int) -> list[TagItem]:
+            return [
+                TagItem(id=f"{prefix}_{i}", value=f"{prefix} {i}", parent_id=f"{prefix}_{i - 1}" if i > 1 else None)
+                for i in range(1, length + 1)
+            ]
+
+        six_levels = chain("level", 6)
+        deep, moved = chain("deep", 4), chain("moved", 4)
         cases = {
             "child of the deepest tag": (
-                chain, [_row(tag_id, f"Value {tag_id}", parent) for tag_id, parent in chain]
-                + [_row("g", "Value g", "f")],
+                six_levels, six_levels + [TagItem(id="new_leaf", value="New leaf", parent_id="level_6")],
             ),
             "chain moved under another": (
-                two_chains,
-                [_row(t, f"Value {t}", "d" if t == "w" else parent) for t, parent in two_chains],
+                deep + moved, deep + [TagItem(id="moved_1", value="moved 1", parent_id="deep_4")] + moved[1:],
             ),
         }
         message = "This import would leave tags deeper than 6 levels"
-        for name, (structure, rows) in cases.items():
-            self._seed([_row(tag_id, f"Value {tag_id}", parent) for tag_id, parent in structure])
+        for name, (before, rows) in cases.items():
+            self._seed(before)
             for parser_format in self.formats:
                 with self.subTest(case=name, parser_format=parser_format):
-                    log = self._assert_rejected(rows, parser_format, message)
+                    log = self._assert_rejected(rows, parser_format, messages=[message], error_count=1)
                     assert log.count(message) == 1
             self.taxonomy.tag_set.all().delete()
 
     def test_swap_child_naming_parent_id_in_another_case(self) -> None:
         """
-        In a swap, ids are case-insensitive: a child naming its parent's stale id in another case
-        is rejected once, with its row position and the new id, like the exact spelling. A child
-        naming the end-state ids in another case is accepted and stays under its parent.
+        Ids are case-insensitive. In a swap, a child naming its parent's stale id in another
+        case is rejected once, with its row number and the parent's new id, like the exact
+        spelling. Children naming the end-state ids in another case are accepted and stay
+        under their parents.
+
+        Before              After (accepted file)
+        COMP-A              COMP-B (was COMP-A)
+            COMP-AK             COMP-AK (parent_id comp-b)
+        COMP-B              COMP-A (was COMP-B)
+            COMP-BK             COMP-BK (parent_id comp-a)
+
+        In the rejected file, COMP-AK says parent_id comp-a, the stale id of its parent.
         """
         pks = self._seed([
-            _row("COMP-A", "Alpha"), _row("COMP-AK", "Alpha kid", "COMP-A"),
-            _row("COMP-B", "Beta"), _row("COMP-BK", "Beta kid", "COMP-B"),
+            TagItem(id="COMP-A", value="Alpha"),
+            TagItem(id="COMP-AK", value="Alpha kid", parent_id="COMP-A"),
+            TagItem(id="COMP-B", value="Beta"),
+            TagItem(id="COMP-BK", value="Beta kid", parent_id="COMP-B"),
         ])
-        swap = [_row("COMP-B", "Alpha", previous_id="COMP-A"), _row("COMP-A", "Beta", previous_id="COMP-B")]
-        stale = swap + [_row("COMP-AK", "Alpha kid", "comp-a"), _row("COMP-BK", "Beta kid", "comp-a")]
-        accepted = swap + [_row("COMP-AK", "Alpha kid", "comp-b"), _row("COMP-BK", "Beta kid", "comp-a")]
+        swap = [
+            TagItem(id="COMP-B", value="Alpha", previous_id="COMP-A"),
+            TagItem(id="COMP-A", value="Beta", previous_id="COMP-B"),
+        ]
+        stale = swap + [
+            TagItem(id="COMP-AK", value="Alpha kid", parent_id="comp-a"),
+            TagItem(id="COMP-BK", value="Beta kid", parent_id="comp-a"),
+        ]
+        accepted = swap + [
+            TagItem(id="COMP-AK", value="Alpha kid", parent_id="comp-b"),
+            TagItem(id="COMP-BK", value="Beta kid", parent_id="comp-a"),
+        ]
         expected = {"COMP-B": None, "COMP-A": None, "COMP-AK": "COMP-B", "COMP-BK": "COMP-A"}
         moved_pks = {
             "COMP-B": pks["COMP-A"], "COMP-A": pks["COMP-B"], "COMP-AK": pks["COMP-AK"], "COMP-BK": pks["COMP-BK"],
         }
+        # A sample of 4 row orders (renames first, children first, reversed, mixed): the
+        # tests of the exact spelling already run all 24 orders.
         orders = [(0, 1, 2, 3), (2, 3, 0, 1), (3, 2, 1, 0), (2, 0, 3, 1)]
-        self._assert_tree_after_import(accepted, expected, moved_pks, orders, self.formats)
+        self._assert_tree_after_import(
+            rows=accepted, expected_parents=expected, pks=moved_pks, orders=orders, parser_formats=self.formats,
+        )
         for parser_format in self.formats:
             for order in orders:
                 with self.subTest(parser_format=parser_format, order=order, stale=True):
@@ -2171,38 +2440,35 @@ class TestImportAcceptanceScenarios(TestCase):
                     log = self._assert_rejected(
                         file_rows,
                         parser_format,
-                        f"Row {position}'s parent_id (comp-a) names an id this file renames away.",
-                        "Use 'COMP-B' as the parent_id.",
+                        messages=[
+                            f"Row {position}'s parent_id (comp-a) names an id this file renames away.",
+                            "Use 'COMP-B' as the parent_id.",
+                        ],
                     )
                     assert log.count("names an id this file renames away") == 1
 
     def test_plain_rename_child_naming_parent_id_in_another_case_reported_once(self) -> None:
         """
-        When a parent is plainly renamed, a child naming its old id in another case gets only
-        the parent validation error, in either row order and format.
+        When the parent is renamed without a swap, a child naming the parent's old id in
+        another case gets only the parent validation error, in either row order and format.
+
+        Before          File rows
+        COMP-P          COMP-P2 (previous_id COMP-P)
+            COMP-K      COMP-K (parent_id comp-p)
         """
-        self._seed([_row("COMP-P", "Parent"), _row("COMP-K", "Kid", "COMP-P")])
-        rows = [_row("COMP-P2", "Parent", previous_id="COMP-P"), _row("COMP-K", "Kid", "comp-p")]
+        self._seed([TagItem(id="COMP-P", value="Parent"), TagItem(id="COMP-K", value="Kid", parent_id="COMP-P")])
+        rows = [
+            TagItem(id="COMP-P2", value="Parent", previous_id="COMP-P"),
+            TagItem(id="COMP-K", value="Kid", parent_id="comp-p"),
+        ]
         for parser_format in self.formats:
             for order in itertools.permutations(range(2)):
                 with self.subTest(parser_format=parser_format, order=order):
                     log = self._assert_rejected(
                         [rows[i] for i in order],
                         parser_format,
-                        "Parent tag comp-p is renamed to COMP-P2 in this file; use COMP-P2 as the parent_id.",
+                        messages=[
+                            "Parent tag comp-p is renamed to COMP-P2 in this file; use COMP-P2 as the parent_id.",
+                        ],
                     )
                     assert "names an id this file renames away" not in log
-
-    def test_case_only_parent_rename_with_case_variant_child(self) -> None:
-        """
-        Renaming a parent only by case, a child naming it in another case stays under it.
-        """
-        pks = self._seed([_row("COMP-P", "Parent"), _row("COMP-K", "Kid", "COMP-P")])
-        for child_parent in ("comp-p", "Comp-P"):
-            rows = [_row("Comp-P", "Parent", previous_id="COMP-P"), _row("COMP-K", "Kid", child_parent)]
-            expected = {"Comp-P": None, "COMP-K": "Comp-P"}
-            kept_pks = {"Comp-P": pks["COMP-P"], "COMP-K": pks["COMP-K"]}
-            with self.subTest(child_parent=child_parent):
-                self._assert_tree_after_import(
-                    rows, expected, kept_pks, list(itertools.permutations(range(2))), self.formats,
-                )

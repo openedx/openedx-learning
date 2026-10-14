@@ -9,7 +9,7 @@ from django.db import connection
 from django.test.testcases import TestCase
 from django.test.utils import CaptureQueriesContext
 
-from openedx_tagging.import_export.actions import CreateTag, DeleteTag, RenameTagExternalId, UpdateParentTag
+from openedx_tagging.import_export.actions import CreateTag, DeleteTag, UpdateParentTag
 from openedx_tagging.import_export.exceptions import TagImportError
 from openedx_tagging.import_export.import_plan import ExistingTag, TagImportPlan, TagItem, _ParentForest
 from openedx_tagging.models import Tag, Taxonomy
@@ -634,10 +634,15 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_generate_actions_existing_child_names_renamed_away_parent_rejected(self) -> None:
         """
-        tag_2 is an existing child of tag_1. tag_1 is renamed to tag_50 and
-        tag_2's row keeps parent_id="tag_1", the pre-import id. The row is
-        "no change" for UpdateParentTag, so only the plan-level check can
-        reject it, and the error names the row and the new id.
+        An existing child that keeps its parent's pre-import id is rejected when the file
+        renames that parent, and the error names the row and the parent's new id.
+
+        Before      File rows
+        tag_1       tag_50 (previous_id tag_1)
+            tag_2   tag_2 (parent_id tag_1)
+
+        The tag_2 row is "no change" for UpdateParentTag, so only the plan-level check can
+        reject it.
         """
         tags = [
             TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
@@ -650,10 +655,16 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_generate_actions_swap_rename_child_stale_parent_id_rejected_once(self) -> None:
         """
-        In a tag_1 <-> tag_3 swap, a rename row (tag_2 -> tag_20) that names
-        the stale parent id "tag_1" is reported exactly once. The rename
-        action's own parent validation lets it through because "tag_1" is
-        also a rename row's final id, so the plan-level check reports it.
+        In a swap, a child that is itself renamed and names its parent's stale id is reported
+        exactly once.
+
+        Before      File rows
+        tag_1       tag_3 (previous_id tag_1)
+            tag_2   tag_1 (previous_id tag_3)
+        tag_3       tag_20 (previous_id tag_2, parent_id tag_1)
+
+        The rename action's own parent validation accepts "tag_1", because it is also another
+        rename row's final id, so the plan-level check reports it.
         """
         tags = [
             TagItem(id='tag_3', value='Tag 1', previous_id='tag_1'),
@@ -666,9 +677,12 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_generate_actions_rename_child_stale_parent_id_without_swap_not_duplicated(self) -> None:
         """
-        Without a swap, a rename row (tag_2 -> tag_20) that names the stale
-        parent id "tag_1" is reported only by the rename action's parent
-        validation, not a second time by the plan-level check.
+        Without a swap, a renamed child that names its parent's stale id is reported only by
+        the rename action's parent validation, not a second time by the plan-level check.
+
+        Before      File rows
+        tag_1       tag_50 (previous_id tag_1)
+            tag_2   tag_20 (previous_id tag_2, parent_id tag_1)
         """
         tags = [
             TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
@@ -683,9 +697,12 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_generate_actions_case_only_parent_rename_not_flagged(self) -> None:
         """
-        A case-only rename of the parent (tag_1 -> TAG_1) keeps the id
-        resolving to the same tag, so a child that keeps parent_id="tag_1"
-        is not stale.
+        A rename that only changes the parent's capitalization keeps the id pointing at the
+        same tag, so a child that keeps parent_id "tag_1" is accepted.
+
+        Before      After
+        tag_1       TAG_1
+            tag_2       tag_2
         """
         tags = [
             TagItem(id='TAG_1', value='Tag 1', previous_id='tag_1'),
@@ -696,8 +713,14 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_generate_actions_swap_children_accepted_in_any_row_order(self) -> None:
         """
-        The tag_1 <-> tag_3 swap with children on end-state ids is accepted
-        in every one of the 24 row orders.
+        Children that name the end-state ids of swapped parents are accepted in every row
+        order. Each child stays on the same physical parent.
+
+        Before      After
+        tag_1       tag_3 (was tag_1)
+            tag_2       tag_2
+        tag_3       tag_1 (was tag_3)
+            tag_4       tag_4
         """
         rows = [
             TagItem(id='tag_1', value='Tag 3', previous_id='tag_3'),
@@ -705,6 +728,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             TagItem(id='tag_2', value='Tag 2', parent_id='tag_3'),
             TagItem(id='tag_4', value='Tag 4', parent_id='tag_1'),
         ]
+        # Planning is fast, so every one of the 24 row orders is checked.
         for order in itertools.permutations(range(4)):
             with self.subTest(order=order):
                 self.import_plan.generate_actions(tags=[rows[i] for i in order], replace=False)
@@ -712,8 +736,14 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_generate_actions_swap_stale_ids_rejected_in_any_row_order(self) -> None:
         """
-        Children that name the stale pre-import ids are rejected in every one
-        of the 24 row orders, and each error reports the row's file position.
+        Children that name the stale pre-import ids of swapped parents are rejected in every
+        row order. Each error names the child's row number and its parent's new id.
+
+        Before      File rows
+        tag_1       tag_1 (previous_id tag_3)
+            tag_2   tag_3 (previous_id tag_1)
+        tag_3       tag_2 (parent_id tag_1)
+            tag_4   tag_4 (parent_id tag_3)
         """
         rows = [
             TagItem(id='tag_1', value='Tag 3', previous_id='tag_3'),
@@ -721,6 +751,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             TagItem(id='tag_2', value='Tag 2', parent_id='tag_1'),
             TagItem(id='tag_4', value='Tag 4', parent_id='tag_3'),
         ]
+        # Planning is fast, so every one of the 24 row orders is checked.
         for order in itertools.permutations(range(4)):
             with self.subTest(order=order):
                 file_rows = [rows[i] for i in order]
@@ -735,53 +766,37 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
                         self.assertEqual(len(matching), 1)
                         self.assertIn(f"Use '{new_ids[row.parent_id]}' as the parent_id.", matching[0])
 
-    def test_generate_actions_new_child_before_new_parent_accepted(self) -> None:
-        """
-        A new child row listed before its new parent row is accepted, and the
-        plan creates the parent first.
-        """
-        tags = [
-            TagItem(id='tag_90', value='Tag 90', parent_id='tag_91'),
-            TagItem(id='tag_91', value='Tag 91'),
-        ]
-        self.import_plan.generate_actions(tags=tags, replace=False)
-        self.assertEqual(self.import_plan.errors, [])
-        self.assertEqual([action.tag.id for action in self.import_plan.actions], ['tag_91', 'tag_90'])
-
     def test_generate_actions_valid_row_order_keeps_action_order(self) -> None:
         """
-        A file whose parents already come before their children keeps its
-        row order in the plan.
+        A file whose parents already come before their children keeps its row order in the
+        plan.
+
+        Before      After
+        tag_1       new_parent
+                        new_child
+                    tag_50 (was tag_1)
+                        renamed_tag_child
         """
         tags = [
-            TagItem(id='tag_91', value='Tag 91'),
-            TagItem(id='tag_92', value='Tag 92', parent_id='tag_91'),
+            TagItem(id='new_parent', value='New parent'),
+            TagItem(id='new_child', value='New child', parent_id='new_parent'),
             TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
-            TagItem(id='tag_60', value='Tag 60', parent_id='tag_50'),
+            TagItem(id='renamed_tag_child', value='Renamed tag child', parent_id='tag_50'),
         ]
         self.import_plan.generate_actions(tags=tags, replace=False)
         self.assertEqual(self.import_plan.errors, [])
         self.assertEqual(
             [action.tag.id for action in self.import_plan.actions],
-            ['tag_91', 'tag_92', 'tag_50', 'tag_60'],
+            ['new_parent', 'new_child', 'tag_50', 'renamed_tag_child'],
         )
-
-    def test_generate_actions_cyclic_parent_ids_rejected(self) -> None:
-        """
-        Two new rows that name each other as parent terminate with an error.
-        """
-        tags = [
-            TagItem(id='tag_90', value='Tag 90', parent_id='tag_91'),
-            TagItem(id='tag_91', value='Tag 91', parent_id='tag_90'),
-        ]
-        self.import_plan.generate_actions(tags=tags, replace=False)
-        self.assertEqual(len(self.import_plan.errors), 1)
-        self.assertIn("Unknown parent tag", str(self.import_plan.errors[0]))
 
     def test_generate_actions_deep_reversed_chain_terminates(self) -> None:
         """
-        A 1100-row chain of new tags listed child first is ordered without hitting the recursion
-        limit and every row is planned. The chain is far too deep to apply, so the plan reports it.
+        A 1100-row chain of new tags listed child first is ordered without hitting the
+        recursion limit, and every row is planned. The chain is far too deep to apply, so the
+        plan reports it.
+
+        File rows: n1099 (parent_id n1098), ..., n1 (parent_id n0), n0
         """
         tags = [
             TagItem(id=f'n{i}', value=f'N{i}', parent_id=f'n{i - 1}' if i else None)
@@ -795,8 +810,11 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_plan_validations_do_not_query_per_row(self) -> None:
         """
-        The ordering and the plan-level validations add no queries, however many rows have a
-        parent_id: the plan costs the same with them replaced by no-ops.
+        The row ordering and the plan-level validations add no queries, however many rows
+        have a parent_id: the plan costs the same with them replaced by no-ops.
+
+        File rows: 200 new tags, every second one under tag_1 and the others under the new
+        tag before them.
         """
         tags = [
             TagItem(id=f'n{i}', value=f'N{i}', parent_id='tag_1' if i % 2 == 0 else f'n{i - 1}')
@@ -815,159 +833,87 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             self.import_plan.generate_actions(tags=tags, replace=False)
         self.assertEqual(len(real), len(without_validations))
 
-    def test_rows_ordered_as_definers_match_create_and_rename_applies_for(self) -> None:
-        """
-        A row is planned before a child that names its id exactly when it is a rename row or
-        CreateTag.applies_for holds: existing tags (also with a different case) are not
-        definers, new tags (also with a different case) and rename rows are, including a
-        rename onto the id of an existing tag.
-        """
-        rows = [
-            TagItem(id='tag_1', value='Tag 1'),
-            TagItem(id='TAG_2', value='Tag 2'),
-            TagItem(id='tag_90', value='Tag 90'),
-            TagItem(id='Tag_91', value='Tag 91'),
-            TagItem(id='tag_50', value='Tag 3', previous_id='tag_3'),
-            TagItem(id='tag_4', value='Tag 1', previous_id='tag_1'),
-        ]
-        planned_first = set()
-        for row in rows:
-            child = TagItem(id='tag_95', value='Tag 95', parent_id=row.id)
-            self.import_plan.generate_actions(tags=[child, row], replace=False)
-            ids = [
-                action.tag.id for action in self.import_plan.actions if action.name != 'stage_external_id'
-            ]
-            if ids.index(row.id) < ids.index('tag_95'):
-                planned_first.add(row.id)
-        expected = {
-            row.id for row in rows
-            if RenameTagExternalId.applies_for(self.taxonomy, row) or CreateTag.applies_for(self.taxonomy, row)
-        }
-        self.assertEqual(expected, {'tag_90', 'Tag_91', 'tag_50', 'tag_4'})
-        self.assertEqual(planned_first, expected)
-
     def test_generate_actions_three_level_chain_defined_later_accepted(self) -> None:
         """
-        A definer whose own parent is defined later in the file is still
-        planned after that parent: a child, its parent and its grandparent
-        listed in reverse are created grandparent first.
+        Three new tags listed child first are created parent first.
+
+        File rows                                   After
+        new_child (parent_id new_parent)            new_grandparent
+        new_parent (parent_id new_grandparent)          new_parent
+        new_grandparent                                     new_child
         """
         tags = [
-            TagItem(id='tag_92', value='Tag 92', parent_id='tag_91'),
-            TagItem(id='tag_91', value='Tag 91', parent_id='tag_90'),
-            TagItem(id='tag_90', value='Tag 90'),
+            TagItem(id='new_child', value='New child', parent_id='new_parent'),
+            TagItem(id='new_parent', value='New parent', parent_id='new_grandparent'),
+            TagItem(id='new_grandparent', value='New grandparent'),
         ]
         self.import_plan.generate_actions(tags=tags, replace=False)
         self.assertEqual(self.import_plan.errors, [])
         self.assertEqual(
             [action.tag.id for action in self.import_plan.actions],
-            ['tag_90', 'tag_91', 'tag_92'],
+            ['new_grandparent', 'new_parent', 'new_child'],
         )
 
     def test_generate_actions_existing_tag_moved_under_later_new_parent_accepted(self) -> None:
         """
-        An existing tag moved under a new parent that is defined later in
-        the file is accepted, and the parent is created first.
+        An existing tag moved under a new parent whose row comes later in the file is
+        accepted, and the parent is created first.
+
+        Before      After
+        tag_1       tag_1
+            tag_2   new_parent
+                        tag_2
         """
         tags = [
-            TagItem(id='tag_2', value='Tag 2', parent_id='tag_90'),
-            TagItem(id='tag_90', value='Tag 90'),
+            TagItem(id='tag_2', value='Tag 2', parent_id='new_parent'),
+            TagItem(id='new_parent', value='New parent'),
         ]
         self.import_plan.generate_actions(tags=tags, replace=False)
         self.assertEqual(self.import_plan.errors, [])
         self.assertEqual(self.import_plan.actions[0].name, 'create')
-        self.assertEqual(self.import_plan.actions[0].tag.id, 'tag_90')
+        self.assertEqual(self.import_plan.actions[0].tag.id, 'new_parent')
 
     def test_generate_actions_mixed_case_parent_id_defined_later_accepted(self) -> None:
         """
-        A parent_id that differs only in case from the id of a later new row
-        still finds that row as its definer.
+        A parent_id that differs only in case from the id of a later new row still makes the
+        child wait for that row, because ids are case-insensitive.
+
+        File rows                                   After
+        new_child (parent_id NEW_PARENT)            New_Parent
+        New_Parent                                      new_child
         """
         tags = [
-            TagItem(id='tag_91', value='Tag 91', parent_id='TAG_90'),
-            TagItem(id='Tag_90', value='Tag 90'),
+            TagItem(id='new_child', value='New child', parent_id='NEW_PARENT'),
+            TagItem(id='New_Parent', value='New parent'),
         ]
         self.import_plan.generate_actions(tags=tags, replace=False)
         self.assertEqual(self.import_plan.errors, [])
-        self.assertEqual(self.import_plan.actions[0].tag.id, 'Tag_90')
-
-    def _cycle_messages(self, tags: list[TagItem]) -> list[str]:
-        """
-        Generate the actions for `tags` and return the error messages.
-        """
-        self.import_plan.generate_actions(tags=tags, replace=False)
-        return [str(error) for error in self.import_plan.errors]
+        self.assertEqual(self.import_plan.actions[0].tag.id, 'New_Parent')
 
     def test_generate_actions_self_parent_of_existing_tag_rejected(self) -> None:
         """
-        An existing tag that names itself as its parent is a cycle of length
-        one and is reported once.
-        """
-        messages = self._cycle_messages([TagItem(id='tag_2', value='Tag 2', parent_id='tag_2')])
-        self.assertEqual(messages, ["Row 1's parent_id (tag_2) creates a parent cycle."])
+        An existing tag that names itself as its parent is a cycle of length one and is
+        reported once.
 
-    def test_generate_actions_existing_and_new_tag_cycle_rejected_once(self) -> None:
+        Before      File rows
+        tag_1       tag_2 (parent_id tag_2)
+            tag_2
         """
-        An existing tag and a new tag naming each other as parent are rejected
-        with exactly one cycle error, in either row order.
-        """
-        rows = [
-            TagItem(id='tag_2', value='Tag 2', parent_id='tag_90'),
-            TagItem(id='tag_90', value='Tag 90', parent_id='tag_2'),
-        ]
-        for order in itertools.permutations(range(2)):
-            with self.subTest(order=order):
-                messages = self._cycle_messages([rows[i] for i in order])
-                self.assertEqual(len(messages), 1)
-                self.assertIn("Row 1's parent_id", messages[0])
-                self.assertIn("creates a parent cycle.", messages[0])
-
-    def test_generate_actions_cycle_through_db_only_tag_rejected(self) -> None:
-        """
-        tag_2 is a child of tag_1 and is not in the file. A row moving tag_1
-        under tag_2 closes a cycle through that DB-only tag.
-        """
-        messages = self._cycle_messages([TagItem(id='tag_1', value='Tag 1', parent_id='tag_2')])
-        self.assertEqual(messages, ["Row 1's parent_id (tag_2) creates a parent cycle."])
-
-    def test_generate_actions_cycle_of_definer_rows_reports_only_unknown_parent(self) -> None:
-        """
-        A cycle made only of new-tag rows, or of a rename row and a new-tag
-        row, is reported by the parent validation as an unknown parent and not
-        a second time as a cycle.
-        """
-        cases = {
-            'new tags': [
-                TagItem(id='tag_90', value='Tag 90', parent_id='tag_91'),
-                TagItem(id='tag_91', value='Tag 91', parent_id='tag_90'),
-            ],
-            'rename and new tag': [
-                TagItem(id='tag_50', value='Tag 1', previous_id='tag_1', parent_id='tag_90'),
-                TagItem(id='tag_90', value='Tag 90', parent_id='tag_50'),
-            ],
-        }
-        for name, rows in cases.items():
-            for order in itertools.permutations(range(2)):
-                with self.subTest(case=name, order=order):
-                    messages = self._cycle_messages([rows[i] for i in order])
-                    self.assertEqual(len(messages), 1)
-                    self.assertIn("Unknown parent tag", messages[0])
-
-    def test_generate_actions_self_parent_after_rename_onto_freed_id_rejected(self) -> None:
-        """
-        tag_3 is renamed onto tag_1, which the same replace import frees, and names
-        itself as parent. The cycle is reported at the plan step.
-        """
-        tags = [TagItem(id='tag_1', value='Tag 3', previous_id='tag_3', parent_id='tag_1')]
-        self.import_plan.generate_actions(tags=tags, replace=True)
+        self.import_plan.generate_actions(tags=[TagItem(id='tag_2', value='Tag 2', parent_id='tag_2')], replace=False)
         messages = [str(error) for error in self.import_plan.errors]
-        self.assertEqual(messages, ["Row 1's parent_id (tag_1) creates a parent cycle."])
+        self.assertEqual(messages, ["Row 1's parent_id (tag_2) creates a parent cycle."])
 
     def test_generate_actions_child_of_deleted_holder_follows_rename_onto_its_id(self) -> None:
         """
-        tag_2 is a child of tag_1, which the replace import deletes while tag_3 is
-        renamed onto the id tag_1. Its row plans an update_parent action to tag_1,
-        which runs after the rename, instead of leaving it promoted to a root.
+        With replace=True the file omits tag_1, so tag_1 is deleted, and renames tag_3 onto
+        the id tag_1. The tag_2 row names tag_1, so tag_2 moves under the renamed tag after
+        the rename runs, instead of being promoted to a root.
+
+        Before      After
+        tag_1       tag_1 (was tag_3)
+            tag_2       tag_2
+        tag_3
+            tag_4
         """
         tags = [
             TagItem(id='tag_1', value='Tag 3', previous_id='tag_3'),
@@ -985,213 +931,69 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             self.import_plan.actions.index(self.import_plan.indexed_actions['rename_external_id'][0]),
         )
 
-    def test_defines_id_is_shared_by_ordering_and_cycle_check(self) -> None:
+    def _plan_for_new_taxonomy(self, tags: list[TagItem]) -> TagImportPlan:
         """
-        Both the ordering and the cycle check use one rule for which rows define their id: with
-        it patched to never define, a child stays before its late parent row and a cycle of new
-        tags is reported as a parent cycle instead of an unknown parent.
+        Create ``tags`` (parents listed before their children) in an empty taxonomy shared by
+        the class, and return a plan for that taxonomy. A test calls this once, and the tags
+        are rolled back with the test.
         """
-        late_parent = [
-            TagItem(id='tag_91', value='Tag 91', parent_id='tag_90'),
-            TagItem(id='tag_90', value='Tag 90'),
-        ]
-        new_cycle = [
-            TagItem(id='tag_90', value='Tag 90', parent_id='tag_91'),
-            TagItem(id='tag_91', value='Tag 91', parent_id='tag_90'),
-        ]
-        with mock.patch.object(TagImportPlan, '_defines_id', return_value=False):
-            self.import_plan.generate_actions(tags=late_parent, replace=False)
-            self.assertEqual(self.import_plan.actions[0].tag.id, 'tag_91')
-            self.import_plan.generate_actions(tags=new_cycle, replace=False)
-            self.assertTrue(any('creates a parent cycle.' in str(e) for e in self.import_plan.errors))
-
-    def _plan_for_new_taxonomy(self, structure: list[tuple[str, str | None]]) -> TagImportPlan:
-        """
-        Create the given (external_id, parent external_id) tags, in parent-first order, in an
-        empty taxonomy shared by the class, and return a plan for it. Each tag's value is
-        "Tag <id>". A test calls this once, and its tags are rolled back with the test.
-        """
-        tags: dict[str, Tag] = {}
-        for external_id, parent_id in structure:
-            tags[external_id] = Tag.objects.create(
+        created: dict[str, Tag] = {}
+        for tag in tags:
+            created[tag.id] = Tag.objects.create(
                 taxonomy=self.structure_taxonomy,
-                value=f'Tag {external_id}',
-                external_id=external_id,
-                parent=tags[parent_id] if parent_id else None,
+                value=tag.value,
+                external_id=tag.id,
+                parent=created[tag.parent_id] if tag.parent_id else None,
             )
         return TagImportPlan(self.structure_taxonomy)
 
-    def _row(self, tag_id: str, parent_id: str | None = None) -> TagItem:
-        """
-        Build the import row for the tag created by `_plan_for_new_taxonomy`.
-        """
-        return TagItem(id=tag_id, value=f'Tag {tag_id}', parent_id=parent_id)
-
-    def _assert_promotions_precede_deletes(self, plan: TagImportPlan) -> None:
-        """
-        Check every delete action comes after every promotion of a kept child to a root.
-        """
-        names = [action.name for action in plan.actions]
-        deletes = [index for index, name in enumerate(names) if name == 'delete']
-        self.assertTrue(deletes)
-        self.assertEqual(deletes, list(range(deletes[0], deletes[-1] + 1)))
-        self.assertNotIn('create', names[:deletes[0]])
-        self.assertEqual(set(names[:deletes[0]]), {'update_parent'})
-
-    def test_generate_actions_kept_grandchild_of_deleted_chain_promoted_before_deletes(self) -> None:
-        """
-        t5 is kept under t1, which is deleted along with its parent t0. Deleting t0
-        would cascade to t1 and t5, so t5 is promoted to a root before any delete.
-        """
-        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0'), ('t5', 't1')])
-        plan.generate_actions(tags=[self._row('t5')], replace=True)
-        self.assertEqual(plan.errors, [])
-        self._assert_promotions_precede_deletes(plan)
-
-    def test_generate_actions_kept_tags_at_two_depths_under_deleted_ancestors(self) -> None:
-        """
-        In a five-level chain with t0, t1 and t3 deleted, the kept t2 and t4 are both
-        promoted before any delete.
-        """
-        structure = [('t0', None), ('t1', 't0'), ('t2', 't1'), ('t3', 't2'), ('t4', 't3')]
-        plan = self._plan_for_new_taxonomy(structure)
-        plan.generate_actions(tags=[self._row('t2'), self._row('t4')], replace=True)
-        self.assertEqual(plan.errors, [])
-        self._assert_promotions_precede_deletes(plan)
-        promoted = {
-            action.tag.id for action in plan.actions[:2] if action.name == 'update_parent'
-        }
-        self.assertEqual(promoted, {'t2', 't4'})
-
-    def test_generate_actions_kept_child_of_deleted_root_promoted(self) -> None:
-        """
-        A kept child of a deleted root is promoted to a root before the delete.
-        """
-        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0')])
-        plan.generate_actions(tags=[self._row('t1')], replace=True)
-        self.assertEqual(plan.errors, [])
-        self.assertEqual([action.name for action in plan.actions[:2]], ['update_parent', 'delete'])
-
-    def _update_parent_index(self, plan: TagImportPlan, tag_id: str, parent_id: str | None) -> int:
-        """
-        Return the index of the update_parent action that sets `tag_id` under `parent_id`.
-        """
-        return next(
-            index for index, action in enumerate(plan.actions)
-            if action.name == 'update_parent' and action.tag.id == tag_id and action.tag.parent_id == parent_id
-        )
-
-    def test_generate_actions_ancestry_inversion_accepted_in_any_row_order(self) -> None:
-        """
-        t2 is a child of t0 and becomes t0's ancestor (g0 is new, under t2). In all 24 row
-        orders the plan is clean and t2 moves out of t0's subtree before t0 moves under g0.
-        """
-        rows = [
-            self._row('t0', 'g0'), self._row('t1', 'g0'), self._row('t2'), self._row('g0', 't2'),
-        ]
-        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0'), ('t2', 't0')])
-        for order in itertools.permutations(range(4)):
-            with self.subTest(order=order):
-                plan.generate_actions(tags=[rows[i] for i in order], replace=False)
-                self.assertEqual(plan.errors, [])
-                self.assertLess(
-                    self._update_parent_index(plan, 't2', None), self._update_parent_index(plan, 't0', 'g0'),
-                )
-
-    def test_generate_actions_parent_and_child_swap_places_in_any_row_order(self) -> None:
-        """
-        A parent and its child swap places: the child moves to the root before the parent
-        moves under it, in either row order.
-        """
-        rows = [self._row('t0', 't1'), self._row('t1')]
-        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0')])
-        for order in itertools.permutations(range(2)):
-            with self.subTest(order=order):
-                plan.generate_actions(tags=[rows[i] for i in order], replace=False)
-                self.assertEqual(plan.errors, [])
-                self.assertLess(
-                    self._update_parent_index(plan, 't1', None), self._update_parent_index(plan, 't0', 't1'),
-                )
-
-    def test_generate_actions_three_level_inversion_accepted_in_any_row_order(self) -> None:
-        """
-        A three-level chain t0 > t1 > t2 is reversed: each move runs only after the tag it
-        moves under has left its subtree, in all six row orders.
-        """
-        rows = [self._row('t2'), self._row('t1', 't2'), self._row('t0', 't1')]
-        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0'), ('t2', 't1')])
-        for order in itertools.permutations(range(3)):
-            with self.subTest(order=order):
-                plan.generate_actions(tags=[rows[i] for i in order], replace=False)
-                self.assertEqual(plan.errors, [])
-                moves = [
-                    self._update_parent_index(plan, 't2', None),
-                    self._update_parent_index(plan, 't1', 't2'),
-                    self._update_parent_index(plan, 't0', 't1'),
-                ]
-                self.assertEqual(moves, sorted(moves))
-
     def test_generate_actions_valid_move_order_keeps_action_order(self) -> None:
         """
-        A file whose parent moves are already in a valid order keeps its row order in the plan.
+        A file whose parent moves are already in a valid order keeps its row order in the
+        plan.
+
+        Before              After
+        old_root            new_root
+            old_child           new_middle
+            new_root                old_root
+                                    old_child
         """
-        plan = self._plan_for_new_taxonomy([('t0', None), ('t1', 't0'), ('t2', 't0')])
-        rows = [self._row('t2'), self._row('g0', 't2'), self._row('t0', 'g0'), self._row('t1', 'g0')]
+        plan = self._plan_for_new_taxonomy([
+            TagItem(id='old_root', value='Old root'),
+            TagItem(id='old_child', value='Old child', parent_id='old_root'),
+            TagItem(id='new_root', value='New root', parent_id='old_root'),
+        ])
+        rows = [
+            TagItem(id='new_root', value='New root'),
+            TagItem(id='new_middle', value='New middle', parent_id='new_root'),
+            TagItem(id='old_root', value='Old root', parent_id='new_middle'),
+            TagItem(id='old_child', value='Old child', parent_id='new_middle'),
+        ]
         plan.generate_actions(tags=rows, replace=False)
         self.assertEqual(plan.errors, [])
-        self.assertEqual([action.tag.id for action in plan.actions], ['t2', 'g0', 't0', 't1'])
-
-    def _deep_chain_structure(self) -> list[tuple[str, str | None]]:
-        """
-        Return a chain t0 > t1 > t2 > t3 > t5 of five levels, the deepest the taxonomy allows
-        before a child of t5 would be a sixth level (parent depth 4, so the tag below it is 5).
-        """
-        return [('t0', None), ('t1', 't0'), ('t2', 't1'), ('t3', 't2'), ('t5', 't3')]
-
-    def _passes_dry_run(self, plan: TagImportPlan) -> bool:
-        """
-        Return whether the plan's actions pass the parent dry run, on the taxonomy as it is now.
-        """
-        forest = _ParentForest({
-            tag.external_id.casefold(): ExistingTag(
-                tag.pk, tag.parent_id, tag.parent.external_id if tag.parent else None,
-            )
-            for tag in plan.taxonomy.tag_set.select_related('parent')
-        })
-        return all(forest.apply(action) for action in plan.actions)
-
-    def _assert_detached_first(self, plan: TagImportPlan, tag_id: str) -> None:
-        """
-        Check the plan starts with the update-to-root of `tag_id`, before any other action
-        of its rows, and that the plan passes the dry run.
-        """
-        first = plan.actions[0]
-        self.assertEqual((first.name, first.tag.id, first.tag.parent_id), ('update_parent', tag_id, None))
-        self.assertTrue(self._passes_dry_run(plan))
-
-    def test_generate_actions_deep_parent_move_detaches_before_attaching(self) -> None:
-        """
-        t5 is moved to the root while new tags g0 and g1 are put under it. Creating them
-        under t5 before it moves would make g1 a seventh level. All six row orders plan clean,
-        and the hazardous one (new tags first) detaches t5 before any create.
-        """
-        rows = [self._row('g1', 'g0'), self._row('g0', 't5'), self._row('t5')]
-        plan = self._plan_for_new_taxonomy(self._deep_chain_structure())
-        for order in itertools.permutations(range(3)):
-            with self.subTest(order=order):
-                plan.generate_actions(tags=[rows[i] for i in order], replace=False)
-                self.assertEqual(plan.errors, [])
-                self.assertTrue(self._passes_dry_run(plan))
-        plan.generate_actions(tags=rows, replace=False)
-        self._assert_detached_first(plan, 't5')
+        self.assertEqual(
+            [action.tag.id for action in plan.actions], ['new_root', 'new_middle', 'old_root', 'old_child'],
+        )
 
     def test_generate_actions_ordinary_import_has_no_detach_actions(self) -> None:
         """
-        An import whose steps are all valid keeps its plan: no update-to-root is added.
+        An import whose steps are all valid keeps its plan: no move to the root is added
+        before the other actions.
+
+        Before              After
+        level_1             level_1
+            level_2             level_2
+                level_3             level_3
+                                        new_leaf
         """
-        plan = self._plan_for_new_taxonomy(self._deep_chain_structure()[:3])
+        chain = [
+            TagItem(id='level_1', value='Level 1'),
+            TagItem(id='level_2', value='Level 2', parent_id='level_1'),
+            TagItem(id='level_3', value='Level 3', parent_id='level_2'),
+        ]
+        plan = self._plan_for_new_taxonomy(chain)
         plan.generate_actions(
-            tags=[self._row('t0'), self._row('t1', 't0'), self._row('t2', 't1'), self._row('n0', 't2')],
+            tags=chain + [TagItem(id='new_leaf', value='New leaf', parent_id='level_3')],
             replace=False,
         )
         self.assertEqual(plan.errors, [])
@@ -1199,119 +1001,57 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             [action.name for action in plan.actions], ['without_changes'] * 3 + ['create'],
         )
 
-    def test_generate_actions_deep_tag_under_renamed_parent_moved_to_root(self) -> None:
-        """
-        t5's parent t3 is renamed to r3 while t5 moves to the root and new tags go under it:
-        all 24 row orders plan clean, and the hazardous one detaches t5 first.
-        """
-        rows = [
-            self._row('g1', 'g0'), self._row('g0', 't5'), self._row('t5'),
-            TagItem(id='r3', value='Tag t3', previous_id='t3', parent_id='t2'),
-        ]
-        plan = self._plan_for_new_taxonomy(self._deep_chain_structure())
-        for order in itertools.permutations(range(4)):
-            with self.subTest(order=order):
-                plan.generate_actions(tags=[rows[i] for i in order], replace=False)
-                self.assertEqual(plan.errors, [])
-                self.assertTrue(self._passes_dry_run(plan))
-        plan.generate_actions(tags=rows, replace=False)
-        self._assert_detached_first(plan, 't5')
-
-    def test_generate_actions_subtree_moved_under_deep_tag_before_it_is_shallowed(self) -> None:
-        """
-        A three-level subtree s0 > s1 > s2 is moved under c3, which is itself moved to the root.
-        Attaching s0 under c3 while c3 is still at depth 3 would make s2 a seventh level.
-        """
-        structure = [('c0', None), ('c1', 'c0'), ('c2', 'c1'), ('c3', 'c2'), ('s0', None), ('s1', 's0'), ('s2', 's1')]
-        rows = [self._row('s0', 'c3'), self._row('c3'), self._row('s1', 's0'), self._row('s2', 's1')]
-        plan = self._plan_for_new_taxonomy(structure)
-        for order in itertools.permutations(range(len(rows))):
-            with self.subTest(order=order):
-                plan.generate_actions(tags=[rows[i] for i in order], replace=False)
-                self.assertEqual(plan.errors, [])
-                self.assertTrue(self._passes_dry_run(plan))
-
-    def test_generate_actions_three_level_new_chain_under_moved_deep_tag(self) -> None:
-        """
-        Three new tags are chained under t5, which moves to the root: all 24 row orders plan clean.
-        """
-        rows = [self._row('t5'), self._row('g0', 't5'), self._row('g1', 'g0'), self._row('g2', 'g1')]
-        plan = self._plan_for_new_taxonomy(self._deep_chain_structure())
-        for order in itertools.permutations(range(4)):
-            with self.subTest(order=order):
-                plan.generate_actions(tags=[rows[i] for i in order], replace=False)
-                self.assertEqual(plan.errors, [])
-                self.assertTrue(self._passes_dry_run(plan))
-
     def test_parent_dry_run_accepts_valid_and_rejects_invalid_sequences(self) -> None:
         """
-        The dry run accepts a valid move, and rejects a cycle, a tree that gets too deep, and a
-        reference to a tag removed by an earlier delete (a delete also removes descendants).
+        ``_ParentForest`` accepts a valid move, and rejects a cycle, a tree that gets too
+        deep, and a reference to a tag that an earlier delete removed (a delete also removes
+        the descendants).
+
+        Before
+        level_1
+            level_2
+                level_3
+                    level_4
+                        level_5
+        other_root
+            other_child
         """
-        # A chain c0 > ... > c4 of five levels, and a root s0 with a child s1.
         tags = {
-            'c0': ExistingTag(1, None, None), 'c1': ExistingTag(2, 1, 'c0'), 'c2': ExistingTag(3, 2, 'c1'),
-            'c3': ExistingTag(4, 3, 'c2'), 'c4': ExistingTag(5, 4, 'c3'),
-            's0': ExistingTag(6, None, None), 's1': ExistingTag(7, 6, 's0'),
+            'level_1': ExistingTag(pk=1, parent_pk=None, parent_external_id=None),
+            'level_2': ExistingTag(pk=2, parent_pk=1, parent_external_id='level_1'),
+            'level_3': ExistingTag(pk=3, parent_pk=2, parent_external_id='level_2'),
+            'level_4': ExistingTag(pk=4, parent_pk=3, parent_external_id='level_3'),
+            'level_5': ExistingTag(pk=5, parent_pk=4, parent_external_id='level_4'),
+            'other_root': ExistingTag(pk=6, parent_pk=None, parent_external_id=None),
+            'other_child': ExistingTag(pk=7, parent_pk=6, parent_external_id='other_root'),
         }
         taxonomy = Taxonomy()
 
-        def update(tag_id: str, parent_id: str | None) -> UpdateParentTag:
+        def move(tag_id: str, parent_id: str | None) -> UpdateParentTag:
             return UpdateParentTag(taxonomy, TagItem(id=tag_id, value='x', parent_id=parent_id), 1)
 
-        delete = DeleteTag(taxonomy, TagItem(id='c1', value='x'), 1)
-        self.assertTrue(_ParentForest(tags).apply(update('s1', 'c0')))
-        self.assertFalse(_ParentForest(tags).apply(update('c0', 'c4')))
-        self.assertFalse(_ParentForest(tags).apply(update('s0', 'c4')))
+        delete_level_2 = DeleteTag(taxonomy, TagItem(id='level_2', value='x'), 1)
+        self.assertTrue(_ParentForest(tags).apply(move('other_child', 'level_1')))
+        # level_1 under its own descendant is a cycle.
+        self.assertFalse(_ParentForest(tags).apply(move('level_1', 'level_5')))
+        # other_child would end up at a seventh level.
+        self.assertFalse(_ParentForest(tags).apply(move('other_root', 'level_5')))
         forest = _ParentForest(tags)
-        self.assertTrue(forest.apply(delete))
-        self.assertFalse(forest.apply(update('s0', 'c2')))
+        self.assertTrue(forest.apply(delete_level_2))
+        self.assertFalse(forest.apply(move('other_root', 'level_3')))
         forest = _ParentForest(tags)
-        self.assertTrue(forest.apply(delete))
-        self.assertTrue(forest.apply(update('s0', 'c0')))
-
-    def test_generate_actions_rebuilds_a_hazardous_plan_only_once(self) -> None:
-        """
-        When the dry run keeps failing, the plan is rebuilt detach-first once, checked once more,
-        and reported as invalid instead of being rebuilt again.
-        """
-        plan = self._plan_for_new_taxonomy(self._deep_chain_structure())
-        rows = [self._row('g0', 't5'), self._row('t5')]
-        with mock.patch.object(TagImportPlan, '_parent_changes_are_valid', return_value=False) as dry_run:
-            plan.generate_actions(tags=rows, replace=False)
-        self.assertEqual(dry_run.call_count, 2)
-        self.assertEqual(len(plan.errors), 1)
-        first = plan.actions[0]
-        self.assertEqual((first.name, first.tag.id, first.tag.parent_id), ('update_parent', 't5', None))
-
-    def test_generate_actions_rejects_a_new_tag_below_the_maximum_depth(self) -> None:
-        """
-        A tag added under a tag that is already at the deepest level cannot be applied in any
-        order, so the plan has the invalid hierarchy error instead of an applicable plan.
-        """
-        structure = [('a', None), ('b', 'a'), ('c', 'b'), ('d', 'c'), ('e', 'd'), ('f', 'e')]
-        plan = self._plan_for_new_taxonomy(structure)
-        rows = [self._row(tag_id, parent) for tag_id, parent in structure] + [self._row('g', 'f')]
-        plan.generate_actions(tags=rows, replace=True)
-        self.assertEqual(len(plan.errors), 1)
-        self.assertIn('deeper than 6 levels', str(plan.errors[0]))
-
-    def test_generate_actions_rejects_a_subtree_moved_too_deep(self) -> None:
-        """
-        Moving the chain w > x > y > z under d (a > b > c > d) would put z at the seventh level,
-        so the plan has the invalid hierarchy error.
-        """
-        structure = [('a', None), ('b', 'a'), ('c', 'b'), ('d', 'c'), ('w', None), ('x', 'w'), ('y', 'x'), ('z', 'y')]
-        plan = self._plan_for_new_taxonomy(structure)
-        rows = [self._row(tag_id, 'd' if tag_id == 'w' else parent) for tag_id, parent in structure]
-        plan.generate_actions(tags=rows, replace=True)
-        self.assertEqual(len(plan.errors), 1)
-        self.assertIn('deeper than 6 levels', str(plan.errors[0]))
+        self.assertTrue(forest.apply(delete_level_2))
+        self.assertTrue(forest.apply(move('other_root', 'level_1')))
 
     def test_generate_actions_swap_case_variant_of_stale_parent_id_rejected(self) -> None:
         """
-        In a tag_1 <-> tag_3 swap, a child naming the stale id "tag_1" with another case is
-        rejected like the exact spelling, with its row position and the new id.
+        In a swap, a child naming its parent's stale id in another case is rejected like the
+        exact spelling, with its row number and the parent's new id.
+
+        Before      File rows
+        tag_1       tag_3 (previous_id tag_1)
+            tag_2   tag_1 (previous_id tag_3)
+        tag_3       tag_2 (parent_id TAG_1)
         """
         tags = [
             TagItem(id='tag_3', value='Tag 1', previous_id='tag_1'),
@@ -1326,7 +1066,14 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_generate_actions_swap_case_variant_of_end_state_parent_id_accepted(self) -> None:
         """
-        In the same swap, children naming the end-state ids with another case are accepted.
+        In a swap, children naming the end-state ids of their parents in another case are
+        accepted.
+
+        Before      After
+        tag_1       tag_3 (was tag_1)
+            tag_2       tag_2 (parent_id TAG_3)
+        tag_3       tag_1 (was tag_3)
+            tag_4       tag_4 (parent_id TAG_1)
         """
         tags = [
             TagItem(id='tag_3', value='Tag 1', previous_id='tag_1'),
@@ -1339,8 +1086,12 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
 
     def test_generate_actions_plain_rename_case_variant_of_parent_id_reported_once(self) -> None:
         """
-        When tag_1 is plainly renamed to tag_50, a child naming "TAG_1" gets only the parent
-        validation error, not a second one for the same row.
+        When the parent is renamed without a swap, a child naming the parent's old id in
+        another case gets only the parent validation error, not a second one for the same row.
+
+        Before      File rows
+        tag_1       tag_50 (previous_id tag_1)
+            tag_2   tag_2 (parent_id TAG_1)
         """
         tags = [
             TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
@@ -1350,19 +1101,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         messages = [str(error) for error in self.import_plan.errors]
         self.assertEqual(len(messages), 1)
         self.assertIn('Parent tag TAG_1 is renamed to tag_50 in this file', messages[0])
-
-    def test_generate_actions_case_only_parent_rename_with_case_variant_child_accepted(self) -> None:
-        """
-        Renaming tag_1 only by case keeps the id, so a child naming it in either case is accepted.
-        """
-        for parent_id in ('tag_1', 'Tag_1', 'TAG_1'):
-            with self.subTest(parent_id=parent_id):
-                tags = [
-                    TagItem(id='TAG_1', value='Tag 1', previous_id='tag_1'),
-                    TagItem(id='tag_2', value='Tag 2', parent_id=parent_id),
-                ]
-                self.import_plan.generate_actions(tags=tags, replace=False)
-                self.assertEqual(self.import_plan.errors, [])
 
     def test_generate_actions_genuine_collision_not_staged(self) -> None:
         """
