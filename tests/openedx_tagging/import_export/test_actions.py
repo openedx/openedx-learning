@@ -132,7 +132,7 @@ class TestImportAction(TestImportActionMixin, TestCase):
                 (
                     "Action error in 'import_action' (#100): "
                     "Unknown parent tag (tag_100). "
-                    "You need to add parent before the child in your file."
+                    "Add a row for the parent to your file."
                 )
             )
 
@@ -140,16 +140,12 @@ class TestImportAction(TestImportActionMixin, TestCase):
         """
         Regression: a parent referenced by external_id that doesn't exist in
         the DB yet, but is being renamed-in via a `RenameTagExternalId`
-        action earlier in the same import, must validate as a known parent.
+        action in the same import (recorded in `_vacated_pks` by the plan,
+        wherever that row is in the file), must validate as a known parent.
         """
-        indexed_actions = dict(self.indexed_actions)
-        indexed_actions['rename_external_id'] = [
-            RenameTagExternalId(
-                taxonomy=self.taxonomy,
-                tag=TagItem(id='tag_60', value='Tag 60', previous_id='tag_3', index=1),
-                index=1,
-            )
-        ]
+        tag_3_pk = self.taxonomy.tag_set.get(external_id='tag_3').pk
+        indexed_actions: dict[str, list[ImportAction] | dict[int, str]] = dict(self.indexed_actions)
+        indexed_actions['_vacated_pks'] = {tag_3_pk: 'tag_60'}
         action = ImportAction(
             self.taxonomy,
             TagItem(
