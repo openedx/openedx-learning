@@ -67,8 +67,7 @@ class TestApiTagging(TestTagTaxonomyMixin, TestCase):
     def test_get_taxonomy(self) -> None:
         tax1 = tagging_api.get_taxonomy(1)
         assert tax1 == self.taxonomy
-        unused_id = (Taxonomy.objects.order_by("-pk").values_list("pk", flat=True).first() or 0) + 1
-        no_tax = tagging_api.get_taxonomy(unused_id)
+        no_tax = tagging_api.get_taxonomy(200)
         assert no_tax is None
 
     def test_get_taxonomy_by_export_id(self) -> None:
