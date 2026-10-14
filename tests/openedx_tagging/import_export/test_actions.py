@@ -10,6 +10,7 @@ from django.test.testcases import TestCase
 from openedx_tagging.import_export.actions import (
     CreateTag,
     DeleteTag,
+    DetachTag,
     ImportAction,
     RenameTag,
     RenameTagExternalId,
@@ -1004,6 +1005,47 @@ class TestStageTagExternalIdForSwap(TestImportActionMixin, TestCase):
         tag.refresh_from_db()
         self.assertEqual(tag.pk, pk)
         self.assertTrue(tag.external_id.startswith("oel-import-staging:"))
+
+
+class TestDetachTag(TestImportActionMixin, TestCase):
+    """
+    Test for 'detach' action
+    """
+
+    def _action(self) -> DetachTag:
+        return DetachTag(
+            taxonomy=self.taxonomy,
+            tag=TagItem(id='tag_2', value='Tag 2', index=100),
+            index=100,
+            target_pk=self.taxonomy.tag_set.get(external_id='tag_2').pk,
+        )
+
+    def test_str(self) -> None:
+        self.assertEqual(
+            str(self._action()),
+            "Move tag <TagItem> (tag_2 / Tag 2) to the root first, "
+            "so that the parent changes in this file can run in any order."
+        )
+
+    def test_applies_for(self) -> None:
+        self.assertFalse(DetachTag.applies_for(self.taxonomy, tag=TagItem(id='tag_2', value='Tag 2', index=100)))
+
+    def test_validate(self) -> None:
+        self.assertEqual(self._action().validate(self.indexed_actions), [])
+
+    def test_execute(self) -> None:
+        """
+        The tag moves to the root and keeps its pk; it is found by pk, so a
+        placeholder external_id from a staging action does not matter.
+        """
+        action = self._action()
+        tag = self.taxonomy.tag_set.get(external_id='tag_2')
+        self.assertIsNotNone(tag.parent)
+        self.taxonomy.tag_set.filter(pk=tag.pk).update(external_id="oel-import-staging:x")
+        action.execute()
+        tag.refresh_from_db()
+        self.assertIsNone(tag.parent)
+        self.assertEqual(tag.depth, 0)
 
 
 class TestDeleteTag(TestImportActionMixin, TestCase):

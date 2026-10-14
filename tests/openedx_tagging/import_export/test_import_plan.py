@@ -103,6 +103,10 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             0,
             [
                 {
+                    'name': 'detach',
+                    'id': 'tag_4'
+                },
+                {
                     'name': 'create',
                     'id': 'tag_31'
                 },
@@ -250,25 +254,27 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             False,
             "Import plan for Import Taxonomy Test\n"
             "--------------------------------\n"
-            "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
-            "#2: Create a new tag with values (external_id=tag_31, value=Tag 32, parent_id=None).\n"
-            "#3: Rename tag value of <Tag> (tag_1 / Tag 1) to 'Tag 2'\n"
-            "#4: Update the parent of <Tag> (tag_4 / Tag 4) from parent "
+            "#1: Move tag <TagItem> (tag_2 / Tag 2) to the root first, so that the parent changes "
+            "in this file can run in any order.\n"
+            "#2: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
+            "#3: Create a new tag with values (external_id=tag_31, value=Tag 32, parent_id=None).\n"
+            "#4: Rename tag value of <Tag> (tag_1 / Tag 1) to 'Tag 2'\n"
+            "#5: Update the parent of <Tag> (tag_4 / Tag 4) from parent "
             "<Tag> (tag_3 / Tag 3) to tag_100\n"
-            "#5: Create a new tag with values (external_id=tag_33, value=Tag 32, parent_id=None).\n"
-            "#6: Update the parent of <Tag> (tag_2 / Tag 2) from parent "
+            "#6: Create a new tag with values (external_id=tag_33, value=Tag 32, parent_id=None).\n"
+            "#7: Update the parent of <Tag> (tag_2 / Tag 2) from parent "
             "<Tag> (tag_1 / Tag 1) to None\n"
-            "#7: Rename tag value of <Tag> (tag_2 / Tag 2) to 'Tag 31'\n"
+            "#8: Rename tag value of <Tag> (tag_2 / Tag 2) to 'Tag 31'\n"
             "\nOutput errors\n"
             "--------------------------------\n"
             "Duplicate id (tag_31): file rows 1, 2 all claim it as their final id. "
             "Each row's id must be unique within a single import.\n"
-            "Conflict with 'create' (#2) and action #1: Duplicated external_id tag.\n"
-            "Action error in 'rename' (#3): Duplicated tag value with tag in database (external_id=tag_2).\n"
-            "Action error in 'update_parent' (#4): Unknown parent tag (tag_100). "
+            "Conflict with 'create' (#3) and action #2: Duplicated external_id tag.\n"
+            "Action error in 'rename' (#4): Duplicated tag value with tag in database (external_id=tag_2).\n"
+            "Action error in 'update_parent' (#5): Unknown parent tag (tag_100). "
             "Add a row for the parent to your file.\n"
-            "Conflict with 'create' (#5) and action #2: Duplicated tag value.\n"
-            "Conflict with 'rename' (#7) and action #1: Duplicated tag value.\n"
+            "Conflict with 'create' (#6) and action #3: Duplicated tag value.\n"
+            "Conflict with 'rename' (#8) and action #2: Duplicated tag value.\n"
         ),
         # Testing valid plan
         (
@@ -300,13 +306,15 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             False,
             "Import plan for Import Taxonomy Test\n"
             "--------------------------------\n"
-            "#1: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
-            "#2: Create a new tag with values (external_id=tag_32, value=Tag 32, parent_id=tag_1).\n"
-            "#3: Rename tag value of <Tag> (tag_2 / Tag 2) to 'Tag 2 v2'\n"
-            "#4: Update the parent of <Tag> (tag_4 / Tag 4) from parent "
+            "#1: Move tag <TagItem> (tag_4 / Tag 4) to the root first, so that the parent changes "
+            "in this file can run in any order.\n"
+            "#2: Create a new tag with values (external_id=tag_31, value=Tag 31, parent_id=None).\n"
+            "#3: Create a new tag with values (external_id=tag_32, value=Tag 32, parent_id=tag_1).\n"
+            "#4: Rename tag value of <Tag> (tag_2 / Tag 2) to 'Tag 2 v2'\n"
+            "#5: Update the parent of <Tag> (tag_4 / Tag 4) from parent "
             "<Tag> (tag_3 / Tag 3) to tag_1\n"
-            "#5: Rename tag value of <Tag> (tag_4 / Tag 4) to 'Tag 4 v2'\n"
-            "#6: No changes needed for <TagItem> (tag_1 / Tag 1)\n"
+            "#6: Rename tag value of <Tag> (tag_4 / Tag 4) to 'Tag 4 v2'\n"
+            "#7: No changes needed for <TagItem> (tag_1 / Tag 1)\n"
         ),
         # Testing deletes (replace=True)
         (
@@ -703,7 +711,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         (
             [
                 TagItem(id='new_parent', value='New parent'),
-                TagItem(id='tag_4', value='Tag 4', parent_id='tag_1'),
+                TagItem(id='tag_4', value='Tag 4 v2', parent_id='tag_3'),
                 TagItem(id='new_child', value='New child', parent_id='new_parent'),
             ],
             ['new_parent', 'tag_4', 'new_child'],
@@ -803,13 +811,20 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
     ) -> None:
         """
         Restructures that fail when their actions run in file order, because an
-        intermediate step would build a cycle or a tree too deep, succeed: every
-        moved tag is detached before the actions run. ``rows`` lists the worst
-        order for each case. Omitted tags keep their parent (replace=False).
+        intermediate step would build a cycle or a tree too deep, succeed: a
+        detach action moves every tag whose parent changes to the root before the
+        row actions. ``rows`` lists the worst order for each case. Omitted tags
+        keep their parent (replace=False).
         """
         plan = self._plan_for_tree(tree)
         plan.generate_actions(tags=rows, replace=False)
         self.assertEqual([str(error) for error in plan.errors], [])
+        names = [action.name for action in plan.actions]
+        self.assertIn('detach', names)
+        self.assertLess(
+            max(index for index, name in enumerate(names) if name == 'detach'),
+            min(index for index, name in enumerate(names) if name != 'detach'),
+        )
         plan.execute()
         self.assertEqual(self._tree(plan.taxonomy), expected)
 
@@ -825,6 +840,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         self.assertEqual(plan.errors, [])
         names = [action.name for action in plan.actions]
         self.assertLess(names.index('update_parent'), names.index('delete'))
+        self.assertNotIn('detach', names)  # The promotion already moves the tag to the root.
         plan.execute()
         self.assertEqual(self._tree(plan.taxonomy), {'kept': None})
         self.assertEqual(plan.taxonomy.tag_set.get(external_id='kept').pk, kept_pk)

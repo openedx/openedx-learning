@@ -660,6 +660,56 @@ class StageTagExternalIdForSwap(ImportAction):
         self.taxonomy.tag_set.filter(pk=self.target_pk).update(external_id=placeholder)
 
 
+class DetachTag(ImportAction):
+    """
+    Action to move a tag to the root before the actions that change parents run.
+
+    Synthesized by TagImportPlan._build_detach_actions for every existing tag
+    whose parent changes, not read from a file row. Tag.save checks the depth
+    of each step, and a cycle corrupts the tree silently, so a restructure that
+    is valid as a whole can still go wrong part-way through, depending on the
+    order of the actions. Once every moved tag is at the root, each tag is at
+    or above its final depth and none is an ancestor of its new parent, so the
+    actions that follow can attach tags in any order.
+    """
+
+    name = "detach"
+
+    def __str__(self) -> str:
+        return str(
+            _(
+                "Move tag {tag} to the root first, so that the parent changes "
+                "in this file can run in any order."
+            ).format(tag=self.tag)
+        )
+
+    @classmethod
+    def applies_for(cls, taxonomy: Taxonomy, tag: TagItem, indexed_actions=None) -> bool:
+        """
+        This action is an exception: synthesized in TagImportPlan.generate_actions.
+        """
+        return False
+
+    def validate(self, indexed_actions) -> list[ImportActionError]:
+        """
+        No validations necessary
+        """
+        return []
+
+    def execute(self) -> None:
+        """
+        Moves the tag to the root, with its descendants.
+
+        Looks the tag up by pk: a StageTagExternalIdForSwap action may have
+        moved it onto a placeholder id by now.
+        """
+        # _build_detach_actions only builds this action with a target_pk.
+        assert self.target_pk is not None
+        tag = self.taxonomy.tag_set.get(pk=self.target_pk)
+        tag.parent = None
+        tag.save()
+
+
 class DeleteTag(ImportAction):
     """
     Action for delete a Tag
@@ -737,6 +787,7 @@ available_actions = [
     RenameTagExternalId,
     CreateTag,
     StageTagExternalIdForSwap,
+    DetachTag,
     DeleteTag,
     WithoutChanges,
 ]

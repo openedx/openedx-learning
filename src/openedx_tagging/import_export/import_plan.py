@@ -12,6 +12,7 @@ from ..models import Tag, TagImportTask, Taxonomy
 from ..models.base import TAXONOMY_MAX_DEPTH
 from .actions import (
     DeleteTag,
+    DetachTag,
     ImportAction,
     RenameTagExternalId,
     StageTagExternalIdForSwap,
@@ -34,6 +35,7 @@ class ExistingTag(NamedTuple):
     """
 
     external_id: str
+    value: str
     pk: int
     parent_pk: int | None
 
@@ -70,15 +72,15 @@ class TagImportPlan:
     A row's ``parent_id`` names the id its parent holds *after* the import. Three steps
     make parent changes work whatever the order of the rows in the file:
 
-    - The plan computes the tag tree as it will be after the import (``_end_state``),
-      rejects a parent cycle or a tree deeper than the limit there, and records which
-      existing tags change parent (``moved_tag_pks``).
+    - The plan computes the tag tree as it will be after the import (``_end_state``)
+      and rejects a parent cycle or a tree deeper than the limit there.
+    - A DetachTag action moves every existing tag whose parent changes to the root
+      before the row actions (``_build_detach_actions``). After that each tag is at or
+      above its final depth, and none is an ancestor of its new parent, so no action can
+      exceed the depth limit or build a cycle part-way through.
     - A row is built after the row that creates or renames-in its parent
       (``_order_rows_parent_first``), so the per-action parent validation and the
       execution both find the parent.
-    - ``execute`` first detaches every tag whose parent changes. After that each tag is
-      at or above its final depth, and none is an ancestor of its new parent, so no
-      action can exceed the depth limit or build a cycle part-way through.
 
     "Row N" in an error is the N-th data row of the file, counting from 1: in a CSV file
     that is spreadsheet line N + 1, because the header is line 1.
@@ -89,14 +91,12 @@ class TagImportPlan:
     indexed_actions: dict
     actions_dict: dict
     taxonomy: Taxonomy
-    moved_tag_pks: set[int]
 
     def __init__(self, taxonomy: Taxonomy):
         self.actions = []
         self.errors = []
         self.taxonomy = taxonomy
         self.actions_dict = {}
-        self.moved_tag_pks = set()
         self._init_indexed_actions()
 
     def _init_indexed_actions(self):
@@ -280,8 +280,10 @@ class TagImportPlan:
         Return the taxonomy's tags before the import, keyed by casefolded external_id. One query.
         """
         return {
-            external_id.casefold(): ExistingTag(external_id, pk, parent_pk)
-            for external_id, pk, parent_pk in self.taxonomy.tag_set.values_list("external_id", "pk", "parent_id")
+            external_id.casefold(): ExistingTag(external_id, value, pk, parent_pk)
+            for external_id, value, pk, parent_pk in self.taxonomy.tag_set.values_list(
+                "external_id", "value", "pk", "parent_id",
+            )
         }
 
     def _end_state(
@@ -371,23 +373,31 @@ class TagImportPlan:
             tag_id = tags[row_of[key]].id if key in row_of else existing[key].external_id
             self.errors.append(TagTooDeepError(tag_id, TAXONOMY_MAX_DEPTH + 1))
 
-    @staticmethod
-    def _moved_tag_pks(
-        existing: dict[str, ExistingTag], parent_of: dict[str, str | None], pk_of: dict[str, int],
-    ) -> set[int]:
+    def _build_detach_actions(
+        self, existing: dict[str, ExistingTag], parent_of: dict[str, str | None], pk_of: dict[str, int],
+    ) -> None:
         """
-        Return the pks of the existing tags whose parent after the import is a different tag than before.
+        Add a DetachTag action for every existing tag whose parent after the import
+        is a different tag than before.
+
+        A root tag has nothing to detach, a kept child of a deleted tag is promoted
+        by the delete phase, and a row whose parent_id names no tag of the end state
+        is left to ``_validate_parent``.
         """
-        current_parent_pk = {info.pk: info.parent_pk for info in existing.values()}
-        moved = set()
+        by_pk = {info.pk: info for info in existing.values()}
+        deleted_pks = {existing[action.tag.id.casefold()].pk for action in self.indexed_actions["delete"]}
         for key, pk in pk_of.items():
             if pk == NEW_TAG:
                 continue
+            info = by_pk[pk]
+            if info.parent_pk is None or info.parent_pk in deleted_pks:
+                continue
             parent_key = parent_of[key]
-            final_parent_pk = pk_of.get(parent_key) if parent_key is not None else None
-            if final_parent_pk != current_parent_pk[pk]:
-                moved.add(pk)
-        return moved
+            if parent_key is not None and parent_key not in pk_of:
+                continue
+            final_parent_pk = pk_of[parent_key] if parent_key is not None else None
+            if final_parent_pk != info.parent_pk:
+                self._build_action(DetachTag, TagItem(id=info.external_id, value=info.value), target_pk=pk)
 
     @staticmethod
     def _order_rows_parent_first(tags: list[TagItem], existing: dict[str, ExistingTag]) -> list[TagItem]:
@@ -440,7 +450,6 @@ class TagImportPlan:
         """
         self.actions.clear()
         self.errors.clear()
-        self.moved_tag_pks.clear()
         self._init_indexed_actions()
         existing = self._existing_tags()
 
@@ -488,10 +497,11 @@ class TagImportPlan:
         self._build_staging_actions(tags)
 
         # Reject what no single action can see: a cycle or an overflow of the tree the
-        # rows describe together. Record the tags to detach before executing.
+        # rows describe together. Then detach every tag whose parent changes, so that
+        # the row actions can run in any order.
         parent_of, pk_of, row_of = self._end_state(tags, existing)
         self._validate_hierarchy(tags, existing, parent_of, pk_of, row_of)
-        self.moved_tag_pks = self._moved_tag_pks(existing, parent_of, pk_of)
+        self._build_detach_actions(existing, parent_of, pk_of)
 
         for tag in self._order_rows_parent_first(tags, existing):
             has_action = False
@@ -537,17 +547,6 @@ class TagImportPlan:
         """
         if self.errors:
             return
-        # Detach every tag whose parent changes before any action runs, so that no
-        # action can exceed the depth limit or build a cycle part-way through (see
-        # the class docstring). Each action then attaches its tag to its new parent.
-        if self.moved_tag_pks:
-            if task:
-                task.add_log("Detaching the tags whose parent changes [Started]", save=False)
-            for tag in self.taxonomy.tag_set.filter(pk__in=self.moved_tag_pks, parent__isnull=False):
-                tag.parent = None
-                tag.save()
-            if task:
-                task.add_log("Success", save=False)
         for action in self.actions:
             # Avoid to save each log because it is slow and costs a lot in memory
             # It is necessary to save at the end.
