@@ -169,8 +169,10 @@ class ParentIdRenamedAwayError(TagImportError):
     Exception raised when a row's parent_id is its current parent's pre-import
     id, and the same import renames that parent to a different id.
 
-    The id is stale or, after a swap, ambiguous (it may also name the tag that
-    takes it over), so the importer asks for the parent's new id instead.
+    After the import that id names no tag or, after a swap of ids, a different
+    tag, so the message asks for the parent's new id instead. ``row`` is the
+    1-based position of the row among the file's data rows: row 1 is the first
+    row after a CSV header, or the first entry of a JSON file's ``tags``.
     """
 
     def __init__(self, row: int, parent_id: str, new_id: str, **kargs):
@@ -185,6 +187,8 @@ class ParentCycleError(TagImportError):
     """
     Exception raised when the parent_id of a row makes the tag its own
     ancestor once the import is applied.
+
+    ``row`` is numbered like in ``ParentIdRenamedAwayError``.
     """
 
     def __init__(self, row: int, parent_id: str, **kargs):
@@ -196,8 +200,9 @@ class ParentCycleError(TagImportError):
 
 class InvalidParentHierarchyError(TagImportError):
     """
-    Exception raised when applying the import, even with its parent moves ordered
-    safely, would build a tag tree that is too deep or otherwise invalid.
+    Exception raised when applying the import would build a tag tree that is too
+    deep or otherwise invalid, even when the importer first moves every tag whose
+    parent changes to the root.
     """
 
     def __init__(self, max_levels: int, **kargs):

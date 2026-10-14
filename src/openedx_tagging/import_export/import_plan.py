@@ -66,7 +66,8 @@ class TagItem:
 
 class _ParentForest:
     """
-    In-memory copy of a taxonomy's parent links, used to dry-run the parent effects of import actions.
+    In-memory copy of a taxonomy's parent links, used to simulate the parent effects of import
+    actions without writing to the database.
 
     Tags are identified by pk, and new tags get negative ids. Tags are looked up by their casefolded
     external_id, which follows renames.
@@ -139,8 +140,8 @@ class _ParentForest:
         """
         Remove the tag with external_id ``key`` and all its descendants, if it exists.
         """
-        doomed = self.node_of.get(key)
-        pending = [doomed] if doomed is not None else []
+        deleted_node = self.node_of.get(key)
+        pending = [deleted_node] if deleted_node is not None else []
         while pending:
             node = pending.pop()
             pending.extend(self.children.pop(node, ()))
@@ -157,6 +158,7 @@ class _ParentForest:
         if action.name == "stage_external_id":
             if action.target_pk not in self.parent:
                 return False
+            # A staged tag holds a temporary external_id until its rename runs.
             self._rekey(action.target_pk, f"staged:{action.target_pk}")
         elif action.name == "delete":
             self._delete(tag.id.casefold())
@@ -184,6 +186,19 @@ class _ParentForest:
 class TagImportPlan:
     """
     Class with functions to build an import plan and excute the plan
+
+    Terms used by the plan-level validations below:
+
+    - A *rename row* has a ``previous_id`` that differs from its ``id``. It renames the tag
+      that holds ``previous_id`` to ``id``.
+    - A tag is *renamed away* from an id when a rename row gives it a different id. Its
+      pre-import id is then *stale*: after the import that id names no tag, or, after a
+      swap of ids, a different tag.
+    - The *end state* is the taxonomy as it will be once the whole import is applied. A
+      row's ``parent_id`` names its parent's id in the end state.
+    - "Row N" in an error is the N-th data row of the file, counting from 1. In a CSV file
+      that is spreadsheet line N + 1, because the header is line 1 (the CSV parser's own
+      errors use spreadsheet line numbers). In a JSON file it is the N-th entry of ``tags``.
     """
 
     actions: list[ImportAction]
@@ -306,7 +321,8 @@ class TagImportPlan:
         Rows are identified by their 1-based position in `tags`, not
         `TagItem.index`: index is parser-assigned and optional, and left
         at its default for hand-built rows (e.g. in tests), while position
-        is always defined.
+        is always defined. For the admin, that position is "Row N" as the
+        class docstring defines it.
         """
         positions_by_id: dict[str, list[int]] = {}
         display_id_by_key: dict[str, str] = {}
@@ -389,16 +405,22 @@ class TagImportPlan:
 
     def _validate_parent_id_not_stale(self, tags: list[TagItem], existing: ExistingTags) -> None:
         """
-        Reject a row whose ``parent_id`` is its current parent's pre-import id
-        when this import renames that parent to another id.
+        Reject a row whose ``parent_id`` is the stale id of the row's current parent,
+        that is, the parent's pre-import id when this import renames that parent away.
 
-        The error names the parent's new id. A case-only rename is not
-        flagged. After a swap, a child naming the stale id of a swapped parent
-        is rejected, and one naming the end-state id is accepted. A case
-        variant of the stale id counts too when a rename row claims that id,
-        because ids are case-insensitive. Rows are reported by 1-based
-        position in the parsed row list, not a file line. Must run after
-        ``_build_staging_actions``, which fills ``indexed_actions["_vacated_pks"]``.
+        A plain rename makes the id meaningless. A swap makes it ambiguous. For example,
+        before the import ``tag_2`` is under ``tag_1``, and the file swaps the ids of
+        ``tag_1`` and ``tag_3``. After the import the id ``tag_1`` belongs to the tag that
+        was ``tag_3``, so a ``tag_2`` row that still says ``parent_id: tag_1`` could mean
+        "stay with my parent" or "move under the tag now called ``tag_1``". The row is
+        rejected, and the error tells the admin to use ``tag_3``, the parent's new id.
+        A child that names the end-state id is accepted: ``tag_4``, under the old
+        ``tag_3``, may say ``parent_id: tag_1``.
+
+        A rename that only changes the parent's capitalization is not flagged. A case
+        variant of the stale id (``TAG_1`` for ``tag_1``) is rejected like the exact
+        spelling. Must run after ``_build_staging_actions``, which fills
+        ``indexed_actions["_vacated_pks"]`` with the new id of every renamed tag.
 
         :param tags: the rows of the import file, in file order.
         :param existing: the taxonomy's tags, from ``_existing_tags``.
@@ -413,25 +435,29 @@ class TagImportPlan:
         for position, tag in enumerate(tags, start=1):
             if not tag.parent_id:
                 continue
-            current = existing.get((tag.previous_id or tag.id).casefold())
+            existing_tag = existing.get((tag.previous_id or tag.id).casefold())
+            if existing_tag is None:
+                continue  # A new tag has no current parent.
             parent_key = tag.parent_id.casefold()
-            if current is None or (current.parent_external_id or "").casefold() != parent_key:
-                continue
-            # An exact match is a "no change" row for UpdateParentTag.applies_for, which skips
-            # _validate_parent. A case variant reaches _validate_parent as a parent change and
-            # is reported there, except when a rename row claims the id: it then passes there.
-            if current.parent_external_id != tag.parent_id and parent_key not in rename_final_ids:
-                continue
-            new_id = vacated_pks.get(current.parent_pk) if current.parent_pk is not None else None
-            is_rename = bool(tag.previous_id) and tag.id != tag.previous_id
-            # A rename row's own validation already reports a stale parent_id,
-            # except in a swap, where the id is also another rename's final id.
-            if (
-                new_id is not None
-                and new_id.casefold() != parent_key
-                and (not is_rename or parent_key in rename_final_ids)
-            ):
-                self.errors.append(ParentIdRenamedAwayError(position, tag.parent_id, new_id))
+            names_current_parent = (existing_tag.parent_external_id or "").casefold() == parent_key
+            if not names_current_parent:
+                continue  # A parent change, which _validate_parent checks.
+            new_parent_id = vacated_pks.get(existing_tag.parent_pk) if existing_tag.parent_pk is not None else None
+            if new_parent_id is None or new_parent_id.casefold() == parent_key:
+                continue  # The parent keeps its id, or only changes its capitalization.
+
+            # With the exact spelling, UpdateParentTag.applies_for sees "no change" and
+            # _validate_parent never runs, so only this check can catch the row. A case
+            # variant is a parent change for UpdateParentTag, and _validate_parent reports
+            # it, except when a rename row claims the id: _validate_parent then accepts it.
+            is_exact_spelling = existing_tag.parent_external_id == tag.parent_id
+            is_claimed_by_rename = parent_key in rename_final_ids
+            # A rename row's own validation reports a stale parent_id, except in a swap,
+            # where the stale id is also another rename's final id.
+            is_rename_row = bool(tag.previous_id) and tag.id != tag.previous_id
+            is_reported_elsewhere = is_rename_row and not is_claimed_by_rename
+            if (is_exact_spelling or is_claimed_by_rename) and not is_reported_elsewhere:
+                self.errors.append(ParentIdRenamedAwayError(position, tag.parent_id, new_parent_id))
 
     def _end_state_parents(
         self, tags: list[TagItem], existing: ExistingTags,
@@ -466,10 +492,12 @@ class TagImportPlan:
                 parent_of[key] = tag.parent_id.casefold()
         for key, tag_info in existing.items():
             parent_id = tag_info.parent_external_id
-            if key in represented or key in deleted_ids or tag_info.parent_pk is None or parent_id is None:
-                continue
+            if key in represented or key in deleted_ids:
+                continue  # The tag's row gives its parent, or the tag is deleted.
+            if tag_info.parent_pk is None or parent_id is None:
+                continue  # A root tag.
             if parent_id.casefold() in deleted_ids:
-                continue
+                continue  # The delete phase promotes the tag to root.
             parent_of[key] = vacated_pks.get(tag_info.parent_pk, parent_id).casefold()
         return parent_of, row_position
 
@@ -479,16 +507,17 @@ class TagImportPlan:
         self-parent is a cycle of length one) once this import is applied.
 
         The check runs on the end-state graph from ``_end_state_parents``. A cycle
-        is reported once, on its first row in the parsed row list.
-        A cycle of definer rows is skipped only when none of its ids is held by
-        an existing tag, because only then does ``_validate_parent`` report it
-        (as an unknown parent). Must run after ``_build_staging_actions``.
+        is reported once, on its first row in the file. A cycle made only of rows
+        that define their id (see ``_defines_id``) and whose ids no existing tag
+        holds is skipped: ``_validate_parent`` already reports it as an unknown
+        parent, because none of those ids exists in the database yet.
+        Must run after ``_build_staging_actions``.
 
         :param tags: the rows of the import file, in file order.
         :param existing: the taxonomy's tags, from ``_existing_tags``.
         """
         parent_of, row_position = self._end_state_parents(tags, existing)
-        is_definer_row = {key: self._defines_id(tags[position], existing) for key, position in row_position.items()}
+        row_defines_id = {key: self._defines_id(tags[position], existing) for key, position in row_position.items()}
 
         state: dict[str, int] = {}  # 1 on the current path, 2 once fully walked
         for tag in tags:
@@ -501,12 +530,12 @@ class TagImportPlan:
             if node is not None and state[node] == 1:
                 cycle = path[path.index(node):]
                 rows = [row_position[key] for key in cycle if key in row_position]
-                # _validate_parent only reports a cycle of definer rows when no
-                # id in it is held by an existing tag (it finds that one in the DB).
-                if rows and (
-                    not all(is_definer_row.get(key, False) for key in cycle)
-                    or any(key in existing for key in cycle)
-                ):
+                # A cycle made only of ids that no existing tag holds.
+                is_reported_as_unknown_parent = (
+                    all(row_defines_id.get(key, False) for key in cycle)
+                    and not any(key in existing for key in cycle)
+                )
+                if rows and not is_reported_as_unknown_parent:
                     position = min(rows)
                     self.errors.append(ParentCycleError(position + 1, tags[position].parent_id or ""))
             for key in path:
@@ -515,8 +544,9 @@ class TagImportPlan:
     @staticmethod
     def _defines_id(tag: TagItem, existing: ExistingTags) -> bool:
         """
-        Return whether the row defines its final id: it is a rename row, or it
-        creates a tag, so the id is not held by an existing tag.
+        Return whether the row defines its final id, so that rows naming that id as
+        ``parent_id`` depend on it: a rename row, or a row that creates a tag (its id is
+        not held by an existing tag).
         """
         is_rename = bool(tag.previous_id) and tag.id != tag.previous_id
         return is_rename or tag.id.casefold() not in existing
@@ -539,10 +569,10 @@ class TagImportPlan:
         :param tags: the rows of the import file, in file order.
         :param existing: the taxonomy's tags, from ``_existing_tags``.
         """
-        definers: dict[str, int] = {}
+        defining_row: dict[str, int] = {}
         for position, tag in enumerate(tags):
             if self._defines_id(tag, existing):
-                definers.setdefault(tag.id.casefold(), position)
+                defining_row.setdefault(tag.id.casefold(), position)
         parent_of, row_position = self._end_state_parents(tags, existing)
         parent_pk_of = {info.pk: info.parent_pk for info in existing.values()}
 
@@ -554,25 +584,30 @@ class TagImportPlan:
             if not tag.parent_id:
                 return []
             result = []
-            definer = definers.get(tag.parent_id.casefold())
-            if definer is not None:
-                result.append(definer)
-            current = existing.get((tag.previous_id or tag.id).casefold())
-            if current is None:
+            parent_row = defining_row.get(tag.parent_id.casefold())
+            if parent_row is not None:
+                result.append(parent_row)
+            moved_tag = existing.get((tag.previous_id or tag.id).casefold())
+            if moved_tag is None:
                 return result
+            # Walk the new parent's end-state ancestor chain.
             node: str | None = tag.parent_id.casefold()
             visited: set[str] = set()
             while node is not None and node not in visited:
                 visited.add(node)
-                q_position = row_position.get(node)
-                q_row = tags[q_position] if q_position is not None else None
-                q_current = existing.get((q_row.previous_id or q_row.id).casefold()) if q_row else None
-                if q_current is not None and q_current.pk != current.pk:
-                    ancestor_pk = q_current.parent_pk
-                    while ancestor_pk is not None and ancestor_pk != current.pk:
-                        ancestor_pk = parent_pk_of.get(ancestor_pk)
-                    if ancestor_pk is not None and q_position is not None:
-                        result.append(q_position)
+                ancestor_position = row_position.get(node)
+                ancestor_row = tags[ancestor_position] if ancestor_position is not None else None
+                ancestor_tag = (
+                    existing.get((ancestor_row.previous_id or ancestor_row.id).casefold()) if ancestor_row else None
+                )
+                if ancestor_tag is not None and ancestor_tag.pk != moved_tag.pk:
+                    # Walk the ancestor's current parents to see if it sits inside the moved subtree.
+                    pk = ancestor_tag.parent_pk
+                    while pk is not None and pk != moved_tag.pk:
+                        pk = parent_pk_of.get(pk)
+                    is_inside_moved_subtree = pk is not None
+                    if is_inside_moved_subtree and ancestor_position is not None:
+                        result.append(ancestor_position)
                 node = parent_of.get(node)
             return result
 
@@ -609,11 +644,14 @@ class TagImportPlan:
         :param existing: the taxonomy's tags, from ``_existing_tags``.
         """
         _parent_of, row_position = self._end_state_parents(tags, existing)
-        dependencies = [
-            [row_position[tag.parent_id.casefold()]]
-            if tag.parent_id and row_position.get(tag.parent_id.casefold(), position) != position else []
-            for position, tag in enumerate(tags)
-        ]
+        dependencies: list[list[int]] = []
+        for position, tag in enumerate(tags):
+            parent_row = row_position.get(tag.parent_id.casefold()) if tag.parent_id else None
+            # A row whose parent_id is its own id has no other row to follow.
+            if parent_row is not None and parent_row != position:
+                dependencies.append([parent_row])
+            else:
+                dependencies.append([])
         return self._order_by_dependencies(tags, dependencies)
 
     def _build_detach_actions(self, tags: list[TagItem], existing: ExistingTags) -> None:
@@ -637,7 +675,7 @@ class TagImportPlan:
         for tag in tags:
             current = existing.get((tag.previous_id or tag.id).casefold())
             if current is None or current.parent_pk is None or current.parent_external_id is None:
-                continue
+                continue  # A new tag or a root tag has nothing to detach.
             if current.parent_external_id.casefold() in deleted_ids:
                 continue  # already promoted by the delete phase
             parent_end_id = end_id_by_pk.get(current.parent_pk, current.parent_external_id).casefold()
@@ -678,20 +716,26 @@ class TagImportPlan:
         Those two actions should be merged.
         """
         existing = self._existing_tags()
-        self._generate_actions(tags, replace, existing, safe=False)
-        # A plan whose intermediate states would be invalid is rebuilt detach-first. If that
-        # is still invalid, no order of the actions works.
+        self._generate_actions(tags, replace, existing, detach_first=False)
+        # A plan can have a valid end state while one of its steps is invalid, for example
+        # a deep tag that gets new children before it moves up. Such a plan is rebuilt with
+        # detach_first (see _generate_actions). If that is still invalid, no order of the
+        # actions works.
         if not self.errors and not self._parent_changes_are_valid(existing):
-            self._generate_actions(tags, replace, existing, safe=True)
+            self._generate_actions(tags, replace, existing, detach_first=True)
             if not self._parent_changes_are_valid(existing):
                 self.errors.append(InvalidParentHierarchyError(TAXONOMY_MAX_DEPTH + 1))
 
-    def _generate_actions(self, tags: list[TagItem], replace: bool, existing: ExistingTags, safe: bool) -> None:
+    def _generate_actions(
+        self, tags: list[TagItem], replace: bool, existing: ExistingTags, detach_first: bool,
+    ) -> None:
         """
         Build the actions for ``tags``, with the rows ordered by ``_order_rows_by_parent_dependency``.
 
-        In ``safe`` mode the existing tags whose parent changes are first detached to roots and
-        the rows are ordered by ``_order_rows_parent_first`` instead.
+        With ``detach_first``, every existing tag whose parent changes is first moved to the
+        root (``_build_detach_actions``), and the rows are then ordered parent first
+        (``_order_rows_parent_first``). No step then builds a tree deeper or more cyclic than
+        the end state.
         """
         self.actions.clear()
         self.errors.clear()
@@ -735,7 +779,7 @@ class TagImportPlan:
             # Delete all not readed tags
             self._build_delete_actions(tags_for_delete)
 
-        if safe:
+        if detach_first:
             self._build_detach_actions(tags, existing)
 
         # Stage tags whose external_id is contended by another rename row in
@@ -747,7 +791,7 @@ class TagImportPlan:
         self._validate_parent_id_not_stale(tags, existing)
         self._validate_no_parent_cycles(tags, existing)
 
-        if safe:
+        if detach_first:
             rows = self._order_rows_parent_first(tags, existing)
         else:
             rows = self._order_rows_by_parent_dependency(tags, existing)
