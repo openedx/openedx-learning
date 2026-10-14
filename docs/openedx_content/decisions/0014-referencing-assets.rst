@@ -79,19 +79,23 @@ Additional rules:
 - Placeholders that no longer have any dependents (e.g. typos that were later fixed) can be hard-deleted, since they never had any content. The ``on_delete=RESTRICT`` on ``referenced_entity`` ensures a placeholder that is still referenced cannot be deleted by mistake.
 - When a component referencing a placeholder is copied to another Learning Package (decision 5), a placeholder is created in the destination too.
 
-5. Shared assets can become attached assets when linked to another Learning Package
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5. Conflicting shared assets are renamed when copied to another Learning Package
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When an XBlock Component with references to shared assets is pasted/copied from one Learning Package to another, e.g. from a library to a course, or from a library to another library, the shared assets that it references may be converted to attached asset files, if necessary to avoid conflicts.
+When an XBlock Component with references to shared assets is pasted/copied from one Learning Package to another, e.g. from a library to a course, or from a library to another library, the shared Assets that it references are copied along with it. The OLX of the copied Component should **only change when necessary to avoid a filename conflict**. So if the Component has some HTML like ``<img src="/static/example5.png" alt="Example" />``, it is copied unchanged unless the destination Learning Package already has an unrelated Asset named ``example5.png``.
 
-A new principle that we want to uphold is that **OLX should not change** when a Component is copied from one Learning Package to another. So if the Component in question has some HTML like ``<img src="/static/example5.png" alt="Example" />``, then we want to ensure that ``example5.png`` can refer to the correct shared asset copied from the original Learning Package, and not conflict with a potentially unrelated shared asset in the destination Learning Package that uses the same ``example5.png`` filename. By avoiding any need to rewrite the OLX, we can reduce storage space, consolidate ``Media`` rows, and facilitate simpler comparison of content.
+Each referenced Asset is handled as follows:
 
-When copying a Component with references to shared assets to a new Learning Package, each referenced Asset is handled as follows:
+1. If the destination Learning Package already has an Asset that is a downstream copy of the same upstream Asset (see decision 7), that existing copy is reused, under whatever filename it has in the destination.
+2. Otherwise, if the destination Learning Package already has an Asset with an identical filename and file hash, it is reused.
+3. Otherwise, if the destination Learning Package has no Asset with that filename (or only a placeholder, per decision 4), the Asset is copied under the same filename.
+4. Otherwise, the destination has a conflicting Asset with the same filename but different content. The Asset is copied under a new, unique filename, and the ``/static/`` references to it in the copied Component's OLX are rewritten to use the new filename. The scheme for choosing the new filename (e.g. a prefix or suffix derived from the source context) is left to the implementation.
 
-- First, if the destination Learning Package already has an Asset that is a downstream copy of the same upstream Asset (see decision 7), that existing copy is reused.
-- Likewise, if the destination Learning Package already has an Asset with identical filename and file hash, it is reused and no Assets need to be copied.
-- In both of the above cases, only the main Component needs to be copied, but we still have to create a :class:`PublishableEntityVersionDependency` object to track the relationship.
-- Otherwise, the Asset is copied into the course, with appropriate dependency tracking set up unless the course has a conflicting Asset with the same filename but different content; in that case, the asset file is converted to become an asset file attached to the Component in question. No changes to the OLX are required. (Note: if the asset is ``private`` or ``locked``, it may be necessary to show an error instead, as converting it to be attached to the component could erase its permissions. This unfortunately means that we cannot handle ``python_lib.zip`` conflicts via this mechanism.)
+In every case, a :class:`PublishableEntityVersionDependency` is created from the copied Component's version to the Asset it uses in the destination, and an Asset copied from a library is tracked as a downstream of the library Asset (decision 7). Copied Assets keep their ``locked`` and ``private`` flags.
+
+When a downstream Component is later synced from its upstream, its new OLX is copied and the same rules apply. Rule 1 finds each previously copied Asset, including renamed ones, so the same rewrite is applied again and the downstream Component keeps using the same Asset copies. Code that compares an upstream Component's OLX to its downstream copy must account for these rewritten references.
+
+Renaming cannot fix references that are not detected by decision 1, such as relative references from a renamed HTML Asset to other Assets, or implicit references by filename. In particular, a conflicting ``python_lib.zip`` cannot be renamed without breaking the problems that use it, so a conflict on ``python_lib.zip`` should be shown to the author as an error. Decision 9 is the long-term fix for that.
 
 6. Editors should de-reference full URLs on save
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,7 +140,7 @@ Consequences
 
 - Asset usage ("which components use this file?") becomes a simple query over ``PublishableEntityVersionDependency``, rather than a best-effort parse of all course content.
 - The course "Files" page can show a list of "broken references" / "missing files" by querying for placeholder Assets (decision 4) that still have dependents, along with the components that reference each one. Deleted Assets that are still referenced can be included in the same list.
-- For content using ``/static/...`` references: reruns, clipboard copy/paste, library import and library sync never need to rewrite references in component content.
+- For content using ``/static/...`` references: reruns never need to rewrite references in component content, and clipboard copy/paste, library import and library sync only need to do so when a shared Asset's filename conflicts with an unrelated Asset in the destination (decision 5).
 - A course's learning package always contains every (properly-referenced) asset it uses, so it can be exported, backed up and restored in isolation.
 - Every component version snapshots its links, adding a small number of rows per component version for components that use shared assets.
 - The existing two URL formats (``/static/`` or ``[https://host]/asset-v1:``) have to be supported by the rendering pipeline indefinitely.
@@ -163,9 +167,21 @@ A new ``oex-asset:`` URL scheme
 
 An earlier draft of this ADR introduced a new reference format, e.g. ``<img src="oex-asset:moon-orbit.svg">``, along with an ``AssetComponentLink`` model holding a per-component alias for each referenced Asset. Unlike ``/static/``, ``oex-asset:`` never occurs in content for any other reason, so it can be detected with no false positives (e.g. from platform URLs, or a course on HTML whose examples include ``/static/``).
 
-It was rejected because it adds cost without removing any: ``/static/`` and ``asset-v1:`` must be supported indefinitely anyway, so the rendering pipeline would have to handle three formats instead of two. Every sanitizer and editor that touches authored content would have to allow the new scheme, and exports would have to rewrite ``oex-asset:`` references back to ``/static/`` so that the tarball can be imported on older Open edX versions. The aliases, which were needed to avoid filename collisions when copying from a library, are instead handled by converting conflicting shared assets to attached assets (decision 5), which works with plain ``/static/`` references.
+It was rejected because it adds cost without removing any: ``/static/`` and ``asset-v1:`` must be supported indefinitely anyway, so the rendering pipeline would have to handle three formats instead of two. Every sanitizer and editor that touches authored content would have to allow the new scheme, and exports would have to rewrite ``oex-asset:`` references back to ``/static/`` so that the tarball can be imported on older Open edX versions. The aliases, which were needed to avoid filename collisions when copying from a library, are instead handled by renaming conflicting shared assets (decision 5), which only rewrites plain ``/static/`` references in the rare case of a conflict.
 
 The cost of staying with ``/static/`` is the occasional false positive from the broader detection in decision 1. With placeholder Assets (decision 4), a false positive results in an unused placeholder and a spurious "missing file" entry, rather than broken content.
+
+Converting conflicting shared assets to attached assets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An earlier draft of decision 5 upheld the principle that **OLX should never change** when a Component is copied from one Learning Package to another. When a shared Asset referenced by the copied Component conflicted with an unrelated Asset of the same filename in the destination, the file would be attached to the copied Component instead, so that its ``/static/`` reference resolved to the attached file first (decision 2) with no change to the OLX.
+
+It was rejected because:
+
+- The attached file is no longer a downstream of the library Asset, so later updates to the library Asset are not synced to it.
+- Files attached to a Component have no ``locked`` or ``private`` flags, so locked or private Assets could not be handled this way, and would need an error instead.
+- An attached HTML file's relative references to other shared Assets fall back to the destination's shared Assets (:ref:`openedx-content-adr-0013`, decision 3), so they would silently resolve to the very conflicting, unrelated Assets that the conversion was meant to avoid.
+- The same Asset would end up in different forms (shared in some courses, attached in others) depending on what else happened to be in the destination.
 
 Template placeholders instead of URLs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
