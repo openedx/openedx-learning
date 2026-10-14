@@ -207,7 +207,8 @@ class TagImportPlan:
         or not: once a tag is renamed away from an external_id, that id is stale
         for anyone still referencing it via the live database, even if nothing
         in this import reuses it (see _validate_parent, which uses the recorded
-        new id to name it).
+        new id to name it). A case-only rename is neither staged nor recorded:
+        external_id is case-insensitive, so the tag keeps its id.
         """
         target_ids = {
             tag.id.casefold() for tag in tags
@@ -222,9 +223,10 @@ class TagImportPlan:
             target_pk = self._resolve_rename_target_pk(tag)
             if target_pk is None:
                 continue
+            if tag.previous_id.casefold() == tag.id.casefold():
+                continue  # A case-only rename keeps the id: nothing is vacated or contended.
             vacated_pks[target_pk] = tag.id
-            is_case_only_rename = tag.previous_id.casefold() == tag.id.casefold()
-            if not is_case_only_rename and tag.previous_id.casefold() in target_ids:
+            if tag.previous_id.casefold() in target_ids:
                 self._build_action(StageTagExternalIdForSwap, tag, target_pk=target_pk)
         self.indexed_actions["_vacated_pks"] = vacated_pks
 

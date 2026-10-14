@@ -808,6 +808,44 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         assert exported_by_value["Tag 1"] == "tag_3"
         assert exported_by_value["Tag 3"] == "tag_1"
 
+    def test_import_swap_external_ids_with_children(self) -> None:
+        """
+        tag_1 and tag_3 swap ids, and each of their children names the id its
+        parent will hold after the import: tag_2 (under tag_1, which becomes
+        tag_3) says parent_id=tag_3, and tag_4 (under tag_3, which becomes tag_1)
+        says parent_id=tag_1. The full-replace import succeeds and each child
+        stays on the same physical parent. See
+        test_import_plan.TestTagImportPlan
+        .test_generate_actions_swap_child_naming_own_parent_stale_id_rejected
+        for the children naming the pre-import ids instead.
+        """
+        old_pk_1 = self.taxonomy.tag_set.get(external_id="tag_1").pk
+        old_pk_3 = self.taxonomy.tag_set.get(external_id="tag_3").pk
+
+        importFile = BytesIO(json.dumps({"tags": [
+            {"id": "tag_3", "value": "Tag 1", "previous_id": "tag_1"},
+            {"id": "tag_1", "value": "Tag 3", "previous_id": "tag_3"},
+            {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_3"},
+            {"id": "tag_4", "value": "Tag 4", "parent_id": "tag_1"},
+        ]}).encode())
+        result, task, _plan = import_export_api.import_tags(
+            self.taxonomy,
+            importFile,
+            self.parser_format,
+            replace=True,
+        )
+        assert "Traceback" not in task.log
+        assert result, task.log
+
+        tag_2 = self.taxonomy.tag_set.get(external_id="tag_2")
+        tag_4 = self.taxonomy.tag_set.get(external_id="tag_4")
+        assert tag_2.parent_id == old_pk_1
+        assert tag_4.parent_id == old_pk_3
+
+        output = import_export_api.export_tags(self.taxonomy, self.parser_format)
+        exported_parents = {tag["id"]: tag.get("parent_id") for tag in json.loads(output)["tags"]}
+        assert exported_parents == {"tag_3": None, "tag_2": "tag_3", "tag_1": None, "tag_4": "tag_1"}
+
     def test_import_three_cycle_external_ids(self) -> None:
         """
         End-to-end 3-cycle: tag_1 -> tag_2 -> tag_3 -> tag_1. Same staging

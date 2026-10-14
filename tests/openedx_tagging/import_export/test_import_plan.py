@@ -619,6 +619,68 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         self.import_plan.generate_actions(tags=tags, replace=False)
         self.assertEqual(self.import_plan.errors, [])
 
+    def test_generate_actions_existing_child_keeps_stale_parent_id_rejected(self) -> None:
+        """
+        tag_2 is already under tag_1. The file renames tag_1 to tag_50 while the
+        tag_2 row still says parent_id=tag_1. That row matches the parent's
+        pre-import id, so it used to count as "no change" and slipped past
+        _validate_parent, although tag_1 names nothing after the import. It must
+        be rejected, and the error must name the parent's new id.
+        """
+        tags = [
+            TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
+            TagItem(id='tag_2', value='Tag 2', parent_id='tag_1'),
+        ]
+        self.import_plan.generate_actions(tags=tags, replace=False)
+        self.assertEqual(
+            [str(error) for error in self.import_plan.errors],
+            [
+                "Action error in 'update_parent' (#2): "
+                "Parent tag tag_1 is renamed to tag_50 in this file; use tag_50 as the parent_id."
+            ],
+        )
+
+    @ddt.data(
+        ('tag_2', None, 'tag_1'),  # exact pre-import id
+        ('tag_2', None, 'TAG_1'),  # case variant of it
+        ('tag_20', 'tag_2', 'tag_1'),  # the child is renamed too
+    )
+    @ddt.unpack
+    def test_generate_actions_swap_child_naming_own_parent_stale_id_rejected(
+        self, child_id: str, child_previous_id: str | None, child_parent_id: str,
+    ) -> None:
+        """
+        tag_2 is under tag_1, and the file swaps the ids of tag_1 and tag_3. After
+        the import "tag_1" names the old tag_3, so a tag_2 row that still says
+        parent_id=tag_1 could mean "stay with my parent" or "move under the tag
+        now called tag_1". It is rejected, once, and told to use tag_3.
+        """
+        tags = [
+            TagItem(id='tag_3', value='Tag 1', previous_id='tag_1'),
+            TagItem(id='tag_1', value='Tag 3', previous_id='tag_3'),
+            TagItem(id=child_id, value='Tag 2', previous_id=child_previous_id, parent_id=child_parent_id),
+        ]
+        self.import_plan.generate_actions(tags=tags, replace=False)
+        self.assertEqual(len(self.import_plan.errors), 1)
+        self.assertIn(
+            f"Parent tag {child_parent_id} is renamed to tag_3 in this file; use tag_3 as the parent_id.",
+            str(self.import_plan.errors[0]),
+        )
+
+    @ddt.data('tag_1', 'TAG_1')
+    def test_generate_actions_case_only_parent_rename_keeps_child(self, child_parent_id: str) -> None:
+        """
+        Renaming tag_1 to TAG_1 only changes its capitalization. external_id is
+        case-insensitive, so the id still names the same tag after the import,
+        and a tag_2 row naming it in either spelling is not a stale reference.
+        """
+        tags = [
+            TagItem(id='TAG_1', value='Tag 1', previous_id='tag_1'),
+            TagItem(id='tag_2', value='Tag 2', parent_id=child_parent_id),
+        ]
+        self.import_plan.generate_actions(tags=tags, replace=False)
+        self.assertEqual(self.import_plan.errors, [])
+
     def test_generate_actions_genuine_collision_not_staged(self) -> None:
         """
         A rename targeting an id held by an unrelated tag that is not

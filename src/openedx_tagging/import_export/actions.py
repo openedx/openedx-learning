@@ -105,51 +105,54 @@ class ImportAction:
 
     def _validate_parent(self, indexed_actions) -> ImportActionError | None:
         """
-        Validate that `parent_id` names a tag that will exist once this import finishes.
+        Validate that `parent_id` names the tag that will hold that id once this import finishes.
 
-        A match against a tag being renamed away in this same import (see
-        `_vacated_pks`) doesn't count as the real parent: it falls through to the
-        same "created or renamed-in this import" check as a brand-new parent. If
-        nothing lands on that vacated id either, the error names the id it was
-        renamed to, instead of the generic "unknown parent" message for a parent
-        never mentioned at all.
+        That is the tag currently holding `parent_id`, unless this import renames it
+        away (see `_vacated_pks`). A renamed-away id, like a brand-new one, must be
+        created or renamed-in by a previous action. Even then it must not be this
+        row's own current parent: a row that names its parent's pre-import id while
+        another row takes that id (a swap) could mean "stay with my parent" or "move
+        under the tag now called `parent_id`", so it is rejected. The error for a
+        renamed-away id names the id it was renamed to, instead of the generic
+        "unknown parent" message for an id never mentioned at all.
         """
         vacated_pks: dict[int, str] = indexed_actions.get("_vacated_pks", {})
-        parent_tag = None
-        is_vacated = False
-        try:
-            # Validates that the parent exists on the taxonomy
-            parent_tag = self.taxonomy.tag_set.get(external_id=self.tag.parent_id)
-            if parent_tag.pk in vacated_pks:
-                is_vacated = True
-                raise Tag.DoesNotExist
-        except Tag.DoesNotExist:
-            # Or if the parent is created or renamed-in on previous actions
-            found = self._search_action(
-                indexed_actions, CreateTag.name, "id", self.tag.parent_id, casefold=True
-            ) or self._search_action(
-                indexed_actions, RenameTagExternalId.name, "id", self.tag.parent_id, casefold=True
+        parent_tag = self.taxonomy.tag_set.filter(external_id=self.tag.parent_id).first()
+        new_id = vacated_pks.get(parent_tag.pk) if parent_tag is not None else None
+        if parent_tag is not None and new_id is None:
+            return None  # The parent exists and keeps its id.
+
+        # Otherwise the id must be created or renamed-in by a previous action.
+        found = self._search_action(
+            indexed_actions, CreateTag.name, "id", self.tag.parent_id, casefold=True
+        ) or self._search_action(
+            indexed_actions, RenameTagExternalId.name, "id", self.tag.parent_id, casefold=True
+        )
+        if found and not (parent_tag is not None and self._is_current_parent(parent_tag)):
+            return None
+        if new_id is not None:
+            return ImportActionError(
+                action=self,
+                message=_(
+                    "Parent tag {parent_id} is renamed to {new_id} in this file; "
+                    "use {new_id} as the parent_id."
+                ).format(parent_id=self.tag.parent_id, new_id=new_id),
             )
-            if not found:
-                if is_vacated:
-                    # is_vacated is only set after parent_tag was assigned above.
-                    assert parent_tag is not None
-                    new_id = vacated_pks[parent_tag.pk]
-                    return ImportActionError(
-                        action=self,
-                        message=_(
-                            "Parent tag {parent_id} is renamed to {new_id} in this file; "
-                            "use {new_id} as the parent_id."
-                        ).format(parent_id=self.tag.parent_id, new_id=new_id),
-                    )
-                return ImportActionError(
-                    action=self,
-                    message=_(
-                        "Unknown parent tag ({parent_id}). "
-                        "You need to add parent before the child in your file."
-                    ).format(parent_id=self.tag.parent_id),
-                )
-        return None
+        return ImportActionError(
+            action=self,
+            message=_(
+                "Unknown parent tag ({parent_id}). "
+                "You need to add parent before the child in your file."
+            ).format(parent_id=self.tag.parent_id),
+        )
+
+    def _is_current_parent(self, parent_tag: Tag) -> bool:
+        """
+        Whether `parent_tag` is the parent that this row's tag has before the import.
+        """
+        return self.taxonomy.tag_set.filter(
+            external_id=self.tag.previous_id or self.tag.id, parent=parent_tag,
+        ).exists()
 
     def _validate_value(self, indexed_actions) -> ImportActionError | None:
         """
@@ -343,16 +346,24 @@ class UpdateParentTag(ImportAction):
         """
         This action applies whenever there is a change on the parent.
 
+        A row that keeps its parent's pre-import id while this import renames the
+        parent away from it also counts: the row no longer names its parent, so it
+        must be validated like any other parent change (`_validate_parent` rejects
+        it). Without this, such a row was "no change" and the stale id got through.
+
         See ImportAction._resolve_update_target for when this doesn't apply
         regardless of the parent change (a rename_external_id row).
         """
         taxonomy_tag = cls._resolve_update_target(taxonomy, tag)
         if taxonomy_tag is None:
             return False
-        return (
-            taxonomy_tag.parent is not None
-            and taxonomy_tag.parent.external_id != tag.parent_id
-        ) or (taxonomy_tag.parent is None and tag.parent_id is not None)
+        parent = taxonomy_tag.parent
+        if parent is None:
+            return tag.parent_id is not None
+        if parent.external_id != tag.parent_id:
+            return True
+        vacated_pks = indexed_actions.get("_vacated_pks", {}) if indexed_actions else {}
+        return parent.pk in vacated_pks
 
     def validate(self, indexed_actions) -> list[ImportActionError]:
         """
