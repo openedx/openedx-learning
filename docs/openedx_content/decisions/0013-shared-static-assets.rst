@@ -129,21 +129,28 @@ As mentioned in the :class:`Media` docstring, we can use a separate model called
 
 TODO: We do not yet have a mechanism to ensure that extension models like ``ImageAssetVersion`` get duplicated appropriately every time a new ``AssetVersion`` is created.
 
-10. Legacy HTML Assets can be allowed to run scripts
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+10. HTML Assets can be allowed to run scripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some existing courses have HTML files in their Files (e.g. interactives, simulations, or games) that load JavaScript from other course files and are framed from HTML blocks. These only work if the HTML document is allowed to run scripts, which the default ``Content-Security-Policy: sandbox`` header from :ref:`openedx-content-adr-0005` prevents. We must not break these courses when their Files are migrated.
 
-To support them, :class:`Asset` will have an ``allow_scripts`` boolean column, defaulting to False. Like ``locked`` and ``private``, it is unversioned, so it applies to every version of the Asset, including new versions uploaded by authors to update a legacy interactive.
+To support them, :class:`Asset` will have an ``allow_scripts`` boolean column, defaulting to False. Like ``locked`` and ``private``, it is unversioned, so it applies to every version of the Asset, including new versions uploaded by authors to update an interactive.
 
-When an Asset with ``allow_scripts=True`` is an HTML document, it is served with the relaxed "Insecure Legacy Assets" policy described in :ref:`openedx-content-adr-0005`: ``Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups``. The document still gets an opaque origin, so its scripts cannot read the LMS or Studio cookies or make same-origin API calls, but they can run. The ``.js``, ``.css`` and image files it loads are subresources, which the ``sandbox`` directive does not affect, so those files do not need the flag. The flag has no effect on any other type of file, nor on historical (``v{num}``) versions, which are always served as attachments (decision 3).
+When an Asset with ``allow_scripts=True`` is an HTML document, it is served with the relaxed "Insecure Legacy Assets" policy described in :ref:`openedx-content-adr-0005`: ``Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups``. The document still gets an opaque origin, so its scripts cannot read the LMS or Studio cookies, cannot read responses from LMS or Studio APIs, and cannot pass Django's CSRF check, but they can run. The ``.js``, ``.css`` and image files it loads are subresources, which the ``sandbox`` directive does not affect, so those files do not need the flag. The flag has no effect on any other type of file, nor on historical (``v{num}``) versions, which are always served as attachments (decision 3).
 
 Additional rules:
 
 - **The platform decides whether to honor the flag.** As required by :ref:`openedx-content-adr-0005`, ``openedx_content`` only stores the flag. The platform passes the relaxed policy into the serving API, and it can be disabled for a whole site (or course) with a platform-level setting, in which case flagged Assets are served with the normal ``sandbox`` policy.
 - **Flagged Assets bypass the proxy's forced headers.** The reverse proxy forces ``Content-Security-Policy: sandbox`` on the internal ``X-Accel-Redirect`` location, so flagged Assets are served using the Django-streamed fallback (or a separate internal proxy location with the relaxed policy), as anticipated in :ref:`openedx-content-adr-0005`.
-- **Course authors cannot set the flag on new Assets.** It is set by the migration from contentstore (decision 4) and can otherwise only be changed by operators (e.g. via Django admin or a management command). Authors can clear it.
+- **The flag is not limited to migrated Assets.** It is set automatically by the migration from contentstore (decision 4), but it can also be turned on later for any HTML Asset, including newly uploaded ones, and it can be cleared at any time.
 - **The flag stays within the course run.** It is copied when the course is rerun, but not when an Asset is copied into another learning package (e.g. via the clipboard).
+
+We will likely continue to support this flag until, and unless, the platform has a way to prevent authors from putting arbitrary HTML (including scripts) directly into HTML components. The risk trade-offs are:
+
+- **Compared to HTML components, the risk is lower.** Script in an HTML component runs with the full LMS origin, so it can read the learner's session and call any API on their behalf. A flagged Asset's scripts run in an opaque origin and can do neither. As long as authors can put scripts in HTML components, forbidding scripts in HTML Assets adds little protection.
+- **Phishing on the real domain.** With scripts and forms allowed, a flagged Asset opened directly shows the genuine LMS or Studio hostname in the address bar, and could present a convincing fake login form. The default ``sandbox`` policy prevents this because it blocks forms.
+- **Requests carry the viewer's cookies.** Because the platform defaults to ``SameSite=None`` cookies, requests that a flagged Asset's scripts send to the LMS or Studio include the viewer's cookies. The scripts cannot read the responses, and Django's CSRF check rejects their ``null`` origin, but they could still trigger GET endpoints with side effects, or views that are exempt from CSRF checks. With ``SameSite=Lax`` cookies, this risk would go away.
+- **Probing and general abuse.** The scripts can infer some information about the viewer (e.g. whether a credentialed request succeeded), send data typed into the page to a third party, or redirect the viewer elsewhere.
 
 Consequences
 ------------
@@ -202,7 +209,7 @@ The number of use cases that require multiple files per Asset is expected to be 
 
 For each of these, there is usually a better option:
 
-* HTML Interactives can be implemented as HTML XBlocks with the required ``.js`` and ``.css`` files attached.
+* HTML Interactives can be implemented as HTML XBlocks whose own HTML contains the interactive's markup and loads the required ``.js`` and ``.css`` files, attached to the same Component, as subresources.
 * Images can use the thumbnail system to derive different resolutions, so authors only ever have to manage the "original" vector or full-resolution file.
 * Document conversions are the same thing: it's often better for the author to upload and manage only a single authoritative document and have the system generate the derived version automatically. If the author needs full control of each version, they can just use two separate Assets.
 * Videos are rarely if ever stored in Course Files anyways, and are best hosted on video-specific services like YouTube or edX.org's video platform.
