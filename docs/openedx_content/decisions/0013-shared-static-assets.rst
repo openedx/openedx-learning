@@ -15,7 +15,7 @@ Today, a course's authored "Files" (previously known as "Files & Uploads") live 
 
 As a first step in migrating all content away from MongoDB, we need to define how to store such files in ``openedx_content`` (within a :class:`LearningPackage`).
 
-:ref:`openedx-content-adr-0005` anticipates the shape of the answer when it refers to a special type of component that only holds assets and no XBlock, and the :class:`ComponentType` docstring mentions "a component type to represent packages of files for things like Files and Uploads". `openedx-learning issue #70 <https://github.com/openedx/openedx-learning/issues/70>`_ independently proposed folders as a component type, with relative references resolving within a folder and its subdirectories.
+The :class:`ComponentType` docstring mentions "a component type to represent packages of files for things like Files and Uploads". `openedx-learning issue #70 <https://github.com/openedx/openedx-learning/issues/70>`_ had proposed folders as a component type, with relative references resolving within a folder and its subdirectories.
 
 Decisions
 ---------
@@ -39,7 +39,7 @@ Because Assets cannot hold more than one file, when several course files have so
 
 Each Asset holds only a single file, e.g. ``solar-system.svg``, and within a given learning package (i.e. within a given course or library), each Asset's filename must be unique. (This is in contrast to asset files attached to XBlock Components, which allow multiple asset files per Component.) The filename is stored directly as a column on the ``Asset`` model, not on ``AssetVersion`` nor the ``Media`` row that any given ``AssetVersion`` points to.
 
-Filenames should be case-sensitive, such that ``fig1.png`` and ``Fig1.png`` are both allowed. Since MySQL's default collation is case-insensitive, the ``filename`` column must explicitly use a case-sensitive collation (e.g. using ``case_sensitive_char_field``, as ``ref_field`` does), including for its uniqueness constraint. For backwards compatibility, the filename is also allowed to contain ``/``, such as ``images/image1.png``. By convention, an Asset's ``entity_ref`` is ``openedx.v1:asset:{filename}``, but nothing (including asset URLs) should rely on that; look Assets up by ``filename`` using its explicit column.
+Filenames should be case-sensitive, such that ``fig1.png`` and ``Fig1.png`` are both allowed. Since MySQL's default collation is case-insensitive, the ``filename`` column must explicitly use a case-sensitive collation (e.g. using ``case_sensitive_char_field``, as ``ref_field`` does), including for its uniqueness constraint. For backwards compatibility, the filename is also allowed to contain ``/``, such as ``images/image1.png``. By convention, an Asset's ``entity_ref`` is ``openedx-asset:{filename}``, but nothing (including asset URLs) should rely on that; look Assets up by ``filename`` using its explicit column.
 
 If a file is uploaded with the same filename as an Asset that has been (soft) deleted, the deleted Asset is un-deleted: the upload becomes a new draft version of the existing Asset, rather than creating a new Asset. Its version history, flags and any existing references to it are retained.
 
