@@ -12,4 +12,9 @@ router.register("rule_profiles", views.CompetencyRuleProfileView, basename="rule
 
 urlpatterns = [
     path("", include(router.urls)),
+    path(
+        "competencies/<int:tag_id>/criteria/",
+        views.CompetencyCriterionCreateView.as_view(),
+        name="criterion-create",
+    ),
 ]
