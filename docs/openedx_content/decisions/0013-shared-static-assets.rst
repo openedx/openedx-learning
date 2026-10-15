@@ -48,31 +48,15 @@ If a file is uploaded with the same filename as an Asset that has been (soft) de
 
 Within a single Learning Package, Assets can use relative references to each other. For example, an HTML file stored as an Asset can reference ``image.jpg`` (or ``./image.jpg``) which would be rendered if the HTML file was viewed in the browser and the image in question was another Asset in the same Learning Package.
 
-This is largely for backwards compatibility. Existing courses have ``.html`` files in their Files that load ``.js``, ``.css`` and image files from the same course by relative URL, and are framed or linked from course content. Plain (unscripted) HTML and SVG documents work under the ``sandbox`` policy of :ref:`openedx-content-adr-0005`; HTML that relies on running scripts additionally needs the ``allow_scripts`` flag (decision 10). For new content, HTML interactives are better implemented as an HTML Component with the related files attached to it: the interactive's markup lives in the component's own HTML, which loads the attached ``.js``, ``.css`` and image files as subresources. (An attached ``.html`` file framed from the component would be sandboxed and could not run scripts.)
+This is largely for backwards compatibility. Existing courses have ``.html`` files in their Files that load ``.js``, ``.css`` and image files from the same course by relative URL, and are framed or linked from course content. Plain (unscripted) HTML and SVG documents work under the ``sandbox`` policy of :ref:`openedx-content-adr-0005`; HTML that relies on running scripts additionally needs the ``allow_scripts`` flag (decision 8). For new content, HTML interactives are better implemented as an HTML Component with the related files attached to it: the interactive's markup lives in the component's own HTML, which loads the attached ``.js``, ``.css`` and image files as subresources.
 
-To achieve this, Assets are served under their own URL form, defined in :ref:`openedx-content-adr-0005` ("URLs"), in which the filename is the final part of the path and all Assets of a learning package share one directory per version::
+To achieve this, Assets are served under their own URL form, defined in :ref:`openedx-content-adr-0005` ("URLs"), in which the filename is the final part of the path and all Assets of a learning package share one directory::
 
-    .../{context}/assets/{version}/{filename}
+    .../{context}/assets/{draft|published}/{filename}
 
-For example, an HTML Asset served at ``.../assets/published/page.html`` that references ``image.png`` causes the browser to request ``.../assets/published/image.png``, which is the ``image.png`` Asset's own URL. Filenames containing ``/`` work the same way: ``images/diagram.html`` referencing ``../logo.png`` resolves to ``.../assets/published/logo.png``. No server-side fallback is needed for references between Assets. The URL does not contain the Asset's ``entity_ref``.
+For example, an HTML Asset served at ``.../assets/published/page.html`` that references ``image.png`` causes the browser to request ``.../assets/published/image.png``, which is the ``image.png`` Asset's own URL. Filenames containing ``/`` work the same way: ``images/diagram.html`` referencing ``../logo.png`` resolves to ``.../assets/published/logo.png``.
 
-A ``v{num}`` version segment refers to that version of the requested Asset only. Since version numbers of different Assets are unrelated, a relative reference from a historical version (which would resolve to ``v{num}`` of some other Asset) is not meaningful. Historical versions are therefore always served with ``Content-Disposition: attachment``. They can be downloaded (e.g. from a version history UI) but are never rendered as documents. In other words, relative references are unpinned, consistent with :ref:`openedx-content-adr-0014` (decision 7).
-
-Component → Asset fallback
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-A relative reference from a file attached to a Component (e.g. an HTML interactive attached to an HTML Component) may also name a shared Asset. So when serving a Component's file from ``.../{component_key}/{version}/{filepath}``, if ``{filepath}`` does not resolve within the referenced component version, the server falls back to the Asset whose filename is ``{filepath}`` with the ``static/`` prefix removed. For example, if ``.../xblock.v1:html@intro/published/static/image.png`` is not attached to the component, it falls back to the Asset ``image.png``.
-
-The fallback only applies to public files, i.e. those under the ``static/`` prefix. It never applies to non-public paths such as ``block.xml``.
-
-When the fallback applies, the server does not serve the file directly. Instead it responds with a redirect to the resolved Asset's own URL (e.g. ``.../assets/published/image.png``). This ensures that permissions, such as the ``locked`` and ``private`` flags described below, are always checked against the Asset actually being served, and not against the Component whose URL was used to reach it. It also means each file is only served (and cached) under one URL.
-
-The version in the redirect is chosen as follows:
-
-* A ``draft`` request redirects to the ``draft`` version of the resolved Asset, and a ``published`` request redirects to the ``published`` version.
-* A ``v{num}`` request does not redirect to ``v{num}`` of the resolved Asset, since version numbers are unrelated. Instead, the calling application chooses which version to use: Studio uses ``draft``. The LMS only serves ``published`` versions, so it refuses ``v{num}`` requests (see :ref:`openedx-content-adr-0005`, "Permissions"). Viewing a historical version of a Component will therefore show the current versions of any shared Assets it references.
-
-Redirects to ``draft`` versions must not be cached; redirects to ``published`` versions may be cached briefly.
+Historic versions: there is no current use case for learners to access previous versions of assets, so the LMS is expected to use the ``...assets/published/...`` URL form only (plus perhaps the ``draft`` form for staff previewing unpublished changes). Studio can use the ``...assets/draft/...`` URL to get the draft asset data, as well as optionally use the ``?v=num`` query string to access a previous version of a specific file (e.g. ``.../assets/draft/example.jpg?v=5``). Specific historical versions (e.g. ``?v=5``) are always served with ``Content-Disposition: attachment``, so they can be downloaded (e.g. from a version history UI) but are never rendered as documents (relative links are likely be broken or inconsistent in such cases, since there's no way to correlate the version of the relatively referenced asset like "./image.jpg" with the specific version of a requesting asset like ``referencer.html``).
 
 4. Course Files are Assets within the run's learning package
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -83,8 +67,8 @@ When migrating assets from MongoDB/contentstore to ``openedx_content``, each ass
 
 * **Thumbnails** generated by contentstore are dropped and not migrated. Thumbnails will be handled separately, as described in an upcoming ADR.
 * **Video transcripts** stored in contentstore (e.g. ``subs_*.srt.sjson``) become Assets like any other file. Video blocks reference transcripts by name rather than via ``/static/`` URLs, and during this migration they are still in modulestore with no :class:`Component`, so no dependency tracking is set up for transcript Assets at this stage. Dependencies between video components and their transcript Assets can be added when course content itself is migrated to ``openedx_content``.
-* **python_lib.zip** automatically gets ``private=True`` (decision 8), so that it remains inaccessible to learners as it is today.
-* **HTML files** get ``allow_scripts=True`` (decision 10) if the course currently relies on them being rendered with scripts enabled, so that they keep working.
+* **python_lib.zip** automatically gets ``private`` mode (decision 7), so that it remains inaccessible to learners as it is today.
+* **HTML files** get ``allow_scripts=True`` (decision 8) if the course currently relies on them being rendered with scripts enabled, so that they keep working.
 
 Each course's Files are migrated in a single step, which also creates the run's learning package and ``CourseContent`` row (:ref:`openedx-content-adr-0012`, decision 3). A course is never in a mixed state: before the migration, all of its Files are in contentstore, and afterwards, contentstore is no longer consulted for that course.
 
@@ -100,57 +84,31 @@ The title of an asset can be changed at any time, but the filename cannot be cha
 
 Assets are not children of the course container or any of its descendants. Putting them there would mean every asset upload creates a new version of an outline container.
 
-7. "locked" flag is a column on the Asset model
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+7. Asset permissions mode: "public", "locked", "private"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``locked`` flag exists in contentstore for course files and when True, it means that only enrolled users can access the given file. To provide this functionality, we will have a ``locked`` column on the new :class:`Asset` table, defaulting to False.
+The ``Asset`` model will have a permissions column with an enum that allows values of ``public`` (default), ``locked``,  and ``private``. The permissions mode is on the unversioned model (not part of versioning), because often authors will wish to lock down all versions of an asset, not just lock the current version while still allowing access to previous versions.
 
-Locking is not part of versioning, because often authors will wish to lock down all versions of an asset, not just lock the current version while still allowing access to previous versions.
+* ``public`` is the default for now, as it was in contentstore. There are no permissions checks on such assets, and anyone who knows the filename/URL can access it. This was chosen as the default more for performance reasons (skipping expensive permissions checks) rather than product reasons, and we may change to ``locked`` as default in the future.
+* ``locked`` mirrors the existing contentstore flag for course files. When True, it means that only enrolled users can access the given file.
+* ``private`` means that only course staff can access the asset, e.g. for storing grading rubric PDFs. This is a new feature compared to contentstore, although it will be used to prevent learners from downloading ``python_lib.zip``, a special shared asset used by the problem XBlock that must not be accessible to learners (contentstore achieves this with a hard-coded rule).
 
-Open question: do we care about setting ``locked`` in a library context? Not directly, since learners cannot usually access libraries, but authors may wish to specify that e.g. a certain PDF should always be locked in any course where it is used.
+In **libraries**, these permissions checks have little effect, but indicate what permissions an asset should have when copied into the course.
 
-8. Some Assets must be private
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-One use case for Assets will be the "code library" feature of [CAPA] Problem components, where python code in a centralized ``python_lib.zip`` asset file is available for use in python scripts in all Problem components in a given course. Authors might put grading functions, answer tables, and solution generators in a ``python_lib.zip`` asset file, so it should not be downloadable by learners. In the current platform, this is achieved using a hard-coded rule, optionally bypassed using a temporary waffle flag (``course_assets.allow_download_code_library``, due for removal back in 2025).
-
-Although the platform does not currently support "private"/"staff-only" course Files other than a rule to block access to ``python_lib.zip``, it seems like this could be useful functionality, to allow authors to store instructor guides, answer keys and solution sets, TA notes, and more as part of the course data.
-
-Thus, we need to have support for some Assets being restricted to staff only, and it makes sense for this to be a general mechanism rather than just hard-coding an exception for ``python_lib.zip``.
-
-For asset files attached to regular XBlock components, this is achieved by file name conventions: any files in the ``static/`` "folder" of assets attached to a component are accessible by learners (if they know the URL), whereas files not under the ``static/`` prefix (such as the OLX file for the Component itself) are restricted to course staff only. (Note: the UI only allows authors to download/upload files in the ``static/`` prefix anyways, so only the backend is really aware of any non-public files.)
-
-For shared Assets, the ``static/`` prefix convention is likely to be too noisy or confusing. Instead, we will implement a ``private`` flag that means "restricted to staff only". Like ``locked``, it will be unversioned and stored as a boolean column on the ``Asset`` table, defaulting to false.
-
-9. Image metadata will be in separate models
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-As mentioned in the :class:`Media` docstring, we can use a separate model called ``ImageMedia`` to capture metadata like image dimensions (assuming it can be purely derived from the image byte data itself). We can also use a separate model like ``ImageAssetVersion`` to store *editable* metadata about an image, such as its default alt text and whether or not the image is purely decorative; saving edits of such metadata would create a new version of the Asset.
-
-TODO: We do not yet have a mechanism to ensure that extension models like ``ImageAssetVersion`` get duplicated appropriately every time a new ``AssetVersion`` is created.
-
-10. HTML Assets can be allowed to run scripts
+8.  HTML Assets can be allowed to run scripts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Some existing courses have HTML files in their Files (e.g. interactives, simulations, or games) that load JavaScript from other course files and are framed from HTML blocks. These only work if the HTML document is allowed to run scripts, which the default ``Content-Security-Policy: sandbox`` header from :ref:`openedx-content-adr-0005` prevents. We must not break these courses when their Files are migrated.
+Some existing courses have HTML files in their Files (e.g. interactives, simulations, or games) that load JavaScript from other course files and are embedded as iframes within HTML XBlocks. These only work if the HTML document is allowed to run scripts, which the default ``Content-Security-Policy: sandbox`` header from :ref:`openedx-content-adr-0005` prevents. We must not break these courses when their Files are migrated.
 
-To support them, :class:`Asset` will have an ``allow_scripts`` boolean column, defaulting to False. Like ``locked`` and ``private``, it is unversioned, so it applies to every version of the Asset, including new versions uploaded by authors to update an interactive.
-
-When an Asset with ``allow_scripts=True`` is an HTML document, it is served with the relaxed "Insecure Legacy Assets" policy described in :ref:`openedx-content-adr-0005`: ``Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups``. The document still gets an opaque origin, so its scripts cannot read the LMS or Studio cookies, cannot read responses from LMS or Studio APIs, and cannot pass Django's CSRF check, but they can run. The ``.js``, ``.css`` and image files it loads are subresources, which the ``sandbox`` directive does not affect, so those files do not need the flag. The flag has no effect on any other type of file, nor on historical (``v{num}``) versions, which are always served as attachments (decision 3).
+A new boolean ``allow_scripts`` flag on the ``Asset`` model (defaulting to ``False``) will be used to support this use case. When a shared HTML Asset with ``allow_scripts=True`` is accessed, it will be served with the relaxed "Insecure Legacy Assets" policy described in :ref:`openedx-content-adr-0005`: ``Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups``. This will allow ``.js`` files to be loaded and run by the browser, which the default ``sandbox`` header would otherwise prevent. The document still gets an opaque origin, so its scripts cannot read the LMS or Studio cookies, cannot read responses from LMS or Studio APIs, and cannot pass Django's CSRF check.
 
 Additional rules:
 
 - **The platform decides whether to honor the flag.** As required by :ref:`openedx-content-adr-0005`, ``openedx_content`` only stores the flag. The platform passes the relaxed policy into the serving API, and it can be disabled for a whole site (or course) with a platform-level setting, in which case flagged Assets are served with the normal ``sandbox`` policy.
 - **Flagged Assets bypass the proxy's forced headers.** The reverse proxy forces ``Content-Security-Policy: sandbox`` on the internal ``X-Accel-Redirect`` location, so flagged Assets are served using the Django-streamed fallback (or a separate internal proxy location with the relaxed policy), as anticipated in :ref:`openedx-content-adr-0005`.
 - **The flag is not limited to migrated Assets.** It is set automatically by the migration from contentstore (decision 4), but it can also be turned on later for any HTML Asset, including newly uploaded ones, and it can be cleared at any time.
-- **The flag stays within the course run.** It is copied when the course is rerun, but not when an Asset is copied into another learning package (e.g. via the clipboard).
 
-We will likely continue to support this flag until, and unless, the platform has a way to prevent authors from putting arbitrary HTML (including scripts) directly into HTML components. The risk trade-offs are:
-
-- **Compared to HTML components, the risk is lower.** Script in an HTML component runs with the full LMS origin, so it can read the learner's session and call any API on their behalf. A flagged Asset's scripts run in an opaque origin and can do neither. As long as authors can put scripts in HTML components, forbidding scripts in HTML Assets adds little protection.
-- **Phishing on the real domain.** With scripts and forms allowed, a flagged Asset opened directly shows the genuine LMS or Studio hostname in the address bar, and could present a convincing fake login form. The default ``sandbox`` policy prevents this because it blocks forms.
-- **Requests carry the viewer's cookies.** Because the platform defaults to ``SameSite=None`` cookies, requests that a flagged Asset's scripts send to the LMS or Studio include the viewer's cookies. The scripts cannot read the responses, and Django's CSRF check rejects their ``null`` origin, but they could still trigger GET endpoints with side effects, or views that are exempt from CSRF checks. With ``SameSite=Lax`` cookies, this risk would go away.
-- **Probing and general abuse.** The scripts can infer some information about the viewer (e.g. whether a credentialed request succeeded), send data typed into the page to a third party, or redirect the viewer elsewhere.
+We will likely continue to support this flag until, and unless, the platform has a way to prevent authors from putting arbitrary HTML (including scripts) directly into HTML components. See Consequences below.
 
 Consequences
 ------------
@@ -161,7 +119,7 @@ Consequences
 
 **Assets cannot be renamed.** Because the filename *is* the identifier, new files can be uploaded, but renaming an Asset would break any existing usages that refer to it by its filename identifier.
 
-**There will be two different ways to use files in course content**: by attaching them directly to XBlock Components, or by uploading them as shared assets. Content libraries already support the former (attached to Components), and courses support the latter. Note that the ``locked`` and ``private`` flags will only be supported for shared assets, as any files attached to a ``Component`` that are meant to be accessible to learners will share the same permissions as the ``Component`` they're attached to.
+**There will be two different ways to use files in course content**: by attaching them directly to XBlock Components, or by uploading them as shared assets. Content libraries already support the former (attached to Components), and courses support the latter. Note that the ``locked`` and ``private`` modes will only be supported for shared assets, as any files attached to a ``Component`` that are meant to be accessible to learners will share the same permissions as the ``Component`` they're attached to.
 
 **Linking library components into courses will be simplified**, once we support XBlocks with files attached to their ``Component`` because part of the complexity in copying library components into courses involves analyzing their attached files and merging them into the course's shared Course Files. If we can instead just copy the ``Component``, including all its attached files, directly into the course's Learning Package, no analysis nor merging into shared files is necessary.
 
@@ -174,6 +132,13 @@ However, a library XBlock Component that in turn uses a library Asset still has 
 **Tiny text-based course files can be stored within MySQL.** Just as OLX for XBlocks can be stored within MySQL rows in the ``text`` column instead of on object storage like S3, small uploads (under 50,000 characters) like .svg or .js files *could* be stored entirely within MySQL if we wanted to do so (although in general we probably don't).
 
 How Assets are referenced from Components is specified in :ref:`openedx-content-adr-0014`. How the "Files" UI will work, and the details of the migration from contentstore, will be specified in follow-up ADRs.
+
+The **risk trade-offs of the ``allow_scripts`` flag for HTML assets** are:
+
+- **Compared to HTML components, the risk is lower.** Script in an HTML component runs with the full LMS origin, so it can read the learner's session and call any API on their behalf. A shared Asset's scripts run in an opaque origin and can do neither. As long as authors can put scripts in HTML components (XBlocks), forbidding scripts in HTML Assets adds little protection.
+- **Phishing on the real domain.** With scripts and forms allowed, a flagged Asset opened directly shows the genuine LMS or Studio hostname in the address bar, and could present a convincing fake login form. (The default ``sandbox`` policy prevents this to some extent, because it blocks forms.)
+- **Requests carry the viewer's cookies.** Because the platform defaults to ``SameSite=None`` cookies, requests that a flagged Asset's scripts send to the LMS or Studio include the viewer's cookies. The scripts cannot read the responses, and Django's CSRF check rejects their ``null`` origin, but they could still trigger GET endpoints with side effects, or views that are exempt from CSRF checks. With ``SameSite=Lax`` cookies, this risk would go away.
+- **Probing and general abuse.** The scripts can infer some information about the viewer (e.g. whether a credentialed request succeeded), send data typed into the page to a third party, or redirect the viewer elsewhere.
 
 Rejected Alternatives
 ---------------------
@@ -227,7 +192,12 @@ Other names for Assets
 - **File** was used in a later draft, to match the Studio "Files" page. It was dropped because "File component" and "file" are too easily confused, since every Component can have files attached to it.
 - **Folder** was considered when Assets could hold multiple files, but it implies using Assets as an organizational tool. Each Asset holds exactly one file and represents a singular thing (an image, a PDF, a document); grouping is done with Collections or by attaching files to a Component.
 
-"locked" flag alternatives
+"locked" mode alternatives
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 "Make all assets locked" and "don't implement locking at all" are rejected for lack of backwards compatibility and lack of the strong buy-in required for removing a feature. "Make new assets locked by default" is worth considering in the future; it was previously not done only for performance reasons which may or may not be as relevant in the future.
+
+Only allow relative links for HTML files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It seems that HTML files are the only ones that need relative link support, so we could implement static asset serving such that only HTML files are able to reference each other. It's unclear that this would provide any simplification, unless we moved HTML assets to a different endpoint or used something other than filename to identify assets in the URL. This "only HTML files can make relative references" restriction would also break CSS files with relative ``url(...)`` references and ``.m3u8`` playlists with relative references, though it's unlikely that these are used at all.
