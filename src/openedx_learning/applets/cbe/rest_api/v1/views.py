@@ -120,8 +120,8 @@ class CompetencyCriteriaTreeView(generics.GenericAPIView):
     """
     GET-only. Return a competency's full non-archived CompetencyCriteriaGroup tree and CompetencyCriterion leaves.
 
-    Returned as two flat lists (groups, criteria), each carrying its own parent_id /
-    competency_criteria_group_id for client-side reconstruction. An empty tree (the tag exists
+    Returned as two flat lists (groups, criteria) for client-side reconstruction: each group
+    carries its parent_id, and each criterion its group_id. An empty tree (the tag exists
     but nothing has been authored under it yet) is a valid 200 with two empty arrays; a 404 is
     reserved for tag resolution failure only.
     """
