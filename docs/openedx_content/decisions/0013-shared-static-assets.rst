@@ -56,7 +56,7 @@ To achieve this, Assets are served under their own URL form, defined in :ref:`op
 
 For example, an HTML Asset served at ``.../assets/published/page.html`` that references ``image.png`` causes the browser to request ``.../assets/published/image.png``, which is the ``image.png`` Asset's own URL. Filenames containing ``/`` work the same way: ``images/diagram.html`` referencing ``../logo.png`` resolves to ``.../assets/published/logo.png``.
 
-Historic versions: there is no current use case for learners to access previous versions of assets, so the LMS is expected to use the ``...assets/published/...`` URL form only (plus perhaps the ``draft`` form for staff previewing unpublished changes). Studio can use the ``...assets/draft/...`` URL to get the draft asset data, as well as optionally use the ``?v=num`` query string to access a previous version of a specific file (e.g. ``.../assets/draft/example.jpg?v=5``). Specific historical versions (e.g. ``?v=5``) are always served with ``Content-Disposition: attachment``, so they can be downloaded (e.g. from a version history UI) but are never rendered as documents (relative links are likely be broken or inconsistent in such cases, since there's no way to correlate the version of the relatively referenced asset like "./image.jpg" with the specific version of a requesting asset like ``referencer.html``).
+Historic versions: there is no current use case for learners to access previous versions of assets, so the LMS is expected to use the ``...assets/published/...`` URL form only (plus perhaps the ``draft`` form for staff previewing unpublished changes). Studio can use the ``...assets/draft/...`` URL to get the draft asset data, as well as optionally use the ``?v=num`` query string to access a previous version of a specific file (e.g. ``.../assets/draft/example.jpg?v=5``). Specific historical versions (e.g. ``?v=5``) are always served with ``Content-Disposition: attachment``, so they can be downloaded (e.g. from a version history UI) but are never rendered as documents (relative links are likely to be broken or inconsistent in such cases, since there's no way to correlate the version of the relatively referenced asset like "./image.jpg" with the specific version of a requesting asset like ``referencer.html``).
 
 4. Course Files are Assets within the run's learning package
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,7 +87,7 @@ Assets are not children of the course container or any of its descendants. Putti
 7. Asset permissions mode: "public", "locked", "private"
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``Asset`` model will have a permissions column with an enum that allows values of ``public`` (default), ``locked``,  and ``private``. The permissions mode is on the unversioned model (not part of versioning), because often authors will wish to lock down all versions of an asset, not just lock the current version while still allowing access to previous versions.
+The ``Asset`` model will have a permissions column with an enum that allows values of ``public`` (default), ``locked``, and ``private``. The permissions mode is on the unversioned model (not part of versioning), because often authors will wish to lock down all versions of an asset, not just lock the current version while still allowing access to previous versions.
 
 * ``public`` is the default for now, as it was in contentstore. There are no permissions checks on such assets, and anyone who knows the filename/URL can access it. This was chosen as the default more for performance reasons (skipping expensive permissions checks) rather than product reasons, and we may change to ``locked`` as default in the future.
 * ``locked`` mirrors the existing contentstore flag for course files. When True, it means that only enrolled users can access the given file.
@@ -97,8 +97,8 @@ In **libraries**, these permissions checks have little effect, but indicate what
 
 This information must be preserved round-trip on course exports/import. The attributes like ``locked``, ``private``, ``allow_scripts``, and ``title`` need to go into ``policies/assets.json``. Private shared assets other than ``python_lib.zip`` will have to be exported to a separate folder outside of ``static/`` and will be silently ignored if imported into an older version of Open edX that doesn't support private assets.
 
-8.  HTML Assets can be allowed to run scripts
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+8. HTML Assets can be allowed to run scripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some existing courses have HTML files in their Files (e.g. interactives, simulations, or games) that load JavaScript from other course files and are embedded as iframes within HTML XBlocks. These only work if the HTML document is allowed to run scripts, which the default ``Content-Security-Policy: sandbox`` header from :ref:`openedx-content-adr-0005` prevents. We must not break these courses when their Files are migrated.
 
@@ -123,7 +123,7 @@ Consequences
 
 **There will be two different ways to use files in course content**: by attaching them directly to XBlock Components, or by uploading them as shared assets. Content libraries already support the former (attached to Components), and courses support the latter. Note that the ``locked`` and ``private`` modes will only be supported for shared assets, as any files attached to a ``Component`` that are meant to be accessible to learners will share the same permissions as the ``Component`` they're attached to.
 
-**Linking library components into courses will be simplified**, once we support XBlocks with files attached to their ``Component`` because part of the complexity in copying library components into courses involves analyzing their attached files and merging them into the course's shared Course Files. If we can instead just copy the ``Component``, including all its attached files, directly into the course's Learning Package, no analysis nor merging into shared files is necessary.
+**Linking library components into courses will be simplified**, once we support XBlocks with files attached to their ``Component``, because part of the complexity in copying library components into courses involves analyzing their attached files and merging them into the course's shared Course Files. If we can instead just copy the ``Component``, including all its attached files, directly into the course's Learning Package, no analysis nor merging into shared files is necessary.
 
 However, a library XBlock Component that in turn uses a library Asset still has to bring that Asset into the course.
 

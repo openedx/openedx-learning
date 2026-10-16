@@ -16,7 +16,7 @@ Context
 Today, course content references assets in one of two ways:
 
 **Portable URLs**, e.g. ``/static/Time_medium_icon.png``.
-  These resolve against a single course-wide namespace of files, and must be rewritten before they can be served. They technically share a namespace with Studio's built-in assets (e.g. ``/static/studio/css/studio-main-v1.css``). However, since user-authored content generally does not reference Studio's built-in JS/CSS files, any usage of ``"/static/..."`` or ``'/static/...'`` in XBlock OLX is assumed to be referring to course Files, and will be rewritten to the form shown below before being served to the user.
+  These resolve against a single course-wide namespace of files, and must be rewritten before they can be served. They technically share a namespace with Studio's built-in assets (e.g. ``/static/studio/css/studio-main-v1.css``). However, since user-authored content generally does not reference Studio's built-in JS/CSS files, any usage of ``"/static/..."`` or ``'/static/...'`` in XBlock OLX is assumed to be referring to course Files, and will be rewritten to one of the URL forms defined in :ref:`openedx-content-adr-0005` ("URLs") before being served to the user.
 
 **Asset key URLs**, e.g. ``https://courses.example.com/asset-v1:HarvardX+StudioAdv1+2T2019+type@asset+block@Time_medium_icon.png`` or sometimes just ``/asset-v1:HarvardX+StudioAdv1+2T2019+type@asset+block@Time_medium_icon.png``
   These are unambiguous, but they encode the course run key and sometimes the hostname, so they can break when content is copied to a new run (every rerun), to another course, or to another instance, and the original version is deleted or modified. Technically, the ``asset-v1:...`` opaque key part could be used as an identifier on its own, but this rarely occurs in practice.
@@ -31,7 +31,7 @@ Decisions
 1. Assets can be referenced using the existing ``/static/`` URL format, improved
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When editing an XBlock Component (stored in ``openedx_content``, not modulestore), whether using a visual editor or editing OLX directly, users who want to reference a static asset file (e.g. embed an image) can browse through all files attached to the current component (with the ``/static/`` prefix to indicate they're public), as well as all shared assets in the course (or copied/linked into the course from a library). They can then use the existing ``/static/`` path prefix to identify that asset::
+When editing an XBlock Component (stored in ``openedx_content``, not modulestore), whether using a visual editor or editing OLX directly, users who want to reference a static asset file (e.g. embed an image) can browse through all files attached to the current component (those under the ``static/`` prefix, which are learner-accessible), as well as all shared assets in the course (or copied/linked into the course from a library). They can then use the existing ``/static/`` path prefix to identify that asset::
 
     /static/filename.ext
 
@@ -43,7 +43,7 @@ For example, for an HTML component that wants to use the Asset ``moon-orbit.svg`
 
 However, the existing "URL rewriting" code for detecting ``/static/x`` references only detects them if they are quoted in either single quotes or double quotes. This does not detect other situations like ``&quot;/static/triangle.png&quot;`` which occurs in the Drag and Drop XBlock's OLX, JSON-escaped references like ``\/static\/triangle.png`` inside JSON stored in an OLX field, nor plain text references where ``/static/x`` is on its own line.
 
-To improve this, the updated ``/static/`` detection should detect any occurrence of ``/static/...`` that is not preceded by a word character, hyphen, or period. (Note: Legacy paths can contain spaces, parentheses and other punctuation, so some paths like ``/static/image 001.png`` that are ambiguous unless quoted may still only be detected if quoted/escaped. Investigate this during implementation.)
+To improve this, the ``/static/`` detection function should be improved to handle the examples described above.
 
 2. References prefer component assets over shared assets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -73,18 +73,22 @@ When a file with that name is later uploaded, it becomes the first version of th
 Additional rules:
 
 - No placeholder is created if the referencing component has an attached asset file with that name (decision 2).
-- A placeholder is identified by being an :class:`Asset` with no active version (no current ``draft`` or ``published`` models point to any versions). Placeholders are excluded from regular Asset listings, export, and search indexing.
+- A placeholder is identified by being an :class:`Asset` with no versions at all. Placeholders are excluded from regular Asset listings, export, and search indexing.
 - Placeholders that no longer have any dependents (e.g. typos that were later fixed) can be hard-deleted, since they never had any content. The ``on_delete=RESTRICT`` on ``referenced_entity`` ensures a placeholder that is still referenced cannot be deleted by mistake.
 - When a component referencing a placeholder is copied to another Learning Package (decision 5), a placeholder is created in the destination too.
+- Soft deleted assets can be used like placeholders, for the purpose of tracking unmet dependencies. The course files page should list both placeholder assets and soft deleted assets used as dependencies under a "broken references" / "missing files" heading.
 
 5. Shared assets become local component assets when library content is used
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When an XBlock Component with references to shared assets is pasted/copied from one Learning Package to another, e.g. from a library to a course, or from a library to another library, any shared Assets that it references will be converted to component-local assets, in order to simplify "upstream" syncing and reduce conflicts.
+Shared assets that exist in a content library can be copied into a course, and the "upstream link" will be tracked so that updates to the asset in the library can be applied to the course.
+
+But, when an XBlock Component with references to shared assets is pasted/copied from one Learning Package to another, e.g. from a library to a course, or from a library to another library, any shared Assets that it references may be converted to component-local assets, in order to simplify "upstream" syncing and reduce conflicts.
+
 Each referenced Asset is handled as follows:
 
-1. If the destination Learning Package already has an Asset that is a downstream copy of the same upstream Asset (see decision 7), that existing copy is reused.
-2. Otherwise, if the shared Asset is ``private``, an error occurs (private assets should not be implicitly copied, and component-local assets cannot be private).
+1. If the destination Learning Package already has an Asset that is a downstream copy of the same upstream Asset (because an author manually imported/copied it to the destination earlier), that existing copy is reused.
+2. Otherwise, if the shared Asset is ``private`` or ``allow_scripts`` is True, an error occurs (private assets should not be implicitly copied, and component-local assets cannot be private nor allow scripts).
 3. Otherwise, the shared Asset gets converted to a component-local asset. (Note: this treats both ``locked`` and ``public`` assets the same, converting them to component-local and changing their permissions to match the destination component.)
 
 For example: In a library is a shared asset (an image, ``example.jpg``) and an HTML Component which references that image (``<html>...<img src="/static/example.jpg">...</html>``). When the HTML Component is copied from the library into a course (creating an upstream link), the ``example.jpg`` asset will be converted to a component-local asset attached to the HTML Component in the course, as ``/static/example.jpg``. Importantly, if the image asset (``example.jpg``) in the library is later edited and the change is published, the system must indicate that there is a newer version of the HTML Component available to sync to the course (even if the HTML component is unchanged, just because it has a dependency on the shared image asset).
@@ -129,11 +133,11 @@ Consequences
 
 - Asset usage ("which components use this file?") becomes a simple query over ``PublishableEntityVersionDependency``, rather than a best-effort parse of all course content.
 - The course "Files" page can show a list of "broken references" / "missing files" by querying for placeholder Assets (decision 4) that still have dependents, along with the components that reference each one. Deleted Assets that are still referenced can be included in the same list.
-- For content using ``/static/...`` references: reruns never need to rewrite references in component content, and clipboard copy/paste, library import and library sync only need to do so when a shared Asset's filename conflicts with an unrelated Asset in the destination (decision 5).
+- For content using ``/static/...`` references: reruns, clipboard copy/paste, library import and library sync never need to rewrite references in component OLX.
 - A course's learning package always contains every (properly-referenced) asset it uses, so it can be exported, backed up and restored in isolation.
 - Every component version snapshots its dependencies, adding a small number of rows per component version for components that use shared assets.
 - The existing two URL formats (``/static/`` or ``[https://host]/asset-v1:``) have to be supported by the rendering pipeline indefinitely.
-- Library Assets used in many courses are copied into each course. This costs rows, not bytes, because blobs are deduplicated per org.
+- Library Assets used in many courses are copied into each course component. This costs rows, not bytes, because blobs are deduplicated per org.
 - Some relative references among Assets (e.g. an HTML file with a dynamic reference to a JS file, like ``import(`./${filename}.js`)``) will not be identified and tracked via ``PublishableEntityVersionDependency``.
 - Publishing one component publishes the shared assets it uses, which changes what learners see in every other component that uses it. That's consistent with how unit children behave, but may be surprising.
 - Deleting a shared asset needs to be handled carefully. Publishing a component publishes its dependencies' unpublished changes, and a soft-delete counts as one. So if an author deletes a still-referenced Asset and then publishes any component that uses it, the deletion goes live and breaks every other published component that uses it. To avoid this, we should warn users when they delete an asset that is still referenced. (Or, don't publish dependency deletions as a side effect.)
@@ -156,21 +160,9 @@ A new ``oex-asset:`` URL scheme
 
 An earlier draft of this ADR introduced a new reference format, e.g. ``<img src="oex-asset:moon-orbit.svg">``, along with an ``AssetComponentLink`` model holding a per-component alias for each referenced Asset. Unlike ``/static/``, ``oex-asset:`` never occurs in content for any other reason, so it can be detected with no false positives (e.g. from platform URLs, or a course on HTML whose examples include ``/static/``).
 
-It was rejected because it adds cost without removing any: ``/static/`` and ``asset-v1:`` must be supported indefinitely anyway, so the rendering pipeline would have to handle three formats instead of two. Every sanitizer and editor that touches authored content would have to allow the new scheme, and exports would have to rewrite ``oex-asset:`` references back to ``/static/`` so that the tarball can be imported on older Open edX versions. The aliases, which were needed to avoid filename collisions when copying from a library, are instead handled by renaming conflicting shared assets (decision 5), which only rewrites plain ``/static/`` references in the rare case of a conflict.
+It was rejected because it adds cost without removing any: ``/static/`` and ``asset-v1:`` must be supported indefinitely anyway, so the rendering pipeline would have to handle three formats instead of two. Every sanitizer and editor that touches authored content would have to allow the new scheme, and exports would have to rewrite ``oex-asset:`` references back to ``/static/`` so that the tarball can be imported on older Open edX versions. The aliases, which were needed to avoid filename collisions when copying from a library, are instead handled by converting shared assets to component-local assets (decision 5).
 
 The cost of staying with ``/static/`` is the occasional false positive from the broader detection in decision 1. With placeholder Assets (decision 4), a false positive results in an unused placeholder and a spurious "missing file" entry, rather than broken content.
-
-Converting conflicting shared assets to attached assets
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-An earlier draft of decision 5 upheld the principle that **OLX should never change** when a Component is copied from one Learning Package to another. When a shared Asset referenced by the copied Component conflicted with an unrelated Asset of the same filename in the destination, the file would be attached to the copied Component instead, so that its ``/static/`` reference resolved to the attached file first (decision 2) with no change to the OLX.
-
-It was rejected because:
-
-- The attached file is no longer a downstream of the library Asset, so later updates to the library Asset are not synced to it.
-- Files attached to a Component have no ``locked`` or ``private`` flags, so locked or private Assets could not be handled this way, and would need an error instead.
-- An attached HTML file's relative references to other shared Assets fall back to the destination's shared Assets (:ref:`openedx-content-adr-0013`, decision 3), so they would silently resolve to the very conflicting, unrelated Assets that the conversion was meant to avoid.
-- The same Asset would end up in different forms (shared in some courses, attached in others) depending on what else happened to be in the destination.
 
 Template placeholders instead of URLs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
