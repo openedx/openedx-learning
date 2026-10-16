@@ -43,9 +43,7 @@ For example, for an HTML component that wants to use the Asset ``moon-orbit.svg`
 
 However, the existing "URL rewriting" code for detecting ``/static/x`` references only detects them if they are quoted in either single quotes or double quotes. This does not detect other situations like ``&quot;/static/triangle.png&quot;`` which occurs in the Drag and Drop XBlock's OLX, JSON-escaped references like ``\/static\/triangle.png`` inside JSON stored in an OLX field, nor plain text references where ``/static/x`` is on its own line.
 
-To improve this, the updated ``/static/`` detection should detect any occurrence of ``/static/...`` that is not preceded by a word character, hyphen, or period.
-
-TODO: Legacy paths can contain spaces, parentheses and other punctuation, so some paths like ``/static/image 001.png`` that are ambiguous unless quoted may still only be detected if quoted/escaped. Investigate this during implementation.
+To improve this, the updated ``/static/`` detection should detect any occurrence of ``/static/...`` that is not preceded by a word character, hyphen, or period. (Note: Legacy paths can contain spaces, parentheses and other punctuation, so some paths like ``/static/image 001.png`` that are ambiguous unless quoted may still only be detected if quoted/escaped. Investigate this during implementation.)
 
 2. References prefer component assets over shared assets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -79,25 +77,21 @@ Additional rules:
 - Placeholders that no longer have any dependents (e.g. typos that were later fixed) can be hard-deleted, since they never had any content. The ``on_delete=RESTRICT`` on ``referenced_entity`` ensures a placeholder that is still referenced cannot be deleted by mistake.
 - When a component referencing a placeholder is copied to another Learning Package (decision 5), a placeholder is created in the destination too.
 
-5. Conflicting shared assets are renamed when copied to another Learning Package
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5. Shared assets become local component assets when library content is used
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When an XBlock Component with references to shared assets is pasted/copied from one Learning Package to another, e.g. from a library to a course, or from a library to another library, the shared Assets that it references are copied along with it. The OLX of the copied Component should **only change when necessary to avoid a filename conflict**. So if the Component has some HTML like ``<img src="/static/example5.png" alt="Example" />``, it is copied unchanged unless the destination Learning Package already has an unrelated Asset named ``example5.png``.
-
+When an XBlock Component with references to shared assets is pasted/copied from one Learning Package to another, e.g. from a library to a course, or from a library to another library, any shared Assets that it references will be converted to component-local assets, in order to simplify "upstream" syncing and reduce conflicts.
 Each referenced Asset is handled as follows:
 
-1. If the destination Learning Package already has an Asset that is a downstream copy of the same upstream Asset (see decision 7), that existing copy is reused, under whatever filename it has in the destination.
-2. Otherwise, if the destination Learning Package already has an Asset with an identical filename and file hash, it is reused.
-3. Otherwise, if the destination Learning Package has no Asset with that filename (or only a placeholder, per decision 4), the Asset is copied under the same filename.
-4. Otherwise, the destination has a conflicting Asset with the same filename but different content. The Asset is copied under a new, unique filename, and the ``/static/`` references to it in the copied Component's OLX are rewritten to use the new filename. The scheme for choosing the new filename (e.g. a prefix or suffix derived from the source context) is left to the implementation.
+1. If the destination Learning Package already has an Asset that is a downstream copy of the same upstream Asset (see decision 7), that existing copy is reused.
+2. Otherwise, if the shared Asset is ``private``, an error occurs (private assets should not be implicitly copied, and component-local assets cannot be private).
+3. Otherwise, the shared Asset gets converted to a component-local asset. (Note: this treats both ``locked`` and ``public`` assets the same, converting them to component-local and changing their permissions to match the destination component.)
 
-In every case, a :class:`PublishableEntityVersionDependency` is created from the copied Component's version to the Asset it uses in the destination, and an Asset copied from a library is tracked as a downstream of the library Asset (decision 7). Copied Assets keep their ``locked`` and ``private`` flags.
+For example: In a library is a shared asset (an image, ``example.jpg``) and an HTML Component which references that image (``<html>...<img src="/static/example.jpg">...</html>``). When the HTML Component is copied from the library into a course (creating an upstream link), the ``example.jpg`` asset will be converted to a component-local asset attached to the HTML Component in the course, as ``/static/example.jpg``. Importantly, if the image asset (``example.jpg``) in the library is later edited and the change is published, the system must indicate that there is a newer version of the HTML Component available to sync to the course (even if the HTML component is unchanged, just because it has a dependency on the shared image asset).
 
-When a downstream Component is later synced from its upstream, its new OLX is copied and the same rules apply. Rule 1 finds each previously copied Asset, including renamed ones, so the same rewrite is applied again and the downstream Component keeps using the same Asset copies. Code that compares an upstream Component's OLX to its downstream copy must account for these rewritten references.
+Note: this cannot be implemented when course XBlocks are stored purely in modulestore, and it depends on moving course content to ``openedx_content``, or on :ref:`openedx-content-adr-0015`.
 
-Renaming cannot fix references that are not detected by decision 1, such as relative references from a renamed HTML Asset to other Assets, or implicit references by filename. In particular, a conflicting ``python_lib.zip`` cannot be renamed without breaking the problems that use it, so a conflict on ``python_lib.zip`` should be shown to the author as an error. Decision 9 is the long-term fix for that.
-
-6. Editors should de-reference full URLs on save
+4. Editors should de-reference full URLs on save
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the course of editing courseware, authors may use their browser's "Copy Image URL" to copy the URL of an image and paste it elsewhere, resulting in a full, rewritten URL like ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/assets/draft/images/fig1.png`` ending up in the OLX. If any such URLs are detected, they should be automatically rewritten to the ``/static/`` format (subject to some sanity checks to ensure it will still reference the correct asset).
@@ -124,16 +118,6 @@ Editing an Asset's draft therefore immediately changes what authors see in every
 Only *published* library versions are ever copied into a course. Library drafts are never visible to courses.
 
 Upstream tracking for Assets uses the same platform-level mechanism as components (currently the ``ComponentLink`` model and related sync APIs in ``openedx-platform``). The ``upstream`` model may need adjustment, since an Asset is not a Component or an XBlock and has no XBlock fields to store ``upstream_version`` in. The details are left to the platform implementation.
-
-8. Backwards compatibility in OLX export
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-TODO: document format for assets attached to components.
-
-9. Support for multiple python libraries per course
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The Problem component (also known as "capa") has support for writing advanced problems that use Python to compute parts of the problem or grade user answers. In particular, it allows authors to provide a library of python functions that will be available for use in any python code used to define a given problem. Currently, this is limited to one library file per course, which must be called ``python_lib.zip``. Once courseware is moved into ``openedx_content``, we should extend the Problem component so that the Python library is a field that can point to any shared asset (e.g. ``/static/alternative_python_lib.zip``), falling back to whichever asset has the filename ``python_lib.zip``. This will provide authors with more flexibility and simplify the process of linking advanced python-based Problems from a library into a course, without breaking backwards compatibility.
 
 Consequences
 ------------
@@ -192,11 +176,3 @@ Pinning links to specific Asset versions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A component version's reference could name a specific version of the Asset, like a pinned container child. This would stop an Asset edit from affecting components that use it, but authors expect that replacing a shared image updates it everywhere in the course. Pinning also creates a different version of the same asset for every component, and requires a new version of every using component each time the Asset changes. Controlled updates are already provided one layer up, between a library and a course (decision 7).
-
-TODOs and open questions
-------------------------
-
-- What happens when an Asset that others link to is deleted? (Can we ensure the published Component's old reference still resolves to the Asset version it was last linked to?)
-- Referencing a ``private`` Asset from learner-facing content should warn.
-- Export: Files attached to a component need a rule for export to older platforms. The ``locked`` and ``title`` need to go into ``policies/assets.json``. Private static files will have to be in a separate folder outside of ``static/`` and won't be backwards compatible.
-- Figure out if we can also use the same dependency tracking for references to external Digital Asset Management Systems.

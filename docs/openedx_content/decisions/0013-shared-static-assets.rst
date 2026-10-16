@@ -95,6 +95,8 @@ The ``Asset`` model will have a permissions column with an enum that allows valu
 
 In **libraries**, these permissions checks have little effect, but indicate what permissions an asset should have when copied into the course.
 
+This information must be preserved round-trip on course exports/import. The attributes like ``locked``, ``private``, ``allow_scripts``, and ``title`` need to go into ``policies/assets.json``. Private shared assets other than ``python_lib.zip`` will have to be exported to a separate folder outside of ``static/`` and will be silently ignored if imported into an older version of Open edX that doesn't support private assets.
+
 8.  HTML Assets can be allowed to run scripts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
