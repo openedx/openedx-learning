@@ -109,7 +109,7 @@ Shared Assets: ``https://{lms_or_studio_host}/...{context}.../assets/{version}/{
 
 A more concrete example: ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/assets/published/images/fig1.png``
 
-The literal ``assets`` segment cannot collide with a component key, since component keys always contain ``:``. Everything after the version segment is the Asset's filename, which may itself contain ``/``. Because every shared Asset of a learning package is served from the same directory for a given version, relative references between Assets resolve as ordinary relative URLs. A relative reference from a Component's file to a shared Asset is handled by a fallback redirect, described in :ref:`openedx-content-adr-0013` (decision 3).
+The literal ``assets`` segment cannot collide with a component key, since component keys always contain ``:``. Everything after the version segment is the Asset's filename, which may itself contain ``/``. Because every shared Asset of a learning package is served from the same directory for a given version, relative references between Assets resolve as ordinary relative URLs. A relative reference from a Component's file to a shared Asset is handled by a redirect.
 
 The ``version`` can be:
 

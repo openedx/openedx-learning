@@ -41,9 +41,9 @@ For example, for an HTML component that wants to use the Asset ``moon-orbit.svg`
 
     <img src="/static/moon-orbit.svg">
 
-However, the existing "URL rewriting" code for detecting ``/static/x`` references only detects them if they are quoted in either single quotes or double quotes. This does not detect other situations like ``&quot;/static/triangle.png&quot;`` which occurs in the Drag and Drop XBlock's OLX, JSON-escaped references like ``\/static\/triangle.png`` inside JSON stored in an OLX field, nor plain text references where ``/static/x`` is on its own line.
+However, the existing code for detecting ``/static/x`` references only detects them if they are quoted in either single quotes or double quotes. This does not detect other situations like ``&quot;/static/triangle.png&quot;`` which occurs in the Drag and Drop XBlock's OLX nor JSON-escaped references like ``\/static\/triangle.png`` inside JSON stored in an OLX field.
 
-To improve this, the ``/static/`` detection function should be improved to handle the examples described above.
+To improve this, the ``/static/`` detection function should be improved to handle the examples described above, but only for the purposes of dependency detection (see decision 3); rewriting such newly-detected URL forms would break existing XBlock behavior.
 
 2. References prefer component assets over shared assets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -91,7 +91,7 @@ Each referenced Asset is handled as follows:
 2. Otherwise, if the shared Asset is ``private`` or ``allow_scripts`` is True, an error occurs (private assets should not be implicitly copied, and component-local assets cannot be private nor allow scripts).
 3. Otherwise, the shared Asset gets converted to a component-local asset. (Note: this treats both ``locked`` and ``public`` assets the same, converting them to component-local and changing their permissions to match the destination component.)
 
-For example: In a library is a shared asset (an image, ``example.jpg``) and an HTML Component which references that image (``<html>...<img src="/static/example.jpg">...</html>``). When the HTML Component is copied from the library into a course (creating an upstream link), the ``example.jpg`` asset will be converted to a component-local asset attached to the HTML Component in the course, as ``/static/example.jpg``. Importantly, if the image asset (``example.jpg``) in the library is later edited and the change is published, the system must indicate that there is a newer version of the HTML Component available to sync to the course (even if the HTML component is unchanged, just because it has a dependency on the shared image asset).
+For example: In a library is a shared asset (an image, ``example.jpg``) and an HTML Component which references that image (``<html>...<img src="/static/example.jpg">...</html>``). When the HTML Component is copied from the library into a course (creating an upstream link), the ``example.jpg`` asset will be converted to a component-local asset attached to the HTML Component in the course, as ``/static/example.jpg``. Importantly, if the image asset (``example.jpg``) in the library is later edited and the change is published, the system must indicate that there is a newer version of the HTML Component available to sync to the course (even if the HTML component is unchanged, just because it has a dependency on the shared image asset). This will require updating the library-to-course sync code to account for ``dependencies_hash_digest`` and not just compare the ``version_num`` of each component.
 
 Note: this cannot be implemented when course XBlocks are stored purely in modulestore, and it depends on moving course content to ``openedx_content``, or on :ref:`openedx-content-adr-0015`. This may also result in large exports if many different components have local copies of a shared asset file, so the export format may need to work around that.
 

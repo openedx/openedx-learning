@@ -115,7 +115,7 @@ We will likely continue to support this flag until, and unless, the platform has
 Consequences
 ------------
 
-**Course Files are now versioned.** Since an :class:`Asset` is a :class:`PublishableEntity`, which has full draft-publish and version history support, all shared files in a course will become versioned and support draft-publish as well. (For initial compatibility, we'll likely only use the published versions and auto-publish new files as soon as they're uploaded, but this can be refined in the future.)
+**Course Files are now versioned.** Since an :class:`Asset` is a :class:`PublishableEntity`, which has full draft-publish and version history support, all shared files in a course will become versioned and support draft-publish as well. (For initial compatibility with contentstore, we'll necessarily auto-publish new/updated/deleted files as soon as they're modified, but this can be refined in the future.)
 
 **Replaced files are not deleted**, and old versions of the replaced file will still exist; this follows from the fact that the files are now versioned.
 
