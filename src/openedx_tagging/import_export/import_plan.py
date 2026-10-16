@@ -69,11 +69,13 @@ class TagImportPlan:
     """
     Class with functions to build an import plan and excute the plan
 
-    A row's ``parent_id`` names the id its parent holds *after* the import. Three steps
+    A tag's *pre-import id* is the external_id it holds before the import, and its
+    *final id* is the one it holds after the import. They differ only for a tag the
+    file renames. A row's ``parent_id`` names the final id of its parent. Three steps
     make parent changes work whatever the order of the rows in the file:
 
-    - The plan computes the tag tree as it will be after the import (``_end_state``)
-      and rejects a parent cycle or a tree deeper than the limit there.
+    - The plan computes the final tree, the tag tree as it will be after the import
+      (``_end_state``), and rejects a parent cycle or a tree deeper than the limit there.
     - A DetachTag action moves every existing tag whose parent changes to the root
       before the row actions (``_build_detach_actions``). After that each tag is at or
       above its final depth, and none is an ancestor of its new parent, so no action can
@@ -256,6 +258,9 @@ class TagImportPlan:
         in this import reuses it (see _validate_parent, which uses the recorded
         new id to name it). A case-only rename is neither staged nor recorded:
         external_id is case-insensitive, so the tag keeps its id.
+
+        indexed_actions["_renamed_to_ids"] holds the same new ids casefolded, built
+        once here so that the per-row checks don't rebuild it.
         """
         target_ids = {
             tag.id.casefold() for tag in tags
@@ -276,6 +281,7 @@ class TagImportPlan:
             if tag.previous_id.casefold() in target_ids:
                 self._build_action(StageTagExternalIdForSwap, tag, target_pk=target_pk)
         self.indexed_actions["_vacated_pks"] = vacated_pks
+        self.indexed_actions["_renamed_to_ids"] = {new_id.casefold() for new_id in vacated_pks.values()}
 
     def _existing_tags(self) -> dict[str, ExistingTag]:
         """
@@ -292,34 +298,45 @@ class TagImportPlan:
         self, tags: list[TagItem], existing: dict[str, ExistingTag],
     ) -> tuple[dict[str, str | None], dict[str, int], dict[str, int]]:
         """
-        Compute the tag tree as it will be once the import is applied.
+        Compute the final tree: the tag tree as it will be once the import is applied.
 
         Returns three dicts keyed by casefolded final id: ``parent_of`` (the parent's
         final id, or None for a root), ``pk_of`` (the pk of the tag that will hold the
         id, or NEW_TAG) and ``row_of`` (the position in ``tags`` of the id's row, for
         the ids that have one). Each row contributes its own id and parent_id. An
-        existing tag without a row is either deleted or keeps its parent, named by
-        that parent's final id. Must run after the delete and staging actions are
-        built.
+        existing tag without a row is deleted with ``replace=True``. With
+        ``replace=False`` it stays under the same parent tag, and ``parent_of``
+        records that parent by its final id, which differs from its pre-import id
+        when the file renames the parent. Must run after the delete and staging
+        actions are built.
         """
         vacated_pks: dict[int, str] = self.indexed_actions["_vacated_pks"]
         deleted = {action.tag.id.casefold() for action in self.indexed_actions["delete"]}
         key_of_pk = {info.pk: key for key, info in existing.items()}
         parent_of: dict[str, str | None] = {}
         pk_of: dict[str, int] = {}
+        # Final id -> the row's 0-based position in `tags`. Errors show position + 1 as "Row N".
         row_of: dict[str, int] = {}
         for position, tag in enumerate(tags):
             key = tag.id.casefold()
             if key in row_of:
-                continue  # Rejected by _validate_no_duplicate_final_ids.
-            current = existing.get((tag.previous_id or tag.id).casefold())
+                # A second row with the same final id is already an error from
+                # _validate_no_duplicate_final_ids; keep the first.
+                continue
+            existing_tag = existing.get((tag.previous_id or tag.id).casefold())
             row_of[key] = position
-            pk_of[key] = current.pk if current is not None else NEW_TAG
+            pk_of[key] = existing_tag.pk if existing_tag is not None else NEW_TAG
             parent_of[key] = tag.parent_id.casefold() if tag.parent_id else None
-        in_file = {key for tag in tags for key in (tag.id.casefold(), (tag.previous_id or "").casefold())}
+        in_file = {tag.id.casefold() for tag in tags} | {
+            tag.previous_id.casefold() for tag in tags if tag.previous_id
+        }
         for key, info in existing.items():
             if key in in_file or key in deleted:
                 continue
+            # What remains are existing tags the file never mentions and that are not
+            # deleted, which only happens with replace=False. A renamed tag is not among
+            # them: the loop above added it under its final id. These tags are kept
+            # because they still count toward the depth and toward cycles.
             pk_of[key] = info.pk
             parent_of[key] = None
             if info.parent_pk is not None:
@@ -339,13 +356,17 @@ class TagImportPlan:
 
         A cycle is reported once, on its first row in the file. A cycle made only of
         new tags is left to ``_validate_parent``, which reports one of them as an
-        unknown parent. A parent_id that is no tag of the end state counts as a root
+        unknown parent. A parent_id that is no tag of the final tree counts as a root
         here: it is unknown, which ``_validate_parent`` reports, or deleted without a
         row reclaiming it, and the delete phase promotes its children.
         """
         depth_of: dict[str, int] = {}
         unresolved: set[str] = set()  # on a cycle, or below one
         for start in parent_of:
+            # Walk up from `start` through its ancestors. The walk stops at the top of the
+            # tree (None), at a key whose depth is already known, at a key already known to
+            # be on or below a cycle, or at a key already on `path`, which closes a cycle.
+            # A parent_id that names no tag of the final tree counts as the top.
             path: list[str] = []
             node: str | None = start
             while node is not None and node not in depth_of and node not in unresolved and node not in path:
@@ -353,8 +374,7 @@ class TagImportPlan:
                 node = parent_of.get(node)
                 if node not in parent_of:
                     node = None
-            if node in path:
-                assert node is not None
+            if node is not None and node in path:
                 cycle = path[path.index(node):]
                 rows = [row_of[key] for key in cycle if key in row_of]
                 if rows and any(pk_of[key] != NEW_TAG for key in cycle):
@@ -366,6 +386,8 @@ class TagImportPlan:
                     depth += 1
                     depth_of[key] = depth
             else:
+                # The walk closed a cycle, or reached a key on or below one: no key on
+                # the path has a depth.
                 unresolved.update(path)
 
         too_deep = [key for key, depth in depth_of.items() if depth > TAXONOMY_MAX_DEPTH]
@@ -381,22 +403,20 @@ class TagImportPlan:
         """
         Add a DetachTag action for every existing tag whose parent after the import
         is a different tag than before.
-
-        A root tag has nothing to detach, a kept child of a deleted tag is promoted
-        by the delete phase, and a row whose parent_id names no tag of the end state
-        is left to ``_validate_parent``.
         """
         by_pk = {info.pk: info for info in existing.values()}
         deleted_pks = {existing[action.tag.id.casefold()].pk for action in self.indexed_actions["delete"]}
         for key, pk in pk_of.items():
             if pk == NEW_TAG:
-                continue
+                continue  # A new tag has no parent to detach from.
             info = by_pk[pk]
-            if info.parent_pk is None or info.parent_pk in deleted_pks:
-                continue
+            if info.parent_pk is None:
+                continue  # A root tag is already at the root.
+            if info.parent_pk in deleted_pks:
+                continue  # The delete phase already promotes a kept child of a deleted tag.
             parent_key = parent_of[key]
             if parent_key is not None and parent_key not in pk_of:
-                continue
+                continue  # The parent_id names no tag of the final tree: left to _validate_parent.
             final_parent_pk = pk_of[parent_key] if parent_key is not None else None
             if final_parent_pk != info.parent_pk:
                 self._build_action(DetachTag, TagItem(id=info.external_id, value=info.value), target_pk=pk)
@@ -418,19 +438,19 @@ class TagImportPlan:
             if is_rename or tag.id.casefold() not in existing:
                 defining_row.setdefault(tag.id.casefold(), position)
         ordered: list[int] = []
-        emitted: set[int] = set()
+        placed: set[int] = set()
         for start in range(len(tags)):
-            chain: list[int] = []
+            rows_to_place: list[int] = []
             position = start
-            while position not in emitted and position not in chain:
-                chain.append(position)
+            while position not in placed and position not in rows_to_place:
+                rows_to_place.append(position)
                 parent_id = tags[position].parent_id
                 parent_row = defining_row.get(parent_id.casefold()) if parent_id else None
                 if parent_row is None:
                     break
                 position = parent_row
-            for row in reversed(chain):
-                emitted.add(row)
+            for row in reversed(rows_to_place):
+                placed.add(row)
                 ordered.append(row)
         return ordered
 

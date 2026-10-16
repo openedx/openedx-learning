@@ -673,7 +673,9 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         self.assertEqual(len(self.import_plan.errors), 1)
         # The staging and detach actions come first, so the action number is not the row number.
         self.assertIn(
-            f"(#6): Row 3: Parent tag {child_parent_id} is renamed to tag_3 in this file; use tag_3 as the parent_id.",
+            f"(#6): Row 3: Parent tag {child_parent_id} is renamed to tag_3 in this file; use tag_3 as the parent_id. "
+            f"To move under the tag that takes the id {child_parent_id} in this file instead, "
+            "import the id changes and the move as two separate files.",
             str(self.import_plan.errors[0]),
         )
 
