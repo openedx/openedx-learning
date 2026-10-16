@@ -91,7 +91,7 @@ For example: In a library is a shared asset (an image, ``example.jpg``) and an H
 
 Note: this cannot be implemented when course XBlocks are stored purely in modulestore, and it depends on moving course content to ``openedx_content``, or on :ref:`openedx-content-adr-0015`.
 
-4. Editors should de-reference full URLs on save
+6. Editors should de-reference full URLs on save
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the course of editing courseware, authors may use their browser's "Copy Image URL" to copy the URL of an image and paste it elsewhere, resulting in a full, rewritten URL like ``https://demo.openedx.org/assets/content_libraries/lib:Axim:200/assets/draft/images/fig1.png`` ending up in the OLX. If any such URLs are detected, they should be automatically rewritten to the ``/static/`` format (subject to some sanity checks to ensure it will still reference the correct asset).
@@ -118,6 +118,11 @@ Editing an Asset's draft therefore immediately changes what authors see in every
 Only *published* library versions are ever copied into a course. Library drafts are never visible to courses.
 
 Upstream tracking for Assets uses the same platform-level mechanism as components (currently the ``ComponentLink`` model and related sync APIs in ``openedx-platform``). The ``upstream`` model may need adjustment, since an Asset is not a Component or an XBlock and has no XBlock fields to store ``upstream_version`` in. The details are left to the platform implementation.
+
+8. Course block usages will be tracked
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In modulestore, courses are represented by an instance of the ``course`` XBlock, which forms the root of the course content tree. This XBlock has several references to shared asset files that can be specified, such as ``course_image``, ``banner_image``, ``video_thumbnail_image``, certificate signatory images, textbook PDF URLs, HTML textbook URLs, and instructor images. Such usages should continue working as they do now, but ideally be tracked as dependencies, with ``PublishableEntityVersionDependency``. The details of this are left to implementation, but may be achieved using :ref:`openedx-content-adr-0015` to shadow the root ``course`` block.
 
 Consequences
 ------------
