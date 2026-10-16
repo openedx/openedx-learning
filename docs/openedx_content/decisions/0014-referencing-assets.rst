@@ -73,7 +73,7 @@ When a file with that name is later uploaded, it becomes the first version of th
 Additional rules:
 
 - No placeholder is created if the referencing component has an attached asset file with that name (decision 2).
-- A placeholder is identified by being an :class:`Asset` with no versions at all. Placeholders are excluded from regular Asset listings, export, and search indexing.
+- A placeholder is identified by being an :class:`Asset` with no active version (no current ``draft`` or ``published`` models point to any versions). Placeholders are excluded from regular Asset listings, export, and search indexing.
 - Placeholders that no longer have any dependents (e.g. typos that were later fixed) can be hard-deleted, since they never had any content. The ``on_delete=RESTRICT`` on ``referenced_entity`` ensures a placeholder that is still referenced cannot be deleted by mistake.
 - When a component referencing a placeholder is copied to another Learning Package (decision 5), a placeholder is created in the destination too.
 
