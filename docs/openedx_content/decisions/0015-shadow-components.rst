@@ -87,7 +87,7 @@ This is the same order defined in :ref:`openedx-content-adr-0014` (decision 2). 
 Consequences
 ------------
 
-**Authors can attach assets to course components before the content migration is done**, and the content migration later becomes a smaller job, because those assets are already in place under their final keys.
+**Authors can attach assets to course components even while we're still using modulestore**, and the migration off modulestore later becomes a smaller job, because those assets are already in place under their final keys.
 
 **Library components with attached assets can be used in modulestore courses without merging their assets into the course's Files**, once the course's Files have been migrated. This removes much of the complexity in today's library-to-course copy and sync code, which has to rename and merge each component's files into the course-wide namespace.
 
