@@ -6,7 +6,7 @@
 Status
 ------
 
-Draft. Depends on :ref:`openedx-content-adr-0012` and :ref:`openedx-content-adr-0005`. How content references Assets is decided in :ref:`openedx-content-adr-0014`. :ref:`openedx-content-adr-0015` builds on this ADR to support attaching assets to XBlocks that are still in modulestore.
+Proposed.
 
 Context
 -------

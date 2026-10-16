@@ -6,7 +6,7 @@
 Status
 ------
 
-Draft. Depends on :ref:`openedx-content-adr-0005`, :ref:`openedx-content-adr-0012`, :ref:`openedx-content-adr-0013` and :ref:`openedx-content-adr-0014`.
+Proposed.
 
 Context
 -------
