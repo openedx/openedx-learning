@@ -1,5 +1,5 @@
 """
-Roll up a learner's competency statuses from changed criteria to the top of the competency hierarchy.
+Roll up a learner's competency statuses from the criteria of newly graded objects to the top of the hierarchy.
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from functools import reduce
 from operator import or_
 
-from django.db.models import Q
+from django.db.models import Max, Q
 
 from openedx_tagging.models import Tag
 from openedx_tagging.models.base import TAXONOMY_MAX_DEPTH
@@ -38,20 +38,21 @@ def combine_children(
 
     ``None`` entries are children with no row. A null ``logic_operator`` is treated as OR.
     """
-    attempted = [status for status in child_statuses if status is not None]
+    attempted = {status for status in child_statuses if status is not None}
     if not attempted:
         return None
-    all_attempted = len(attempted) == len(child_statuses)
+    every_child_attempted = None not in child_statuses
     if logic_operator == LogicOperator.AND:
-        if all_attempted and all(status == MasteryStatus.DEMONSTRATED for status in attempted):
+        if every_child_attempted and attempted == {MasteryStatus.DEMONSTRATED}:
             return MasteryStatus.DEMONSTRATED
         if MasteryStatus.ATTEMPTED_NOT_DEMONSTRATED in attempted:
             return MasteryStatus.ATTEMPTED_NOT_DEMONSTRATED
-        return MasteryStatus.PARTIALLY_ATTEMPTED
-    if MasteryStatus.DEMONSTRATED in attempted:
-        return MasteryStatus.DEMONSTRATED
-    if all_attempted and all(status == MasteryStatus.ATTEMPTED_NOT_DEMONSTRATED for status in attempted):
-        return MasteryStatus.ATTEMPTED_NOT_DEMONSTRATED
+    else:  # OR, or a null operator, which behaves as OR.
+        if MasteryStatus.DEMONSTRATED in attempted:
+            return MasteryStatus.DEMONSTRATED
+        if every_child_attempted and attempted == {MasteryStatus.ATTEMPTED_NOT_DEMONSTRATED}:
+            return MasteryStatus.ATTEMPTED_NOT_DEMONSTRATED
+    # Some child has a status, but neither rule above is settled: the learner is in progress.
     return MasteryStatus.PARTIALLY_ATTEMPTED
 
 
@@ -59,10 +60,10 @@ def combine_parent_competency_status(
     own: MasteryStatus | None, from_sub_competencies: MasteryStatus | None,
 ) -> MasteryStatus | None:
     """
-    Return a parent competency's status: the higher of its own criteria result and its sub-competencies'.
+    Return a parent competency's status: the better of its own criteria result and its sub-competencies' result.
 
-    Either source alone demonstrates the parent, the same either-suffices rule as alternative routes in a group.
-    Both inputs are only DEMONSTRATED, PARTIALLY_ATTEMPTED or None.
+    A parent is demonstrated when either its own criteria are demonstrated or every direct sub-competency is.
+    Both inputs are only DEMONSTRATED, PARTIALLY_ATTEMPTED or None, so the better one is the higher value.
     """
     return max((status for status in (own, from_sub_competencies) if status is not None), default=None)
 
@@ -147,13 +148,15 @@ def _roll_up_groups(user_id: int, group_ids: set[int], now: datetime) -> set[int
 
 def _own_criteria_statuses(user_id: int, tag_ids: set[int]) -> dict[int, MasteryStatus]:
     """Return each tag's own criteria result: its best root-group status, for tags that have an attempted root."""
-    best: dict[int, int] = {}
-    rows = StudentCompetencyCriteriaGroupStatus.objects.filter(
-        user_id=user_id, group__tag_id__in=tag_ids, group__parent__isnull=True,
-    ).values_list("group__tag_id", "status_id")
-    for tag_id, status_id in rows:
-        best[tag_id] = max(best.get(tag_id, status_id), status_id)
-    return {tag_id: _competency_level(MasteryStatus(status_id)) for tag_id, status_id in best.items()}
+    rows = (
+        StudentCompetencyCriteriaGroupStatus.objects.filter(
+            user_id=user_id, group__tag_id__in=tag_ids, group__parent__isnull=True,
+        )
+        .values("group__tag_id")
+        .annotate(best=Max("status_id"))
+        .values_list("group__tag_id", "best")
+    )
+    return {tag_id: _competency_level(MasteryStatus(best)) for tag_id, best in rows}
 
 
 def _sub_competency_status(child_ids: list[int], competency_status: dict[int, int]) -> MasteryStatus | None:
@@ -184,7 +187,6 @@ def _log_unearnable_sub_competencies(parents: list[Tag], children_by_parent: dic
     ).values_list("tag__taxonomy_id", "tag__lineage")
     for taxonomy_id, lineage in rows:
         root_lineages.setdefault(taxonomy_id, []).append(lineage.lower())
-    # A lineage ends with a tab, so a prefix match cannot confuse "Math" with "Mathematics".
     for parent, child_id, lineage in candidates:
         prefix = lineage.lower()
         if not any(root_lineage.startswith(prefix) for root_lineage in root_lineages.get(parent.taxonomy_id, [])):

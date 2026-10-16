@@ -193,7 +193,9 @@ def test_a_sub_competency_with_criteria_only_further_down_still_participates(
 
     _roll_up(user, earnable.object_id)
 
-    assert [_competency_status(user, tag) for tag in (leaf, middle, parent)] == [DEMONSTRATED] * 3
+    assert _competency_status(user, leaf) == DEMONSTRATED
+    assert _competency_status(user, middle) == DEMONSTRATED
+    assert _competency_status(user, parent) == DEMONSTRATED
 
 
 def test_a_stored_demonstrated_parent_is_not_lowered_when_only_some_sub_competencies_are_attempted(
@@ -229,7 +231,12 @@ def test_the_deepest_allowed_taxonomy_is_walked_to_the_top(user, competency_taxo
 
     _roll_up(user, earnable.object_id)
 
-    assert [_competency_status(user, tag) for tag in tags] == [DEMONSTRATED] * 6
+    assert _competency_status(user, tags[0]) == DEMONSTRATED
+    assert _competency_status(user, tags[1]) == DEMONSTRATED
+    assert _competency_status(user, tags[2]) == DEMONSTRATED
+    assert _competency_status(user, tags[3]) == DEMONSTRATED
+    assert _competency_status(user, tags[4]) == DEMONSTRATED
+    assert _competency_status(user, tags[5]) == DEMONSTRATED
 
 
 def test_two_graded_competencies_sharing_a_parent_recompute_that_parent_once(
@@ -310,4 +317,7 @@ def test_competencies_graded_at_different_depths_converge_on_the_shared_ancestor
 
     _roll_up(user, *(earnable.object_id for earnable in graded))
 
-    assert [_competency_status(user, tag) for tag in (deep, middle, shallow, top)] == [DEMONSTRATED] * 4
+    assert _competency_status(user, deep) == DEMONSTRATED
+    assert _competency_status(user, middle) == DEMONSTRATED
+    assert _competency_status(user, shallow) == DEMONSTRATED
+    assert _competency_status(user, top) == DEMONSTRATED
