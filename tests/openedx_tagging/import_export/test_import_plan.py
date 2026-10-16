@@ -645,7 +645,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             [str(error) for error in self.import_plan.errors],
             [
                 "Action error in 'update_parent' (#2): "
-                "Parent tag tag_1 is renamed to tag_50 in this file; use tag_50 as the parent_id."
+                "Row 2: Parent tag tag_1 is renamed to tag_50 in this file; use tag_50 as the parent_id."
             ],
         )
 
@@ -671,9 +671,26 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         ]
         self.import_plan.generate_actions(tags=tags, replace=False)
         self.assertEqual(len(self.import_plan.errors), 1)
+        # The staging and detach actions come first, so the action number is not the row number.
         self.assertIn(
-            f"Parent tag {child_parent_id} is renamed to tag_3 in this file; use tag_3 as the parent_id.",
+            f"(#6): Row 3: Parent tag {child_parent_id} is renamed to tag_3 in this file; use tag_3 as the parent_id.",
             str(self.import_plan.errors[0]),
+        )
+
+    def test_generate_actions_stale_parent_id_error_names_row(self) -> None:
+        tags = [
+            TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
+            TagItem(id='tag_60', value='Tag 60', parent_id='tag_1'),
+            TagItem(id='tag_2', value='Tag 2', parent_id='tag_50'),
+        ]
+        # replace=True deletes tag_3 and tag_4 first, so the child's action is #4, not #2.
+        self.import_plan.generate_actions(tags=tags, replace=True)
+        self.assertEqual(
+            [str(error) for error in self.import_plan.errors],
+            [
+                "Action error in 'create' (#4): "
+                "Row 2: Parent tag tag_1 is renamed to tag_50 in this file; use tag_50 as the parent_id."
+            ],
         )
 
     @ddt.data('tag_1', 'TAG_1')

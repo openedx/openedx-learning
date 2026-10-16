@@ -1097,6 +1097,30 @@ class TestImportExportApi(TestImportExportMixin, TestCase):
         assert not self.taxonomy.tag_set.filter(external_id="tag_50").exists()
         assert not self.taxonomy.tag_set.filter(external_id="tag_60").exists()
 
+    @ddt.data(ParserFormat.JSON, ParserFormat.CSV)
+    def test_import_stale_parent_id_error_names_row(self, parser_format: ParserFormat) -> None:
+        rows = [
+            {"id": "tag_4", "value": "Tag 4", "parent_id": "tag_1", "previous_id": ""},
+            {"id": "tag_2", "value": "Tag 2", "parent_id": "tag_1", "previous_id": ""},
+            {"id": "tag_3", "value": "Tag 1", "parent_id": "", "previous_id": "tag_1"},
+            {"id": "tag_1", "value": "Tag 3", "parent_id": "", "previous_id": "tag_3"},
+        ]
+        if parser_format == ParserFormat.JSON:
+            content = json.dumps({"tags": [{key: value for key, value in row.items() if value} for row in rows]})
+        else:
+            content = "id,value,parent_id,previous_id\n" + "".join(
+                f"{row['id']},{row['value']},{row['parent_id']},{row['previous_id']}\n" for row in rows
+            )
+        result, _task, _plan = import_export_api.import_tags(self.taxonomy, BytesIO(content.encode()), parser_format)
+        assert not result
+        log = import_export_api.get_last_import_log(self.taxonomy)
+        # The staging and detach actions and the row that renames onto tag_1 are built before
+        # the tag_2 row, so its action is #6 while the error still names its file row.
+        assert (
+            "Action error in 'update_parent' (#6): "
+            "Row 2: Parent tag tag_1 is renamed to tag_3 in this file; use tag_3 as the parent_id."
+        ) in log
+
     def test_import_same_value_without_external_id(self) -> None:
         new_taxonomy = Taxonomy(name="New taxonomy")
         new_taxonomy.save()

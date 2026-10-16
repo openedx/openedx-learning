@@ -37,15 +37,27 @@ class ImportAction:
 
     Then the actions are executed. Ex. Create the tag on the database
     This is done in `execute`
+
+    `row` is the 1-based position of the action's row among the file's rows, as
+    in the "Row N" of DuplicateFinalIdError. It is None for an action that no row
+    of the file describes, such as a delete or a detach.
     """
 
     name = "import_action"
 
-    def __init__(self, taxonomy: Taxonomy, tag: TagItem, index: int, target_pk: int | None = None):
+    def __init__(
+        self,
+        taxonomy: Taxonomy,
+        tag: TagItem,
+        index: int,
+        target_pk: int | None = None,
+        row: int | None = None,
+    ):
         self.taxonomy = taxonomy
         self.tag = tag
         self.index = index
         self.target_pk = target_pk
+        self.row = row
 
     def __repr__(self) -> str:
         return str(_("Action {name} (index={index},id={id})").format(name=self.name, index=self.index, id=self.tag.id))
@@ -131,13 +143,13 @@ class ImportAction:
         if found and not (parent_tag is not None and self._is_current_parent(parent_tag)):
             return None
         if new_id is not None:
-            return ImportActionError(
-                action=self,
-                message=_(
-                    "Parent tag {parent_id} is renamed to {new_id} in this file; "
-                    "use {new_id} as the parent_id."
-                ).format(parent_id=self.tag.parent_id, new_id=new_id),
-            )
+            message = _(
+                "Parent tag {parent_id} is renamed to {new_id} in this file; "
+                "use {new_id} as the parent_id."
+            ).format(parent_id=self.tag.parent_id, new_id=new_id)
+            if self.row is not None:
+                message = _("Row {row}: {message}").format(row=self.row, message=message)
+            return ImportActionError(action=self, message=message)
         return ImportActionError(
             action=self,
             message=_(

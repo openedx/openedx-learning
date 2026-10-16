@@ -107,14 +107,16 @@ class TagImportPlan:
         for action in available_actions:
             self.indexed_actions[action.name] = []
 
-    def _build_action(self, action_cls: type[ImportAction], tag: TagItem, target_pk: int | None = None):
+    def _build_action(
+        self, action_cls: type[ImportAction], tag: TagItem, target_pk: int | None = None, row: int | None = None,
+    ):
         """
         Build an action with `tag`.
 
         Run action validation and adds the errors to the errors lists
         Add to the action list and the indexed actions
         """
-        action = action_cls(self.taxonomy, tag, len(self.actions) + 1, target_pk=target_pk)
+        action = action_cls(self.taxonomy, tag, len(self.actions) + 1, target_pk=target_pk, row=row)
 
         # We validate if there are no inconsistencies when executing this action
         self.errors.extend(action.validate(self.indexed_actions))
@@ -400,9 +402,9 @@ class TagImportPlan:
                 self._build_action(DetachTag, TagItem(id=info.external_id, value=info.value), target_pk=pk)
 
     @staticmethod
-    def _order_rows_parent_first(tags: list[TagItem], existing: dict[str, ExistingTag]) -> list[TagItem]:
+    def _order_rows_parent_first(tags: list[TagItem], existing: dict[str, ExistingTag]) -> list[int]:
         """
-        Return ``tags`` with each row after the row that creates or renames-in its parent, if any.
+        Return the positions in ``tags`` with each row after the row that creates or renames-in its parent, if any.
 
         The per-action parent validation and the execution look for a parent among the
         existing tags and the actions built so far, so this makes both independent of
@@ -415,7 +417,7 @@ class TagImportPlan:
             is_rename = bool(tag.previous_id) and tag.id != tag.previous_id
             if is_rename or tag.id.casefold() not in existing:
                 defining_row.setdefault(tag.id.casefold(), position)
-        ordered: list[TagItem] = []
+        ordered: list[int] = []
         emitted: set[int] = set()
         for start in range(len(tags)):
             chain: list[int] = []
@@ -429,7 +431,7 @@ class TagImportPlan:
                 position = parent_row
             for row in reversed(chain):
                 emitted.add(row)
-                ordered.append(tags[row])
+                ordered.append(row)
         return ordered
 
     def generate_actions(
@@ -503,7 +505,8 @@ class TagImportPlan:
         self._validate_hierarchy(tags, existing, parent_of, pk_of, row_of)
         self._build_detach_actions(existing, parent_of, pk_of)
 
-        for tag in self._order_rows_parent_first(tags, existing):
+        for position in self._order_rows_parent_first(tags, existing):
+            tag = tags[position]
             has_action = False
 
             # Check all available actions and add which ones should be executed
@@ -513,12 +516,12 @@ class TagImportPlan:
                         self._resolve_rename_target_pk(tag)
                         if action_cls is RenameTagExternalId else None
                     )
-                    self._build_action(action_cls, tag, target_pk=target_pk)
+                    self._build_action(action_cls, tag, target_pk=target_pk, row=position + 1)
                     has_action = True
 
             if not has_action:
                 # If it doesn't find an action, a "without changes" is added
-                self._build_action(WithoutChanges, tag)
+                self._build_action(WithoutChanges, tag, row=position + 1)
 
     def plan(self) -> str:
         """
