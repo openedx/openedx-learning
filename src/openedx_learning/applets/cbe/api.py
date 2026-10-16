@@ -143,6 +143,9 @@ class CompetencyCriteriaTree:
 def get_competency_criteria_tree(tag_id: int) -> CompetencyCriteriaTree:
     """
     Return every non-archived CompetencyCriteriaGroup and CompetencyCriterion for competency `tag_id`.
+
+    UNSTABLE: the criteria-authoring family is incomplete, so its group update and archive
+    behavior may change this function's shape without a deprecation cycle.
     """
     groups = list(
         CompetencyCriteriaGroup.objects.filter(tag_id=tag_id, archived=False).select_related("course")
