@@ -89,7 +89,7 @@ Each referenced Asset is handled as follows:
 
 For example: In a library is a shared asset (an image, ``example.jpg``) and an HTML Component which references that image (``<html>...<img src="/static/example.jpg">...</html>``). When the HTML Component is copied from the library into a course (creating an upstream link), the ``example.jpg`` asset will be converted to a component-local asset attached to the HTML Component in the course, as ``/static/example.jpg``. Importantly, if the image asset (``example.jpg``) in the library is later edited and the change is published, the system must indicate that there is a newer version of the HTML Component available to sync to the course (even if the HTML component is unchanged, just because it has a dependency on the shared image asset).
 
-Note: this cannot be implemented when course XBlocks are stored purely in modulestore, and it depends on moving course content to ``openedx_content``, or on :ref:`openedx-content-adr-0015`.
+Note: this cannot be implemented when course XBlocks are stored purely in modulestore, and it depends on moving course content to ``openedx_content``, or on :ref:`openedx-content-adr-0015`. This may also result in large exports if many different components have local copies of a shared asset file, so the export format may need to work around that.
 
 6. Editors should de-reference full URLs on save
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
