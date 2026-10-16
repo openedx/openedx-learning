@@ -7,7 +7,7 @@ from django.test.testcases import TestCase
 from openedx_tagging.import_export.actions import CreateTag
 from openedx_tagging.import_export.exceptions import TagImportError
 from openedx_tagging.import_export.import_plan import TagImportPlan, TagItem
-from openedx_tagging.models import Tag, Taxonomy
+from openedx_tagging.models import Tag, TagImportTask, Taxonomy
 
 from .test_actions import TestImportActionMixin
 
@@ -629,13 +629,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         self.assertEqual(self.import_plan.errors, [])
 
     def test_generate_actions_existing_child_keeps_stale_parent_id_rejected(self) -> None:
-        """
-        tag_2 is already under tag_1. The file renames tag_1 to tag_50 while the
-        tag_2 row still says parent_id=tag_1. That row matches the parent's
-        pre-import id, so it used to count as "no change" and slipped past
-        _validate_parent, although tag_1 names nothing after the import. It must
-        be rejected, and the error must name the parent's new id.
-        """
         tags = [
             TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
             TagItem(id='tag_2', value='Tag 2', parent_id='tag_1'),
@@ -658,12 +651,6 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
     def test_generate_actions_swap_child_naming_own_parent_stale_id_rejected(
         self, child_id: str, child_previous_id: str | None, child_parent_id: str,
     ) -> None:
-        """
-        tag_2 is under tag_1, and the file swaps the ids of tag_1 and tag_3. After
-        the import "tag_1" names the old tag_3, so a tag_2 row that still says
-        parent_id=tag_1 could mean "stay with my parent" or "move under the tag
-        now called tag_1". It is rejected, once, and told to use tag_3.
-        """
         tags = [
             TagItem(id='tag_3', value='Tag 1', previous_id='tag_1'),
             TagItem(id='tag_1', value='Tag 3', previous_id='tag_3'),
@@ -840,6 +827,8 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         self.assertEqual([str(error) for error in plan.errors], [])
         names = [action.name for action in plan.actions]
         self.assertIn('detach', names)
+        # All detaches run before any row action. This holds here because these cases have no
+        # renames or deletes, which are built before the detaches.
         self.assertLess(
             max(index for index, name in enumerate(names) if name == 'detach'),
             min(index for index, name in enumerate(names) if name != 'detach'),
@@ -864,22 +853,17 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         self.assertEqual(self._tree(plan.taxonomy), {'kept': None})
         self.assertEqual(plan.taxonomy.tag_set.get(external_id='kept').pk, kept_pk)
 
-    def test_execute_child_of_deleted_parent_follows_rename_onto_its_id(self) -> None:
-        """
-        With replace=True the file omits tag_1, so it is deleted, and renames tag_3
-        onto the id tag_1. The tag_2 row names tag_1, so tag_2 ends up under the
-        renamed tag_3 rather than promoted to the root.
-        """
-        tag_3_pk = self.taxonomy.tag_set.get(external_id='tag_3').pk
-        tags = [
-            TagItem(id='tag_2', value='Tag 2', parent_id='tag_1'),
-            TagItem(id='tag_1', value='Tag 3', previous_id='tag_3'),
-        ]
-        self.import_plan.generate_actions(tags=tags, replace=True)
-        self.assertEqual(self.import_plan.errors, [])
-        self.import_plan.execute()
-        self.assertEqual(self.taxonomy.tag_set.get(external_id='tag_2').parent_id, tag_3_pk)
-        self.assertEqual(self.taxonomy.tag_set.get(pk=tag_3_pk).external_id, 'tag_1')
+    def test_execute_logs_the_old_parent_of_a_moved_tag(self) -> None:
+        # The plan is not logged first, so the description must already be built when the
+        # detach action moves tag_2 to the root.
+        task = TagImportTask.create(self.taxonomy)
+        self.import_plan.generate_actions(tags=[TagItem(id='tag_2', value='Tag 2', parent_id='tag_3')])
+        self.import_plan.execute(task)
+        self.assertEqual(self.taxonomy.tag_set.get(external_id='tag_2').parent.external_id, 'tag_3')
+        self.assertIn(
+            "Update the parent of <Tag> (tag_2 / Tag 2) from parent <Tag> (tag_1 / Tag 1) to tag_3 [Started]",
+            task.log,
+        )
 
     @ddt.data(
         # tag_1 under its own child tag_2.

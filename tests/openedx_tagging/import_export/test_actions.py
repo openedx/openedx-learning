@@ -1041,6 +1041,7 @@ class TestDetachTag(TestImportActionMixin, TestCase):
         action = self._action()
         tag = self.taxonomy.tag_set.get(external_id='tag_2')
         self.assertIsNotNone(tag.parent)
+        # Simulate a staging action that already ran, to show DetachTag finds the tag by pk.
         self.taxonomy.tag_set.filter(pk=tag.pk).update(external_id="oel-import-staging:x")
         action.execute()
         tag.refresh_from_db()
