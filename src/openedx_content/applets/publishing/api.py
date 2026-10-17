@@ -415,10 +415,14 @@ def publish_all_drafts(
     """
     Publish everything that is a Draft and is not already published.
     """
+    # Order by primary key so that the resulting PublishLogRecords (and the
+    # changes in the ENTITIES_PUBLISHED event) come out in a consistent order,
+    # regardless of the database backend.
     draft_qset = (
         Draft.objects
              .filter(entity__learning_package_id=learning_package_id)
              .with_unpublished_changes()
+             .order_by("pk")
     )
     return publish_from_drafts(
         learning_package_id, draft_qset, message, published_at, published_by
