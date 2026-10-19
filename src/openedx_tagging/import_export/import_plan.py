@@ -303,12 +303,8 @@ class TagImportPlan:
         Returns three dicts keyed by casefolded final id: ``parent_of`` (the parent's
         final id, or None for a root), ``pk_of`` (the pk of the tag that will hold the
         id, or NEW_TAG) and ``row_of`` (the position in ``tags`` of the id's row, for
-        the ids that have one). Each row contributes its own id and parent_id. An
-        existing tag without a row is deleted with ``replace=True``. With
-        ``replace=False`` it stays under the same parent tag, and ``parent_of``
-        records that parent by its final id, which differs from its pre-import id
-        when the file renames the parent. Must run after the delete and staging
-        actions are built.
+        the ids that have one). Each row contributes its own id and parent_id. Must run
+        after the delete and staging actions are built.
         """
         vacated_pks: dict[int, str] = self.indexed_actions["_vacated_pks"]
         deleted = {action.tag.id.casefold() for action in self.indexed_actions["delete"]}
@@ -336,7 +332,8 @@ class TagImportPlan:
             # What remains are existing tags the file never mentions and that are not
             # deleted, which only happens with replace=False. A renamed tag is not among
             # them: the loop above added it under its final id. These tags are kept
-            # because they still count toward the depth and toward cycles.
+            # because they still count toward the depth and toward cycles. Each stays
+            # under the same parent tag, recorded by that parent's final id.
             pk_of[key] = info.pk
             parent_of[key] = None
             if info.parent_pk is not None:
@@ -518,9 +515,7 @@ class TagImportPlan:
         # execution order regardless of how the rows are ordered in the file.
         self._build_staging_actions(tags)
 
-        # Reject what no single action can see: a cycle or an overflow of the tree the
-        # rows describe together. Then detach every tag whose parent changes, so that
-        # the row actions can run in any order.
+        # Reject a cycle or an overflow of the final tree, then detach every moved tag.
         parent_of, pk_of, row_of = self._end_state(tags, existing)
         self._validate_hierarchy(tags, existing, parent_of, pk_of, row_of)
         self._build_detach_actions(existing, parent_of, pk_of)

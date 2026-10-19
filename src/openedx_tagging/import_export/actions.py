@@ -117,33 +117,13 @@ class ImportAction:
 
         return None
 
-    @staticmethod
-    def _renamed_to_ids(indexed_actions) -> set[str]:
-        """
-        Return the casefolded final ids that rename rows of this import give to existing tags.
-
-        TagImportPlan stores them once per import. Without that, they are derived from
-        `_vacated_pks`, as for an action built outside a plan.
-        """
-        if "_renamed_to_ids" in indexed_actions:
-            return indexed_actions["_renamed_to_ids"]
-        return {new_id.casefold() for new_id in indexed_actions.get("_vacated_pks", {}).values()}
-
     def _validate_parent(self, indexed_actions) -> ImportActionError | None:
         """
-        Validate that `parent_id` is the final id of a tag once this import finishes.
+        Return an error unless `parent_id` names an existing tag that this import does not
+        rename, or the final id that a row of this file gives to a tag by a rename or a create.
 
-        That is the tag whose pre-import id is `parent_id`, unless this import renames
-        it away (see `_vacated_pks`). A renamed-away id, like a brand-new one, must be
-        given to a tag by a row of this file: a rename onto it (`_vacated_pks` maps
-        every renamed tag to its final id, whatever the row order) or a create action
-        built before this one (TagImportPlan builds a new parent before its
-        children). Even then it must not be the pre-import id of this row's own
-        parent: a row that names it while another row takes that id (a swap) could
-        mean "stay with my parent" or "move under the tag that takes `parent_id`",
-        so it is rejected, with a hint for the second meaning. The error for a
-        renamed-away id names the id it was renamed to, instead of the generic
-        "unknown parent" message for an id never mentioned at all.
+        A row that names its own parent's pre-import id while this file renames that parent
+        is always rejected, because that id then names nothing or, in a swap, another tag.
         """
         vacated_pks: dict[int, str] = indexed_actions.get("_vacated_pks", {})
         parent_tag = self.taxonomy.tag_set.filter(external_id=self.tag.parent_id).first()
@@ -151,7 +131,7 @@ class ImportAction:
         if parent_tag is not None and new_id is None:
             return None  # The parent exists and keeps its id.
 
-        renamed_onto_id = (self.tag.parent_id or "").casefold() in self._renamed_to_ids(indexed_actions)
+        renamed_onto_id = (self.tag.parent_id or "").casefold() in indexed_actions.get("_renamed_to_ids", set())
         created_with_id = self._search_action(
             indexed_actions, CreateTag.name, "id", self.tag.parent_id, casefold=True,
         ) is not None
@@ -416,7 +396,7 @@ class UpdateParentTag(ImportAction):
         vacated_pks: dict[int, str] = indexed_actions.get("_vacated_pks", {})
         return (
             old_parent.pk in vacated_pks
-            or old_parent.external_id.casefold() in cls._renamed_to_ids(indexed_actions)
+            or old_parent.external_id.casefold() in indexed_actions.get("_renamed_to_ids", set())
         )
 
     def validate(self, indexed_actions) -> list[ImportActionError]:
@@ -708,15 +688,7 @@ class StageTagExternalIdForSwap(ImportAction):
 
 class DetachTag(ImportAction):
     """
-    Action to move a tag to the root before the actions that change parents run.
-
-    Synthesized by TagImportPlan._build_detach_actions for every existing tag
-    whose parent changes, not read from a file row. Tag.save checks the depth
-    of each step, and a cycle corrupts the tree silently, so a restructure that
-    is valid as a whole can still go wrong part-way through, depending on the
-    order of the actions. Once every moved tag is at the root, each tag is at
-    or above its final depth and none is an ancestor of its new parent, so the
-    actions that follow can attach tags in any order.
+    Action to move a tag to the root before the row actions run; TagImportPlan says why.
     """
 
     name = "detach"
