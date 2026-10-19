@@ -193,16 +193,23 @@ def get_courses_with_relative_criteria(tag_ids: Iterable[int]) -> dict[CourseRun
     Return every course already blocked for one of ``tag_ids`` by an existing CompetencyCriterion.
 
     Maps each conflicting CourseRun to the lowest-id tag (of ``tag_ids``) with a criterion there.
+    Archived criteria and criteria under an archived group are ignored.
     """
     groups: QuerySet[CompetencyCriteriaGroup, CompetencyCriteriaGroup] = (
-        CompetencyCriteriaGroup.objects.filter(tag_id__in=tag_ids, criteria__isnull=False)
+        CompetencyCriteriaGroup.objects.filter(
+            tag_id__in=tag_ids,
+            archived=False,
+            parent__archived=False,
+            parent__parent__archived=False,
+            criteria__archived=False,
+        )
         .select_related("tag", "parent__course")
         .distinct()
         .order_by("tag_id")
     )
     result: dict[CourseRun, Tag] = {}
     for group in groups:
-        # criteria__isnull=False guarantees every row here is a leaf with a course-level parent.
+        # Only a leaf holds criteria, and every leaf sits under a course-level group.
         assert group.parent is not None
         assert group.parent.course is not None
         result.setdefault(group.parent.course, group.tag)
@@ -246,6 +253,7 @@ def create_competency_criterion(
 
     UNSTABLE: the criteria-authoring family is incomplete, so its validation and group update
     and archive behavior may change this function's shape without a deprecation cycle.
+
     ``tag_object()`` replaces an object's full tag list for a taxonomy rather than appending, so
     this reads the object's existing tags first and unions in the new one, rather than silently
     dropping a sibling competency's tag under the same taxonomy. Raises ValidationError (keyed

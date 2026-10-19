@@ -894,6 +894,24 @@ def test_sibling_tags_are_allowed(
     assert response.status_code == status.HTTP_201_CREATED
 
 
+def test_an_archived_ancestor_criterion_does_not_block_its_descendant(
+    user_client: APIClient, competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun,
+) -> None:
+    """Once the ancestor's criterion is archived, the descendant may be associated in the same course."""
+    parent = make_tag(competency_taxonomy, "S7 Parent")
+    child = make_tag(competency_taxonomy, "S7 Child", parent=parent)
+    parent_object_id = usage_key(course_run, "p1")
+    first = user_client.post(criterion_create_url(parent.id), {"object_id": parent_object_id}, format="json")
+    assert first.status_code == status.HTTP_201_CREATED
+    CompetencyCriterion.objects.filter(object_tag__object_id=parent_object_id).update(archived=True)
+
+    response = user_client.post(
+        criterion_create_url(child.id), {"object_id": usage_key(course_run, "p2")}, format="json",
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+
+
 def test_hierarchically_related_tags_scoped_to_different_courses_are_allowed(
     user_client: APIClient, competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun, organization: Organization,
 ) -> None:

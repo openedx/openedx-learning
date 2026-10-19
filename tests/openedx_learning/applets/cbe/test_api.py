@@ -569,6 +569,64 @@ def test_get_courses_with_relative_criteria_excludes_a_group_with_no_live_criter
     assert not get_courses_with_relative_criteria([relative.id])
 
 
+def test_get_courses_with_relative_criteria_ignores_an_archived_criterion(
+    competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun, default_rule_profile: CompetencyRuleProfile,
+) -> None:
+    """An archived criterion is gone for authoring, so it blocks nothing."""
+    relative = make_tag(competency_taxonomy, "Relative Skill")
+    criterion = make_criterion(relative, course_run, default_rule_profile, "p1")
+    CompetencyCriterion.objects.filter(pk=criterion.pk).update(archived=True)
+
+    assert not get_courses_with_relative_criteria([relative.id])
+
+
+def test_get_courses_with_relative_criteria_ignores_a_criterion_under_an_archived_leaf_group(
+    competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun, default_rule_profile: CompetencyRuleProfile,
+) -> None:
+    """A live criterion under an archived leaf group blocks nothing."""
+    relative = make_tag(competency_taxonomy, "Relative Skill")
+    criterion = make_criterion(relative, course_run, default_rule_profile, "p1")
+    CompetencyCriteriaGroup.objects.filter(pk=criterion.group_id).update(archived=True)
+
+    assert not get_courses_with_relative_criteria([relative.id])
+
+
+def test_get_courses_with_relative_criteria_ignores_a_criterion_under_an_archived_course_level_group(
+    competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun, default_rule_profile: CompetencyRuleProfile,
+) -> None:
+    """A live criterion under an archived course-level group blocks nothing."""
+    relative = make_tag(competency_taxonomy, "Relative Skill")
+    criterion = make_criterion(relative, course_run, default_rule_profile, "p1")
+    CompetencyCriteriaGroup.objects.filter(pk=criterion.group.parent_id).update(archived=True)
+
+    assert not get_courses_with_relative_criteria([relative.id])
+
+
+def test_get_courses_with_relative_criteria_ignores_a_criterion_under_an_archived_root_group(
+    competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun, default_rule_profile: CompetencyRuleProfile,
+) -> None:
+    """A live criterion under an archived root group blocks nothing."""
+    relative = make_tag(competency_taxonomy, "Relative Skill")
+    criterion = make_criterion(relative, course_run, default_rule_profile, "p1")
+    course_level = criterion.group.parent
+    assert course_level is not None
+    CompetencyCriteriaGroup.objects.filter(pk=course_level.parent_id).update(archived=True)
+
+    assert not get_courses_with_relative_criteria([relative.id])
+
+
+def test_get_courses_with_relative_criteria_counts_a_course_with_one_live_and_one_archived_criterion(
+    competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun, default_rule_profile: CompetencyRuleProfile,
+) -> None:
+    """Archiving one of a tag's two criteria in a course leaves the course blocked by the other."""
+    relative = make_tag(competency_taxonomy, "Relative Skill")
+    archived = make_criterion(relative, course_run, default_rule_profile, "p1")
+    make_criterion(relative, course_run, default_rule_profile, "p2")
+    CompetencyCriterion.objects.filter(pk=archived.pk).update(archived=True)
+
+    assert get_courses_with_relative_criteria([relative.id]) == {course_run: relative}
+
+
 def test_validate_containment_rejects_an_ancestor_conflict(
     competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun, default_rule_profile: CompetencyRuleProfile,
 ) -> None:
