@@ -2,6 +2,7 @@
 Test for import_plan functions
 """
 import ddt  # type: ignore[import]
+from django.db import transaction
 from django.test.testcases import TestCase
 
 from openedx_tagging.import_export.actions import CreateTag
@@ -819,22 +820,30 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         Restructures that fail when their actions run in file order, because an
         intermediate step would build a cycle or a tree too deep, succeed: a
         detach action moves every tag whose parent changes to the root before the
-        row actions. ``rows`` lists the worst order for each case. Omitted tags
-        keep their parent (replace=False).
+        row actions. ``rows`` lists the worst order for each case, which also runs
+        reversed and in one mixed order. Omitted tags keep their parent (replace=False).
         """
         plan = self._plan_for_tree(tree)
-        plan.generate_actions(tags=rows, replace=False)
-        self.assertEqual([str(error) for error in plan.errors], [])
-        names = [action.name for action in plan.actions]
-        self.assertIn('detach', names)
-        # All detaches run before any row action. This holds here because these cases have no
-        # renames or deletes, which are built before the detaches.
-        self.assertLess(
-            max(index for index, name in enumerate(names) if name == 'detach'),
-            min(index for index, name in enumerate(names) if name != 'detach'),
-        )
-        plan.execute()
-        self.assertEqual(self._tree(plan.taxonomy), expected)
+        pks = dict(plan.taxonomy.tag_set.values_list('external_id', 'pk'))
+        forward = tuple(range(len(rows)))
+        for order in dict.fromkeys([forward, forward[::-1], forward[1::2] + forward[0::2]]):
+            with self.subTest(order=order), transaction.atomic():
+                plan.generate_actions(tags=[rows[i] for i in order], replace=False)
+                self.assertEqual([str(error) for error in plan.errors], [])
+                names = [action.name for action in plan.actions]
+                self.assertIn('detach', names)
+                # All detaches run before any row action. This holds here because these cases have
+                # no renames or deletes, which are built before the detaches.
+                self.assertLess(
+                    max(index for index, name in enumerate(names) if name == 'detach'),
+                    min(index for index, name in enumerate(names) if name != 'detach'),
+                )
+                plan.execute()
+                self.assertEqual(self._tree(plan.taxonomy), expected)
+                # Moved tags keep their database rows.
+                for tag_id, pk in pks.items():
+                    self.assertEqual(plan.taxonomy.tag_set.get(external_id=tag_id).pk, pk)
+                transaction.set_rollback(True)
 
     def test_execute_kept_tag_under_deleted_ancestors_survives(self) -> None:
         """
@@ -885,6 +894,16 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
             ],
             True,
             "Row 2's parent_id (tag_3)",
+        ),
+        # The same two renamed tags, in the other row order.
+        (
+            [
+                TagItem(id='tag_4', value='Tag 4', parent_id='tag_2'),
+                TagItem(id='tag_3', value='Tag 2', previous_id='tag_2', parent_id='tag_2'),
+                TagItem(id='tag_2', value='Tag 1', previous_id='tag_1', parent_id='tag_3'),
+            ],
+            True,
+            "Row 2's parent_id (tag_2)",
         ),
     )
     @ddt.unpack
