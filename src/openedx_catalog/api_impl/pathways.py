@@ -9,7 +9,7 @@ creating and versioning the *definition* of a Pathway is done through `openedx_l
 import logging
 from typing import overload
 
-from django.db.models import QuerySet
+from django.db.models.query import QuerySet
 from django.utils import timezone
 
 from ..models import CatalogPathway, PathwayCategory, PathwayEnrollment
