@@ -20,6 +20,7 @@ from openedx_learning.api import (
 from openedx_learning.applets.cbe import api as cbe_api
 from openedx_learning.applets.cbe.api import _create_leaf_group
 from openedx_learning.models import (
+    CompetencyCourseRun,
     CompetencyCriteriaGroup,
     CompetencyCriterion,
     CompetencyRuleProfile,
@@ -684,12 +685,86 @@ def test_validate_containment_allows_a_tag_with_no_relatives(tag: Tag, course_ru
     cbe_api._validate_containment(group, course_run)  # pylint: disable=protected-access  # Must not raise.
 
 
-def test_create_competency_criterion_rejects_a_group_object_id_course_mismatch(
-    tag: Tag, course_run: CourseRun, organization: Organization,
+def test_get_courses_with_relative_criteria_narrows_to_the_given_course(
+    competency_taxonomy: CompetencyTaxonomy,
+    course_run: CourseRun,
+    organization: Organization,
+    default_rule_profile: CompetencyRuleProfile,
 ) -> None:
-    """object_id's own course must match group's course, even when nothing else conflicts."""
+    """With ``course`` given, only that course's conflict comes back, though another course has one too."""
+    relative = make_tag(competency_taxonomy, "Relative Skill")
     other_course_run = make_course_run(organization, "Python200", "Fall2026")
+    make_criterion(relative, course_run, default_rule_profile, "p1")
+    make_criterion(relative, other_course_run, default_rule_profile, "p1")
+
+    assert get_courses_with_relative_criteria([relative.id], course=course_run) == {course_run: relative}
+
+
+def test_get_courses_with_relative_criteria_ignores_a_criterion_outside_a_leaf(
+    competency_taxonomy: CompetencyTaxonomy, course_run: CourseRun, default_rule_profile: CompetencyRuleProfile,
+) -> None:
+    """A criterion on a group nested below a leaf, e.g. made through the admin, is skipped rather than crashing."""
+    relative = make_tag(competency_taxonomy, "Relative Skill")
+    leaf = _create_leaf_group(relative, course_run)
+    nested = CompetencyCriteriaGroup.objects.create(tag=relative, parent=leaf)
+    object_tag = ObjectTag.objects.create(
+        object_id=usage_key(course_run, "p1"), taxonomy=relative.taxonomy, tag=relative,
+    )
+    CompetencyCriterion.objects.create(group=nested, object_tag=object_tag, rule_profile=default_rule_profile)
+
+    assert not get_courses_with_relative_criteria([relative.id])
+
+
+def test_create_competency_criterion_uses_the_callers_course_run(
+    tag: Tag, course_run: CourseRun, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The caller already resolved the course run, so creating the criterion doesn't look it up again."""
+    def _fail(*args, **kwargs):
+        raise AssertionError("get_course_run() called again")
+    monkeypatch.setattr(cbe_api, "get_course_run", _fail)
     group = _create_leaf_group(tag, course_run)
 
-    with pytest.raises(ValidationError, match="object_id"):
-        cbe_api.create_competency_criterion(group, usage_key(other_course_run, "p1"))
+    criterion = cbe_api.create_competency_criterion(group, usage_key(course_run, "p1"), course_run=course_run)
+
+    assert criterion.group_id == group.id
+
+
+def test_associate_competency_criterion_creates_the_course_runs_cbe_row(
+    tag: Tag, course_run: CourseRun,
+) -> None:
+    """A course's first criterion creates its CompetencyCourseRun row."""
+    associate_competency_criterion(tag.id, usage_key(course_run, "p1"))
+
+    assert CompetencyCourseRun.objects.filter(course_run=course_run).exists()
+
+
+def test_associate_competency_criterion_reuses_the_course_runs_cbe_row(
+    tag: Tag, course_run: CourseRun,
+) -> None:
+    """Later criteria in the same course reuse the one CompetencyCourseRun row."""
+    associate_competency_criterion(tag.id, usage_key(course_run, "p1"))
+    associate_competency_criterion(tag.id, usage_key(course_run, "p2"))
+
+    assert CompetencyCourseRun.objects.filter(course_run=course_run).count() == 1
+
+
+def test_associate_competency_criterion_does_not_lock_the_catalog_course_run(
+    tag: Tag, course_run: CourseRun, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The per-course lock is on CBE's own row, never on the catalog's CourseRun."""
+    def _fail(*args, **kwargs):
+        raise AssertionError("CourseRun row locked")
+    monkeypatch.setattr(CourseRun.objects, "select_for_update", _fail)
+
+    associate_competency_criterion(tag.id, usage_key(course_run, "p1"))
+
+
+def test_competency_course_run_is_deleted_with_its_course_run(
+    tag: Tag, course_run: CourseRun,
+) -> None:
+    """Deleting a course run deletes its CompetencyCourseRun row."""
+    associate_competency_criterion(tag.id, usage_key(course_run, "p1"))
+
+    course_run.delete()
+
+    assert not CompetencyCourseRun.objects.exists()
