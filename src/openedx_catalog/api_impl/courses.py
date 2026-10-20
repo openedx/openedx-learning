@@ -1,5 +1,5 @@
 """
-Implementation of the `openedx_catalog` API.
+Implementation of the course part of the `openedx_catalog` API: catalog courses and course runs.
 """
 
 import logging
@@ -9,7 +9,7 @@ from opaque_keys.edx.keys import CourseKey
 from organizations.api import ensure_organization  # type: ignore[import]
 from organizations.api import exceptions as org_exceptions
 
-from .models import CatalogCourse, CourseRun
+from ..models import CatalogCourse, CourseRun
 
 log = logging.getLogger(__name__)
 
