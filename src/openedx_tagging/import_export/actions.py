@@ -721,7 +721,6 @@ class DetachTag(ImportAction):
         Looks the tag up by pk: a StageTagExternalIdForSwap action may have
         moved it onto a placeholder id by now.
         """
-        # _build_detach_actions only builds this action with a target_pk.
         assert self.target_pk is not None
         tag = self.taxonomy.tag_set.get(pk=self.target_pk)
         tag.parent = None

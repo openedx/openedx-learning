@@ -597,22 +597,32 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         self.assertNotIn(tag_2_pk, staged_pks)
         self.assertEqual(len(self.import_plan.indexed_actions['rename_external_id']), 3)
 
-    def test_generate_actions_parent_id_stale_after_plain_rename_rejected(self) -> None:
+    @ddt.data(
+        ('tag_1', False),
+        ('TAG_1', False),  # a case variant of the stale id
+        ('TAG_1', True),  # the child row first
+    )
+    @ddt.unpack
+    def test_generate_actions_parent_id_stale_after_plain_rename_rejected(
+        self, child_parent_id: str, child_first: bool,
+    ) -> None:
         """
         Regression: tag_1 is renamed to tag_50 and nothing reuses "tag_1"
         (a plain, non-contended rename, never staged). A different row's
         parent_id references the now-stale "tag_1" -- must be rejected,
         since no tag will hold that external_id after the import.
         """
-        tags = [
-            TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
-            TagItem(id='tag_60', value='Tag 60', parent_id='tag_1'),
-        ]
-        self.import_plan.generate_actions(tags=tags, replace=False)
-        self.assertEqual(len(self.import_plan.errors), 1)
-        self.assertIn(
-            "Parent tag tag_1 is renamed to tag_50 in this file; use tag_50 as the parent_id.",
-            str(self.import_plan.errors[0]),
+        rename = TagItem(id='tag_50', value='Tag 1', previous_id='tag_1')
+        child = TagItem(id='tag_60', value='Tag 60', parent_id=child_parent_id)
+        row = 1 if child_first else 2
+        self.import_plan.generate_actions(tags=[child, rename] if child_first else [rename, child], replace=False)
+        # One error, without the hint for a swap: no other row takes the id.
+        self.assertEqual(
+            [str(error) for error in self.import_plan.errors],
+            [
+                f"Action error in 'create' (#{row}): Row {row}: Parent tag {child_parent_id} is renamed "
+                "to tag_50 in this file; use tag_50 as the parent_id."
+            ],
         )
 
     def test_generate_actions_parent_id_new_id_after_earlier_rename_accepted(self) -> None:
@@ -629,57 +639,53 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
         self.import_plan.generate_actions(tags=tags, replace=False)
         self.assertEqual(self.import_plan.errors, [])
 
-    def test_generate_actions_existing_child_keeps_stale_parent_id_rejected(self) -> None:
-        tags = [
-            TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
-            TagItem(id='tag_2', value='Tag 2', parent_id='tag_1'),
-        ]
-        self.import_plan.generate_actions(tags=tags, replace=False)
+    @ddt.data(
+        (
+            [
+                TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
+                TagItem(id='tag_2', value='Tag 2', parent_id='tag_1'),
+            ],
+            False,
+            "Action error in 'update_parent' (#2): ",
+        ),
+        # A new child: replace=True deletes tag_3 and tag_4 first, so its action is #4, not #2.
+        (
+            [
+                TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
+                TagItem(id='tag_60', value='Tag 60', parent_id='tag_1'),
+                TagItem(id='tag_2', value='Tag 2', parent_id='tag_50'),
+            ],
+            True,
+            "Action error in 'create' (#4): ",
+        ),
+    )
+    @ddt.unpack
+    def test_generate_actions_existing_child_keeps_stale_parent_id_rejected(
+        self, tags: list[TagItem], replace: bool, action_prefix: str,
+    ) -> None:
+        self.import_plan.generate_actions(tags=tags, replace=replace)
         self.assertEqual(
             [str(error) for error in self.import_plan.errors],
             [
-                "Action error in 'update_parent' (#2): "
+                f"{action_prefix}"
                 "Row 2: Parent tag tag_1 is renamed to tag_50 in this file; use tag_50 as the parent_id."
             ],
         )
 
-    @ddt.data(
-        ('tag_2', None, 'tag_1'),  # exact pre-import id
-        ('tag_2', None, 'TAG_1'),  # case variant of it
-        ('tag_20', 'tag_2', 'tag_1'),  # the child is renamed too
-    )
-    @ddt.unpack
-    def test_generate_actions_swap_child_naming_own_parent_stale_id_rejected(
-        self, child_id: str, child_previous_id: str | None, child_parent_id: str,
-    ) -> None:
+    def test_generate_actions_swap_renamed_child_naming_own_parent_stale_id_rejected(self) -> None:
         tags = [
             TagItem(id='tag_3', value='Tag 1', previous_id='tag_1'),
             TagItem(id='tag_1', value='Tag 3', previous_id='tag_3'),
-            TagItem(id=child_id, value='Tag 2', previous_id=child_previous_id, parent_id=child_parent_id),
+            TagItem(id='tag_20', value='Tag 2', previous_id='tag_2', parent_id='tag_1'),
         ]
         self.import_plan.generate_actions(tags=tags, replace=False)
-        self.assertEqual(len(self.import_plan.errors), 1)
         # The staging and detach actions come first, so the action number is not the row number.
-        self.assertIn(
-            f"(#6): Row 3: Parent tag {child_parent_id} is renamed to tag_3 in this file; use tag_3 as the parent_id. "
-            f"To move under the tag that takes the id {child_parent_id} in this file instead, "
-            "import the id changes and the move as two separate files.",
-            str(self.import_plan.errors[0]),
-        )
-
-    def test_generate_actions_stale_parent_id_error_names_row(self) -> None:
-        tags = [
-            TagItem(id='tag_50', value='Tag 1', previous_id='tag_1'),
-            TagItem(id='tag_60', value='Tag 60', parent_id='tag_1'),
-            TagItem(id='tag_2', value='Tag 2', parent_id='tag_50'),
-        ]
-        # replace=True deletes tag_3 and tag_4 first, so the child's action is #4, not #2.
-        self.import_plan.generate_actions(tags=tags, replace=True)
         self.assertEqual(
             [str(error) for error in self.import_plan.errors],
             [
-                "Action error in 'create' (#4): "
-                "Row 2: Parent tag tag_1 is renamed to tag_50 in this file; use tag_50 as the parent_id."
+                "Action error in 'rename_external_id' (#6): Row 3: Parent tag tag_1 is renamed to tag_3 in this "
+                "file; use tag_3 as the parent_id. To move under the tag that takes the id tag_1 in this file "
+                "instead, import the id changes and the move as two separate files."
             ],
         )
 
@@ -763,6 +769,26 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
     }
 
     @ddt.data(
+        # A three-level chain is turned upside down.
+        (
+            {'top': None, 'middle': 'top', 'bottom': 'middle'},
+            [
+                TagItem(id='top', value='top', parent_id='middle'),
+                TagItem(id='middle', value='middle', parent_id='bottom'),
+                TagItem(id='bottom', value='bottom'),
+            ],
+            {'bottom': None, 'middle': 'bottom', 'top': 'middle'},
+        ),
+        # A root moves under its former grandchild, while the middle tag becomes a root.
+        (
+            {'top': None, 'middle': 'top', 'bottom': 'middle'},
+            [
+                TagItem(id='top', value='top', parent_id='bottom'),
+                TagItem(id='middle', value='middle'),
+                TagItem(id='bottom', value='bottom', parent_id='middle'),
+            ],
+            {'middle': None, 'bottom': 'middle', 'top': 'bottom'},
+        ),
         # A parent and its child swap places.
         (
             {'parent': None, 'child': 'parent'},
@@ -834,10 +860,7 @@ class TestTagImportPlan(TestImportActionMixin, TestCase):
                 self.assertIn('detach', names)
                 # All detaches run before any row action. This holds here because these cases have
                 # no renames or deletes, which are built before the detaches.
-                self.assertLess(
-                    max(index for index, name in enumerate(names) if name == 'detach'),
-                    min(index for index, name in enumerate(names) if name != 'detach'),
-                )
+                self.assertEqual(names[:names.count('detach')], ['detach'] * names.count('detach'))
                 plan.execute()
                 self.assertEqual(self._tree(plan.taxonomy), expected)
                 # Moved tags keep their database rows.

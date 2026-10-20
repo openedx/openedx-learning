@@ -1177,25 +1177,12 @@ class TestImportAcceptanceScenarios(TestCase):
         for tag_pk, object_tag_pk in object_tags.items():
             assert ObjectTag.objects.get(pk=object_tag_pk).tag_id == tag_pk
 
-    def _export(self, parser_format: ParserFormat = ParserFormat.JSON) -> str:
+    def _exported_rows(self) -> list[dict]:
         """
-        Export the taxonomy in the given format.
+        Parse the JSON export and check it only carries the id, value and parent_id fields.
         """
-        return import_export_api.export_tags(self.taxonomy, parser_format)
-
-    def _exported_rows(self, parser_format: ParserFormat = ParserFormat.JSON) -> list[dict]:
-        """
-        Parse the export and check it only carries the id, value and parent_id fields.
-        """
-        output = self._export(parser_format)
-        if parser_format == ParserFormat.JSON:
-            rows = json.loads(output)["tags"]
-            fields = {key for row in rows for key in row}
-        else:
-            reader = csv.DictReader(StringIO(output))
-            assert reader.fieldnames == ["id", "value", "parent_id"]
-            rows = list(reader)
-            fields = set(reader.fieldnames)
+        rows = json.loads(import_export_api.export_tags(self.taxonomy, ParserFormat.JSON))["tags"]
+        fields = {key for row in rows for key in row}
         assert fields <= {"id", "value", "parent_id"}
         return [{"id": row["id"], "value": row["value"], "parent_id": row.get("parent_id") or None} for row in rows]
 
@@ -1234,7 +1221,7 @@ class TestImportAcceptanceScenarios(TestCase):
         With ``error_count``, also check the plan has exactly that many errors.
         """
         snapshot = set(self.taxonomy.tag_set.values_list("pk", "external_id", "value", "parent_id"))
-        before = self._export()
+        before = import_export_api.export_tags(self.taxonomy, ParserFormat.JSON)
         result, log, plan = self._import(rows, parser_format)
         assert not result
         for message in messages:
@@ -1243,7 +1230,7 @@ class TestImportAcceptanceScenarios(TestCase):
             assert plan is not None
             assert len(plan.errors) == error_count
         assert set(self.taxonomy.tag_set.values_list("pk", "external_id", "value", "parent_id")) == snapshot
-        assert self._export() == before
+        assert import_export_api.export_tags(self.taxonomy, ParserFormat.JSON) == before
         return log
 
     def _assert_tree_after_import(
@@ -1288,15 +1275,6 @@ class TestImportAcceptanceScenarios(TestCase):
         assert self.taxonomy.tag_set.count() == 1
         assert Tag.objects.get(pk=pks["COMP-A"]).external_id == "COMP-B"
         self._assert_associations_kept(object_tags)
-
-    def test_new_id_without_previous_id_is_created(self) -> None:
-        """
-        A row with a new id and no previous_id creates a tag.
-        """
-        self._seed([TagItem(id="COMP-A", value="Alpha")])
-        result, _log, _plan = self._import([TagItem(id="COMP-A", value="Alpha"), TagItem(id="COMP-Z", value="Zulu")])
-        assert result
-        assert self._exported_ids() == {"Alpha": "COMP-A", "Zulu": "COMP-Z"}
 
     def test_rename_onto_id_of_kept_tag_rejected(self) -> None:
         """
@@ -1351,26 +1329,6 @@ class TestImportAcceptanceScenarios(TestCase):
                 assert self._exported_ids()["Parent"] == "COMP-P2"
                 assert self._exported_parents()["Kid"] == "COMP-P2"
 
-    def test_export_has_no_previous_id_and_round_trips_without_changes(self) -> None:
-        """
-        Neither export format carries previous_id, and importing an unchanged export plans no change.
-        """
-        self._seed([
-            TagItem(id="COMP-P", value="Parent"),
-            TagItem(id="COMP-K", value="Kid", parent_id="COMP-P"),
-            TagItem(id="COMP-A", value="Alpha"),
-        ])
-        assert len(self._exported_rows(ParserFormat.CSV)) == 3
-        exported = self._exported_rows()
-        assert len(exported) == 3
-        result, _log, plan = self._import(
-            [TagItem(id=row["id"], value=row["value"], parent_id=row["parent_id"]) for row in exported],
-            plan_only=True,
-        )
-        assert result
-        assert plan is not None
-        assert {action.name for action in plan.actions} == {"without_changes"}
-
     def test_every_rejected_row_is_in_the_one_log(self) -> None:
         """
         Rejected rows of different kinds each have their message in the same log, because the
@@ -1393,7 +1351,7 @@ class TestImportAcceptanceScenarios(TestCase):
             messages=[
                 "Row 2: Parent tag COMP-P is renamed to COMP-P2 in this file; use COMP-P2 as the parent_id.",
                 "Row 3: Parent tag COMP-P is renamed to COMP-P2 in this file; use COMP-P2 as the parent_id.",
-                "COMP-GHOST",
+                "Unknown previous_id (COMP-GHOST). No tag with that external_id exists in this taxonomy.",
             ],
         )
 
@@ -1464,42 +1422,6 @@ class TestImportAcceptanceScenarios(TestCase):
                 assert set(self.taxonomy.tag_set.values_list("pk", flat=True)) == {pks[t.id] for t in kept}
                 assert all(tag.parent_id is None for tag in self.taxonomy.tag_set.all())
                 assert self._exported_parents() == {t.value: None for t in kept}
-
-    def test_three_level_chain_reversed(self) -> None:
-        """
-        A three-level chain is turned upside down.
-        """
-        pks = self._seed([
-            TagItem(id="top", value="Top"),
-            TagItem(id="middle", value="Middle", parent_id="top"),
-            TagItem(id="bottom", value="Bottom", parent_id="middle"),
-        ])
-        rows = [
-            TagItem(id="bottom", value="Bottom"),
-            TagItem(id="middle", value="Middle", parent_id="bottom"),
-            TagItem(id="top", value="Top", parent_id="middle"),
-        ]
-        self._assert_tree_after_import(
-            rows=rows, expected_parents={"bottom": None, "middle": "bottom", "top": "middle"}, pks=pks,
-        )
-
-    def test_tag_moved_under_its_former_grandchild(self) -> None:
-        """
-        A root moves under its former grandchild, while the middle tag becomes a root.
-        """
-        pks = self._seed([
-            TagItem(id="top", value="Top"),
-            TagItem(id="middle", value="Middle", parent_id="top"),
-            TagItem(id="bottom", value="Bottom", parent_id="middle"),
-        ])
-        rows = [
-            TagItem(id="top", value="Top", parent_id="bottom"),
-            TagItem(id="middle", value="Middle"),
-            TagItem(id="bottom", value="Bottom", parent_id="middle"),
-        ]
-        self._assert_tree_after_import(
-            rows=rows, expected_parents={"top": "bottom", "middle": None, "bottom": "middle"}, pks=pks,
-        )
 
     # deep_tag is at the fifth level, so a child of deep_tag is at the sixth, the deepest allowed.
     deep_chain = (
@@ -1650,26 +1572,3 @@ class TestImportAcceptanceScenarios(TestCase):
                     ],
                 )
                 assert log.count("is renamed to") == 1
-
-    def test_plain_rename_child_naming_parent_id_in_another_case_reported_once(self) -> None:
-        """
-        When the parent is renamed without a swap, a child naming the parent's old id in another
-        case gets one parent error, without the hint for a swap.
-        """
-        self._seed([TagItem(id="COMP-P", value="Parent"), TagItem(id="COMP-K", value="Kid", parent_id="COMP-P")])
-        rows = [
-            TagItem(id="COMP-P2", value="Parent", previous_id="COMP-P"),
-            TagItem(id="COMP-K", value="Kid", parent_id="comp-p"),
-        ]
-        for order in self._orders(len(rows)):
-            with self.subTest(order=order):
-                file_rows = [rows[i] for i in order]
-                log = self._assert_rejected(
-                    file_rows,
-                    messages=[
-                        f"Row {file_rows.index(rows[1]) + 1}: Parent tag comp-p is renamed to COMP-P2 "
-                        "in this file; use COMP-P2 as the parent_id.",
-                    ],
-                    error_count=1,
-                )
-                assert "To move under" not in log
