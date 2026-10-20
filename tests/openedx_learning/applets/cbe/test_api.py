@@ -598,7 +598,9 @@ def test_get_courses_with_relative_criteria_ignores_a_criterion_under_an_archive
     """A live criterion under an archived course-level group blocks nothing."""
     relative = make_tag(competency_taxonomy, "Relative Skill")
     criterion = make_criterion(relative, course_run, default_rule_profile, "p1")
-    CompetencyCriteriaGroup.objects.filter(pk=criterion.group.parent_id).update(archived=True)
+    course_level_id = criterion.group.parent_id
+    assert course_level_id is not None
+    CompetencyCriteriaGroup.objects.filter(pk=course_level_id).update(archived=True)
 
     assert not get_courses_with_relative_criteria([relative.id])
 
@@ -611,7 +613,9 @@ def test_get_courses_with_relative_criteria_ignores_a_criterion_under_an_archive
     criterion = make_criterion(relative, course_run, default_rule_profile, "p1")
     course_level = criterion.group.parent
     assert course_level is not None
-    CompetencyCriteriaGroup.objects.filter(pk=course_level.parent_id).update(archived=True)
+    root_id = course_level.parent_id
+    assert root_id is not None
+    CompetencyCriteriaGroup.objects.filter(pk=root_id).update(archived=True)
 
     assert not get_courses_with_relative_criteria([relative.id])
 
