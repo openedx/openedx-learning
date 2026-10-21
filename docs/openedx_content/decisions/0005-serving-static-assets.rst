@@ -115,7 +115,7 @@ The ``version`` can be:
 
 * ``draft`` indicating the latest draft version (viewed by authors in Studio).
 * ``published`` indicating the latest published version (viewed by students in the LMS)
-* If the ``version`` is ``draft``, then ``?v={num}`` can also be used to retrieve a specific version - e.g. ``v?=20`` for version 20. For shared Assets, this is the version of the requested Asset only, and the response is always sent as an attachment (see :ref:`openedx-content-adr-0013`, decision 3).
+* If the ``version`` is ``draft``, then ``?v={num}`` can also be used to retrieve a specific version - e.g. ``?v=20`` for version 20. For shared Assets, this is the version of the requested Asset only, and the response is always sent as an attachment (see :ref:`openedx-content-adr-0013`, decision 3).
 
 Response Headers
 ~~~~~~~~~~~~~~~~

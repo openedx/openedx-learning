@@ -90,7 +90,7 @@ Assets are not children of the course container or any of its descendants. Putti
 The ``Asset`` model will have a permissions column with an enum that allows values of ``public`` (default), ``locked``, and ``private``. The permissions mode is on the unversioned model (not part of versioning), because often authors will wish to lock down all versions of an asset, not just lock the current version while still allowing access to previous versions.
 
 * ``public`` is the default for now, as it was in contentstore. There are no permissions checks on such assets, and anyone who knows the filename/URL can access it. This was chosen as the default more for performance reasons (skipping expensive permissions checks) rather than product reasons, and we may change to ``locked`` as default in the future.
-* ``locked`` mirrors the existing contentstore flag for course files. When True, it means that only enrolled users can access the given file.
+* ``locked`` mirrors the existing contentstore flag for course files. It means that only enrolled users can access the given file.
 * ``private`` means that only course staff can access the asset, e.g. for storing grading rubric PDFs. This is a new feature compared to contentstore, although it will be used to prevent learners from downloading ``python_lib.zip``, a special shared asset used by the problem XBlock that must not be accessible to learners (contentstore achieves this with a hard-coded rule).
 
 In **libraries**, these permissions checks have little effect, but indicate what permissions an asset should have when copied into the course.
