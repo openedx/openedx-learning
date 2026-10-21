@@ -41,7 +41,7 @@ Each Asset holds only a single file, e.g. ``solar-system.svg``, and within a giv
 
 Filenames should be case-sensitive, such that ``fig1.png`` and ``Fig1.png`` are both allowed. Since MySQL's default collation is case-insensitive, the ``filename`` column must explicitly use a case-sensitive collation (e.g. using ``case_sensitive_char_field``, as ``ref_field`` does), including for its uniqueness constraint. For backwards compatibility, the filename is also allowed to contain ``/``, such as ``images/image1.png``. By convention, an Asset's ``entity_ref`` is ``openedx-asset:{filename}``, but nothing (including asset URLs) should rely on that; look Assets up by ``filename`` using its explicit column.
 
-If a file is uploaded with the same filename as an Asset that has been (soft) deleted, the deleted Asset is un-deleted: the upload becomes a new draft version of the existing Asset, rather than creating a new Asset. Its version history, flags and any existing references to it are retained.
+If a file is uploaded with the same filename as an Asset that has been (soft) deleted, the deleted Asset is un-deleted: the upload becomes a new draft version of the existing Asset, rather than creating a new Asset. Its version history and any existing references to it are retained. If a specific permissions mode (``locked`` or ``private``, and separately ``allow_scripts`` or not) was specified when uploading, it will have that value; otherwise it will take on the most restrictive values between the defaults and the previous values (i.e. if the previously-deleted asset was locked, the new asset will be locked; the ``allow_scripts`` flag will be reset to ``False``).
 
 3. Assets support relative links
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
