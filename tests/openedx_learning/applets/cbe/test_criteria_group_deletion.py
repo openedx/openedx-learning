@@ -102,3 +102,47 @@ def test_deleting_a_taxonomy_also_deletes_its_tags_criteria_groups(competency_ta
 
     assert not Tag.objects.filter(pk=tag.pk).exists()
     assert not CompetencyCriteriaGroup.objects.filter(pk=group.pk).exists()
+
+
+def test_deleting_a_root_with_descendants_frees_its_place(tag: Tag, course_run: CourseRun) -> None:
+    """
+    Deleting a root deletes its whole subtree and frees the tag for a new root. On MySQL the
+    collector nulls each descendant's `parent` before the DELETE, which the root-only scope_code
+    check must allow.
+    """
+    root = CompetencyCriteriaGroup.objects.create(tag=tag)
+    course_level_group = CompetencyCriteriaGroup.objects.create(tag=tag, course=course_run, parent=root)
+    leaves = [CompetencyCriteriaGroup.objects.create(tag=tag, parent=course_level_group) for _ in range(2)]
+    group_pks = [root.pk, course_level_group.pk, *(leaf.pk for leaf in leaves)]
+    assert CompetencyCriteriaGroup.objects.filter(pk__in=group_pks).count() == 4
+
+    root.delete()
+
+    assert not CompetencyCriteriaGroup.objects.filter(pk__in=group_pks).exists()
+    new_root = CompetencyCriteriaGroup.objects.create(tag=tag)
+    assert new_root.scope_code == f"tag:{tag.pk},course:"
+
+
+def test_deleting_a_course_run_deletes_its_course_level_groups_and_their_leaves(
+    tag: Tag, course_run: CourseRun
+) -> None:
+    """
+    Deleting a CourseRun deletes its course-level group and that group's leaves, and leaves the
+    root and other courses' groups untouched. On MySQL the collector nulls each leaf's `parent`
+    before the DELETE, which the root-only scope_code check must allow.
+    """
+    other_course_run = CourseRun.objects.create(catalog_course=course_run.catalog_course, run_code="Spring2027")
+    root = CompetencyCriteriaGroup.objects.create(tag=tag)
+    course_level_group = CompetencyCriteriaGroup.objects.create(tag=tag, course=course_run, parent=root)
+    other_course_level_group = CompetencyCriteriaGroup.objects.create(tag=tag, course=other_course_run, parent=root)
+    leaves = [CompetencyCriteriaGroup.objects.create(tag=tag, parent=course_level_group) for _ in range(2)]
+    deleted_pks = [course_level_group.pk, *(leaf.pk for leaf in leaves)]
+    assert CompetencyCriteriaGroup.objects.filter(pk__in=deleted_pks).count() == 3
+    root_scope_code = root.scope_code
+
+    course_run.delete()
+
+    assert not CompetencyCriteriaGroup.objects.filter(pk__in=deleted_pks).exists()
+    assert CompetencyCriteriaGroup.objects.filter(pk=other_course_level_group.pk, parent=root).exists()
+    root.refresh_from_db()
+    assert root.scope_code == root_scope_code == f"tag:{tag.pk},course:"

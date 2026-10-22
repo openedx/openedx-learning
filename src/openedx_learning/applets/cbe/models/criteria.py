@@ -104,8 +104,18 @@ class CompetencyCriteriaGroup(models.Model):
             "criteria and existing learner status rows stay resolvable."
         ),
     )
+    # Recomputed in save(); set for roots only, archived or not, so an archived root keeps blocking a second one.
+    scope_code = models.CharField(
+        max_length=255,
+        null=True,
+        editable=False,
+        help_text=_(
+            "Derived from tag and parent; \"tag:X,course:\" for a root group, null for every other group."
+        ),
+    )
 
-    history = HistoricalRecords()
+    # scope_code is derived bookkeeping; tag and parent, which it derives from, are already tracked.
+    history = HistoricalRecords(excluded_fields=["scope_code"])
 
     class Meta:
         indexes = [
@@ -121,7 +131,7 @@ class CompetencyCriteriaGroup(models.Model):
         constraints = [
             # Backstops _create_leaf_group()'s get_or_create() for course-level groups. It has no
             # `condition` because MySQL has no partial indexes: a unique index allows repeated
-            # NULLs, and `course` is NULL for roots and leaves.
+            # NULLs, and `course` is NULL for roots and leaves. Roots are covered by scope_code instead.
             models.UniqueConstraint(
                 fields=["tag", "course", "parent"],
                 name="oel_cbe_criteria_group_one_course_group_per_tag_course",
@@ -129,7 +139,35 @@ class CompetencyCriteriaGroup(models.Model):
                     "A competency tag may have at most one course-level CompetencyCriteriaGroup per course."
                 ),
             ),
+            # Over the derived scope_code column because MySQL has no partial unique index for `parent IS NULL`.
+            models.UniqueConstraint(
+                fields=["scope_code"],
+                name="oel_cbe_criteria_group_scope_code_uniq",
+                violation_error_message=_("A competency tag may have at most one root CompetencyCriteriaGroup."),
+            ),
+            # One-directional: MySQL's delete collector nulls a root's cascading `parent` keys before
+            # DELETE, so "every root has a scope_code" would fail mid-delete.
+            models.CheckConstraint(
+                condition=Q(scope_code__isnull=True) | Q(parent__isnull=True),
+                name="oel_cbe_criteria_group_scope_code_root_only_check",
+                violation_error_message=_("Only a root CompetencyCriteriaGroup may have a scope_code."),
+            ),
         ]
+
+    def _compute_scope_code(self) -> str | None:
+        """Return this group's scope_code: set for a root group, None for every other group."""
+        if self.parent_id is not None:
+            return None
+        return f"tag:{self.tag_id},course:"
+
+    def save(self, *args, **kwargs):
+        """Recompute scope_code, and persist it even when the caller passes update_fields."""
+        self.scope_code = self._compute_scope_code()
+        update_fields = kwargs.get("update_fields")
+        # An empty update_fields is Django's no-op save, so leave it empty.
+        if update_fields and "scope_code" not in update_fields:
+            kwargs["update_fields"] = [*update_fields, "scope_code"]
+        super().save(*args, **kwargs)
 
 
 class CompetencyRuleProfile(models.Model):

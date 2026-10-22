@@ -345,7 +345,8 @@ def associate_competency_criterion(
     _validate_rule_fields(rule_profile_id, rule_type_override, rule_payload_override)
 
     with transaction.atomic():
-        # Serializes the duplicate check and root creation; MySQL has no partial unique index for one root per tag.
+        # The database enforces one root per tag; this lock serializes _reject_duplicate_criterion(), since a request
+        # without group_id always creates a fresh leaf, so no unique index catches two concurrent duplicate criteria.
         Tag.objects.select_for_update().get(pk=tag.pk)
         _reject_duplicate_criterion(tag, object_id, group_id)
         if group_id is not None:
