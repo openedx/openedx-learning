@@ -14,6 +14,7 @@ from typing import ContextManager, Optional, cast
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import connection
 from django.db.models import F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.transaction import atomic, on_commit
 
@@ -576,30 +577,26 @@ def publish_from_drafts(
                                 .values_list("entity_id", "id")
             )
 
-            # Update the lookup we use to fetch the published versions. We
-            # already know from the select_related above whether a Published
-            # row exists for each entity, so split into one bulk insert and
-            # one bulk update instead of an update_or_create() per Draft.
-            published_to_create: list[Published] = []
-            published_to_update: list[Published] = []
-            for entity_id, draft in drafts_to_publish.items():
-                record_id = record_ids_by_entity_id[entity_id]
-                try:
-                    published = draft.entity.published
-                except ObjectDoesNotExist:
-                    published_to_create.append(
-                        Published(
-                            entity_id=entity_id,
-                            version_id=draft.version_id,
-                            publish_log_record_id=record_id,
-                        )
+            # Update the lookup we use to fetch the published versions. This
+            # is a single upsert: entities that have never been published get
+            # a new Published row, and the rest have their version and log
+            # record updated.
+            Published.objects.bulk_create(
+                [
+                    Published(
+                        entity_id=entity_id,
+                        version_id=draft.version_id,
+                        publish_log_record_id=record_ids_by_entity_id[entity_id],
                     )
-                else:
-                    published.version_id = draft.version_id
-                    published.publish_log_record_id = record_id
-                    published_to_update.append(published)
-            Published.objects.bulk_create(published_to_create)
-            Published.objects.bulk_update(published_to_update, ["version", "publish_log_record"])
+                    for entity_id, draft in drafts_to_publish.items()
+                ],
+                update_conflicts=True,
+                update_fields=["version", "publish_log_record"],
+                # PostgreSQL and SQLite require the conflicting unique field to
+                # be named, but MySQL's ON DUPLICATE KEY UPDATE applies to any
+                # unique key, and Django rejects unique_fields for it.
+                unique_fields=["entity"] if connection.features.supports_update_conflicts_with_target else None,
+            )
 
         _create_side_effects_for_change_log(publish_log)
         _emit_event_for_change_log(publish_log, timestamp=published_at, user_id=published_by)
