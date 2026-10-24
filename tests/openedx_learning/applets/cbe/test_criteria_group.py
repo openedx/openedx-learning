@@ -15,6 +15,7 @@ Fixtures live in this directory's conftest.py.
 """
 import pytest
 from django.apps import apps
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from openedx_catalog.models import CourseRun
@@ -107,13 +108,19 @@ def test_group_has_no_unique_constraint_on_parent_and_ordering(tag: Tag) -> None
 
 
 def test_a_root_group_gets_a_scope_code_and_other_groups_do_not(tag: Tag, course_run: CourseRun) -> None:
+    second_run = CourseRun.objects.create(catalog_course=course_run.catalog_course, run_code="Spring2027")
     root = CompetencyCriteriaGroup.objects.create(tag=tag)
     course_level = CompetencyCriteriaGroup.objects.create(tag=tag, course=course_run, parent=root)
-    leaf = CompetencyCriteriaGroup.objects.create(tag=tag, parent=course_level)
+    second_course_level = CompetencyCriteriaGroup.objects.create(tag=tag, course=second_run, parent=root)
+    leaves = [
+        CompetencyCriteriaGroup.objects.create(tag=tag, parent=course_level, archived=archived)
+        for archived in (False, False, True)
+    ]
 
-    assert root.scope_code == f"tag:{tag.pk},course:"
+    assert root.scope_code == f"tag:{tag.pk}"
     assert course_level.scope_code is None
-    assert leaf.scope_code is None
+    assert second_course_level.scope_code is None
+    assert all(leaf.scope_code is None for leaf in leaves)
 
 
 def test_a_second_root_for_a_competency_is_rejected(tag: Tag) -> None:
@@ -133,7 +140,7 @@ def test_a_second_root_is_rejected_when_the_existing_root_is_archived(tag: Tag) 
 
     root.refresh_from_db()
     assert root.archived is True
-    assert root.scope_code == f"tag:{tag.pk},course:"
+    assert root.scope_code == f"tag:{tag.pk}"
 
 
 @pytest.mark.parametrize("existing_archived", [False, True], ids=["live", "archived"])
@@ -160,93 +167,63 @@ def test_archiving_a_root_keeps_it_blocking_a_second_root(tag: Tag) -> None:
     root.save(update_fields=["archived"])
 
     root.refresh_from_db()
-    assert root.scope_code == f"tag:{tag.pk},course:"
+    assert root.scope_code == f"tag:{tag.pk}"
     with pytest.raises(IntegrityError), transaction.atomic():
         CompetencyCriteriaGroup.objects.create(tag=tag)
 
 
-def test_archiving_a_course_level_group_keeps_it_blocking_a_second_one(tag: Tag, course_run: CourseRun) -> None:
+@pytest.mark.parametrize("moved_field", ["parent", "course"])
+def test_a_saved_group_cannot_change_its_parent_or_course(moved_field: str, tag: Tag, course_run: CourseRun) -> None:
     root = CompetencyCriteriaGroup.objects.create(tag=tag)
     course_level = CompetencyCriteriaGroup.objects.create(tag=tag, course=course_run, parent=root)
+    other_run = CourseRun.objects.create(catalog_course=course_run.catalog_course, run_code="Spring2027")
 
-    course_level.archived = True
-    course_level.save(update_fields=["archived"])
+    if moved_field == "parent":
+        course_level.parent = None
+    else:
+        course_level.course = other_run
 
+    with pytest.raises(ValidationError):
+        course_level.save()
     course_level.refresh_from_db()
-    assert course_level.archived is True
-    assert course_level.scope_code is None
-    with pytest.raises(IntegrityError), transaction.atomic():
-        CompetencyCriteriaGroup.objects.create(tag=tag, course=course_run, parent=root)
+    assert course_level.parent_id == root.pk
+    assert course_level.course_id == course_run.pk
 
 
-def test_moving_a_root_under_a_parent_with_update_fields_clears_its_scope_code(tag: Tag) -> None:
-    other_tag = Tag.objects.create(taxonomy=tag.taxonomy, value="Writing Prose")
-    root_a = CompetencyCriteriaGroup.objects.create(tag=tag)
-    root_b = CompetencyCriteriaGroup.objects.create(tag=other_tag)
-
-    root_b.parent = root_a
-    root_b.save(update_fields=["parent"])
-
-    root_b.refresh_from_db()
-    assert root_b.scope_code is None
-
-
-def test_promoting_a_group_to_root_with_update_fields_sets_its_scope_code(tag: Tag) -> None:
-    other_tag = Tag.objects.create(taxonomy=tag.taxonomy, value="Writing Prose")
-    other_root = CompetencyCriteriaGroup.objects.create(tag=other_tag)
-    group = CompetencyCriteriaGroup.objects.create(tag=tag, parent=other_root)
-
-    group.parent = None
-    group.save(update_fields=["parent"])
-
-    group.refresh_from_db()
-    assert group.scope_code == f"tag:{tag.pk},course:"
-
-
-def test_bulk_archiving_a_root_keeps_it_blocking_a_second_root(tag: Tag, course_run: CourseRun) -> None:
+def test_bulk_archiving_a_root_keeps_it_blocking_a_second_root(tag: Tag) -> None:
     root = CompetencyCriteriaGroup.objects.create(tag=tag)
-    course_level = CompetencyCriteriaGroup.objects.create(tag=tag, course=course_run, parent=root)
 
     CompetencyCriteriaGroup.objects.filter(pk=root.pk).update(archived=True)
-    CompetencyCriteriaGroup.objects.filter(pk=course_level.pk).update(archived=True)
 
     root.refresh_from_db()
-    assert root.scope_code == f"tag:{tag.pk},course:"
+    assert root.scope_code == f"tag:{tag.pk}"
     with pytest.raises(IntegrityError), transaction.atomic():
         CompetencyCriteriaGroup.objects.create(tag=tag)
-    with pytest.raises(IntegrityError), transaction.atomic():
-        CompetencyCriteriaGroup.objects.create(tag=tag, course=course_run, parent=root)
 
 
 def test_reactivating_an_archived_root_keeps_it_the_only_root(tag: Tag) -> None:
-    root = CompetencyCriteriaGroup.objects.create(tag=tag, archived=True)
+    root = CompetencyCriteriaGroup.objects.create(tag=tag)
+    root.archived = True
+    root.save(update_fields=["archived"])
 
     root.archived = False
     root.save()
 
+    root.refresh_from_db()
+    assert root.archived is False
+    assert root.scope_code == f"tag:{tag.pk}"
+    with pytest.raises(IntegrityError), transaction.atomic():
+        CompetencyCriteriaGroup.objects.create(tag=tag)
     assert CompetencyCriteriaGroup.objects.filter(tag=tag, parent=None).count() == 1
 
 
-def test_moving_a_root_under_a_parent_without_save_is_rejected(tag: Tag) -> None:
+def test_a_root_cannot_be_given_a_parent_behind_save(tag: Tag) -> None:
     other_tag = Tag.objects.create(taxonomy=tag.taxonomy, value="Writing Prose")
     root_a = CompetencyCriteriaGroup.objects.create(tag=tag)
     root_b = CompetencyCriteriaGroup.objects.create(tag=other_tag)
 
     with pytest.raises(IntegrityError), transaction.atomic():
         CompetencyCriteriaGroup.objects.filter(pk=root_b.pk).update(parent=root_a)
-
-
-def test_course_level_groups_and_leaves_are_not_limited(tag: Tag, course_run: CourseRun) -> None:
-    second_run = CourseRun.objects.create(catalog_course=course_run.catalog_course, run_code="Spring2027")
-    root = CompetencyCriteriaGroup.objects.create(tag=tag)
-    course_level = CompetencyCriteriaGroup.objects.create(tag=tag, course=course_run, parent=root)
-    CompetencyCriteriaGroup.objects.create(tag=tag, course=second_run, parent=root)
-
-    CompetencyCriteriaGroup.objects.create(tag=tag, parent=course_level)
-    CompetencyCriteriaGroup.objects.create(tag=tag, parent=course_level)
-    CompetencyCriteriaGroup.objects.create(tag=tag, parent=course_level, archived=True)
-
-    assert CompetencyCriteriaGroup.objects.filter(tag=tag).count() == 6
 
 
 # ---------------------------------------------------------------------------------------------

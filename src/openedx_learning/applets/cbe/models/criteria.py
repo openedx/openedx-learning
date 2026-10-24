@@ -49,6 +49,10 @@ class CompetencyCriteriaGroup(models.Model):
     of child groups and leaf criteria, and only CompetencyCriteriaGroup carries an ``ordering``
     field, so that mix has no total order; #641 accepts this deliberately. See ADR-0002 Decision 2.
 
+    ``scope_code`` is derived in ``save()``, so writes that skip ``save()`` (``bulk_create()``,
+    ``QuerySet.update()``, ``loaddata``, raw SQL) can leave a root without a code or with a stale
+    one, and the one-root-per-competency rule then goes unenforced for that root.
+
     .. no_pii:
     """
 
@@ -110,7 +114,7 @@ class CompetencyCriteriaGroup(models.Model):
         null=True,
         editable=False,
         help_text=_(
-            "Derived from tag and parent; \"tag:X,course:\" for a root group, null for every other group."
+            "Derived from tag and parent; \"tag:X\" for a root group, null for every other group."
         ),
     )
 
@@ -145,8 +149,9 @@ class CompetencyCriteriaGroup(models.Model):
                 name="oel_cbe_criteria_group_scope_code_uniq",
                 violation_error_message=_("A competency tag may have at most one root CompetencyCriteriaGroup."),
             ),
-            # One-directional: MySQL's delete collector nulls a root's cascading `parent` keys before
-            # DELETE, so "every root has a scope_code" would fail mid-delete.
+            # One-directional: on MySQL, which cannot defer constraint checks, Django's delete collector
+            # sets each descendant's nullable `parent` to NULL before deleting it, so "every root has a
+            # scope_code" would reject those rows mid-delete.
             models.CheckConstraint(
                 condition=Q(scope_code__isnull=True) | Q(parent__isnull=True),
                 name="oel_cbe_criteria_group_scope_code_root_only_check",
@@ -154,19 +159,26 @@ class CompetencyCriteriaGroup(models.Model):
             ),
         ]
 
+    def _check_tree_position_immutable(self) -> None:
+        """Raise ValidationError if parent or course no longer matches what is persisted for this row."""
+        if self.pk is None:
+            return
+        # Queried rather than compared against a value cached at load time, so a deferred load or
+        # a refresh_from_db() cannot bypass the check.
+        persisted = CompetencyCriteriaGroup.objects.filter(pk=self.pk).values_list("parent_id", "course_id").first()
+        if persisted is not None and (self.parent_id, self.course_id) != persisted:
+            raise ValidationError(_("A CompetencyCriteriaGroup's parent and course cannot be changed after creation."))
+
     def _compute_scope_code(self) -> str | None:
         """Return this group's scope_code: set for a root group, None for every other group."""
         if self.parent_id is not None:
             return None
-        return f"tag:{self.tag_id},course:"
+        return f"tag:{self.tag_id}"
 
     def save(self, *args, **kwargs):
-        """Recompute scope_code, and persist it even when the caller passes update_fields."""
+        """Reject a moved group, then set scope_code; parent never changes, so the code is fixed at creation."""
+        self._check_tree_position_immutable()
         self.scope_code = self._compute_scope_code()
-        update_fields = kwargs.get("update_fields")
-        # An empty update_fields is Django's no-op save, so leave it empty.
-        if update_fields and "scope_code" not in update_fields:
-            kwargs["update_fields"] = [*update_fields, "scope_code"]
         super().save(*args, **kwargs)
 
 

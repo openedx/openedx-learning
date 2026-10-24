@@ -42,7 +42,7 @@ def backfill_root_scope_codes(apps, schema_editor):
     CompetencyCriteriaGroup = apps.get_model("openedx_learning", "CompetencyCriteriaGroup")
     # The historical model has no custom save(), so scope_code is computed here instead.
     CompetencyCriteriaGroup.objects.filter(parent__isnull=True).update(
-        scope_code=Concat(Value("tag:"), Cast("tag_id", output_field=CharField()), Value(",course:")),
+        scope_code=Concat(Value("tag:"), Cast("tag_id", output_field=CharField())),
     )
 
 
@@ -63,7 +63,7 @@ class Migration(migrations.Migration):
             name='scope_code',
             field=models.CharField(
                 editable=False,
-                help_text='Derived from tag and parent; "tag:X,course:" for a root group, null for every other group.',
+                help_text='Derived from tag and parent; "tag:X" for a root group, null for every other group.',
                 max_length=255,
                 null=True,
             ),
