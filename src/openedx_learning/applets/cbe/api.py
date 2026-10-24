@@ -155,7 +155,8 @@ def _create_leaf_group(
     tag/course pair can hold more than one leaf, one per criterion. The root and course-level
     group names are truncated to fit the name column; they are never shown in the UI.
 
-    Must run inside a transaction holding the tag row lock.
+    The root and course-level lookups need no lock: the database holds one root per tag and one
+    course-level group per tag and course, and ``get_or_create()`` recovers from a concurrent insert.
     """
     name_max_length = CompetencyCriteriaGroup._meta.get_field("name").max_length
     # Both get_or_create() lookups match archived rows deliberately, so an archived container is
@@ -373,7 +374,9 @@ def associate_competency_criterion(
     _validate_rule_fields(rule_profile_id, rule_type_override, rule_payload_override)
 
     with transaction.atomic():
-        # Serializes the duplicate check and root creation; MySQL has no partial unique index for one root per tag.
+        # The database enforces one root per tag; this lock only serializes _reject_duplicate_criterion(). That check
+        # is check-then-act on both paths: without group_id a request always creates a fresh leaf, and with group_id
+        # CompetencyCriterion has no unique constraint on (object_tag, group), so no index catches a concurrent copy.
         Tag.objects.select_for_update().get(pk=tag.pk)
         _reject_duplicate_criterion(tag, object_id, group_id)
         if group_id is not None:

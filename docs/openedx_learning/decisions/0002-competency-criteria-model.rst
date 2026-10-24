@@ -81,13 +81,14 @@ Decision
    This new database table will have the following columns:
 
    1. ``id``: unique primary key
-   2. ``parent_id``: The ``CompetencyCriteriaGroup.id`` of the parent group. Null means this is a root group.
+   2. ``parent_id``: The ``CompetencyCriteriaGroup.id`` of the parent group. Null means this is a root group. Immutable after creation.
    3. ``oel_tagging_tag_id``: The ``oel_tagging_tag.id`` for the competency represented by this criteria tree.
-   4. ``course_id``: Nullable foreign key for the course that scopes this criteria tree. Within a course-scoped subtree, every group carries the same ``course_id``, not only its topmost group; immutable after creation. Root groups always have ``course_id`` null.
+   4. ``course_id``: Nullable foreign key for the course that scopes a course-scoped subtree. Only the course-level group carries it; the groups below it leave ``course_id`` null and belong to the course through that ancestor. Immutable after creation. Root groups always have ``course_id`` null.
    5. ``name``: string
    6. ``ordering``: Indicates evaluation sequence number for this criteria group. This defines deterministic evaluation order for siblings during read-time evaluation and event-driven recomputation, and enables short-circuit evaluation.
    7. ``logic_operator``: Either “AND” or “OR” or null. This determines how children are combined at a group node ("AND" or "OR").
-   8. ``archived``: Boolean, defaults to false. Set instead of deleting a group once a student status exists for it. Archived groups are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriteria`` rows and learner status rows stay resolvable.
+   8. ``archived``: Boolean, defaults to false. Set instead of deleting a group once a student status exists for it. Archived groups are hidden from authoring and new associations but remain queryable, so existing ``CompetencyCriteria`` rows and learner status rows stay resolvable. For MVP, archiving a group or a criterion is permanent, with the root as the one reversible exception: a new criterion for an archived root's competency reactivates that root instead of creating a second one, because archiving it for good would remove the ability to ever associate criteria with that competency again. Archiving a course-level group blocks that course for that competency; archiving a leaf closes only that leaf to new criteria. More unarchival capabilities may be added after MVP.
+   9. ``scope_code``: Derived from ``oel_tagging_tag_id``, set on the root group and null on every other group, whether or not the root is archived. It exists so the database can hold at most one root per competency, the same way Decision 3's derived ``scope_code`` holds at most one live profile per scope.
 
    Example: A root group uses "OR" with two child groups.
 
@@ -109,8 +110,8 @@ Decision
 
    - Empty groups: Persisted criteria definitions should not contain empty groups. Authoring flows may temporarily create empty groups while editing, but backend validation must reject them.
    - Mixed tree depths: Backend supports deeply nested groups. Current frontend authoring constraint is a maximum depth of 3 layers total, using zero-indexed depth (``0=root``, ``1=course-scope group``, ``2=leaf criteria/group``).
-   - Retrieval scope: A read always includes the root scope (all nodes where ``course_id is null``), plus any selected subset of course-scoped groups, each returned as a complete subtree, never truncated.
-   - Practical size and growth: Total rows in ``CompetencyCriteriaGroup`` are expected to grow over time as course runs are added; this ADR sets no global DB row cap. No max total node-count cap is required per root group. For ``course_id is null`` branches, expected size is small (realistically <=500 nodes).
+   - Retrieval scope: A read always includes the root group, plus any selected subset of course-scoped groups, each returned as a complete subtree, never truncated.
+   - Practical size and growth: Total rows in ``CompetencyCriteriaGroup`` are expected to grow over time as course runs are added; this ADR sets no global DB row cap. No max total node-count cap is required per root group. For the root group, expected size is small (realistically <=500 nodes).
 
 
 3. ``CompetencyRuleProfile`` concept (database table)
@@ -131,7 +132,7 @@ Decision
    2. ``organization_id``: The ``organization_id`` of the organization that this competency rule profile is scoped to. Null if it is not scoped to a specific organization.
    3. ``course_id``: The ``course_id`` of the course that this competency rule profile is scoped to. Null if it is not scoped to a specific course.
    4. ``competency_taxonomy_id``: The ``CompetencyTaxonomy.taxonomy_ptr_id`` of the competency taxonomy that this competency rule profile is scoped to. Null if it is not scoped to a specific taxonomy.
-   5. ``scope_code``: A plain column in the format ``"org:X,course:Y,taxonomy:Z"``, with each segment left blank when the corresponding scope column is null: for example ``"org:5,course:,taxonomy:"``, or ``"org:,course:,taxonomy:"`` for the system default row. It is non-null when it is live, and null while archived. This frees an archived profile's scope for a replacement.
+   5. ``scope_code``: A plain column in the format ``"org:X,course:Y,taxonomy:Z"``, with each segment left blank when the corresponding scope column is null: for example ``"org:5,course:,taxonomy:"``, or ``"org:,course:,taxonomy:"`` for the system default row. It is non-null when it is live, and null while archived. This frees an archived profile's scope for a replacement. ``CompetencyCriteriaGroup.scope_code`` (Decision 2) is kept while archived instead: each learner has one ``StudentCompetencyStatus`` row per competency, derived from the competency's root, so an archived root is reactivated rather than replaced, and every rollup and read can rely on exactly one root existing.
    6. ``rule_type``: “View”, “Grade”, “MasteryLevel” (Only “Grade” will be supported for now)
    7. ``rule_payload``: JSON payload keyed by ``rule_type`` to avoid freeform strings. It is structured JSON (not arbitrary freeform data): each ``rule_type`` defines the allowed payload shape and required keys, and validation enforces this contract. JSON is used instead of fixed columns like ``op``, ``value``, and ``scale`` so that future rule types (for example, ``MasteryLevel`` thresholds or plugin-defined evaluators such as CEL-based rules) can add their own fields without repeated schema migrations or many nullable columns. Examples:
 
@@ -309,6 +310,7 @@ Decision
    - Once a related row exists in ``StudentCompetencyCriteriaStatus``, deletion of the associated competency definition row still succeeds, but as an archive (soft delete) instead of a hard delete: the row is hidden from authoring and new associations but remains queryable, so existing learner status rows stay resolvable. This archive-vs-hard-delete rule applies to ``oel_tagging_tag``, ``oel_tagging_taxonomy``, ``CompetencyTaxonomy``, ``oel_tagging_objecttag``, ``CompetencyCriteriaGroup``, and ``CompetencyCriteria``; see :ref:`openedx-learning-adr-0003` Decision 3 for ``oel_tagging_objecttag``'s own archive rule and traceability exception.
    - ``StudentCompetencyCriteriaStatus`` is what determines whether a record is protected. ``StudentCompetencyCriteriaGroupStatus`` and ``StudentCompetencyStatus`` are roll-up tables derived from it (Decision 6) and are not independently checked for this purpose: :ref:`openedx-learning-adr-0004` writes the leaf table synchronously with the grade but rolls the two roll-up tables up later via an asynchronous task, which can lag behind the leaf or, per that ADR's Decision 5, need manual recovery. Checking only the roll-up tables could therefore miss real learner progress that has not rolled up yet.
    - Direct deletion of a ``CompetencyRuleProfile`` is never a hard delete; retirement is always archive-only, via a normal update to its ``archived`` column (Decision 3). However, if a taxonomy or course that is associated with a taxonomy- or course-scoped profile is deleted, then this profile will be deleted along with it.
+   - For MVP, archiving a ``CompetencyCriteriaGroup`` or a ``CompetencyCriteria`` row is permanent, with one exception: an archived root ``CompetencyCriteriaGroup`` is reactivated when a new criterion is added for its competency (Decision 2). ``oel_tagging_objecttag`` follows :ref:`openedx-learning-adr-0003` Decision 3 instead.
 
 .. image:: images/CompetencyCriteriaModel.png
    :alt: Competency Criteria Model
@@ -428,6 +430,16 @@ Rejected Alternatives
       1. Silently does not work on this project's tested and production database backend. Django compiles a conditional ``UniqueConstraint`` to a partial index, which MySQL does not support; Django raises only a non-fatal system-check warning (``models.W036``) and skips creating the constraint, leaving the uniqueness rule completely unenforced at the database level.
       2. The gap would surface only as a data-integrity incident under concurrent writes, not as a test or migration failure, since SQLite (used for quick local test runs) does support partial indexes and would mask the problem in that environment.
 
+7. Let a new root replace an archived root for the same competency, by nulling the root's ``scope_code`` while archived as ``CompetencyRuleProfile`` does (Decision 3), instead of reactivating the archived root.
+
+   1. Pros
+
+      1. Both ``scope_code`` columns follow the same rule.
+      2. An archived tree is never modified again.
+   2. Cons
+
+      1. Each learner has a single ``StudentCompetencyStatus`` row per competency, derived from the root. With a live root beside archived ones, every rollup and every read across learners' statuses would first have to decide which root counts.
+
 Changelog
 ---------
 
@@ -458,3 +470,11 @@ Changelog
 * ``scope_code`` on ``CompetencyRuleProfile`` is now computed by
   application code instead of being database-generated, and is set to null while a
   profile is archived, freeing its scope for a replacement.
+
+2026-10-22:
+
+* For issue #872: added ``scope_code`` to ``CompetencyCriteriaGroup`` so the database holds at
+  most one root per competency, made the archived root the one reversible exception to
+  archiving, and added Rejected Alternative 7. Corrected ``course_id`` and the root scope: only
+  the course-level group carries ``course_id``, which supersedes the 2026-09-04 entry's statement
+  that every group in a course-scoped subtree does. That entry is left as originally written.
